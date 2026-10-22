@@ -19,6 +19,7 @@ coverage/
 .turbo/
 apps/*/.next/
 apps/*/dist/
+apps/api/prisma/dev.db
 
 # Local database volumes
 infra/data/

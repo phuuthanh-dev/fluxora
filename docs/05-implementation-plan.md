@@ -9,7 +9,8 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | npm monorepo and agent documentation | Complete | Root workspace, `AGENTS.md`, product/architecture/rules docs |
 | Visual workflow-editor foundation | Complete | React Flow canvas, node catalog, inspector, local draft history, JSON import/export, graph validation |
 | API health service | Complete | `GET /api/v1/health` |
-| Persistence, authentication, and actual API CRUD | Next | No database schema or runtime data yet |
+| Persistence schema and Prisma service | Complete | PostgreSQL schema and NestJS Prisma module |
+| Authentication and actual API CRUD | Next | No runtime user/workspace data yet |
 | Background execution engine | Planned | Day 2 |
 | Google/Steam real connectors | Planned | Day 2–3 |
 
