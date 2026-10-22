@@ -1,0 +1,47 @@
+# Development Rules
+
+## TypeScript and modules
+
+- Use TypeScript with `strict` enabled. Do not use `any`; use `unknown` plus a parser at untrusted boundaries.
+- Prefer named exports. Keep one public responsibility per file.
+- Keep shared domain types in `packages/workflow-contracts`; do not make the frontend import backend modules.
+- Do not add a generic `helpers`, `common`, or `utils` dumping ground.
+
+## API rules
+
+- Version endpoints under `/api/v1`.
+- Validate request data and node configuration with schemas.
+- Return a stable error shape: `{ code, message, details?, requestId }`.
+- Never serialize credential values, OAuth refresh tokens, secrets, or sensitive headers.
+- Make external calls only in backend executors.
+
+## Frontend rules
+
+- Prefer accessible semantic HTML and keyboard-operable controls.
+- Keep graph state separate from server state.
+- Forms must show inline validation and preserve unsaved input where practical.
+- Avoid animation that obscures workflow status or makes execution feel slower.
+- Desktop-first does not mean inaccessible: layouts must remain readable at narrower widths.
+
+## Workflow semantics
+
+- Validate no cycles before saving/publishing.
+- Do not mutate a published graph. Create a new draft version.
+- An execution reads its pinned version only.
+- Node output must be JSON serializable and redacted before persistence.
+- Executor behavior must declare whether an error is retryable.
+- Do not support arbitrary code execution without an explicit sandbox design and spec change.
+
+## Testing
+
+- Unit-test expression resolution, graph validation, branching, retry classification, redaction, and every executor.
+- Integration-test the Steam-to-Google-Chat happy path with mocked HTTP transport.
+- Test webhook secret validation and approval resume paths.
+- Do not use real credentials in tests or fixtures.
+
+## Git and documentation
+
+- Keep commits focused and imperative.
+- Do not commit `.env`, tokens, database volumes, screenshots containing secrets, or provider exports.
+- Update product spec when behavior changes; update architecture when system boundaries change.
+- New runtime node work must document its credential type, supported operations, output schema, retry policy, and mock fixture.

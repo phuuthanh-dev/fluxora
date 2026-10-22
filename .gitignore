@@ -1,0 +1,24 @@
+# Dependencies and builds
+node_modules/
+.pnpm-store/
+.next/
+dist/
+coverage/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Logs and tooling
+*.log
+*.tsbuildinfo
+.DS_Store
+.turbo/
+apps/*/.next/
+apps/*/dist/
+
+# Local database volumes
+infra/data/
