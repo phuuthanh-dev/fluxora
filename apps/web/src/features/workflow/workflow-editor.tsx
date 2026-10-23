@@ -249,8 +249,9 @@ function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowC
       </section>
       {nodeExecution && (
         <section className="input-preview">
-          <div className="section-label">LAST MOCK RUN · {nodeExecution.status} · {nodeExecution.durationMs ?? 0}MS</div>
-          <ResultView value={nodeExecution.error ?? nodeExecution.output} />
+          <div className="section-label">LAST EXECUTION · {nodeExecution.status} · ATTEMPT {nodeExecution.attempt} · {nodeExecution.durationMs ?? 0}MS</div>
+          <div className="execution-inspector__section"><strong>Redacted input</strong><ResultView value={nodeExecution.input} /></div>
+          <div className="execution-inspector__section"><strong>{nodeExecution.error ? "Normalized error" : "Output"}</strong><ResultView value={nodeExecution.error ?? nodeExecution.output} /></div>
           {nodeExecution.status === "WAITING" && approvalId && (
             <div className="approval-actions">
               <button className="run-button" type="button" onClick={() => onResolveApproval(approvalId, "approved")}>Approve &amp; resume</button>
