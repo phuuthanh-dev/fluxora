@@ -32,7 +32,7 @@ export function LoginForm() {
         const message = typeof body.message === "string" ? body.message : body.message?.message;
         throw new Error(message ?? "We could not complete your request. Please try again.");
       }
-      router.push("/editor");
+      router.push("/dashboard");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "We could not complete your request.");
     } finally {

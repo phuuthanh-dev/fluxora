@@ -13,6 +13,8 @@ NestJS API ── PostgreSQL
 
 The API accepts user requests and creates execution records. The worker executes nodes outside the HTTP request lifecycle. Scheduler, API, and worker are separate NestJS processes conceptually, even if local MVP development launches them together.
 
+The web dashboard is the authenticated control plane: it selects a workspace, lists workflows, and routes into a workflow-scoped editor URL. The editor distinguishes a deterministic mock test run from a guarded live run. Live requests use only `publishedVersion`; the API remains the final authorization and version-pinning boundary.
+
 ## Monorepo boundaries
 
 ```text
@@ -30,7 +32,7 @@ Node configuration must be validated twice: once in the web editor for feedback 
 
 ## Execution algorithm
 
-1. Create execution record with the published or current draft version.
+1. Create execution record with the current draft version for mock test runs, or the immutable published version for live/scheduled/webhook runs.
 2. Enqueue a BullMQ job containing only execution ID.
 3. Worker loads the immutable version, credentials, and trigger payload.
 4. Validate graph and select the next reachable node.

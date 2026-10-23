@@ -228,6 +228,11 @@ function GraphValidationPanel({ issues, onClose }: { issues: ReturnType<typeof v
   );
 }
 
+function GoLivePanel({ workflow, isRunning, onConfirm, onClose }: { workflow: ApiWorkflow; isRunning: boolean; onConfirm: () => void; onClose: () => void }) {
+  const canRun = Boolean(workflow.published) && !isRunning;
+  return <section className="go-live-panel" role="dialog" aria-modal="true" aria-label="Confirm live execution"><div className="credential-panel__heading"><div><p className="section-label">LIVE EXECUTION</p><h2>Run the published workflow?</h2></div><button className="icon-button" type="button" aria-label="Close live execution confirmation" onClick={onClose}>×</button></div><p>This will call real providers and may send messages, write data, or create external side effects. The editor will run <strong>published version {workflow.published?.version ?? "—"}</strong>, never unsaved draft changes.</p>{!workflow.published && <p className="go-live-panel__warning">Publish this workflow first. Test runs stay safe and use deterministic mock providers.</p>}<div className="go-live-panel__actions"><button className="ghost-button" type="button" onClick={onClose}>Cancel</button><button className="go-live-button" type="button" disabled={!canRun} onClick={onConfirm}>{isRunning ? "Starting…" : "Run live now"}</button></div></section>;
+}
+
 function WebhookEndpointPanel({ workflow, config, onClose }: { workflow: ApiWorkflow; config: Record<string, unknown>; onClose: () => void }) {
   const [path, setPath] = useState(readConfigText(config, "path"));
   const [secretRequired, setSecretRequired] = useState(config.secretRequired !== false);
@@ -472,11 +477,12 @@ export function WorkflowEditor() {
   const [execution, setExecution] = useState<ApiExecution | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeOperation, setActiveOperation] = useState<"saving" | "publishing" | "running" | "cloning" | null>(null);
+  const [activeOperation, setActiveOperation] = useState<"saving" | "publishing" | "running" | "live" | "cloning" | null>(null);
   const [credentialsOpen, setCredentialsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [webhookOpen, setWebhookOpen] = useState(false);
+  const [liveConfirmOpen, setLiveConfirmOpen] = useState(false);
   const [versions, setVersions] = useState<WorkflowVersionSummary[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [validationOpen, setValidationOpen] = useState(false);
@@ -484,6 +490,7 @@ export function WorkflowEditor() {
   const [copiedNodeId, setCopiedNodeId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
   const [approvalLinkId, setApprovalLinkId] = useState<string | null | undefined>(undefined);
+  const [workflowLinkId, setWorkflowLinkId] = useState<string | null | undefined>(undefined);
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [credentials, setCredentials] = useState<CredentialSummary[]>([]);
   const nodes = useWorkflowEditorStore((state) => state.nodes);
@@ -507,7 +514,9 @@ export function WorkflowEditor() {
   const webhookTrigger = nodes.find((node) => node.data.nodeType === "trigger.webhook");
 
   useEffect(() => {
-    setApprovalLinkId(new URLSearchParams(window.location.search).get("approval"));
+    const search = new URLSearchParams(window.location.search);
+    setApprovalLinkId(search.get("approval"));
+    setWorkflowLinkId(search.get("workflow"));
   }, []);
 
   useEffect(() => {
@@ -528,7 +537,7 @@ export function WorkflowEditor() {
   }, [execution?.id]);
 
   useEffect(() => {
-    if (approvalLinkId === undefined) return;
+    if (approvalLinkId === undefined || workflowLinkId === undefined) return;
     let isCurrent = true;
     const load = async () => {
       try {
@@ -542,6 +551,8 @@ export function WorkflowEditor() {
         if (linkedApproval) {
           loadedWorkflow = (await apiRequest<{ workflow: ApiWorkflow }>(`/workflows/${linkedApproval.workflowId}`)).workflow;
           linkedExecution = (await apiRequest<{ execution: ApiExecution }>(`/executions/${linkedApproval.executionId}`)).execution;
+        } else if (workflowLinkId) {
+          loadedWorkflow = (await apiRequest<{ workflow: ApiWorkflow }>(`/workflows/${workflowLinkId}`)).workflow;
         } else {
           const workspace = workspaceResponse.workspaces[0];
           if (!workspace) throw new Error("No workspace is available for this account.");
@@ -575,7 +586,7 @@ export function WorkflowEditor() {
     };
     void load();
     return () => { isCurrent = false; };
-  }, [approvalLinkId, loadGraph, router, selectNode]);
+  }, [approvalLinkId, workflowLinkId, loadGraph, router, selectNode]);
 
   const refreshCredentials = async (workspaceId = workflow?.workspaceId) => {
     if (!workspaceId) {
@@ -672,6 +683,19 @@ export function WorkflowEditor() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [copiedNodeId, selectedNodeId]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!selectedNodeId || event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+      if (event.key === "Delete" || event.key === "Backspace") {
+        event.preventDefault();
+        deleteNode(selectedNodeId);
+        setNotice("Node and its connections removed.");
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [deleteNode, selectedNodeId]);
 
   const onDragStart = (event: DragEvent<HTMLButtonElement>, definition: NodeDefinition) => {
     event.dataTransfer.setData("application/workflow-node", definition.type);
@@ -781,6 +805,26 @@ export function WorkflowEditor() {
     }
   };
 
+  const runLive = async () => {
+    if (!workflow?.published) return;
+    setLiveConfirmOpen(false);
+    setActiveOperation("live");
+    setIsSaving(true);
+    try {
+      const response = await apiRequest<{ execution: ApiExecution }>(`/workflows/${workflow.id}/executions`, {
+        method: "POST",
+        body: JSON.stringify({ mock: false, triggerData: {} }),
+      });
+      setExecution(response.execution);
+      setNotice(`Live execution ${response.execution.status.toLowerCase()} — inspect each node for progress and output.`);
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "Unable to start the live execution.");
+    } finally {
+      setIsSaving(false);
+      setActiveOperation(null);
+    }
+  };
+
   const resolveApproval = async (approvalId: string, decision: "approved" | "rejected") => {
     try {
       const result = await apiRequest<{ approval: { executionId: string; resumed: boolean } }>(`/approvals/${approvalId}/resolve`, {
@@ -810,7 +854,7 @@ export function WorkflowEditor() {
     return <main className="editor-page editor-loading" aria-busy="true"><div className="editor-loading__card"><LoaderCircle className="ui-spinner" size={20} aria-hidden="true" /><strong>Preparing your workspace</strong><span>Loading workflow, credentials, and the editor canvas…</span><div className="editor-loading__progress" /></div></main>;
   }
 
-  const progressLabel = activeOperation === "saving" ? "Saving draft" : activeOperation === "publishing" ? "Publishing workflow" : activeOperation === "running" ? "Starting test run" : activeOperation === "cloning" ? "Creating workflow copy" : null;
+  const progressLabel = activeOperation === "saving" ? "Saving draft" : activeOperation === "publishing" ? "Publishing workflow" : activeOperation === "running" ? "Starting test run" : activeOperation === "live" ? "Starting live execution" : activeOperation === "cloning" ? "Creating workflow copy" : null;
 
   return (
     <main className="editor-page">
@@ -823,6 +867,7 @@ export function WorkflowEditor() {
           </div>
         </div>
         <div className="editor-header__actions">
+          <button className="ghost-button" type="button" onClick={() => router.push("/dashboard")}>Dashboard</button>
           <ActionMenu label="Edit">
             <button type="button" onClick={undo} disabled={historyIndex === 0}><ChevronLeft size={15} /> Undo</button>
             <button type="button" onClick={redo} disabled={historyIndex === history.length - 1}>Redo <ChevronRight size={15} /></button>
@@ -845,6 +890,7 @@ export function WorkflowEditor() {
           <button className="save-button" type="button" onClick={() => void saveDraft()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "saving" ? <LoaderCircle className="ui-spinner" size={16} /> : <Save size={16} />} {activeOperation === "saving" ? "Saving…" : "Save draft"}</button>
           <button className="ghost-button" type="button" onClick={() => void publish()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "publishing" ? <LoaderCircle className="ui-spinner" size={16} /> : <Check size={16} />} {activeOperation === "publishing" ? "Publishing…" : "Publish"}</button>
           <button className="run-button" type="button" onClick={() => void runTest()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "running" ? <LoaderCircle className="ui-spinner" size={16} /> : <Play size={16} />} {activeOperation === "running" ? "Starting…" : "Run test"}</button>
+          <button className="go-live-button" type="button" onClick={() => setLiveConfirmOpen(true)} disabled={!workflow?.published || isSaving}>{activeOperation === "live" ? <LoaderCircle className="ui-spinner" size={16} /> : null} Go live</button>
           {execution && ["QUEUED", "RUNNING", "WAITING_APPROVAL"].includes(execution.status) && <button className="ghost-button" type="button" onClick={() => void cancelExecution()}>Cancel run</button>}
         </div>
       </header>
@@ -922,6 +968,7 @@ export function WorkflowEditor() {
       {historyOpen && <WorkflowHistoryPanel versions={versions} loading={versionsLoading} onClose={() => setHistoryOpen(false)} />}
       {validationOpen && <GraphValidationPanel issues={issues} onClose={() => setValidationOpen(false)} />}
       {webhookOpen && workflow && webhookTrigger && <WebhookEndpointPanel workflow={workflow} config={webhookTrigger.data.config} onClose={() => setWebhookOpen(false)} />}
+      {liveConfirmOpen && workflow && <GoLivePanel workflow={workflow} isRunning={activeOperation === "live"} onConfirm={() => void runLive()} onClose={() => setLiveConfirmOpen(false)} />}
       {libraryOpen && <WorkflowLibraryPanel initialWorkspaces={workspaces} activeWorkflowId={workflow?.id} activeWorkspaceId={workflow?.workspaceId} onOpen={openWorkflow} onWorkspaceCreated={(workspace) => setWorkspaces((current) => [workspace, ...current])} onClose={() => setLibraryOpen(false)} />}
       {credentialsOpen && workflow && <CredentialPanel workspaceId={workflow.workspaceId} onClose={() => setCredentialsOpen(false)} onSaved={setCredentials} />}
     </main>

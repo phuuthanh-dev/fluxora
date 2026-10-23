@@ -19,10 +19,10 @@ The Steam profile is public. The Steam node returns every field available throug
 
 ## 3. Personas and access
 
-- Initial user: a single owner who signs in with email and password.
+- Initial user: a single owner who can sign in with email/password and, after OAuth is configured, Google identity.
 - Data model: multiple workspaces and memberships must exist now.
 - Authorization: only the owner role is active in MVP; role schema and audit logs prepare future expansion.
-- Login UI: show Google and GitHub OAuth buttons as unavailable/coming soon. Do not implement social login in the three-day MVP.
+- Google identity sign-in is a production-preparation requirement. GitHub remains a visible roadmap affordance until its provider flow is implemented.
 
 ## 4. MVP feature scope
 
@@ -65,6 +65,7 @@ The Steam profile is public. The Steam node returns every field available throug
 - Inspector panel for node configuration, validation, test data, and node result.
 - A workflow has Draft and Published versions. Published versions are immutable.
 - Export/import graph JSON, clone workflow, and create from template.
+- A dashboard is the authenticated landing page. It lists workflows in the selected workspace, distinguishes draft-only from published workflows, and opens or creates workflows without an editor modal.
 - The graph must be acyclic in MVP.
 
 ## 6. Data mapping and expressions
@@ -125,6 +126,7 @@ No multi-approver routing, reminder schedule, or approval policy engine is inclu
 - Realtime execution updates using WebSocket or SSE.
 - Input/output views: JSON tree, table, raw text.
 - Mock run mode uses fixtures and calls no third-party API.
+- **Go live** is available only after publish and always requires an explicit confirmation. It executes the immutable published version, never the editable draft, and warns of real external side effects.
 - Redact secrets from UI and persisted logs.
 - Audit login, credential changes, workflow publish/unpublish, and execution actions.
 
@@ -139,3 +141,4 @@ No multi-approver routing, reminder schedule, or approval policy engine is inclu
 7. Approval pauses and resumes the pinned execution version.
 8. Workflow export/import, clone, version history, and sample-data test runs work.
 9. No secret is present in repository history, logs, API responses, or frontend state.
+10. The dashboard supports switching/creating workspaces and creating/opening workflows; a live run is guarded by publish and confirmation.

@@ -10,7 +10,11 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await page.locator('input[autocomplete="new-password"]').fill("e2e-password-123");
   await page.getByRole("button", { name: "Create account" }).click();
 
-  await expect(page).toHaveURL(/\/editor$/);
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page.getByRole("heading", { name: "Your workflow control room." })).toBeVisible();
+  await expect(page.getByText("No workflows in this workspace")).toBeVisible();
+  await page.getByRole("button", { name: "Use Steam template" }).click();
+  await expect(page).toHaveURL(/\/editor\?workflow=/);
   await expect(page.getByRole("heading", { name: "Steam daily report" })).toBeVisible();
   await expect(page.getByLabel("Edit actions")).toBeVisible();
   await expect(page.getByLabel("Manage actions")).toBeVisible();
@@ -44,6 +48,10 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(page.getByText("Draft saved to your workspace.")).toBeVisible();
   await page.getByRole("button", { name: "Publish" }).click();
   await expect(page.getByText(/Version 1 published\. A new editable draft is ready\./)).toBeVisible();
+  await page.getByRole("button", { name: "Go live" }).click();
+  await expect(page.getByRole("heading", { name: "Run the published workflow?" })).toBeVisible();
+  await expect(page.getByText("This will call real providers and may send messages, write data, or create external side effects.")).toBeVisible();
+  await page.getByRole("button", { name: "Cancel" }).click();
 
   await page.getByLabel("Manage actions").click();
   await page.getByRole("button", { name: "Version history" }).click();
