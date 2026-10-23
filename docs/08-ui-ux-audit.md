@@ -9,7 +9,7 @@ This audit covers the desktop-first authenticated experience: sign-in, workflow 
 | Area | Finding | Risk | Resolution in this pass |
 |---|---|---|---|
 | Header toolbar | Fifteen peer-level buttons consumed the entire header and hid the primary hierarchy. | High | Grouped related editing and management actions into two labelled dropdowns. Save, publish, and test run remain visible primary actions. |
-| Credentials | Provider selection did not update the label, secret template, OAuth call-to-action, or instructions. Buttons inside overlays lacked shared button sizing. | High | Added provider-specific presets and hints; Google OAuth is visible only for Google; applied consistent controls and focus states. |
+| Credentials | Provider selection did not update the label, secret template, OAuth call-to-action, or instructions. Nodes also required a manually copied credential ID. Buttons inside overlays lacked shared button sizing. | High | Added provider-specific presets and hints; Google OAuth is visible only for Google; nodes now offer compatible saved connections by name; applied consistent controls and focus states. |
 | Workflow nodes | Output labels were rendered from overlapping absolute positions, colliding with node copy and handles. | High | Each output label now has the same calculated vertical position as its handle; wider nodes reserve space for the labels. |
 | Async feedback | Editor loading was a small status message; save/publish/run offered ambiguous or no continuous progress. | High | Added an accessible loading card, operation-specific labels, spinner, and a visible progress strip. |
 | Empty inspector | The blank inspector did not establish a visual hierarchy or clearly explain its next action. | Medium | Strengthened the empty-state icon treatment and retained focused instructional copy. |
@@ -23,7 +23,7 @@ This audit covers the desktop-first authenticated experience: sign-in, workflow 
 2. **Manage** contains navigation and asset management: workflows, history, credentials, webhook endpoint, import/export, clone.
 3. **Save draft**, **Publish**, and **Run test** are persistent, ordered by normal workflow progression. A user should not have to open a menu to perform a routine delivery action.
 4. Nodes expose readable success/error/case ports without obscuring their title or description.
-5. Every provider-specific secret form begins with a safe empty JSON template and a sentence explaining what belongs there. Secret values remain browser-visible only until submitted.
+5. Every provider-specific secret form begins with a safe empty JSON template and a sentence explaining what belongs there. After saving, compatible nodes select the connection by name rather than requiring its raw ID. Secret values remain browser-visible only until submitted.
 
 ## Acceptance checks for this pass
 

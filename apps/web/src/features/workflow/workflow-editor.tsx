@@ -48,6 +48,7 @@ import { parseWorkflowCanvasGraph } from "./workflow-graph-schema";
 import { WorkflowNode } from "./workflow-node";
 import { graphForApi, graphFromApi, type ApiWorkflow } from "./workflow-api";
 import { CredentialPanel } from "../credentials/credential-panel";
+import type { CredentialProvider, CredentialSummary } from "../credentials/credential-types";
 import { buildExpressionSuggestions } from "./expression-suggestions";
 import { manualTriggerTestData } from "./test-data";
 
@@ -89,6 +90,29 @@ function ConfigField({ label, value, onChange, multiline = false }: {
       ) : (
         <input value={value} onChange={(event) => onChange(event.target.value)} />
       )}
+    </label>
+  );
+}
+
+function CredentialField({ label, value, providers, credentials, onChange, optional = false }: {
+  label: string;
+  value: string;
+  providers: CredentialProvider[];
+  credentials: CredentialSummary[];
+  onChange: (value: string) => void;
+  optional?: boolean;
+}) {
+  const compatibleCredentials = credentials.filter((credential) => providers.includes(credential.provider));
+  const selectedIsCompatible = !value || compatibleCredentials.some((credential) => credential.id === value);
+  return (
+    <label className="config-field credential-field">
+      <span>{label}</span>
+      <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">{optional ? "No credential" : "Select a credential"}</option>
+        {!selectedIsCompatible && <option value={value}>Unavailable credential</option>}
+        {compatibleCredentials.map((credential) => <option key={credential.id} value={credential.id}>{credential.label}</option>)}
+      </select>
+      {compatibleCredentials.length === 0 && <small>No compatible connection yet. Open Manage → Credentials to add one.</small>}
     </label>
   );
 }
@@ -300,7 +324,7 @@ function WorkflowLibraryPanel({ initialWorkspaces, activeWorkflowId, activeWorks
   return <section className="workflow-library" role="dialog" aria-modal="false" aria-label="Workflow library"><div className="credential-panel__heading"><div><p className="section-label">WORKSPACE LIBRARY</p><h2>Workflows</h2></div><button className="icon-button" type="button" aria-label="Close workflow library" onClick={onClose}>×</button></div><label className="workflow-library__field"><span>Workspace</span><select value={workspaceId} onChange={(event) => setWorkspaceId(event.target.value)}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</select></label><div className="workflow-library__create"><input value={newWorkspaceName} onChange={(event) => setNewWorkspaceName(event.target.value)} placeholder="New workspace name" /><button className="ghost-button" type="button" onClick={() => void createWorkspace()} disabled={isSaving || !newWorkspaceName.trim()}>Create workspace</button></div><div className="workflow-library__list">{workflows.map((candidate) => <button key={candidate.id} className={candidate.id === activeWorkflowId ? "workflow-library__item workflow-library__item--active" : "workflow-library__item"} type="button" onClick={() => onOpen(candidate)}><strong>{candidate.name}</strong><span>{candidate.published ? `Published v${candidate.published.version}` : "Draft only"}</span></button>)}</div><div className="workflow-library__new"><p className="section-label">CREATE WORKFLOW</p><input value={newWorkflowName} onChange={(event) => setNewWorkflowName(event.target.value)} aria-label="New workflow name" /><div><button className="run-button" type="button" onClick={() => void createWorkflow()} disabled={isSaving || !workspaceId || !newWorkflowName.trim()}>Start blank</button><button className="ghost-button" type="button" onClick={() => void createWorkflow("steam-daily-report")} disabled={isSaving || !workspaceId}>Use Steam template</button></div></div><p className="workflow-library__notice">{notice}</p></section>;
 }
 
-function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null; onResolveApproval: (approvalId: string, decision: "approved" | "rejected") => void }) {
+function NodeInspector({ node, execution, credentials, onResolveApproval }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null; credentials: CredentialSummary[]; onResolveApproval: (approvalId: string, decision: "approved" | "rejected") => void }) {
   const updateNodeData = useWorkflowEditorStore((state) => state.updateNodeData);
 
   if (!node) {
@@ -350,7 +374,7 @@ function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowC
       )}
       {node.data.nodeType === "action.steam.account-snapshot" && (
         <>
-          <ConfigField label="Steam credential" value={readConfigText(node.data.config, "credentialId")} onChange={(value) => updateConfig("credentialId", value)} />
+          <CredentialField label="Steam credential" value={readConfigText(node.data.config, "credentialId")} providers={["STEAM"]} credentials={credentials} onChange={(value) => updateConfig("credentialId", value)} />
           <ConfigField label="Steam ID 64" value={readConfigText(node.data.config, "steamId")} onChange={(value) => updateConfig("steamId", value)} />
           <label className="checkbox-field"><input type="checkbox" checked={node.data.config.includeOwnedGames !== false} onChange={(event) => updateConfig("includeOwnedGames", event.target.checked)} /> Include owned games and playtime</label>
           <label className="checkbox-field"><input type="checkbox" checked={node.data.config.includeRecentGames !== false} onChange={(event) => updateConfig("includeRecentGames", event.target.checked)} /> Include recently played games</label>
@@ -359,13 +383,13 @@ function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowC
       )}
       {node.data.nodeType === "action.google-chat.webhook" && (
         <>
-          <ConfigField label="Google Chat credential" value={readConfigText(node.data.config, "credentialId")} onChange={(value) => updateConfig("credentialId", value)} />
+          <CredentialField label="Google Chat credential" value={readConfigText(node.data.config, "credentialId")} providers={["GOOGLE_CHAT_WEBHOOK"]} credentials={credentials} onChange={(value) => updateConfig("credentialId", value)} />
           <ConfigField label="Message template" value={readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("message", value)} multiline />
         </>
       )}
       {node.data.nodeType === "action.google-drive" && (
         <>
-          <ConfigField label="Google credential" value={readConfigText(node.data.config, "credentialId")} onChange={(value) => updateConfig("credentialId", value)} />
+          <CredentialField label="Google credential" value={readConfigText(node.data.config, "credentialId")} providers={["GOOGLE"]} credentials={credentials} onChange={(value) => updateConfig("credentialId", value)} />
           <ConfigField label="Operation (list, search, uploadText, downloadText)" value={readConfigText(node.data.config, "operation")} onChange={(value) => updateConfig("operation", value)} />
           <ConfigField label="Search query / file ID" value={readConfigText(node.data.config, "query") || readConfigText(node.data.config, "fileId")} onChange={(value) => updateConfig(readConfigText(node.data.config, "operation") === "downloadText" ? "fileId" : "query", value)} />
           <ConfigField label="File name" value={readConfigText(node.data.config, "name")} onChange={(value) => updateConfig("name", value)} />
@@ -374,7 +398,7 @@ function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowC
       )}
       {node.data.nodeType === "action.google-sheets" && (
         <>
-          <ConfigField label="Google credential" value={readConfigText(node.data.config, "credentialId")} onChange={(value) => updateConfig("credentialId", value)} />
+          <CredentialField label="Google credential" value={readConfigText(node.data.config, "credentialId")} providers={["GOOGLE"]} credentials={credentials} onChange={(value) => updateConfig("credentialId", value)} />
           <ConfigField label="Spreadsheet ID" value={readConfigText(node.data.config, "spreadsheetId")} onChange={(value) => updateConfig("spreadsheetId", value)} />
           <ConfigField label="Operation (read, append, update)" value={readConfigText(node.data.config, "operation")} onChange={(value) => updateConfig("operation", value)} />
           <ConfigField label="Range" value={readConfigText(node.data.config, "range")} onChange={(value) => updateConfig("range", value)} />
@@ -396,7 +420,7 @@ function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowC
       )}
       {node.data.nodeType === "action.http-request" && (
         <>
-          <ConfigField label="HTTP credential (optional)" value={readConfigText(node.data.config, "credentialId")} onChange={(value) => updateConfig("credentialId", value)} />
+          <CredentialField label="HTTP credential (optional)" value={readConfigText(node.data.config, "credentialId")} providers={["HTTP"]} credentials={credentials} onChange={(value) => updateConfig("credentialId", value)} optional />
           <ConfigField label="Method" value={readConfigText(node.data.config, "method")} onChange={(value) => updateConfig("method", value)} />
           <ConfigField label="URL" value={readConfigText(node.data.config, "url")} onChange={(value) => updateConfig("url", value)} />
           <ConfigField label="Request body" value={readConfigText(node.data.config, "body")} onChange={(value) => updateConfig("body", value)} multiline />
@@ -406,7 +430,7 @@ function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowC
       {node.data.nodeType === "approval.request" && <>
         <ConfigField label="Approval message" value={readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("message", value)} multiline />
         <ConfigField label="Notification provider (google_chat or http_webhook)" value={readConfigText(node.data.config, "notificationProvider")} onChange={(value) => updateConfig("notificationProvider", value)} />
-        <ConfigField label="Notification credential (optional)" value={readConfigText(node.data.config, "notificationCredentialId")} onChange={(value) => updateConfig("notificationCredentialId", value)} />
+        <CredentialField label="Notification credential (optional)" value={readConfigText(node.data.config, "notificationCredentialId")} providers={readConfigText(node.data.config, "notificationProvider") === "http_webhook" ? ["HTTP"] : ["GOOGLE_CHAT_WEBHOOK"]} credentials={credentials} onChange={(value) => updateConfig("notificationCredentialId", value)} optional />
       </>}
       {node.data.nodeType === "action.email" && <>
         <ConfigField label="To" value={readConfigText(node.data.config, "to")} onChange={(value) => updateConfig("to", value)} />
@@ -461,6 +485,7 @@ export function WorkflowEditor() {
   const [contextMenu, setContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
   const [approvalLinkId, setApprovalLinkId] = useState<string | null | undefined>(undefined);
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
+  const [credentials, setCredentials] = useState<CredentialSummary[]>([]);
   const nodes = useWorkflowEditorStore((state) => state.nodes);
   const edges = useWorkflowEditorStore((state) => state.edges);
   const selectedNodeId = useWorkflowEditorStore((state) => state.selectedNodeId);
@@ -552,6 +577,21 @@ export function WorkflowEditor() {
     return () => { isCurrent = false; };
   }, [approvalLinkId, loadGraph, router, selectNode]);
 
+  const refreshCredentials = async (workspaceId = workflow?.workspaceId) => {
+    if (!workspaceId) {
+      setCredentials([]);
+      return;
+    }
+    try {
+      const response = await apiRequest<{ credentials: CredentialSummary[] }>(`/workspaces/${workspaceId}/credentials`);
+      setCredentials(response.credentials);
+    } catch {
+      setCredentials([]);
+    }
+  };
+
+  useEffect(() => { void refreshCredentials(); }, [workflow?.workspaceId]);
+
   const addDefinition = (definition: NodeDefinition, position?: { x: number; y: number }) => {
     addNode(definition, position);
     setNotice(`${definition.label} added to the draft.`);
@@ -566,6 +606,7 @@ export function WorkflowEditor() {
     loadGraph(graphFromApi(graph));
     setWorkflow(nextWorkflow);
     setExecution(null);
+    void refreshCredentials(nextWorkflow.workspaceId);
     selectNode(null);
     setLibraryOpen(false);
     setNotice(`Opened ${nextWorkflow.name}.`);
@@ -601,6 +642,7 @@ export function WorkflowEditor() {
       loadGraph(graphFromApi(graph));
       setWorkflow(response.workflow);
       setExecution(null);
+      void refreshCredentials(response.workflow.workspaceId);
       setNotice("Workflow cloned. You are editing the independent copy.");
     } catch (reason) {
       setNotice(reason instanceof Error ? reason.message : "Unable to clone workflow.");
@@ -870,7 +912,7 @@ export function WorkflowEditor() {
             {issues.length === 0 ? "Graph is ready for a test run" : `View ${issues.length} validation notice${issues.length === 1 ? "" : "s"}`}
           </button>
         </section>
-        <NodeInspector node={selectedNode} execution={execution} onResolveApproval={resolveApproval} />
+        <NodeInspector node={selectedNode} execution={execution} credentials={credentials} onResolveApproval={resolveApproval} />
       </div>
       {contextMenu && <div className="node-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} role="menu" onMouseLeave={() => setContextMenu(null)}>
         <button type="button" onClick={() => { copyNode(contextMenu.nodeId); setContextMenu(null); }}>Copy node</button>
@@ -881,7 +923,7 @@ export function WorkflowEditor() {
       {validationOpen && <GraphValidationPanel issues={issues} onClose={() => setValidationOpen(false)} />}
       {webhookOpen && workflow && webhookTrigger && <WebhookEndpointPanel workflow={workflow} config={webhookTrigger.data.config} onClose={() => setWebhookOpen(false)} />}
       {libraryOpen && <WorkflowLibraryPanel initialWorkspaces={workspaces} activeWorkflowId={workflow?.id} activeWorkspaceId={workflow?.workspaceId} onOpen={openWorkflow} onWorkspaceCreated={(workspace) => setWorkspaces((current) => [workspace, ...current])} onClose={() => setLibraryOpen(false)} />}
-      {credentialsOpen && workflow && <CredentialPanel workspaceId={workflow.workspaceId} onClose={() => setCredentialsOpen(false)} />}
+      {credentialsOpen && workflow && <CredentialPanel workspaceId={workflow.workspaceId} onClose={() => setCredentialsOpen(false)} onSaved={setCredentials} />}
     </main>
   );
 }

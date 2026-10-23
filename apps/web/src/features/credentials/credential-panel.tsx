@@ -2,9 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { apiRequest, apiUrl } from "../api/api-client";
-
-type Credential = { id: string; provider: string; label: string };
-type CredentialProvider = "GOOGLE" | "STEAM" | "GOOGLE_CHAT_WEBHOOK" | "HTTP";
+import type { CredentialProvider, CredentialSummary } from "./credential-types";
 
 type CredentialPreset = {
   label: string;
@@ -35,8 +33,8 @@ const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
   },
 };
 
-export function CredentialPanel({ workspaceId, onClose }: { workspaceId: string; onClose: () => void }) {
-  const [credentials, setCredentials] = useState<Credential[]>([]);
+export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId: string; onClose: () => void; onSaved?: (credentials: CredentialSummary[]) => void }) {
+  const [credentials, setCredentials] = useState<CredentialSummary[]>([]);
   const [provider, setProvider] = useState<CredentialProvider>("GOOGLE");
   const [label, setLabel] = useState(credentialPresets.GOOGLE.label);
   const [data, setData] = useState(credentialPresets.GOOGLE.data);
@@ -44,8 +42,9 @@ export function CredentialPanel({ workspaceId, onClose }: { workspaceId: string;
 
   const load = async () => {
     try {
-      const response = await apiRequest<{ credentials: Credential[] }>(`/workspaces/${workspaceId}/credentials`);
+      const response = await apiRequest<{ credentials: CredentialSummary[] }>(`/workspaces/${workspaceId}/credentials`);
       setCredentials(response.credentials);
+      onSaved?.(response.credentials);
     } catch (reason) {
       setNotice(reason instanceof Error ? reason.message : "Unable to load credentials.");
     }
@@ -66,7 +65,7 @@ export function CredentialPanel({ workspaceId, onClose }: { workspaceId: string;
     try {
       const parsed: unknown = JSON.parse(data);
       await apiRequest(`/workspaces/${workspaceId}/credentials`, { method: "POST", body: JSON.stringify({ provider, label, data: parsed }) });
-      setNotice("Credential encrypted and saved. Copy its ID into the node configuration.");
+      setNotice("Credential encrypted and saved. Select it from a compatible node in the editor.");
       await load();
     } catch (reason) {
       setNotice(reason instanceof Error ? reason.message : "Credential could not be saved.");
