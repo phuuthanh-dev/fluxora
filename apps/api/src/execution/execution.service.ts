@@ -295,10 +295,10 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
     return { status: "succeeded", output: { matches }, route: matches ? "true" : "false" };
   }
   if (node.type === "condition.switch") {
-    const value = config.value;
+    const value = switchCaseValue(config.value);
     const cases = Array.isArray(config.cases) ? config.cases : [];
-    const matched = cases.find((item) => item && typeof item === "object" && (item as Record<string, unknown>).value === value) as Record<string, unknown> | undefined;
-    return { status: "succeeded", output: { value, matched: matched?.value ?? null }, route: matched ? "case" : "default" };
+    const matched = cases.find((item) => item && typeof item === "object" && switchCaseValue((item as Record<string, unknown>).value) === value) as Record<string, unknown> | undefined;
+    return { status: "succeeded", output: { value, matched: matched ? switchCaseValue(matched.value) : null }, route: matched ? "case" : "default" };
   }
   if (node.type === "approval.request") return { status: "waiting", output: { message: String(config.message ?? "Approval requested"), expiresInHours: typeof config.expiresInHours === "number" ? config.expiresInHours : 24, notificationProvider: config.notificationProvider === "http_webhook" ? "http_webhook" : "google_chat", notificationCredentialId: typeof config.notificationCredentialId === "string" ? config.notificationCredentialId : "" } };
   if (node.type === "action.steam.account-snapshot") {
@@ -388,6 +388,10 @@ function compare(left: unknown, operator: string, right: unknown) {
   if (operator === "contains") return String(left ?? "").includes(String(right ?? ""));
   if (operator === "exists") return left !== undefined && left !== null;
   return left === right;
+}
+
+function switchCaseValue(value: unknown) {
+  return typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? String(value) : "";
 }
 
 function edgeMatchesResult(edge: WorkflowEdge, result: NodeResult) {

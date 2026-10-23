@@ -42,7 +42,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 - Safe interpolation supports path access plus `upper`, `lower`, and `default`; arbitrary JavaScript is rejected.
 - Expressions support safe property paths and numeric array indexes; the inspector offers structured fields, JSON configuration, and click-to-copy output-path suggestions.
 - Redaction executes before execution input/output persistence.
-- If/Else, Switch, error edges, retry classification, timeout-aware HTTP execution, and mock Steam/Google Chat actions exist in the runner.
+- If/Else, Switch (configured case-to-edge mappings), error edges, retry classification, timeout-aware HTTP execution, and mock Steam/Google Chat actions exist in the runner.
 - Live HTTP Request supports optional encrypted Bearer, API-key, Basic Auth, or custom-header credentials; request body, headers, and timeout are configured without leaking credential values into the graph.
 - The editor can launch a mock run, receive server-sent execution updates, and inspect selected-node redacted execution input, output/error, attempt, and duration as JSON tree, table, or raw JSON.
 - Manual Trigger includes a JSON test-data editor; mock execution sends only that object as `triggerData`.

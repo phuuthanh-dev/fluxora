@@ -92,7 +92,7 @@ export const nodeCatalog: NodeDefinition[] = [
     category: "condition",
     icon: "⇆",
     available: true,
-    defaultConfig: { value: "", cases: [] },
+    defaultConfig: { value: "", cases: [{ value: "case-a" }] },
   },
   {
     type: "action.steam.account-snapshot",

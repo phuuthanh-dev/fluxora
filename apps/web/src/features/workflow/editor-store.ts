@@ -92,11 +92,17 @@ export const useWorkflowEditorStore = create<WorkflowEditorState>((set, get) => 
       const state = get();
       const kind = edgeKindFromHandle(connection.sourceHandle);
       if (!kind || !connection.source || !connection.target) return;
+      const source = state.nodes.find((node) => node.id === connection.source);
+      const caseValue = kind === "case" && source?.data.nodeType === "condition.switch"
+        ? nextUnmappedSwitchCase(source.data.config, state.edges.filter((edge) => edge.source === connection.source && edge.kind === "case"))
+        : undefined;
+      if (kind === "case" && !caseValue) return;
       const edges = addEdge({
         ...connection,
         animated: true,
         id: `edge-${crypto.randomUUID()}`,
         kind,
+        ...(caseValue === undefined ? {} : { caseValue }),
       }, state.edges) as WorkflowCanvasEdge[];
       commit(state.nodes, edges);
     },
@@ -140,3 +146,15 @@ export const useWorkflowEditorStore = create<WorkflowEditorState>((set, get) => 
     },
   };
 });
+
+export function nextUnmappedSwitchCase(config: Record<string, unknown>, edges: WorkflowCanvasEdge[]) {
+  const mapped = new Set(edges.map((edge) => edge.caseValue));
+  const cases = Array.isArray(config.cases) ? config.cases : [];
+  for (const candidate of cases) {
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) continue;
+    const value = (candidate as Record<string, unknown>).value;
+    if (typeof value !== "string" || !value.trim() || mapped.has(value)) continue;
+    return value;
+  }
+  return undefined;
+}

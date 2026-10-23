@@ -30,6 +30,15 @@ export function validatePublishableGraph(graph: WorkflowGraph) {
   const triggers = graph.nodes.filter((node) => node.type.startsWith("trigger."));
   if (triggers.length !== 1) invalid("A published workflow must have exactly one trigger.");
   if (!graph.nodes.length) invalid("A published workflow must contain at least one node.");
+  for (const node of graph.nodes) {
+    if (node.type !== "condition.switch") continue;
+    const values = switchCaseValues(node.config);
+    if (!values.length) invalid(`Switch node ${node.id} needs at least one non-empty case value.`);
+    if (new Set(values).size !== values.length) invalid(`Switch node ${node.id} has duplicate case values.`);
+    for (const edge of graph.edges.filter((edge) => edge.source === node.id && edge.kind === "case")) {
+      if (!edge.caseValue || !values.includes(edge.caseValue)) invalid(`Switch case edge ${edge.id} must map to a configured case value.`);
+    }
+  }
 }
 
 function parseNode(value: unknown): StoredWorkflowNode {
@@ -79,6 +88,15 @@ function outputKinds(type: WorkflowNodeType): WorkflowEdgeKind[] {
   if (type === "condition.if") return ["true", "false"];
   if (type === "condition.switch") return ["case", "default"];
   return type.startsWith("trigger.") ? ["success"] : ["success", "error"];
+}
+
+function switchCaseValues(config: Record<string, unknown>) {
+  if (!Array.isArray(config.cases)) return [];
+  return config.cases.flatMap((candidate) => {
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return [];
+    const value = (candidate as Record<string, unknown>).value;
+    return typeof value === "string" && value.trim() ? [value.trim()] : [];
+  });
 }
 
 function readRecord(value: unknown, message: string): Record<string, unknown> {
