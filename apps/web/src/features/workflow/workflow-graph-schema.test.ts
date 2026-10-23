@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { initialEdges, initialNodes } from "./node-catalog";
+import { createNodeData, getNodeDefinition, initialEdges, initialNodes, nodeCatalog } from "./node-catalog";
 import { parseWorkflowCanvasGraph } from "./workflow-graph-schema";
 
 test("accepts a valid exported workflow graph", () => {
@@ -27,4 +27,17 @@ test("rejects an edge whose branch does not match its source node", () => {
     () => parseWorkflowCanvasGraph(graph),
     /invalid branch/,
   );
+});
+
+test("keeps schema-only connector nodes importable while marking them unavailable", () => {
+  for (const type of ["action.email", "action.google-chat.oauth", "action.openai", "action.gemini", "action.mongodb", "action.github", "action.facebook-meta", "action.instagram"]) {
+    const definition = getNodeDefinition(type);
+    assert.ok(definition);
+    assert.equal(definition.available, false);
+  }
+  const email = getNodeDefinition("action.email");
+  assert.ok(email);
+  const graph = parseWorkflowCanvasGraph({ nodes: [{ id: "email", type: "workflowNode" as const, position: { x: 0, y: 0 }, data: createNodeData(email) }], edges: [] });
+  assert.equal(graph.nodes[0]?.data.config.subject, "");
+  assert.ok(nodeCatalog.length > 10);
 });
