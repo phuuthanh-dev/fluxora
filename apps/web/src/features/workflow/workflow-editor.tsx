@@ -224,6 +224,8 @@ export function WorkflowEditor() {
   const [isSaving, setIsSaving] = useState(false);
   const [credentialsOpen, setCredentialsOpen] = useState(false);
   const [paletteSearch, setPaletteSearch] = useState("");
+  const [copiedNodeId, setCopiedNodeId] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
   const nodes = useWorkflowEditorStore((state) => state.nodes);
   const edges = useWorkflowEditorStore((state) => state.edges);
   const selectedNodeId = useWorkflowEditorStore((state) => state.selectedNodeId);
@@ -235,6 +237,8 @@ export function WorkflowEditor() {
   const applyEdgesChange = useWorkflowEditorStore((state) => state.applyEdgesChange);
   const connect = useWorkflowEditorStore((state) => state.connect);
   const autoLayout = useWorkflowEditorStore((state) => state.autoLayout);
+  const duplicateNode = useWorkflowEditorStore((state) => state.duplicateNode);
+  const deleteNode = useWorkflowEditorStore((state) => state.deleteNode);
   const undo = useWorkflowEditorStore((state) => state.undo);
   const redo = useWorkflowEditorStore((state) => state.redo);
   const loadGraph = useWorkflowEditorStore((state) => state.loadGraph);
@@ -300,6 +304,28 @@ export function WorkflowEditor() {
     requestAnimationFrame(() => flowRef.current?.fitView({ duration: 260, padding: 0.18 }));
     setNotice("Workflow arranged from trigger to actions.");
   };
+
+  const copyNode = (nodeId = selectedNodeId) => {
+    if (!nodeId) return;
+    setCopiedNodeId(nodeId);
+    setNotice("Node copied. Paste it from the toolbar or with Ctrl/Cmd + V.");
+  };
+
+  const pasteNode = () => {
+    if (!copiedNodeId) return;
+    duplicateNode(copiedNodeId);
+    setNotice("Copied node pasted into the workflow.");
+  };
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+      if (event.key.toLowerCase() === "c" && selectedNodeId) { event.preventDefault(); copyNode(selectedNodeId); }
+      if (event.key.toLowerCase() === "v" && copiedNodeId) { event.preventDefault(); pasteNode(); }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [copiedNodeId, selectedNodeId]);
 
   const onDragStart = (event: DragEvent<HTMLButtonElement>, definition: NodeDefinition) => {
     event.dataTransfer.setData("application/workflow-node", definition.type);
@@ -433,6 +459,8 @@ export function WorkflowEditor() {
           <button className="ghost-button" type="button" onClick={exportGraph}><Download size={16} /> Export</button>
           <button className="ghost-button" type="button" onClick={() => inputRef.current?.click()}><Upload size={16} /> Import</button>
           <button className="ghost-button" type="button" onClick={arrangeGraph}><LayoutDashboard size={16} /> Auto layout</button>
+          <button className="ghost-button" type="button" onClick={() => copyNode()} disabled={!selectedNodeId}>Copy node</button>
+          <button className="ghost-button" type="button" onClick={pasteNode} disabled={!copiedNodeId}>Paste node</button>
           <button className="ghost-button" type="button" onClick={() => setCredentialsOpen(true)} disabled={!workflow}><KeyRound size={16} /> Credentials</button>
           <input ref={inputRef} className="visually-hidden" type="file" accept="application/json" onChange={importGraph} />
           <button className="save-button" type="button" onClick={() => void saveDraft()} disabled={!workflow || isSaving}><Save size={16} /> {isSaving ? "Saving…" : "Save draft"}</button>
@@ -483,8 +511,11 @@ export function WorkflowEditor() {
             onEdgesChange={applyEdgesChange}
             onConnect={connect}
             onNodeClick={(_, node) => selectNode(node.id)}
+            onNodeContextMenu={(event, node) => { event.preventDefault(); setContextMenu({ nodeId: node.id, x: event.clientX, y: event.clientY }); }}
             onPaneClick={() => selectNode(null)}
             onInit={(instance) => { flowRef.current = instance; }}
+            selectionOnDrag
+            multiSelectionKeyCode={["Meta", "Control"]}
             fitView
             defaultEdgeOptions={{ animated: true }}
           >
@@ -502,6 +533,11 @@ export function WorkflowEditor() {
         </section>
         <NodeInspector node={selectedNode} execution={execution} onResolveApproval={resolveApproval} />
       </div>
+      {contextMenu && <div className="node-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} role="menu" onMouseLeave={() => setContextMenu(null)}>
+        <button type="button" onClick={() => { copyNode(contextMenu.nodeId); setContextMenu(null); }}>Copy node</button>
+        <button type="button" onClick={() => { duplicateNode(contextMenu.nodeId); setContextMenu(null); setNotice("Node duplicated."); }}>Duplicate</button>
+        <button className="node-context-menu__danger" type="button" onClick={() => { deleteNode(contextMenu.nodeId); setContextMenu(null); setNotice("Node and its connections removed."); }}>Delete</button>
+      </div>}
       {credentialsOpen && workflow && <CredentialPanel workspaceId={workflow.workspaceId} onClose={() => setCredentialsOpen(false)} />}
     </main>
   );

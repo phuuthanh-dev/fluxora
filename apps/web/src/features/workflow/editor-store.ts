@@ -11,6 +11,7 @@ import {
   type WorkflowNodeData,
 } from "./node-catalog";
 import { autoLayoutNodes } from "./auto-layout";
+import { duplicateWorkflowNode } from "./node-operations";
 
 type GraphSnapshot = {
   nodes: WorkflowCanvasNode[];
@@ -30,6 +31,8 @@ type WorkflowEditorState = {
   applyEdgesChange: (changes: EdgeChange<WorkflowCanvasEdge>[]) => void;
   connect: (connection: Connection) => void;
   autoLayout: () => void;
+  duplicateNode: (id: string) => void;
+  deleteNode: (id: string) => void;
   undo: () => void;
   redo: () => void;
   loadGraph: (graph: GraphSnapshot) => void;
@@ -100,6 +103,20 @@ export const useWorkflowEditorStore = create<WorkflowEditorState>((set, get) => 
     autoLayout: () => {
       const state = get();
       commit(autoLayoutNodes(state.nodes, state.edges), state.edges);
+    },
+    duplicateNode: (id) => {
+      const state = get();
+      const source = state.nodes.find((node) => node.id === id);
+      if (!source) return;
+      const copy = duplicateWorkflowNode(source, `node-${crypto.randomUUID()}`);
+      commit([...state.nodes.map((node) => ({ ...node, selected: false })), copy], state.edges);
+      set({ selectedNodeId: copy.id });
+    },
+    deleteNode: (id) => {
+      const state = get();
+      if (!state.nodes.some((node) => node.id === id)) return;
+      commit(state.nodes.filter((node) => node.id !== id), state.edges.filter((edge) => edge.source !== id && edge.target !== id));
+      set({ selectedNodeId: state.selectedNodeId === id ? null : state.selectedNodeId });
     },
     undo: () => {
       const state = get();

@@ -21,7 +21,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 ### Completed
 
 - Shared workflow graph contracts.
-- First editor shell with drag/drop nodes, connection drawing, selection, search, deterministic auto-layout, configuration inspector, undo/redo, import/export, and DAG validation.
+- First editor shell with drag/drop nodes, connection drawing, multi-select, search, deterministic auto-layout, copy/paste, context-menu duplicate/delete, configuration inspector, undo/redo, import/export, and DAG validation.
 - Initial node registry for all MVP and roadmap nodes.
 
 ### Completed implementation slice

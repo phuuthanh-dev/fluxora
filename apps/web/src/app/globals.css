@@ -102,6 +102,7 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .validation-summary--ready { color: var(--green); }
 .validation-summary--error { color: var(--danger); }
 .palette-reopen { color: var(--accent); font-size: 12px; font-weight: 700; left: 14px; padding: 9px 11px; top: 14px; z-index: 3; }
+.node-context-menu { background: #161d2c; border: 1px solid #3e485f; border-radius: 8px; box-shadow: 0 12px 28px rgba(15, 21, 34, .28); display: grid; padding: 5px; position: fixed; width: 156px; z-index: 30; }.node-context-menu button { background: transparent; border: 0; border-radius: 5px; color: #edf2ff; font-size: 12px; padding: 8px; text-align: left; }.node-context-menu button:hover { background: #29354d; }.node-context-menu .node-context-menu__danger { color: #ff9cae; }
 
 .inspector--empty { align-items: center; color: var(--muted); display: flex; flex-direction: column; justify-content: center; text-align: center; }
 .inspector--empty h2 { color: var(--ink); margin-top: 12px; }
