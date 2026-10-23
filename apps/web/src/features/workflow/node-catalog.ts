@@ -118,7 +118,7 @@ export const nodeCatalog: NodeDefinition[] = [
     description: "Search, read, or upload a file.",
     category: "action",
     icon: "△",
-    available: true,
+    available: false,
     defaultConfig: { credentialId: "", operation: "search" },
   },
   {
@@ -127,7 +127,7 @@ export const nodeCatalog: NodeDefinition[] = [
     description: "Read or write spreadsheet data.",
     category: "action",
     icon: "▤",
-    available: true,
+    available: false,
     defaultConfig: { credentialId: "", operation: "append", range: "Sheet1!A1" },
   },
   {

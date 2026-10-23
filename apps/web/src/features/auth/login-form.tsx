@@ -2,11 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { apiUrl } from "../api/api-client";
 
 type AuthMode = "login" | "register";
 type AuthResponse = { user?: { email: string }; message?: string | { message?: string } };
-
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1";
 
 export function LoginForm() {
   const router = useRouter();

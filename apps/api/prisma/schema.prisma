@@ -44,6 +44,13 @@ enum NodeExecutionStatus {
   WAITING
 }
 
+enum ApprovalRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
 model User {
   id              String            @id @default(uuid())
   email           String            @unique
@@ -101,12 +108,14 @@ model Workflow {
   workspaceId        String
   name               String
   description        String?
-  draftVersionId     String?
-  publishedVersionId String?
+  draftVersionId     String?           @unique
+  publishedVersionId String?           @unique
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   workspace          Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  versions           WorkflowVersion[]
+  versions           WorkflowVersion[] @relation("WorkflowVersions")
+  draftVersion       WorkflowVersion?  @relation("WorkflowDraftVersion", fields: [draftVersionId], references: [id], onDelete: SetNull)
+  publishedVersion   WorkflowVersion?  @relation("WorkflowPublishedVersion", fields: [publishedVersionId], references: [id], onDelete: SetNull)
   webhookEndpoints   WebhookEndpoint[]
 
   @@index([workspaceId, updatedAt])
@@ -120,8 +129,11 @@ model WorkflowVersion {
   graph       Json
   createdAt   DateTime              @default(now())
   publishedAt DateTime?
-  workflow    Workflow              @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  workflow    Workflow              @relation("WorkflowVersions", fields: [workflowId], references: [id], onDelete: Cascade)
+  draftFor    Workflow?             @relation("WorkflowDraftVersion")
+  publishedFor Workflow?            @relation("WorkflowPublishedVersion")
   executions  Execution[]
+  webhookEndpoints WebhookEndpoint[]
 
   @@unique([workflowId, version])
   @@index([workflowId, status])
@@ -179,7 +191,7 @@ model ApprovalRequest {
   id          String    @id @default(uuid())
   executionId String
   tokenHash   String    @unique
-  status      String    @default("PENDING")
+  status      ApprovalRequestStatus @default(PENDING)
   expiresAt   DateTime
   resolvedAt  DateTime?
   createdAt   DateTime  @default(now())
@@ -191,12 +203,27 @@ model ApprovalRequest {
 model WebhookEndpoint {
   id           String   @id @default(uuid())
   workflowId   String
+  workflowVersionId String
   path         String   @unique
   secretHash   String?
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   workflow     Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  workflowVersion WorkflowVersion @relation(fields: [workflowVersionId], references: [id], onDelete: Restrict)
+
+  @@index([workflowVersionId])
+}
+
+model WorkflowTemplate {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  name        String
+  description String
+  graph       Json
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model AuditLog {

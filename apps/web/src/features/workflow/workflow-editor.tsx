@@ -21,7 +21,9 @@ import {
   Sparkles,
   Upload,
 } from "lucide-react";
-import { useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { useRouter } from "next/navigation";
+import { apiRequest } from "../api/api-client";
 import { validateWorkflowGraph } from "./graph-validation";
 import {
   categoryLabels,
@@ -35,8 +37,15 @@ import {
 import { useWorkflowEditorStore } from "./editor-store";
 import { parseWorkflowCanvasGraph } from "./workflow-graph-schema";
 import { WorkflowNode } from "./workflow-node";
+import { graphForApi, graphFromApi, type ApiWorkflow } from "./workflow-api";
 
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNode };
+
+type ApiExecution = {
+  id: string;
+  status: string;
+  nodeExecutions: Array<{ nodeId: string; status: string; attempt: number; input: unknown; output: unknown; error: { code: string; message: string } | null; durationMs: number | null }>;
+};
 
 function readConfigText(config: Record<string, unknown>, key: string) {
   const value = config[key];
@@ -61,7 +70,7 @@ function ConfigField({ label, value, onChange, multiline = false }: {
   );
 }
 
-function NodeInspector({ node }: { node: WorkflowCanvasNode | undefined }) {
+function NodeInspector({ node, execution }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null }) {
   const updateNodeData = useWorkflowEditorStore((state) => state.updateNodeData);
 
   if (!node) {
@@ -75,6 +84,7 @@ function NodeInspector({ node }: { node: WorkflowCanvasNode | undefined }) {
   }
 
   const definition = getNodeDefinition(node.data.nodeType);
+  const nodeExecution = execution?.nodeExecutions.find((item) => item.nodeId === node.id);
   const updateConfig = (key: string, value: unknown) => {
     updateNodeData(node.id, { config: { ...node.data.config, [key]: value } });
   };
@@ -128,15 +138,26 @@ function NodeInspector({ node }: { node: WorkflowCanvasNode | undefined }) {
         <div className="section-label">INPUT PREVIEW</div>
         <pre>{JSON.stringify(node.data.config, null, 2)}</pre>
       </section>
+      {nodeExecution && (
+        <section className="input-preview">
+          <div className="section-label">LAST MOCK RUN · {nodeExecution.status} · {nodeExecution.durationMs ?? 0}MS</div>
+          <pre>{JSON.stringify(nodeExecution.error ?? nodeExecution.output, null, 2)}</pre>
+        </section>
+      )}
     </aside>
   );
 }
 
 export function WorkflowEditor() {
+  const router = useRouter();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [notice, setNotice] = useState("Draft changes are stored locally while the API module is in progress.");
+  const [notice, setNotice] = useState("Loading your workflow…");
   const [paletteOpen, setPaletteOpen] = useState(true);
+  const [workflow, setWorkflow] = useState<ApiWorkflow | null>(null);
+  const [execution, setExecution] = useState<ApiExecution | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const nodes = useWorkflowEditorStore((state) => state.nodes);
   const edges = useWorkflowEditorStore((state) => state.edges);
   const selectedNodeId = useWorkflowEditorStore((state) => state.selectedNodeId);
@@ -152,6 +173,42 @@ export function WorkflowEditor() {
   const loadGraph = useWorkflowEditorStore((state) => state.loadGraph);
   const issues = useMemo(() => validateWorkflowGraph(nodes, edges), [nodes, edges]);
   const selectedNode = nodes.find((node) => node.id === selectedNodeId);
+
+  useEffect(() => {
+    let isCurrent = true;
+    const load = async () => {
+      try {
+        await apiRequest<{ user: { id: string } }>("/auth/me");
+        const workspaceResponse = await apiRequest<{ workspaces: Array<{ id: string }> }>("/workspaces");
+        const workspace = workspaceResponse.workspaces[0];
+        if (!workspace) throw new Error("No workspace is available for this account.");
+        const workflowsResponse = await apiRequest<{ workflows: ApiWorkflow[] }>(`/workspaces/${workspace.id}/workflows`);
+        const initialGraph = useWorkflowEditorStore.getState();
+        const loadedWorkflow = workflowsResponse.workflows[0] ?? (await apiRequest<{ workflow: ApiWorkflow }>(`/workspaces/${workspace.id}/workflows`, {
+          method: "POST",
+          body: JSON.stringify({ name: "Steam daily report", graph: graphForApi({ nodes: initialGraph.nodes, edges: initialGraph.edges }) }),
+        })).workflow;
+        const graph = loadedWorkflow.draft?.graph ?? loadedWorkflow.published?.graph;
+        if (!graph) throw new Error("The workflow has no editable version.");
+        if (!isCurrent) return;
+        loadGraph(graphFromApi(graph));
+        setWorkflow(loadedWorkflow);
+        setNotice("Draft loaded from your workspace.");
+      } catch (reason) {
+        if (!isCurrent) return;
+        const message = reason instanceof Error ? reason.message : "Unable to load this workspace.";
+        if (message === "Sign in is required." || message === "Your session has expired.") {
+          router.replace("/");
+          return;
+        }
+        setNotice(message);
+      } finally {
+        if (isCurrent) setIsLoading(false);
+      }
+    };
+    void load();
+    return () => { isCurrent = false; };
+  }, [loadGraph, router]);
 
   const addDefinition = (definition: NodeDefinition, position?: { x: number; y: number }) => {
     addNode(definition, position);
@@ -197,6 +254,69 @@ export function WorkflowEditor() {
     }
   };
 
+  const saveDraft = async (): Promise<boolean> => {
+    if (!workflow) return false;
+    const errors = issues.filter((issue) => issue.severity === "error");
+    if (errors.length) {
+      setNotice("Resolve graph errors before saving this draft.");
+      return false;
+    }
+    setIsSaving(true);
+    try {
+      const response = await apiRequest<{ workflow: ApiWorkflow }>(`/workflows/${workflow.id}/draft`, {
+        method: "PATCH",
+        body: JSON.stringify({ name: workflow.name, description: workflow.description, graph: graphForApi({ nodes, edges }) }),
+      });
+      setWorkflow(response.workflow);
+      setNotice("Draft saved to your workspace.");
+      return true;
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "Unable to save the draft.");
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const publish = async () => {
+    if (!workflow) return;
+    const saved = await saveDraft();
+    if (!saved) return;
+    setIsSaving(true);
+    try {
+      const response = await apiRequest<{ workflow: ApiWorkflow }>(`/workflows/${workflow.id}/publish`, { method: "POST" });
+      setWorkflow(response.workflow);
+      setNotice(`Version ${response.workflow.published?.version ?? ""} published. A new editable draft is ready.`);
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "Unable to publish the workflow.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const runTest = async () => {
+    if (!workflow) return;
+    const saved = await saveDraft();
+    if (!saved) return;
+    setIsSaving(true);
+    try {
+      const response = await apiRequest<{ execution: ApiExecution }>(`/workflows/${workflow.id}/executions`, {
+        method: "POST",
+        body: JSON.stringify({ mock: true }),
+      });
+      setExecution(response.execution);
+      setNotice(`Mock execution ${response.execution.status.toLowerCase()} — select a node to inspect its output.`);
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "Unable to start the mock execution.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isLoading) {
+    return <main className="editor-page"><p className="canvas-status">Loading your authenticated workspace…</p></main>;
+  }
+
   return (
     <main className="editor-page">
       <header className="editor-header">
@@ -204,7 +324,7 @@ export function WorkflowEditor() {
           <span className="brand-mark"><Sparkles size={17} /></span>
           <div>
             <p>WORKFLOW / DRAFT</p>
-            <h1>Steam daily report</h1>
+            <h1>{workflow?.name ?? "Steam daily report"}</h1>
           </div>
         </div>
         <div className="editor-header__actions">
@@ -213,8 +333,9 @@ export function WorkflowEditor() {
           <button className="ghost-button" type="button" onClick={exportGraph}><Download size={16} /> Export</button>
           <button className="ghost-button" type="button" onClick={() => inputRef.current?.click()}><Upload size={16} /> Import</button>
           <input ref={inputRef} className="visually-hidden" type="file" accept="application/json" onChange={importGraph} />
-          <button className="save-button" type="button" onClick={() => setNotice("Draft persistence will connect to the API in the next foundation task.")}><Save size={16} /> Save draft</button>
-          <button className="run-button" type="button" onClick={() => setNotice("Test run queued in UI mode. The background runner is scheduled for Day 2.")}><Play size={16} /> Run test</button>
+          <button className="save-button" type="button" onClick={() => void saveDraft()} disabled={!workflow || isSaving}><Save size={16} /> {isSaving ? "Saving…" : "Save draft"}</button>
+          <button className="ghost-button" type="button" onClick={() => void publish()} disabled={!workflow || isSaving}><Check size={16} /> Publish</button>
+          <button className="run-button" type="button" onClick={() => void runTest()} disabled={!workflow || isSaving}><Play size={16} /> Run test</button>
         </div>
       </header>
 
@@ -275,7 +396,7 @@ export function WorkflowEditor() {
             {issues.length === 0 ? "Graph is ready for a test run" : `${issues.length} validation notice${issues.length === 1 ? "" : "s"}`}
           </div>
         </section>
-        <NodeInspector node={selectedNode} />
+        <NodeInspector node={selectedNode} execution={execution} />
       </div>
     </main>
   );

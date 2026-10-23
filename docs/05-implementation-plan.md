@@ -11,9 +11,10 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | API health service | Complete | `GET /api/v1/health` |
 | Persistence schema, migration, and Prisma service | Complete | PostgreSQL schema, initial migration, and NestJS Prisma module |
 | Email/password authentication | Complete | Register/login/me/logout endpoints, Argon2id, hashed opaque sessions, login UI, PostgreSQL E2E |
-| Workspace/workflow API CRUD | Next | No runtime workflow data yet |
-| Background execution engine | Planned | Day 2 |
-| Google/Steam real connectors | Planned | Day 2–3 |
+| Workspace/workflow API CRUD, draft persistence, and immutable publish | Complete | Owner-only API routes; browser save/reload and publish verification |
+| Inline mock execution engine | Complete | Persisted execution/node I/O, safe expressions, redaction, retry classification, and editor mock run |
+| Redis/BullMQ process separation and realtime event delivery | Next | L2 continuation; Redis is intentionally not installed/configured yet |
+| Encrypted credential vault and live-capable Steam/Google Chat adapters | In progress | AES-256-GCM vault and backend adapters exist; credentials/UI/live verification remain next |
 
 ## Milestone 1 — Product foundation
 
@@ -23,19 +24,26 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 - First editor shell with drag/drop nodes, connection drawing, selection, configuration inspector, undo/redo, import/export, and DAG validation.
 - Initial node registry for all MVP and roadmap nodes.
 
-### Next implementation slice
+### Completed implementation slice
 
-1. Add development seed data for the existing Prisma/PostgreSQL schema and migration.
-2. Build `AuthModule` with register/login, Argon2id password hashing, and HTTP-only cookie session/refresh flow.
-3. Build `WorkspaceModule` and owner-only guards.
-4. Build `WorkflowModule`: create/list/get/update draft, publish immutable version, clone, import/export.
-5. Replace the editor's local notice/save behavior with API calls and server state.
+1. Build `WorkspaceModule` and owner-only guards.
+2. Build `WorkflowModule`: create/list/get/update draft, publish immutable version, and clone.
+3. Replace the editor's local notice/save behavior with API calls and server state.
+4. Add foreign-key workflow-version pointers, pinned webhook-version schema, and workflow templates schema.
 
 **Exit criterion:** a logged-in owner can create a workspace, create a workflow, save a draft graph, publish a frozen version, reload the page, and see the saved workflow.
 
 ## Milestone 2 — Reliable execution engine
 
-1. Add Redis and BullMQ configuration.
+### Completed foundation
+
+- Manual mock execution persists a pinned workflow version and node I/O.
+- Safe interpolation supports path access plus `upper`, `lower`, and `default`; arbitrary JavaScript is rejected.
+- Redaction executes before execution input/output persistence.
+- If/Else, Switch, error edges, retry classification, timeout-aware HTTP execution, and mock Steam/Google Chat actions exist in the runner.
+- The editor can launch a mock run and inspect each selected node's result.
+
+1. Add Redis and BullMQ configuration plus a separate worker process.
 2. Add execution/node-execution persistence, structured errors, redaction, timeout, and retry policy.
 3. Add a worker process and a manual trigger executor.
 4. Implement If/Else and Switch branching.
@@ -45,6 +53,11 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 **Exit criterion:** a manual test run executes a pinned workflow version, shows node input/output in realtime, and routes retryable failures to an error branch after configured retries.
 
 ## Milestone 3 — Steam daily report
+
+### Completed foundation
+
+- Credential records are encrypted with AES-256-GCM and credential list responses never expose encrypted or raw values.
+- Steam and Google Chat node executors are live-capable through backend-only credential resolution, while mock execution stays deterministic.
 
 1. Add encrypted credential storage and credential-management UI.
 2. Implement Steam Account Snapshot with a mock transport and real Web API transport.

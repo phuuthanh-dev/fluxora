@@ -45,7 +45,13 @@ The root route is the email/password sign-in page. Registering creates a persona
 
 If port `3001` is already occupied, run the API with `PORT=3002 npm run dev:api`.
 
-Docker infrastructure and production deployment are intentionally deferred until after the MVP.
+To enable encrypted provider credentials, create a 32-byte base64 key and place it only in your local `.env`:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+Set that output as `APP_ENCRYPTION_KEY`. Credentials are encrypted before storage and are never returned by the API. Docker infrastructure and production deployment are intentionally deferred until after the MVP.
 
 ## License
 

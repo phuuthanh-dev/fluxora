@@ -15,7 +15,9 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "db:deploy": "set -a && . ./.env && set +a && npm run db:deploy --workspace=@workflow/api"
+    "db:deploy": "node --env-file-if-exists=.env ./scripts/run-prisma.mjs migrate deploy",
+    "db:validate": "node --env-file-if-exists=.env ./scripts/run-prisma.mjs validate",
+    "verify": "npm run db:validate && npm run test && npm run lint && npm run typecheck && npm run build"
   },
   "devDependencies": {
     "concurrently": "^10.0.6",
