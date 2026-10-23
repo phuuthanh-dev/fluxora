@@ -45,6 +45,7 @@ import { parseWorkflowCanvasGraph } from "./workflow-graph-schema";
 import { WorkflowNode } from "./workflow-node";
 import { graphForApi, graphFromApi, type ApiWorkflow } from "./workflow-api";
 import { CredentialPanel } from "../credentials/credential-panel";
+import { buildExpressionSuggestions } from "./expression-suggestions";
 
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNode };
 
@@ -106,6 +107,36 @@ function ResultView({ value }: { value: unknown }) {
   );
 }
 
+function JsonConfigEditor({ config, onApply }: { config: Record<string, unknown>; onApply: (config: Record<string, unknown>) => void }) {
+  const [text, setText] = useState(() => JSON.stringify(config, null, 2));
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => { setText(JSON.stringify(config, null, 2)); }, [config]);
+
+  const apply = () => {
+    try {
+      const parsed: unknown = JSON.parse(text);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Configuration must be a JSON object.");
+      onApply(parsed as Record<string, unknown>);
+      setError(null);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Configuration is not valid JSON.");
+    }
+  };
+
+  return <section className="json-config-editor"><div className="section-label">JSON CONFIGURATION</div><textarea value={text} onChange={(event) => setText(event.target.value)} rows={7} aria-label="Node JSON configuration" /><button className="ghost-button" type="button" onClick={apply}>Apply JSON</button>{error && <p role="alert">{error}</p>}</section>;
+}
+
+function ExpressionSuggestions({ suggestions }: { suggestions: string[] }) {
+  const [notice, setNotice] = useState("");
+  if (!suggestions.length) return null;
+  const copy = async (suggestion: string) => {
+    await navigator.clipboard?.writeText(suggestion);
+    setNotice(`${suggestion} copied.`);
+  };
+  return <section className="expression-suggestions"><div className="section-label">EXPRESSION SUGGESTIONS</div><p>Use in any text field. Click to copy a safe data path.</p><div>{suggestions.map((suggestion) => <button key={suggestion} type="button" onClick={() => { void copy(suggestion); }}>{suggestion}</button>)}</div>{notice && <small>{notice}</small>}</section>;
+}
+
 function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null; onResolveApproval: (approvalId: string, decision: "approved" | "rejected") => void }) {
   const updateNodeData = useWorkflowEditorStore((state) => state.updateNodeData);
 
@@ -127,6 +158,7 @@ function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowC
   const updateConfig = (key: string, value: unknown) => {
     updateNodeData(node.id, { config: { ...node.data.config, [key]: value } });
   };
+  const suggestions = buildExpressionSuggestions(execution?.nodeExecutions.map((item) => ({ nodeId: item.nodeId, output: item.output })) ?? []);
 
   return (
     <aside className="inspector">
@@ -191,6 +223,8 @@ function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowC
       )}
       {node.data.nodeType === "approval.request" && <ConfigField label="Approval message" value={readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("message", value)} multiline />}
       {definition && !definition.available && <p className="planned-note">This node is visible for roadmap clarity, but cannot run in the MVP.</p>}
+      <JsonConfigEditor config={node.data.config} onApply={(config) => updateNodeData(node.id, { config })} />
+      <ExpressionSuggestions suggestions={suggestions} />
       <section className="input-preview">
         <div className="section-label">INPUT PREVIEW</div>
         <pre>{JSON.stringify(node.data.config, null, 2)}</pre>

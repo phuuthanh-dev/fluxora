@@ -6,9 +6,10 @@ import { redactValue } from "./redaction";
 import { isRetryableFailure, retryDelayMs } from "./retry-policy";
 
 test("resolves safe expressions without evaluating JavaScript", () => {
-  const context = { steps: { steam: { output: { profile: { personaname: "Thanh" } } } } };
+  const context = { steps: { steam: { output: { profile: { personaname: "Thanh" }, summary: { topGames: [{ name: "Hades" }] } } } } };
   assert.equal(resolveExpressions("Hello {{ upper(steps.steam.output.profile.personaname) }}", context), "Hello THANH");
   assert.equal(resolveExpressions("{{ steps.steam.output.profile.personaname }}", context), "Thanh");
+  assert.equal(resolveExpressions("{{ steps.steam.output.summary.topGames[0].name }}", context), "Hades");
   assert.throws(() => resolveExpressions("{{ process.exit() }}", context), BadRequestException);
 });
 
