@@ -46,6 +46,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 - Live HTTP Request supports optional encrypted Bearer, API-key, Basic Auth, or custom-header credentials; request body, headers, and timeout are configured without leaking credential values into the graph.
 - The editor can launch a mock run, receive server-sent execution updates, and inspect selected-node redacted execution input, output/error, attempt, and duration as JSON tree, table, or raw JSON.
 - Local HTTP E2E verifies a `NETWORK_ERROR` retries twice, follows its error edge, and pauses at a downstream Approval node.
+- Cron scheduler test verifies a due published cron workflow creates and dispatches one live execution with schedule metadata.
 
 1. Add Redis and BullMQ configuration plus a separate worker process. **Implemented; Redis environment validation remains.**
 2. Add execution/node-execution persistence, structured errors, redaction, timeout, and retry policy.
