@@ -16,6 +16,7 @@ import {
   CirclePlay,
   Download,
   FileUp,
+  History,
   Layers3,
   LayoutDashboard,
   KeyRound,
@@ -54,6 +55,8 @@ type ApiExecution = {
   status: string;
   nodeExecutions: Array<{ nodeId: string; status: string; attempt: number; input: unknown; output: unknown; error: { code: string; message: string } | null; durationMs: number | null }>;
 };
+
+type WorkflowVersionSummary = { id: string; version: number; status: "DRAFT" | "PUBLISHED"; createdAt: string; publishedAt: string | null; nodeCount: number };
 
 function readConfigText(config: Record<string, unknown>, key: string) {
   const value = config[key];
@@ -135,6 +138,10 @@ function ExpressionSuggestions({ suggestions }: { suggestions: string[] }) {
     setNotice(`${suggestion} copied.`);
   };
   return <section className="expression-suggestions"><div className="section-label">EXPRESSION SUGGESTIONS</div><p>Use in any text field. Click to copy a safe data path.</p><div>{suggestions.map((suggestion) => <button key={suggestion} type="button" onClick={() => { void copy(suggestion); }}>{suggestion}</button>)}</div>{notice && <small>{notice}</small>}</section>;
+}
+
+function WorkflowHistoryPanel({ versions, loading, onClose }: { versions: WorkflowVersionSummary[]; loading: boolean; onClose: () => void }) {
+  return <section className="workflow-history" aria-label="Workflow version history"><div className="credential-panel__heading"><div><p className="section-label">VERSION HISTORY</p><h2>Immutable releases</h2></div><button className="icon-button" type="button" aria-label="Close workflow history" onClick={onClose}>×</button></div>{loading ? <p>Loading versions…</p> : <ol>{versions.map((version) => <li key={version.id}><strong>v{version.version} · {version.status.toLowerCase()}</strong><span>{version.nodeCount} nodes · {version.publishedAt ? `published ${new Date(version.publishedAt).toLocaleString()}` : `draft ${new Date(version.createdAt).toLocaleString()}`}</span></li>)}</ol>}</section>;
 }
 
 function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null; onResolveApproval: (approvalId: string, decision: "approved" | "rejected") => void }) {
@@ -263,6 +270,9 @@ export function WorkflowEditor() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [credentialsOpen, setCredentialsOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [versions, setVersions] = useState<WorkflowVersionSummary[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
   const [paletteSearch, setPaletteSearch] = useState("");
   const [copiedNodeId, setCopiedNodeId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
@@ -343,6 +353,35 @@ export function WorkflowEditor() {
     autoLayout();
     requestAnimationFrame(() => flowRef.current?.fitView({ duration: 260, padding: 0.18 }));
     setNotice("Workflow arranged from trigger to actions.");
+  };
+
+  const openHistory = async () => {
+    if (!workflow) return;
+    setHistoryOpen(true);
+    setVersionsLoading(true);
+    try {
+      const response = await apiRequest<{ versions: WorkflowVersionSummary[] }>(`/workflows/${workflow.id}/versions`);
+      setVersions(response.versions);
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "Unable to load workflow history.");
+    } finally {
+      setVersionsLoading(false);
+    }
+  };
+
+  const cloneWorkflow = async () => {
+    if (!workflow) return;
+    try {
+      const response = await apiRequest<{ workflow: ApiWorkflow }>(`/workflows/${workflow.id}/clone`, { method: "POST" });
+      const graph = response.workflow.draft?.graph ?? response.workflow.published?.graph;
+      if (!graph) throw new Error("The cloned workflow has no graph.");
+      loadGraph(graphFromApi(graph));
+      setWorkflow(response.workflow);
+      setExecution(null);
+      setNotice("Workflow cloned. You are editing the independent copy.");
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "Unable to clone workflow.");
+    }
   };
 
   const copyNode = (nodeId = selectedNodeId) => {
@@ -501,6 +540,8 @@ export function WorkflowEditor() {
           <button className="ghost-button" type="button" onClick={arrangeGraph}><LayoutDashboard size={16} /> Auto layout</button>
           <button className="ghost-button" type="button" onClick={() => copyNode()} disabled={!selectedNodeId}>Copy node</button>
           <button className="ghost-button" type="button" onClick={pasteNode} disabled={!copiedNodeId}>Paste node</button>
+          <button className="ghost-button" type="button" onClick={() => void cloneWorkflow()} disabled={!workflow}>Clone</button>
+          <button className="ghost-button" type="button" onClick={() => void openHistory()} disabled={!workflow}><History size={16} /> History</button>
           <button className="ghost-button" type="button" onClick={() => setCredentialsOpen(true)} disabled={!workflow}><KeyRound size={16} /> Credentials</button>
           <input ref={inputRef} className="visually-hidden" type="file" accept="application/json" onChange={importGraph} />
           <button className="save-button" type="button" onClick={() => void saveDraft()} disabled={!workflow || isSaving}><Save size={16} /> {isSaving ? "Saving…" : "Save draft"}</button>
@@ -578,6 +619,7 @@ export function WorkflowEditor() {
         <button type="button" onClick={() => { duplicateNode(contextMenu.nodeId); setContextMenu(null); setNotice("Node duplicated."); }}>Duplicate</button>
         <button className="node-context-menu__danger" type="button" onClick={() => { deleteNode(contextMenu.nodeId); setContextMenu(null); setNotice("Node and its connections removed."); }}>Delete</button>
       </div>}
+      {historyOpen && <WorkflowHistoryPanel versions={versions} loading={versionsLoading} onClose={() => setHistoryOpen(false)} />}
       {credentialsOpen && workflow && <CredentialPanel workspaceId={workflow.workspaceId} onClose={() => setCredentialsOpen(false)} />}
     </main>
   );

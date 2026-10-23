@@ -62,6 +62,12 @@ export class WorkflowService {
     return this.serialize(workflow);
   }
 
+  async listVersions(workflowId: string, userId: string) {
+    await this.findOwned(workflowId, userId);
+    const versions = await this.prisma.workflowVersion.findMany({ where: { workflowId }, orderBy: { version: "desc" } });
+    return versions.map((version) => ({ id: version.id, version: version.version, status: version.status, createdAt: version.createdAt, publishedAt: version.publishedAt, nodeCount: nodeCount(version.graph) }));
+  }
+
   async updateDraft(workflowId: string, userId: string, input: UpdateDraftInput) {
     const workflow = await this.findOwned(workflowId, userId);
     const graph = parseWorkflowGraph(input.graph);
@@ -146,4 +152,10 @@ export class WorkflowService {
 async function nextVersion(transaction: Prisma.TransactionClient, workflowId: string) {
   const latest = await transaction.workflowVersion.aggregate({ where: { workflowId }, _max: { version: true } });
   return (latest._max.version ?? 0) + 1;
+}
+
+function nodeCount(graph: Prisma.JsonValue) {
+  if (!graph || typeof graph !== "object" || Array.isArray(graph)) return 0;
+  const nodes = (graph as Record<string, unknown>).nodes;
+  return Array.isArray(nodes) ? nodes.length : 0;
 }

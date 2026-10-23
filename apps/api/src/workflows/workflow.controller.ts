@@ -33,6 +33,11 @@ export class WorkflowController {
     return { workflow: await this.workflows.get(workflowId, requireUserId(request)) };
   }
 
+  @Get("workflows/:workflowId/versions")
+  async listVersions(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return { versions: await this.workflows.listVersions(workflowId, requireUserId(request)) };
+  }
+
   @Patch("workflows/:workflowId/draft")
   async updateDraft(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
     return { workflow: await this.workflows.updateDraft(workflowId, requireUserId(request), readUpdateInput(request.body)) };
