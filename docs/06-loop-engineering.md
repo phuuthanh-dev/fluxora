@@ -35,3 +35,5 @@ CI runs the same gate for every pull request and push to `main`.
 ## External-boundary rule
 
 Real Steam, Google Chat, and Google OAuth calls are enabled only after a user supplies their credentials through the application. Until then, adapters use deterministic mock transport; no secret belongs in source, tests, logs, or frontend state.
+
+See [`07-local-mvp-acceptance-audit.md`](./07-local-mvp-acceptance-audit.md) for the requirement-by-requirement evidence and the deliberately deferred external validations.
