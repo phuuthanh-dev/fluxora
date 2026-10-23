@@ -20,6 +20,7 @@ export function LoginForm() {
   useEffect(() => {
     const parameters = new URLSearchParams(window.location.search);
     if (parameters.get("authError") === "google_cancelled") setError("Google sign-in was cancelled. You can try again when ready.");
+    if (parameters.get("authError") === "google_failed") setError("Google sign-in could not be completed. Please try again.");
     void fetch(`${apiUrl}/auth/providers`, { credentials: "include" })
       .then(async (response): Promise<{ google?: boolean }> => response.ok ? await response.json() as { google?: boolean } : {})
       .then((providers) => setGoogleAvailable(providers.google === true))

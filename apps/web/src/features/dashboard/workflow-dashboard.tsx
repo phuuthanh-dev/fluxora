@@ -52,7 +52,8 @@ export function WorkflowDashboard() {
         const initialWorkspaceId = workspaceResponse.workspaces[0]?.id ?? "";
         setWorkspaceId(initialWorkspaceId);
         await loadWorkflows(initialWorkspaceId);
-        if (active) setNotice(new URLSearchParams(window.location.search).get("identity") === "steam" ? "Steam identity linked. Steam API access still requires a separate credential." : initialWorkspaceId ? "Choose a workflow or start a new one." : "Create a workspace to begin.");
+        const parameters = new URLSearchParams(window.location.search);
+        if (active) setNotice(parameters.get("identity") === "steam" ? "Steam identity linked. Steam API access still requires a separate credential." : parameters.get("identityError") === "steam" ? "Steam identity could not be linked. Please try again." : initialWorkspaceId ? "Choose a workflow or start a new one." : "Create a workspace to begin.");
       } catch (reason) {
         if (!active) return;
         const message = reason instanceof Error ? reason.message : "Unable to load your workspace.";

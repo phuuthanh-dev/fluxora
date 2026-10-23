@@ -73,7 +73,7 @@ export class AuthController {
     }
     if (!code || !state || !safeEqual(state, readCookie(request, GOOGLE_STATE_COOKIE))) {
       clearState();
-      throw new BadRequestException({ code: "GOOGLE_AUTH_INVALID", message: "Google sign-in state is invalid or expired." });
+      return response.redirect(webRedirect("/", "authError", "google_failed"));
     }
 
     try {
@@ -90,10 +90,9 @@ export class AuthController {
       clearState();
       this.setSessionCookie(response, session.token);
       return response.redirect(webRedirect("/dashboard", "auth", "google"));
-    } catch (reason) {
+    } catch {
       clearState();
-      if (reason instanceof BadRequestException) throw reason;
-      throw new BadRequestException({ code: "GOOGLE_AUTH_FAILED", message: "Google sign-in could not be completed. Please try again." });
+      return response.redirect(webRedirect("/", "authError", "google_failed"));
     }
   }
 
@@ -120,12 +119,17 @@ export class AuthController {
     const userId = requireUserId(request);
     if (typeof query.state !== "string" || !safeEqual(query.state, readCookie(request, STEAM_STATE_COOKIE))) {
       clearState();
-      throw new BadRequestException({ code: "STEAM_OPENID_INVALID", message: "Steam identity state is invalid or expired." });
+      return response.redirect(webRedirect("/dashboard", "identityError", "steam"));
     }
-    const verified = await verifySteamOpenIdCallback(query);
-    await this.authService.linkIdentity(userId, AuthIdentityProvider.STEAM, verified.steamId);
-    clearState();
-    return response.redirect(webRedirect("/dashboard", "identity", "steam"));
+    try {
+      const verified = await verifySteamOpenIdCallback(query);
+      await this.authService.linkIdentity(userId, AuthIdentityProvider.STEAM, verified.steamId);
+      clearState();
+      return response.redirect(webRedirect("/dashboard", "identity", "steam"));
+    } catch {
+      clearState();
+      return response.redirect(webRedirect("/dashboard", "identityError", "steam"));
+    }
   }
 
   @Post("logout")
