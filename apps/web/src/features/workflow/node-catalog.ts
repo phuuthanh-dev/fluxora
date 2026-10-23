@@ -101,7 +101,7 @@ export const nodeCatalog: NodeDefinition[] = [
     category: "action",
     icon: "◉",
     available: true,
-    defaultConfig: { credentialId: "", steamId: "", includeOwnedGames: true },
+    defaultConfig: { credentialId: "", steamId: "", includeOwnedGames: true, includeRecentGames: true, achievementAppId: "" },
   },
   {
     type: "action.google-chat.webhook",

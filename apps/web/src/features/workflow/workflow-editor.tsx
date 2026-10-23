@@ -11,6 +11,7 @@ import {
 } from "@xyflow/react";
 import {
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CirclePlay,
@@ -20,13 +21,14 @@ import {
   Layers3,
   LayoutDashboard,
   KeyRound,
+  LoaderCircle,
   Play,
   Save,
   Sparkles,
   Search,
   Upload,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { apiRequest, apiUrl } from "../api/api-client";
 import { validateWorkflowGraph } from "./graph-validation";
@@ -88,6 +90,15 @@ function ConfigField({ label, value, onChange, multiline = false }: {
         <input value={value} onChange={(event) => onChange(event.target.value)} />
       )}
     </label>
+  );
+}
+
+function ActionMenu({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <details className="action-menu">
+      <summary aria-label={`${label} actions`}><span>{label}</span><ChevronDown size={14} aria-hidden="true" /></summary>
+      <div className="action-menu__content" role="group" aria-label={`${label} menu`} onClick={(event) => { if (event.target instanceof HTMLElement && event.target.closest("button")) event.currentTarget.closest("details")?.removeAttribute("open"); }}>{children}</div>
+    </details>
   );
 }
 
@@ -341,6 +352,9 @@ function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowC
         <>
           <ConfigField label="Steam credential" value={readConfigText(node.data.config, "credentialId")} onChange={(value) => updateConfig("credentialId", value)} />
           <ConfigField label="Steam ID 64" value={readConfigText(node.data.config, "steamId")} onChange={(value) => updateConfig("steamId", value)} />
+          <label className="checkbox-field"><input type="checkbox" checked={node.data.config.includeOwnedGames !== false} onChange={(event) => updateConfig("includeOwnedGames", event.target.checked)} /> Include owned games and playtime</label>
+          <label className="checkbox-field"><input type="checkbox" checked={node.data.config.includeRecentGames !== false} onChange={(event) => updateConfig("includeRecentGames", event.target.checked)} /> Include recently played games</label>
+          <ConfigField label="Achievement app ID (optional)" value={readConfigText(node.data.config, "achievementAppId")} onChange={(value) => updateConfig("achievementAppId", value)} />
         </>
       )}
       {node.data.nodeType === "action.google-chat.webhook" && (
@@ -434,6 +448,7 @@ export function WorkflowEditor() {
   const [execution, setExecution] = useState<ApiExecution | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [activeOperation, setActiveOperation] = useState<"saving" | "publishing" | "running" | "cloning" | null>(null);
   const [credentialsOpen, setCredentialsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -578,6 +593,7 @@ export function WorkflowEditor() {
 
   const cloneWorkflow = async () => {
     if (!workflow) return;
+    setActiveOperation("cloning");
     try {
       const response = await apiRequest<{ workflow: ApiWorkflow }>(`/workflows/${workflow.id}/clone`, { method: "POST" });
       const graph = response.workflow.draft?.graph ?? response.workflow.published?.graph;
@@ -588,6 +604,8 @@ export function WorkflowEditor() {
       setNotice("Workflow cloned. You are editing the independent copy.");
     } catch (reason) {
       setNotice(reason instanceof Error ? reason.message : "Unable to clone workflow.");
+    } finally {
+      setActiveOperation(null);
     }
   };
 
@@ -652,13 +670,14 @@ export function WorkflowEditor() {
     }
   };
 
-  const saveDraft = async (): Promise<boolean> => {
+  const saveDraft = async (operation: "saving" | "publishing" | "running" = "saving", keepProgress = false): Promise<boolean> => {
     if (!workflow) return false;
     const errors = issues.filter((issue) => issue.severity === "error");
     if (errors.length) {
       setNotice("Resolve graph errors before saving this draft.");
       return false;
     }
+    setActiveOperation(operation);
     setIsSaving(true);
     try {
       const response = await apiRequest<{ workflow: ApiWorkflow }>(`/workflows/${workflow.id}/draft`, {
@@ -673,13 +692,17 @@ export function WorkflowEditor() {
       return false;
     } finally {
       setIsSaving(false);
+      if (!keepProgress) setActiveOperation(null);
     }
   };
 
   const publish = async () => {
     if (!workflow) return;
-    const saved = await saveDraft();
-    if (!saved) return;
+    const saved = await saveDraft("publishing", true);
+    if (!saved) {
+      setActiveOperation(null);
+      return;
+    }
     setIsSaving(true);
     try {
       const response = await apiRequest<{ workflow: ApiWorkflow }>(`/workflows/${workflow.id}/publish`, { method: "POST" });
@@ -689,13 +712,17 @@ export function WorkflowEditor() {
       setNotice(reason instanceof Error ? reason.message : "Unable to publish the workflow.");
     } finally {
       setIsSaving(false);
+      setActiveOperation(null);
     }
   };
 
   const runTest = async () => {
     if (!workflow) return;
-    const saved = await saveDraft();
-    if (!saved) return;
+    const saved = await saveDraft("running", true);
+    if (!saved) {
+      setActiveOperation(null);
+      return;
+    }
     setIsSaving(true);
     try {
       const response = await apiRequest<{ execution: ApiExecution }>(`/workflows/${workflow.id}/executions`, {
@@ -708,6 +735,7 @@ export function WorkflowEditor() {
       setNotice(reason instanceof Error ? reason.message : "Unable to start the mock execution.");
     } finally {
       setIsSaving(false);
+      setActiveOperation(null);
     }
   };
 
@@ -737,8 +765,10 @@ export function WorkflowEditor() {
   };
 
   if (isLoading) {
-    return <main className="editor-page"><p className="canvas-status">Loading your authenticated workspace…</p></main>;
+    return <main className="editor-page editor-loading" aria-busy="true"><div className="editor-loading__card"><LoaderCircle className="ui-spinner" size={20} aria-hidden="true" /><strong>Preparing your workspace</strong><span>Loading workflow, credentials, and the editor canvas…</span><div className="editor-loading__progress" /></div></main>;
   }
+
+  const progressLabel = activeOperation === "saving" ? "Saving draft" : activeOperation === "publishing" ? "Publishing workflow" : activeOperation === "running" ? "Starting test run" : activeOperation === "cloning" ? "Creating workflow copy" : null;
 
   return (
     <main className="editor-page">
@@ -751,25 +781,32 @@ export function WorkflowEditor() {
           </div>
         </div>
         <div className="editor-header__actions">
-          <button className="ghost-button" type="button" onClick={undo} disabled={historyIndex === 0}><ChevronLeft size={16} /> Undo</button>
-          <button className="ghost-button" type="button" onClick={redo} disabled={historyIndex === history.length - 1}>Redo <ChevronRight size={16} /></button>
-          <button className="ghost-button" type="button" onClick={exportGraph}><Download size={16} /> Export</button>
-          <button className="ghost-button" type="button" onClick={() => inputRef.current?.click()}><Upload size={16} /> Import</button>
-          <button className="ghost-button" type="button" onClick={arrangeGraph}><LayoutDashboard size={16} /> Auto layout</button>
-          <button className="ghost-button" type="button" onClick={() => copyNode()} disabled={!selectedNodeId}>Copy node</button>
-          <button className="ghost-button" type="button" onClick={pasteNode} disabled={!copiedNodeId}>Paste node</button>
-          <button className="ghost-button" type="button" onClick={() => void cloneWorkflow()} disabled={!workflow}>Clone</button>
-          <button className="ghost-button" type="button" onClick={() => setLibraryOpen(true)} disabled={!workflow}>Workflows</button>
-          <button className="ghost-button" type="button" onClick={() => void openHistory()} disabled={!workflow}><History size={16} /> History</button>
-          {webhookTrigger && <button className="ghost-button" type="button" onClick={() => setWebhookOpen(true)} disabled={!workflow}>Webhook</button>}
-          <button className="ghost-button" type="button" onClick={() => setCredentialsOpen(true)} disabled={!workflow}><KeyRound size={16} /> Credentials</button>
+          <ActionMenu label="Edit">
+            <button type="button" onClick={undo} disabled={historyIndex === 0}><ChevronLeft size={15} /> Undo</button>
+            <button type="button" onClick={redo} disabled={historyIndex === history.length - 1}>Redo <ChevronRight size={15} /></button>
+            <button type="button" onClick={arrangeGraph}><LayoutDashboard size={15} /> Auto layout</button>
+            <span className="action-menu__divider" />
+            <button type="button" onClick={() => copyNode()} disabled={!selectedNodeId}>Copy selected node</button>
+            <button type="button" onClick={pasteNode} disabled={!copiedNodeId}>Paste node</button>
+          </ActionMenu>
+          <ActionMenu label="Manage">
+            <button type="button" onClick={() => setLibraryOpen(true)} disabled={!workflow}>Workflows</button>
+            <button type="button" onClick={() => void openHistory()} disabled={!workflow}><History size={15} /> Version history</button>
+            <button type="button" onClick={() => setCredentialsOpen(true)} disabled={!workflow}><KeyRound size={15} /> Credentials</button>
+            {webhookTrigger && <button type="button" onClick={() => setWebhookOpen(true)} disabled={!workflow}>Webhook endpoint</button>}
+            <span className="action-menu__divider" />
+            <button type="button" onClick={exportGraph}><Download size={15} /> Export JSON</button>
+            <button type="button" onClick={() => inputRef.current?.click()}><Upload size={15} /> Import JSON</button>
+            <button type="button" onClick={() => void cloneWorkflow()} disabled={!workflow}>Clone workflow</button>
+          </ActionMenu>
           <input ref={inputRef} className="visually-hidden" type="file" accept="application/json" onChange={importGraph} />
-          <button className="save-button" type="button" onClick={() => void saveDraft()} disabled={!workflow || isSaving}><Save size={16} /> {isSaving ? "Saving…" : "Save draft"}</button>
-          <button className="ghost-button" type="button" onClick={() => void publish()} disabled={!workflow || isSaving}><Check size={16} /> Publish</button>
-          <button className="run-button" type="button" onClick={() => void runTest()} disabled={!workflow || isSaving}><Play size={16} /> Run test</button>
+          <button className="save-button" type="button" onClick={() => void saveDraft()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "saving" ? <LoaderCircle className="ui-spinner" size={16} /> : <Save size={16} />} {activeOperation === "saving" ? "Saving…" : "Save draft"}</button>
+          <button className="ghost-button" type="button" onClick={() => void publish()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "publishing" ? <LoaderCircle className="ui-spinner" size={16} /> : <Check size={16} />} {activeOperation === "publishing" ? "Publishing…" : "Publish"}</button>
+          <button className="run-button" type="button" onClick={() => void runTest()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "running" ? <LoaderCircle className="ui-spinner" size={16} /> : <Play size={16} />} {activeOperation === "running" ? "Starting…" : "Run test"}</button>
           {execution && ["QUEUED", "RUNNING", "WAITING_APPROVAL"].includes(execution.status) && <button className="ghost-button" type="button" onClick={() => void cancelExecution()}>Cancel run</button>}
         </div>
       </header>
+      {progressLabel && <div className="editor-progress" role="status" aria-live="polite"><LoaderCircle className="ui-spinner" size={14} /> <span>{progressLabel}…</span><i /></div>}
 
       <div className="editor-shell">
         {paletteOpen && (
@@ -825,7 +862,7 @@ export function WorkflowEditor() {
             <MiniMap zoomable pannable />
             <Controls showInteractive={false} />
           </ReactFlow>
-          <div className="canvas-status">
+          <div className="canvas-status" role="status" aria-live="polite">
             <CirclePlay size={16} /> {notice}
           </div>
           <button className={`validation-summary validation-summary--${issues.some((issue) => issue.severity === "error") ? "error" : "ready"}`} type="button" onClick={() => setValidationOpen(true)} aria-haspopup="dialog">

@@ -66,7 +66,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 ### Completed foundation
 
 - Credential records are encrypted with AES-256-GCM and credential list responses never expose encrypted or raw values.
-- Steam and Google Chat node executors are live-capable through backend-only credential resolution, while mock execution stays deterministic.
+- Steam and Google Chat node executors are live-capable through backend-only credential resolution, while mock execution stays deterministic. Steam snapshots include profile, current game, owned/recent games and playtime, plus optional per-app achievements.
 - The editor can create/list encrypted credentials; OAuth and manual-token entry keep secret values out of frontend state after submission.
 
 1. Add encrypted credential storage and credential-management UI.

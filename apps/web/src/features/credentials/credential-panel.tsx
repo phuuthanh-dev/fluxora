@@ -4,12 +4,42 @@ import { FormEvent, useEffect, useState } from "react";
 import { apiRequest, apiUrl } from "../api/api-client";
 
 type Credential = { id: string; provider: string; label: string };
+type CredentialProvider = "GOOGLE" | "STEAM" | "GOOGLE_CHAT_WEBHOOK" | "HTTP";
+
+type CredentialPreset = {
+  label: string;
+  data: string;
+  hint: string;
+};
+
+const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
+  GOOGLE: {
+    label: "Google account",
+    data: '{\n  "accessToken": ""\n}',
+    hint: "Use OAuth for Google Drive and Sheets, or paste a short-lived access token for local testing.",
+  },
+  STEAM: {
+    label: "Steam account",
+    data: '{\n  "apiKey": "",\n  "steamId": ""\n}',
+    hint: "Enter a Steam Web API key and your 64-bit Steam ID. The key is encrypted before it is stored.",
+  },
+  GOOGLE_CHAT_WEBHOOK: {
+    label: "Google Chat incoming webhook",
+    data: '{\n  "webhookUrl": ""\n}',
+    hint: "Paste the incoming-webhook URL from the Google Chat space that should receive workflow messages.",
+  },
+  HTTP: {
+    label: "HTTP authentication",
+    data: '{\n  "authType": "bearer",\n  "token": ""\n}',
+    hint: "Use bearer, basic, or custom-header JSON authentication for HTTP and approval-webhook nodes.",
+  },
+};
 
 export function CredentialPanel({ workspaceId, onClose }: { workspaceId: string; onClose: () => void }) {
   const [credentials, setCredentials] = useState<Credential[]>([]);
-  const [provider, setProvider] = useState("GOOGLE");
-  const [label, setLabel] = useState("Google manual token");
-  const [data, setData] = useState('{\n  "accessToken": ""\n}');
+  const [provider, setProvider] = useState<CredentialProvider>("GOOGLE");
+  const [label, setLabel] = useState(credentialPresets.GOOGLE.label);
+  const [data, setData] = useState(credentialPresets.GOOGLE.data);
   const [notice, setNotice] = useState("Load credentials to configure nodes without exposing values.");
 
   const load = async () => {
@@ -22,6 +52,14 @@ export function CredentialPanel({ workspaceId, onClose }: { workspaceId: string;
   };
 
   useEffect(() => { void load(); }, [workspaceId]);
+
+  const changeProvider = (nextProvider: CredentialProvider) => {
+    const preset = credentialPresets[nextProvider];
+    setProvider(nextProvider);
+    setLabel(preset.label);
+    setData(preset.data);
+    setNotice(`${nextProvider === "GOOGLE" ? "Google" : nextProvider === "STEAM" ? "Steam" : nextProvider === "GOOGLE_CHAT_WEBHOOK" ? "Google Chat" : "HTTP"} credential template loaded.`);
+  };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -39,11 +77,12 @@ export function CredentialPanel({ workspaceId, onClose }: { workspaceId: string;
     <section className="credential-panel" aria-label="Credential manager">
       <div className="credential-panel__heading"><div><p className="section-label">CREDENTIALS</p><h2>Secure connections</h2></div><button className="icon-button" type="button" aria-label="Close credential manager" onClick={onClose}>×</button></div>
       <p>Secrets are encrypted server-side and never shown again after save.</p>
-      <button className="ghost-button" type="button" onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google/connect`); }}>Connect Google with OAuth</button>
+      {provider === "GOOGLE" ? <button className="ghost-button credential-panel__oauth" type="button" onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google/connect`); }}>Connect Google with OAuth</button> : null}
       <form onSubmit={submit} className="credential-form">
-        <label><span>Provider</span><select value={provider} onChange={(event) => setProvider(event.target.value)}><option value="GOOGLE">Google Drive / Sheets</option><option value="STEAM">Steam</option><option value="GOOGLE_CHAT_WEBHOOK">Google Chat webhook</option><option value="HTTP">HTTP</option></select></label>
-        <label><span>Label</span><input value={label} onChange={(event) => setLabel(event.target.value)} /></label>
-        <label><span>Secret JSON</span><textarea value={data} onChange={(event) => setData(event.target.value)} rows={6} /></label>
+        <label><span>Provider</span><select aria-label="Provider" value={provider} onChange={(event) => changeProvider(event.target.value as CredentialProvider)}><option value="GOOGLE">Google Drive / Sheets</option><option value="STEAM">Steam</option><option value="GOOGLE_CHAT_WEBHOOK">Google Chat webhook</option><option value="HTTP">HTTP</option></select></label>
+        <p className="credential-form__hint" aria-live="polite">{credentialPresets[provider].hint}</p>
+        <label><span>Connection name</span><input aria-label="Connection name" value={label} onChange={(event) => setLabel(event.target.value)} /></label>
+        <label><span>Secret JSON</span><textarea aria-label="Secret JSON" value={data} onChange={(event) => setData(event.target.value)} rows={provider === "STEAM" ? 7 : 6} spellCheck={false} /></label>
         <button className="run-button" type="submit">Encrypt &amp; save</button>
       </form>
       <p className="credential-panel__notice">{notice}</p>

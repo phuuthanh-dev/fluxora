@@ -19,16 +19,15 @@ export function WorkflowNode({ data, selected }: NodeProps<WorkflowCanvasNode>) 
       <p>{data.description}</p>
       {!data.available && <span className="workflow-node__badge">Planned</span>}
       {outputKinds.map((kind, index) => (
-        <Handle
-          className="workflow-node__handle"
-          id={kind}
-          key={kind}
-          position={Position.Right}
-          style={{ top: `${((index + 1) / (outputKinds.length + 1)) * 100}%` }}
-          type="source"
-        >
+        <span key={kind} className="workflow-node__output" style={{ top: `${((index + 1) / (outputKinds.length + 1)) * 100}%` }}>
           <span className="workflow-node__handle-label">{kind}</span>
-        </Handle>
+          <Handle
+            className="workflow-node__handle"
+            id={kind}
+            position={Position.Right}
+            type="source"
+          />
+        </span>
       ))}
     </article>
   );
