@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Inject, Param, Post, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Controller, Get, Inject, Param, Post, Req, UseGuards } from "@nestjs/common";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
 import { ExecutionQueueService } from "../execution/execution-queue.service";
@@ -8,6 +8,11 @@ import { ExecutionService } from "../execution/execution.service";
 @UseGuards(AuthenticationGuard)
 export class ApprovalController {
   constructor(@Inject(ExecutionService) private readonly executions: ExecutionService, @Inject(ExecutionQueueService) private readonly queue: ExecutionQueueService) {}
+
+  @Get(":approvalId")
+  async get(@Param("approvalId") approvalId: string, @Req() request: AuthenticatedRequest) {
+    return { approval: await this.executions.getApproval(approvalId, userId(request)) };
+  }
 
   @Post(":approvalId/resolve")
   async resolve(@Param("approvalId") approvalId: string, @Req() request: AuthenticatedRequest) {

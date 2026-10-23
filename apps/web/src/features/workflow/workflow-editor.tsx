@@ -59,6 +59,7 @@ type ApiExecution = {
 
 type WorkflowVersionSummary = { id: string; version: number; status: "DRAFT" | "PUBLISHED"; createdAt: string; publishedAt: string | null; nodeCount: number };
 type WebhookEndpoint = { id: string; path: string; secretRequired: boolean; workflowVersionId: string; createdAt: string; updatedAt: string };
+type ApiApproval = { id: string; status: string; expiresAt: string; executionId: string; workflowId: string };
 
 function readConfigText(config: Record<string, unknown>, key: string) {
   const value = config[key];
@@ -367,6 +368,7 @@ export function WorkflowEditor() {
   const [paletteSearch, setPaletteSearch] = useState("");
   const [copiedNodeId, setCopiedNodeId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
+  const [approvalLinkId, setApprovalLinkId] = useState<string | null | undefined>(undefined);
   const nodes = useWorkflowEditorStore((state) => state.nodes);
   const edges = useWorkflowEditorStore((state) => state.edges);
   const selectedNodeId = useWorkflowEditorStore((state) => state.selectedNodeId);
@@ -388,6 +390,10 @@ export function WorkflowEditor() {
   const webhookTrigger = nodes.find((node) => node.data.nodeType === "trigger.webhook");
 
   useEffect(() => {
+    setApprovalLinkId(new URLSearchParams(window.location.search).get("approval"));
+  }, []);
+
+  useEffect(() => {
     if (!execution) return;
     let isCurrent = true;
     const refresh = async () => {
@@ -405,21 +411,37 @@ export function WorkflowEditor() {
   }, [execution?.id]);
 
   useEffect(() => {
+    if (approvalLinkId === undefined) return;
     let isCurrent = true;
     const load = async () => {
       try {
         await apiRequest<{ user: { id: string } }>("/auth/me");
-        const workspaceResponse = await apiRequest<{ workspaces: Array<{ id: string }> }>("/workspaces");
-        const workspace = workspaceResponse.workspaces[0];
-        if (!workspace) throw new Error("No workspace is available for this account.");
-        const workflowsResponse = await apiRequest<{ workflows: ApiWorkflow[] }>(`/workspaces/${workspace.id}/workflows`);
-        const loadedWorkflow = workflowsResponse.workflows[0] ?? (await apiRequest<{ workflow: ApiWorkflow }>(`/workspaces/${workspace.id}/workflows/from-template/steam-daily-report`, { method: "POST" })).workflow;
+        const linkedApproval = approvalLinkId ? (await apiRequest<{ approval: ApiApproval }>(`/approvals/${approvalLinkId}`)).approval : null;
+        let linkedExecution: ApiExecution | null = null;
+        let loadedWorkflow: ApiWorkflow;
+        if (linkedApproval) {
+          loadedWorkflow = (await apiRequest<{ workflow: ApiWorkflow }>(`/workflows/${linkedApproval.workflowId}`)).workflow;
+          linkedExecution = (await apiRequest<{ execution: ApiExecution }>(`/executions/${linkedApproval.executionId}`)).execution;
+        } else {
+          const workspaceResponse = await apiRequest<{ workspaces: Array<{ id: string }> }>("/workspaces");
+          const workspace = workspaceResponse.workspaces[0];
+          if (!workspace) throw new Error("No workspace is available for this account.");
+          const workflowsResponse = await apiRequest<{ workflows: ApiWorkflow[] }>(`/workspaces/${workspace.id}/workflows`);
+          loadedWorkflow = workflowsResponse.workflows[0] ?? (await apiRequest<{ workflow: ApiWorkflow }>(`/workspaces/${workspace.id}/workflows/from-template/steam-daily-report`, { method: "POST" })).workflow;
+        }
         const graph = loadedWorkflow.draft?.graph ?? loadedWorkflow.published?.graph;
         if (!graph) throw new Error("The workflow has no editable version.");
         if (!isCurrent) return;
         loadGraph(graphFromApi(graph));
         setWorkflow(loadedWorkflow);
-        setNotice("Draft loaded from your workspace.");
+        if (linkedExecution) {
+          setExecution(linkedExecution);
+          const waitingNode = linkedExecution.nodeExecutions.find((node) => node.status === "WAITING");
+          if (waitingNode) selectNode(waitingNode.nodeId);
+          setNotice(linkedApproval?.status === "PENDING" ? "Approval request loaded. Review and choose an action in the selected node." : `Approval is ${linkedApproval?.status.toLowerCase() ?? "no longer pending"}.`);
+        } else {
+          setNotice("Draft loaded from your workspace.");
+        }
       } catch (reason) {
         if (!isCurrent) return;
         const message = reason instanceof Error ? reason.message : "Unable to load this workspace.";
@@ -434,7 +456,7 @@ export function WorkflowEditor() {
     };
     void load();
     return () => { isCurrent = false; };
-  }, [loadGraph, router]);
+  }, [approvalLinkId, loadGraph, router, selectNode]);
 
   const addDefinition = (definition: NodeDefinition, position?: { x: number; y: number }) => {
     addNode(definition, position);

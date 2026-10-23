@@ -72,6 +72,21 @@ export class ExecutionService {
     };
   }
 
+  async getApproval(approvalId: string, userId: string) {
+    const approval = await this.prisma.approvalRequest.findFirst({
+      where: { id: approvalId, execution: { workflowVersion: { workflow: { workspace: { members: { some: { userId, role: "OWNER" } } } } } } },
+      include: { execution: { include: { workflowVersion: true } } },
+    });
+    if (!approval) throw new NotFoundException({ code: "APPROVAL_NOT_FOUND", message: "Approval request was not found." });
+    return {
+      id: approval.id,
+      status: approval.status,
+      expiresAt: approval.expiresAt,
+      executionId: approval.executionId,
+      workflowId: approval.execution.workflowVersion.workflowId,
+    };
+  }
+
   async cancel(executionId: string, userId: string) {
     const execution = await this.prisma.execution.findFirst({
       where: { id: executionId, workflowVersion: { workflow: { workspace: { members: { some: { userId, role: "OWNER" } } } } } },
