@@ -47,6 +47,7 @@ import { WorkflowNode } from "./workflow-node";
 import { graphForApi, graphFromApi, type ApiWorkflow } from "./workflow-api";
 import { CredentialPanel } from "../credentials/credential-panel";
 import { buildExpressionSuggestions } from "./expression-suggestions";
+import { manualTriggerTestData } from "./test-data";
 
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNode };
 
@@ -130,6 +131,23 @@ function JsonConfigEditor({ config, onApply }: { config: Record<string, unknown>
   return <section className="json-config-editor"><div className="section-label">JSON CONFIGURATION</div><textarea value={text} onChange={(event) => setText(event.target.value)} rows={7} aria-label="Node JSON configuration" /><button className="ghost-button" type="button" onClick={apply}>Apply JSON</button>{error && <p role="alert">{error}</p>}</section>;
 }
 
+function TestDataEditor({ value, onApply }: { value: unknown; onApply: (value: Record<string, unknown>) => void }) {
+  const [text, setText] = useState(() => JSON.stringify(value ?? {}, null, 2));
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => { setText(JSON.stringify(value ?? {}, null, 2)); }, [value]);
+  const apply = () => {
+    try {
+      const parsed: unknown = JSON.parse(text);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Test data must be a JSON object.");
+      onApply(parsed as Record<string, unknown>);
+      setError(null);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Test data is not valid JSON.");
+    }
+  };
+  return <section className="json-config-editor"><div className="section-label">TEST DATA FOR MOCK RUN</div><textarea value={text} onChange={(event) => setText(event.target.value)} rows={6} aria-label="Manual trigger test data" /><button className="ghost-button" type="button" onClick={apply}>Apply test data</button>{error && <p role="alert">{error}</p>}</section>;
+}
+
 function ExpressionSuggestions({ suggestions }: { suggestions: string[] }) {
   const [notice, setNotice] = useState("");
   if (!suggestions.length) return null;
@@ -179,6 +197,7 @@ function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowC
         value={node.data.label}
         onChange={(label) => updateNodeData(node.id, { label })}
       />
+      {node.data.nodeType === "trigger.manual" && <TestDataEditor value={node.data.config.testData} onApply={(testData) => updateConfig("testData", testData)} />}
       {node.data.nodeType === "trigger.cron" && (
         <>
           <ConfigField label="Cron expression" value={readConfigText(node.data.config, "expression")} onChange={(value) => updateConfig("expression", value)} />
@@ -499,7 +518,7 @@ export function WorkflowEditor() {
     try {
       const response = await apiRequest<{ execution: ApiExecution }>(`/workflows/${workflow.id}/executions`, {
         method: "POST",
-        body: JSON.stringify({ mock: true }),
+        body: JSON.stringify({ mock: true, triggerData: manualTriggerTestData(nodes) }),
       });
       setExecution(response.execution);
       setNotice(`Mock execution ${response.execution.status.toLowerCase()} — select a node to inspect its output.`);

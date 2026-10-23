@@ -56,7 +56,7 @@ export const nodeCatalog: NodeDefinition[] = [
     category: "trigger",
     icon: "▶",
     available: true,
-    defaultConfig: {},
+    defaultConfig: { testData: {} },
   },
   {
     type: "trigger.cron",
