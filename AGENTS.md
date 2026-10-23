@@ -10,7 +10,8 @@ Before planning, coding, reviewing, or changing dependencies, read these files i
 2. `docs/02-architecture.md`
 3. `docs/03-development-rules.md`
 4. `docs/04-roadmap.md`
-5. This file
+5. `docs/05-implementation-plan.md`
+6. This file
 
 If a request conflicts with the specification, call out the conflict and propose an explicit spec update before implementing a materially different behavior.
 
@@ -38,4 +39,5 @@ If a request conflicts with the specification, call out the conflict and propose
 - Technical boundaries: `docs/02-architecture.md`
 - Code style and quality gates: `docs/03-development-rules.md`
 - Scope sequencing: `docs/04-roadmap.md`
+- Current delivery sequence: `docs/05-implementation-plan.md`
 - User-facing setup: `README.md`

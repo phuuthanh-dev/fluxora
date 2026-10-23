@@ -1,0 +1,216 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MembershipRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+enum WorkflowVersionStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum CredentialProvider {
+  STEAM
+  GOOGLE
+  GOOGLE_CHAT_WEBHOOK
+  HTTP
+}
+
+enum ExecutionStatus {
+  QUEUED
+  RUNNING
+  WAITING_APPROVAL
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum NodeExecutionStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  SKIPPED
+  WAITING
+}
+
+model User {
+  id              String            @id @default(uuid())
+  email           String            @unique
+  passwordHash    String
+  displayName     String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
+  memberships     WorkspaceMember[]
+  sessions        Session[]
+  auditLogs       AuditLog[]
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Workspace {
+  id          String            @id @default(uuid())
+  name        String
+  slug        String            @unique
+  ownerId     String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  owner       User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  members     WorkspaceMember[]
+  workflows   Workflow[]
+  credentials Credential[]
+  auditLogs   AuditLog[]
+}
+
+model WorkspaceMember {
+  id          String         @id @default(uuid())
+  workspaceId String
+  userId      String
+  role        MembershipRole @default(OWNER)
+  createdAt   DateTime       @default(now())
+  workspace   Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+}
+
+model Workflow {
+  id                 String            @id @default(uuid())
+  workspaceId        String
+  name               String
+  description        String?
+  draftVersionId     String?
+  publishedVersionId String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  workspace          Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  versions           WorkflowVersion[]
+  webhookEndpoints   WebhookEndpoint[]
+
+  @@index([workspaceId, updatedAt])
+}
+
+model WorkflowVersion {
+  id          String                @id @default(uuid())
+  workflowId  String
+  version     Int
+  status      WorkflowVersionStatus @default(DRAFT)
+  graph       Json
+  createdAt   DateTime              @default(now())
+  publishedAt DateTime?
+  workflow    Workflow              @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  executions  Execution[]
+
+  @@unique([workflowId, version])
+  @@index([workflowId, status])
+}
+
+model Credential {
+  id            String             @id @default(uuid())
+  workspaceId   String
+  provider      CredentialProvider
+  label         String
+  encryptedData String
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  workspace     Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, provider, label])
+  @@index([workspaceId, provider])
+}
+
+model Execution {
+  id                String          @id @default(uuid())
+  workflowVersionId String
+  status            ExecutionStatus @default(QUEUED)
+  triggerData       Json?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime        @default(now())
+  workflowVersion   WorkflowVersion @relation(fields: [workflowVersionId], references: [id], onDelete: Restrict)
+  nodeExecutions    NodeExecution[]
+  approvalRequests  ApprovalRequest[]
+
+  @@index([workflowVersionId, createdAt])
+  @@index([status, createdAt])
+}
+
+model NodeExecution {
+  id           String              @id @default(uuid())
+  executionId  String
+  nodeId       String
+  status       NodeExecutionStatus @default(PENDING)
+  attempt      Int                 @default(0)
+  input        Json?
+  output       Json?
+  errorCode    String?
+  errorMessage String?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  execution    Execution           @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@unique([executionId, nodeId])
+  @@index([executionId, status])
+}
+
+model ApprovalRequest {
+  id          String    @id @default(uuid())
+  executionId String
+  tokenHash   String    @unique
+  status      String    @default("PENDING")
+  expiresAt   DateTime
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  execution   Execution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([executionId, status])
+}
+
+model WebhookEndpoint {
+  id           String   @id @default(uuid())
+  workflowId   String
+  path         String   @unique
+  secretHash   String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  workflow     Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id          String    @id @default(uuid())
+  workspaceId String?
+  actorId     String?
+  action      String
+  targetType  String
+  targetId    String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  actor       User?     @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([actorId, createdAt])
+}
