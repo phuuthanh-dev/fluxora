@@ -146,7 +146,7 @@ export const nodeCatalog: NodeDefinition[] = [
     category: "approval",
     icon: "✓",
     available: true,
-    defaultConfig: { message: "", expiresInHours: 24, notificationCredentialId: "" },
+    defaultConfig: { message: "", expiresInHours: 24, notificationProvider: "google_chat", notificationCredentialId: "" },
   },
   {
     type: "action.email",

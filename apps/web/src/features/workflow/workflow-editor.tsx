@@ -377,7 +377,8 @@ function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowC
       )}
       {node.data.nodeType === "approval.request" && <>
         <ConfigField label="Approval message" value={readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("message", value)} multiline />
-        <ConfigField label="Google Chat notification credential (optional)" value={readConfigText(node.data.config, "notificationCredentialId")} onChange={(value) => updateConfig("notificationCredentialId", value)} />
+        <ConfigField label="Notification provider (google_chat or http_webhook)" value={readConfigText(node.data.config, "notificationProvider")} onChange={(value) => updateConfig("notificationProvider", value)} />
+        <ConfigField label="Notification credential (optional)" value={readConfigText(node.data.config, "notificationCredentialId")} onChange={(value) => updateConfig("notificationCredentialId", value)} />
       </>}
       {node.data.nodeType === "action.email" && <>
         <ConfigField label="To" value={readConfigText(node.data.config, "to")} onChange={(value) => updateConfig("to", value)} />

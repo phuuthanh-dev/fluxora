@@ -254,11 +254,18 @@ export class ExecutionService {
     if (!credentialId) return "not_configured";
     if (mode === "mock") return "mock_not_sent";
     try {
-      const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.GOOGLE_CHAT_WEBHOOK);
-      const webhookUrl = readCredentialValue(credential, "webhookUrl");
       const link = `${process.env.WEB_ORIGIN ?? "http://localhost:3000"}/editor?approval=${encodeURIComponent(approvalId)}`;
       const message = `${String(output.message ?? "Approval requested")}\n\nReview: ${link}`;
-      const response = await fetch(webhookUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: message }), signal: AbortSignal.timeout(15_000) });
+      const provider = output.notificationProvider === "http_webhook" ? CredentialProvider.HTTP : CredentialProvider.GOOGLE_CHAT_WEBHOOK;
+      const credential = await this.credentials.readForExecution(credentialId, workspaceId, provider);
+      const webhookUrl = readCredentialValue(credential, "webhookUrl");
+      const request = provider === CredentialProvider.HTTP
+        ? applyHttpCredential(webhookUrl, { "Content-Type": "application/json" }, credential)
+        : { url: webhookUrl, headers: { "Content-Type": "application/json" } };
+      const body = provider === CredentialProvider.HTTP
+        ? { type: "workflow.approval.requested", message: String(output.message ?? "Approval requested"), approvalUrl: link }
+        : { text: message };
+      const response = await fetch(request.url, { method: "POST", headers: request.headers, body: JSON.stringify(body), signal: AbortSignal.timeout(15_000) });
       return response.ok ? "sent" : "failed";
     } catch {
       return "failed";
@@ -293,7 +300,7 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
     const matched = cases.find((item) => item && typeof item === "object" && (item as Record<string, unknown>).value === value) as Record<string, unknown> | undefined;
     return { status: "succeeded", output: { value, matched: matched?.value ?? null }, route: matched ? "case" : "default" };
   }
-  if (node.type === "approval.request") return { status: "waiting", output: { message: String(config.message ?? "Approval requested"), expiresInHours: typeof config.expiresInHours === "number" ? config.expiresInHours : 24, notificationCredentialId: typeof config.notificationCredentialId === "string" ? config.notificationCredentialId : "" } };
+  if (node.type === "approval.request") return { status: "waiting", output: { message: String(config.message ?? "Approval requested"), expiresInHours: typeof config.expiresInHours === "number" ? config.expiresInHours : 24, notificationProvider: config.notificationProvider === "http_webhook" ? "http_webhook" : "google_chat", notificationCredentialId: typeof config.notificationCredentialId === "string" ? config.notificationCredentialId : "" } };
   if (node.type === "action.steam.account-snapshot") {
     if (mode === "live") {
       const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.STEAM);
