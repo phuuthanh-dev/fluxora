@@ -79,7 +79,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 
 ### Completed foundation
 
-- Published workflows can create a webhook endpoint pinned to that immutable version.
+- Published workflows can create or rotate a webhook endpoint from the editor, pin it to that immutable version, and display its POST URL plus a one-time secret.
 - Optional webhook secrets are SHA-256 hashed and compared in constant time; the raw secret is returned only while the owner creates or rotates the endpoint.
 - Approval nodes persist an expiring approval request, pause the pinned execution, optionally send a Google Chat notification with an authenticated app link on live runs, and allow an owner to approve/resume or reject from the node inspector.
 - Google OAuth connection endpoints use a signed, short-lived state; they persist an encrypted Google credential after callback and refresh an expiring OAuth access token server-side. Drive list/search/text upload/download and Sheets read/append/update have live REST adapters.

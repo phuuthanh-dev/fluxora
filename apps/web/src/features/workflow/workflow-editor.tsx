@@ -58,6 +58,7 @@ type ApiExecution = {
 };
 
 type WorkflowVersionSummary = { id: string; version: number; status: "DRAFT" | "PUBLISHED"; createdAt: string; publishedAt: string | null; nodeCount: number };
+type WebhookEndpoint = { id: string; path: string; secretRequired: boolean; workflowVersionId: string; createdAt: string; updatedAt: string };
 
 function readConfigText(config: Record<string, unknown>, key: string) {
   const value = config[key];
@@ -182,6 +183,43 @@ function GraphValidationPanel({ issues, onClose }: { issues: ReturnType<typeof v
   );
 }
 
+function WebhookEndpointPanel({ workflow, config, onClose }: { workflow: ApiWorkflow; config: Record<string, unknown>; onClose: () => void }) {
+  const [path, setPath] = useState(readConfigText(config, "path"));
+  const [secretRequired, setSecretRequired] = useState(config.secretRequired !== false);
+  const [endpoint, setEndpoint] = useState<WebhookEndpoint | null>(null);
+  const [createdSecret, setCreatedSecret] = useState<string | null>(null);
+  const [notice, setNotice] = useState("Loading endpoint status…");
+  const [isSaving, setIsSaving] = useState(false);
+  const endpointUrl = `${apiUrl}/webhooks/${endpoint?.path ?? path}`;
+
+  useEffect(() => {
+    let isCurrent = true;
+    void apiRequest<{ endpoint: WebhookEndpoint | null }>(`/workflows/${workflow.id}/webhook-endpoint`)
+      .then((response) => { if (isCurrent) { setEndpoint(response.endpoint); setNotice(response.endpoint ? "An active endpoint is pinned to the published version." : "No endpoint has been created yet."); } })
+      .catch((reason) => { if (isCurrent) setNotice(reason instanceof Error ? reason.message : "Unable to load webhook status."); });
+    return () => { isCurrent = false; };
+  }, [workflow.id]);
+
+  const createEndpoint = async () => {
+    setIsSaving(true);
+    try {
+      const response = await apiRequest<{ endpoint: { id: string; path: string; secret: string | null } }>(`/workflows/${workflow.id}/webhook-endpoint`, {
+        method: "POST",
+        body: JSON.stringify({ path, secretRequired }),
+      });
+      setEndpoint({ id: response.endpoint.id, path: response.endpoint.path, secretRequired: response.endpoint.secret !== null, workflowVersionId: workflow.published?.id ?? "", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+      setCreatedSecret(response.endpoint.secret);
+      setNotice(response.endpoint.secret ? "Endpoint created. Copy the secret now; it will not be shown again." : "Endpoint created without a secret header.");
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "Unable to create the webhook endpoint.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return <section className="webhook-endpoint-panel" role="dialog" aria-modal="false" aria-label="Webhook endpoint"><div className="credential-panel__heading"><div><p className="section-label">INBOUND WEBHOOK</p><h2>Webhook endpoint</h2></div><button className="icon-button" type="button" aria-label="Close webhook endpoint" onClick={onClose}>×</button></div><p>Endpoints are pinned to a published workflow version. Publishing again does not change an existing endpoint until you rotate it here.</p><ConfigField label="Public path" value={path} onChange={setPath} /><label className="checkbox-field"><input type="checkbox" checked={secretRequired} onChange={(event) => setSecretRequired(event.target.checked)} /> Require <code>x-workflow-secret</code> header</label><div className="webhook-endpoint-panel__url"><span>POST URL</span><code>{endpointUrl}</code></div>{createdSecret && <div className="webhook-endpoint-panel__secret"><strong>Copy this secret now</strong><code>{createdSecret}</code><small>It is displayed only after this creation or rotation.</small></div>}<p className="webhook-endpoint-panel__notice">{notice}</p><button className="run-button" type="button" onClick={() => void createEndpoint()} disabled={!workflow.published || isSaving || !path.trim()}>{isSaving ? "Creating…" : endpoint ? "Rotate endpoint secret" : "Create endpoint"}</button>{!workflow.published && <small className="webhook-endpoint-panel__warning">Publish a version containing this Webhook trigger before creating its endpoint.</small>}</section>;
+}
+
 function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null; onResolveApproval: (approvalId: string, decision: "approved" | "rejected") => void }) {
   const updateNodeData = useWorkflowEditorStore((state) => state.updateNodeData);
 
@@ -222,6 +260,12 @@ function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowC
         <>
           <ConfigField label="Cron expression" value={readConfigText(node.data.config, "expression")} onChange={(value) => updateConfig("expression", value)} />
           <ConfigField label="Timezone" value={readConfigText(node.data.config, "timezone")} onChange={(value) => updateConfig("timezone", value)} />
+        </>
+      )}
+      {node.data.nodeType === "trigger.webhook" && (
+        <>
+          <ConfigField label="Public path" value={readConfigText(node.data.config, "path")} onChange={(value) => updateConfig("path", value)} />
+          <label className="checkbox-field"><input type="checkbox" checked={node.data.config.secretRequired !== false} onChange={(event) => updateConfig("secretRequired", event.target.checked)} /> Require <code>x-workflow-secret</code> header</label>
         </>
       )}
       {node.data.nodeType === "action.steam.account-snapshot" && (
@@ -316,6 +360,7 @@ export function WorkflowEditor() {
   const [isSaving, setIsSaving] = useState(false);
   const [credentialsOpen, setCredentialsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [webhookOpen, setWebhookOpen] = useState(false);
   const [versions, setVersions] = useState<WorkflowVersionSummary[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [validationOpen, setValidationOpen] = useState(false);
@@ -340,6 +385,7 @@ export function WorkflowEditor() {
   const loadGraph = useWorkflowEditorStore((state) => state.loadGraph);
   const issues = useMemo(() => validateWorkflowGraph(nodes, edges), [nodes, edges]);
   const selectedNode = nodes.find((node) => node.id === selectedNodeId);
+  const webhookTrigger = nodes.find((node) => node.data.nodeType === "trigger.webhook");
 
   useEffect(() => {
     if (!execution) return;
@@ -599,6 +645,7 @@ export function WorkflowEditor() {
           <button className="ghost-button" type="button" onClick={pasteNode} disabled={!copiedNodeId}>Paste node</button>
           <button className="ghost-button" type="button" onClick={() => void cloneWorkflow()} disabled={!workflow}>Clone</button>
           <button className="ghost-button" type="button" onClick={() => void openHistory()} disabled={!workflow}><History size={16} /> History</button>
+          {webhookTrigger && <button className="ghost-button" type="button" onClick={() => setWebhookOpen(true)} disabled={!workflow}>Webhook</button>}
           <button className="ghost-button" type="button" onClick={() => setCredentialsOpen(true)} disabled={!workflow}><KeyRound size={16} /> Credentials</button>
           <input ref={inputRef} className="visually-hidden" type="file" accept="application/json" onChange={importGraph} />
           <button className="save-button" type="button" onClick={() => void saveDraft()} disabled={!workflow || isSaving}><Save size={16} /> {isSaving ? "Saving…" : "Save draft"}</button>
@@ -679,6 +726,7 @@ export function WorkflowEditor() {
       </div>}
       {historyOpen && <WorkflowHistoryPanel versions={versions} loading={versionsLoading} onClose={() => setHistoryOpen(false)} />}
       {validationOpen && <GraphValidationPanel issues={issues} onClose={() => setValidationOpen(false)} />}
+      {webhookOpen && workflow && webhookTrigger && <WebhookEndpointPanel workflow={workflow} config={webhookTrigger.data.config} onClose={() => setWebhookOpen(false)} />}
       {credentialsOpen && workflow && <CredentialPanel workspaceId={workflow.workspaceId} onClose={() => setCredentialsOpen(false)} />}
     </main>
   );

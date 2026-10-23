@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Headers, Inject, Param, Post, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Controller, Get, Headers, Inject, Param, Post, Req, UseGuards } from "@nestjs/common";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
 import { WebhookService } from "./webhook.service";
@@ -6,6 +6,12 @@ import { WebhookService } from "./webhook.service";
 @Controller()
 export class WebhookController {
   constructor(@Inject(WebhookService) private readonly webhooks: WebhookService) {}
+
+  @Get("workflows/:workflowId/webhook-endpoint")
+  @UseGuards(AuthenticationGuard)
+  async get(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return { endpoint: await this.webhooks.getEndpoint(workflowId, userId(request)) };
+  }
 
   @Post("workflows/:workflowId/webhook-endpoint")
   @UseGuards(AuthenticationGuard)
