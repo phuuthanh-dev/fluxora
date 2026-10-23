@@ -137,7 +137,7 @@ export const nodeCatalog: NodeDefinition[] = [
     category: "action",
     icon: "↗",
     available: true,
-    defaultConfig: { method: "GET", url: "", headers: {}, body: {} },
+    defaultConfig: { credentialId: "", method: "GET", url: "", headers: {}, body: "", timeoutMs: 15_000 },
   },
   {
     type: "approval.request",

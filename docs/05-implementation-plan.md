@@ -42,6 +42,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 - Expressions support safe property paths and numeric array indexes; the inspector offers structured fields, JSON configuration, and click-to-copy output-path suggestions.
 - Redaction executes before execution input/output persistence.
 - If/Else, Switch, error edges, retry classification, timeout-aware HTTP execution, and mock Steam/Google Chat actions exist in the runner.
+- Live HTTP Request supports optional encrypted Bearer, API-key, Basic Auth, or custom-header credentials; request body, headers, and timeout are configured without leaking credential values into the graph.
 - The editor can launch a mock run, receive server-sent execution updates, and inspect selected-node input/output as JSON tree, table, or raw JSON.
 
 1. Add Redis and BullMQ configuration plus a separate worker process. **Implemented; Redis environment validation remains.**

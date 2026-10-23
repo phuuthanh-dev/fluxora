@@ -5,6 +5,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { CredentialService } from "../credentials/credential.service";
 import { PrismaService } from "../database/prisma.service";
 import { ExecutionEventsService } from "./execution-events.service";
+import { applyHttpCredential, HttpCredentialError } from "./http-credential";
 import { resolveExpressions } from "./expression";
 import { redactValue } from "./redaction";
 import { isRetryableFailure, retryDelayMs } from "./retry-policy";
@@ -259,27 +260,58 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
     return { status: "succeeded", output: await executeGoogleSheets(credential, config), route: "success" };
   }
   if (node.type === "action.http-request") {
-    if (mode === "mock") return { status: "succeeded", output: { status: 200, body: { mocked: true, url: config.url ?? "" } }, route: "success" };
-    return executeHttpRequest(config);
+    if (mode === "mock") return { status: "succeeded", output: { status: 200, body: { mocked: true, url: config.url ?? "", method: config.method ?? "GET" } }, route: "success" };
+    const credential = typeof config.credentialId === "string" && config.credentialId ? await credentials.readForExecution(config.credentialId, workspaceId, CredentialProvider.HTTP) : undefined;
+    return executeHttpRequest(config, credential);
   }
   throw new NodeFailure("NODE_UNAVAILABLE", `${node.type} is not available in this MVP execution engine.`, false);
 }
 
-async function executeHttpRequest(config: Record<string, unknown>): Promise<NodeResult> {
-  const url = typeof config.url === "string" ? config.url : "";
+async function executeHttpRequest(config: Record<string, unknown>, credential?: Record<string, unknown>): Promise<NodeResult> {
+  let url = typeof config.url === "string" ? config.url : "";
   if (!/^https?:\/\//.test(url)) throw new NodeFailure("INVALID_CONFIGURATION", "HTTP request requires an http(s) URL.", false);
   const timeoutMs = typeof config.timeoutMs === "number" && config.timeoutMs > 0 ? Math.min(config.timeoutMs, 60_000) : 15_000;
+  const method = typeof config.method === "string" ? config.method.toUpperCase() : "GET";
+  const headers = readHttpHeaders(config.headers);
+  if (credential) {
+    try {
+      const authenticated = applyHttpCredential(url, headers, credential);
+      url = authenticated.url;
+      Object.assign(headers, authenticated.headers);
+    } catch (reason) {
+      throw new NodeFailure("CREDENTIAL_INVALID", reason instanceof HttpCredentialError ? reason.message : "HTTP credential could not be used.", false);
+    }
+  }
+  const body = method === "GET" || method === "HEAD" ? undefined : requestBody(config.body, headers);
   try {
-    const response = await fetch(url, { method: typeof config.method === "string" ? config.method : "GET", signal: AbortSignal.timeout(timeoutMs) });
+    const response = await fetch(url, { method, headers, body, signal: AbortSignal.timeout(timeoutMs) });
     const raw = await response.text();
-    const body: unknown = tryJson(raw);
+    const responseBody: unknown = tryJson(raw);
     if (!response.ok) throw new NodeFailure("HTTP_ERROR", `HTTP request returned ${response.status}.`, response.status === 429 || response.status >= 500, response.status);
-    return { status: "succeeded", output: { status: response.status, body }, route: "success" };
+    return { status: "succeeded", output: { status: response.status, body: responseBody }, route: "success" };
   } catch (reason) {
     if (reason instanceof NodeFailure) throw reason;
     const timeout = reason instanceof Error && reason.name === "TimeoutError";
     throw new NodeFailure(timeout ? "TIMEOUT" : "NETWORK_ERROR", timeout ? "HTTP request timed out." : "HTTP request failed.", true);
   }
+}
+
+function readHttpHeaders(value: unknown) {
+  if (value === undefined) return {} as Record<string, string>;
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new NodeFailure("INVALID_CONFIGURATION", "HTTP headers must be a JSON object.", false);
+  const headers: Record<string, string> = {};
+  for (const [name, headerValue] of Object.entries(value)) {
+    if (typeof headerValue !== "string") throw new NodeFailure("INVALID_CONFIGURATION", "HTTP header values must be strings.", false);
+    headers[name] = headerValue;
+  }
+  return headers;
+}
+
+function requestBody(value: unknown, headers: Record<string, string>) {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value === "string") return value;
+  if (!Object.keys(headers).some((name) => name.toLowerCase() === "content-type")) headers["Content-Type"] = "application/json";
+  return JSON.stringify(value);
 }
 
 function compare(left: unknown, operator: string, right: unknown) {
