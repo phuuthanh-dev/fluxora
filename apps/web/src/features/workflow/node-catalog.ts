@@ -146,7 +146,7 @@ export const nodeCatalog: NodeDefinition[] = [
     category: "approval",
     icon: "✓",
     available: true,
-    defaultConfig: { message: "", expiresInHours: 24 },
+    defaultConfig: { message: "", expiresInHours: 24, notificationCredentialId: "" },
   },
   {
     type: "action.email",

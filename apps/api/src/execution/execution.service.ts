@@ -108,9 +108,10 @@ export class ExecutionService {
             expiresAt: new Date(Date.now() + approvalExpiryMs(result.output)),
           },
         });
+        const notificationStatus = await this.notifyApproval(execution.workflowVersion.workflow.workspaceId, approval.id, result.output, mode);
         await this.prisma.nodeExecution.update({
           where: { executionId_nodeId: { executionId, nodeId: node.id } },
-          data: { output: { ...result.output, approvalRequestId: approval.id } as Prisma.InputJsonValue },
+          data: { output: { ...result.output, approvalRequestId: approval.id, notificationStatus } as Prisma.InputJsonValue },
         });
         await this.markUnvisitedSkipped(executionId, graph, visited);
         const waiting = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.WAITING_APPROVAL } });
@@ -208,6 +209,22 @@ export class ExecutionService {
     return { status: "failed", output: {}, error: new NodeFailure("RETRY_EXHAUSTED", "Retry attempts were exhausted.", false) };
   }
 
+  private async notifyApproval(workspaceId: string, approvalId: string, output: Record<string, unknown>, mode: RunMode) {
+    const credentialId = typeof output.notificationCredentialId === "string" ? output.notificationCredentialId : "";
+    if (!credentialId) return "not_configured";
+    if (mode === "mock") return "mock_not_sent";
+    try {
+      const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.GOOGLE_CHAT_WEBHOOK);
+      const webhookUrl = readCredentialValue(credential, "webhookUrl");
+      const link = `${process.env.WEB_ORIGIN ?? "http://localhost:3000"}/editor?approval=${encodeURIComponent(approvalId)}`;
+      const message = `${String(output.message ?? "Approval requested")}\n\nReview: ${link}`;
+      const response = await fetch(webhookUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: message }), signal: AbortSignal.timeout(15_000) });
+      return response.ok ? "sent" : "failed";
+    } catch {
+      return "failed";
+    }
+  }
+
   private targets(graph: WorkflowGraph, edges: WorkflowEdge[]) {
     return edges.map((edge) => graph.nodes.find((node) => node.id === edge.target)).filter((node): node is WorkflowNode => node !== undefined);
   }
@@ -231,7 +248,7 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
     const matched = cases.find((item) => item && typeof item === "object" && (item as Record<string, unknown>).value === value) as Record<string, unknown> | undefined;
     return { status: "succeeded", output: { value, matched: matched?.value ?? null }, route: matched ? "case" : "default" };
   }
-  if (node.type === "approval.request") return { status: "waiting", output: { message: String(config.message ?? "Approval requested"), expiresInHours: typeof config.expiresInHours === "number" ? config.expiresInHours : 24 } };
+  if (node.type === "approval.request") return { status: "waiting", output: { message: String(config.message ?? "Approval requested"), expiresInHours: typeof config.expiresInHours === "number" ? config.expiresInHours : 24, notificationCredentialId: typeof config.notificationCredentialId === "string" ? config.notificationCredentialId : "" } };
   if (node.type === "action.steam.account-snapshot") {
     if (mode === "live") {
       const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.STEAM);

@@ -224,7 +224,10 @@ function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowC
           <ConfigField label="Timeout (ms)" value={readConfigText(node.data.config, "timeoutMs")} onChange={(value) => updateConfig("timeoutMs", Number(value) || 15_000)} />
         </>
       )}
-      {node.data.nodeType === "approval.request" && <ConfigField label="Approval message" value={readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("message", value)} multiline />}
+      {node.data.nodeType === "approval.request" && <>
+        <ConfigField label="Approval message" value={readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("message", value)} multiline />
+        <ConfigField label="Google Chat notification credential (optional)" value={readConfigText(node.data.config, "notificationCredentialId")} onChange={(value) => updateConfig("notificationCredentialId", value)} />
+      </>}
       {definition && !definition.available && <p className="planned-note">This node is visible for roadmap clarity, but cannot run in the MVP.</p>}
       <JsonConfigEditor config={node.data.config} onApply={(config) => updateNodeData(node.id, { config })} />
       <ExpressionSuggestions suggestions={suggestions} />
