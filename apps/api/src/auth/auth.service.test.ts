@@ -93,3 +93,21 @@ test("password login rejects a passwordless identity account", async () => {
     UnauthorizedException,
   );
 });
+
+test("Steam identity links only to the current signed-in user", async () => {
+  const auditActions: string[] = [];
+  const transaction = {
+    authIdentity: {
+      findUnique: async () => null,
+      create: async () => ({ id: "steam-identity-1", provider: AuthIdentityProvider.STEAM, providerAccountId: "76561198000000000", updatedAt: new Date("2026-10-24T00:00:00.000Z") }),
+    },
+    auditLog: { create: async ({ data }: { data: { action: string } }) => { auditActions.push(data.action); } },
+  };
+  const prisma = { $transaction: async <T>(callback: (client: typeof transaction) => Promise<T>) => callback(transaction) } as unknown as PrismaService;
+
+  const result = await new AuthService(prisma).linkIdentity("owner-1", AuthIdentityProvider.STEAM, "76561198000000000");
+
+  assert.equal(result.provider, AuthIdentityProvider.STEAM);
+  assert.equal(result.providerAccountId, "76561198000000000");
+  assert.deepEqual(auditActions, ["auth.identity_linked"]);
+});

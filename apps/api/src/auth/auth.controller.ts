@@ -1,14 +1,19 @@
-import { BadRequestException, Controller, Get, HttpCode, Inject, Post, Query, Req, Res } from "@nestjs/common";
+import { BadRequestException, Controller, Get, HttpCode, Inject, Post, Query, Req, Res, UnauthorizedException, UseGuards } from "@nestjs/common";
 import { AuthIdentityProvider } from "@prisma/client";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { Request, Response } from "express";
 import { AuthService } from "./auth.service";
+import { AuthenticationGuard } from "./authentication.guard";
+import type { AuthenticatedRequest } from "./authenticated-request";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
+import { createSteamOpenIdUrl, verifySteamOpenIdCallback } from "./steam-openid";
 
 const SESSION_COOKIE = "workflow_session";
 const GOOGLE_STATE_COOKIE = "workflow_google_auth_state";
 const GOOGLE_STATE_DURATION_MS = 1000 * 60 * 10;
+const STEAM_STATE_COOKIE = "workflow_steam_link_state";
+const STEAM_STATE_DURATION_MS = 1000 * 60 * 10;
 
 @Controller("auth")
 export class AuthController {
@@ -36,7 +41,10 @@ export class AuthController {
 
   @Get("providers")
   providers() {
-    return { google: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_AUTH_REDIRECT_URI) };
+    return {
+      google: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_AUTH_REDIRECT_URI),
+      steam: Boolean(process.env.STEAM_OPENID_RETURN_URI && process.env.STEAM_OPENID_REALM),
+    };
   }
 
   @Get("google/start")
@@ -87,6 +95,37 @@ export class AuthController {
       if (reason instanceof BadRequestException) throw reason;
       throw new BadRequestException({ code: "GOOGLE_AUTH_FAILED", message: "Google sign-in could not be completed. Please try again." });
     }
+  }
+
+  @Get("identities")
+  @UseGuards(AuthenticationGuard)
+  async identities(@Req() request: AuthenticatedRequest) {
+    return { identities: await this.authService.listIdentities(requireUserId(request)) };
+  }
+
+  @Get("steam/connect")
+  @UseGuards(AuthenticationGuard)
+  connectSteam(@Req() request: AuthenticatedRequest, @Res() response: Response) {
+    requireUserId(request);
+    const state = randomBytes(32).toString("base64url");
+    response.cookie(STEAM_STATE_COOKIE, state, { httpOnly: true, maxAge: STEAM_STATE_DURATION_MS, sameSite: "lax", secure: isProduction() });
+    const config = steamOpenIdConfig();
+    return response.redirect(createSteamOpenIdUrl({ ...config, state }));
+  }
+
+  @Get("steam/callback")
+  @UseGuards(AuthenticationGuard)
+  async completeSteamConnection(@Query() query: Record<string, unknown>, @Req() request: AuthenticatedRequest, @Res() response: Response) {
+    const clearState = () => response.clearCookie(STEAM_STATE_COOKIE, { httpOnly: true, sameSite: "lax", secure: isProduction() });
+    const userId = requireUserId(request);
+    if (typeof query.state !== "string" || !safeEqual(query.state, readCookie(request, STEAM_STATE_COOKIE))) {
+      clearState();
+      throw new BadRequestException({ code: "STEAM_OPENID_INVALID", message: "Steam identity state is invalid or expired." });
+    }
+    const verified = await verifySteamOpenIdCallback(query);
+    await this.authService.linkIdentity(userId, AuthIdentityProvider.STEAM, verified.steamId);
+    clearState();
+    return response.redirect(webRedirect("/dashboard", "identity", "steam"));
   }
 
   @Post("logout")
@@ -141,6 +180,18 @@ function webRedirect(path: string, key: string, value: string) {
 
 function isProduction() {
   return process.env.NODE_ENV === "production";
+}
+
+function steamOpenIdConfig() {
+  const returnUri = process.env.STEAM_OPENID_RETURN_URI;
+  const realm = process.env.STEAM_OPENID_REALM;
+  if (!returnUri || !realm) throw new BadRequestException({ code: "STEAM_OPENID_NOT_CONFIGURED", message: "Steam identity linking is not configured yet." });
+  return { returnUri, realm };
+}
+
+function requireUserId(request: AuthenticatedRequest) {
+  if (!request.currentUser) throw new UnauthorizedException({ code: "UNAUTHENTICATED", message: "Sign in is required." });
+  return request.currentUser.id;
 }
 
 function readCookie(request: Request, name: string): string | undefined {

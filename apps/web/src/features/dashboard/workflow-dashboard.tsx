@@ -3,11 +3,13 @@
 import { ArrowRight, CirclePlus, FilePlus2, FolderKanban, LayoutDashboard, LogOut, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import { apiRequest } from "../api/api-client";
+import { apiRequest, apiUrl } from "../api/api-client";
 import type { ApiWorkflow } from "../workflow/workflow-api";
 
 type WorkspaceSummary = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
 type CurrentUser = { email: string; displayName: string | null };
+type ProviderStatus = { steam: boolean };
+type IdentitySummary = { provider: "GOOGLE" | "STEAM"; providerAccountId: string };
 
 export function WorkflowDashboard() {
   const router = useRouter();
@@ -15,6 +17,8 @@ export function WorkflowDashboard() {
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [workspaceId, setWorkspaceId] = useState("");
   const [workflows, setWorkflows] = useState<ApiWorkflow[]>([]);
+  const [providers, setProviders] = useState<ProviderStatus>({ steam: false });
+  const [identities, setIdentities] = useState<IdentitySummary[]>([]);
   const [workflowName, setWorkflowName] = useState("Untitled workflow");
   const [workspaceName, setWorkspaceName] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -34,17 +38,21 @@ export function WorkflowDashboard() {
     let active = true;
     void (async () => {
       try {
-        const [auth, workspaceResponse] = await Promise.all([
+        const [auth, workspaceResponse, providerResponse, identityResponse] = await Promise.all([
           apiRequest<{ user: CurrentUser }>("/auth/me"),
           apiRequest<{ workspaces: WorkspaceSummary[] }>("/workspaces"),
+          apiRequest<ProviderStatus>("/auth/providers"),
+          apiRequest<{ identities: IdentitySummary[] }>("/auth/identities"),
         ]);
         if (!active) return;
         setUser(auth.user);
         setWorkspaces(workspaceResponse.workspaces);
+        setProviders(providerResponse);
+        setIdentities(identityResponse.identities);
         const initialWorkspaceId = workspaceResponse.workspaces[0]?.id ?? "";
         setWorkspaceId(initialWorkspaceId);
         await loadWorkflows(initialWorkspaceId);
-        if (active) setNotice(initialWorkspaceId ? "Choose a workflow or start a new one." : "Create a workspace to begin.");
+        if (active) setNotice(new URLSearchParams(window.location.search).get("identity") === "steam" ? "Steam identity linked. Steam API access still requires a separate credential." : initialWorkspaceId ? "Choose a workflow or start a new one." : "Create a workspace to begin.");
       } catch (reason) {
         if (!active) return;
         const message = reason instanceof Error ? reason.message : "Unable to load your workspace.";
@@ -107,12 +115,13 @@ export function WorkflowDashboard() {
   if (isLoading) return <main className="dashboard-loading" aria-busy="true"><Sparkles className="ui-spinner" size={22} /><strong>Preparing your dashboard</strong><span>Loading workspaces and workflows…</span></main>;
 
   const activeWorkspace = workspaces.find((workspace) => workspace.id === workspaceId);
+  const steamIdentity = identities.find((identity) => identity.provider === "STEAM");
   return (
     <main className="dashboard-page">
       <header className="dashboard-header">
         <button className="dashboard-brand" type="button" onClick={() => router.push("/dashboard")}><span><Sparkles size={17} /></span><strong>Workflow Automation</strong></button>
         <div className="dashboard-header__workspace"><label htmlFor="dashboard-workspace">Workspace</label><select id="dashboard-workspace" value={workspaceId} onChange={(event) => void switchWorkspace(event.target.value)}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</select></div>
-        <div className="dashboard-header__user"><span>{user?.displayName ?? user?.email ?? "Owner"}</span><button type="button" onClick={() => void logout()} aria-label="Sign out"><LogOut size={16} /></button></div>
+        <div className="dashboard-header__user"><span>{user?.displayName ?? user?.email ?? "Owner"}</span>{steamIdentity ? <span className="dashboard-steam-status" title={`Steam ID ${steamIdentity.providerAccountId}`}>Steam linked</span> : <button className="dashboard-steam-link" disabled={!providers.steam} type="button" onClick={() => window.location.assign(`${apiUrl}/auth/steam/connect`)}>{providers.steam ? "Link Steam" : "Steam setup"}</button>}<button type="button" onClick={() => void logout()} aria-label="Sign out"><LogOut size={16} /></button></div>
       </header>
       <section className="dashboard-main">
         <div className="dashboard-hero"><div><p className="section-label">{activeWorkspace?.name ?? "WORKSPACE"}</p><h1>Your workflow control room.</h1><p>Create, publish, monitor, and revisit every automation from one place.</p></div><button className="dashboard-new-button" type="button" onClick={() => document.getElementById("workflow-create")?.scrollIntoView({ behavior: "smooth", block: "center" })}><CirclePlus size={17} /> New workflow</button></div>

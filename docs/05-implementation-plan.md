@@ -17,6 +17,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | Encrypted credential vault and live-capable Steam/Google Chat adapters | Complete locally | AES-256-GCM vault, provider-aware credential UX, mock flows, and backend adapters are verified; live activation needs user credentials |
 | Workspace dashboard and guarded live-run entry point | Complete locally | Dashboard is the authenticated landing page; workspace/workflow selection, blank/template creation, and publish-confirmed Go Live are browser-tested without invoking providers |
 | Google account sign-in readiness | Complete locally | `AuthIdentity` migration, Google OIDC account callback, provider-configured UI state, identity/session tests, and local migration deployment; activation needs a Google web-client configuration |
+| Steam identity OpenID readiness | Complete locally | State-bound authenticated identity linking, canonical claimed-ID/Steam validation, dashboard status, and unit/browser configuration checks; activation needs the public API callback and realm |
 
 ## Milestone 1 — Product foundation
 
@@ -99,8 +100,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 
 ## Production-preparation follow-up
 
-1. Implement Steam OpenID sign-in/readiness as an identity connection only. Keep the Steam Web API key + 64-bit Steam ID credential path mandatory for Steam Account Snapshot data.
-3. Add deployment/runtime hardening after provider configuration is supplied: production CORS/cookie policy, secure environment validation, health/readiness checks, migrations, Redis worker qualification, and Docker/VPS manifests.
+1. Add deployment/runtime hardening after provider configuration is supplied: production CORS/cookie policy, secure environment validation, health/readiness checks, migrations, Redis worker qualification, and Docker/VPS manifests.
 
 ## Working order for agents
 

@@ -26,6 +26,8 @@ export type ExternalIdentity = {
   displayName?: string | null;
 };
 
+export type IdentitySummary = { provider: AuthIdentityProvider; providerAccountId: string; updatedAt: Date };
+
 @Injectable()
 export class AuthService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
@@ -123,6 +125,20 @@ export class AuthService {
     });
 
     return { token, user: this.toAuthenticatedUser(user) };
+  }
+
+  async linkIdentity(userId: string, provider: AuthIdentityProvider, providerAccountId: string): Promise<IdentitySummary> {
+    return this.prisma.$transaction(async (transaction) => {
+      const existing = await transaction.authIdentity.findUnique({ where: { provider_providerAccountId: { provider, providerAccountId } } });
+      if (existing && existing.userId !== userId) throw new ConflictException({ code: "IDENTITY_ALREADY_LINKED", message: "This external identity is already linked to another account." });
+      const identity = existing ?? await transaction.authIdentity.create({ data: { userId, provider, providerAccountId } });
+      await transaction.auditLog.create({ data: { actorId: userId, action: existing ? "auth.identity_reconnected" : "auth.identity_linked", targetType: "identity", targetId: identity.id, metadata: { provider } } });
+      return { provider: identity.provider, providerAccountId: identity.providerAccountId, updatedAt: identity.updatedAt };
+    });
+  }
+
+  async listIdentities(userId: string): Promise<IdentitySummary[]> {
+    return this.prisma.authIdentity.findMany({ where: { userId }, select: { provider: true, providerAccountId: true, updatedAt: true }, orderBy: { createdAt: "asc" } });
   }
 
   async getCurrentUser(token: string | undefined): Promise<AuthenticatedUser> {

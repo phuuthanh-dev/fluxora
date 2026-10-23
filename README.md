@@ -69,6 +69,10 @@ Google account sign-in is separate from the Google Drive/Sheets connector creden
 
 Steam OpenID is intentionally not used for Steam Account Snapshot data: it proves ownership of a Steam identity but does not issue the Web API key required by the Steam API. The Steam node continues to require a separately saved API key and 64-bit Steam ID.
 
+### Steam identity link (OpenID)
+
+Steam uses OpenID 2.0, not OAuth 2.0, for identity proof. After sign-in, the dashboard exposes **Link Steam** when `STEAM_OPENID_RETURN_URI` and `STEAM_OPENID_REALM` are configured. Register the callback with a realm that shares the API origin (for example `https://api.example.com` and `https://api.example.com/api/v1/auth/steam/callback`). The API sends a state-bound request, validates Steam's `check_authentication` response, and stores only the 64-bit Steam identity association. It does not store a Steam password, OAuth token, or Web API key.
+
 An Approval node may notify either `google_chat` or `http_webhook`. For an outgoing webhook, create an HTTP credential whose encrypted JSON includes a `webhookUrl` plus any normal HTTP auth shape, for example `{ "webhookUrl": "https://example.test/approvals", "authType": "headers", "headers": { "X-Signature": "…" } }`. The callback receives `{ type, message, approvalUrl }`; the approval remains owner-authenticated inside the app.
 
 See [`docs/09-demo-walkthrough.md`](./docs/09-demo-walkthrough.md) for the safe local demo flow and the separate optional live-provider checklist.

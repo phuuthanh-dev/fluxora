@@ -143,3 +143,4 @@ No multi-approver routing, reminder schedule, or approval policy engine is inclu
 8. Workflow export/import, clone, version history, and sample-data test runs work.
 9. No secret is present in repository history, logs, API responses, or frontend state.
 10. The dashboard supports switching/creating workspaces and creating/opening workflows; a live run is guarded by publish and confirmation.
+11. A signed-in user can link a Steam OpenID identity when the callback endpoint is configured; linking neither exposes nor creates a Steam Web API credential.

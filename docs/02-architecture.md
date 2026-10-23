@@ -73,7 +73,7 @@ type NodeExecutionResult = {
 - Use allowlisted expression helpers; never execute user JavaScript.
 - Restrict CORS to the web application origin.
 - External account identities live in `auth_identities`, separate from encrypted workspace credentials. Google login verifies state, issuer, audience, and a verified email before it creates/links an identity and issues the same opaque session cookie as password login.
-- Steam OpenID, when enabled, records a Steam identity link only. It is not an authorization grant for Steam Web API data and cannot satisfy a Steam Account Snapshot credential.
+- Steam OpenID, when enabled, records a Steam identity link only. The API issues a state-bound OpenID request, verifies Steam's `check_authentication` response and a canonical HTTPS claimed Steam ID, then links it to the already authenticated app user. It is not an authorization grant for Steam Web API data and cannot satisfy a Steam Account Snapshot credential.
 
 ## Persistence model
 

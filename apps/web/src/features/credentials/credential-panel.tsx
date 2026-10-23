@@ -19,7 +19,7 @@ const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
   STEAM: {
     label: "Steam account",
     data: '{\n  "apiKey": "",\n  "steamId": ""\n}',
-    hint: "Enter a Steam Web API key and your 64-bit Steam ID. The key is encrypted before it is stored.",
+    hint: "Enter a Steam Web API key and your 64-bit Steam ID. A linked Steam identity can confirm the ID, but never replaces this API credential.",
   },
   GOOGLE_CHAT_WEBHOOK: {
     label: "Google Chat incoming webhook",

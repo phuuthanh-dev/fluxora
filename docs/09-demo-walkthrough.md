@@ -32,3 +32,10 @@ Live-provider verification is intentionally outside automated repository tests b
 4. Complete consent with a verified Google email. The app creates or links the Google identity, sets an HTTP-only app session, and redirects to the dashboard.
 
 Do not use Steam OpenID as a substitute for a Steam Web API key; it only proves a Steam identity.
+
+## Optional Steam identity link
+
+1. Set `STEAM_OPENID_REALM` to the public API origin and `STEAM_OPENID_RETURN_URI` to that origin's `/api/v1/auth/steam/callback` endpoint. These must share an origin.
+2. Sign in to the app and use **Link Steam** in the dashboard header.
+3. Complete Steam's OpenID confirmation. On return, the dashboard shows **Steam linked**; this stores only the 64-bit identity association.
+4. To execute a Steam Account Snapshot workflow, still create the encrypted Steam credential containing your Web API key and Steam ID.
