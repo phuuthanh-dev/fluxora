@@ -78,6 +78,29 @@ function ConfigField({ label, value, onChange, multiline = false }: {
   );
 }
 
+type ResultViewMode = "tree" | "table" | "raw";
+
+function JsonTree({ value }: { value: unknown }) {
+  if (value === null || typeof value !== "object") return <span className="json-tree__value">{String(value)}</span>;
+  const entries = Array.isArray(value) ? value.map((item, index) => [String(index), item] as const) : Object.entries(value as Record<string, unknown>);
+  return <ul className="json-tree">{entries.map(([key, child]) => <li key={key}><strong>{key}</strong>{child !== null && typeof child === "object" ? <JsonTree value={child} /> : <span className="json-tree__value">: {String(child)}</span>}</li>)}</ul>;
+}
+
+function ResultView({ value }: { value: unknown }) {
+  const [mode, setMode] = useState<ResultViewMode>("tree");
+  const rows: Array<[string, unknown]> = value && typeof value === "object" && !Array.isArray(value) ? Object.entries(value as Record<string, unknown>) : [["value", value]];
+  return (
+    <div className="result-view">
+      <div className="result-view__tabs" role="tablist" aria-label="Execution output format">
+        {(["tree", "table", "raw"] as ResultViewMode[]).map((view) => <button key={view} className={mode === view ? "result-view__tab result-view__tab--active" : "result-view__tab"} type="button" onClick={() => setMode(view)}>{view === "raw" ? "Raw JSON" : view === "tree" ? "Tree" : "Table"}</button>)}
+      </div>
+      {mode === "tree" && <JsonTree value={value} />}
+      {mode === "table" && <div className="result-view__table-wrap"><table><tbody>{rows.map(([key, item]) => <tr key={key}><th>{key}</th><td>{typeof item === "string" ? item : JSON.stringify(item)}</td></tr>)}</tbody></table></div>}
+      {mode === "raw" && <pre>{JSON.stringify(value, null, 2)}</pre>}
+    </div>
+  );
+}
+
 function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null; onResolveApproval: (approvalId: string, decision: "approved" | "rejected") => void }) {
   const updateNodeData = useWorkflowEditorStore((state) => state.updateNodeData);
 
@@ -170,7 +193,7 @@ function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowC
       {nodeExecution && (
         <section className="input-preview">
           <div className="section-label">LAST MOCK RUN · {nodeExecution.status} · {nodeExecution.durationMs ?? 0}MS</div>
-          <pre>{JSON.stringify(nodeExecution.error ?? nodeExecution.output, null, 2)}</pre>
+          <ResultView value={nodeExecution.error ?? nodeExecution.output} />
           {nodeExecution.status === "WAITING" && approvalId && (
             <div className="approval-actions">
               <button className="run-button" type="button" onClick={() => onResolveApproval(approvalId, "approved")}>Approve &amp; resume</button>

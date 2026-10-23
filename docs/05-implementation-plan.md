@@ -41,7 +41,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 - Safe interpolation supports path access plus `upper`, `lower`, and `default`; arbitrary JavaScript is rejected.
 - Redaction executes before execution input/output persistence.
 - If/Else, Switch, error edges, retry classification, timeout-aware HTTP execution, and mock Steam/Google Chat actions exist in the runner.
-- The editor can launch a mock run and inspect each selected node's result.
+- The editor can launch a mock run, receive server-sent execution updates, and inspect selected-node input/output as JSON tree, table, or raw JSON.
 
 1. Add Redis and BullMQ configuration plus a separate worker process. **Implemented; Redis environment validation remains.**
 2. Add execution/node-execution persistence, structured errors, redaction, timeout, and retry policy.
