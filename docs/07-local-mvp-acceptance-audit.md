@@ -4,7 +4,7 @@ This document is the current, evidence-based audit for the local MVP. It intenti
 
 | Acceptance criterion | Local status | Evidence |
 |---|---|---|
-| Workspace, draft save, immutable publish | Verified | Owner-only API flow; publishing produces an immutable published version plus a new draft. Version-history E2E observed published v1 and draft v2. |
+| Workspace, draft save, immutable publish | Verified | Owner-only API flow; editor library creates/selects workspaces and blank/template workflows; publishing produces an immutable published version plus a new draft. Version-history E2E observed published v1 and draft v2. |
 | Add, configure, connect, validate nodes | Verified | React Flow editor has palette, structured forms, JSON configuration, client DAG validation with detailed error/warning feedback, import/export, and backend graph validation. |
 | Manual, cron, webhook triggers create executions | Verified locally | Manual trigger E2E with test data, editor endpoint creation/rotation UI, webhook E2E with hashed secret plus hash-match unit coverage, and cron scheduler test that creates/dispatches one due execution with deduplication. |
 | Steam → Google Chat daily report | Mock verified; real-provider verification deferred | Template, deterministic mock executors, backend-only live adapters, and encrypted credentials exist. A real report requires the owner's Steam API key and Google Chat incoming webhook. |

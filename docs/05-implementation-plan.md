@@ -21,7 +21,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 ### Completed
 
 - Shared workflow graph contracts.
-- First editor shell with drag/drop nodes, connection drawing, multi-select, search, deterministic auto-layout, copy/paste, context-menu duplicate/delete, configuration inspector, undo/redo, import/export, clone, immutable version history, and live DAG-validation details.
+- First editor shell with workspace/workflow library, blank/template workflow creation, drag/drop nodes, connection drawing, multi-select, search, deterministic auto-layout, copy/paste, context-menu duplicate/delete, configuration inspector, undo/redo, import/export, clone, immutable version history, and live DAG-validation details.
 - Email has a configuration form but visibly remains unavailable in the MVP. Google Chat OAuth, OpenAI, Gemini, MongoDB, GitHub, Facebook Meta, and Instagram are available as schema-only planned nodes.
 - Initial node registry for all MVP and roadmap nodes.
 

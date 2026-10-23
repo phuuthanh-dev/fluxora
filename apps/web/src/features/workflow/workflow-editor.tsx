@@ -60,6 +60,7 @@ type ApiExecution = {
 type WorkflowVersionSummary = { id: string; version: number; status: "DRAFT" | "PUBLISHED"; createdAt: string; publishedAt: string | null; nodeCount: number };
 type WebhookEndpoint = { id: string; path: string; secretRequired: boolean; workflowVersionId: string; createdAt: string; updatedAt: string };
 type ApiApproval = { id: string; status: string; expiresAt: string; executionId: string; workflowId: string };
+type WorkspaceSummary = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
 
 function readConfigText(config: Record<string, unknown>, key: string) {
   const value = config[key];
@@ -221,6 +222,65 @@ function WebhookEndpointPanel({ workflow, config, onClose }: { workflow: ApiWork
   return <section className="webhook-endpoint-panel" role="dialog" aria-modal="false" aria-label="Webhook endpoint"><div className="credential-panel__heading"><div><p className="section-label">INBOUND WEBHOOK</p><h2>Webhook endpoint</h2></div><button className="icon-button" type="button" aria-label="Close webhook endpoint" onClick={onClose}>×</button></div><p>Endpoints are pinned to a published workflow version. Publishing again does not change an existing endpoint until you rotate it here.</p><ConfigField label="Public path" value={path} onChange={setPath} /><label className="checkbox-field"><input type="checkbox" checked={secretRequired} onChange={(event) => setSecretRequired(event.target.checked)} /> Require <code>x-workflow-secret</code> header</label><div className="webhook-endpoint-panel__url"><span>POST URL</span><code>{endpointUrl}</code></div>{createdSecret && <div className="webhook-endpoint-panel__secret"><strong>Copy this secret now</strong><code>{createdSecret}</code><small>It is displayed only after this creation or rotation.</small></div>}<p className="webhook-endpoint-panel__notice">{notice}</p><button className="run-button" type="button" onClick={() => void createEndpoint()} disabled={!workflow.published || isSaving || !path.trim()}>{isSaving ? "Creating…" : endpoint ? "Rotate endpoint secret" : "Create endpoint"}</button>{!workflow.published && <small className="webhook-endpoint-panel__warning">Publish a version containing this Webhook trigger before creating its endpoint.</small>}</section>;
 }
 
+function WorkflowLibraryPanel({ initialWorkspaces, activeWorkflowId, activeWorkspaceId, onOpen, onWorkspaceCreated, onClose }: { initialWorkspaces: WorkspaceSummary[]; activeWorkflowId: string | undefined; activeWorkspaceId: string | undefined; onOpen: (workflow: ApiWorkflow) => void; onWorkspaceCreated: (workspace: WorkspaceSummary) => void; onClose: () => void }) {
+  const [workspaces, setWorkspaces] = useState(initialWorkspaces);
+  const [workspaceId, setWorkspaceId] = useState(activeWorkspaceId ?? initialWorkspaces[0]?.id ?? "");
+  const [workflows, setWorkflows] = useState<ApiWorkflow[]>([]);
+  const [newWorkflowName, setNewWorkflowName] = useState("Untitled workflow");
+  const [newWorkspaceName, setNewWorkspaceName] = useState("");
+  const [notice, setNotice] = useState("Loading workflows…");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const loadWorkflows = async (targetWorkspaceId = workspaceId) => {
+    if (!targetWorkspaceId) return;
+    try {
+      const response = await apiRequest<{ workflows: ApiWorkflow[] }>(`/workspaces/${targetWorkspaceId}/workflows`);
+      setWorkflows(response.workflows);
+      setNotice(response.workflows.length ? "Choose a workflow or create a new one." : "No workflows yet. Start blank or use the Steam template.");
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "Unable to load workflows.");
+    }
+  };
+
+  useEffect(() => { void loadWorkflows(); }, [workspaceId]);
+
+  const createWorkflow = async (templateSlug?: string) => {
+    if (!workspaceId || !newWorkflowName.trim()) return;
+    setIsSaving(true);
+    try {
+      const response = templateSlug
+        ? await apiRequest<{ workflow: ApiWorkflow }>(`/workspaces/${workspaceId}/workflows/from-template/${templateSlug}`, { method: "POST" })
+        : await apiRequest<{ workflow: ApiWorkflow }>(`/workspaces/${workspaceId}/workflows`, { method: "POST", body: JSON.stringify({ name: newWorkflowName.trim() }) });
+      onOpen(response.workflow);
+      setNotice(templateSlug ? "Steam daily report created from template." : "Blank workflow created.");
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "Unable to create workflow.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const createWorkspace = async () => {
+    if (!newWorkspaceName.trim()) return;
+    setIsSaving(true);
+    try {
+      const response = await apiRequest<{ workspace: WorkspaceSummary }>("/workspaces", { method: "POST", body: JSON.stringify({ name: newWorkspaceName.trim() }) });
+      setWorkspaces((current) => [response.workspace, ...current]);
+      onWorkspaceCreated(response.workspace);
+      setWorkspaceId(response.workspace.id);
+      setNewWorkspaceName("");
+      setWorkflows([]);
+      setNotice("Workspace created. Create its first workflow.");
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "Unable to create workspace.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return <section className="workflow-library" role="dialog" aria-modal="false" aria-label="Workflow library"><div className="credential-panel__heading"><div><p className="section-label">WORKSPACE LIBRARY</p><h2>Workflows</h2></div><button className="icon-button" type="button" aria-label="Close workflow library" onClick={onClose}>×</button></div><label className="workflow-library__field"><span>Workspace</span><select value={workspaceId} onChange={(event) => setWorkspaceId(event.target.value)}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</select></label><div className="workflow-library__create"><input value={newWorkspaceName} onChange={(event) => setNewWorkspaceName(event.target.value)} placeholder="New workspace name" /><button className="ghost-button" type="button" onClick={() => void createWorkspace()} disabled={isSaving || !newWorkspaceName.trim()}>Create workspace</button></div><div className="workflow-library__list">{workflows.map((candidate) => <button key={candidate.id} className={candidate.id === activeWorkflowId ? "workflow-library__item workflow-library__item--active" : "workflow-library__item"} type="button" onClick={() => onOpen(candidate)}><strong>{candidate.name}</strong><span>{candidate.published ? `Published v${candidate.published.version}` : "Draft only"}</span></button>)}</div><div className="workflow-library__new"><p className="section-label">CREATE WORKFLOW</p><input value={newWorkflowName} onChange={(event) => setNewWorkflowName(event.target.value)} aria-label="New workflow name" /><div><button className="run-button" type="button" onClick={() => void createWorkflow()} disabled={isSaving || !workspaceId || !newWorkflowName.trim()}>Start blank</button><button className="ghost-button" type="button" onClick={() => void createWorkflow("steam-daily-report")} disabled={isSaving || !workspaceId}>Use Steam template</button></div></div><p className="workflow-library__notice">{notice}</p></section>;
+}
+
 function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null; onResolveApproval: (approvalId: string, decision: "approved" | "rejected") => void }) {
   const updateNodeData = useWorkflowEditorStore((state) => state.updateNodeData);
 
@@ -360,6 +420,7 @@ export function WorkflowEditor() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [credentialsOpen, setCredentialsOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [webhookOpen, setWebhookOpen] = useState(false);
   const [versions, setVersions] = useState<WorkflowVersionSummary[]>([]);
@@ -369,6 +430,7 @@ export function WorkflowEditor() {
   const [copiedNodeId, setCopiedNodeId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
   const [approvalLinkId, setApprovalLinkId] = useState<string | null | undefined>(undefined);
+  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const nodes = useWorkflowEditorStore((state) => state.nodes);
   const edges = useWorkflowEditorStore((state) => state.edges);
   const selectedNodeId = useWorkflowEditorStore((state) => state.selectedNodeId);
@@ -416,6 +478,9 @@ export function WorkflowEditor() {
     const load = async () => {
       try {
         await apiRequest<{ user: { id: string } }>("/auth/me");
+        const workspaceResponse = await apiRequest<{ workspaces: WorkspaceSummary[] }>("/workspaces");
+        if (!isCurrent) return;
+        setWorkspaces(workspaceResponse.workspaces);
         const linkedApproval = approvalLinkId ? (await apiRequest<{ approval: ApiApproval }>(`/approvals/${approvalLinkId}`)).approval : null;
         let linkedExecution: ApiExecution | null = null;
         let loadedWorkflow: ApiWorkflow;
@@ -423,7 +488,6 @@ export function WorkflowEditor() {
           loadedWorkflow = (await apiRequest<{ workflow: ApiWorkflow }>(`/workflows/${linkedApproval.workflowId}`)).workflow;
           linkedExecution = (await apiRequest<{ execution: ApiExecution }>(`/executions/${linkedApproval.executionId}`)).execution;
         } else {
-          const workspaceResponse = await apiRequest<{ workspaces: Array<{ id: string }> }>("/workspaces");
           const workspace = workspaceResponse.workspaces[0];
           if (!workspace) throw new Error("No workspace is available for this account.");
           const workflowsResponse = await apiRequest<{ workflows: ApiWorkflow[] }>(`/workspaces/${workspace.id}/workflows`);
@@ -461,6 +525,20 @@ export function WorkflowEditor() {
   const addDefinition = (definition: NodeDefinition, position?: { x: number; y: number }) => {
     addNode(definition, position);
     setNotice(`${definition.label} added to the draft.`);
+  };
+
+  const openWorkflow = (nextWorkflow: ApiWorkflow) => {
+    const graph = nextWorkflow.draft?.graph ?? nextWorkflow.published?.graph;
+    if (!graph) {
+      setNotice("The selected workflow has no editable version.");
+      return;
+    }
+    loadGraph(graphFromApi(graph));
+    setWorkflow(nextWorkflow);
+    setExecution(null);
+    selectNode(null);
+    setLibraryOpen(false);
+    setNotice(`Opened ${nextWorkflow.name}.`);
   };
 
   const arrangeGraph = () => {
@@ -666,6 +744,7 @@ export function WorkflowEditor() {
           <button className="ghost-button" type="button" onClick={() => copyNode()} disabled={!selectedNodeId}>Copy node</button>
           <button className="ghost-button" type="button" onClick={pasteNode} disabled={!copiedNodeId}>Paste node</button>
           <button className="ghost-button" type="button" onClick={() => void cloneWorkflow()} disabled={!workflow}>Clone</button>
+          <button className="ghost-button" type="button" onClick={() => setLibraryOpen(true)} disabled={!workflow}>Workflows</button>
           <button className="ghost-button" type="button" onClick={() => void openHistory()} disabled={!workflow}><History size={16} /> History</button>
           {webhookTrigger && <button className="ghost-button" type="button" onClick={() => setWebhookOpen(true)} disabled={!workflow}>Webhook</button>}
           <button className="ghost-button" type="button" onClick={() => setCredentialsOpen(true)} disabled={!workflow}><KeyRound size={16} /> Credentials</button>
@@ -749,6 +828,7 @@ export function WorkflowEditor() {
       {historyOpen && <WorkflowHistoryPanel versions={versions} loading={versionsLoading} onClose={() => setHistoryOpen(false)} />}
       {validationOpen && <GraphValidationPanel issues={issues} onClose={() => setValidationOpen(false)} />}
       {webhookOpen && workflow && webhookTrigger && <WebhookEndpointPanel workflow={workflow} config={webhookTrigger.data.config} onClose={() => setWebhookOpen(false)} />}
+      {libraryOpen && <WorkflowLibraryPanel initialWorkspaces={workspaces} activeWorkflowId={workflow?.id} activeWorkspaceId={workflow?.workspaceId} onOpen={openWorkflow} onWorkspaceCreated={(workspace) => setWorkspaces((current) => [workspace, ...current])} onClose={() => setLibraryOpen(false)} />}
       {credentialsOpen && workflow && <CredentialPanel workspaceId={workflow.workspaceId} onClose={() => setCredentialsOpen(false)} />}
     </main>
   );
