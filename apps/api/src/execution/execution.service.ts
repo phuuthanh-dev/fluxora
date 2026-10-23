@@ -4,6 +4,7 @@ import { ApprovalRequestStatus, CredentialProvider, ExecutionStatus, NodeExecuti
 import { createHash, randomBytes } from "node:crypto";
 import { CredentialService } from "../credentials/credential.service";
 import { PrismaService } from "../database/prisma.service";
+import { ExecutionEventsService } from "./execution-events.service";
 import { resolveExpressions } from "./expression";
 import { redactValue } from "./redaction";
 import { isRetryableFailure, retryDelayMs } from "./retry-policy";
@@ -20,7 +21,7 @@ class NodeFailure extends Error {
 
 @Injectable()
 export class ExecutionService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService, @Inject(CredentialService) private readonly credentials: CredentialService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService, @Inject(CredentialService) private readonly credentials: CredentialService, @Inject(ExecutionEventsService) private readonly events: ExecutionEventsService) {}
 
   async createManualExecution(workflowId: string, userId: string, mock: boolean, triggerData: unknown = {}) {
     const workflow = await this.prisma.workflow.findFirst({
@@ -81,6 +82,7 @@ export class ExecutionService {
         update: {},
       })),
     ]);
+    this.events.publish(executionId, "execution.running");
 
     const context: Record<string, unknown> = { trigger: execution.triggerData ?? {}, steps: {} };
     const outputs = context.steps as Record<string, unknown>;
@@ -110,13 +112,17 @@ export class ExecutionService {
           data: { output: { ...result.output, approvalRequestId: approval.id } as Prisma.InputJsonValue },
         });
         await this.markUnvisitedSkipped(executionId, graph, visited);
-        return this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.WAITING_APPROVAL } });
+        const waiting = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.WAITING_APPROVAL } });
+        this.events.publish(executionId, "execution.waiting_approval");
+        return waiting;
       }
       if (result.status === "failed") {
         const errorTargets = graph.edges.filter((edge) => edge.source === node.id && edge.kind === "error");
         if (!errorTargets.length) {
           await this.markUnvisitedSkipped(executionId, graph, visited);
-          return this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.FAILED, completedAt: new Date() } });
+          const failed = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.FAILED, completedAt: new Date() } });
+          this.events.publish(executionId, "execution.failed");
+          return failed;
         }
         pending.push(...this.targets(graph, errorTargets));
         continue;
@@ -127,7 +133,9 @@ export class ExecutionService {
     }
 
     await this.markUnvisitedSkipped(executionId, graph, visited);
-    return this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.SUCCEEDED, completedAt: new Date() } });
+    const succeeded = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.SUCCEEDED, completedAt: new Date() } });
+    this.events.publish(executionId, "execution.succeeded");
+    return succeeded;
   }
 
   async resolveApproval(approvalId: string, userId: string, decision: "approved" | "rejected") {
@@ -150,6 +158,7 @@ export class ExecutionService {
         this.prisma.nodeExecution.update({ where: { id: waitingNode.id }, data: { status: NodeExecutionStatus.FAILED, errorCode: "APPROVAL_REJECTED", errorMessage: "Approval was rejected.", completedAt: resolvedAt } }),
         this.prisma.execution.update({ where: { id: approval.executionId }, data: { status: ExecutionStatus.FAILED, completedAt: resolvedAt } }),
       ]);
+      this.events.publish(approval.executionId, "execution.failed");
       return { executionId: approval.executionId, resumed: false, startNodeIds: [], mode: approval.execution.mode === "MOCK" ? "mock" as const : "live" as const };
     }
     const graph = parseWorkflowGraph(approval.execution.workflowVersion.graph);
@@ -159,6 +168,7 @@ export class ExecutionService {
       this.prisma.nodeExecution.update({ where: { id: waitingNode.id }, data: { status: NodeExecutionStatus.SUCCEEDED, completedAt: resolvedAt } }),
       this.prisma.execution.update({ where: { id: approval.executionId }, data: { status: ExecutionStatus.QUEUED, completedAt: null } }),
     ]);
+    this.events.publish(approval.executionId, "execution.queued");
     return { executionId: approval.executionId, resumed: nextNodeIds.length > 0, startNodeIds: nextNodeIds, mode: approval.execution.mode === "MOCK" ? "mock" as const : "live" as const };
   }
 
@@ -180,6 +190,7 @@ export class ExecutionService {
           where: { executionId_nodeId: { executionId, nodeId: node.id } },
           data: { status: result.status === "waiting" ? NodeExecutionStatus.WAITING : NodeExecutionStatus.SUCCEEDED, output: redactValue(result.output) as Prisma.InputJsonValue, completedAt: new Date() },
         });
+        this.events.publish(executionId, "node.updated");
         return result;
       } catch (reason) {
         const failure = reason instanceof NodeFailure ? reason : new NodeFailure("NODE_ERROR", "Node execution failed.", false);
@@ -188,6 +199,7 @@ export class ExecutionService {
           where: { executionId_nodeId: { executionId, nodeId: node.id } },
           data: { status: NodeExecutionStatus.FAILED, errorCode: failure.code, errorMessage: failure.message, completedAt: new Date() },
         });
+        this.events.publish(executionId, "node.updated");
         if (!retryable || attempt >= retries) return { status: "failed", output: {}, error: failure };
         await delay(retryDelayMs(attempt));
       }

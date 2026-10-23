@@ -1,13 +1,15 @@
-import { Controller, Get, Inject, Param, Post, Req, UseGuards } from "@nestjs/common";
+import { Controller, Get, Inject, Param, Post, Req, Sse, UseGuards } from "@nestjs/common";
+import { from, switchMap } from "rxjs";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
 import { ExecutionService } from "./execution.service";
 import { ExecutionQueueService } from "./execution-queue.service";
+import { ExecutionEventsService } from "./execution-events.service";
 
 @Controller()
 @UseGuards(AuthenticationGuard)
 export class ExecutionController {
-  constructor(@Inject(ExecutionService) private readonly executions: ExecutionService, @Inject(ExecutionQueueService) private readonly queue: ExecutionQueueService) {}
+  constructor(@Inject(ExecutionService) private readonly executions: ExecutionService, @Inject(ExecutionQueueService) private readonly queue: ExecutionQueueService, @Inject(ExecutionEventsService) private readonly events: ExecutionEventsService) {}
 
   @Post("workflows/:workflowId/executions")
   async startManual(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
@@ -21,6 +23,11 @@ export class ExecutionController {
   @Get("executions/:executionId")
   async get(@Param("executionId") executionId: string, @Req() request: AuthenticatedRequest) {
     return { execution: await this.executions.get(executionId, requireUserId(request)) };
+  }
+
+  @Sse("executions/:executionId/events")
+  eventsForExecution(@Param("executionId") executionId: string, @Req() request: AuthenticatedRequest) {
+    return from(this.executions.get(executionId, requireUserId(request))).pipe(switchMap(() => this.events.stream(executionId)));
   }
 }
 

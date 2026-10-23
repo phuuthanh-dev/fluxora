@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
-import { apiRequest } from "../api/api-client";
+import { apiRequest, apiUrl } from "../api/api-client";
 import { validateWorkflowGraph } from "./graph-validation";
 import {
   categoryLabels,
@@ -209,6 +209,23 @@ export function WorkflowEditor() {
   const loadGraph = useWorkflowEditorStore((state) => state.loadGraph);
   const issues = useMemo(() => validateWorkflowGraph(nodes, edges), [nodes, edges]);
   const selectedNode = nodes.find((node) => node.id === selectedNodeId);
+
+  useEffect(() => {
+    if (!execution) return;
+    let isCurrent = true;
+    const refresh = async () => {
+      try {
+        const response = await apiRequest<{ execution: ApiExecution }>(`/executions/${execution.id}`);
+        if (isCurrent) setExecution(response.execution);
+      } catch {
+        // A closed session is handled by the next authenticated editor request.
+      }
+    };
+    const source = new EventSource(`${apiUrl}/executions/${execution.id}/events`, { withCredentials: true });
+    source.onmessage = () => { void refresh(); };
+    void refresh();
+    return () => { isCurrent = false; source.close(); };
+  }, [execution?.id]);
 
   useEffect(() => {
     let isCurrent = true;

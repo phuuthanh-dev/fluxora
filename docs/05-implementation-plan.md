@@ -13,7 +13,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | Email/password authentication | Complete | Register/login/me/logout endpoints, Argon2id, hashed opaque sessions, login UI, PostgreSQL E2E |
 | Workspace/workflow API CRUD, draft persistence, and immutable publish | Complete | Owner-only API routes; browser save/reload and publish verification |
 | Inline mock execution engine | Complete | Persisted execution/node I/O, safe expressions, redaction, retry classification, and editor mock run |
-| Redis/BullMQ process separation, inline development fallback, and cron scheduler | In progress | Queue/worker and scheduler code exist; Redis-backed worker and realtime event delivery remain to validate |
+| Redis/BullMQ process separation, inline development fallback, and cron scheduler | In progress | Queue/worker and scheduler code exist; authenticated SSE delivery is locally verified, while Redis-backed worker validation remains |
 | Encrypted credential vault and live-capable Steam/Google Chat adapters | In progress | AES-256-GCM vault, credential-management UI, and backend adapters exist; live verification needs user credentials |
 
 ## Milestone 1 — Product foundation
@@ -47,7 +47,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 2. Add execution/node-execution persistence, structured errors, redaction, timeout, and retry policy.
 3. Add a worker process and a manual trigger executor.
 4. Implement If/Else and Switch branching.
-5. Stream execution state to the editor via SSE or Socket.IO.
+5. Stream execution state to the editor via SSE or Socket.IO. **Implemented with an owner-authorized SSE endpoint; the editor refreshes execution/node I/O on each event and HTTP E2E is verified.**
 6. Add mock-run fixtures and execution inspector views.
 
 **Exit criterion:** a manual test run executes a pinned workflow version, shows node input/output in realtime, and routes retryable failures to an error branch after configured retries.
