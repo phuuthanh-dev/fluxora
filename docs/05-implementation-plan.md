@@ -48,6 +48,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 - Manual Trigger includes a JSON test-data editor; mock execution sends only that object as `triggerData`.
 - Local HTTP E2E verifies a `NETWORK_ERROR` retries twice, follows its error edge, and pauses at a downstream Approval node.
 - Cron scheduler test verifies a due published cron workflow creates and dispatches one live execution with schedule metadata.
+- Owners can cancel queued, running, or waiting executions; the runner observes cancellation between nodes and the editor exposes a cancel control for active runs.
 
 1. Add Redis and BullMQ configuration plus a separate worker process. **Implemented; Redis environment validation remains.**
 2. Add execution/node-execution persistence, structured errors, redaction, timeout, and retry policy.

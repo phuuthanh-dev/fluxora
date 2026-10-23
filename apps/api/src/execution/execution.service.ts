@@ -1,5 +1,5 @@
 import type { WorkflowEdge, WorkflowEdgeKind, WorkflowGraph, WorkflowNode } from "@workflow/contracts";
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { ApprovalRequestStatus, CredentialProvider, ExecutionStatus, NodeExecutionStatus, Prisma } from "@prisma/client";
 import { createHash, randomBytes } from "node:crypto";
 import { CredentialService } from "../credentials/credential.service";
@@ -70,9 +70,30 @@ export class ExecutionService {
     };
   }
 
+  async cancel(executionId: string, userId: string) {
+    const execution = await this.prisma.execution.findFirst({
+      where: { id: executionId, workflowVersion: { workflow: { workspace: { members: { some: { userId, role: "OWNER" } } } } } },
+      include: { workflowVersion: { include: { workflow: true } } },
+    });
+    if (!execution) throw new NotFoundException({ code: "EXECUTION_NOT_FOUND", message: "Execution was not found." });
+    if (new Set<ExecutionStatus>([ExecutionStatus.SUCCEEDED, ExecutionStatus.FAILED, ExecutionStatus.CANCELLED]).has(execution.status)) {
+      throw new BadRequestException({ code: "EXECUTION_NOT_CANCELLABLE", message: "Only queued, running, or waiting executions can be cancelled." });
+    }
+    const completedAt = new Date();
+    await this.prisma.$transaction([
+      this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.CANCELLED, completedAt } }),
+      this.prisma.nodeExecution.updateMany({ where: { executionId, status: { in: [NodeExecutionStatus.PENDING, NodeExecutionStatus.RUNNING, NodeExecutionStatus.WAITING] } }, data: { status: NodeExecutionStatus.SKIPPED, completedAt } }),
+      this.prisma.approvalRequest.updateMany({ where: { executionId, status: ApprovalRequestStatus.PENDING }, data: { status: ApprovalRequestStatus.EXPIRED, resolvedAt: completedAt } }),
+      this.prisma.auditLog.create({ data: { workspaceId: execution.workflowVersion.workflow.workspaceId, actorId: userId, action: "execution.cancelled", targetType: "execution", targetId: executionId } }),
+    ]);
+    this.events.publish(executionId, "execution.cancelled");
+    return this.get(executionId, userId);
+  }
+
   async run(executionId: string, mode: RunMode, startNodeIds?: string[]) {
     const execution = await this.prisma.execution.findUnique({ include: { workflowVersion: { include: { workflow: true } }, nodeExecutions: true }, where: { id: executionId } });
     if (!execution) throw new NotFoundException({ code: "EXECUTION_NOT_FOUND", message: "Execution was not found." });
+    if (execution.status === ExecutionStatus.CANCELLED) return execution;
     const graph = parseWorkflowGraph(execution.workflowVersion.graph);
     const now = new Date();
     await this.prisma.$transaction([
@@ -96,6 +117,7 @@ export class ExecutionService {
     const visited = new Set(execution.nodeExecutions.filter((node) => node.status !== NodeExecutionStatus.PENDING && node.status !== NodeExecutionStatus.SKIPPED).map((node) => node.nodeId));
 
     while (pending.length) {
+      if (await this.isCancelled(executionId)) return execution;
       const node = pending.shift();
       if (!node || visited.has(node.id)) continue;
       visited.add(node.id);
@@ -134,6 +156,7 @@ export class ExecutionService {
       pending.push(...this.targets(graph, nextEdges));
     }
 
+    if (await this.isCancelled(executionId)) return execution;
     await this.markUnvisitedSkipped(executionId, graph, visited);
     const succeeded = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.SUCCEEDED, completedAt: new Date() } });
     this.events.publish(executionId, "execution.succeeded");
@@ -233,6 +256,11 @@ export class ExecutionService {
     const remaining = graph.nodes.filter((node) => !visited.has(node.id)).map((node) => node.id);
     if (!remaining.length) return;
     await this.prisma.nodeExecution.updateMany({ where: { executionId, nodeId: { in: remaining }, status: NodeExecutionStatus.PENDING }, data: { status: NodeExecutionStatus.SKIPPED, completedAt: new Date() } });
+  }
+
+  private async isCancelled(executionId: string) {
+    const execution = await this.prisma.execution.findUnique({ where: { id: executionId }, select: { status: true } });
+    return execution?.status === ExecutionStatus.CANCELLED;
   }
 }
 

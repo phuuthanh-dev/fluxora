@@ -25,6 +25,11 @@ export class ExecutionController {
     return { execution: await this.executions.get(executionId, requireUserId(request)) };
   }
 
+  @Post("executions/:executionId/cancel")
+  async cancel(@Param("executionId") executionId: string, @Req() request: AuthenticatedRequest) {
+    return { execution: await this.executions.cancel(executionId, requireUserId(request)) };
+  }
+
   @Sse("executions/:executionId/events")
   eventsForExecution(@Param("executionId") executionId: string, @Req() request: AuthenticatedRequest) {
     return from(this.executions.get(executionId, requireUserId(request))).pipe(switchMap(() => this.events.stream(executionId)));

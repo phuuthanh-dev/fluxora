@@ -543,6 +543,17 @@ export function WorkflowEditor() {
     }
   };
 
+  const cancelExecution = async () => {
+    if (!execution) return;
+    try {
+      const response = await apiRequest<{ execution: ApiExecution }>(`/executions/${execution.id}/cancel`, { method: "POST" });
+      setExecution(response.execution);
+      setNotice("Execution cancelled. Pending work will not continue.");
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "Unable to cancel execution.");
+    }
+  };
+
   if (isLoading) {
     return <main className="editor-page"><p className="canvas-status">Loading your authenticated workspace…</p></main>;
   }
@@ -572,6 +583,7 @@ export function WorkflowEditor() {
           <button className="save-button" type="button" onClick={() => void saveDraft()} disabled={!workflow || isSaving}><Save size={16} /> {isSaving ? "Saving…" : "Save draft"}</button>
           <button className="ghost-button" type="button" onClick={() => void publish()} disabled={!workflow || isSaving}><Check size={16} /> Publish</button>
           <button className="run-button" type="button" onClick={() => void runTest()} disabled={!workflow || isSaving}><Play size={16} /> Run test</button>
+          {execution && ["QUEUED", "RUNNING", "WAITING_APPROVAL"].includes(execution.status) && <button className="ghost-button" type="button" onClick={() => void cancelExecution()}>Cancel run</button>}
         </div>
       </header>
 
