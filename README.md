@@ -61,9 +61,11 @@ Set that output as `APP_ENCRYPTION_KEY`. Credentials are encrypted before storag
 
 The editor's **Credentials** panel can store a manually supplied Google access token or begin the Google OAuth connection. For OAuth, create a Google OAuth web client with the redirect URI from `.env.example`, then set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` locally. The current scopes are Drive file access and Google Sheets access. Drive list/search/text upload/download and Sheets read/append/update work in mock mode without credentials; live mode requires a connected Google credential. A real Google account is deliberately not part of repository tests.
 
-For a generic HTTP credential, save JSON with one of these shapes: `{ "authType": "bearer", "token": "…" }`, `{ "authType": "apiKey", "name": "X-API-Key", "value": "…", "location": "header" }`, `{ "authType": "basic", "username": "…", "password": "…" }`, or `{ "authType": "headers", "headers": { "X-Client": "…" } }`. Select the saved credential ID in a live HTTP Request node.
+For a generic HTTP credential, save JSON with one of these shapes: `{ "authType": "bearer", "token": "…" }`, `{ "authType": "apiKey", "name": "X-API-Key", "value": "…", "location": "header" }`, `{ "authType": "basic", "username": "…", "password": "…" }`, or `{ "authType": "headers", "headers": { "X-Client": "…" } }`. Select the saved connection by name in a live HTTP Request node; its secret value is never returned to the browser.
 
 An Approval node may notify either `google_chat` or `http_webhook`. For an outgoing webhook, create an HTTP credential whose encrypted JSON includes a `webhookUrl` plus any normal HTTP auth shape, for example `{ "webhookUrl": "https://example.test/approvals", "authType": "headers", "headers": { "X-Signature": "…" } }`. The callback receives `{ type, message, approvalUrl }`; the approval remains owner-authenticated inside the app.
+
+See [`docs/09-demo-walkthrough.md`](./docs/09-demo-walkthrough.md) for the safe local demo flow and the separate optional live-provider checklist.
 
 ## License
 

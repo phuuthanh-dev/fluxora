@@ -29,9 +29,9 @@ CI runs the same gate for every pull request and push to `main`.
 |---|---|---:|---|
 | L0 | Repeatable repository quality gate and CI | Complete | `npm run verify` passed locally; GitHub Actions checks the same gate |
 | L1 | Authenticated owner can create, save, reload, and publish a workflow | Complete | HTTP and browser checks passed locally |
-| L2 | Pinned version can run with persisted node I/O | In progress | Inline mock, authenticated SSE, and retry/error-edge HTTP E2E passed locally; BullMQ Redis worker validation remains |
-| L3 | Credential vault plus Steam → Google Chat mock and live-capable adapters | In progress | Mock flow passed; live check needs user-provided credentials |
-| L4 | Cron, webhook, approval, Google Drive/Sheets, execution UI and polish | In progress | Cron dispatch test, editor webhook endpoints, approval pause/resume plus app-link notification, Drive → Sheets mock E2E, grouped editor actions, provider-aware credentials, and Playwright browser-onboarding checks exist; live Google OAuth/Chat validation remains |
+| L2 | Pinned version can run with persisted node I/O | Complete locally | Inline mock, authenticated SSE, retry/error-edge HTTP E2E, and browser save/publish/history coverage passed locally; Redis worker qualification is deferred until a Redis runtime is available |
+| L3 | Credential vault plus Steam → Google Chat mock and live-capable adapters | Complete locally | Mock flow, provider-aware credential creation/selection, and live-capable backend adapters are verified; live activation needs user-provided credentials |
+| L4 | Cron, webhook, approval, Google Drive/Sheets, execution UI and polish | Complete locally | Cron dispatch test, editor webhook endpoints, approval pause/resume plus app-link notification, Drive → Sheets mock E2E, grouped editor actions, provider-aware credentials, and Playwright browser-onboarding checks exist; live Google OAuth/Chat validation remains |
 
 ## External-boundary rule
 

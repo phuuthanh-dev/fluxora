@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("a new owner can configure a Switch and contextual Steam credential in the editor", async ({ page }) => {
+test("a new owner can configure, save, publish, and inspect a Steam workflow", async ({ page }) => {
   const email = `e2e-${Date.now()}@example.test`;
   await page.goto("/");
 
@@ -39,4 +39,14 @@ test("a new owner can configure a Switch and contextual Steam credential in the 
   await page.locator(".react-flow__node").filter({ hasText: "Steam account snapshot" }).first().click();
   await expect(page.getByLabel("Steam credential")).toContainText("E2E Steam connection");
   await page.getByLabel("Steam credential").selectOption({ label: "E2E Steam connection" });
+
+  await page.getByRole("button", { name: "Save draft" }).click();
+  await expect(page.getByText("Draft saved to your workspace.")).toBeVisible();
+  await page.getByRole("button", { name: "Publish" }).click();
+  await expect(page.getByText(/Version 1 published\. A new editable draft is ready\./)).toBeVisible();
+
+  await page.getByLabel("Manage actions").click();
+  await page.getByRole("button", { name: "Version history" }).click();
+  await expect(page.getByRole("heading", { name: "Immutable releases" })).toBeVisible();
+  await expect(page.getByText(/v1 · published/)).toBeVisible();
 });
