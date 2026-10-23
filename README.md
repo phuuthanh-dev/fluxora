@@ -41,6 +41,8 @@ npm run dev
 
 The frontend runs at `http://localhost:3000` and the API health endpoint is `http://localhost:3001/api/v1/health`.
 
+Run browser acceptance coverage against the local PostgreSQL-backed app with `npm run test:e2e`. It starts (or reuses) the API and web development servers, registers an isolated test owner, and checks the editor onboarding flow.
+
 The root route is the email/password sign-in page. Registering creates a personal owner workspace; the editor is available at `/editor` after sign-in.
 
 Local development defaults to `EXECUTION_QUEUE_MODE=inline`, which runs mock work immediately and keeps the demo self-contained. To exercise the production-shaped queue path, run Redis, set `EXECUTION_QUEUE_MODE=redis`, start the API, and run `npm run dev:worker` in a second terminal.

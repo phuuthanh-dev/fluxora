@@ -19,6 +19,7 @@ This repository is developed through small, verified delivery loops. A loop is c
 2. Unit and integration tests
 3. TypeScript checks
 4. Production build
+5. Playwright browser E2E
 
 CI runs the same gate for every pull request and push to `main`.
 
@@ -30,7 +31,7 @@ CI runs the same gate for every pull request and push to `main`.
 | L1 | Authenticated owner can create, save, reload, and publish a workflow | Complete | HTTP and browser checks passed locally |
 | L2 | Pinned version can run with persisted node I/O | In progress | Inline mock, authenticated SSE, and retry/error-edge HTTP E2E passed locally; BullMQ Redis worker validation remains |
 | L3 | Credential vault plus Steam → Google Chat mock and live-capable adapters | In progress | Mock flow passed; live check needs user-provided credentials |
-| L4 | Cron, webhook, approval, Google Drive/Sheets, execution UI and polish | In progress | Cron dispatch test, editor webhook endpoints, approval pause/resume plus app-link notification, and Drive → Sheets mock E2E exist; an encrypted HTTP approval-webhook E2E is locally verified, while live Google OAuth/Chat validation and acceptance walkthrough remain |
+| L4 | Cron, webhook, approval, Google Drive/Sheets, execution UI and polish | In progress | Cron dispatch test, editor webhook endpoints, approval pause/resume plus app-link notification, and Drive → Sheets mock E2E exist; encrypted HTTP approval-webhook and Playwright browser-onboarding E2Es are locally verified, while live Google OAuth/Chat validation remains |
 
 ## External-boundary rule
 

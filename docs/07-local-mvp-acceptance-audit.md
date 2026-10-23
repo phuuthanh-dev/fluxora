@@ -13,7 +13,7 @@ This document is the current, evidence-based audit for the local MVP. It intenti
 | Approval pause/resume and cancellation | Verified locally | Approval E2E pause/resume/reject; authenticated approval links resolve the owning workflow/execution and select the waiting node; an encrypted HTTP-webhook notification E2E verifies its headers and app link on a live run; cancellation E2E turns a waiting run into `CANCELLED` and skips pending/waiting node work. |
 | Export/import, clone, version history, sample-data test run | Verified locally | Editor import/export and clone actions, version-history panel/API, system Steam template, and Manual Trigger JSON test data. |
 | No credential values in normal API/UI persistence paths | Verified by implementation and focused tests | AES-256-GCM vault, credential summaries only, redaction test, and backend-only provider calls. Login, credential, workflow publish, manual execution, and cancellation actions are written to audit logs. This is not a replacement for an independent security audit. |
-| Quality gate | Verified | `npm run verify`: Prisma validation, unit tests, lint, TypeScript checks, and production build. |
+| Quality gate | Verified | `npm run verify`: Prisma validation, unit tests, lint, TypeScript checks, production build, and Playwright browser E2E. CI provisions PostgreSQL and Chromium before running the same gate. |
 
 ## Deferred external validation
 
@@ -24,5 +24,4 @@ This document is the current, evidence-based audit for the local MVP. It intenti
 ## Remaining local hardening candidates
 
 1. Add a container or local Redis runtime, then validate the separate API/worker path.
-2. Add independent browser E2E coverage for editor interactions.
-3. Perform a dedicated security review before any external deployment.
+2. Perform a dedicated security review before any external deployment.
