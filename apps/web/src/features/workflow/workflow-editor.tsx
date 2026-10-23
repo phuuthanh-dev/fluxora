@@ -162,6 +162,26 @@ function WorkflowHistoryPanel({ versions, loading, onClose }: { versions: Workfl
   return <section className="workflow-history" aria-label="Workflow version history"><div className="credential-panel__heading"><div><p className="section-label">VERSION HISTORY</p><h2>Immutable releases</h2></div><button className="icon-button" type="button" aria-label="Close workflow history" onClick={onClose}>×</button></div>{loading ? <p>Loading versions…</p> : <ol>{versions.map((version) => <li key={version.id}><strong>v{version.version} · {version.status.toLowerCase()}</strong><span>{version.nodeCount} nodes · {version.publishedAt ? `published ${new Date(version.publishedAt).toLocaleString()}` : `draft ${new Date(version.createdAt).toLocaleString()}`}</span></li>)}</ol>}</section>;
 }
 
+function GraphValidationPanel({ issues, onClose }: { issues: ReturnType<typeof validateWorkflowGraph>; onClose: () => void }) {
+  const errors = issues.filter((issue) => issue.severity === "error");
+  const warnings = issues.filter((issue) => issue.severity === "warning");
+  return (
+    <section className="graph-validation-panel" role="dialog" aria-modal="false" aria-label="Workflow validation details">
+      <div className="credential-panel__heading">
+        <div>
+          <p className="section-label">LIVE VALIDATION</p>
+          <h2>{errors.length ? "Fix these before saving" : "Graph checks"}</h2>
+        </div>
+        <button className="icon-button" type="button" aria-label="Close validation details" onClick={onClose}>×</button>
+      </div>
+      {errors.length === 0 && warnings.length === 0 ? <p className="graph-validation-panel__ready">Your graph is ready for a test run.</p> : <>
+        {errors.length > 0 && <div className="graph-validation-panel__group"><strong>{errors.length} error{errors.length === 1 ? "" : "s"}</strong><ul>{errors.map((issue, index) => <li key={`error-${index}`} className="graph-validation-panel__issue graph-validation-panel__issue--error">{issue.message}</li>)}</ul></div>}
+        {warnings.length > 0 && <div className="graph-validation-panel__group"><strong>{warnings.length} warning{warnings.length === 1 ? "" : "s"}</strong><ul>{warnings.map((issue, index) => <li key={`warning-${index}`} className="graph-validation-panel__issue graph-validation-panel__issue--warning">{issue.message}</li>)}</ul></div>}
+      </>}
+    </section>
+  );
+}
+
 function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null; onResolveApproval: (approvalId: string, decision: "approved" | "rejected") => void }) {
   const updateNodeData = useWorkflowEditorStore((state) => state.updateNodeData);
 
@@ -298,6 +318,7 @@ export function WorkflowEditor() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [versions, setVersions] = useState<WorkflowVersionSummary[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
+  const [validationOpen, setValidationOpen] = useState(false);
   const [paletteSearch, setPaletteSearch] = useState("");
   const [copiedNodeId, setCopiedNodeId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
@@ -644,10 +665,10 @@ export function WorkflowEditor() {
           <div className="canvas-status">
             <CirclePlay size={16} /> {notice}
           </div>
-          <div className={`validation-summary validation-summary--${issues.some((issue) => issue.severity === "error") ? "error" : "ready"}`}>
+          <button className={`validation-summary validation-summary--${issues.some((issue) => issue.severity === "error") ? "error" : "ready"}`} type="button" onClick={() => setValidationOpen(true)} aria-haspopup="dialog">
             <Check size={15} />
-            {issues.length === 0 ? "Graph is ready for a test run" : `${issues.length} validation notice${issues.length === 1 ? "" : "s"}`}
-          </div>
+            {issues.length === 0 ? "Graph is ready for a test run" : `View ${issues.length} validation notice${issues.length === 1 ? "" : "s"}`}
+          </button>
         </section>
         <NodeInspector node={selectedNode} execution={execution} onResolveApproval={resolveApproval} />
       </div>
@@ -657,6 +678,7 @@ export function WorkflowEditor() {
         <button className="node-context-menu__danger" type="button" onClick={() => { deleteNode(contextMenu.nodeId); setContextMenu(null); setNotice("Node and its connections removed."); }}>Delete</button>
       </div>}
       {historyOpen && <WorkflowHistoryPanel versions={versions} loading={versionsLoading} onClose={() => setHistoryOpen(false)} />}
+      {validationOpen && <GraphValidationPanel issues={issues} onClose={() => setValidationOpen(false)} />}
       {credentialsOpen && workflow && <CredentialPanel workspaceId={workflow.workspaceId} onClose={() => setCredentialsOpen(false)} />}
     </main>
   );
