@@ -1,4 +1,4 @@
-import type { WorkflowCanvasEdge, WorkflowCanvasNode } from "./node-catalog";
+import { outputKindsForNodeType, type WorkflowCanvasEdge, type WorkflowCanvasNode } from "./node-catalog";
 
 export type GraphIssue = {
   severity: "error" | "warning";
@@ -7,7 +7,7 @@ export type GraphIssue = {
 
 export function validateWorkflowGraph(nodes: WorkflowCanvasNode[], edges: WorkflowCanvasEdge[]): GraphIssue[] {
   const issues: GraphIssue[] = [];
-  const nodeIds = new Set(nodes.map((node) => node.id));
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
   const triggers = nodes.filter((node) => node.data.category === "trigger");
 
   if (triggers.length === 0) {
@@ -19,8 +19,14 @@ export function validateWorkflowGraph(nodes: WorkflowCanvasNode[], edges: Workfl
   }
 
   for (const edge of edges) {
-    if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) {
+    const source = nodeById.get(edge.source);
+    const target = nodeById.get(edge.target);
+    if (!source || !target) {
       issues.push({ severity: "error", message: "A connection refers to a missing node." });
+      continue;
+    }
+    if (!outputKindsForNodeType(source.data.nodeType).includes(edge.kind)) {
+      issues.push({ severity: "error", message: `The ${edge.kind} branch is not valid for ${source.data.label}.` });
     }
   }
 

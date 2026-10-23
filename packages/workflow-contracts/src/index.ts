@@ -1,18 +1,23 @@
-export type WorkflowNodeCategory = "trigger" | "condition" | "action" | "approval";
+export const workflowNodeCategories = ["trigger", "condition", "action", "approval"] as const;
 
-export type WorkflowNodeType =
-  | "trigger.manual"
-  | "trigger.cron"
-  | "trigger.webhook"
-  | "condition.if"
-  | "condition.switch"
-  | "action.steam.account-snapshot"
-  | "action.google-chat.webhook"
-  | "action.google-drive"
-  | "action.google-sheets"
-  | "action.http-request"
-  | "approval.request"
-  | "action.email";
+export type WorkflowNodeCategory = (typeof workflowNodeCategories)[number];
+
+export const workflowNodeTypes = [
+  "trigger.manual",
+  "trigger.cron",
+  "trigger.webhook",
+  "condition.if",
+  "condition.switch",
+  "action.steam.account-snapshot",
+  "action.google-chat.webhook",
+  "action.google-drive",
+  "action.google-sheets",
+  "action.http-request",
+  "approval.request",
+  "action.email",
+] as const;
+
+export type WorkflowNodeType = (typeof workflowNodeTypes)[number];
 
 export type WorkflowNode = {
   id: string;
@@ -21,7 +26,9 @@ export type WorkflowNode = {
   config: Record<string, unknown>;
 };
 
-export type WorkflowEdgeKind = "success" | "error" | "true" | "false" | "case" | "default";
+export const workflowEdgeKinds = ["success", "error", "true", "false", "case", "default"] as const;
+
+export type WorkflowEdgeKind = (typeof workflowEdgeKinds)[number];
 
 export type WorkflowEdge = {
   id: string;

@@ -1,5 +1,5 @@
 import type { Edge, Node } from "@xyflow/react";
-import type { WorkflowNodeCategory, WorkflowNodeType } from "@workflow/contracts";
+import type { WorkflowEdgeKind, WorkflowNodeCategory, WorkflowNodeType } from "@workflow/contracts";
 
 export type WorkflowNodeData = {
   nodeType: WorkflowNodeType;
@@ -11,7 +11,10 @@ export type WorkflowNodeData = {
 };
 
 export type WorkflowCanvasNode = Node<WorkflowNodeData, "workflowNode">;
-export type WorkflowCanvasEdge = Edge;
+export type WorkflowCanvasEdge = Edge & {
+  kind: WorkflowEdgeKind;
+  caseValue?: string;
+};
 
 export type NodeDefinition = {
   type: WorkflowNodeType;
@@ -31,6 +34,19 @@ export const categoryLabels: Record<WorkflowNodeCategory, string> = {
   action: "Action",
   approval: "Approval",
 };
+
+export function outputKindsForNodeType(nodeType: WorkflowNodeType): WorkflowEdgeKind[] {
+  if (nodeType === "condition.if") return ["true", "false"];
+  if (nodeType === "condition.switch") return ["case", "default"];
+  if (nodeType.startsWith("trigger.")) return ["success"];
+  return ["success", "error"];
+}
+
+export function edgeKindFromHandle(handle: string | null | undefined): WorkflowEdgeKind | null {
+  return handle && ["success", "error", "true", "false", "case", "default"].includes(handle)
+    ? handle as WorkflowEdgeKind
+    : null;
+}
 
 export const nodeCatalog: NodeDefinition[] = [
   {
@@ -180,6 +196,6 @@ export const initialNodes: WorkflowCanvasNode[] = [
 ];
 
 export const initialEdges: WorkflowCanvasEdge[] = [
-  { id: "schedule-steam", source: "schedule", target: "steam", animated: true },
-  { id: "steam-chat", source: "steam", target: "chat", animated: true },
+  { id: "schedule-steam", source: "schedule", target: "steam", sourceHandle: "success", animated: true, kind: "success" },
+  { id: "steam-chat", source: "steam", target: "chat", sourceHandle: "success", animated: true, kind: "success" },
 ];

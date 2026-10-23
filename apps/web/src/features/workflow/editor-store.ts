@@ -2,6 +2,7 @@ import { addEdge, applyEdgeChanges, applyNodeChanges, type Connection, type Edge
 import { create } from "zustand";
 import {
   createNodeData,
+  edgeKindFromHandle,
   initialEdges,
   initialNodes,
   type NodeDefinition,
@@ -84,7 +85,14 @@ export const useWorkflowEditorStore = create<WorkflowEditorState>((set, get) => 
     },
     connect: (connection) => {
       const state = get();
-      const edges = addEdge({ ...connection, animated: true }, state.edges);
+      const kind = edgeKindFromHandle(connection.sourceHandle);
+      if (!kind || !connection.source || !connection.target) return;
+      const edges = addEdge({
+        ...connection,
+        animated: true,
+        id: `edge-${crypto.randomUUID()}`,
+        kind,
+      }, state.edges) as WorkflowCanvasEdge[];
       commit(state.nodes, edges);
     },
     undo: () => {

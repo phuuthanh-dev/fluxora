@@ -9,7 +9,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | npm monorepo and agent documentation | Complete | Root workspace, `AGENTS.md`, product/architecture/rules docs |
 | Visual workflow-editor foundation | Complete | React Flow canvas, node catalog, inspector, local draft history, JSON import/export, graph validation |
 | API health service | Complete | `GET /api/v1/health` |
-| Persistence schema and Prisma service | Complete | PostgreSQL schema and NestJS Prisma module |
+| Persistence schema, migration, and Prisma service | Complete | PostgreSQL schema, initial migration, and NestJS Prisma module |
 | Authentication and actual API CRUD | Next | No runtime user/workspace data yet |
 | Background execution engine | Planned | Day 2 |
 | Google/Steam real connectors | Planned | Day 2–3 |
@@ -24,7 +24,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 
 ### Next implementation slice
 
-1. Add Prisma, PostgreSQL schema, migrations, and seed data.
+1. Add development seed data for the existing Prisma/PostgreSQL schema and migration.
 2. Build `AuthModule` with register/login, Argon2id password hashing, and HTTP-only cookie session/refresh flow.
 3. Build `WorkspaceModule` and owner-only guards.
 4. Build `WorkflowModule`: create/list/get/update draft, publish immutable version, clone, import/export.

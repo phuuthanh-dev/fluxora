@@ -33,6 +33,7 @@ import {
   type WorkflowCanvasNode,
 } from "./node-catalog";
 import { useWorkflowEditorStore } from "./editor-store";
+import { parseWorkflowCanvasGraph } from "./workflow-graph-schema";
 import { WorkflowNode } from "./workflow-node";
 
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNode };
@@ -172,7 +173,7 @@ export function WorkflowEditor() {
   };
 
   const exportGraph = () => {
-    const data = JSON.stringify({ nodes, edges }, null, 2);
+    const data = JSON.stringify(parseWorkflowCanvasGraph({ nodes, edges }), null, 2);
     const url = URL.createObjectURL(new Blob([data], { type: "application/json" }));
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -187,8 +188,7 @@ export function WorkflowEditor() {
     if (!file) return;
     try {
       const parsed: unknown = JSON.parse(await file.text());
-      if (!isWorkflowGraph(parsed)) throw new Error("Invalid graph");
-      loadGraph({ nodes: parsed.nodes, edges: parsed.edges });
+      loadGraph(parseWorkflowCanvasGraph(parsed));
       setNotice("Workflow JSON imported into a fresh local draft.");
     } catch {
       setNotice("Import failed. Choose a workflow JSON export from this app.");
@@ -279,10 +279,4 @@ export function WorkflowEditor() {
       </div>
     </main>
   );
-}
-
-function isWorkflowGraph(value: unknown): value is { nodes: WorkflowCanvasNode[]; edges: ReturnType<typeof useWorkflowEditorStore.getState>["edges"] } {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as { nodes?: unknown; edges?: unknown };
-  return Array.isArray(candidate.nodes) && Array.isArray(candidate.edges);
 }
