@@ -28,7 +28,7 @@ CI runs the same gate for every pull request and push to `main`.
 |---|---|---:|---|
 | L0 | Repeatable repository quality gate and CI | Complete | `npm run verify` passed locally; GitHub Actions checks the same gate |
 | L1 | Authenticated owner can create, save, reload, and publish a workflow | Complete | HTTP and browser checks passed locally |
-| L2 | Pinned version can run with persisted node I/O | In progress | Inline mock runner passed; BullMQ worker and realtime events remain |
+| L2 | Pinned version can run with persisted node I/O | In progress | Inline and BullMQ worker paths exist; inline mock run passed, while Redis/realtime validation remains |
 | L3 | Credential vault plus Steam → Google Chat mock and live-capable adapters | In progress | Mock flow passed; live check needs user-provided credentials |
 | L4 | Cron, webhook, approval, Google Drive/Sheets, execution UI and polish | Planned | Trigger/approval tests and acceptance walkthrough |
 

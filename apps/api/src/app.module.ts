@@ -8,9 +8,10 @@ import { WorkspaceModule } from "./workspaces/workspace.module";
 import { WorkflowModule } from "./workflows/workflow.module";
 import { ExecutionModule } from "./execution/execution.module";
 import { CredentialModule } from "./credentials/credential.module";
+import { SchedulerModule } from "./scheduler/scheduler.module";
 
 @Module({
-  imports: [ConfigModule.forRoot({ envFilePath: resolve(__dirname, "../../../.env"), isGlobal: true }), PrismaModule, AuthModule, WorkspaceModule, WorkflowModule, CredentialModule, ExecutionModule],
+  imports: [ConfigModule.forRoot({ envFilePath: resolve(__dirname, "../../../.env"), isGlobal: true }), PrismaModule, AuthModule, WorkspaceModule, WorkflowModule, CredentialModule, ExecutionModule, SchedulerModule],
   controllers: [HealthController],
 })
 export class AppModule {}

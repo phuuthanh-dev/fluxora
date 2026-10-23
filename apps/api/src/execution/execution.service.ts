@@ -21,7 +21,7 @@ class NodeFailure extends Error {
 export class ExecutionService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService, @Inject(CredentialService) private readonly credentials: CredentialService) {}
 
-  async startManual(workflowId: string, userId: string, mock: boolean, triggerData: unknown = {}) {
+  async createManualExecution(workflowId: string, userId: string, mock: boolean, triggerData: unknown = {}) {
     const workflow = await this.prisma.workflow.findFirst({
       where: { id: workflowId, workspace: { members: { some: { userId, role: "OWNER" } } } },
       include: { draftVersion: true, publishedVersion: true },
@@ -29,11 +29,15 @@ export class ExecutionService {
     if (!workflow) throw new NotFoundException({ code: "WORKFLOW_NOT_FOUND", message: "Workflow was not found." });
     const version = mock ? workflow.draftVersion ?? workflow.publishedVersion : workflow.publishedVersion;
     if (!version) throw new NotFoundException({ code: "PUBLISHED_VERSION_REQUIRED", message: "Publish the workflow before starting a live execution." });
-    const execution = await this.prisma.execution.create({
+    return this.prisma.execution.create({
       data: { workflowVersionId: version.id, triggerData: redactValue(triggerData) as Prisma.InputJsonValue },
     });
-    await this.run(execution.id, mock ? "mock" : "live");
-    return this.get(execution.id, userId);
+  }
+
+  async createScheduledExecution(workflowVersionId: string, triggerData: Record<string, unknown>) {
+    return this.prisma.execution.create({
+      data: { workflowVersionId, triggerData: redactValue(triggerData) as Prisma.InputJsonValue },
+    });
   }
 
   async get(executionId: string, userId: string) {

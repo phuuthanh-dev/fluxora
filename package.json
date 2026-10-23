@@ -11,6 +11,7 @@
     "dev": "concurrently --names web,api --prefix-colors blue,green \"npm run dev:web\" \"npm run dev:api\"",
     "dev:web": "npm run dev --workspace=@workflow/web",
     "dev:api": "npm run dev --workspace=@workflow/api",
+    "dev:worker": "npm run worker --workspace=@workflow/api",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",

@@ -5,6 +5,7 @@
   "scripts": {
     "predev": "prisma generate",
     "dev": "tsx watch src/main.ts",
+    "worker": "tsx src/execution/worker.ts",
     "prebuild": "prisma generate",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
@@ -28,6 +29,7 @@
     "bullmq": "^5.81.5",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
+    "cron-parser": "^4.9.0",
     "dotenv": "^17.4.2",
     "ioredis": "^5.11.1",
     "pg": "^8.23.1",

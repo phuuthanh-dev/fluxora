@@ -13,7 +13,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | Email/password authentication | Complete | Register/login/me/logout endpoints, Argon2id, hashed opaque sessions, login UI, PostgreSQL E2E |
 | Workspace/workflow API CRUD, draft persistence, and immutable publish | Complete | Owner-only API routes; browser save/reload and publish verification |
 | Inline mock execution engine | Complete | Persisted execution/node I/O, safe expressions, redaction, retry classification, and editor mock run |
-| Redis/BullMQ process separation and realtime event delivery | Next | L2 continuation; Redis is intentionally not installed/configured yet |
+| Redis/BullMQ process separation, inline development fallback, and cron scheduler | In progress | Queue/worker and scheduler code exist; Redis-backed worker and realtime event delivery remain to validate |
 | Encrypted credential vault and live-capable Steam/Google Chat adapters | In progress | AES-256-GCM vault and backend adapters exist; credentials/UI/live verification remain next |
 
 ## Milestone 1 — Product foundation
@@ -43,7 +43,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 - If/Else, Switch, error edges, retry classification, timeout-aware HTTP execution, and mock Steam/Google Chat actions exist in the runner.
 - The editor can launch a mock run and inspect each selected node's result.
 
-1. Add Redis and BullMQ configuration plus a separate worker process.
+1. Add Redis and BullMQ configuration plus a separate worker process. **Implemented; Redis environment validation remains.**
 2. Add execution/node-execution persistence, structured errors, redaction, timeout, and retry policy.
 3. Add a worker process and a manual trigger executor.
 4. Implement If/Else and Switch branching.
