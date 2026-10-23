@@ -47,6 +47,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 - The editor can launch a mock run, receive server-sent execution updates, and inspect selected-node redacted execution input, output/error, attempt, and duration as JSON tree, table, or raw JSON.
 - Manual Trigger includes a JSON test-data editor; mock execution sends only that object as `triggerData`.
 - Local HTTP E2E verifies a `NETWORK_ERROR` retries twice, follows its error edge, and pauses at a downstream Approval node.
+- Local Switch E2E verifies a configured matching case executes while the default branch is persisted as skipped.
 - Cron scheduler test verifies a due published cron workflow creates and dispatches one live execution with schedule metadata.
 - Owners can cancel queued, running, or waiting executions; the runner observes cancellation between nodes and the editor exposes a cancel control for active runs.
 
