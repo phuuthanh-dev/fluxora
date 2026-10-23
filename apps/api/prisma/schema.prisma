@@ -157,6 +157,7 @@ model Execution {
   id                String          @id @default(uuid())
   workflowVersionId String
   status            ExecutionStatus @default(QUEUED)
+  mode              String          @default("LIVE")
   triggerData       Json?
   startedAt         DateTime?
   completedAt       DateTime?

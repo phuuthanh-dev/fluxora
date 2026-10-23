@@ -9,8 +9,8 @@ async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule);
   const executions = app.get(ExecutionService);
   const connection = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", { maxRetriesPerRequest: null });
-  const worker = new Worker<{ executionId: string; mode: "mock" | "live" }>("workflow-executions", async (job) => {
-    await executions.run(job.data.executionId, job.data.mode);
+  const worker = new Worker<{ executionId: string; mode: "mock" | "live"; startNodeIds?: string[] }>("workflow-executions", async (job) => {
+    await executions.run(job.data.executionId, job.data.mode, job.data.startNodeIds);
   }, { connection });
 
   const shutdown = async () => {

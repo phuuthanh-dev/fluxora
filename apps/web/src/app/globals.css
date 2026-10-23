@@ -116,6 +116,7 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .planned-note { background: #fff8eb; border: 1px solid #ffe4aa; border-radius: 8px; color: var(--warning); font-size: 11px; line-height: 1.45; padding: 9px; }
 .input-preview { border-top: 1px solid var(--line); margin-top: 22px; padding-top: 16px; }
 .input-preview pre { background: #141929; border-radius: 8px; color: #d9e2ff; font-size: 10px; line-height: 1.55; max-height: 180px; overflow: auto; padding: 11px; }
+.approval-actions { display: flex; gap: 8px; margin-top: 12px; }
 
 @media (max-width: 1080px) { .editor-shell { grid-template-columns: 230px minmax(390px, 1fr); } .inspector { display: none; } }
 @media (max-width: 760px) { .editor-page { min-width: 680px; } .editor-header__actions .ghost-button { display: none; } .editor-shell { grid-template-columns: 220px minmax(460px, 1fr); } }

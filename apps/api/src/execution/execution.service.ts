@@ -1,6 +1,7 @@
 import type { WorkflowEdge, WorkflowEdgeKind, WorkflowGraph, WorkflowNode } from "@workflow/contracts";
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { CredentialProvider, ExecutionStatus, NodeExecutionStatus, Prisma } from "@prisma/client";
+import { ApprovalRequestStatus, CredentialProvider, ExecutionStatus, NodeExecutionStatus, Prisma } from "@prisma/client";
+import { createHash, randomBytes } from "node:crypto";
 import { CredentialService } from "../credentials/credential.service";
 import { PrismaService } from "../database/prisma.service";
 import { resolveExpressions } from "./expression";
@@ -30,13 +31,13 @@ export class ExecutionService {
     const version = mock ? workflow.draftVersion ?? workflow.publishedVersion : workflow.publishedVersion;
     if (!version) throw new NotFoundException({ code: "PUBLISHED_VERSION_REQUIRED", message: "Publish the workflow before starting a live execution." });
     return this.prisma.execution.create({
-      data: { workflowVersionId: version.id, triggerData: redactValue(triggerData) as Prisma.InputJsonValue },
+      data: { workflowVersionId: version.id, mode: mock ? "MOCK" : "LIVE", triggerData: redactValue(triggerData) as Prisma.InputJsonValue },
     });
   }
 
   async createScheduledExecution(workflowVersionId: string, triggerData: Record<string, unknown>) {
     return this.prisma.execution.create({
-      data: { workflowVersionId, triggerData: redactValue(triggerData) as Prisma.InputJsonValue },
+      data: { workflowVersionId, mode: "LIVE", triggerData: redactValue(triggerData) as Prisma.InputJsonValue },
     });
   }
 
@@ -49,6 +50,7 @@ export class ExecutionService {
     return {
       id: execution.id,
       status: execution.status,
+      mode: execution.mode.toLowerCase(),
       workflowId: execution.workflowVersion.workflowId,
       workflowVersion: execution.workflowVersion.version,
       triggerData: execution.triggerData,
@@ -66,8 +68,8 @@ export class ExecutionService {
     };
   }
 
-  async run(executionId: string, mode: RunMode) {
-    const execution = await this.prisma.execution.findUnique({ include: { workflowVersion: { include: { workflow: true } } }, where: { id: executionId } });
+  async run(executionId: string, mode: RunMode, startNodeIds?: string[]) {
+    const execution = await this.prisma.execution.findUnique({ include: { workflowVersion: { include: { workflow: true } }, nodeExecutions: true }, where: { id: executionId } });
     if (!execution) throw new NotFoundException({ code: "EXECUTION_NOT_FOUND", message: "Execution was not found." });
     const graph = parseWorkflowGraph(execution.workflowVersion.graph);
     const now = new Date();
@@ -81,8 +83,14 @@ export class ExecutionService {
     ]);
 
     const context: Record<string, unknown> = { trigger: execution.triggerData ?? {}, steps: {} };
-    const pending = graph.nodes.filter((node) => node.type.startsWith("trigger."));
-    const visited = new Set<string>();
+    const outputs = context.steps as Record<string, unknown>;
+    for (const nodeExecution of execution.nodeExecutions) {
+      if (nodeExecution.status === NodeExecutionStatus.SUCCEEDED && nodeExecution.output && typeof nodeExecution.output === "object" && !Array.isArray(nodeExecution.output)) {
+        outputs[nodeExecution.nodeId] = { output: nodeExecution.output };
+      }
+    }
+    const pending = (startNodeIds ? graph.nodes.filter((node) => startNodeIds.includes(node.id)) : graph.nodes.filter((node) => node.type.startsWith("trigger.")));
+    const visited = new Set(execution.nodeExecutions.filter((node) => node.status !== NodeExecutionStatus.PENDING && node.status !== NodeExecutionStatus.SKIPPED).map((node) => node.nodeId));
 
     while (pending.length) {
       const node = pending.shift();
@@ -90,6 +98,17 @@ export class ExecutionService {
       visited.add(node.id);
       const result = await this.runNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, mode);
       if (result.status === "waiting") {
+        const approval = await this.prisma.approvalRequest.create({
+          data: {
+            executionId,
+            tokenHash: createHash("sha256").update(randomBytes(32)).digest("hex"),
+            expiresAt: new Date(Date.now() + approvalExpiryMs(result.output)),
+          },
+        });
+        await this.prisma.nodeExecution.update({
+          where: { executionId_nodeId: { executionId, nodeId: node.id } },
+          data: { output: { ...result.output, approvalRequestId: approval.id } as Prisma.InputJsonValue },
+        });
         await this.markUnvisitedSkipped(executionId, graph, visited);
         return this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.WAITING_APPROVAL } });
       }
@@ -102,7 +121,6 @@ export class ExecutionService {
         pending.push(...this.targets(graph, errorTargets));
         continue;
       }
-      const outputs = context.steps as Record<string, unknown>;
       outputs[node.id] = { output: result.output };
       const nextEdges = graph.edges.filter((edge) => edge.source === node.id && edgeMatchesResult(edge, result));
       pending.push(...this.targets(graph, nextEdges));
@@ -110,6 +128,38 @@ export class ExecutionService {
 
     await this.markUnvisitedSkipped(executionId, graph, visited);
     return this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.SUCCEEDED, completedAt: new Date() } });
+  }
+
+  async resolveApproval(approvalId: string, userId: string, decision: "approved" | "rejected") {
+    const approval = await this.prisma.approvalRequest.findFirst({
+      where: { id: approvalId, execution: { workflowVersion: { workflow: { workspace: { members: { some: { userId, role: "OWNER" } } } } } } },
+      include: { execution: { include: { workflowVersion: true } } },
+    });
+    if (!approval) throw new NotFoundException({ code: "APPROVAL_NOT_FOUND", message: "Approval request was not found." });
+    if (approval.status !== ApprovalRequestStatus.PENDING) throw new NotFoundException({ code: "APPROVAL_NOT_PENDING", message: "Approval request has already been resolved." });
+    if (approval.expiresAt <= new Date()) {
+      await this.prisma.approvalRequest.update({ where: { id: approval.id }, data: { status: ApprovalRequestStatus.EXPIRED, resolvedAt: new Date() } });
+      throw new NotFoundException({ code: "APPROVAL_EXPIRED", message: "Approval request has expired." });
+    }
+    const waitingNode = await this.prisma.nodeExecution.findFirst({ where: { executionId: approval.executionId, status: NodeExecutionStatus.WAITING } });
+    if (!waitingNode) throw new NotFoundException({ code: "APPROVAL_NODE_NOT_FOUND", message: "Execution is not waiting on an approval node." });
+    const resolvedAt = new Date();
+    if (decision === "rejected") {
+      await this.prisma.$transaction([
+        this.prisma.approvalRequest.update({ where: { id: approval.id }, data: { status: ApprovalRequestStatus.REJECTED, resolvedAt } }),
+        this.prisma.nodeExecution.update({ where: { id: waitingNode.id }, data: { status: NodeExecutionStatus.FAILED, errorCode: "APPROVAL_REJECTED", errorMessage: "Approval was rejected.", completedAt: resolvedAt } }),
+        this.prisma.execution.update({ where: { id: approval.executionId }, data: { status: ExecutionStatus.FAILED, completedAt: resolvedAt } }),
+      ]);
+      return { executionId: approval.executionId, resumed: false, startNodeIds: [], mode: approval.execution.mode === "MOCK" ? "mock" as const : "live" as const };
+    }
+    const graph = parseWorkflowGraph(approval.execution.workflowVersion.graph);
+    const nextNodeIds = graph.edges.filter((edge) => edge.source === waitingNode.nodeId && edge.kind === "success").map((edge) => edge.target);
+    await this.prisma.$transaction([
+      this.prisma.approvalRequest.update({ where: { id: approval.id }, data: { status: ApprovalRequestStatus.APPROVED, resolvedAt } }),
+      this.prisma.nodeExecution.update({ where: { id: waitingNode.id }, data: { status: NodeExecutionStatus.SUCCEEDED, completedAt: resolvedAt } }),
+      this.prisma.execution.update({ where: { id: approval.executionId }, data: { status: ExecutionStatus.QUEUED, completedAt: null } }),
+    ]);
+    return { executionId: approval.executionId, resumed: nextNodeIds.length > 0, startNodeIds: nextNodeIds, mode: approval.execution.mode === "MOCK" ? "mock" as const : "live" as const };
   }
 
   private async runNode(executionId: string, workspaceId: string, node: WorkflowNode, context: Record<string, unknown>, mode: RunMode): Promise<NodeResult> {
@@ -168,7 +218,7 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
     const matched = cases.find((item) => item && typeof item === "object" && (item as Record<string, unknown>).value === value) as Record<string, unknown> | undefined;
     return { status: "succeeded", output: { value, matched: matched?.value ?? null }, route: matched ? "case" : "default" };
   }
-  if (node.type === "approval.request") return { status: "waiting", output: { message: String(config.message ?? "Approval requested") } };
+  if (node.type === "approval.request") return { status: "waiting", output: { message: String(config.message ?? "Approval requested"), expiresInHours: typeof config.expiresInHours === "number" ? config.expiresInHours : 24 } };
   if (node.type === "action.steam.account-snapshot") {
     if (mode === "live") {
       const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.STEAM);
@@ -225,6 +275,11 @@ function edgeMatchesResult(edge: WorkflowEdge, result: NodeResult) {
 function readRetries(config: Record<string, unknown>) {
   const configured = typeof config.retryAttempts === "number" ? config.retryAttempts : 1;
   return Math.max(1, Math.min(5, Math.floor(configured)));
+}
+
+function approvalExpiryMs(output: Record<string, unknown>) {
+  const hours = typeof output.expiresInHours === "number" ? output.expiresInHours : 24;
+  return Math.max(1, Math.min(168, hours)) * 60 * 60 * 1000;
 }
 
 function tryJson(value: string): unknown {

@@ -70,7 +70,7 @@ function ConfigField({ label, value, onChange, multiline = false }: {
   );
 }
 
-function NodeInspector({ node, execution }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null }) {
+function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null; onResolveApproval: (approvalId: string, decision: "approved" | "rejected") => void }) {
   const updateNodeData = useWorkflowEditorStore((state) => state.updateNodeData);
 
   if (!node) {
@@ -85,6 +85,9 @@ function NodeInspector({ node, execution }: { node: WorkflowCanvasNode | undefin
 
   const definition = getNodeDefinition(node.data.nodeType);
   const nodeExecution = execution?.nodeExecutions.find((item) => item.nodeId === node.id);
+  const approvalId = nodeExecution?.output && typeof nodeExecution.output === "object" && !Array.isArray(nodeExecution.output) && typeof (nodeExecution.output as Record<string, unknown>).approvalRequestId === "string"
+    ? (nodeExecution.output as Record<string, unknown>).approvalRequestId as string
+    : null;
   const updateConfig = (key: string, value: unknown) => {
     updateNodeData(node.id, { config: { ...node.data.config, [key]: value } });
   };
@@ -142,6 +145,12 @@ function NodeInspector({ node, execution }: { node: WorkflowCanvasNode | undefin
         <section className="input-preview">
           <div className="section-label">LAST MOCK RUN · {nodeExecution.status} · {nodeExecution.durationMs ?? 0}MS</div>
           <pre>{JSON.stringify(nodeExecution.error ?? nodeExecution.output, null, 2)}</pre>
+          {nodeExecution.status === "WAITING" && approvalId && (
+            <div className="approval-actions">
+              <button className="run-button" type="button" onClick={() => onResolveApproval(approvalId, "approved")}>Approve &amp; resume</button>
+              <button className="ghost-button" type="button" onClick={() => onResolveApproval(approvalId, "rejected")}>Reject</button>
+            </div>
+          )}
         </section>
       )}
     </aside>
@@ -313,6 +322,20 @@ export function WorkflowEditor() {
     }
   };
 
+  const resolveApproval = async (approvalId: string, decision: "approved" | "rejected") => {
+    try {
+      const result = await apiRequest<{ approval: { executionId: string; resumed: boolean } }>(`/approvals/${approvalId}/resolve`, {
+        method: "POST",
+        body: JSON.stringify({ decision }),
+      });
+      const response = await apiRequest<{ execution: ApiExecution }>(`/executions/${result.approval.executionId}`);
+      setExecution(response.execution);
+      setNotice(decision === "approved" ? "Approval accepted and execution resumed." : "Approval rejected; execution stopped.");
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "Unable to resolve approval.");
+    }
+  };
+
   if (isLoading) {
     return <main className="editor-page"><p className="canvas-status">Loading your authenticated workspace…</p></main>;
   }
@@ -396,7 +419,7 @@ export function WorkflowEditor() {
             {issues.length === 0 ? "Graph is ready for a test run" : `${issues.length} validation notice${issues.length === 1 ? "" : "s"}`}
           </div>
         </section>
-        <NodeInspector node={selectedNode} execution={execution} />
+        <NodeInspector node={selectedNode} execution={execution} onResolveApproval={resolveApproval} />
       </div>
     </main>
   );

@@ -4,7 +4,7 @@ import IORedis from "ioredis";
 import { ExecutionService } from "./execution.service";
 
 type QueueMode = "inline" | "redis";
-type ExecutionJob = { executionId: string; mode: "mock" | "live" };
+export type ExecutionJob = { executionId: string; mode: "mock" | "live"; startNodeIds?: string[] };
 
 @Injectable()
 export class ExecutionQueueService implements OnModuleDestroy {
@@ -15,7 +15,7 @@ export class ExecutionQueueService implements OnModuleDestroy {
   constructor(@Inject(ExecutionService) private readonly executions: ExecutionService) {}
 
   async dispatch(job: ExecutionJob) {
-    if (this.mode === "inline") return this.executions.run(job.executionId, job.mode);
+    if (this.mode === "inline") return this.executions.run(job.executionId, job.mode, job.startNodeIds);
     const queue = this.getQueue();
     await queue.add("execute", job, { jobId: job.executionId, removeOnComplete: 100, removeOnFail: 100 });
   }
