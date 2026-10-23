@@ -32,9 +32,11 @@ export class ExecutionService {
     if (!workflow) throw new NotFoundException({ code: "WORKFLOW_NOT_FOUND", message: "Workflow was not found." });
     const version = mock ? workflow.draftVersion ?? workflow.publishedVersion : workflow.publishedVersion;
     if (!version) throw new NotFoundException({ code: "PUBLISHED_VERSION_REQUIRED", message: "Publish the workflow before starting a live execution." });
-    return this.prisma.execution.create({
+    const execution = await this.prisma.execution.create({
       data: { workflowVersionId: version.id, mode: mock ? "MOCK" : "LIVE", triggerData: redactValue(triggerData) as Prisma.InputJsonValue },
     });
+    await this.prisma.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "execution.manual_started", targetType: "execution", targetId: execution.id, metadata: { mode: mock ? "mock" : "live" } } });
+    return execution;
   }
 
   async createScheduledExecution(workflowVersionId: string, triggerData: Record<string, unknown>) {

@@ -6,6 +6,7 @@ import { AuthService } from "./auth.service";
 
 test("register creates an owner workspace and stores only a hashed session token", async () => {
   const sessions: Array<{ tokenHash: string }> = [];
+  const auditActions: string[] = [];
   const transaction = {
     user: {
       create: async () => ({ id: "user-1", email: "owner@example.com", displayName: "Owner" }),
@@ -16,6 +17,7 @@ test("register creates an owner workspace and stores only a hashed session token
     session: {
       create: async ({ data }: { data: { tokenHash: string } }) => sessions.push({ tokenHash: data.tokenHash }),
     },
+    auditLog: { create: async ({ data }: { data: { action: string } }) => { auditActions.push(data.action); } },
   };
   const prisma = {
     user: { findUnique: async () => null },
@@ -31,6 +33,7 @@ test("register creates an owner workspace and stores only a hashed session token
   assert.deepEqual(result.user, { id: "user-1", email: "owner@example.com", displayName: "Owner" });
   assert.equal(sessions.length, 1);
   assert.notEqual(sessions[0]?.tokenHash, result.token);
+  assert.deepEqual(auditActions, ["auth.registered"]);
 });
 
 test("login does not reveal whether an email exists", async () => {

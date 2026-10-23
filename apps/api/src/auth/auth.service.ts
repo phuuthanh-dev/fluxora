@@ -54,6 +54,7 @@ export class AuthService {
           expiresAt: new Date(Date.now() + SESSION_DURATION_MS),
         },
       });
+      await transaction.auditLog.create({ data: { workspaceId: workspace.id, actorId: createdUser.id, action: "auth.registered", targetType: "user", targetId: createdUser.id } });
       return { ...createdUser, workspaceId: workspace.id };
     });
 
@@ -75,6 +76,7 @@ export class AuthService {
         expiresAt: new Date(Date.now() + SESSION_DURATION_MS),
       },
     });
+    await this.prisma.auditLog.create({ data: { actorId: user.id, action: "auth.logged_in", targetType: "user", targetId: user.id } });
     return { token, user: this.toAuthenticatedUser(user) };
   }
 

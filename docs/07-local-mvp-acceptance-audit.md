@@ -12,7 +12,7 @@ This document is the current, evidence-based audit for the local MVP. It intenti
 | Timeout, retry, and error branch | Verified locally | HTTP E2E: `NETWORK_ERROR` retried twice, routed by error edge, then paused at Approval. |
 | Approval pause/resume and cancellation | Verified locally | Approval E2E pause/resume/reject; cancellation E2E turns a waiting run into `CANCELLED` and skips pending/waiting node work. |
 | Export/import, clone, version history, sample-data test run | Verified locally | Editor import/export and clone actions, version-history panel/API, system Steam template, and Manual Trigger JSON test data. |
-| No credential values in normal API/UI persistence paths | Verified by implementation and focused tests | AES-256-GCM vault, credential summaries only, redaction test, and backend-only provider calls. This is not a replacement for an independent security audit. |
+| No credential values in normal API/UI persistence paths | Verified by implementation and focused tests | AES-256-GCM vault, credential summaries only, redaction test, and backend-only provider calls. Login, credential, workflow publish, manual execution, and cancellation actions are written to audit logs. This is not a replacement for an independent security audit. |
 | Quality gate | Verified | `npm run verify`: Prisma validation, unit tests, lint, TypeScript checks, and production build. |
 
 ## Deferred external validation
