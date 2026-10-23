@@ -1,10 +1,11 @@
 import { CredentialProvider } from "@prisma/client";
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../database/prisma.service";
 import { WorkspaceService } from "../workspaces/workspace.service";
 import { CredentialVaultService } from "./credential-vault.service";
 
 const providers = new Set(Object.values(CredentialProvider));
+const googleRefreshSkewMs = 60_000;
 
 @Injectable()
 export class CredentialService {
@@ -20,10 +21,14 @@ export class CredentialService {
     return credentials.map((credential) => this.summary(credential));
   }
 
+  async requireOwner(workspaceId: string, userId: string) {
+    await this.workspaces.requireOwner(workspaceId, userId);
+  }
+
   async create(workspaceId: string, userId: string, input: { provider: string; label: string; data: unknown }) {
     await this.workspaces.requireOwner(workspaceId, userId);
-    if (!providers.has(input.provider as CredentialProvider)) throw new NotFoundException({ code: "CREDENTIAL_PROVIDER_NOT_FOUND", message: "Credential provider is not supported." });
-    if (!input.data || typeof input.data !== "object" || Array.isArray(input.data)) throw new NotFoundException({ code: "INVALID_INPUT", message: "Credential data must be a JSON object." });
+    if (!providers.has(input.provider as CredentialProvider)) throw new BadRequestException({ code: "CREDENTIAL_PROVIDER_NOT_FOUND", message: "Credential provider is not supported." });
+    if (!input.data || typeof input.data !== "object" || Array.isArray(input.data)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Credential data must be a JSON object." });
     const credential = await this.prisma.credential.create({
       data: { workspaceId, provider: input.provider as CredentialProvider, label: input.label, encryptedData: this.vault.encrypt(input.data as Record<string, unknown>) },
     });
@@ -37,7 +42,65 @@ export class CredentialService {
     return this.vault.decrypt(credential.encryptedData);
   }
 
+  async readGoogleForExecution(credentialId: string, workspaceId: string) {
+    const credential = await this.prisma.credential.findFirst({ where: { id: credentialId, workspaceId, provider: CredentialProvider.GOOGLE } });
+    if (!credential) throw new NotFoundException({ code: "CREDENTIAL_NOT_FOUND", message: "A matching credential was not found in this workspace." });
+    const data = this.vault.decrypt(credential.encryptedData);
+    if (!requiresGoogleRefresh(data)) return data;
+    const refreshToken = readString(data.refreshToken);
+    if (!refreshToken) throw new BadRequestException({ code: "GOOGLE_TOKEN_EXPIRED", message: "Google access token has expired. Connect Google again." });
+    const clientId = requiredEnv("GOOGLE_CLIENT_ID");
+    const clientSecret = requiredEnv("GOOGLE_CLIENT_SECRET");
+    const response = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, refresh_token: refreshToken, grant_type: "refresh_token" }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!response.ok) throw new BadRequestException({ code: "GOOGLE_TOKEN_REFRESH_FAILED", message: "Google access token could not be refreshed. Connect Google again." });
+    const refreshed = await response.json() as Record<string, unknown>;
+    const accessToken = readString(refreshed.access_token);
+    if (!accessToken) throw new BadRequestException({ code: "GOOGLE_TOKEN_REFRESH_FAILED", message: "Google did not return a refreshed access token." });
+    const updated = {
+      ...data,
+      accessToken,
+      refreshToken: readString(refreshed.refresh_token) ?? refreshToken,
+      expiresAt: typeof refreshed.expires_in === "number" ? new Date(Date.now() + refreshed.expires_in * 1000).toISOString() : undefined,
+    };
+    await this.prisma.credential.update({ where: { id: credential.id }, data: { encryptedData: this.vault.encrypt(updated) } });
+    return updated;
+  }
+
+  async upsertGoogleOAuth(workspaceId: string, userId: string, data: Record<string, unknown>) {
+    await this.workspaces.requireOwner(workspaceId, userId);
+    const encryptedData = this.vault.encrypt(data);
+    const credential = await this.prisma.credential.upsert({
+      where: { workspaceId_provider_label: { workspaceId, provider: CredentialProvider.GOOGLE, label: "Google OAuth" } },
+      create: { workspaceId, provider: CredentialProvider.GOOGLE, label: "Google OAuth", encryptedData },
+      update: { encryptedData },
+    });
+    await this.prisma.auditLog.create({ data: { workspaceId, actorId: userId, action: "credential.google_oauth_connected", targetType: "credential", targetId: credential.id } });
+    return this.summary(credential);
+  }
+
   private summary(credential: { id: string; provider: CredentialProvider; label: string; createdAt: Date; updatedAt: Date }) {
     return { id: credential.id, provider: credential.provider, label: credential.label, createdAt: credential.createdAt, updatedAt: credential.updatedAt };
   }
+}
+
+function requiresGoogleRefresh(data: Record<string, unknown>) {
+  const expiresAt = readString(data.expiresAt);
+  if (!expiresAt) return false;
+  const expiry = Date.parse(expiresAt);
+  return Number.isFinite(expiry) && expiry <= Date.now() + googleRefreshSkewMs;
+}
+
+function readString(value: unknown) {
+  return typeof value === "string" && value ? value : undefined;
+}
+
+function requiredEnv(name: "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET") {
+  const value = process.env[name];
+  if (!value) throw new BadRequestException({ code: "GOOGLE_OAUTH_NOT_CONFIGURED", message: `${name} is not configured.` });
+  return value;
 }

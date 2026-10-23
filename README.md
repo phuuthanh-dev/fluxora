@@ -55,6 +55,10 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 Set that output as `APP_ENCRYPTION_KEY`. Credentials are encrypted before storage and are never returned by the API. Docker infrastructure and production deployment are intentionally deferred until after the MVP.
 
+### Google Drive and Sheets
+
+The editor's **Credentials** panel can store a manually supplied Google access token or begin the Google OAuth connection. For OAuth, create a Google OAuth web client with the redirect URI from `.env.example`, then set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` locally. The current scopes are Drive file access and Google Sheets access. Drive list/search/text upload/download and Sheets read/append/update work in mock mode without credentials; live mode requires a connected Google credential. A real Google account is deliberately not part of repository tests.
+
 ## License
 
 MIT is the intended license for the first public release.

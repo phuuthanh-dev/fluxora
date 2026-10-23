@@ -236,6 +236,16 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
     }
     return { status: "succeeded", output: { delivered: true, mode: "mock", message: String(config.message ?? "Steam daily report") }, route: "success" };
   }
+  if (node.type === "action.google-drive") {
+    if (mode === "mock") return { status: "succeeded", output: mockDrive(config), route: "success" };
+    const credential = await credentials.readGoogleForExecution(readCredentialId(config), workspaceId);
+    return { status: "succeeded", output: await executeGoogleDrive(credential, config), route: "success" };
+  }
+  if (node.type === "action.google-sheets") {
+    if (mode === "mock") return { status: "succeeded", output: mockSheets(config), route: "success" };
+    const credential = await credentials.readGoogleForExecution(readCredentialId(config), workspaceId);
+    return { status: "succeeded", output: await executeGoogleSheets(credential, config), route: "success" };
+  }
   if (node.type === "action.http-request") {
     if (mode === "mock") return { status: "succeeded", output: { status: 200, body: { mocked: true, url: config.url ?? "" } }, route: "success" };
     return executeHttpRequest(config);
@@ -325,5 +335,82 @@ function readCredentialId(config: Record<string, unknown>) {
 function readCredentialValue(credential: Record<string, unknown>, key: string) {
   const value = credential[key];
   if (typeof value !== "string" || !value) throw new NodeFailure("CREDENTIAL_INVALID", `Credential is missing ${key}.`, false);
+  return value;
+}
+
+function mockDrive(config: Record<string, unknown>) {
+  const operation = readOperation(config, ["list", "search", "uploadText", "downloadText"], "list");
+  if (operation === "downloadText") return { operation, file: { id: String(config.fileId ?? "mock-file-1"), name: "daily-report.txt", text: "Mock Drive report" } };
+  if (operation === "uploadText") return { operation, file: { id: "mock-upload-1", name: String(config.name ?? "daily-report.txt"), mimeType: "text/plain" } };
+  return { operation, files: [{ id: "mock-file-1", name: "Steam report", mimeType: "text/plain", modifiedTime: "2026-10-23T08:00:00.000Z" }] };
+}
+
+async function executeGoogleDrive(credential: Record<string, unknown>, config: Record<string, unknown>) {
+  const accessToken = readCredentialValue(credential, "accessToken");
+  const operation = readOperation(config, ["list", "search", "uploadText", "downloadText"], "list");
+  if (operation === "downloadText") {
+    const fileId = readConfigString(config, "fileId");
+    const response = await googleFetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`, accessToken);
+    return { operation, file: { id: fileId, text: await response.text() } };
+  }
+  if (operation === "uploadText") {
+    const name = readConfigString(config, "name");
+    const content = typeof config.text === "string" ? config.text : "";
+    const boundary = `workflow-${randomBytes(8).toString("hex")}`;
+    const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name, mimeType: "text/plain" })}\r\n--${boundary}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n${content}\r\n--${boundary}--`;
+    const response = await googleFetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType", accessToken, { method: "POST", headers: { "Content-Type": `multipart/related; boundary=${boundary}` }, body });
+    return { operation, file: await response.json() as unknown };
+  }
+  const query = operation === "search" && typeof config.query === "string" && config.query ? `&q=${encodeURIComponent(config.query)}` : "";
+  const response = await googleFetch(`https://www.googleapis.com/drive/v3/files?fields=files(id,name,mimeType,modifiedTime,webViewLink)${query}`, accessToken);
+  const body = await response.json() as { files?: unknown[] };
+  return { operation, files: body.files ?? [] };
+}
+
+function mockSheets(config: Record<string, unknown>) {
+  const operation = readOperation(config, ["read", "append", "update"], "read");
+  const range = String(config.range ?? "Sheet1!A1");
+  return operation === "read" ? { operation, range, values: [["Mock Steam Player", "42 games"]] } : { operation, range, updatedRows: 1, updatedCells: 2 };
+}
+
+async function executeGoogleSheets(credential: Record<string, unknown>, config: Record<string, unknown>) {
+  const accessToken = readCredentialValue(credential, "accessToken");
+  const spreadsheetId = readConfigString(config, "spreadsheetId");
+  const range = readConfigString(config, "range");
+  const operation = readOperation(config, ["read", "append", "update"], "read");
+  const base = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(range)}`;
+  if (operation === "read") {
+    const response = await googleFetch(base, accessToken);
+    return { operation, ...(await response.json() as Record<string, unknown>) };
+  }
+  const values = normalizeValues(config.values);
+  const response = operation === "append"
+    ? await googleFetch(`${base}:append?valueInputOption=USER_ENTERED`, accessToken, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ values }) })
+    : await googleFetch(`${base}?valueInputOption=USER_ENTERED`, accessToken, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ values }) });
+  return { operation, ...(await response.json() as Record<string, unknown>) };
+}
+
+async function googleFetch(url: string, accessToken: string, init: RequestInit = {}) {
+  try {
+    const response = await fetch(url, { ...init, headers: { Authorization: `Bearer ${accessToken}`, ...init.headers }, signal: AbortSignal.timeout(20_000) });
+    if (!response.ok) throw new NodeFailure("GOOGLE_API_ERROR", `Google API returned ${response.status}.`, response.status === 429 || response.status >= 500, response.status);
+    return response;
+  } catch (reason) {
+    if (reason instanceof NodeFailure) throw reason;
+    throw new NodeFailure("NETWORK_ERROR", "Google API request failed.", true);
+  }
+}
+
+function readOperation(config: Record<string, unknown>, values: string[], fallback: string) {
+  return typeof config.operation === "string" && values.includes(config.operation) ? config.operation : fallback;
+}
+
+function readConfigString(config: Record<string, unknown>, key: string) {
+  if (typeof config[key] !== "string" || !config[key]) throw new NodeFailure("INVALID_CONFIGURATION", `${key} is required.`, false);
+  return config[key] as string;
+}
+
+function normalizeValues(value: unknown) {
+  if (!Array.isArray(value) || !value.every((row) => Array.isArray(row))) throw new NodeFailure("INVALID_CONFIGURATION", "values must be a table (an array of rows).", false);
   return value;
 }

@@ -16,6 +16,7 @@ import {
   Download,
   FileUp,
   Layers3,
+  KeyRound,
   Play,
   Save,
   Sparkles,
@@ -38,6 +39,7 @@ import { useWorkflowEditorStore } from "./editor-store";
 import { parseWorkflowCanvasGraph } from "./workflow-graph-schema";
 import { WorkflowNode } from "./workflow-node";
 import { graphForApi, graphFromApi, type ApiWorkflow } from "./workflow-api";
+import { CredentialPanel } from "../credentials/credential-panel";
 
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNode };
 
@@ -50,6 +52,12 @@ type ApiExecution = {
 function readConfigText(config: Record<string, unknown>, key: string) {
   const value = config[key];
   return typeof value === "string" || typeof value === "number" ? String(value) : "";
+}
+
+function readFirstRow(config: Record<string, unknown>) {
+  const values = config.values;
+  if (!Array.isArray(values) || !Array.isArray(values[0])) return "";
+  return values[0].map((value) => String(value ?? "")).join(", ");
 }
 
 function ConfigField({ label, value, onChange, multiline = false }: {
@@ -122,6 +130,24 @@ function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowC
           <ConfigField label="Message template" value={readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("message", value)} multiline />
         </>
       )}
+      {node.data.nodeType === "action.google-drive" && (
+        <>
+          <ConfigField label="Google credential" value={readConfigText(node.data.config, "credentialId")} onChange={(value) => updateConfig("credentialId", value)} />
+          <ConfigField label="Operation (list, search, uploadText, downloadText)" value={readConfigText(node.data.config, "operation")} onChange={(value) => updateConfig("operation", value)} />
+          <ConfigField label="Search query / file ID" value={readConfigText(node.data.config, "query") || readConfigText(node.data.config, "fileId")} onChange={(value) => updateConfig(readConfigText(node.data.config, "operation") === "downloadText" ? "fileId" : "query", value)} />
+          <ConfigField label="File name" value={readConfigText(node.data.config, "name")} onChange={(value) => updateConfig("name", value)} />
+          <ConfigField label="Text content" value={readConfigText(node.data.config, "text")} onChange={(value) => updateConfig("text", value)} multiline />
+        </>
+      )}
+      {node.data.nodeType === "action.google-sheets" && (
+        <>
+          <ConfigField label="Google credential" value={readConfigText(node.data.config, "credentialId")} onChange={(value) => updateConfig("credentialId", value)} />
+          <ConfigField label="Spreadsheet ID" value={readConfigText(node.data.config, "spreadsheetId")} onChange={(value) => updateConfig("spreadsheetId", value)} />
+          <ConfigField label="Operation (read, append, update)" value={readConfigText(node.data.config, "operation")} onChange={(value) => updateConfig("operation", value)} />
+          <ConfigField label="Range" value={readConfigText(node.data.config, "range")} onChange={(value) => updateConfig("range", value)} />
+          <ConfigField label="Values (one row, comma-separated)" value={readFirstRow(node.data.config)} onChange={(value) => updateConfig("values", [value.split(",").map((cell) => cell.trim())])} />
+        </>
+      )}
       {node.data.nodeType === "condition.if" && (
         <>
           <ConfigField label="Left value" value={readConfigText(node.data.config, "left")} onChange={(value) => updateConfig("left", value)} />
@@ -167,6 +193,7 @@ export function WorkflowEditor() {
   const [execution, setExecution] = useState<ApiExecution | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [credentialsOpen, setCredentialsOpen] = useState(false);
   const nodes = useWorkflowEditorStore((state) => state.nodes);
   const edges = useWorkflowEditorStore((state) => state.edges);
   const selectedNodeId = useWorkflowEditorStore((state) => state.selectedNodeId);
@@ -355,6 +382,7 @@ export function WorkflowEditor() {
           <button className="ghost-button" type="button" onClick={redo} disabled={historyIndex === history.length - 1}>Redo <ChevronRight size={16} /></button>
           <button className="ghost-button" type="button" onClick={exportGraph}><Download size={16} /> Export</button>
           <button className="ghost-button" type="button" onClick={() => inputRef.current?.click()}><Upload size={16} /> Import</button>
+          <button className="ghost-button" type="button" onClick={() => setCredentialsOpen(true)} disabled={!workflow}><KeyRound size={16} /> Credentials</button>
           <input ref={inputRef} className="visually-hidden" type="file" accept="application/json" onChange={importGraph} />
           <button className="save-button" type="button" onClick={() => void saveDraft()} disabled={!workflow || isSaving}><Save size={16} /> {isSaving ? "Saving…" : "Save draft"}</button>
           <button className="ghost-button" type="button" onClick={() => void publish()} disabled={!workflow || isSaving}><Check size={16} /> Publish</button>
@@ -421,6 +449,7 @@ export function WorkflowEditor() {
         </section>
         <NodeInspector node={selectedNode} execution={execution} onResolveApproval={resolveApproval} />
       </div>
+      {credentialsOpen && workflow && <CredentialPanel workspaceId={workflow.workspaceId} onClose={() => setCredentialsOpen(false)} />}
     </main>
   );
 }

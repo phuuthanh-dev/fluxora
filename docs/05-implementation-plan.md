@@ -14,7 +14,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | Workspace/workflow API CRUD, draft persistence, and immutable publish | Complete | Owner-only API routes; browser save/reload and publish verification |
 | Inline mock execution engine | Complete | Persisted execution/node I/O, safe expressions, redaction, retry classification, and editor mock run |
 | Redis/BullMQ process separation, inline development fallback, and cron scheduler | In progress | Queue/worker and scheduler code exist; Redis-backed worker and realtime event delivery remain to validate |
-| Encrypted credential vault and live-capable Steam/Google Chat adapters | In progress | AES-256-GCM vault and backend adapters exist; credentials/UI/live verification remain next |
+| Encrypted credential vault and live-capable Steam/Google Chat adapters | In progress | AES-256-GCM vault, credential-management UI, and backend adapters exist; live verification needs user credentials |
 
 ## Milestone 1 — Product foundation
 
@@ -58,6 +58,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 
 - Credential records are encrypted with AES-256-GCM and credential list responses never expose encrypted or raw values.
 - Steam and Google Chat node executors are live-capable through backend-only credential resolution, while mock execution stays deterministic.
+- The editor can create/list encrypted credentials; OAuth and manual-token entry keep secret values out of frontend state after submission.
 
 1. Add encrypted credential storage and credential-management UI.
 2. Implement Steam Account Snapshot with a mock transport and real Web API transport.
@@ -74,9 +75,11 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 - Published workflows can create a webhook endpoint pinned to that immutable version.
 - Optional webhook secrets are SHA-256 hashed and compared in constant time; the raw secret is returned only while the owner creates or rotates the endpoint.
 - Approval nodes persist an expiring approval request, pause the pinned execution, and allow an owner to approve/resume or reject from the node inspector.
+- Google OAuth connection endpoints use a signed, short-lived state; they persist an encrypted Google credential after callback and refresh an expiring OAuth access token server-side. Drive list/search/text upload/download and Sheets read/append/update have live REST adapters.
+- The Drive search → Sheets append mock path has been locally verified end-to-end, including persisted per-node output.
 
-1. Implement backend Google OAuth credential connection.
-2. Implement Drive list/search and Sheets read/append.
+1. Validate Google OAuth and the live Drive/Sheets adapters with a user-supplied Google Cloud client and account.
+2. Document the Google Cloud OAuth consent-screen setup in the demo walkthrough.
 3. Implement inbound webhook trigger with a hashed secret. **Implemented and locally verified.**
 4. Implement Approval pause, notification link, owner approval UI, and execution resume. **Pause/resume/reject plus owner UI are implemented and locally verified; outgoing notification link remains part of connector polish.**
 5. Finish audit logs, empty/error states, test coverage, README walkthrough, and demo recording.

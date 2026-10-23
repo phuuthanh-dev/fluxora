@@ -30,7 +30,7 @@ CI runs the same gate for every pull request and push to `main`.
 | L1 | Authenticated owner can create, save, reload, and publish a workflow | Complete | HTTP and browser checks passed locally |
 | L2 | Pinned version can run with persisted node I/O | In progress | Inline and BullMQ worker paths exist; inline mock run passed, while Redis/realtime validation remains |
 | L3 | Credential vault plus Steam → Google Chat mock and live-capable adapters | In progress | Mock flow passed; live check needs user-provided credentials |
-| L4 | Cron, webhook, approval, Google Drive/Sheets, execution UI and polish | In progress | Cron, webhook, and approval pause/resume exist; Google data nodes, realtime, and acceptance walkthrough remain |
+| L4 | Cron, webhook, approval, Google Drive/Sheets, execution UI and polish | In progress | Cron, webhook, approval pause/resume, signed Google OAuth with token refresh, and Drive → Sheets mock E2E exist; live OAuth validation, realtime, and acceptance walkthrough remain |
 
 ## External-boundary rule
 
