@@ -39,6 +39,8 @@ export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId
   const [label, setLabel] = useState(credentialPresets.GOOGLE.label);
   const [data, setData] = useState(credentialPresets.GOOGLE.data);
   const [notice, setNotice] = useState("Load credentials to configure nodes without exposing values.");
+  const [jsonError, setJsonError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const load = async () => {
     try {
@@ -57,18 +59,31 @@ export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId
     setProvider(nextProvider);
     setLabel(preset.label);
     setData(preset.data);
+    setJsonError(null);
     setNotice(`${nextProvider === "GOOGLE" ? "Google" : nextProvider === "STEAM" ? "Steam" : nextProvider === "GOOGLE_CHAT_WEBHOOK" ? "Google Chat" : "HTTP"} credential template loaded.`);
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSaving) return;
+    let parsed: unknown;
     try {
-      const parsed: unknown = JSON.parse(data);
+      parsed = JSON.parse(data);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Secret JSON must be an object.");
+      setJsonError(null);
+    } catch (reason) {
+      setJsonError(reason instanceof Error ? reason.message : "Secret JSON is invalid.");
+      return;
+    }
+    setIsSaving(true);
+    try {
       await apiRequest(`/workspaces/${workspaceId}/credentials`, { method: "POST", body: JSON.stringify({ provider, label, data: parsed }) });
       setNotice("Credential encrypted and saved. Select it from a compatible node in the editor.");
       await load();
     } catch (reason) {
       setNotice(reason instanceof Error ? reason.message : "Credential could not be saved.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -81,8 +96,9 @@ export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId
         <label><span>Provider</span><select aria-label="Provider" value={provider} onChange={(event) => changeProvider(event.target.value as CredentialProvider)}><option value="GOOGLE">Google Drive / Sheets</option><option value="STEAM">Steam</option><option value="GOOGLE_CHAT_WEBHOOK">Google Chat webhook</option><option value="HTTP">HTTP</option></select></label>
         <p className="credential-form__hint" aria-live="polite">{credentialPresets[provider].hint}</p>
         <label><span>Connection name</span><input aria-label="Connection name" value={label} onChange={(event) => setLabel(event.target.value)} /></label>
-        <label><span>Secret JSON</span><textarea aria-label="Secret JSON" value={data} onChange={(event) => setData(event.target.value)} rows={provider === "STEAM" ? 7 : 6} spellCheck={false} /></label>
-        <button className="run-button" type="submit">Encrypt &amp; save</button>
+        <label><span>Secret JSON</span><textarea aria-label="Secret JSON" aria-invalid={jsonError ? "true" : undefined} value={data} onChange={(event) => { setData(event.target.value); setJsonError(null); }} rows={provider === "STEAM" ? 7 : 6} spellCheck={false} /></label>
+        {jsonError && <p className="credential-form__error" role="alert">{jsonError}</p>}
+        <button className="run-button" type="submit" disabled={isSaving}>{isSaving ? "Encrypting…" : "Encrypt & save"}</button>
       </form>
       <p className="credential-panel__notice">{notice}</p>
       <ul className="credential-list">{credentials.map((credential) => <li key={credential.id}><strong>{credential.label}</strong><span>{credential.provider}</span><code>{credential.id}</code></li>)}</ul>

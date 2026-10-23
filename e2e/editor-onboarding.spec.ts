@@ -28,6 +28,9 @@ test("a new owner can configure a Switch and contextual Steam credential in the 
   await expect(page.getByText("Enter a Steam Web API key and your 64-bit Steam ID.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Connect Google with OAuth" })).toHaveCount(0);
   await page.getByRole("textbox", { name: "Connection name" }).fill("E2E Steam connection");
+  await page.getByRole("textbox", { name: "Secret JSON" }).fill("not-json");
+  await page.getByRole("button", { name: "Encrypt & save" }).click();
+  await expect(page.locator(".credential-form__error")).toContainText("Unexpected token");
   await page.getByRole("textbox", { name: "Secret JSON" }).fill('{"apiKey":"e2e-key","steamId":"76561198000000000"}');
   await page.getByRole("button", { name: "Encrypt & save" }).click();
   await expect(page.getByText("Credential encrypted and saved. Select it from a compatible node in the editor.")).toBeVisible();
