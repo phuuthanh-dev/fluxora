@@ -70,6 +70,7 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .node-palette__header { align-items: flex-start; display: flex; justify-content: space-between; }
 .node-palette h2, .inspector h2 { font-size: 16px; letter-spacing: -0.02em; margin: 4px 0 0; }
 .node-palette__hint { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 11px 0 22px; }
+.palette-search { align-items: center; background: #fafbfc; border: 1px solid #dfe3ec; border-radius: 8px; color: #73809a; display: flex; gap: 7px; padding: 0 9px; }.palette-search input { background: transparent; border: 0; color: var(--ink); font-size: 12px; min-width: 0; outline: none; padding: 8px 0; width: 100%; }
 .section-label { color: #8590a9; font-size: 10px; font-weight: 800; letter-spacing: 0.11em; margin: 0; }
 .icon-button { background: transparent; border: 0; color: var(--muted); padding: 4px; }
 .palette-group { margin: 22px 0; }

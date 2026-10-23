@@ -159,6 +159,11 @@ export const nodeCatalog: NodeDefinition[] = [
   },
 ];
 
+export function matchesNodeSearch(node: NodeDefinition, query: string) {
+  const normalized = query.trim().toLowerCase();
+  return !normalized || [node.label, node.description, node.category, node.type].some((value) => value.toLowerCase().includes(normalized));
+}
+
 export function getNodeDefinition(type: string) {
   return nodeCatalog.find((definition) => definition.type === type);
 }

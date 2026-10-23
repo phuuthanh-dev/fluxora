@@ -6,6 +6,7 @@ import {
   Controls,
   MiniMap,
   ReactFlow,
+  type ReactFlowInstance,
   type NodeTypes,
 } from "@xyflow/react";
 import {
@@ -16,10 +17,12 @@ import {
   Download,
   FileUp,
   Layers3,
+  LayoutDashboard,
   KeyRound,
   Play,
   Save,
   Sparkles,
+  Search,
   Upload,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react";
@@ -31,8 +34,10 @@ import {
   categoryOrder,
   createNodeData,
   getNodeDefinition,
+  matchesNodeSearch,
   nodeCatalog,
   type NodeDefinition,
+  type WorkflowCanvasEdge,
   type WorkflowCanvasNode,
 } from "./node-catalog";
 import { useWorkflowEditorStore } from "./editor-store";
@@ -209,6 +214,7 @@ function NodeInspector({ node, execution, onResolveApproval }: { node: WorkflowC
 export function WorkflowEditor() {
   const router = useRouter();
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const flowRef = useRef<ReactFlowInstance<WorkflowCanvasNode, WorkflowCanvasEdge> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [notice, setNotice] = useState("Loading your workflow…");
   const [paletteOpen, setPaletteOpen] = useState(true);
@@ -217,6 +223,7 @@ export function WorkflowEditor() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [credentialsOpen, setCredentialsOpen] = useState(false);
+  const [paletteSearch, setPaletteSearch] = useState("");
   const nodes = useWorkflowEditorStore((state) => state.nodes);
   const edges = useWorkflowEditorStore((state) => state.edges);
   const selectedNodeId = useWorkflowEditorStore((state) => state.selectedNodeId);
@@ -227,6 +234,7 @@ export function WorkflowEditor() {
   const applyNodesChange = useWorkflowEditorStore((state) => state.applyNodesChange);
   const applyEdgesChange = useWorkflowEditorStore((state) => state.applyEdgesChange);
   const connect = useWorkflowEditorStore((state) => state.connect);
+  const autoLayout = useWorkflowEditorStore((state) => state.autoLayout);
   const undo = useWorkflowEditorStore((state) => state.undo);
   const redo = useWorkflowEditorStore((state) => state.redo);
   const loadGraph = useWorkflowEditorStore((state) => state.loadGraph);
@@ -285,6 +293,12 @@ export function WorkflowEditor() {
   const addDefinition = (definition: NodeDefinition, position?: { x: number; y: number }) => {
     addNode(definition, position);
     setNotice(`${definition.label} added to the draft.`);
+  };
+
+  const arrangeGraph = () => {
+    autoLayout();
+    requestAnimationFrame(() => flowRef.current?.fitView({ duration: 260, padding: 0.18 }));
+    setNotice("Workflow arranged from trigger to actions.");
   };
 
   const onDragStart = (event: DragEvent<HTMLButtonElement>, definition: NodeDefinition) => {
@@ -418,6 +432,7 @@ export function WorkflowEditor() {
           <button className="ghost-button" type="button" onClick={redo} disabled={historyIndex === history.length - 1}>Redo <ChevronRight size={16} /></button>
           <button className="ghost-button" type="button" onClick={exportGraph}><Download size={16} /> Export</button>
           <button className="ghost-button" type="button" onClick={() => inputRef.current?.click()}><Upload size={16} /> Import</button>
+          <button className="ghost-button" type="button" onClick={arrangeGraph}><LayoutDashboard size={16} /> Auto layout</button>
           <button className="ghost-button" type="button" onClick={() => setCredentialsOpen(true)} disabled={!workflow}><KeyRound size={16} /> Credentials</button>
           <input ref={inputRef} className="visually-hidden" type="file" accept="application/json" onChange={importGraph} />
           <button className="save-button" type="button" onClick={() => void saveDraft()} disabled={!workflow || isSaving}><Save size={16} /> {isSaving ? "Saving…" : "Save draft"}</button>
@@ -437,10 +452,11 @@ export function WorkflowEditor() {
               <button className="icon-button" type="button" aria-label="Collapse node palette" onClick={() => setPaletteOpen(false)}><ChevronLeft size={17} /></button>
             </div>
             <p className="node-palette__hint">Drag onto the canvas or click to add.</p>
+            <label className="palette-search"><Search size={14} /><span className="visually-hidden">Search nodes</span><input value={paletteSearch} onChange={(event) => setPaletteSearch(event.target.value)} placeholder="Search nodes" /></label>
             {categoryOrder.map((category) => (
               <section key={category} className="palette-group">
                 <h3>{categoryLabels[category]}</h3>
-                {nodeCatalog.filter((node) => node.category === category).map((definition) => (
+                {nodeCatalog.filter((node) => node.category === category && matchesNodeSearch(node, paletteSearch)).map((definition) => (
                   <button
                     className="palette-node"
                     key={definition.type}
@@ -468,6 +484,7 @@ export function WorkflowEditor() {
             onConnect={connect}
             onNodeClick={(_, node) => selectNode(node.id)}
             onPaneClick={() => selectNode(null)}
+            onInit={(instance) => { flowRef.current = instance; }}
             fitView
             defaultEdgeOptions={{ animated: true }}
           >

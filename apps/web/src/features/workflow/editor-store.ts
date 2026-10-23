@@ -10,6 +10,7 @@ import {
   type WorkflowCanvasNode,
   type WorkflowNodeData,
 } from "./node-catalog";
+import { autoLayoutNodes } from "./auto-layout";
 
 type GraphSnapshot = {
   nodes: WorkflowCanvasNode[];
@@ -28,6 +29,7 @@ type WorkflowEditorState = {
   applyNodesChange: (changes: NodeChange<WorkflowCanvasNode>[]) => void;
   applyEdgesChange: (changes: EdgeChange<WorkflowCanvasEdge>[]) => void;
   connect: (connection: Connection) => void;
+  autoLayout: () => void;
   undo: () => void;
   redo: () => void;
   loadGraph: (graph: GraphSnapshot) => void;
@@ -94,6 +96,10 @@ export const useWorkflowEditorStore = create<WorkflowEditorState>((set, get) => 
         kind,
       }, state.edges) as WorkflowCanvasEdge[];
       commit(state.nodes, edges);
+    },
+    autoLayout: () => {
+      const state = get();
+      commit(autoLayoutNodes(state.nodes, state.edges), state.edges);
     },
     undo: () => {
       const state = get();
