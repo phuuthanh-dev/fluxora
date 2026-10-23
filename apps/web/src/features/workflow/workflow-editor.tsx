@@ -259,11 +259,7 @@ export function WorkflowEditor() {
         const workspace = workspaceResponse.workspaces[0];
         if (!workspace) throw new Error("No workspace is available for this account.");
         const workflowsResponse = await apiRequest<{ workflows: ApiWorkflow[] }>(`/workspaces/${workspace.id}/workflows`);
-        const initialGraph = useWorkflowEditorStore.getState();
-        const loadedWorkflow = workflowsResponse.workflows[0] ?? (await apiRequest<{ workflow: ApiWorkflow }>(`/workspaces/${workspace.id}/workflows`, {
-          method: "POST",
-          body: JSON.stringify({ name: "Steam daily report", graph: graphForApi({ nodes: initialGraph.nodes, edges: initialGraph.edges }) }),
-        })).workflow;
+        const loadedWorkflow = workflowsResponse.workflows[0] ?? (await apiRequest<{ workflow: ApiWorkflow }>(`/workspaces/${workspace.id}/workflows/from-template/steam-daily-report`, { method: "POST" })).workflow;
         const graph = loadedWorkflow.draft?.graph ?? loadedWorkflow.published?.graph;
         if (!graph) throw new Error("The workflow has no editable version.");
         if (!isCurrent) return;

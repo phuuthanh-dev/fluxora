@@ -4,6 +4,7 @@ import { Prisma, WorkflowVersionStatus } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
 import { WorkspaceService } from "../workspaces/workspace.service";
 import { parseWorkflowGraph, validatePublishableGraph } from "./workflow-graph";
+import { systemWorkflowTemplates } from "./system-templates";
 
 type CreateWorkflowInput = { name: string; description?: string; graph?: unknown };
 type UpdateDraftInput = { name?: string; description?: string | null; graph: unknown };
@@ -25,6 +26,16 @@ export class WorkflowService {
       orderBy: { updatedAt: "desc" },
     });
     return workflows.map((workflow) => this.serialize(workflow));
+  }
+
+  listTemplates() {
+    return systemWorkflowTemplates.map((template) => ({ slug: template.slug, name: template.name, description: template.description, graph: template.graph }));
+  }
+
+  async createFromTemplate(workspaceId: string, userId: string, slug: string) {
+    const template = systemWorkflowTemplates.find((candidate) => candidate.slug === slug);
+    if (!template) throw new NotFoundException({ code: "WORKFLOW_TEMPLATE_NOT_FOUND", message: "Workflow template was not found." });
+    return this.create(workspaceId, userId, { name: template.name, description: template.description, graph: template.graph });
   }
 
   async create(workspaceId: string, userId: string, input: CreateWorkflowInput) {

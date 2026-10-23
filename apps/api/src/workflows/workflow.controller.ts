@@ -13,9 +13,19 @@ export class WorkflowController {
     return { workflows: await this.workflows.list(workspaceId, requireUserId(request)) };
   }
 
+  @Get("workflow-templates")
+  async listTemplates() {
+    return { templates: this.workflows.listTemplates() };
+  }
+
   @Post("workspaces/:workspaceId/workflows")
   async create(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest) {
     return { workflow: await this.workflows.create(workspaceId, requireUserId(request), readCreateInput(request.body)) };
+  }
+
+  @Post("workspaces/:workspaceId/workflows/from-template/:slug")
+  async createFromTemplate(@Param("workspaceId") workspaceId: string, @Param("slug") slug: string, @Req() request: AuthenticatedRequest) {
+    return { workflow: await this.workflows.createFromTemplate(workspaceId, requireUserId(request), slug) };
   }
 
   @Get("workflows/:workflowId")

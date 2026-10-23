@@ -64,7 +64,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 2. Implement Steam Account Snapshot with a mock transport and real Web API transport.
 3. Implement Google Chat incoming-webhook send action.
 4. Add Cron scheduler and timezone handling.
-5. Add the `Steam daily report` template with a tested message expression.
+5. Add the `Steam daily report` template with a tested message expression. **Implemented as the authenticated workspace's first workflow; it includes a 09:00 Asia/Ho_Chi_Minh cron schedule, Steam snapshot, and Google Chat message.**
 
 **Exit criterion:** a scheduled or manually triggered public Steam-account snapshot sends a real Google Chat daily report, with all sensitive values redacted from logs.
 
