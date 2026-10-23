@@ -10,7 +10,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | Visual workflow-editor foundation | Complete | React Flow canvas, node catalog, inspector, local draft history, JSON import/export, graph validation |
 | API health service | Complete | `GET /api/v1/health` |
 | Persistence schema, migration, and Prisma service | Complete | PostgreSQL schema, initial migration, and NestJS Prisma module |
-| Email/password authentication | Implemented; awaiting local PostgreSQL E2E | Register/login/me/logout endpoints, Argon2id, hashed opaque sessions, login UI |
+| Email/password authentication | Complete | Register/login/me/logout endpoints, Argon2id, hashed opaque sessions, login UI, PostgreSQL E2E |
 | Workspace/workflow API CRUD | Next | No runtime workflow data yet |
 | Background execution engine | Planned | Day 2 |
 | Google/Steam real connectors | Planned | Day 2–3 |

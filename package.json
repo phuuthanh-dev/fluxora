@@ -14,7 +14,8 @@
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present",
+    "db:deploy": "set -a && . ./.env && set +a && npm run db:deploy --workspace=@workflow/api"
   },
   "devDependencies": {
     "concurrently": "^10.0.6",
