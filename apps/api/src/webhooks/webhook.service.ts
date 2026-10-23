@@ -21,8 +21,8 @@ export class WebhookService {
     const secret = secretRequired ? randomBytes(24).toString("base64url") : null;
     const existing = await this.prisma.webhookEndpoint.findFirst({ where: { workflowId } });
     const endpoint = existing
-      ? await this.prisma.webhookEndpoint.update({ where: { id: existing.id }, data: { path, secretHash: secret ? hash(secret) : null, workflowVersionId: workflow.publishedVersion.id, isActive: true } })
-      : await this.prisma.webhookEndpoint.create({ data: { workflowId, workflowVersionId: workflow.publishedVersion.id, path, secretHash: secret ? hash(secret) : null } });
+      ? await this.prisma.webhookEndpoint.update({ where: { id: existing.id }, data: { path, secretHash: secret ? hashWebhookSecret(secret) : null, workflowVersionId: workflow.publishedVersion.id, isActive: true } })
+      : await this.prisma.webhookEndpoint.create({ data: { workflowId, workflowVersionId: workflow.publishedVersion.id, path, secretHash: secret ? hashWebhookSecret(secret) : null } });
     await this.prisma.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "webhook.created", targetType: "webhook", targetId: endpoint.id, metadata: { path, secretRequired } } });
     return { id: endpoint.id, path: endpoint.path, secret };
   }
@@ -30,7 +30,7 @@ export class WebhookService {
   async receive(path: string, secret: string | undefined, payload: unknown) {
     const endpoint = await this.prisma.webhookEndpoint.findUnique({ where: { path } });
     if (!endpoint || !endpoint.isActive) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
-    if (endpoint.secretHash && (!secret || !matchesHash(secret, endpoint.secretHash))) {
+    if (endpoint.secretHash && (!secret || !matchesWebhookSecret(secret, endpoint.secretHash))) {
       throw new ForbiddenException({ code: "WEBHOOK_SECRET_INVALID", message: "Webhook secret is invalid." });
     }
     const execution = await this.executions.createScheduledExecution(endpoint.workflowVersionId, payload && typeof payload === "object" && !Array.isArray(payload) ? payload as Record<string, unknown> : { payload });
@@ -39,12 +39,12 @@ export class WebhookService {
   }
 }
 
-function hash(value: string) {
+export function hashWebhookSecret(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function matchesHash(value: string, expected: string) {
-  const actual = Buffer.from(hash(value), "hex");
+export function matchesWebhookSecret(value: string, expected: string) {
+  const actual = Buffer.from(hashWebhookSecret(value), "hex");
   const known = Buffer.from(expected, "hex");
   return actual.length === known.length && timingSafeEqual(actual, known);
 }
