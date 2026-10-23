@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { UnauthorizedException } from "@nestjs/common";
+import { AuthIdentityProvider } from "@prisma/client";
 import type { PrismaService } from "../database/prisma.service";
 import { AuthService } from "./auth.service";
 
@@ -43,6 +44,52 @@ test("login does not reveal whether an email exists", async () => {
 
   await assert.rejects(
     () => new AuthService(prisma).login({ email: "missing@example.com", password: "wrong-password" }),
+    UnauthorizedException,
+  );
+});
+
+test("Google identity registration creates an owner workspace without a password", async () => {
+  const sessions: Array<{ userId: string; tokenHash: string }> = [];
+  const identities: Array<{ userId: string; provider: AuthIdentityProvider; providerAccountId: string; email: string }> = [];
+  const auditActions: string[] = [];
+  const transaction = {
+    authIdentity: {
+      findUnique: async () => null,
+      create: async ({ data }: { data: { userId: string; provider: AuthIdentityProvider; providerAccountId: string; email: string } }) => identities.push(data),
+      update: async () => undefined,
+    },
+    user: {
+      findUnique: async () => null,
+      create: async () => ({ id: "google-user-1", email: "owner@example.com", passwordHash: null, displayName: "Google Owner" }),
+    },
+    workspace: { create: async () => ({ id: "workspace-1" }) },
+    session: { create: async ({ data }: { data: { userId: string; tokenHash: string } }) => sessions.push(data) },
+    auditLog: { create: async ({ data }: { data: { action: string } }) => { auditActions.push(data.action); } },
+  };
+  const prisma = { $transaction: async <T>(callback: (client: typeof transaction) => Promise<T>) => callback(transaction) } as unknown as PrismaService;
+
+  const result = await new AuthService(prisma).loginWithIdentity({
+    provider: AuthIdentityProvider.GOOGLE,
+    providerAccountId: "google-subject-1",
+    email: "OWNER@EXAMPLE.COM",
+    displayName: "Google Owner",
+  });
+
+  assert.deepEqual(result.user, { id: "google-user-1", email: "owner@example.com", displayName: "Google Owner" });
+  assert.equal(identities.length, 1);
+  assert.deepEqual(identities[0], { userId: "google-user-1", provider: AuthIdentityProvider.GOOGLE, providerAccountId: "google-subject-1", email: "owner@example.com" });
+  assert.equal(sessions[0]?.userId, "google-user-1");
+  assert.notEqual(sessions[0]?.tokenHash, result.token);
+  assert.deepEqual(auditActions, ["auth.identity_registered"]);
+});
+
+test("password login rejects a passwordless identity account", async () => {
+  const prisma = {
+    user: { findUnique: async () => ({ id: "user-1", email: "owner@example.com", passwordHash: null }) },
+  } as unknown as PrismaService;
+
+  await assert.rejects(
+    () => new AuthService(prisma).login({ email: "owner@example.com", password: "anything" }),
     UnauthorizedException,
   );
 });

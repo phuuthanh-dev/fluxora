@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { apiUrl } from "../api/api-client";
 
 type AuthMode = "login" | "register";
@@ -15,6 +15,16 @@ export function LoginForm() {
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [googleAvailable, setGoogleAvailable] = useState(false);
+
+  useEffect(() => {
+    const parameters = new URLSearchParams(window.location.search);
+    if (parameters.get("authError") === "google_cancelled") setError("Google sign-in was cancelled. You can try again when ready.");
+    void fetch(`${apiUrl}/auth/providers`, { credentials: "include" })
+      .then(async (response): Promise<{ google?: boolean }> => response.ok ? await response.json() as { google?: boolean } : {})
+      .then((providers) => setGoogleAvailable(providers.google === true))
+      .catch(() => setGoogleAvailable(false));
+  }, []);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -66,7 +76,7 @@ export function LoginForm() {
           </form>
           <div className="auth-divider"><span>or continue with</span></div>
           <div className="auth-oauth-actions">
-            <button disabled type="button">Google <small>Coming soon</small></button>
+            <button disabled={!googleAvailable} onClick={() => window.location.assign(`${apiUrl}/auth/google/start`)} type="button">Google <small>{googleAvailable ? "Continue securely" : "Configure server"}</small></button>
             <button disabled type="button">GitHub <small>Coming soon</small></button>
           </div>
           <p className="auth-switch">{mode === "login" ? "New here?" : "Already have an account?"} <button onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); }} type="button">{mode === "login" ? "Create an account" : "Sign in"}</button></p>

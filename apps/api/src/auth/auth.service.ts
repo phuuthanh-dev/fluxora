@@ -1,6 +1,7 @@
 import { ConflictException, Inject, Injectable, UnauthorizedException } from "@nestjs/common";
 import { createHash, randomBytes } from "node:crypto";
 import * as argon2 from "argon2";
+import { AuthIdentityProvider } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
@@ -16,6 +17,13 @@ export type AuthenticatedUser = {
 export type AuthSession = {
   token: string;
   user: AuthenticatedUser;
+};
+
+export type ExternalIdentity = {
+  provider: AuthIdentityProvider;
+  providerAccountId: string;
+  email: string;
+  displayName?: string | null;
 };
 
 @Injectable()
@@ -64,7 +72,7 @@ export class AuthService {
   async login(dto: LoginDto): Promise<AuthSession> {
     const email = dto.email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user || !(await argon2.verify(user.passwordHash, dto.password))) {
+    if (!user?.passwordHash || !(await argon2.verify(user.passwordHash, dto.password))) {
       throw new UnauthorizedException({ code: "INVALID_CREDENTIALS", message: "Email or password is incorrect." });
     }
 
@@ -77,6 +85,43 @@ export class AuthService {
       },
     });
     await this.prisma.auditLog.create({ data: { actorId: user.id, action: "auth.logged_in", targetType: "user", targetId: user.id } });
+    return { token, user: this.toAuthenticatedUser(user) };
+  }
+
+  async loginWithIdentity(identity: ExternalIdentity): Promise<AuthSession> {
+    const email = identity.email.trim().toLowerCase();
+    const displayName = identity.displayName?.trim() || null;
+    const token = this.createSessionToken();
+    const tokenHash = this.hashSessionToken(token);
+
+    const user = await this.prisma.$transaction(async (transaction) => {
+      const existingIdentity = await transaction.authIdentity.findUnique({
+        where: { provider_providerAccountId: { provider: identity.provider, providerAccountId: identity.providerAccountId } },
+        include: { user: true },
+      });
+      if (existingIdentity) {
+        await transaction.authIdentity.update({ where: { id: existingIdentity.id }, data: { email } });
+        await transaction.session.create({ data: { userId: existingIdentity.userId, tokenHash, expiresAt: new Date(Date.now() + SESSION_DURATION_MS) } });
+        await transaction.auditLog.create({ data: { actorId: existingIdentity.userId, action: "auth.identity_logged_in", targetType: "user", targetId: existingIdentity.userId, metadata: { provider: identity.provider } } });
+        return existingIdentity.user;
+      }
+
+      const existingUser = await transaction.user.findUnique({ where: { email } });
+      const user = existingUser ?? await transaction.user.create({ data: { email, passwordHash: null, displayName } });
+      await transaction.authIdentity.create({ data: { userId: user.id, provider: identity.provider, providerAccountId: identity.providerAccountId, email } });
+      if (!existingUser) {
+        const workspaceName = displayName ? `${displayName}'s workspace` : "My workspace";
+        const workspace = await transaction.workspace.create({
+          data: { name: workspaceName, slug: `workspace-${user.id}`, ownerId: user.id, members: { create: { userId: user.id, role: "OWNER" } } },
+        });
+        await transaction.auditLog.create({ data: { workspaceId: workspace.id, actorId: user.id, action: "auth.identity_registered", targetType: "user", targetId: user.id, metadata: { provider: identity.provider } } });
+      } else {
+        await transaction.auditLog.create({ data: { actorId: user.id, action: "auth.identity_linked", targetType: "user", targetId: user.id, metadata: { provider: identity.provider } } });
+      }
+      await transaction.session.create({ data: { userId: user.id, tokenHash, expiresAt: new Date(Date.now() + SESSION_DURATION_MS) } });
+      return user;
+    });
+
     return { token, user: this.toAuthenticatedUser(user) };
   }
 

@@ -105,8 +105,9 @@ Action nodes support timeout, retry with exponential backoff, and an error edge.
 ## 8. Credentials and integrations
 
 - Support multiple credentials per provider.
-- Steam: API key plus Steam ID 64.
+- Steam Account Snapshot: API key plus Steam ID 64. Steam OpenID is an optional identity-link flow only; it does not replace the API credential.
 - Google Drive and Sheets: Google OAuth 2.0 authorization-code flow handled by the backend, with encrypted refresh tokens.
+- Google account sign-in: a separate OpenID Connect authorization-code flow that links a verified Google subject to the app user. It never stores Drive/Sheets access tokens as account-login state.
 - Google Chat MVP: incoming webhook URL credential.
 - Generic HTTP: API key, bearer token, basic auth, or headers.
 - All credential values are encrypted at rest and never returned to the client after save.

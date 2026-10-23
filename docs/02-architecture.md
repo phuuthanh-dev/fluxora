@@ -72,10 +72,12 @@ type NodeExecutionResult = {
 - Hash webhook secrets and compare in constant time.
 - Use allowlisted expression helpers; never execute user JavaScript.
 - Restrict CORS to the web application origin.
+- External account identities live in `auth_identities`, separate from encrypted workspace credentials. Google login verifies state, issuer, audience, and a verified email before it creates/links an identity and issues the same opaque session cookie as password login.
+- Steam OpenID, when enabled, records a Steam identity link only. It is not an authorization grant for Steam Web API data and cannot satisfy a Steam Account Snapshot credential.
 
 ## Persistence model
 
-Core tables: `users`, `sessions`, `workspaces`, `workspace_members`, `workflows`, `workflow_versions`, `credentials`, `executions`, `node_executions`, `approval_requests`, `webhook_endpoints`, `audit_logs`, `workflow_templates`.
+Core tables: `users`, `auth_identities`, `sessions`, `workspaces`, `workspace_members`, `workflows`, `workflow_versions`, `credentials`, `executions`, `node_executions`, `approval_requests`, `webhook_endpoints`, `audit_logs`, `workflow_templates`.
 
 JSONB is appropriate for workflow graph/configuration and node I/O; relational columns handle IDs, ownership, status, timestamps, and common filters.
 
