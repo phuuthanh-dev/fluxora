@@ -69,9 +69,14 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 
 ## Milestone 4 — Google data, webhooks, approvals, polish
 
+### Completed foundation
+
+- Published workflows can create a webhook endpoint pinned to that immutable version.
+- Optional webhook secrets are SHA-256 hashed and compared in constant time; the raw secret is returned only while the owner creates or rotates the endpoint.
+
 1. Implement backend Google OAuth credential connection.
 2. Implement Drive list/search and Sheets read/append.
-3. Implement inbound webhook trigger with a hashed secret.
+3. Implement inbound webhook trigger with a hashed secret. **Implemented and locally verified.**
 4. Implement Approval pause, notification link, owner approval UI, and execution resume.
 5. Finish audit logs, empty/error states, test coverage, README walkthrough, and demo recording.
 

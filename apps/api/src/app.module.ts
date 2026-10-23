@@ -9,9 +9,10 @@ import { WorkflowModule } from "./workflows/workflow.module";
 import { ExecutionModule } from "./execution/execution.module";
 import { CredentialModule } from "./credentials/credential.module";
 import { SchedulerModule } from "./scheduler/scheduler.module";
+import { WebhookModule } from "./webhooks/webhook.module";
 
 @Module({
-  imports: [ConfigModule.forRoot({ envFilePath: resolve(__dirname, "../../../.env"), isGlobal: true }), PrismaModule, AuthModule, WorkspaceModule, WorkflowModule, CredentialModule, ExecutionModule, SchedulerModule],
+  imports: [ConfigModule.forRoot({ envFilePath: resolve(__dirname, "../../../.env"), isGlobal: true }), PrismaModule, AuthModule, WorkspaceModule, WorkflowModule, CredentialModule, ExecutionModule, SchedulerModule, WebhookModule],
   controllers: [HealthController],
 })
 export class AppModule {}
