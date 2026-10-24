@@ -27,15 +27,18 @@ jobs:
           --health-retries 5
     env:
       DATABASE_URL: postgresql://workflow:workflow@localhost:5432/workflow?schema=public
-      # Deterministic non-production AES-256 key for the credential-vault browser E2E.
-      # Provider credentials are never present in CI.
-      APP_ENCRYPTION_KEY: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+      - name: Generate CI test encryption key
+        shell: bash
+        run: |
+          key="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("base64"))')"
+          echo "::add-mask::$key"
+          echo "APP_ENCRYPTION_KEY=$key" >> "$GITHUB_ENV"
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run db:deploy
