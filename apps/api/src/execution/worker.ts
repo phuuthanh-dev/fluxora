@@ -6,9 +6,10 @@ import { AppModule } from "../app.module";
 import { ExecutionService } from "./execution.service";
 import { validateEnvironment } from "../platform/environment";
 import { executionQueueName, type ExecutionJob } from "./execution-queue.service";
+import { resolveWorkerConcurrency } from "./worker-concurrency";
 
-export function createExecutionWorker(connection: IORedis, execute: (job: ExecutionJob) => Promise<void>, queueName = executionQueueName) {
-  return new Worker<ExecutionJob>(queueName, async (job: Job<ExecutionJob>) => execute(job.data), { connection });
+export function createExecutionWorker(connection: IORedis, execute: (job: ExecutionJob) => Promise<void>, queueName = executionQueueName, concurrency = resolveWorkerConcurrency()) {
+  return new Worker<ExecutionJob>(queueName, async (job: Job<ExecutionJob>) => execute(job.data), { connection, concurrency });
 }
 
 export async function bootstrapExecutionWorker() {

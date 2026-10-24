@@ -2,10 +2,11 @@ import { Inject, Injectable, OnModuleDestroy } from "@nestjs/common";
 import { Queue } from "bullmq";
 import IORedis from "ioredis";
 import { ExecutionService } from "./execution.service";
+import { resolveWorkerConcurrency } from "./worker-concurrency";
 
 type QueueMode = "inline" | "redis";
 export type ExecutionJob = { executionId: string; mode: "mock" | "live"; startNodeIds?: string[] };
-export type QueueHealth = { status: "ready" | "unavailable"; mode: QueueMode; waiting: number; active: number; delayed: number; failed: number };
+export type QueueHealth = { status: "ready" | "unavailable"; mode: QueueMode; configuredWorkerConcurrency: number; waiting: number; active: number; delayed: number; failed: number };
 export const executionQueueName = "workflow-executions";
 
 export function resolveQueueMode(value = process.env.EXECUTION_QUEUE_MODE): QueueMode {
@@ -29,14 +30,15 @@ export class ExecutionQueueService implements OnModuleDestroy {
   }
 
   async health(): Promise<QueueHealth> {
-    if (this.mode === "inline") return { status: "ready", mode: "inline", waiting: 0, active: 0, delayed: 0, failed: 0 };
+    const configuredWorkerConcurrency = resolveWorkerConcurrency();
+    if (this.mode === "inline") return { status: "ready", mode: "inline", configuredWorkerConcurrency, waiting: 0, active: 0, delayed: 0, failed: 0 };
     try {
       const queue = this.getQueue();
       await withTimeout(this.connection?.ping() ?? Promise.reject(new Error("Redis connection was not created.")), 2_000);
       const counts = await withTimeout(queue.getJobCounts("wait", "active", "delayed", "failed"), 2_000);
-      return { status: "ready", mode: "redis", waiting: counts.wait ?? 0, active: counts.active ?? 0, delayed: counts.delayed ?? 0, failed: counts.failed ?? 0 };
+      return { status: "ready", mode: "redis", configuredWorkerConcurrency, waiting: counts.wait ?? 0, active: counts.active ?? 0, delayed: counts.delayed ?? 0, failed: counts.failed ?? 0 };
     } catch {
-      return { status: "unavailable", mode: "redis", waiting: 0, active: 0, delayed: 0, failed: 0 };
+      return { status: "unavailable", mode: "redis", configuredWorkerConcurrency, waiting: 0, active: 0, delayed: 0, failed: 0 };
     }
   }
 

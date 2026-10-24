@@ -20,4 +20,5 @@ test("production requires an explicit Redis execution queue", () => {
 
 test("queue mode rejects unknown configuration in every environment", () => {
   assert.throws(() => validateEnvironment({ NODE_ENV: "development", EXECUTION_QUEUE_MODE: "fallback" }), /EXECUTION_QUEUE_MODE must be inline or redis/);
+  assert.throws(() => validateEnvironment({ NODE_ENV: "development", EXECUTION_WORKER_CONCURRENCY: "0" }), /EXECUTION_WORKER_CONCURRENCY/);
 });

@@ -35,7 +35,8 @@ CI runs the same gate for every pull request and push to `main`.
 | L4 | Cron, webhook, approval, Google Drive/Sheets, execution UI and polish | Complete locally | Cron dispatch test, editor webhook endpoints, approval pause/resume plus app-link notification, Drive → Sheets mock E2E, grouped editor actions, provider-aware credentials, and Playwright browser-onboarding checks exist; live Google OAuth/Chat validation remains |
 | L5.1 | Block unsafe workflow-configured outbound requests | Complete locally | Unit tests cover loopback/private/link-local targets, hostnames resolving to blocked ranges, and redirect revalidation. The policy is used by generic HTTP, Google Chat, and approval webhook deliveries. |
 | L5.2 | Make production queue configuration and readiness explicit | In progress | Production environment validation requires Redis queue configuration; readiness checks PostgreSQL plus queue availability and depth. Dedicated workers cannot start cron ingress; Redis worker integration runs in CI. |
-| L5.3 | Prevent abandoned execution state and unbounded history | In progress | Schema and maintenance service add execution leases, explicit terminal failure for expired work, outcome-aware retention, and terminal-record count pruning. Migration and full verification pending. |
+| L5.3 | Prevent abandoned execution state and unbounded history | Complete locally | Schema migration, lease-expiry transition tests, retention policy/count tests, local migration deployment, and full quality gate passed. |
+| L5.4 | Bound production worker concurrency | In progress | Worker concurrency is an explicit 1–20 setting with a safe default, process-level enforcement, environment validation, and readiness visibility. Integration verification pending. |
 
 ## External-boundary rule
 
