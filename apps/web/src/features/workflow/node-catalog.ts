@@ -56,7 +56,7 @@ export const nodeCatalog: NodeDefinition[] = [
     category: "trigger",
     icon: "▶",
     available: true,
-    defaultConfig: {},
+    defaultConfig: { testData: {} },
   },
   {
     type: "trigger.cron",
@@ -92,7 +92,7 @@ export const nodeCatalog: NodeDefinition[] = [
     category: "condition",
     icon: "⇆",
     available: true,
-    defaultConfig: { value: "", cases: [] },
+    defaultConfig: { value: "", cases: [{ value: "case-a" }] },
   },
   {
     type: "action.steam.account-snapshot",
@@ -101,7 +101,7 @@ export const nodeCatalog: NodeDefinition[] = [
     category: "action",
     icon: "◉",
     available: true,
-    defaultConfig: { credentialId: "", steamId: "", includeOwnedGames: true },
+    defaultConfig: { credentialId: "", steamId: "", includeOwnedGames: true, includeRecentGames: true, achievementAppId: "" },
   },
   {
     type: "action.google-chat.webhook",
@@ -119,7 +119,7 @@ export const nodeCatalog: NodeDefinition[] = [
     category: "action",
     icon: "△",
     available: true,
-    defaultConfig: { credentialId: "", operation: "search" },
+    defaultConfig: { credentialId: "", operation: "search", query: "", fileId: "", name: "daily-report.txt", text: "" },
   },
   {
     type: "action.google-sheets",
@@ -128,7 +128,7 @@ export const nodeCatalog: NodeDefinition[] = [
     category: "action",
     icon: "▤",
     available: true,
-    defaultConfig: { credentialId: "", operation: "append", range: "Sheet1!A1" },
+    defaultConfig: { credentialId: "", operation: "append", spreadsheetId: "", range: "Sheet1!A1", values: [["", ""]] },
   },
   {
     type: "action.http-request",
@@ -137,7 +137,7 @@ export const nodeCatalog: NodeDefinition[] = [
     category: "action",
     icon: "↗",
     available: true,
-    defaultConfig: { method: "GET", url: "", headers: {}, body: {} },
+    defaultConfig: { credentialId: "", method: "GET", url: "", headers: {}, body: "", timeoutMs: 15_000 },
   },
   {
     type: "approval.request",
@@ -146,18 +146,86 @@ export const nodeCatalog: NodeDefinition[] = [
     category: "approval",
     icon: "✓",
     available: true,
-    defaultConfig: { message: "", expiresInHours: 24 },
+    defaultConfig: { message: "", expiresInHours: 24, notificationProvider: "google_chat", notificationCredentialId: "" },
   },
   {
     type: "action.email",
     label: "Email",
-    description: "Email delivery is planned for a later release.",
+    description: "Not available in MVP — configure the future email payload.",
     category: "action",
     icon: "✉",
     available: false,
     defaultConfig: { to: "", subject: "", body: "" },
   },
+  {
+    type: "action.google-chat.oauth",
+    label: "Google Chat OAuth",
+    description: "Not available in MVP — OAuth Chat delivery is planned.",
+    category: "action",
+    icon: "✦",
+    available: false,
+    defaultConfig: { credentialId: "", space: "", message: "" },
+  },
+  {
+    type: "action.openai",
+    label: "OpenAI",
+    description: "Not available in MVP — configure for a later connector.",
+    category: "action",
+    icon: "◌",
+    available: false,
+    defaultConfig: { credentialId: "", model: "gpt-4.1-mini", prompt: "" },
+  },
+  {
+    type: "action.gemini",
+    label: "Gemini",
+    description: "Not available in MVP — configure for a later connector.",
+    category: "action",
+    icon: "◇",
+    available: false,
+    defaultConfig: { credentialId: "", model: "gemini-2.5-flash", prompt: "" },
+  },
+  {
+    type: "action.mongodb",
+    label: "MongoDB",
+    description: "Not available in MVP — configure for a later connector.",
+    category: "action",
+    icon: "◫",
+    available: false,
+    defaultConfig: { credentialId: "", database: "", collection: "", operation: "find" },
+  },
+  {
+    type: "action.github",
+    label: "GitHub",
+    description: "Not available in MVP — configure for a later connector.",
+    category: "action",
+    icon: "◉",
+    available: false,
+    defaultConfig: { credentialId: "", repository: "", operation: "createIssue" },
+  },
+  {
+    type: "action.facebook-meta",
+    label: "Facebook Meta",
+    description: "Not available in MVP — configure for a later connector.",
+    category: "action",
+    icon: "f",
+    available: false,
+    defaultConfig: { credentialId: "", operation: "" },
+  },
+  {
+    type: "action.instagram",
+    label: "Instagram",
+    description: "Not available in MVP — configure for a later connector.",
+    category: "action",
+    icon: "◎",
+    available: false,
+    defaultConfig: { credentialId: "", operation: "" },
+  },
 ];
+
+export function matchesNodeSearch(node: NodeDefinition, query: string) {
+  const normalized = query.trim().toLowerCase();
+  return !normalized || [node.label, node.description, node.category, node.type].some((value) => value.toLowerCase().includes(normalized));
+}
 
 export function getNodeDefinition(type: string) {
   return nodeCatalog.find((definition) => definition.type === type);

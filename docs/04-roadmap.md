@@ -22,7 +22,7 @@
 
 - Actual Email sending.
 - OpenAI, Gemini, MongoDB, GitHub nodes.
-- Google/GitHub social login.
+- GitHub runtime node and OAuth credential mode.
 - Full Google Chat OAuth mode.
 - Workspace members, roles, and credential sharing.
 - Drive upload/download enhancements.

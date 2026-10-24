@@ -15,6 +15,13 @@ export const workflowNodeTypes = [
   "action.http-request",
   "approval.request",
   "action.email",
+  "action.google-chat.oauth",
+  "action.openai",
+  "action.gemini",
+  "action.mongodb",
+  "action.github",
+  "action.facebook-meta",
+  "action.instagram",
 ] as const;
 
 export type WorkflowNodeType = (typeof workflowNodeTypes)[number];

@@ -57,7 +57,25 @@ export function validateWorkflowGraph(nodes: WorkflowCanvasNode[], edges: Workfl
     if (!node.data.available) {
       issues.push({ severity: "warning", message: `${node.data.label} is not available in the MVP.` });
     }
+    if (node.data.nodeType === "condition.switch") {
+      const values = switchCaseValues(node.data.config);
+      const caseEdges = edges.filter((edge) => edge.source === node.id && edge.kind === "case");
+      if (values.length === 0) issues.push({ severity: "error", message: `${node.data.label} needs at least one non-empty case value.` });
+      if (new Set(values).size !== values.length) issues.push({ severity: "error", message: `${node.data.label} has duplicate case values.` });
+      for (const edge of caseEdges) {
+        if (!edge.caseValue || !values.includes(edge.caseValue)) issues.push({ severity: "error", message: `The case branch from ${node.data.label} must map to one configured case value.` });
+      }
+    }
   }
 
   return issues;
+}
+
+function switchCaseValues(config: Record<string, unknown>) {
+  if (!Array.isArray(config.cases)) return [];
+  return config.cases.flatMap((candidate) => {
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return [];
+    const value = (candidate as Record<string, unknown>).value;
+    return typeof value === "string" && value.trim() ? [value.trim()] : [];
+  });
 }

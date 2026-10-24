@@ -1,5 +1,5 @@
-import { WorkflowEditor } from "@/features/workflow/workflow-editor";
+import { LoginForm } from "@/features/auth/login-form";
 
 export default function HomePage() {
-  return <WorkflowEditor />;
+  return <LoginForm />;
 }

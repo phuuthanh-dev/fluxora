@@ -11,12 +11,19 @@
     "dev": "concurrently --names web,api --prefix-colors blue,green \"npm run dev:web\" \"npm run dev:api\"",
     "dev:web": "npm run dev --workspace=@workflow/web",
     "dev:api": "npm run dev --workspace=@workflow/api",
+    "dev:worker": "npm run worker --workspace=@workflow/api",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present",
+    "test:e2e": "playwright test",
+    "db:deploy": "node --env-file-if-exists=.env ./scripts/run-prisma.mjs migrate deploy",
+    "db:generate": "npm run prisma:generate --workspace=@workflow/api",
+    "db:validate": "node --env-file-if-exists=.env ./scripts/run-prisma.mjs validate",
+    "verify": "npm run db:validate && npm run db:generate && npm run test && npm run lint && npm run typecheck && npm run build && npm run test:e2e"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "concurrently": "^10.0.6",
     "typescript": "^5.9.3"
   }

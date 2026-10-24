@@ -1,0 +1,45 @@
+name: Quality gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: workflow
+          POSTGRES_PASSWORD: workflow
+          POSTGRES_DB: workflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U workflow -d workflow"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://workflow:workflow@localhost:5432/workflow?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Generate CI test encryption key
+        shell: bash
+        run: |
+          key="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("base64"))')"
+          echo "::add-mask::$key"
+          echo "APP_ENCRYPTION_KEY=$key" >> "$GITHUB_ENV"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run db:deploy
+      - run: npm run verify

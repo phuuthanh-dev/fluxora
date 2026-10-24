@@ -13,6 +13,8 @@ NestJS API ── PostgreSQL
 
 The API accepts user requests and creates execution records. The worker executes nodes outside the HTTP request lifecycle. Scheduler, API, and worker are separate NestJS processes conceptually, even if local MVP development launches them together.
 
+The web dashboard is the authenticated control plane: it selects a workspace, lists workflows, and routes into a workflow-scoped editor URL. The editor distinguishes a deterministic mock test run from a guarded live run. Live requests use only `publishedVersion`; the API remains the final authorization and version-pinning boundary.
+
 ## Monorepo boundaries
 
 ```text
@@ -30,7 +32,7 @@ Node configuration must be validated twice: once in the web editor for feedback 
 
 ## Execution algorithm
 
-1. Create execution record with the published or current draft version.
+1. Create execution record with the current draft version for mock test runs, or the immutable published version for live/scheduled/webhook runs.
 2. Enqueue a BullMQ job containing only execution ID.
 3. Worker loads the immutable version, credentials, and trigger payload.
 4. Validate graph and select the next reachable node.
@@ -70,10 +72,12 @@ type NodeExecutionResult = {
 - Hash webhook secrets and compare in constant time.
 - Use allowlisted expression helpers; never execute user JavaScript.
 - Restrict CORS to the web application origin.
+- External account identities live in `auth_identities`, separate from encrypted workspace credentials. Google login verifies state, issuer, audience, and a verified email; GitHub login exchanges the authorization code server-side and requires a verified GitHub email. Both create/link an identity and issue the same opaque session cookie as password login; provider access tokens are discarded after identity retrieval.
+- Steam OpenID, when enabled, records a Steam identity link only. The API issues a state-bound OpenID request, verifies Steam's `check_authentication` response and a canonical HTTPS claimed Steam ID, then links it to the already authenticated app user. It is not an authorization grant for Steam Web API data and cannot satisfy a Steam Account Snapshot credential.
 
 ## Persistence model
 
-Core tables: `users`, `sessions`, `workspaces`, `workspace_members`, `workflows`, `workflow_versions`, `credentials`, `executions`, `node_executions`, `approval_requests`, `webhook_endpoints`, `audit_logs`, `workflow_templates`.
+Core tables: `users`, `auth_identities`, `sessions`, `workspaces`, `workspace_members`, `workflows`, `workflow_versions`, `credentials`, `executions`, `node_executions`, `approval_requests`, `webhook_endpoints`, `audit_logs`, `workflow_templates`.
 
 JSONB is appropriate for workflow graph/configuration and node I/O; relational columns handle IDs, ownership, status, timestamps, and common filters.
 

@@ -10,6 +10,8 @@ import {
   type WorkflowCanvasNode,
   type WorkflowNodeData,
 } from "./node-catalog";
+import { autoLayoutNodes } from "./auto-layout";
+import { duplicateWorkflowNode } from "./node-operations";
 
 type GraphSnapshot = {
   nodes: WorkflowCanvasNode[];
@@ -28,6 +30,9 @@ type WorkflowEditorState = {
   applyNodesChange: (changes: NodeChange<WorkflowCanvasNode>[]) => void;
   applyEdgesChange: (changes: EdgeChange<WorkflowCanvasEdge>[]) => void;
   connect: (connection: Connection) => void;
+  autoLayout: () => void;
+  duplicateNode: (id: string) => void;
+  deleteNode: (id: string) => void;
   undo: () => void;
   redo: () => void;
   loadGraph: (graph: GraphSnapshot) => void;
@@ -87,13 +92,37 @@ export const useWorkflowEditorStore = create<WorkflowEditorState>((set, get) => 
       const state = get();
       const kind = edgeKindFromHandle(connection.sourceHandle);
       if (!kind || !connection.source || !connection.target) return;
+      const source = state.nodes.find((node) => node.id === connection.source);
+      const caseValue = kind === "case" && source?.data.nodeType === "condition.switch"
+        ? nextUnmappedSwitchCase(source.data.config, state.edges.filter((edge) => edge.source === connection.source && edge.kind === "case"))
+        : undefined;
+      if (kind === "case" && !caseValue) return;
       const edges = addEdge({
         ...connection,
         animated: true,
         id: `edge-${crypto.randomUUID()}`,
         kind,
+        ...(caseValue === undefined ? {} : { caseValue }),
       }, state.edges) as WorkflowCanvasEdge[];
       commit(state.nodes, edges);
+    },
+    autoLayout: () => {
+      const state = get();
+      commit(autoLayoutNodes(state.nodes, state.edges), state.edges);
+    },
+    duplicateNode: (id) => {
+      const state = get();
+      const source = state.nodes.find((node) => node.id === id);
+      if (!source) return;
+      const copy = duplicateWorkflowNode(source, `node-${crypto.randomUUID()}`);
+      commit([...state.nodes.map((node) => ({ ...node, selected: false })), copy], state.edges);
+      set({ selectedNodeId: copy.id });
+    },
+    deleteNode: (id) => {
+      const state = get();
+      if (!state.nodes.some((node) => node.id === id)) return;
+      commit(state.nodes.filter((node) => node.id !== id), state.edges.filter((edge) => edge.source !== id && edge.target !== id));
+      set({ selectedNodeId: state.selectedNodeId === id ? null : state.selectedNodeId });
     },
     undo: () => {
       const state = get();
@@ -117,3 +146,15 @@ export const useWorkflowEditorStore = create<WorkflowEditorState>((set, get) => 
     },
   };
 });
+
+export function nextUnmappedSwitchCase(config: Record<string, unknown>, edges: WorkflowCanvasEdge[]) {
+  const mapped = new Set(edges.map((edge) => edge.caseValue));
+  const cases = Array.isArray(config.cases) ? config.cases : [];
+  for (const candidate of cases) {
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) continue;
+    const value = (candidate as Record<string, unknown>).value;
+    if (typeof value !== "string" || !value.trim() || mapped.has(value)) continue;
+    return value;
+  }
+  return undefined;
+}
