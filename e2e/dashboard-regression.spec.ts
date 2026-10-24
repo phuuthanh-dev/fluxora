@@ -102,39 +102,114 @@ test("failed template creation shows error, restores button, and allows retry", 
   await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
 });
 
-test("switching workspace clears stale workflows before showing new ones", async ({ page }) => {
+test("switching workspace clears stale workflows and guards against out-of-order race", async ({ page }) => {
   const email = `regression-ws-${Date.now()}@example.test`;
   await signUpAndDashboard(page, email);
 
-  // Create a second workspace
+  // Default workspace is Workspace A.
+  // 1. Seed/create a distinct workflow in Workspace A.
+  await page.locator('input[aria-label="New workflow name"]').fill("Alpha Unique Automation");
+  await page.getByRole("button", { name: "Blank workflow" }).click();
+  await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+  await page.goto("/dashboard");
+  await expect(page.getByText("Alpha Unique Automation")).toBeVisible({ timeout: 10_000 });
+
+  // 2. Create Workspace B.
   await page.locator('input[aria-label="New workspace name"]').fill("Second workspace");
   await page.getByRole("button", { name: "Create workspace" }).click();
   await expect(page.getByText("Workspace created. Start its first workflow.")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("No workflows in this workspace")).toBeVisible();
 
-  // Create a workflow in the first workspace — switch back first
+  // Get workspace options
   const workspaceSelect = page.locator("select#dashboard-workspace");
-  const firstOption = workspaceSelect.locator("option").nth(1);
-  const firstWorkspaceName = await firstOption.innerText();
-  await workspaceSelect.selectOption({ label: firstWorkspaceName });
+  const options = workspaceSelect.locator("option");
+  const secondWorkspaceId = await options.first().getAttribute("value");
+  const firstWorkspaceId = await options.nth(1).getAttribute("value");
+  expect(firstWorkspaceId).toBeTruthy();
+  expect(secondWorkspaceId).toBeTruthy();
 
-  // Intercept the workflows list for the second workspace to be slow
-  const secondWorkspaceId = await workspaceSelect.locator("option").first().getAttribute("value");
+  // 3. Start a delayed request for Workspace A.
+  let resolveWfA!: (value: unknown) => void;
+  const wfGateA = new Promise((resolve) => { resolveWfA = resolve; });
+  let delayedCallFired = false;
 
-  if (secondWorkspaceId) {
-    let resolveWf!: (value: unknown) => void;
-    const wfGate = new Promise((resolve) => { resolveWf = resolve; });
-    await page.route(`**/workspaces/${secondWorkspaceId}/workflows`, async (route) => {
-      await wfGate;
-      await route.continue();
-    });
+  await page.route(`**/workspaces/${firstWorkspaceId}/workflows`, async (route) => {
+    delayedCallFired = true;
+    await wfGateA;
+    await route.continue();
+  });
 
-    await workspaceSelect.selectOption({ value: secondWorkspaceId });
+  // Switch to Workspace A (request is sent and held by wfGateA).
+  await workspaceSelect.selectOption({ value: firstWorkspaceId });
 
-    // Stale workflows from first workspace must not be visible while loading
-    await expect(page.getByText("Loading workflows…")).toBeVisible();
-    // Workflow cards section should be empty (no stale cards)
-    await expect(page.locator(".workflow-card")).toHaveCount(0);
+  // 4. Switch again before the delayed response resolves: switch back to Workspace B.
+  await workspaceSelect.selectOption({ value: secondWorkspaceId });
 
-    resolveWf(undefined);
-  }
+  // Stale workflows from Workspace A must not appear under Workspace B while loading.
+  await expect(page.getByText("Alpha Unique Automation")).not.toBeVisible();
+
+  // 5. Release the stale response from Workspace A.
+  resolveWfA(undefined);
+
+  // Wait a moment for network promises to settle and verify that Workspace A's workflow
+  // NEVER appears under currently selected Workspace B.
+  await page.waitForTimeout(500);
+  await expect(page.getByText("Alpha Unique Automation")).not.toBeVisible();
+  await expect(page.getByText("No workflows in this workspace")).toBeVisible();
+  expect(delayedCallFired).toBe(true);
+});
+
+test("editor workflow library: creation failure shows alert, preserves input, and allows retry", async ({ page }) => {
+  const email = `regression-lib-${Date.now()}@example.test`;
+  await signUpAndDashboard(page, email);
+
+  // Navigate to editor with steam template
+  const createTemplate = page.waitForResponse((response) => response.request().method() === "POST" && response.url().includes("/workflows/from-template/steam-daily-report"));
+  await page.getByRole("button", { name: "Use Steam template" }).click();
+  expect((await createTemplate).ok()).toBeTruthy();
+  await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+
+  // Open Manage -> Workflows (Workflow library panel)
+  await page.getByLabel("Manage actions").click();
+  await page.getByRole("button", { name: "Workflows" }).click();
+  await expect(page.getByRole("dialog", { name: "Workflow library" })).toBeVisible();
+
+  // Set up mock to fail first workflow creation attempt
+  let attempt = 0;
+  await page.route("**/workspaces/*/workflows", async (route) => {
+    if (route.request().method() === "POST") {
+      attempt++;
+      if (attempt === 1) {
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ message: "Failed to create workflow in library." }),
+        });
+        return;
+      }
+    }
+    await route.continue();
+  });
+
+  const libraryNameInput = page.locator('.workflow-library__new input[aria-label="New workflow name"]');
+  await libraryNameInput.fill("Preserved Custom Name");
+  await page.getByRole("button", { name: "Start blank" }).click();
+
+  // Verify role="alert" accessibility
+  const errorAlert = page.locator(".workflow-library__error");
+  await expect(errorAlert).toBeVisible();
+  await expect(errorAlert).toHaveAttribute("role", "alert");
+  await expect(errorAlert).toContainText("Failed to create workflow in library.");
+
+  // Verify entered input is preserved
+  await expect(libraryNameInput).toHaveValue("Preserved Custom Name");
+
+  // Verify retry action
+  const retryButton = errorAlert.getByRole("button", { name: "Retry" });
+  await expect(retryButton).toBeVisible();
+  await retryButton.click();
+
+  // Should succeed, close library dialog, and open new workflow
+  await expect(page.getByRole("dialog", { name: "Workflow library" })).not.toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("heading", { name: "Preserved Custom Name" })).toBeVisible({ timeout: 10_000 });
 });

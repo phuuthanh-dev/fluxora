@@ -2,7 +2,7 @@
 
 import { Activity, ArrowRight, CirclePlus, FilePlus2, FolderKanban, LayoutDashboard, LogOut, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { apiRequest, apiUrl } from "../api/api-client";
 import type { ApiWorkflow } from "../workflow/workflow-api";
 
@@ -29,13 +29,19 @@ export function WorkflowDashboard() {
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
   const [runtimeLoading, setRuntimeLoading] = useState(true);
   const [createError, setCreateError] = useState<string | null>(null);
+  const activeWorkspaceIdRef = useRef("");
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const loadWorkflows = async (targetWorkspaceId: string) => {
+  const loadWorkflows = async (targetWorkspaceId: string, signal?: AbortSignal) => {
     if (!targetWorkspaceId) {
       setWorkflows([]);
       return;
     }
-    const response = await apiRequest<{ workflows: ApiWorkflow[] }>(`/workspaces/${targetWorkspaceId}/workflows`);
+    const response = await apiRequest<{ workflows: ApiWorkflow[] }>(
+      `/workspaces/${targetWorkspaceId}/workflows`,
+      signal ? { signal } : undefined
+    );
+    if (activeWorkspaceIdRef.current !== targetWorkspaceId) return;
     setWorkflows(response.workflows);
   };
 
@@ -55,6 +61,7 @@ export function WorkflowDashboard() {
         setProviders(providerResponse);
         setIdentities(identityResponse.identities);
         const initialWorkspaceId = workspaceResponse.workspaces[0]?.id ?? "";
+        activeWorkspaceIdRef.current = initialWorkspaceId;
         setWorkspaceId(initialWorkspaceId);
         await loadWorkflows(initialWorkspaceId);
         const parameters = new URLSearchParams(window.location.search);
@@ -81,13 +88,22 @@ export function WorkflowDashboard() {
   }, [router]);
 
   const switchWorkspace = async (nextWorkspaceId: string) => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    activeWorkspaceIdRef.current = nextWorkspaceId;
+
     setWorkspaceId(nextWorkspaceId);
     setWorkflows([]);
     setNotice("Loading workflows…");
     try {
-      await loadWorkflows(nextWorkspaceId);
+      await loadWorkflows(nextWorkspaceId, controller.signal);
+      if (activeWorkspaceIdRef.current !== nextWorkspaceId) return;
       setNotice("Choose a workflow or start a new one.");
     } catch (reason) {
+      if (controller.signal.aborted || activeWorkspaceIdRef.current !== nextWorkspaceId) return;
       setNotice(reason instanceof Error ? reason.message : "Unable to load workflows.");
     }
   };
