@@ -18,7 +18,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | Workspace dashboard and guarded live-run entry point | Complete locally | Dashboard is the authenticated landing page; workspace/workflow selection, blank/template creation, and publish-confirmed Go Live are browser-tested without invoking providers |
 | Google account sign-in readiness | Complete locally | `AuthIdentity` migration, Google OIDC account callback, provider-configured UI state, identity/session tests, and local migration deployment; activation needs a Google web-client configuration |
 | Steam identity OpenID readiness | Complete locally | State-bound authenticated identity linking, canonical claimed-ID/Steam validation, dashboard status, and unit/browser configuration checks; activation needs the public API callback and realm |
-| GitHub account sign-in and identity lifecycle | Complete locally | GitHub authorization-code callback with verified-email lookup, shared identity/session model, social-identity unlink guard, auth rate-limit baseline, security headers, environment validation, and focused unit coverage; activation needs a GitHub OAuth App configuration |
+| GitHub account sign-in and identity lifecycle | Verified locally | GitHub authorization-code callback with verified-email lookup, shared identity/session model, social-identity unlink guard, auth rate-limit baseline, security headers, environment validation, and focused unit coverage. A user-owned GitHub OAuth App was configured locally and a browser sign-in returned to the authenticated dashboard. |
 
 ## Milestone 1 — Product foundation
 

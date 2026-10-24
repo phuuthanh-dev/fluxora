@@ -5,6 +5,7 @@ This document is the current, evidence-based audit for the local MVP. It intenti
 | Acceptance criterion | Local status | Evidence |
 |---|---|---|
 | Workspace, draft save, immutable publish | Verified | Owner-only API flow; editor library creates/selects workspaces and blank/template workflows; publishing produces an immutable published version plus a new draft. Browser E2E saves a draft, publishes v1, and opens version history. |
+| Email/password, Google, GitHub, and Steam account identity | Verified locally | Password sessions and social identity lifecycle have focused coverage. Browser checks have completed for Google sign-in, GitHub authorization-code sign-in, and Steam OpenID linking with user-owned local provider configuration; the dashboard displays all three linked identities. |
 | Add, configure, connect, validate nodes | Verified | React Flow editor has palette, structured forms (including Switch case-to-edge mappings), JSON configuration, client DAG validation with detailed error/warning feedback, import/export, and backend graph validation. Local If/Else and Switch E2Es confirm only the selected branch executes. |
 | Manual, cron, webhook triggers create executions | Verified locally | Manual trigger E2E with test data, editor endpoint creation/rotation UI, webhook E2E with hashed secret plus hash-match unit coverage, and cron scheduler test that creates/dispatches one due execution with deduplication. |
 | Steam → Google Chat daily report | Mock verified; real-provider verification deferred | Template, deterministic mock executors, backend-only live adapters, and encrypted credentials exist. Steam unit coverage mocks profile/current/owned/recent/achievements API responses. A real report requires the owner's Steam API key and Google Chat incoming webhook. |
@@ -18,7 +19,7 @@ This document is the current, evidence-based audit for the local MVP. It intenti
 ## Deferred external validation
 
 - **Redis/BullMQ process E2E:** queue and worker code are present, but this machine has neither `redis-server` nor Docker. Inline mode is the verified local default.
-- **Real providers:** Google account sign-in and Steam identity linking have been verified locally with user-owned accounts. Steam Web API, Google Chat, Google connector OAuth, Drive, and Sheets still require their own user-owned credentials and live smoke checks. No secret is stored in source or test fixtures.
+- **Real providers:** Google and GitHub account sign-in plus Steam identity linking have been verified locally with user-owned accounts. Steam Web API, Google Chat, Google connector OAuth, Drive, and Sheets still require their own user-owned credentials and live smoke checks. No secret is stored in source or test fixtures.
 - **Deployment/VPS:** intentionally deferred by product scope.
 
 ## Remaining local hardening candidates
