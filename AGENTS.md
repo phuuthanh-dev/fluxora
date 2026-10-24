@@ -11,7 +11,10 @@ Before planning, coding, reviewing, or changing dependencies, read these files i
 3. `docs/03-development-rules.md`
 4. `docs/04-roadmap.md`
 5. `docs/05-implementation-plan.md`
-6. This file
+6. `docs/06-loop-engineering.md`
+7. `docs/10-agent-harness.md`
+8. `docs/11-code-graph.md`
+9. This file
 
 If a request conflicts with the specification, call out the conflict and propose an explicit spec update before implementing a materially different behavior.
 
@@ -31,6 +34,8 @@ If a request conflicts with the specification, call out the conflict and propose
 - Keep modules small and cohesive; favor composition over a generic `utils` directory.
 - Update the relevant specification/architecture document when a product or architectural decision changes.
 - Add or update tests for runner semantics, credentials, and connector behavior.
+- For source-import changes, run `npm run codegraph:generate`; `npm run verify` rejects a stale graph.
+- Use `.agent/task-template.md` and `.agent/report-template.md` for an agent-to-agent handoff. Treat reports as pointers to evidence, never as evidence itself.
 - Before handing work off, run the narrowest useful validation, then `npm run typecheck` when feasible.
 
 ## Source of truth and documentation

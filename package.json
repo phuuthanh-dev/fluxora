@@ -20,7 +20,11 @@
     "db:deploy": "node --env-file-if-exists=.env ./scripts/run-prisma.mjs migrate deploy",
     "db:generate": "npm run prisma:generate --workspace=@workflow/api",
     "db:validate": "node --env-file-if-exists=.env ./scripts/run-prisma.mjs validate",
-    "verify": "npm run db:validate && npm run db:generate && npm run test && npm run lint && npm run typecheck && npm run build && npm run test:e2e"
+    "codegraph:generate": "node scripts/generate-code-graph.mjs",
+    "codegraph:check": "node scripts/generate-code-graph.mjs --check",
+    "harness:check": "npm run codegraph:check",
+    "harness:report": "node scripts/verify-agent-report.mjs",
+    "verify": "npm run harness:check && npm run db:validate && npm run db:generate && npm run test && npm run lint && npm run typecheck && npm run build && npm run test:e2e"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",

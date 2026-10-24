@@ -39,6 +39,7 @@ CI runs the same gate for every pull request and push to `main`.
 | L5.4 | Bound production worker concurrency | Complete | Worker concurrency is an explicit 1–20 setting with a safe default, process-level enforcement, environment validation, and readiness visibility. GitHub Actions run 40115210885 passed Redis integration for worker handoff, enforced concurrency, and persisted workflow execution. |
 | L5.5 | Enforce the live execution boundary server-side | Complete locally | Controller tests prove unconfirmed live runs are rejected and confirmed runs queue correctly; runtime credential requirements include Steam, Google Chat, Drive/Sheets, HTTP, and optional approval notification credentials. Full quality gate passed. |
 | L5.6 | Surface runtime health in the workflow dashboard | Complete locally | Dashboard requests readiness and distinguishes ready, degraded, and unreachable API states alongside queue activity; Playwright verifies ready state after sign-in. Full quality gate passed. |
+| L6.1 | Agent collaboration harness and code graph | In progress | Repository-native task/report contracts, generated import graph, freshness gate, and handoff protocol are being added before delegating the next product slice. |
 
 ## External-boundary rule
 
