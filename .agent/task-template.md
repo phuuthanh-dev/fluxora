@@ -14,15 +14,15 @@ State one user-visible vertical slice. It must be small enough to review in one 
 
 ## In scope
 
-- 
+- Describe the allowed implementation surface.
 
 ## Explicitly out of scope
 
-- 
+- Describe what must not change.
 
 ## Acceptance criteria
 
-- [ ] 
+- [ ] State one independently verifiable outcome.
 
 ## Required evidence
 

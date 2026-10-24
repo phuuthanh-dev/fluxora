@@ -26,7 +26,7 @@
 
 ## Files changed
 
-- 
+- List each material file or state `none`.
 
 ## Risks and follow-up
 
