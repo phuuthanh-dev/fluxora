@@ -27,6 +27,9 @@ jobs:
           --health-retries 5
     env:
       DATABASE_URL: postgresql://workflow:workflow@localhost:5432/workflow?schema=public
+      # Deterministic non-production AES-256 key for the credential-vault browser E2E.
+      # Provider credentials are never present in CI.
+      APP_ENCRYPTION_KEY: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
