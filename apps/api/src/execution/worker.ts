@@ -18,7 +18,12 @@ export async function bootstrapExecutionWorker() {
   const executions = app.get(ExecutionService);
   const connection = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", { maxRetriesPerRequest: null });
   const worker = createExecutionWorker(connection, async (job) => {
-    await executions.run(job.executionId, job.mode, job.startNodeIds);
+    try {
+      await executions.run(job.executionId, job.mode, job.startNodeIds);
+    } catch (error) {
+      await executions.failFromWorker(job.executionId);
+      throw error;
+    }
   });
 
   const shutdown = async () => {

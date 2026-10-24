@@ -14,6 +14,7 @@ import { parseWorkflowGraph } from "../workflows/workflow-graph";
 
 type RunMode = "mock" | "live";
 type NodeResult = { status: "succeeded" | "failed" | "waiting"; output: Record<string, unknown>; route?: WorkflowEdgeKind; error?: NodeFailure };
+const executionLeaseMs = 5 * 60 * 1000;
 
 class NodeFailure extends Error {
   constructor(readonly code: string, message: string, readonly retryable: boolean, readonly statusCode?: number) {
@@ -59,8 +60,10 @@ export class ExecutionService {
       workflowId: execution.workflowVersion.workflowId,
       workflowVersion: execution.workflowVersion.version,
       triggerData: execution.triggerData,
+      error: execution.errorCode ? { code: execution.errorCode, message: execution.errorMessage } : null,
       startedAt: execution.startedAt,
       completedAt: execution.completedAt,
+      recoveryCount: execution.recoveryCount,
       nodeExecutions: execution.nodeExecutions.map((node) => ({
         nodeId: node.nodeId,
         status: node.status,
@@ -99,7 +102,7 @@ export class ExecutionService {
     }
     const completedAt = new Date();
     await this.prisma.$transaction([
-      this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.CANCELLED, completedAt } }),
+      this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.CANCELLED, completedAt, leaseExpiresAt: null } }),
       this.prisma.nodeExecution.updateMany({ where: { executionId, status: { in: [NodeExecutionStatus.PENDING, NodeExecutionStatus.RUNNING, NodeExecutionStatus.WAITING] } }, data: { status: NodeExecutionStatus.SKIPPED, completedAt } }),
       this.prisma.approvalRequest.updateMany({ where: { executionId, status: ApprovalRequestStatus.PENDING }, data: { status: ApprovalRequestStatus.EXPIRED, resolvedAt: completedAt } }),
       this.prisma.auditLog.create({ data: { workspaceId: execution.workflowVersion.workflow.workspaceId, actorId: userId, action: "execution.cancelled", targetType: "execution", targetId: executionId } }),
@@ -111,11 +114,15 @@ export class ExecutionService {
   async run(executionId: string, mode: RunMode, startNodeIds?: string[]) {
     const execution = await this.prisma.execution.findUnique({ include: { workflowVersion: { include: { workflow: true } }, nodeExecutions: true }, where: { id: executionId } });
     if (!execution) throw new NotFoundException({ code: "EXECUTION_NOT_FOUND", message: "Execution was not found." });
-    if (execution.status === ExecutionStatus.CANCELLED) return execution;
+    if (execution.status !== ExecutionStatus.QUEUED) return execution;
     const graph = parseWorkflowGraph(execution.workflowVersion.graph);
     const now = new Date();
+    const claimed = await this.prisma.execution.updateMany({
+      where: { id: executionId, status: ExecutionStatus.QUEUED },
+      data: { status: ExecutionStatus.RUNNING, startedAt: execution.startedAt ?? now, completedAt: null, errorCode: null, errorMessage: null, leaseExpiresAt: leaseExpiry(now) },
+    });
+    if (!claimed.count) return execution;
     await this.prisma.$transaction([
-      this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.RUNNING, startedAt: now } }),
       ...graph.nodes.map((node) => this.prisma.nodeExecution.upsert({
         where: { executionId_nodeId: { executionId, nodeId: node.id } },
         create: { executionId, nodeId: node.id, status: NodeExecutionStatus.PENDING },
@@ -136,6 +143,7 @@ export class ExecutionService {
 
     while (pending.length) {
       if (await this.isCancelled(executionId)) return execution;
+      await this.renewLease(executionId);
       const node = pending.shift();
       if (!node || visited.has(node.id)) continue;
       visited.add(node.id);
@@ -154,7 +162,7 @@ export class ExecutionService {
           data: { output: { ...result.output, approvalRequestId: approval.id, notificationStatus } as Prisma.InputJsonValue },
         });
         await this.markUnvisitedSkipped(executionId, graph, visited);
-        const waiting = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.WAITING_APPROVAL } });
+        const waiting = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.WAITING_APPROVAL, leaseExpiresAt: null } });
         this.events.publish(executionId, "execution.waiting_approval");
         return waiting;
       }
@@ -162,7 +170,7 @@ export class ExecutionService {
         const errorTargets = graph.edges.filter((edge) => edge.source === node.id && edge.kind === "error");
         if (!errorTargets.length) {
           await this.markUnvisitedSkipped(executionId, graph, visited);
-          const failed = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.FAILED, completedAt: new Date() } });
+          const failed = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.FAILED, completedAt: new Date(), leaseExpiresAt: null, errorCode: result.error?.code ?? "NODE_FAILED", errorMessage: result.error?.message ?? "Workflow node failed." } });
           this.events.publish(executionId, "execution.failed");
           return failed;
         }
@@ -176,7 +184,7 @@ export class ExecutionService {
 
     if (await this.isCancelled(executionId)) return execution;
     await this.markUnvisitedSkipped(executionId, graph, visited);
-    const succeeded = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.SUCCEEDED, completedAt: new Date() } });
+    const succeeded = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.SUCCEEDED, completedAt: new Date(), leaseExpiresAt: null } });
     this.events.publish(executionId, "execution.succeeded");
     return succeeded;
   }
@@ -199,7 +207,7 @@ export class ExecutionService {
       await this.prisma.$transaction([
         this.prisma.approvalRequest.update({ where: { id: approval.id }, data: { status: ApprovalRequestStatus.REJECTED, resolvedAt } }),
         this.prisma.nodeExecution.update({ where: { id: waitingNode.id }, data: { status: NodeExecutionStatus.FAILED, errorCode: "APPROVAL_REJECTED", errorMessage: "Approval was rejected.", completedAt: resolvedAt } }),
-        this.prisma.execution.update({ where: { id: approval.executionId }, data: { status: ExecutionStatus.FAILED, completedAt: resolvedAt } }),
+        this.prisma.execution.update({ where: { id: approval.executionId }, data: { status: ExecutionStatus.FAILED, completedAt: resolvedAt, leaseExpiresAt: null, errorCode: "APPROVAL_REJECTED", errorMessage: "Approval was rejected." } }),
       ]);
       this.events.publish(approval.executionId, "execution.failed");
       return { executionId: approval.executionId, resumed: false, startNodeIds: [], mode: approval.execution.mode === "MOCK" ? "mock" as const : "live" as const };
@@ -209,10 +217,36 @@ export class ExecutionService {
     await this.prisma.$transaction([
       this.prisma.approvalRequest.update({ where: { id: approval.id }, data: { status: ApprovalRequestStatus.APPROVED, resolvedAt } }),
       this.prisma.nodeExecution.update({ where: { id: waitingNode.id }, data: { status: NodeExecutionStatus.SUCCEEDED, completedAt: resolvedAt } }),
-      this.prisma.execution.update({ where: { id: approval.executionId }, data: { status: ExecutionStatus.QUEUED, completedAt: null } }),
+      this.prisma.execution.update({ where: { id: approval.executionId }, data: { status: ExecutionStatus.QUEUED, completedAt: null, leaseExpiresAt: null, errorCode: null, errorMessage: null } }),
     ]);
     this.events.publish(approval.executionId, "execution.queued");
     return { executionId: approval.executionId, resumed: nextNodeIds.length > 0, startNodeIds: nextNodeIds, mode: approval.execution.mode === "MOCK" ? "mock" as const : "live" as const };
+  }
+
+  async failFromMaintenance(executionId: string, code: string, message: string, expiredBefore = new Date()) {
+    const completedAt = new Date();
+    const failed = await this.prisma.execution.updateMany({
+      where: { id: executionId, status: ExecutionStatus.RUNNING, leaseExpiresAt: { lte: expiredBefore } },
+      data: { status: ExecutionStatus.FAILED, completedAt, leaseExpiresAt: null, errorCode: code, errorMessage: message, recoveryCount: { increment: 1 } },
+    });
+    if (!failed.count) return false;
+    await this.prisma.$transaction([
+      this.prisma.nodeExecution.updateMany({ where: { executionId, status: NodeExecutionStatus.RUNNING }, data: { status: NodeExecutionStatus.FAILED, completedAt, errorCode: code, errorMessage: message } }),
+      this.prisma.nodeExecution.updateMany({ where: { executionId, status: NodeExecutionStatus.PENDING }, data: { status: NodeExecutionStatus.SKIPPED, completedAt } }),
+    ]);
+    this.events.publish(executionId, "execution.failed");
+    return true;
+  }
+
+  async failFromWorker(executionId: string) {
+    const completedAt = new Date();
+    const failed = await this.prisma.execution.updateMany({
+      where: { id: executionId, status: { in: [ExecutionStatus.QUEUED, ExecutionStatus.RUNNING] } },
+      data: { status: ExecutionStatus.FAILED, completedAt, leaseExpiresAt: null, errorCode: "WORKER_EXECUTION_ERROR", errorMessage: "Execution worker stopped unexpectedly." },
+    });
+    if (!failed.count) return;
+    await this.prisma.nodeExecution.updateMany({ where: { executionId, status: { in: [NodeExecutionStatus.PENDING, NodeExecutionStatus.RUNNING] } }, data: { status: NodeExecutionStatus.FAILED, completedAt, errorCode: "WORKER_EXECUTION_ERROR", errorMessage: "Execution worker stopped unexpectedly." } });
+    this.events.publish(executionId, "execution.failed");
   }
 
   private async runNode(executionId: string, workspaceId: string, node: WorkflowNode, context: Record<string, unknown>, mode: RunMode): Promise<NodeResult> {
@@ -287,6 +321,14 @@ export class ExecutionService {
     const execution = await this.prisma.execution.findUnique({ where: { id: executionId }, select: { status: true } });
     return execution?.status === ExecutionStatus.CANCELLED;
   }
+
+  private async renewLease(executionId: string) {
+    await this.prisma.execution.updateMany({ where: { id: executionId, status: ExecutionStatus.RUNNING }, data: { leaseExpiresAt: leaseExpiry(new Date()) } });
+  }
+}
+
+function leaseExpiry(now: Date) {
+  return new Date(now.getTime() + executionLeaseMs);
 }
 
 async function executeNode(node: WorkflowNode, config: Record<string, unknown>, context: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService): Promise<NodeResult> {

@@ -17,6 +17,8 @@ Production uses `EXECUTION_QUEUE_MODE=redis`; it never silently degrades to inli
 
 Only the API process runs scheduler ingress. The worker starts the Nest application context for execution dependencies but identifies itself as `PROCESS_ROLE=worker`, which disables cron scheduling and prevents duplicate scheduled runs when workers scale horizontally.
 
+Every active execution owns a short lease. The runner renews it while progressing nodes. API maintenance marks a lease that expires as a terminal `EXECUTION_LEASE_EXPIRED` failure rather than automatically replaying unknown external side effects. It then prunes terminal execution records by outcome-specific age and total count; waiting and running executions are never eligible.
+
 The web dashboard is the authenticated control plane: it selects a workspace, lists workflows, and routes into a workflow-scoped editor URL. The editor distinguishes a deterministic mock test run from a guarded live run. Live requests use only `publishedVersion`; the API remains the final authorization and version-pinning boundary.
 
 ## Monorepo boundaries

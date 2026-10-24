@@ -180,8 +180,12 @@ model Execution {
   status            ExecutionStatus @default(QUEUED)
   mode              String          @default("LIVE")
   triggerData       Json?
+  errorCode         String?
+  errorMessage      String?
   startedAt         DateTime?
   completedAt       DateTime?
+  leaseExpiresAt    DateTime?
+  recoveryCount     Int             @default(0)
   createdAt         DateTime        @default(now())
   workflowVersion   WorkflowVersion @relation(fields: [workflowVersionId], references: [id], onDelete: Restrict)
   nodeExecutions    NodeExecution[]
@@ -189,6 +193,7 @@ model Execution {
 
   @@index([workflowVersionId, createdAt])
   @@index([status, createdAt])
+  @@index([status, leaseExpiresAt])
 }
 
 model NodeExecution {
