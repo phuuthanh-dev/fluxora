@@ -91,7 +91,8 @@ test("failed template creation shows error, restores button, and allows retry", 
   await page.getByRole("button", { name: "Use Steam template" }).click();
 
   // Error must appear
-  await expect(page.getByRole("alert")).toContainText("Template service unavailable.");
+  await expect(page.locator(".dashboard-create__error")).toContainText("Template service unavailable.");
+  await expect(page.locator(".dashboard-create__error")).toHaveAttribute("role", "alert");
 
   // Button must be re-enabled
   await expect(page.getByRole("button", { name: "Use Steam template" })).toBeEnabled();

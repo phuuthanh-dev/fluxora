@@ -43,19 +43,17 @@ export function WorkflowDashboard() {
     let active = true;
     void (async () => {
       try {
-        const [auth, workspaceResponse, providerResponse, identityResponse, runtimeResponse] = await Promise.all([
+        const [auth, workspaceResponse, providerResponse, identityResponse] = await Promise.all([
           apiRequest<{ user: CurrentUser }>("/auth/me"),
           apiRequest<{ workspaces: WorkspaceSummary[] }>("/workspaces"),
           apiRequest<ProviderStatus>("/auth/providers"),
           apiRequest<{ identities: IdentitySummary[] }>("/auth/identities"),
-          loadRuntimeStatus(),
         ]);
         if (!active) return;
         setUser(auth.user);
         setWorkspaces(workspaceResponse.workspaces);
         setProviders(providerResponse);
         setIdentities(identityResponse.identities);
-        setRuntime(runtimeResponse);
         const initialWorkspaceId = workspaceResponse.workspaces[0]?.id ?? "";
         setWorkspaceId(initialWorkspaceId);
         await loadWorkflows(initialWorkspaceId);
@@ -68,9 +66,17 @@ export function WorkflowDashboard() {
         else setNotice(message);
       } finally {
         if (active) setIsLoading(false);
-        if (active) setRuntimeLoading(false);
       }
     })();
+
+    void (async () => {
+      setRuntimeLoading(true);
+      const runtimeResponse = await loadRuntimeStatus();
+      if (!active) return;
+      setRuntime(runtimeResponse);
+      setRuntimeLoading(false);
+    })();
+
     return () => { active = false; };
   }, [router]);
 
