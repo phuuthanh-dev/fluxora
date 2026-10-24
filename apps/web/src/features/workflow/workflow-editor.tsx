@@ -278,23 +278,57 @@ function WorkflowLibraryPanel({ initialWorkspaces, activeWorkflowId, activeWorks
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
   const [notice, setNotice] = useState("Loading workflows…");
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingWorkflows, setIsLoadingWorkflows] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [lastCreateTemplate, setLastCreateTemplate] = useState<string | undefined>(undefined);
+  const activeWorkspaceRef = useRef(workspaceId);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const loadWorkflows = async (targetWorkspaceId = workspaceId) => {
+  const loadWorkflows = async (targetWorkspaceId: string) => {
     if (!targetWorkspaceId) return;
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    activeWorkspaceRef.current = targetWorkspaceId;
+
+    setIsLoadingWorkflows(true);
+    setLoadError(null);
+    setWorkflows([]);
     try {
-      const response = await apiRequest<{ workflows: ApiWorkflow[] }>(`/workspaces/${targetWorkspaceId}/workflows`);
+      const response = await apiRequest<{ workflows: ApiWorkflow[] }>(
+        `/workspaces/${targetWorkspaceId}/workflows`,
+        { signal: controller.signal }
+      );
+      if (activeWorkspaceRef.current !== targetWorkspaceId) return;
       setWorkflows(response.workflows);
       setNotice(response.workflows.length ? "Choose a workflow or create a new one." : "No workflows yet. Start blank or use the Steam template.");
     } catch (reason) {
-      setNotice(reason instanceof Error ? reason.message : "Unable to load workflows.");
+      if (controller.signal.aborted || activeWorkspaceRef.current !== targetWorkspaceId) return;
+      const message = reason instanceof Error ? reason.message : "Unable to load workflows.";
+      setLoadError(message);
+      setNotice(message);
+    } finally {
+      if (activeWorkspaceRef.current === targetWorkspaceId) {
+        setIsLoadingWorkflows(false);
+      }
     }
   };
 
-  useEffect(() => { void loadWorkflows(); }, [workspaceId]);
+  useEffect(() => {
+    void loadWorkflows(workspaceId);
+  }, []);
+
+  const switchWorkspace = (nextWorkspaceId: string) => {
+    setWorkspaceId(nextWorkspaceId);
+    void loadWorkflows(nextWorkspaceId);
+  };
 
   const createWorkflow = async (templateSlug?: string) => {
-    if (!workspaceId || !newWorkflowName.trim()) return;
+    if (!workspaceId || (!templateSlug && !newWorkflowName.trim())) return;
     setIsSaving(true);
+    setCreateError(null);
+    setLastCreateTemplate(templateSlug);
     try {
       const response = templateSlug
         ? await apiRequest<{ workflow: ApiWorkflow }>(`/workspaces/${workspaceId}/workflows/from-template/${templateSlug}`, { method: "POST" })
@@ -302,7 +336,9 @@ function WorkflowLibraryPanel({ initialWorkspaces, activeWorkflowId, activeWorks
       onOpen(response.workflow);
       setNotice(templateSlug ? "Steam daily report created from template." : "Blank workflow created.");
     } catch (reason) {
-      setNotice(reason instanceof Error ? reason.message : "Unable to create workflow.");
+      const message = reason instanceof Error ? reason.message : "Unable to create workflow.";
+      setCreateError(message);
+      setNotice(message);
     } finally {
       setIsSaving(false);
     }
@@ -319,6 +355,7 @@ function WorkflowLibraryPanel({ initialWorkspaces, activeWorkflowId, activeWorks
       setNewWorkspaceName("");
       setWorkflows([]);
       setNotice("Workspace created. Create its first workflow.");
+      void loadWorkflows(response.workspace.id);
     } catch (reason) {
       setNotice(reason instanceof Error ? reason.message : "Unable to create workspace.");
     } finally {
@@ -326,7 +363,7 @@ function WorkflowLibraryPanel({ initialWorkspaces, activeWorkflowId, activeWorks
     }
   };
 
-  return <section className="workflow-library" role="dialog" aria-modal="false" aria-label="Workflow library"><div className="credential-panel__heading"><div><p className="section-label">WORKSPACE LIBRARY</p><h2>Workflows</h2></div><button className="icon-button" type="button" aria-label="Close workflow library" onClick={onClose}>×</button></div><label className="workflow-library__field"><span>Workspace</span><select value={workspaceId} onChange={(event) => setWorkspaceId(event.target.value)}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</select></label><div className="workflow-library__create"><input value={newWorkspaceName} onChange={(event) => setNewWorkspaceName(event.target.value)} placeholder="New workspace name" /><button className="ghost-button" type="button" onClick={() => void createWorkspace()} disabled={isSaving || !newWorkspaceName.trim()}>Create workspace</button></div><div className="workflow-library__list">{workflows.map((candidate) => <button key={candidate.id} className={candidate.id === activeWorkflowId ? "workflow-library__item workflow-library__item--active" : "workflow-library__item"} type="button" onClick={() => onOpen(candidate)}><strong>{candidate.name}</strong><span>{candidate.published ? `Published v${candidate.published.version}` : "Draft only"}</span></button>)}</div><div className="workflow-library__new"><p className="section-label">CREATE WORKFLOW</p><input value={newWorkflowName} onChange={(event) => setNewWorkflowName(event.target.value)} aria-label="New workflow name" /><div><button className="run-button" type="button" onClick={() => void createWorkflow()} disabled={isSaving || !workspaceId || !newWorkflowName.trim()}>Start blank</button><button className="ghost-button" type="button" onClick={() => void createWorkflow("steam-daily-report")} disabled={isSaving || !workspaceId}>Use Steam template</button></div></div><p className="workflow-library__notice">{notice}</p></section>;
+  return <section className="workflow-library" role="dialog" aria-modal="false" aria-label="Workflow library"><div className="credential-panel__heading"><div><p className="section-label">WORKSPACE LIBRARY</p><h2>Workflows</h2></div><button className="icon-button" type="button" aria-label="Close workflow library" onClick={onClose}>×</button></div><label className="workflow-library__field"><span>Workspace</span><select value={workspaceId} onChange={(event) => switchWorkspace(event.target.value)}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</select></label><div className="workflow-library__create"><input value={newWorkspaceName} onChange={(event) => setNewWorkspaceName(event.target.value)} placeholder="New workspace name" /><button className="ghost-button" type="button" onClick={() => void createWorkspace()} disabled={isSaving || !newWorkspaceName.trim()}>Create workspace</button></div><div className="workflow-library__list">{workflows.map((candidate) => <button key={candidate.id} className={candidate.id === activeWorkflowId ? "workflow-library__item workflow-library__item--active" : "workflow-library__item"} type="button" onClick={() => onOpen(candidate)}><strong>{candidate.name}</strong><span>{candidate.published ? `Published v${candidate.published.version}` : "Draft only"}</span></button>)}</div><div className="workflow-library__new"><p className="section-label">CREATE WORKFLOW</p><input value={newWorkflowName} onChange={(event) => setNewWorkflowName(event.target.value)} aria-label="New workflow name" /><div><button className="run-button" type="button" onClick={() => void createWorkflow()} disabled={isSaving || !workspaceId || !newWorkflowName.trim()}>{isSaving && !lastCreateTemplate ? "Creating…" : "Start blank"}</button><button className="ghost-button" type="button" onClick={() => void createWorkflow("steam-daily-report")} disabled={isSaving || !workspaceId}>{isSaving && lastCreateTemplate ? "Creating…" : "Use Steam template"}</button></div>{createError && <p className="workflow-library__error" role="alert">{createError} <button type="button" className="ghost-button" onClick={() => void createWorkflow(lastCreateTemplate)}>Retry</button></p>}</div>{isLoadingWorkflows && <p className="workflow-library__notice" aria-live="polite">Loading workflows…</p>}{loadError && <p className="workflow-library__notice workflow-library__notice--error" role="alert">{loadError} <button type="button" className="ghost-button" onClick={() => void loadWorkflows(workspaceId)}>Retry</button></p>}{!isLoadingWorkflows && !loadError && <p className="workflow-library__notice">{notice}</p>}</section>;
 }
 
 function NodeInspector({ node, execution, credentials, onResolveApproval }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null; credentials: CredentialSummary[]; onResolveApproval: (approvalId: string, decision: "approved" | "rejected") => void }) {

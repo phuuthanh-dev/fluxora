@@ -2,7 +2,7 @@
 
 import { Activity, ArrowRight, CirclePlus, FilePlus2, FolderKanban, LayoutDashboard, LogOut, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { apiRequest, apiUrl } from "../api/api-client";
 import type { ApiWorkflow } from "../workflow/workflow-api";
 
@@ -27,13 +27,22 @@ export function WorkflowDashboard() {
   const [unlinkingProvider, setUnlinkingProvider] = useState<IdentitySummary["provider"] | null>(null);
   const [notice, setNotice] = useState("Loading your workspace…");
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
+  const [runtimeLoading, setRuntimeLoading] = useState(true);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [lastCreateTemplate, setLastCreateTemplate] = useState<string | undefined>(undefined);
+  const activeWorkspaceIdRef = useRef("");
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const loadWorkflows = async (targetWorkspaceId: string) => {
+  const loadWorkflows = async (targetWorkspaceId: string, signal?: AbortSignal) => {
     if (!targetWorkspaceId) {
       setWorkflows([]);
       return;
     }
-    const response = await apiRequest<{ workflows: ApiWorkflow[] }>(`/workspaces/${targetWorkspaceId}/workflows`);
+    const response = await apiRequest<{ workflows: ApiWorkflow[] }>(
+      `/workspaces/${targetWorkspaceId}/workflows`,
+      signal ? { signal } : undefined
+    );
+    if (activeWorkspaceIdRef.current !== targetWorkspaceId) return;
     setWorkflows(response.workflows);
   };
 
@@ -41,20 +50,19 @@ export function WorkflowDashboard() {
     let active = true;
     void (async () => {
       try {
-        const [auth, workspaceResponse, providerResponse, identityResponse, runtimeResponse] = await Promise.all([
+        const [auth, workspaceResponse, providerResponse, identityResponse] = await Promise.all([
           apiRequest<{ user: CurrentUser }>("/auth/me"),
           apiRequest<{ workspaces: WorkspaceSummary[] }>("/workspaces"),
           apiRequest<ProviderStatus>("/auth/providers"),
           apiRequest<{ identities: IdentitySummary[] }>("/auth/identities"),
-          loadRuntimeStatus(),
         ]);
         if (!active) return;
         setUser(auth.user);
         setWorkspaces(workspaceResponse.workspaces);
         setProviders(providerResponse);
         setIdentities(identityResponse.identities);
-        setRuntime(runtimeResponse);
         const initialWorkspaceId = workspaceResponse.workspaces[0]?.id ?? "";
+        activeWorkspaceIdRef.current = initialWorkspaceId;
         setWorkspaceId(initialWorkspaceId);
         await loadWorkflows(initialWorkspaceId);
         const parameters = new URLSearchParams(window.location.search);
@@ -68,30 +76,52 @@ export function WorkflowDashboard() {
         if (active) setIsLoading(false);
       }
     })();
+
+    void (async () => {
+      setRuntimeLoading(true);
+      const runtimeResponse = await loadRuntimeStatus();
+      if (!active) return;
+      setRuntime(runtimeResponse);
+      setRuntimeLoading(false);
+    })();
+
     return () => { active = false; };
   }, [router]);
 
   const switchWorkspace = async (nextWorkspaceId: string) => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    activeWorkspaceIdRef.current = nextWorkspaceId;
+
     setWorkspaceId(nextWorkspaceId);
+    setWorkflows([]);
     setNotice("Loading workflows…");
     try {
-      await loadWorkflows(nextWorkspaceId);
+      await loadWorkflows(nextWorkspaceId, controller.signal);
+      if (activeWorkspaceIdRef.current !== nextWorkspaceId) return;
       setNotice("Choose a workflow or start a new one.");
     } catch (reason) {
+      if (controller.signal.aborted || activeWorkspaceIdRef.current !== nextWorkspaceId) return;
       setNotice(reason instanceof Error ? reason.message : "Unable to load workflows.");
     }
   };
 
   const createWorkflow = async (templateSlug?: string) => {
-    if (!workspaceId || !workflowName.trim()) return;
+    if (!workspaceId || (!templateSlug && !workflowName.trim())) return;
     setIsCreating(true);
+    setCreateError(null);
+    setLastCreateTemplate(templateSlug);
     try {
       const response = templateSlug
         ? await apiRequest<{ workflow: ApiWorkflow }>(`/workspaces/${workspaceId}/workflows/from-template/${templateSlug}`, { method: "POST" })
         : await apiRequest<{ workflow: ApiWorkflow }>(`/workspaces/${workspaceId}/workflows`, { method: "POST", body: JSON.stringify({ name: workflowName.trim() }) });
       router.push(`/editor?workflow=${encodeURIComponent(response.workflow.id)}`);
     } catch (reason) {
-      setNotice(reason instanceof Error ? reason.message : "Unable to create the workflow.");
+      const message = reason instanceof Error ? reason.message : "Unable to create the workflow.";
+      setCreateError(message);
       setIsCreating(false);
     }
   };
@@ -147,8 +177,8 @@ export function WorkflowDashboard() {
       <section className="dashboard-main">
         <div className="dashboard-hero"><div><p className="section-label">{activeWorkspace?.name ?? "WORKSPACE"}</p><h1>Your workflow control room.</h1><p>Create, publish, monitor, and revisit every automation from one place.</p></div><button className="dashboard-new-button" type="button" onClick={() => document.getElementById("workflow-create")?.scrollIntoView({ behavior: "smooth", block: "center" })}><CirclePlus size={17} /> New workflow</button></div>
         <div className="dashboard-stats"><div><LayoutDashboard size={17} /><strong>{workflows.length}</strong><span>workflows</span></div><div><FolderKanban size={17} /><strong>{workflows.filter((workflow) => workflow.published).length}</strong><span>live versions</span></div><div><FilePlus2 size={17} /><strong>{workflows.filter((workflow) => !workflow.published).length}</strong><span>draft-only</span></div></div>
-        <section className={`dashboard-runtime dashboard-runtime--${runtime?.status ?? "unknown"}`} aria-live="polite"><Activity size={17} /><div><strong>{runtime?.status === "ready" ? "Execution runtime ready" : runtime?.status === "degraded" ? "Execution runtime needs attention" : "Runtime status unavailable"}</strong><span>{runtime ? `Database ${runtime.checks.database} · ${runtime.checks.queue.mode} queue ${runtime.checks.queue.status} · ${runtime.checks.queue.active}/${runtime.checks.queue.configuredWorkerConcurrency} active · ${runtime.checks.queue.waiting} queued` : "Could not reach the API readiness endpoint."}</span></div></section>
-        <section id="workflow-create" className="dashboard-create"><div><p className="section-label">CREATE</p><h2>Start a workflow</h2><p>Use a blank canvas or the Steam daily report template.</p></div><div className="dashboard-create__actions"><input aria-label="New workflow name" value={workflowName} onChange={(event) => setWorkflowName(event.target.value)} /><button className="dashboard-secondary-button" type="button" onClick={() => void createWorkflow()} disabled={isCreating || !workspaceId || !workflowName.trim()}>Blank workflow</button><button className="dashboard-primary-button" type="button" onClick={() => void createWorkflow("steam-daily-report")} disabled={isCreating || !workspaceId}>{isCreating ? "Creating…" : "Use Steam template"}</button></div></section>
+        <section className={`dashboard-runtime dashboard-runtime--${runtimeLoading ? "checking" : runtime?.status ?? "unreachable"}`} aria-live="polite" aria-busy={runtimeLoading}><Activity size={17} /><div><strong>{runtimeLoading ? "Checking runtime status…" : runtime?.status === "ready" ? "Execution runtime ready" : runtime?.status === "degraded" ? "Execution runtime needs attention" : "Runtime status unreachable"}</strong><span>{runtimeLoading ? "Contacting the API readiness endpoint." : runtime ? `Database ${runtime.checks.database} · ${runtime.checks.queue.mode} queue ${runtime.checks.queue.status} · ${runtime.checks.queue.active}/${runtime.checks.queue.configuredWorkerConcurrency} active · ${runtime.checks.queue.waiting} queued` : "Could not reach the API readiness endpoint."}</span></div></section>
+        <section id="workflow-create" className="dashboard-create"><div><p className="section-label">CREATE</p><h2>Start a workflow</h2><p>Use a blank canvas or the Steam daily report template.</p></div><div className="dashboard-create__actions"><input aria-label="New workflow name" value={workflowName} onChange={(event) => setWorkflowName(event.target.value)} /><button className="dashboard-secondary-button" type="button" onClick={() => void createWorkflow()} disabled={isCreating || !workspaceId || !workflowName.trim()}>{isCreating && lastCreateTemplate === undefined ? "Creating…" : "Blank workflow"}</button><button className="dashboard-primary-button" type="button" onClick={() => void createWorkflow("steam-daily-report")} disabled={isCreating || !workspaceId}>{isCreating && lastCreateTemplate === "steam-daily-report" ? "Creating…" : "Use Steam template"}</button></div>{createError && <p className="dashboard-create__error" role="alert"><span>{createError}</span><button type="button" className="dashboard-create__retry" onClick={() => void createWorkflow(lastCreateTemplate)} disabled={isCreating}>Retry</button></p>}</section>
         <section className="dashboard-workflows"><div className="dashboard-section-heading"><div><p className="section-label">WORKFLOWS</p><h2>All automations</h2></div><span role="status" aria-live="polite">{notice}</span></div>{workflows.length === 0 ? <div className="dashboard-empty"><FolderKanban size={26} /><h3>No workflows in this workspace</h3><p>Start with the Steam template or create a blank automation.</p></div> : <div className="workflow-card-grid">{workflows.map((workflow) => <article key={workflow.id} className="workflow-card"><div className="workflow-card__status"><span className={workflow.published ? "workflow-status workflow-status--live" : "workflow-status"}>{workflow.published ? `Live · v${workflow.published.version}` : "Draft"}</span><span>Updated {new Date(workflow.updatedAt ?? Date.now()).toLocaleDateString()}</span></div><h3>{workflow.name}</h3><p>{workflow.description || "No description yet. Open the editor to configure this workflow."}</p><footer><span>{workflow.draft?.graph.nodes.length ?? workflow.published?.graph.nodes.length ?? 0} nodes</span><button type="button" onClick={() => router.push(`/editor?workflow=${encodeURIComponent(workflow.id)}`)}>Open editor <ArrowRight size={15} /></button></footer></article>)}</div>}</section>
         <section className="dashboard-workspace-create"><div><p className="section-label">WORKSPACE</p><h2>Create another workspace</h2></div><form onSubmit={createWorkspace}><input aria-label="New workspace name" value={workspaceName} onChange={(event) => setWorkspaceName(event.target.value)} placeholder="e.g. Personal automations" /><button className="dashboard-secondary-button" disabled={isCreating || !workspaceName.trim()} type="submit">Create workspace</button></form></section>
       </section>

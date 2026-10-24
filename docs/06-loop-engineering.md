@@ -40,6 +40,7 @@ CI runs the same gate for every pull request and push to `main`.
 | L5.5 | Enforce the live execution boundary server-side | Complete locally | Controller tests prove unconfirmed live runs are rejected and confirmed runs queue correctly; runtime credential requirements include Steam, Google Chat, Drive/Sheets, HTTP, and optional approval notification credentials. Full quality gate passed. |
 | L5.6 | Surface runtime health in the workflow dashboard | Complete locally | Dashboard requests readiness and distinguishes ready, degraded, and unreachable API states alongside queue activity; Playwright verifies ready state after sign-in. Full quality gate passed. |
 | L6.1 | Agent collaboration harness and code graph | Complete | Repository-native task/report contracts, generated import graph, freshness gate, and handoff protocol are available. GitHub Actions run 40118624159 passed the graph-aware quality gate; the onboarding E2E now waits for the template-creation response before asserting navigation. |
+| L6.2 | Dashboard/editor regression UX | Complete | Dashboard readiness checking, degraded, and unreachable states are distinct; workspace switching clears stale cards immediately and guards against out-of-order responses; template and library creation failures provide accessible alerts, input preservation, and retry actions. Playwright tests and full quality gate passed. |
 
 ## External-boundary rule
 
