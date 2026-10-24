@@ -1,4 +1,4 @@
-import { Controller, Get, Inject, Param, Post, Req, Sse, UseGuards } from "@nestjs/common";
+import { BadRequestException, Controller, Get, Inject, Param, Post, Req, Sse, UseGuards } from "@nestjs/common";
 import { from, switchMap } from "rxjs";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
@@ -15,6 +15,7 @@ export class ExecutionController {
   async startManual(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
     const body = request.body && typeof request.body === "object" && !Array.isArray(request.body) ? request.body as Record<string, unknown> : {};
     const mock = body.mock !== false;
+    if (!mock && body.confirmLive !== true) throw new BadRequestException({ code: "LIVE_CONFIRMATION_REQUIRED", message: "Confirm live execution before running providers." });
     const execution = await this.executions.createManualExecution(workflowId, requireUserId(request), mock, body.triggerData ?? {});
     await this.queue.dispatch({ executionId: execution.id, mode: mock ? "mock" : "live" });
     return { execution: await this.executions.get(execution.id, requireUserId(request)) };

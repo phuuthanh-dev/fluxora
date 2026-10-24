@@ -11,6 +11,7 @@ import { resolveExpressions } from "./expression";
 import { redactValue } from "./redaction";
 import { isRetryableFailure, retryDelayMs } from "./retry-policy";
 import { parseWorkflowGraph } from "../workflows/workflow-graph";
+import { liveCredentialRequirements } from "./live-readiness";
 
 type RunMode = "mock" | "live";
 type NodeResult = { status: "succeeded" | "failed" | "waiting"; output: Record<string, unknown>; route?: WorkflowEdgeKind; error?: NodeFailure };
@@ -34,6 +35,7 @@ export class ExecutionService {
     if (!workflow) throw new NotFoundException({ code: "WORKFLOW_NOT_FOUND", message: "Workflow was not found." });
     const version = mock ? workflow.draftVersion ?? workflow.publishedVersion : workflow.publishedVersion;
     if (!version) throw new NotFoundException({ code: "PUBLISHED_VERSION_REQUIRED", message: "Publish the workflow before starting a live execution." });
+    if (!mock) await this.assertLiveReady(workflow.workspaceId, parseWorkflowGraph(version.graph));
     const execution = await this.prisma.execution.create({
       data: { workflowVersionId: version.id, mode: mock ? "MOCK" : "LIVE", triggerData: redactValue(triggerData) as Prisma.InputJsonValue },
     });
@@ -42,6 +44,9 @@ export class ExecutionService {
   }
 
   async createScheduledExecution(workflowVersionId: string, triggerData: Record<string, unknown>) {
+    const version = await this.prisma.workflowVersion.findUnique({ where: { id: workflowVersionId }, include: { workflow: true } });
+    if (!version) throw new NotFoundException({ code: "WORKFLOW_VERSION_NOT_FOUND", message: "Workflow version was not found." });
+    await this.assertLiveReady(version.workflow.workspaceId, parseWorkflowGraph(version.graph));
     return this.prisma.execution.create({
       data: { workflowVersionId, mode: "LIVE", triggerData: redactValue(triggerData) as Prisma.InputJsonValue },
     });
@@ -324,6 +329,23 @@ export class ExecutionService {
 
   private async renewLease(executionId: string) {
     await this.prisma.execution.updateMany({ where: { id: executionId, status: ExecutionStatus.RUNNING }, data: { leaseExpiresAt: leaseExpiry(new Date()) } });
+  }
+
+  private async assertLiveReady(workspaceId: string, graph: WorkflowGraph) {
+    const requirements = liveCredentialRequirements(graph);
+    const missingSelection = requirements.filter((requirement) => !requirement.credentialId);
+    const selectedIds = requirements.flatMap((requirement) => requirement.credentialId ? [requirement.credentialId] : []);
+    const credentials = selectedIds.length
+      ? await this.prisma.credential.findMany({ where: { id: { in: selectedIds }, workspaceId }, select: { id: true, provider: true } })
+      : [];
+    const providerById = new Map(credentials.map((credential) => [credential.id, credential.provider]));
+    const invalid = requirements.filter((requirement) => requirement.credentialId && providerById.get(requirement.credentialId) !== requirement.provider);
+    if (!missingSelection.length && !invalid.length) return;
+    throw new BadRequestException({
+      code: "LIVE_CREDENTIAL_REQUIRED",
+      message: "Select valid credentials for every live integration node before going live.",
+      details: [...missingSelection, ...invalid].map((requirement) => ({ nodeId: requirement.nodeId, provider: requirement.provider })),
+    });
   }
 }
 
