@@ -6,6 +6,7 @@ import { CredentialService } from "../credentials/credential.service";
 import { PrismaService } from "../database/prisma.service";
 import { ExecutionEventsService } from "./execution-events.service";
 import { applyHttpCredential, HttpCredentialError } from "./http-credential";
+import { fetchSafeOutbound, OutboundRequestPolicyError } from "./outbound-url-policy";
 import { resolveExpressions } from "./expression";
 import { redactValue } from "./redaction";
 import { isRetryableFailure, retryDelayMs } from "./retry-policy";
@@ -265,7 +266,7 @@ export class ExecutionService {
       const body = provider === CredentialProvider.HTTP
         ? { type: "workflow.approval.requested", message: String(output.message ?? "Approval requested"), approvalUrl: link }
         : { text: message };
-      const response = await fetch(request.url, { method: "POST", headers: request.headers, body: JSON.stringify(body), signal: AbortSignal.timeout(15_000) });
+      const response = await fetchSafeOutbound(request.url, { method: "POST", headers: request.headers, body: JSON.stringify(body), signal: AbortSignal.timeout(15_000) });
       return response.ok ? "sent" : "failed";
     } catch {
       return "failed";
@@ -312,7 +313,12 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
     if (mode === "live") {
       const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.GOOGLE_CHAT_WEBHOOK);
       const webhookUrl = readCredentialValue(credential, "webhookUrl");
-      const response = await fetch(webhookUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: String(config.message ?? "") }), signal: AbortSignal.timeout(15_000) });
+      let response: Response;
+      try {
+        response = await fetchSafeOutbound(webhookUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: String(config.message ?? "") }), signal: AbortSignal.timeout(15_000) });
+      } catch (reason) {
+        throw nodeFailureFromOutboundPolicy(reason);
+      }
       if (!response.ok) throw new NodeFailure("HTTP_ERROR", `Google Chat returned ${response.status}.`, response.status === 429 || response.status >= 500, response.status);
       return { status: "succeeded", output: { delivered: true, mode: "live" }, route: "success" };
     }
@@ -353,16 +359,23 @@ async function executeHttpRequest(config: Record<string, unknown>, credential?: 
   }
   const body = method === "GET" || method === "HEAD" ? undefined : requestBody(config.body, headers);
   try {
-    const response = await fetch(url, { method, headers, body, signal: AbortSignal.timeout(timeoutMs) });
+    const response = await fetchSafeOutbound(url, { method, headers, body, signal: AbortSignal.timeout(timeoutMs) });
     const raw = await response.text();
     const responseBody: unknown = tryJson(raw);
     if (!response.ok) throw new NodeFailure("HTTP_ERROR", `HTTP request returned ${response.status}.`, response.status === 429 || response.status >= 500, response.status);
     return { status: "succeeded", output: { status: response.status, body: responseBody }, route: "success" };
   } catch (reason) {
     if (reason instanceof NodeFailure) throw reason;
+    if (reason instanceof OutboundRequestPolicyError) throw nodeFailureFromOutboundPolicy(reason);
     const timeout = reason instanceof Error && reason.name === "TimeoutError";
     throw new NodeFailure(timeout ? "TIMEOUT" : "NETWORK_ERROR", timeout ? "HTTP request timed out." : "HTTP request failed.", true);
   }
+}
+
+function nodeFailureFromOutboundPolicy(reason: unknown) {
+  if (reason instanceof OutboundRequestPolicyError) return new NodeFailure(reason.code, reason.message, false);
+  const timeout = reason instanceof Error && reason.name === "TimeoutError";
+  return new NodeFailure(timeout ? "TIMEOUT" : "NETWORK_ERROR", timeout ? "Outbound request timed out." : "Outbound request failed.", true);
 }
 
 function readHttpHeaders(value: unknown) {

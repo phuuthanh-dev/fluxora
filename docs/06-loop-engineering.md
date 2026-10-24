@@ -33,6 +33,7 @@ CI runs the same gate for every pull request and push to `main`.
 | L2 | Pinned version can run with persisted node I/O | Complete locally | Inline mock, authenticated SSE, retry/error-edge HTTP E2E, and browser save/publish/history coverage passed locally; Redis worker qualification is deferred until a Redis runtime is available |
 | L3 | Credential vault plus Steam → Google Chat mock and live-capable adapters | Complete locally | Mock flow, provider-aware credential creation/selection, and live-capable backend adapters are verified; live activation needs user-provided credentials |
 | L4 | Cron, webhook, approval, Google Drive/Sheets, execution UI and polish | Complete locally | Cron dispatch test, editor webhook endpoints, approval pause/resume plus app-link notification, Drive → Sheets mock E2E, grouped editor actions, provider-aware credentials, and Playwright browser-onboarding checks exist; live Google OAuth/Chat validation remains |
+| L5.1 | Block unsafe workflow-configured outbound requests | Complete locally | Unit tests cover loopback/private/link-local targets, hostnames resolving to blocked ranges, and redirect revalidation. The policy is used by generic HTTP, Google Chat, and approval webhook deliveries. |
 
 ## External-boundary rule
 

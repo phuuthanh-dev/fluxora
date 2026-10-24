@@ -70,6 +70,7 @@ type NodeExecutionResult = {
 - Use HTTP-only secure cookies for refresh token flow; short-lived access tokens.
 - Mask sensitive headers/fields before persisting an execution.
 - Hash webhook secrets and compare in constant time.
+- Validate user-configurable HTTP and webhook destinations before every outbound request. Block loopback, private, link-local, multicast, and reserved IP ranges after DNS resolution; validate each redirect target and permit cross-origin redirects only through an explicit future policy.
 - Use allowlisted expression helpers; never execute user JavaScript.
 - Restrict CORS to the web application origin.
 - External account identities live in `auth_identities`, separate from encrypted workspace credentials. Google login verifies state, issuer, audience, and a verified email; GitHub login exchanges the authorization code server-side and requires a verified GitHub email. Both create/link an identity and issue the same opaque session cookie as password login; provider access tokens are discarded after identity retrieval.

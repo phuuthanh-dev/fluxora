@@ -102,6 +102,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 ## Production-preparation follow-up
 
 1. Add deployment/runtime hardening after provider configuration is supplied: production CORS/cookie policy, secure environment validation, health/readiness checks, migrations, Redis worker qualification, and Docker/VPS manifests.
+2. **Completed locally — outbound request policy:** generic HTTP, Google Chat webhooks, and approval webhooks now validate protocol, hostname, resolved IP ranges, and redirect targets before requesting external services. The optional `OUTBOUND_ALLOWED_HOSTNAMES` setting is reserved for controlled internal DNS zones; it must never be `*`.
 
 ## Working order for agents
 
