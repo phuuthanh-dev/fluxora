@@ -15,6 +15,7 @@ enum MembershipRole {
 
 enum AuthIdentityProvider {
   GOOGLE
+  GITHUB
   STEAM
 }
 

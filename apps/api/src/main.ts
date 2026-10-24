@@ -1,11 +1,16 @@
 import "reflect-metadata";
 import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { AppModule } from "./app.module";
 import { ApiExceptionFilter } from "./platform/api-exception.filter";
+import { validateEnvironment } from "./platform/environment";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  validateEnvironment();
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.useSecurityHeaders();
+  if (process.env.TRUST_PROXY === "true") app.set("trust proxy", "loopback");
   app.setGlobalPrefix("api/v1");
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
   app.useGlobalFilters(new ApiExceptionFilter());

@@ -1,16 +1,19 @@
-import { BadRequestException, Controller, Get, HttpCode, Inject, Post, Query, Req, Res, UnauthorizedException, UseGuards } from "@nestjs/common";
+import { BadRequestException, Controller, Delete, Get, HttpCode, Inject, Param, Post, Query, Req, Res, UnauthorizedException, UseGuards } from "@nestjs/common";
 import { AuthIdentityProvider } from "@prisma/client";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { Request, Response } from "express";
 import { AuthService } from "./auth.service";
 import { AuthenticationGuard } from "./authentication.guard";
+import { AuthRateLimitGuard } from "./auth-rate-limit.guard";
 import type { AuthenticatedRequest } from "./authenticated-request";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { createSteamOpenIdUrl, verifySteamOpenIdCallback } from "./steam-openid";
+import { createGitHubAuthorizationUrl, fetchGitHubIdentity, githubAuthConfig } from "./github-oauth";
 
 const SESSION_COOKIE = "workflow_session";
 const GOOGLE_STATE_COOKIE = "workflow_google_auth_state";
+const GITHUB_STATE_COOKIE = "workflow_github_auth_state";
 const GOOGLE_STATE_DURATION_MS = 1000 * 60 * 10;
 const STEAM_STATE_COOKIE = "workflow_steam_link_state";
 const STEAM_STATE_DURATION_MS = 1000 * 60 * 10;
@@ -20,6 +23,7 @@ export class AuthController {
   constructor(@Inject(AuthService) private readonly authService: AuthService) {}
 
   @Post("register")
+  @UseGuards(AuthRateLimitGuard)
   async register(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
     const session = await this.authService.register(parseRegisterDto(request.body));
     this.setSessionCookie(response, session.token);
@@ -28,6 +32,7 @@ export class AuthController {
 
   @Post("login")
   @HttpCode(200)
+  @UseGuards(AuthRateLimitGuard)
   async login(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
     const session = await this.authService.login(parseLoginDto(request.body));
     this.setSessionCookie(response, session.token);
@@ -43,6 +48,7 @@ export class AuthController {
   providers() {
     return {
       google: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_AUTH_REDIRECT_URI),
+      github: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET && process.env.GITHUB_AUTH_REDIRECT_URI),
       steam: Boolean(process.env.STEAM_OPENID_RETURN_URI && process.env.STEAM_OPENID_REALM),
     };
   }
@@ -62,6 +68,36 @@ export class AuthController {
       prompt: "select_account",
     }).toString();
     response.redirect(url.toString());
+  }
+
+  @Get("github/start")
+  startGitHubLogin(@Res() response: Response) {
+    const state = randomBytes(32).toString("base64url");
+    response.cookie(GITHUB_STATE_COOKIE, state, oauthStateCookieOptions());
+    response.redirect(createGitHubAuthorizationUrl(githubAuthConfig(), state));
+  }
+
+  @Get("github/callback")
+  async completeGitHubLogin(@Query("code") code: string | undefined, @Query("state") state: string | undefined, @Query("error") error: string | undefined, @Req() request: Request, @Res() response: Response) {
+    const clearState = () => response.clearCookie(GITHUB_STATE_COOKIE, oauthStateCookieOptions());
+    if (error) {
+      clearState();
+      return response.redirect(webRedirect("/", "authError", "github_cancelled"));
+    }
+    if (!code || !state || !safeEqual(state, readCookie(request, GITHUB_STATE_COOKIE))) {
+      clearState();
+      return response.redirect(webRedirect("/", "authError", "github_failed"));
+    }
+    try {
+      const identity = await fetchGitHubIdentity(code, githubAuthConfig());
+      const session = await this.authService.loginWithIdentity({ provider: AuthIdentityProvider.GITHUB, ...identity });
+      clearState();
+      this.setSessionCookie(response, session.token);
+      return response.redirect(webRedirect("/dashboard", "auth", "github"));
+    } catch {
+      clearState();
+      return response.redirect(webRedirect("/", "authError", "github_failed"));
+    }
   }
 
   @Get("google/callback")
@@ -100,6 +136,12 @@ export class AuthController {
   @UseGuards(AuthenticationGuard)
   async identities(@Req() request: AuthenticatedRequest) {
     return { identities: await this.authService.listIdentities(requireUserId(request)) };
+  }
+
+  @Delete("identities/:provider")
+  @UseGuards(AuthenticationGuard)
+  async unlinkIdentity(@Param("provider") provider: string, @Req() request: AuthenticatedRequest) {
+    return { identities: await this.authService.unlinkIdentity(requireUserId(request), readIdentityProvider(provider)) };
   }
 
   @Get("steam/connect")
@@ -169,6 +211,10 @@ function googleAuthConfig() {
   return { clientId, clientSecret, redirectUri };
 }
 
+function oauthStateCookieOptions() {
+  return { httpOnly: true, maxAge: GOOGLE_STATE_DURATION_MS, sameSite: "lax" as const, secure: isProduction() };
+}
+
 function safeEqual(value: string, expected: string | undefined) {
   if (!expected) return false;
   const valueBuffer = Buffer.from(value);
@@ -191,6 +237,13 @@ function steamOpenIdConfig() {
   const realm = process.env.STEAM_OPENID_REALM;
   if (!returnUri || !realm) throw new BadRequestException({ code: "STEAM_OPENID_NOT_CONFIGURED", message: "Steam identity linking is not configured yet." });
   return { returnUri, realm };
+}
+
+function readIdentityProvider(value: string) {
+  if (value === "google") return AuthIdentityProvider.GOOGLE;
+  if (value === "github") return AuthIdentityProvider.GITHUB;
+  if (value === "steam") return AuthIdentityProvider.STEAM;
+  throw new BadRequestException({ code: "IDENTITY_PROVIDER_INVALID", message: "That identity provider is not supported." });
 }
 
 function requireUserId(request: AuthenticatedRequest) {

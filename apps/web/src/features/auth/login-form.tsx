@@ -16,15 +16,17 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [googleAvailable, setGoogleAvailable] = useState(false);
+  const [githubAvailable, setGitHubAvailable] = useState(false);
 
   useEffect(() => {
     const parameters = new URLSearchParams(window.location.search);
-    if (parameters.get("authError") === "google_cancelled") setError("Google sign-in was cancelled. You can try again when ready.");
-    if (parameters.get("authError") === "google_failed") setError("Google sign-in could not be completed. Please try again.");
+    const authError = parameters.get("authError");
+    if (authError === "google_cancelled" || authError === "github_cancelled") setError(`${authError.startsWith("google") ? "Google" : "GitHub"} sign-in was cancelled. You can try again when ready.`);
+    if (authError === "google_failed" || authError === "github_failed") setError(`${authError.startsWith("google") ? "Google" : "GitHub"} sign-in could not be completed. Please try again.`);
     void fetch(`${apiUrl}/auth/providers`, { credentials: "include" })
-      .then(async (response): Promise<{ google?: boolean }> => response.ok ? await response.json() as { google?: boolean } : {})
-      .then((providers) => setGoogleAvailable(providers.google === true))
-      .catch(() => setGoogleAvailable(false));
+      .then(async (response): Promise<{ google?: boolean; github?: boolean }> => response.ok ? await response.json() as { google?: boolean; github?: boolean } : {})
+      .then((providers) => { setGoogleAvailable(providers.google === true); setGitHubAvailable(providers.github === true); })
+      .catch(() => { setGoogleAvailable(false); setGitHubAvailable(false); });
   }, []);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -78,7 +80,7 @@ export function LoginForm() {
           <div className="auth-divider"><span>or continue with</span></div>
           <div className="auth-oauth-actions">
             <button disabled={!googleAvailable} onClick={() => window.location.assign(`${apiUrl}/auth/google/start`)} type="button">Google <small>{googleAvailable ? "Continue securely" : "Configure server"}</small></button>
-            <button disabled type="button">GitHub <small>Coming soon</small></button>
+            <button disabled={!githubAvailable} onClick={() => window.location.assign(`${apiUrl}/auth/github/start`)} type="button">GitHub <small>{githubAvailable ? "Continue securely" : "Configure server"}</small></button>
           </div>
           <p className="auth-switch">{mode === "login" ? "New here?" : "Already have an account?"} <button onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); }} type="button">{mode === "login" ? "Create an account" : "Sign in"}</button></p>
         </div>

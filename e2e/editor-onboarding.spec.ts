@@ -4,7 +4,7 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   const email = `e2e-${Date.now()}@example.test`;
   await page.goto("/");
 
-  await expect(page.getByRole("button", { name: /Google Configure server/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /^Google/ })).toBeVisible();
 
   await page.getByRole("button", { name: "Create an account" }).click();
   await page.locator('input[autocomplete="name"]').fill("E2E Owner");

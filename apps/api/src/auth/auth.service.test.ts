@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, UnauthorizedException } from "@nestjs/common";
 import { AuthIdentityProvider } from "@prisma/client";
 import type { PrismaService } from "../database/prisma.service";
 import { AuthService } from "./auth.service";
@@ -110,4 +110,32 @@ test("Steam identity links only to the current signed-in user", async () => {
   assert.equal(result.provider, AuthIdentityProvider.STEAM);
   assert.equal(result.providerAccountId, "76561198000000000");
   assert.deepEqual(auditActions, ["auth.identity_linked"]);
+});
+
+test("an identity-only account cannot unlink its only Google or GitHub sign-in method", async () => {
+  const transaction = {
+    user: { findUnique: async () => ({ id: "user-1", passwordHash: null, identities: [{ provider: AuthIdentityProvider.GITHUB }] }) },
+    authIdentity: { findFirst: async () => ({ id: "identity-1" }) },
+    auditLog: { create: async () => undefined },
+  };
+  const prisma = { $transaction: async <T>(callback: (client: typeof transaction) => Promise<T>) => callback(transaction) } as unknown as PrismaService;
+
+  await assert.rejects(() => new AuthService(prisma).unlinkIdentity("user-1", AuthIdentityProvider.GITHUB), BadRequestException);
+});
+
+test("a password account can unlink a social identity and records an audit event", async () => {
+  const actions: string[] = [];
+  const transaction = {
+    user: { findUnique: async () => ({ id: "user-1", passwordHash: "hash", identities: [{ provider: AuthIdentityProvider.GITHUB }] }) },
+    authIdentity: { findFirst: async () => ({ id: "identity-1" }), delete: async () => undefined },
+    auditLog: { create: async ({ data }: { data: { action: string } }) => { actions.push(data.action); } },
+  };
+  const prisma = {
+    $transaction: async <T>(callback: (client: typeof transaction) => Promise<T>) => callback(transaction),
+    authIdentity: { findMany: async () => [] },
+  } as unknown as PrismaService;
+
+  const identities = await new AuthService(prisma).unlinkIdentity("user-1", AuthIdentityProvider.GITHUB);
+  assert.deepEqual(identities, []);
+  assert.deepEqual(actions, ["auth.identity_unlinked"]);
 });

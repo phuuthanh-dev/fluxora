@@ -18,7 +18,7 @@ This document is the current, evidence-based audit for the local MVP. It intenti
 ## Deferred external validation
 
 - **Redis/BullMQ process E2E:** queue and worker code are present, but this machine has neither `redis-server` nor Docker. Inline mode is the verified local default.
-- **Real providers:** Steam, Google Chat, Google OAuth, Drive, and Sheets require credentials owned and supplied by the user. No secret is stored in source or test fixtures.
+- **Real providers:** Google account sign-in and Steam identity linking have been verified locally with user-owned accounts. Steam Web API, Google Chat, Google connector OAuth, Drive, and Sheets still require their own user-owned credentials and live smoke checks. No secret is stored in source or test fixtures.
 - **Deployment/VPS:** intentionally deferred by product scope.
 
 ## Remaining local hardening candidates

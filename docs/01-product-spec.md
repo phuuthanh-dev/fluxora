@@ -19,10 +19,10 @@ The Steam profile is public. The Steam node returns every field available throug
 
 ## 3. Personas and access
 
-- Initial user: a single owner who can sign in with email/password and, after OAuth is configured, Google identity.
+- Initial user: a single owner who can sign in with email/password and, after OAuth is configured, Google or GitHub identity.
 - Data model: multiple workspaces and memberships must exist now.
 - Authorization: only the owner role is active in MVP; role schema and audit logs prepare future expansion.
-- Google identity sign-in is a production-preparation requirement. GitHub remains a visible roadmap affordance until its provider flow is implemented.
+- Google and GitHub identity sign-in are production-preparation requirements. The two providers share the external-identity model but use independent OAuth callbacks and credentials.
 
 ## 4. MVP feature scope
 
@@ -108,6 +108,7 @@ Action nodes support timeout, retry with exponential backoff, and an error edge.
 - Steam Account Snapshot: API key plus Steam ID 64. Steam OpenID is an optional identity-link flow only; it does not replace the API credential.
 - Google Drive and Sheets: Google OAuth 2.0 authorization-code flow handled by the backend, with encrypted refresh tokens.
 - Google account sign-in: a separate OpenID Connect authorization-code flow that links a verified Google subject to the app user. It never stores Drive/Sheets access tokens as account-login state.
+- GitHub account sign-in: an OAuth 2.0 authorization-code flow that links a GitHub subject with a verified email to the app user. It requests only `read:user` and `user:email`, and never persists the provider access token as account-login state.
 - Google Chat MVP: incoming webhook URL credential.
 - Generic HTTP: API key, bearer token, basic auth, or headers.
 - All credential values are encrypted at rest and never returned to the client after save.
@@ -144,3 +145,4 @@ No multi-approver routing, reminder schedule, or approval policy engine is inclu
 9. No secret is present in repository history, logs, API responses, or frontend state.
 10. The dashboard supports switching/creating workspaces and creating/opening workflows; a live run is guarded by publish and confirmation.
 11. A signed-in user can link a Steam OpenID identity when the callback endpoint is configured; linking neither exposes nor creates a Steam Web API credential.
+12. A user can sign in with Google or GitHub when the matching OAuth callback is configured, and cannot unlink their only available sign-in method.

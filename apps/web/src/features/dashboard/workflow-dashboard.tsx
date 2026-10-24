@@ -8,8 +8,8 @@ import type { ApiWorkflow } from "../workflow/workflow-api";
 
 type WorkspaceSummary = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
 type CurrentUser = { email: string; displayName: string | null };
-type ProviderStatus = { steam: boolean };
-type IdentitySummary = { provider: "GOOGLE" | "STEAM"; providerAccountId: string };
+type ProviderStatus = { google: boolean; github: boolean; steam: boolean };
+type IdentitySummary = { provider: "GOOGLE" | "GITHUB" | "STEAM"; providerAccountId: string };
 
 export function WorkflowDashboard() {
   const router = useRouter();
@@ -17,12 +17,13 @@ export function WorkflowDashboard() {
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [workspaceId, setWorkspaceId] = useState("");
   const [workflows, setWorkflows] = useState<ApiWorkflow[]>([]);
-  const [providers, setProviders] = useState<ProviderStatus>({ steam: false });
+  const [providers, setProviders] = useState<ProviderStatus>({ google: false, github: false, steam: false });
   const [identities, setIdentities] = useState<IdentitySummary[]>([]);
   const [workflowName, setWorkflowName] = useState("Untitled workflow");
   const [workspaceName, setWorkspaceName] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
+  const [unlinkingProvider, setUnlinkingProvider] = useState<IdentitySummary["provider"] | null>(null);
   const [notice, setNotice] = useState("Loading your workspace…");
 
   const loadWorkflows = async (targetWorkspaceId: string) => {
@@ -113,6 +114,19 @@ export function WorkflowDashboard() {
     router.replace("/");
   };
 
+  const unlinkIdentity = async (provider: IdentitySummary["provider"]) => {
+    setUnlinkingProvider(provider);
+    try {
+      const response = await apiRequest<{ identities: IdentitySummary[] }>(`/auth/identities/${provider.toLowerCase()}`, { method: "DELETE" });
+      setIdentities(response.identities);
+      setNotice(`${identityLabel(provider)} identity unlinked.`);
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "Unable to unlink this identity.");
+    } finally {
+      setUnlinkingProvider(null);
+    }
+  };
+
   if (isLoading) return <main className="dashboard-loading" aria-busy="true"><Sparkles className="ui-spinner" size={22} /><strong>Preparing your dashboard</strong><span>Loading workspaces and workflows…</span></main>;
 
   const activeWorkspace = workspaces.find((workspace) => workspace.id === workspaceId);
@@ -122,7 +136,9 @@ export function WorkflowDashboard() {
       <header className="dashboard-header">
         <button className="dashboard-brand" type="button" onClick={() => router.push("/dashboard")}><span><Sparkles size={17} /></span><strong>Workflow Automation</strong></button>
         <div className="dashboard-header__workspace"><label htmlFor="dashboard-workspace">Workspace</label><select id="dashboard-workspace" value={workspaceId} onChange={(event) => void switchWorkspace(event.target.value)}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</select></div>
-        <div className="dashboard-header__user"><span>{user?.displayName ?? user?.email ?? "Owner"}</span>{steamIdentity ? <span className="dashboard-steam-status" title={`Steam ID ${steamIdentity.providerAccountId}`}>Steam linked</span> : <button className="dashboard-steam-link" disabled={!providers.steam} type="button" onClick={() => window.location.assign(`${apiUrl}/auth/steam/connect`)}>{providers.steam ? "Link Steam" : "Steam setup"}</button>}<button type="button" onClick={() => void logout()} aria-label="Sign out"><LogOut size={16} /></button></div>
+        <div className="dashboard-header__user"><span>{user?.displayName ?? user?.email ?? "Owner"}</span>{steamIdentity ? <span className="dashboard-steam-status" title={`Steam ID ${steamIdentity.providerAccountId}`}>Steam linked</span> : <button className="dashboard-steam-link" disabled={!providers.steam} type="button" onClick={() => window.location.assign(`${apiUrl}/auth/steam/connect`)}>{providers.steam ? "Link Steam" : "Steam setup"}</button>}
+          <details className="dashboard-connections"><summary>Connections{identities.length ? ` (${identities.length})` : ""}</summary><div>{identities.length ? identities.map((identity) => <div key={identity.provider}><span>{identityLabel(identity.provider)}</span><button type="button" disabled={unlinkingProvider === identity.provider} onClick={() => void unlinkIdentity(identity.provider)}>{unlinkingProvider === identity.provider ? "Unlinking…" : "Unlink"}</button></div>) : <p>No external identities linked.</p>}</div></details>
+          <button type="button" onClick={() => void logout()} aria-label="Sign out"><LogOut size={16} /></button></div>
       </header>
       <section className="dashboard-main">
         <div className="dashboard-hero"><div><p className="section-label">{activeWorkspace?.name ?? "WORKSPACE"}</p><h1>Your workflow control room.</h1><p>Create, publish, monitor, and revisit every automation from one place.</p></div><button className="dashboard-new-button" type="button" onClick={() => document.getElementById("workflow-create")?.scrollIntoView({ behavior: "smooth", block: "center" })}><CirclePlus size={17} /> New workflow</button></div>
@@ -133,4 +149,8 @@ export function WorkflowDashboard() {
       </section>
     </main>
   );
+}
+
+function identityLabel(provider: IdentitySummary["provider"]) {
+  return provider === "GOOGLE" ? "Google" : provider === "GITHUB" ? "GitHub" : "Steam";
 }

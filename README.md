@@ -67,6 +67,10 @@ For a generic HTTP credential, save JSON with one of these shapes: `{ "authType"
 
 Google account sign-in is separate from the Google Drive/Sheets connector credential. Use the same Google OAuth web client, but register **both** redirect URIs from `.env.example`: `GOOGLE_REDIRECT_URI` for connector credentials and `GOOGLE_AUTH_REDIRECT_URI` for account sign-in. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_AUTH_REDIRECT_URI`. Once all three are present, the Google button changes from **Configure server** to **Continue securely**. The callback validates the OAuth state cookie, a Google-issued ID token, its issuer, verified email, and audience before it creates or links an account identity. Do not place these values in the browser environment.
 
+### GitHub account sign-in
+
+Create a GitHub OAuth App and register `GITHUB_AUTH_REDIRECT_URI` from `.env.example` as its authorization callback URL. Set `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, and `GITHUB_AUTH_REDIRECT_URI` only on the API server. GitHub sign-in requests only `read:user` and `user:email`; the backend requires a verified GitHub email, creates or links an external identity, then discards the provider token. The Dashboard **Connections** menu can unlink an identity, but blocks removal of the last available Google/GitHub sign-in method when no password exists.
+
 Steam OpenID is intentionally not used for Steam Account Snapshot data: it proves ownership of a Steam identity but does not issue the Web API key required by the Steam API. The Steam node continues to require a separately saved API key and 64-bit Steam ID.
 
 ### Steam identity link (OpenID)

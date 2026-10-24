@@ -1,4 +1,4 @@
-import { ConflictException, Inject, Injectable, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { createHash, randomBytes } from "node:crypto";
 import * as argon2 from "argon2";
 import { AuthIdentityProvider } from "@prisma/client";
@@ -139,6 +139,25 @@ export class AuthService {
 
   async listIdentities(userId: string): Promise<IdentitySummary[]> {
     return this.prisma.authIdentity.findMany({ where: { userId }, select: { provider: true, providerAccountId: true, updatedAt: true }, orderBy: { createdAt: "asc" } });
+  }
+
+  async unlinkIdentity(userId: string, provider: AuthIdentityProvider): Promise<IdentitySummary[]> {
+    await this.prisma.$transaction(async (transaction) => {
+      const user = await transaction.user.findUnique({
+        where: { id: userId },
+        include: { identities: { select: { provider: true } } },
+      });
+      if (!user) throw new NotFoundException({ code: "USER_NOT_FOUND", message: "User was not found." });
+      const identity = await transaction.authIdentity.findFirst({ where: { userId, provider } });
+      if (!identity) throw new NotFoundException({ code: "IDENTITY_NOT_FOUND", message: "This identity is not linked to your account." });
+      const signInProviders = user.identities.filter((item) => item.provider === AuthIdentityProvider.GOOGLE || item.provider === AuthIdentityProvider.GITHUB);
+      if ((provider === AuthIdentityProvider.GOOGLE || provider === AuthIdentityProvider.GITHUB) && !user.passwordHash && signInProviders.length <= 1) {
+        throw new BadRequestException({ code: "LAST_SIGN_IN_METHOD", message: "Add a password or another sign-in method before removing your only sign-in identity." });
+      }
+      await transaction.authIdentity.delete({ where: { id: identity.id } });
+      await transaction.auditLog.create({ data: { actorId: userId, action: "auth.identity_unlinked", targetType: "identity", targetId: identity.id, metadata: { provider } } });
+    });
+    return this.listIdentities(userId);
   }
 
   async getCurrentUser(token: string | undefined): Promise<AuthenticatedUser> {
