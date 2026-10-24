@@ -19,7 +19,7 @@ export class CronSchedulerService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit() {
-    if (process.env.SCHEDULER_ENABLED === "false") return;
+    if (process.env.PROCESS_ROLE === "worker" || process.env.SCHEDULER_ENABLED === "false") return;
     void this.tick();
     this.timer = setInterval(() => { void this.tick(); }, 60_000);
   }

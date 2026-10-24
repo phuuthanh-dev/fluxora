@@ -11,9 +11,11 @@ import { CredentialModule } from "./credentials/credential.module";
 import { SchedulerModule } from "./scheduler/scheduler.module";
 import { WebhookModule } from "./webhooks/webhook.module";
 import { ApprovalModule } from "./approvals/approval.module";
+import { RuntimeHealthService } from "./platform/runtime-health.service";
 
 @Module({
   imports: [ConfigModule.forRoot({ envFilePath: resolve(__dirname, "../../../.env"), isGlobal: true }), PrismaModule, AuthModule, WorkspaceModule, WorkflowModule, CredentialModule, ExecutionModule, SchedulerModule, WebhookModule, ApprovalModule],
   controllers: [HealthController],
+  providers: [RuntimeHealthService],
 })
 export class AppModule {}

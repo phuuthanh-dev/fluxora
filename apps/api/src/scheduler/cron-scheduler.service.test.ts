@@ -33,3 +33,16 @@ test("cron scheduler creates and dispatches one live execution for a due publish
   assert.equal(typeof created[0]?.triggerData.scheduledAt, "string");
   assert.deepEqual(jobs, [{ executionId: "execution-1", mode: "live" }]);
 });
+
+test("a worker process never starts the cron scheduler", () => {
+  const previousRole = process.env.PROCESS_ROLE;
+  process.env.PROCESS_ROLE = "worker";
+  try {
+    const scheduler = new CronSchedulerService({ workflowVersion: { findMany: async () => [] } } as never, {} as never, {} as never);
+    scheduler.onModuleInit();
+    assert.equal((scheduler as unknown as { timer: NodeJS.Timeout | null }).timer, null);
+  } finally {
+    if (previousRole === undefined) delete process.env.PROCESS_ROLE;
+    else process.env.PROCESS_ROLE = previousRole;
+  }
+});

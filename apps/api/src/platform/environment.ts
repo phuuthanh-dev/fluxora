@@ -1,12 +1,22 @@
 import { createSecretKey } from "node:crypto";
 
 export function validateEnvironment(environment: NodeJS.ProcessEnv = process.env) {
+  const queueMode = environment.EXECUTION_QUEUE_MODE ?? "inline";
+  if (queueMode !== "inline" && queueMode !== "redis") throw new Error("EXECUTION_QUEUE_MODE must be inline or redis.");
   if (environment.NODE_ENV !== "production") return;
   requireHttpsUrl(environment.WEB_ORIGIN, "WEB_ORIGIN");
   requireEncryptionKey(environment.APP_ENCRYPTION_KEY);
+  if (queueMode !== "redis") throw new Error("EXECUTION_QUEUE_MODE must be redis in production.");
+  requireRedisUrl(environment.REDIS_URL);
   requireCompleteOAuthConfig(environment, "GOOGLE");
   requireCompleteOAuthConfig(environment, "GITHUB");
   requireAllOrNone(environment, ["STEAM_OPENID_RETURN_URI", "STEAM_OPENID_REALM"]);
+}
+
+function requireRedisUrl(value: string | undefined) {
+  if (!value) throw new Error("REDIS_URL must be configured in production.");
+  const url = new URL(value);
+  if (url.protocol !== "redis:" && url.protocol !== "rediss:") throw new Error("REDIS_URL must use redis or rediss protocol.");
 }
 
 function requireHttpsUrl(value: string | undefined, name: string) {

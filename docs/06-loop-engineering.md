@@ -34,6 +34,7 @@ CI runs the same gate for every pull request and push to `main`.
 | L3 | Credential vault plus Steam → Google Chat mock and live-capable adapters | Complete locally | Mock flow, provider-aware credential creation/selection, and live-capable backend adapters are verified; live activation needs user-provided credentials |
 | L4 | Cron, webhook, approval, Google Drive/Sheets, execution UI and polish | Complete locally | Cron dispatch test, editor webhook endpoints, approval pause/resume plus app-link notification, Drive → Sheets mock E2E, grouped editor actions, provider-aware credentials, and Playwright browser-onboarding checks exist; live Google OAuth/Chat validation remains |
 | L5.1 | Block unsafe workflow-configured outbound requests | Complete locally | Unit tests cover loopback/private/link-local targets, hostnames resolving to blocked ranges, and redirect revalidation. The policy is used by generic HTTP, Google Chat, and approval webhook deliveries. |
+| L5.2 | Make production queue configuration and readiness explicit | In progress | Production environment validation requires Redis queue configuration; readiness checks PostgreSQL plus queue availability and depth. Dedicated workers cannot start cron ingress; Redis worker integration runs in CI. |
 
 ## External-boundary rule
 
