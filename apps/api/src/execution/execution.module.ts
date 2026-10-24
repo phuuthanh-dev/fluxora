@@ -5,11 +5,12 @@ import { ExecutionController } from "./execution.controller";
 import { ExecutionEventsService } from "./execution-events.service";
 import { ExecutionQueueService } from "./execution-queue.service";
 import { ExecutionService } from "./execution.service";
+import { ExecutionMaintenanceService } from "./execution-maintenance.service";
 
 @Module({
   imports: [AuthModule, CredentialModule],
   controllers: [ExecutionController],
-  providers: [ExecutionService, ExecutionQueueService, ExecutionEventsService],
+  providers: [ExecutionService, ExecutionQueueService, ExecutionEventsService, ExecutionMaintenanceService],
   exports: [ExecutionService, ExecutionQueueService],
 })
 export class ExecutionModule {}

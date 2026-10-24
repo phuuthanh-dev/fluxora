@@ -19,7 +19,7 @@ export class CronSchedulerService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit() {
-    if (process.env.SCHEDULER_ENABLED === "false") return;
+    if (process.env.PROCESS_ROLE === "worker" || process.env.SCHEDULER_ENABLED === "false") return;
     void this.tick();
     this.timer = setInterval(() => { void this.tick(); }, 60_000);
   }
@@ -41,8 +41,12 @@ export class CronSchedulerService implements OnModuleInit, OnModuleDestroy {
         const key = `${version.id}:${node.id}:${scheduledAt.toISOString()}`;
         if (this.dispatched.has(key)) continue;
         this.dispatched.add(key);
-        const execution = await this.executions.createScheduledExecution(version.id, { scheduledAt: scheduledAt.toISOString(), timezone });
-        await this.queue.dispatch({ executionId: execution.id, mode: "live" });
+        try {
+          const execution = await this.executions.createScheduledExecution(version.id, { scheduledAt: scheduledAt.toISOString(), timezone });
+          await this.queue.dispatch({ executionId: execution.id, mode: "live" });
+        } catch (error) {
+          this.logger.error(`Cron dispatch failed for workflow version ${version.id}.`, error instanceof Error ? error.stack : undefined);
+        }
       }
     }
   }

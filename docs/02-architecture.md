@@ -13,6 +13,14 @@ NestJS API ── PostgreSQL
 
 The API accepts user requests and creates execution records. The worker executes nodes outside the HTTP request lifecycle. Scheduler, API, and worker are separate NestJS processes conceptually, even if local MVP development launches them together.
 
+Production uses `EXECUTION_QUEUE_MODE=redis`; it never silently degrades to inline execution. The API exposes liveness at `/api/v1/health` and dependency readiness at `/api/v1/health/ready`; readiness verifies PostgreSQL and Redis queue availability plus queue depth. The separate worker must use the same Redis URL and `APP_ENCRYPTION_KEY` as the API.
+
+`EXECUTION_WORKER_CONCURRENCY` bounds simultaneous jobs per worker and defaults to two (valid range: 1–20). Scale by adding workers first; readiness exposes the configured per-worker capacity and active queue count so an operator can see saturation.
+
+Only the API process runs scheduler ingress. The worker starts the Nest application context for execution dependencies but identifies itself as `PROCESS_ROLE=worker`, which disables cron scheduling and prevents duplicate scheduled runs when workers scale horizontally.
+
+Every active execution owns a short lease. The runner renews it while progressing nodes. API maintenance marks a lease that expires as a terminal `EXECUTION_LEASE_EXPIRED` failure rather than automatically replaying unknown external side effects. It then prunes terminal execution records by outcome-specific age and total count; waiting and running executions are never eligible.
+
 The web dashboard is the authenticated control plane: it selects a workspace, lists workflows, and routes into a workflow-scoped editor URL. The editor distinguishes a deterministic mock test run from a guarded live run. Live requests use only `publishedVersion`; the API remains the final authorization and version-pinning boundary.
 
 ## Monorepo boundaries
@@ -70,6 +78,7 @@ type NodeExecutionResult = {
 - Use HTTP-only secure cookies for refresh token flow; short-lived access tokens.
 - Mask sensitive headers/fields before persisting an execution.
 - Hash webhook secrets and compare in constant time.
+- Validate user-configurable HTTP and webhook destinations before every outbound request. Block loopback, private, link-local, multicast, and reserved IP ranges after DNS resolution; validate each redirect target and permit cross-origin redirects only through an explicit future policy.
 - Use allowlisted expression helpers; never execute user JavaScript.
 - Restrict CORS to the web application origin.
 - External account identities live in `auth_identities`, separate from encrypted workspace credentials. Google login verifies state, issuer, audience, and a verified email; GitHub login exchanges the authorization code server-side and requires a verified GitHub email. Both create/link an identity and issue the same opaque session cookie as password login; provider access tokens are discarded after identity retrieval.

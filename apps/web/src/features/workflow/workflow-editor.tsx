@@ -813,7 +813,7 @@ export function WorkflowEditor() {
     try {
       const response = await apiRequest<{ execution: ApiExecution }>(`/workflows/${workflow.id}/executions`, {
         method: "POST",
-        body: JSON.stringify({ mock: false, triggerData: {} }),
+        body: JSON.stringify({ mock: false, confirmLive: true, triggerData: {} }),
       });
       setExecution(response.execution);
       setNotice(`Live execution ${response.execution.status.toLowerCase()} — inspect each node for progress and output.`);

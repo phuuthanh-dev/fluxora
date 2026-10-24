@@ -1,0 +1,1442 @@
+{
+  "schemaVersion": 1,
+  "sourceRoots": [
+    "apps/api/src",
+    "apps/web/src",
+    "packages/workflow-contracts/src"
+  ],
+  "generatedBy": "scripts/generate-code-graph.mjs",
+  "boundaries": {
+    "api": "NestJS server, persistence, provider calls, scheduler, execution worker",
+    "web": "Next.js browser UI; no provider secrets or provider calls",
+    "contracts": "Shared workflow graph and node DTOs; no app-specific dependencies"
+  },
+  "entryPoints": [
+    "apps/api/src/main.ts",
+    "apps/api/src/worker.ts",
+    "apps/web/src/app/page.tsx",
+    "apps/web/src/app/dashboard/page.tsx",
+    "apps/web/src/app/editor/page.tsx"
+  ],
+  "nodes": [
+    {
+      "id": "apps/api/src/app.module.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/approvals/approval.module.ts",
+        "apps/api/src/auth/auth.module.ts",
+        "apps/api/src/credentials/credential.module.ts",
+        "apps/api/src/database/prisma.module.ts",
+        "apps/api/src/execution/execution.module.ts",
+        "apps/api/src/health.controller.ts",
+        "apps/api/src/platform/runtime-health.service.ts",
+        "apps/api/src/scheduler/scheduler.module.ts",
+        "apps/api/src/webhooks/webhook.module.ts",
+        "apps/api/src/workflows/workflow.module.ts",
+        "apps/api/src/workspaces/workspace.module.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@nestjs/config",
+        "node:path"
+      ]
+    },
+    {
+      "id": "apps/api/src/approvals/approval.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/execution/execution-queue.service.ts",
+        "apps/api/src/execution/execution.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/approvals/approval.module.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/approvals/approval.controller.ts",
+        "apps/api/src/auth/auth.module.ts",
+        "apps/api/src/execution/execution.module.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/auth/auth-rate-limit.guard.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@nestjs/common",
+        "express"
+      ]
+    },
+    {
+      "id": "apps/api/src/auth/auth.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/auth-rate-limit.guard.ts",
+        "apps/api/src/auth/auth.service.ts",
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/auth/dto/login.dto.ts",
+        "apps/api/src/auth/dto/register.dto.ts",
+        "apps/api/src/auth/github-oauth.ts",
+        "apps/api/src/auth/steam-openid.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client",
+        "express",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/auth/auth.module.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/auth-rate-limit.guard.ts",
+        "apps/api/src/auth/auth.controller.ts",
+        "apps/api/src/auth/auth.service.ts",
+        "apps/api/src/auth/authentication.guard.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/auth/auth.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/dto/login.dto.ts",
+        "apps/api/src/auth/dto/register.dto.ts",
+        "apps/api/src/database/prisma.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client",
+        "argon2",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/auth/authenticated-request.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/auth.service.ts"
+      ],
+      "externalImports": [
+        "express"
+      ]
+    },
+    {
+      "id": "apps/api/src/auth/authentication.guard.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/auth.service.ts",
+        "apps/api/src/auth/authenticated-request.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/auth/dto/login.dto.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "class-validator"
+      ]
+    },
+    {
+      "id": "apps/api/src/auth/dto/register.dto.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "class-validator"
+      ]
+    },
+    {
+      "id": "apps/api/src/auth/github-oauth.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/auth/steam-openid.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/credential-vault.service.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@nestjs/common",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/credential.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/credentials/credential.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/credential.module.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/auth.module.ts",
+        "apps/api/src/credentials/credential-vault.service.ts",
+        "apps/api/src/credentials/credential.controller.ts",
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/credentials/google-oauth.controller.ts",
+        "apps/api/src/workspaces/workspace.module.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/credential.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential-vault.service.ts",
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/workspaces/workspace.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/google-oauth.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/credentials/credential.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "express",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/database/prisma.module.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/database/prisma.service.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/execution-events.service.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@nestjs/common",
+        "rxjs"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/execution-maintenance.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/execution.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/execution-queue.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/execution.service.ts",
+        "apps/api/src/execution/worker-concurrency.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "bullmq",
+        "ioredis"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/execution.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/execution/execution-events.service.ts",
+        "apps/api/src/execution/execution-queue.service.ts",
+        "apps/api/src/execution/execution.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "rxjs"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/execution.module.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/auth.module.ts",
+        "apps/api/src/credentials/credential.module.ts",
+        "apps/api/src/execution/execution-events.service.ts",
+        "apps/api/src/execution/execution-maintenance.service.ts",
+        "apps/api/src/execution/execution-queue.service.ts",
+        "apps/api/src/execution/execution.controller.ts",
+        "apps/api/src/execution/execution.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/execution.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/execution-events.service.ts",
+        "apps/api/src/execution/expression.ts",
+        "apps/api/src/execution/http-credential.ts",
+        "apps/api/src/execution/live-readiness.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/redaction.ts",
+        "apps/api/src/execution/retry-policy.ts",
+        "apps/api/src/workflows/workflow-graph.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client",
+        "@workflow/contracts",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/expression.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/http-credential.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/execution/live-readiness.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@prisma/client",
+        "@workflow/contracts"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/outbound-url-policy.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "node:dns/promises",
+        "node:net"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/redaction.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/execution/retry-policy.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/execution/worker-concurrency.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/execution/worker.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/app.module.ts",
+        "apps/api/src/execution/execution-queue.service.ts",
+        "apps/api/src/execution/execution.service.ts",
+        "apps/api/src/execution/worker-concurrency.ts",
+        "apps/api/src/platform/environment.ts"
+      ],
+      "externalImports": [
+        "@nestjs/core",
+        "bullmq",
+        "ioredis",
+        "reflect-metadata"
+      ]
+    },
+    {
+      "id": "apps/api/src/health.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/platform/runtime-health.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "express"
+      ]
+    },
+    {
+      "id": "apps/api/src/main.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/app.module.ts",
+        "apps/api/src/platform/api-exception.filter.ts",
+        "apps/api/src/platform/environment.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@nestjs/core",
+        "@nestjs/platform-express",
+        "reflect-metadata"
+      ]
+    },
+    {
+      "id": "apps/api/src/platform/api-exception.filter.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@nestjs/common",
+        "express",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/platform/environment.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/worker-concurrency.ts"
+      ],
+      "externalImports": [
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/platform/runtime-health.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/execution-queue.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/scheduler/cron-scheduler.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/execution-queue.service.ts",
+        "apps/api/src/execution/execution.service.ts",
+        "apps/api/src/workflows/workflow-graph.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client",
+        "cron-parser"
+      ]
+    },
+    {
+      "id": "apps/api/src/scheduler/scheduler.module.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/execution.module.ts",
+        "apps/api/src/scheduler/cron-scheduler.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/webhook.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/webhooks/webhook.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/webhook.module.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/auth.module.ts",
+        "apps/api/src/execution/execution.module.ts",
+        "apps/api/src/webhooks/webhook.controller.ts",
+        "apps/api/src/webhooks/webhook.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/webhook.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/execution-queue.service.ts",
+        "apps/api/src/execution/execution.service.ts",
+        "apps/api/src/workflows/workflow-graph.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/workflows/system-templates.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@workflow/contracts"
+      ]
+    },
+    {
+      "id": "apps/api/src/workflows/workflow-graph.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@nestjs/common",
+        "@workflow/contracts"
+      ]
+    },
+    {
+      "id": "apps/api/src/workflows/workflow.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/workflows/workflow.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/workflows/workflow.module.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/auth.module.ts",
+        "apps/api/src/workflows/workflow.controller.ts",
+        "apps/api/src/workflows/workflow.service.ts",
+        "apps/api/src/workspaces/workspace.module.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/workflows/workflow.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/workflows/system-templates.ts",
+        "apps/api/src/workflows/workflow-graph.ts",
+        "apps/api/src/workspaces/workspace.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client",
+        "@workflow/contracts"
+      ]
+    },
+    {
+      "id": "apps/api/src/workspaces/workspace.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/workspaces/workspace.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/workspaces/workspace.module.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/auth.module.ts",
+        "apps/api/src/workspaces/workspace.controller.ts",
+        "apps/api/src/workspaces/workspace.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/workspaces/workspace.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/web/src/app/dashboard/page.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "@/features/dashboard/workflow-dashboard"
+      ]
+    },
+    {
+      "id": "apps/web/src/app/editor/page.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "@/features/workflow/workflow-editor"
+      ]
+    },
+    {
+      "id": "apps/web/src/app/layout.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "next",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/app/page.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "@/features/auth/login-form"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/api/api-client.ts",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
+      "id": "apps/web/src/features/auth/login-form.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/api/api-client.ts"
+      ],
+      "externalImports": [
+        "next/navigation",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/credentials/credential-panel.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/api/api-client.ts",
+        "apps/web/src/features/credentials/credential-types.ts"
+      ],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/credentials/credential-types.ts",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
+      "id": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/api/api-client.ts",
+        "apps/web/src/features/workflow/workflow-api.ts"
+      ],
+      "externalImports": [
+        "lucide-react",
+        "next/navigation",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/workflow/auto-layout.ts",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/workflow/node-catalog.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "apps/web/src/features/workflow/editor-store.ts",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/workflow/auto-layout.ts",
+        "apps/web/src/features/workflow/node-catalog.ts",
+        "apps/web/src/features/workflow/node-operations.ts"
+      ],
+      "externalImports": [
+        "@xyflow/react",
+        "zustand"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/workflow/expression-suggestions.ts",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
+      "id": "apps/web/src/features/workflow/graph-validation.ts",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/workflow/node-catalog.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "apps/web/src/features/workflow/node-catalog.ts",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "@workflow/contracts",
+        "@xyflow/react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/workflow/node-operations.ts",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/workflow/node-catalog.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "apps/web/src/features/workflow/test-data.ts",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/workflow/node-catalog.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "apps/web/src/features/workflow/workflow-api.ts",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/workflow/node-catalog.ts",
+        "apps/web/src/features/workflow/workflow-graph-schema.ts"
+      ],
+      "externalImports": [
+        "@workflow/contracts"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/api/api-client.ts",
+        "apps/web/src/features/credentials/credential-panel.tsx",
+        "apps/web/src/features/credentials/credential-types.ts",
+        "apps/web/src/features/workflow/editor-store.ts",
+        "apps/web/src/features/workflow/expression-suggestions.ts",
+        "apps/web/src/features/workflow/graph-validation.ts",
+        "apps/web/src/features/workflow/node-catalog.ts",
+        "apps/web/src/features/workflow/test-data.ts",
+        "apps/web/src/features/workflow/workflow-api.ts",
+        "apps/web/src/features/workflow/workflow-graph-schema.ts",
+        "apps/web/src/features/workflow/workflow-node.tsx"
+      ],
+      "externalImports": [
+        "@xyflow/react",
+        "@xyflow/react/dist/style.css",
+        "lucide-react",
+        "next/navigation",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/workflow/workflow-graph-schema.ts",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/workflow/node-catalog.ts"
+      ],
+      "externalImports": [
+        "@workflow/contracts",
+        "zod"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/workflow/workflow-node.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/workflow/node-catalog.ts"
+      ],
+      "externalImports": [
+        "@xyflow/react"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/index.ts",
+      "boundary": "contracts",
+      "internalImports": [],
+      "externalImports": []
+    }
+  ],
+  "edges": [
+    {
+      "from": "apps/api/src/app.module.ts",
+      "to": "apps/api/src/approvals/approval.module.ts"
+    },
+    {
+      "from": "apps/api/src/app.module.ts",
+      "to": "apps/api/src/auth/auth.module.ts"
+    },
+    {
+      "from": "apps/api/src/app.module.ts",
+      "to": "apps/api/src/credentials/credential.module.ts"
+    },
+    {
+      "from": "apps/api/src/app.module.ts",
+      "to": "apps/api/src/database/prisma.module.ts"
+    },
+    {
+      "from": "apps/api/src/app.module.ts",
+      "to": "apps/api/src/execution/execution.module.ts"
+    },
+    {
+      "from": "apps/api/src/app.module.ts",
+      "to": "apps/api/src/health.controller.ts"
+    },
+    {
+      "from": "apps/api/src/app.module.ts",
+      "to": "apps/api/src/platform/runtime-health.service.ts"
+    },
+    {
+      "from": "apps/api/src/app.module.ts",
+      "to": "apps/api/src/scheduler/scheduler.module.ts"
+    },
+    {
+      "from": "apps/api/src/app.module.ts",
+      "to": "apps/api/src/webhooks/webhook.module.ts"
+    },
+    {
+      "from": "apps/api/src/app.module.ts",
+      "to": "apps/api/src/workflows/workflow.module.ts"
+    },
+    {
+      "from": "apps/api/src/app.module.ts",
+      "to": "apps/api/src/workspaces/workspace.module.ts"
+    },
+    {
+      "from": "apps/api/src/approvals/approval.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/approvals/approval.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/approvals/approval.controller.ts",
+      "to": "apps/api/src/execution/execution-queue.service.ts"
+    },
+    {
+      "from": "apps/api/src/approvals/approval.controller.ts",
+      "to": "apps/api/src/execution/execution.service.ts"
+    },
+    {
+      "from": "apps/api/src/approvals/approval.module.ts",
+      "to": "apps/api/src/approvals/approval.controller.ts"
+    },
+    {
+      "from": "apps/api/src/approvals/approval.module.ts",
+      "to": "apps/api/src/auth/auth.module.ts"
+    },
+    {
+      "from": "apps/api/src/approvals/approval.module.ts",
+      "to": "apps/api/src/execution/execution.module.ts"
+    },
+    {
+      "from": "apps/api/src/auth/auth.controller.ts",
+      "to": "apps/api/src/auth/auth-rate-limit.guard.ts"
+    },
+    {
+      "from": "apps/api/src/auth/auth.controller.ts",
+      "to": "apps/api/src/auth/auth.service.ts"
+    },
+    {
+      "from": "apps/api/src/auth/auth.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/auth/auth.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/auth/auth.controller.ts",
+      "to": "apps/api/src/auth/dto/login.dto.ts"
+    },
+    {
+      "from": "apps/api/src/auth/auth.controller.ts",
+      "to": "apps/api/src/auth/dto/register.dto.ts"
+    },
+    {
+      "from": "apps/api/src/auth/auth.controller.ts",
+      "to": "apps/api/src/auth/github-oauth.ts"
+    },
+    {
+      "from": "apps/api/src/auth/auth.controller.ts",
+      "to": "apps/api/src/auth/steam-openid.ts"
+    },
+    {
+      "from": "apps/api/src/auth/auth.module.ts",
+      "to": "apps/api/src/auth/auth-rate-limit.guard.ts"
+    },
+    {
+      "from": "apps/api/src/auth/auth.module.ts",
+      "to": "apps/api/src/auth/auth.controller.ts"
+    },
+    {
+      "from": "apps/api/src/auth/auth.module.ts",
+      "to": "apps/api/src/auth/auth.service.ts"
+    },
+    {
+      "from": "apps/api/src/auth/auth.module.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/auth/auth.service.ts",
+      "to": "apps/api/src/auth/dto/login.dto.ts"
+    },
+    {
+      "from": "apps/api/src/auth/auth.service.ts",
+      "to": "apps/api/src/auth/dto/register.dto.ts"
+    },
+    {
+      "from": "apps/api/src/auth/auth.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/auth/authenticated-request.ts",
+      "to": "apps/api/src/auth/auth.service.ts"
+    },
+    {
+      "from": "apps/api/src/auth/authentication.guard.ts",
+      "to": "apps/api/src/auth/auth.service.ts"
+    },
+    {
+      "from": "apps/api/src/auth/authentication.guard.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.controller.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/auth/auth.module.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/credential-vault.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/credential.controller.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/google-oauth.controller.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/workspaces/workspace.module.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.service.ts",
+      "to": "apps/api/src/credentials/credential-vault.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.service.ts",
+      "to": "apps/api/src/workspaces/workspace.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-oauth.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-oauth.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-oauth.controller.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/database/prisma.module.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution-maintenance.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution-maintenance.service.ts",
+      "to": "apps/api/src/execution/execution.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution-queue.service.ts",
+      "to": "apps/api/src/execution/execution.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution-queue.service.ts",
+      "to": "apps/api/src/execution/worker-concurrency.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.controller.ts",
+      "to": "apps/api/src/execution/execution-events.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.controller.ts",
+      "to": "apps/api/src/execution/execution-queue.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.controller.ts",
+      "to": "apps/api/src/execution/execution.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.module.ts",
+      "to": "apps/api/src/auth/auth.module.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.module.ts",
+      "to": "apps/api/src/credentials/credential.module.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.module.ts",
+      "to": "apps/api/src/execution/execution-events.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.module.ts",
+      "to": "apps/api/src/execution/execution-maintenance.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.module.ts",
+      "to": "apps/api/src/execution/execution-queue.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.module.ts",
+      "to": "apps/api/src/execution/execution.controller.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.module.ts",
+      "to": "apps/api/src/execution/execution.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/execution-events.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/expression.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/http-credential.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/live-readiness.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/redaction.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/retry-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/workflows/workflow-graph.ts"
+    },
+    {
+      "from": "apps/api/src/execution/worker.ts",
+      "to": "apps/api/src/app.module.ts"
+    },
+    {
+      "from": "apps/api/src/execution/worker.ts",
+      "to": "apps/api/src/execution/execution-queue.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/worker.ts",
+      "to": "apps/api/src/execution/execution.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/worker.ts",
+      "to": "apps/api/src/execution/worker-concurrency.ts"
+    },
+    {
+      "from": "apps/api/src/execution/worker.ts",
+      "to": "apps/api/src/platform/environment.ts"
+    },
+    {
+      "from": "apps/api/src/health.controller.ts",
+      "to": "apps/api/src/platform/runtime-health.service.ts"
+    },
+    {
+      "from": "apps/api/src/main.ts",
+      "to": "apps/api/src/app.module.ts"
+    },
+    {
+      "from": "apps/api/src/main.ts",
+      "to": "apps/api/src/platform/api-exception.filter.ts"
+    },
+    {
+      "from": "apps/api/src/main.ts",
+      "to": "apps/api/src/platform/environment.ts"
+    },
+    {
+      "from": "apps/api/src/platform/environment.ts",
+      "to": "apps/api/src/execution/worker-concurrency.ts"
+    },
+    {
+      "from": "apps/api/src/platform/runtime-health.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/platform/runtime-health.service.ts",
+      "to": "apps/api/src/execution/execution-queue.service.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/cron-scheduler.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/cron-scheduler.service.ts",
+      "to": "apps/api/src/execution/execution-queue.service.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/cron-scheduler.service.ts",
+      "to": "apps/api/src/execution/execution.service.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/cron-scheduler.service.ts",
+      "to": "apps/api/src/workflows/workflow-graph.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/scheduler.module.ts",
+      "to": "apps/api/src/execution/execution.module.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/scheduler.module.ts",
+      "to": "apps/api/src/scheduler/cron-scheduler.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.controller.ts",
+      "to": "apps/api/src/webhooks/webhook.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.module.ts",
+      "to": "apps/api/src/auth/auth.module.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.module.ts",
+      "to": "apps/api/src/execution/execution.module.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.module.ts",
+      "to": "apps/api/src/webhooks/webhook.controller.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.module.ts",
+      "to": "apps/api/src/webhooks/webhook.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.service.ts",
+      "to": "apps/api/src/execution/execution-queue.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.service.ts",
+      "to": "apps/api/src/execution/execution.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.service.ts",
+      "to": "apps/api/src/workflows/workflow-graph.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow.controller.ts",
+      "to": "apps/api/src/workflows/workflow.service.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow.module.ts",
+      "to": "apps/api/src/auth/auth.module.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow.module.ts",
+      "to": "apps/api/src/workflows/workflow.controller.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow.module.ts",
+      "to": "apps/api/src/workflows/workflow.service.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow.module.ts",
+      "to": "apps/api/src/workspaces/workspace.module.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow.service.ts",
+      "to": "apps/api/src/workflows/system-templates.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow.service.ts",
+      "to": "apps/api/src/workflows/workflow-graph.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow.service.ts",
+      "to": "apps/api/src/workspaces/workspace.service.ts"
+    },
+    {
+      "from": "apps/api/src/workspaces/workspace.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/workspaces/workspace.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/workspaces/workspace.controller.ts",
+      "to": "apps/api/src/workspaces/workspace.service.ts"
+    },
+    {
+      "from": "apps/api/src/workspaces/workspace.module.ts",
+      "to": "apps/api/src/auth/auth.module.ts"
+    },
+    {
+      "from": "apps/api/src/workspaces/workspace.module.ts",
+      "to": "apps/api/src/workspaces/workspace.controller.ts"
+    },
+    {
+      "from": "apps/api/src/workspaces/workspace.module.ts",
+      "to": "apps/api/src/workspaces/workspace.service.ts"
+    },
+    {
+      "from": "apps/api/src/workspaces/workspace.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/web/src/features/auth/login-form.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/credentials/credential-panel.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/credentials/credential-panel.tsx",
+      "to": "apps/web/src/features/credentials/credential-types.ts"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
+      "to": "apps/web/src/features/workflow/workflow-api.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/auto-layout.ts",
+      "to": "apps/web/src/features/workflow/node-catalog.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/editor-store.ts",
+      "to": "apps/web/src/features/workflow/auto-layout.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/editor-store.ts",
+      "to": "apps/web/src/features/workflow/node-catalog.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/editor-store.ts",
+      "to": "apps/web/src/features/workflow/node-operations.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/graph-validation.ts",
+      "to": "apps/web/src/features/workflow/node-catalog.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/node-operations.ts",
+      "to": "apps/web/src/features/workflow/node-catalog.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/test-data.ts",
+      "to": "apps/web/src/features/workflow/node-catalog.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-api.ts",
+      "to": "apps/web/src/features/workflow/node-catalog.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-api.ts",
+      "to": "apps/web/src/features/workflow/workflow-graph-schema.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/credentials/credential-panel.tsx"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/credentials/credential-types.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/editor-store.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/expression-suggestions.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/graph-validation.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/node-catalog.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/test-data.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/workflow-api.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/workflow-graph-schema.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/workflow-node.tsx"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-graph-schema.ts",
+      "to": "apps/web/src/features/workflow/node-catalog.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-node.tsx",
+      "to": "apps/web/src/features/workflow/node-catalog.ts"
+    }
+  ]
+}

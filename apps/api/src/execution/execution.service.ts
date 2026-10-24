@@ -6,13 +6,16 @@ import { CredentialService } from "../credentials/credential.service";
 import { PrismaService } from "../database/prisma.service";
 import { ExecutionEventsService } from "./execution-events.service";
 import { applyHttpCredential, HttpCredentialError } from "./http-credential";
+import { fetchSafeOutbound, OutboundRequestPolicyError } from "./outbound-url-policy";
 import { resolveExpressions } from "./expression";
 import { redactValue } from "./redaction";
 import { isRetryableFailure, retryDelayMs } from "./retry-policy";
 import { parseWorkflowGraph } from "../workflows/workflow-graph";
+import { liveCredentialRequirements } from "./live-readiness";
 
 type RunMode = "mock" | "live";
 type NodeResult = { status: "succeeded" | "failed" | "waiting"; output: Record<string, unknown>; route?: WorkflowEdgeKind; error?: NodeFailure };
+const executionLeaseMs = 5 * 60 * 1000;
 
 class NodeFailure extends Error {
   constructor(readonly code: string, message: string, readonly retryable: boolean, readonly statusCode?: number) {
@@ -32,6 +35,7 @@ export class ExecutionService {
     if (!workflow) throw new NotFoundException({ code: "WORKFLOW_NOT_FOUND", message: "Workflow was not found." });
     const version = mock ? workflow.draftVersion ?? workflow.publishedVersion : workflow.publishedVersion;
     if (!version) throw new NotFoundException({ code: "PUBLISHED_VERSION_REQUIRED", message: "Publish the workflow before starting a live execution." });
+    if (!mock) await this.assertLiveReady(workflow.workspaceId, parseWorkflowGraph(version.graph));
     const execution = await this.prisma.execution.create({
       data: { workflowVersionId: version.id, mode: mock ? "MOCK" : "LIVE", triggerData: redactValue(triggerData) as Prisma.InputJsonValue },
     });
@@ -40,6 +44,9 @@ export class ExecutionService {
   }
 
   async createScheduledExecution(workflowVersionId: string, triggerData: Record<string, unknown>) {
+    const version = await this.prisma.workflowVersion.findUnique({ where: { id: workflowVersionId }, include: { workflow: true } });
+    if (!version) throw new NotFoundException({ code: "WORKFLOW_VERSION_NOT_FOUND", message: "Workflow version was not found." });
+    await this.assertLiveReady(version.workflow.workspaceId, parseWorkflowGraph(version.graph));
     return this.prisma.execution.create({
       data: { workflowVersionId, mode: "LIVE", triggerData: redactValue(triggerData) as Prisma.InputJsonValue },
     });
@@ -58,8 +65,10 @@ export class ExecutionService {
       workflowId: execution.workflowVersion.workflowId,
       workflowVersion: execution.workflowVersion.version,
       triggerData: execution.triggerData,
+      error: execution.errorCode ? { code: execution.errorCode, message: execution.errorMessage } : null,
       startedAt: execution.startedAt,
       completedAt: execution.completedAt,
+      recoveryCount: execution.recoveryCount,
       nodeExecutions: execution.nodeExecutions.map((node) => ({
         nodeId: node.nodeId,
         status: node.status,
@@ -98,7 +107,7 @@ export class ExecutionService {
     }
     const completedAt = new Date();
     await this.prisma.$transaction([
-      this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.CANCELLED, completedAt } }),
+      this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.CANCELLED, completedAt, leaseExpiresAt: null } }),
       this.prisma.nodeExecution.updateMany({ where: { executionId, status: { in: [NodeExecutionStatus.PENDING, NodeExecutionStatus.RUNNING, NodeExecutionStatus.WAITING] } }, data: { status: NodeExecutionStatus.SKIPPED, completedAt } }),
       this.prisma.approvalRequest.updateMany({ where: { executionId, status: ApprovalRequestStatus.PENDING }, data: { status: ApprovalRequestStatus.EXPIRED, resolvedAt: completedAt } }),
       this.prisma.auditLog.create({ data: { workspaceId: execution.workflowVersion.workflow.workspaceId, actorId: userId, action: "execution.cancelled", targetType: "execution", targetId: executionId } }),
@@ -110,11 +119,15 @@ export class ExecutionService {
   async run(executionId: string, mode: RunMode, startNodeIds?: string[]) {
     const execution = await this.prisma.execution.findUnique({ include: { workflowVersion: { include: { workflow: true } }, nodeExecutions: true }, where: { id: executionId } });
     if (!execution) throw new NotFoundException({ code: "EXECUTION_NOT_FOUND", message: "Execution was not found." });
-    if (execution.status === ExecutionStatus.CANCELLED) return execution;
+    if (execution.status !== ExecutionStatus.QUEUED) return execution;
     const graph = parseWorkflowGraph(execution.workflowVersion.graph);
     const now = new Date();
+    const claimed = await this.prisma.execution.updateMany({
+      where: { id: executionId, status: ExecutionStatus.QUEUED },
+      data: { status: ExecutionStatus.RUNNING, startedAt: execution.startedAt ?? now, completedAt: null, errorCode: null, errorMessage: null, leaseExpiresAt: leaseExpiry(now) },
+    });
+    if (!claimed.count) return execution;
     await this.prisma.$transaction([
-      this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.RUNNING, startedAt: now } }),
       ...graph.nodes.map((node) => this.prisma.nodeExecution.upsert({
         where: { executionId_nodeId: { executionId, nodeId: node.id } },
         create: { executionId, nodeId: node.id, status: NodeExecutionStatus.PENDING },
@@ -135,6 +148,7 @@ export class ExecutionService {
 
     while (pending.length) {
       if (await this.isCancelled(executionId)) return execution;
+      await this.renewLease(executionId);
       const node = pending.shift();
       if (!node || visited.has(node.id)) continue;
       visited.add(node.id);
@@ -153,7 +167,7 @@ export class ExecutionService {
           data: { output: { ...result.output, approvalRequestId: approval.id, notificationStatus } as Prisma.InputJsonValue },
         });
         await this.markUnvisitedSkipped(executionId, graph, visited);
-        const waiting = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.WAITING_APPROVAL } });
+        const waiting = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.WAITING_APPROVAL, leaseExpiresAt: null } });
         this.events.publish(executionId, "execution.waiting_approval");
         return waiting;
       }
@@ -161,7 +175,7 @@ export class ExecutionService {
         const errorTargets = graph.edges.filter((edge) => edge.source === node.id && edge.kind === "error");
         if (!errorTargets.length) {
           await this.markUnvisitedSkipped(executionId, graph, visited);
-          const failed = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.FAILED, completedAt: new Date() } });
+          const failed = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.FAILED, completedAt: new Date(), leaseExpiresAt: null, errorCode: result.error?.code ?? "NODE_FAILED", errorMessage: result.error?.message ?? "Workflow node failed." } });
           this.events.publish(executionId, "execution.failed");
           return failed;
         }
@@ -175,7 +189,7 @@ export class ExecutionService {
 
     if (await this.isCancelled(executionId)) return execution;
     await this.markUnvisitedSkipped(executionId, graph, visited);
-    const succeeded = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.SUCCEEDED, completedAt: new Date() } });
+    const succeeded = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.SUCCEEDED, completedAt: new Date(), leaseExpiresAt: null } });
     this.events.publish(executionId, "execution.succeeded");
     return succeeded;
   }
@@ -198,7 +212,7 @@ export class ExecutionService {
       await this.prisma.$transaction([
         this.prisma.approvalRequest.update({ where: { id: approval.id }, data: { status: ApprovalRequestStatus.REJECTED, resolvedAt } }),
         this.prisma.nodeExecution.update({ where: { id: waitingNode.id }, data: { status: NodeExecutionStatus.FAILED, errorCode: "APPROVAL_REJECTED", errorMessage: "Approval was rejected.", completedAt: resolvedAt } }),
-        this.prisma.execution.update({ where: { id: approval.executionId }, data: { status: ExecutionStatus.FAILED, completedAt: resolvedAt } }),
+        this.prisma.execution.update({ where: { id: approval.executionId }, data: { status: ExecutionStatus.FAILED, completedAt: resolvedAt, leaseExpiresAt: null, errorCode: "APPROVAL_REJECTED", errorMessage: "Approval was rejected." } }),
       ]);
       this.events.publish(approval.executionId, "execution.failed");
       return { executionId: approval.executionId, resumed: false, startNodeIds: [], mode: approval.execution.mode === "MOCK" ? "mock" as const : "live" as const };
@@ -208,10 +222,36 @@ export class ExecutionService {
     await this.prisma.$transaction([
       this.prisma.approvalRequest.update({ where: { id: approval.id }, data: { status: ApprovalRequestStatus.APPROVED, resolvedAt } }),
       this.prisma.nodeExecution.update({ where: { id: waitingNode.id }, data: { status: NodeExecutionStatus.SUCCEEDED, completedAt: resolvedAt } }),
-      this.prisma.execution.update({ where: { id: approval.executionId }, data: { status: ExecutionStatus.QUEUED, completedAt: null } }),
+      this.prisma.execution.update({ where: { id: approval.executionId }, data: { status: ExecutionStatus.QUEUED, completedAt: null, leaseExpiresAt: null, errorCode: null, errorMessage: null } }),
     ]);
     this.events.publish(approval.executionId, "execution.queued");
     return { executionId: approval.executionId, resumed: nextNodeIds.length > 0, startNodeIds: nextNodeIds, mode: approval.execution.mode === "MOCK" ? "mock" as const : "live" as const };
+  }
+
+  async failFromMaintenance(executionId: string, code: string, message: string, expiredBefore = new Date()) {
+    const completedAt = new Date();
+    const failed = await this.prisma.execution.updateMany({
+      where: { id: executionId, status: ExecutionStatus.RUNNING, leaseExpiresAt: { lte: expiredBefore } },
+      data: { status: ExecutionStatus.FAILED, completedAt, leaseExpiresAt: null, errorCode: code, errorMessage: message, recoveryCount: { increment: 1 } },
+    });
+    if (!failed.count) return false;
+    await this.prisma.$transaction([
+      this.prisma.nodeExecution.updateMany({ where: { executionId, status: NodeExecutionStatus.RUNNING }, data: { status: NodeExecutionStatus.FAILED, completedAt, errorCode: code, errorMessage: message } }),
+      this.prisma.nodeExecution.updateMany({ where: { executionId, status: NodeExecutionStatus.PENDING }, data: { status: NodeExecutionStatus.SKIPPED, completedAt } }),
+    ]);
+    this.events.publish(executionId, "execution.failed");
+    return true;
+  }
+
+  async failFromWorker(executionId: string) {
+    const completedAt = new Date();
+    const failed = await this.prisma.execution.updateMany({
+      where: { id: executionId, status: { in: [ExecutionStatus.QUEUED, ExecutionStatus.RUNNING] } },
+      data: { status: ExecutionStatus.FAILED, completedAt, leaseExpiresAt: null, errorCode: "WORKER_EXECUTION_ERROR", errorMessage: "Execution worker stopped unexpectedly." },
+    });
+    if (!failed.count) return;
+    await this.prisma.nodeExecution.updateMany({ where: { executionId, status: { in: [NodeExecutionStatus.PENDING, NodeExecutionStatus.RUNNING] } }, data: { status: NodeExecutionStatus.FAILED, completedAt, errorCode: "WORKER_EXECUTION_ERROR", errorMessage: "Execution worker stopped unexpectedly." } });
+    this.events.publish(executionId, "execution.failed");
   }
 
   private async runNode(executionId: string, workspaceId: string, node: WorkflowNode, context: Record<string, unknown>, mode: RunMode): Promise<NodeResult> {
@@ -265,7 +305,7 @@ export class ExecutionService {
       const body = provider === CredentialProvider.HTTP
         ? { type: "workflow.approval.requested", message: String(output.message ?? "Approval requested"), approvalUrl: link }
         : { text: message };
-      const response = await fetch(request.url, { method: "POST", headers: request.headers, body: JSON.stringify(body), signal: AbortSignal.timeout(15_000) });
+      const response = await fetchSafeOutbound(request.url, { method: "POST", headers: request.headers, body: JSON.stringify(body), signal: AbortSignal.timeout(15_000) });
       return response.ok ? "sent" : "failed";
     } catch {
       return "failed";
@@ -286,6 +326,31 @@ export class ExecutionService {
     const execution = await this.prisma.execution.findUnique({ where: { id: executionId }, select: { status: true } });
     return execution?.status === ExecutionStatus.CANCELLED;
   }
+
+  private async renewLease(executionId: string) {
+    await this.prisma.execution.updateMany({ where: { id: executionId, status: ExecutionStatus.RUNNING }, data: { leaseExpiresAt: leaseExpiry(new Date()) } });
+  }
+
+  private async assertLiveReady(workspaceId: string, graph: WorkflowGraph) {
+    const requirements = liveCredentialRequirements(graph);
+    const missingSelection = requirements.filter((requirement) => !requirement.credentialId);
+    const selectedIds = requirements.flatMap((requirement) => requirement.credentialId ? [requirement.credentialId] : []);
+    const credentials = selectedIds.length
+      ? await this.prisma.credential.findMany({ where: { id: { in: selectedIds }, workspaceId }, select: { id: true, provider: true } })
+      : [];
+    const providerById = new Map(credentials.map((credential) => [credential.id, credential.provider]));
+    const invalid = requirements.filter((requirement) => requirement.credentialId && providerById.get(requirement.credentialId) !== requirement.provider);
+    if (!missingSelection.length && !invalid.length) return;
+    throw new BadRequestException({
+      code: "LIVE_CREDENTIAL_REQUIRED",
+      message: "Select valid credentials for every live integration node before going live.",
+      details: [...missingSelection, ...invalid].map((requirement) => ({ nodeId: requirement.nodeId, provider: requirement.provider })),
+    });
+  }
+}
+
+function leaseExpiry(now: Date) {
+  return new Date(now.getTime() + executionLeaseMs);
 }
 
 async function executeNode(node: WorkflowNode, config: Record<string, unknown>, context: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService): Promise<NodeResult> {
@@ -312,7 +377,12 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
     if (mode === "live") {
       const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.GOOGLE_CHAT_WEBHOOK);
       const webhookUrl = readCredentialValue(credential, "webhookUrl");
-      const response = await fetch(webhookUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: String(config.message ?? "") }), signal: AbortSignal.timeout(15_000) });
+      let response: Response;
+      try {
+        response = await fetchSafeOutbound(webhookUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: String(config.message ?? "") }), signal: AbortSignal.timeout(15_000) });
+      } catch (reason) {
+        throw nodeFailureFromOutboundPolicy(reason);
+      }
       if (!response.ok) throw new NodeFailure("HTTP_ERROR", `Google Chat returned ${response.status}.`, response.status === 429 || response.status >= 500, response.status);
       return { status: "succeeded", output: { delivered: true, mode: "live" }, route: "success" };
     }
@@ -353,16 +423,23 @@ async function executeHttpRequest(config: Record<string, unknown>, credential?: 
   }
   const body = method === "GET" || method === "HEAD" ? undefined : requestBody(config.body, headers);
   try {
-    const response = await fetch(url, { method, headers, body, signal: AbortSignal.timeout(timeoutMs) });
+    const response = await fetchSafeOutbound(url, { method, headers, body, signal: AbortSignal.timeout(timeoutMs) });
     const raw = await response.text();
     const responseBody: unknown = tryJson(raw);
     if (!response.ok) throw new NodeFailure("HTTP_ERROR", `HTTP request returned ${response.status}.`, response.status === 429 || response.status >= 500, response.status);
     return { status: "succeeded", output: { status: response.status, body: responseBody }, route: "success" };
   } catch (reason) {
     if (reason instanceof NodeFailure) throw reason;
+    if (reason instanceof OutboundRequestPolicyError) throw nodeFailureFromOutboundPolicy(reason);
     const timeout = reason instanceof Error && reason.name === "TimeoutError";
     throw new NodeFailure(timeout ? "TIMEOUT" : "NETWORK_ERROR", timeout ? "HTTP request timed out." : "HTTP request failed.", true);
   }
+}
+
+function nodeFailureFromOutboundPolicy(reason: unknown) {
+  if (reason instanceof OutboundRequestPolicyError) return new NodeFailure(reason.code, reason.message, false);
+  const timeout = reason instanceof Error && reason.name === "TimeoutError";
+  return new NodeFailure(timeout ? "TIMEOUT" : "NETWORK_ERROR", timeout ? "Outbound request timed out." : "Outbound request failed.", true);
 }
 
 function readHttpHeaders(value: unknown) {

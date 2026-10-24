@@ -20,6 +20,18 @@ infra                    Local infrastructure definitions
 
 All contributors and coding agents must read [`AGENTS.md`](./AGENTS.md) before changing code.
 
+## Agent collaboration harness
+
+The repository supports a cost-aware planner → implementer → CI → reviewer loop. Start with the task and report templates in [`.agent`](./.agent), read the [harness protocol](./docs/10-agent-harness.md), and use the generated [code graph](./docs/11-code-graph.md) to navigate source boundaries.
+
+```bash
+npm run codegraph:generate # after source-import changes
+npm run harness:check      # fails if the committed graph is stale
+npm run harness:report -- path/to/report.md
+```
+
+`npm run verify` includes `harness:check`, so CI refuses a source change whose code graph was not regenerated. Agent reports are intentionally not trusted as test evidence; reviewers must inspect the commit and CI result.
+
 ## Local setup
 
 Install PostgreSQL 16 or another supported local PostgreSQL release, create an empty database, then configure the root `.env`:
