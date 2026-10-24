@@ -16,10 +16,11 @@ This repository is developed through small, verified delivery loops. A loop is c
 `npm run verify` runs, in order:
 
 1. Prisma schema validation
-2. Unit and integration tests
-3. TypeScript checks
-4. Production build
-5. Playwright browser E2E
+2. Prisma Client generation from that schema
+3. Unit and integration tests
+4. TypeScript checks
+5. Production build
+6. Playwright browser E2E
 
 CI runs the same gate for every pull request and push to `main`.
 
