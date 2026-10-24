@@ -36,8 +36,9 @@ CI runs the same gate for every pull request and push to `main`.
 | L5.1 | Block unsafe workflow-configured outbound requests | Complete locally | Unit tests cover loopback/private/link-local targets, hostnames resolving to blocked ranges, and redirect revalidation. The policy is used by generic HTTP, Google Chat, and approval webhook deliveries. |
 | L5.2 | Make production queue configuration and readiness explicit | In progress | Production environment validation requires Redis queue configuration; readiness checks PostgreSQL plus queue availability and depth. Dedicated workers cannot start cron ingress; Redis worker integration runs in CI. |
 | L5.3 | Prevent abandoned execution state and unbounded history | Complete locally | Schema migration, lease-expiry transition tests, retention policy/count tests, local migration deployment, and full quality gate passed. |
-| L5.4 | Bound production worker concurrency | In progress | Worker concurrency is an explicit 1–20 setting with a safe default, process-level enforcement, environment validation, and readiness visibility. Integration verification pending. |
+| L5.4 | Bound production worker concurrency | In progress | Worker concurrency is an explicit 1–20 setting with a safe default, process-level enforcement, environment validation, and readiness visibility. CI Redis integration now exercises worker handoff, enforced concurrency, and persisted workflow execution. |
 | L5.5 | Enforce the live execution boundary server-side | Complete locally | Controller tests prove unconfirmed live runs are rejected and confirmed runs queue correctly; runtime credential requirements include Steam, Google Chat, Drive/Sheets, HTTP, and optional approval notification credentials. Full quality gate passed. |
+| L5.6 | Surface runtime health in the workflow dashboard | Complete locally | Dashboard requests readiness and distinguishes ready, degraded, and unreachable API states alongside queue activity; Playwright verifies ready state after sign-in. Full quality gate passed. |
 
 ## External-boundary rule
 
