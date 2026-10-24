@@ -31,11 +31,14 @@ test("runtime panel shows checking state then ready state after sign-in", async 
   await expect(page).toHaveURL(/\/dashboard$/);
 
   // Before releasing the gate, checking state should appear
+  const runtimePanel = page.locator(".dashboard-runtime");
+  await expect(runtimePanel).toHaveClass(/dashboard-runtime--checking/);
   await expect(page.getByText("Checking runtime status…")).toBeVisible();
 
   // Release the gate; ready state should follow
   resolveReady(undefined);
   await expect(page.getByText("Execution runtime ready")).toBeVisible({ timeout: 10_000 });
+  await expect(runtimePanel).toHaveClass(/dashboard-runtime--ready/);
 });
 
 test("runtime panel shows unreachable state when readiness endpoint fails", async ({ page }) => {
@@ -46,7 +49,9 @@ test("runtime panel shows unreachable state when readiness endpoint fails", asyn
 
   await signUpAndDashboard(page, email);
 
-  await expect(page.getByText("Runtime status unreachable")).toBeVisible({ timeout: 10_000 });
+  const runtimePanel = page.locator(".dashboard-runtime");
+  await expect(runtimePanel).toHaveClass(/dashboard-runtime--unreachable/, { timeout: 10_000 });
+  await expect(page.getByText("Runtime status unreachable")).toBeVisible();
 });
 
 test("degraded runtime state is visually distinct from unreachable state", async ({ page }) => {
@@ -68,12 +73,15 @@ test("degraded runtime state is visually distinct from unreachable state", async
 
   await signUpAndDashboard(page, email);
 
-  await expect(page.getByText("Execution runtime needs attention")).toBeVisible({ timeout: 10_000 });
-  // Must not show unreachable copy
+  const runtimePanel = page.locator(".dashboard-runtime");
+  await expect(runtimePanel).toHaveClass(/dashboard-runtime--degraded/, { timeout: 10_000 });
+  await expect(page.getByText("Execution runtime needs attention")).toBeVisible();
+  // Must not show unreachable copy or class
   await expect(page.getByText("Runtime status unreachable")).not.toBeVisible();
+  await expect(runtimePanel).not.toHaveClass(/dashboard-runtime--unreachable/);
 });
 
-test("failed template creation shows error, restores button, and allows retry", async ({ page }) => {
+test("failed template creation shows error with retry button, preserves input, and allows retry", async ({ page }) => {
   const email = `regression-tc-${Date.now()}@example.test`;
   await signUpAndDashboard(page, email);
 
@@ -88,18 +96,68 @@ test("failed template creation shows error, restores button, and allows retry", 
     }
   });
 
+  const nameInput = page.locator('input[aria-label="New workflow name"]');
+  await nameInput.fill("Custom Steam Report Name");
   await page.getByRole("button", { name: "Use Steam template" }).click();
 
-  // Error must appear
-  await expect(page.locator(".dashboard-create__error")).toContainText("Template service unavailable.");
-  await expect(page.locator(".dashboard-create__error")).toHaveAttribute("role", "alert");
+  // Error must appear with role="alert"
+  const errorAlert = page.locator(".dashboard-create__error");
+  await expect(errorAlert).toBeVisible();
+  await expect(errorAlert).toHaveAttribute("role", "alert");
+  await expect(errorAlert).toContainText("Template service unavailable.");
+
+  // Preserved input
+  await expect(nameInput).toHaveValue("Custom Steam Report Name");
 
   // Button must be re-enabled
   await expect(page.getByRole("button", { name: "Use Steam template" })).toBeEnabled();
 
+  // Retry using the explicit Retry button inside the alert
+  const retryButton = errorAlert.getByRole("button", { name: "Retry" });
+  await expect(retryButton).toBeVisible();
+  await retryButton.click();
+
   // Retry succeeds — navigate to editor
-  await page.getByRole("button", { name: "Use Steam template" }).click();
   await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+});
+
+test("failed blank workflow creation shows error alert with retry and preserves entered name", async ({ page }) => {
+  const email = `regression-blank-${Date.now()}@example.test`;
+  await signUpAndDashboard(page, email);
+
+  let callCount = 0;
+  await page.route("**/workspaces/*/workflows", async (route) => {
+    if (route.request().method() === "POST") {
+      callCount++;
+      if (callCount === 1) {
+        await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "Unable to create blank workflow." }) });
+        return;
+      }
+    }
+    await route.continue();
+  });
+
+  const nameInput = page.locator('input[aria-label="New workflow name"]');
+  await nameInput.fill("Preserved Blank Workflow");
+  await page.getByRole("button", { name: "Blank workflow" }).click();
+
+  // Error alert must appear with role="alert"
+  const errorAlert = page.locator(".dashboard-create__error");
+  await expect(errorAlert).toBeVisible();
+  await expect(errorAlert).toHaveAttribute("role", "alert");
+  await expect(errorAlert).toContainText("Unable to create blank workflow.");
+
+  // Preserved input
+  await expect(nameInput).toHaveValue("Preserved Blank Workflow");
+
+  // Retry using the explicit Retry button inside the alert
+  const retryButton = errorAlert.getByRole("button", { name: "Retry" });
+  await expect(retryButton).toBeVisible();
+  await retryButton.click();
+
+  // Retry succeeds — navigate to editor with preserved workflow name
+  await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+  await expect(page.getByRole("heading", { name: "Preserved Blank Workflow" })).toBeVisible({ timeout: 10_000 });
 });
 
 test("switching workspace clears stale workflows and guards against out-of-order race", async ({ page }) => {
