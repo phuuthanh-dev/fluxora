@@ -1,5 +1,5 @@
 import type { WorkflowGraph } from "@workflow/contracts";
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, WorkflowVersionStatus } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
 import { WorkspaceService } from "../workspaces/workspace.service";
@@ -21,7 +21,7 @@ export class WorkflowService {
   async list(workspaceId: string, userId: string) {
     await this.workspaces.requireOwner(workspaceId, userId);
     const workflows = await this.prisma.workflow.findMany({
-      where: { workspaceId },
+      where: { workspaceId, archivedAt: null },
       include: { draftVersion: true, publishedVersion: true },
       orderBy: { updatedAt: "desc" },
     });
@@ -126,6 +126,50 @@ export class WorkflowService {
     return this.create(source.workspaceId, userId, { name: `${source.name} copy`, description: source.description ?? undefined, graph: sourceGraph });
   }
 
+  async rename(workflowId: string, userId: string, name: string) {
+    const workflow = await this.findOwned(workflowId, userId);
+    const updated = await this.prisma.$transaction(async (transaction) => {
+      const renamed = await transaction.workflow.update({
+        where: { id: workflowId },
+        data: { name },
+        include: { draftVersion: true, publishedVersion: true },
+      });
+      await transaction.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "workflow.renamed", targetType: "workflow", targetId: workflowId } });
+      return renamed;
+    });
+    return this.serialize(updated);
+  }
+
+  async archive(workflowId: string, userId: string) {
+    const workflow = await this.findOwned(workflowId, userId);
+    const updated = await this.prisma.$transaction(async (transaction) => {
+      const archived = await transaction.workflow.update({
+        where: { id: workflowId },
+        data: { archivedAt: new Date() },
+        include: { draftVersion: true, publishedVersion: true },
+      });
+      await transaction.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "workflow.archived", targetType: "workflow", targetId: workflowId } });
+      return archived;
+    });
+    return this.serialize(updated);
+  }
+
+  async delete(workflowId: string, userId: string) {
+    const workflow = await this.findOwned(workflowId, userId);
+    const executionCount = await this.prisma.execution.count({ where: { workflowVersion: { workflowId } } });
+    if (executionCount > 0) {
+      throw new BadRequestException({
+        code: "WORKFLOW_HAS_EXECUTION_HISTORY",
+        message: "This workflow has execution history and cannot be permanently deleted. Archive it instead.",
+      });
+    }
+    await this.prisma.$transaction(async (transaction) => {
+      await transaction.workflow.delete({ where: { id: workflowId } });
+      await transaction.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "workflow.deleted", targetType: "workflow", targetId: workflowId } });
+    });
+    return { success: true, id: workflowId };
+  }
+
   private async findOwned(workflowId: string, userId: string) {
     const workflow = await this.prisma.workflow.findFirst({
       where: { id: workflowId, workspace: { members: { some: { userId, role: "OWNER" } } } },
@@ -135,12 +179,13 @@ export class WorkflowService {
     return workflow;
   }
 
-  private serialize(workflow: { id: string; workspaceId: string; name: string; description: string | null; draftVersion: { id: string; version: number; status: WorkflowVersionStatus; graph: Prisma.JsonValue } | null; publishedVersion: { id: string; version: number; status: WorkflowVersionStatus; graph: Prisma.JsonValue } | null; createdAt: Date; updatedAt: Date }) {
+  private serialize(workflow: { id: string; workspaceId: string; name: string; description: string | null; archivedAt: Date | null; draftVersion: { id: string; version: number; status: WorkflowVersionStatus; graph: Prisma.JsonValue } | null; publishedVersion: { id: string; version: number; status: WorkflowVersionStatus; graph: Prisma.JsonValue } | null; createdAt: Date; updatedAt: Date }) {
     return {
       id: workflow.id,
       workspaceId: workflow.workspaceId,
       name: workflow.name,
       description: workflow.description,
+      archivedAt: workflow.archivedAt,
       draft: workflow.draftVersion ? { id: workflow.draftVersion.id, version: workflow.draftVersion.version, graph: workflow.draftVersion.graph } : null,
       published: workflow.publishedVersion ? { id: workflow.publishedVersion.id, version: workflow.publishedVersion.version, graph: workflow.publishedVersion.graph } : null,
       createdAt: workflow.createdAt,

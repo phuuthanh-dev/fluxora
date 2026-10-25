@@ -4,16 +4,16 @@ import type { ReactNode } from "react";
 type MenuProps = {
   label: string;
   children: ReactNode;
+  trigger?: ReactNode;
   className?: string;
   contentClassName?: string;
 };
 
-export function Menu({ label, children, className, contentClassName }: MenuProps) {
+export function Menu({ label, children, trigger, className, contentClassName }: MenuProps) {
   return (
     <details className={["ui-menu", className].filter(Boolean).join(" ")}>
       <summary className="ui-menu__trigger" aria-label={`${label} actions`}>
-        <span>{label}</span>
-        <ChevronDown size={14} aria-hidden="true" />
+        {trigger ?? <><span>{label}</span><ChevronDown size={14} aria-hidden="true" /></>}
       </summary>
       <div
         className={["ui-menu__content", contentClassName].filter(Boolean).join(" ")}

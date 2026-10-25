@@ -7,6 +7,7 @@ export type ApiWorkflow = {
   workspaceId: string;
   name: string;
   description: string | null;
+  archivedAt?: string | null;
   updatedAt?: string;
   draft: { id: string; version: number; graph: WorkflowGraph } | null;
   published: { id: string; version: number; graph: WorkflowGraph } | null;

@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Inject, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Controller, Delete, Get, Inject, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
 import { WorkflowService } from "./workflow.service";
@@ -52,6 +52,21 @@ export class WorkflowController {
   async clone(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
     return { workflow: await this.workflows.clone(workflowId, requireUserId(request)) };
   }
+
+  @Patch("workflows/:workflowId")
+  async rename(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return { workflow: await this.workflows.rename(workflowId, requireUserId(request), readRenameInput(request.body)) };
+  }
+
+  @Post("workflows/:workflowId/archive")
+  async archive(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return { workflow: await this.workflows.archive(workflowId, requireUserId(request)) };
+  }
+
+  @Delete("workflows/:workflowId")
+  async delete(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return await this.workflows.delete(workflowId, requireUserId(request));
+  }
 }
 
 function requireUserId(request: AuthenticatedRequest) {
@@ -68,6 +83,11 @@ function readUpdateInput(value: unknown) {
   const record = readRecord(value);
   if (!("graph" in record)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Workflow graph is required." });
   return { name: record.name === undefined ? undefined : readText(record.name, "Workflow name", 1, 120), description: record.description === undefined ? undefined : record.description === null ? null : optionalText(record.description, "Workflow description", 500) ?? null, graph: record.graph };
+}
+
+function readRenameInput(value: unknown) {
+  const record = readRecord(value);
+  return readText(record.name, "Workflow name", 1, 120);
 }
 
 function readRecord(value: unknown): Record<string, unknown> {

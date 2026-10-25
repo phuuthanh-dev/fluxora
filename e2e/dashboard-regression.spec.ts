@@ -150,6 +150,57 @@ test("workflow dashboard can search, filter, sort, and clear workflow controls",
   await expect(page.getByText("Showing 2 of 2 workflows", { exact: true })).toBeVisible();
 });
 
+test("workflow cards expose rename, duplicate, archive, and guarded delete actions", async ({ page }) => {
+  const email = `regression-workflow-actions-${Date.now()}@example.test`;
+  await signUpAndDashboard(page, email);
+
+  const nameInput = page.getByRole("textbox", { name: "New workflow name" });
+  await nameInput.fill("Action target");
+  await page.getByRole("button", { name: "Blank workflow" }).click();
+  await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+  await page.goto("/dashboard");
+
+  const actionCard = page.locator(".workflow-card", { has: page.getByRole("heading", { name: "Action target", exact: true }) });
+  await expect(actionCard).toBeVisible();
+  await actionCard.getByLabel("Workflow actions for Action target actions").click();
+  await actionCard.getByRole("button", { name: "Rename" }).click();
+  await expect(page.getByRole("dialog", { name: "Rename workflow" })).toBeVisible();
+  await page.getByRole("textbox", { name: "Workflow name", exact: true }).fill("Renamed target");
+  await page.getByRole("button", { name: "Save name" }).click();
+  await expect(page.getByRole("heading", { name: "Renamed target", exact: true })).toBeVisible();
+
+  const renamedCard = page.locator(".workflow-card", { has: page.getByRole("heading", { name: "Renamed target", exact: true }) });
+  await renamedCard.getByLabel("Workflow actions for Renamed target actions").click();
+  await renamedCard.getByRole("button", { name: "Duplicate" }).click();
+  await expect(page.getByRole("dialog", { name: "Duplicate workflow" })).toBeVisible();
+  await page.getByRole("button", { name: "Duplicate workflow" }).click();
+  await expect(page.getByRole("heading", { name: "Renamed target copy" })).toBeVisible();
+
+  const copyCardBeforeRun = page.locator(".workflow-card", { has: page.getByRole("heading", { name: "Renamed target copy", exact: true }) });
+  await copyCardBeforeRun.getByRole("button", { name: "Open editor" }).click();
+  await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+  await page.getByRole("button", { name: "Run test" }).click();
+  await expect(page.getByText(/Mock execution succeeded/i)).toBeVisible({ timeout: 15_000 });
+  await page.goto("/dashboard");
+
+  const renamedCardAfterRun = page.locator(".workflow-card", { has: page.getByRole("heading", { name: "Renamed target", exact: true }) });
+  await renamedCardAfterRun.getByLabel("Workflow actions for Renamed target actions").click();
+  await renamedCardAfterRun.getByRole("button", { name: "Archive" }).click();
+  await expect(page.getByRole("dialog", { name: "Archive workflow" })).toBeVisible();
+  await page.getByRole("button", { name: "Archive workflow" }).click();
+  await expect(page.getByRole("heading", { name: "Renamed target", exact: true })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Renamed target", exact: true })).toHaveCount(0);
+
+  const copyCard = page.locator(".workflow-card", { has: page.getByRole("heading", { name: "Renamed target copy", exact: true }) });
+  await copyCard.getByLabel("Workflow actions for Renamed target copy actions").click();
+  await copyCard.getByRole("button", { name: "Delete permanently" }).click();
+  await expect(page.getByRole("dialog", { name: "Delete workflow" })).toBeVisible();
+  await page.getByRole("button", { name: "Delete permanently" }).click();
+  await expect(page.getByRole("dialog", { name: "Delete workflow" })).toContainText("execution history");
+  await page.getByRole("button", { name: "Cancel" }).click();
+});
+
 test("failed template creation shows error with retry button, preserves input, and allows retry", async ({ page }) => {
   const email = `regression-tc-${Date.now()}@example.test`;
   await signUpAndDashboard(page, email);
