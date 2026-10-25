@@ -15,7 +15,13 @@ export function WorkflowNode({ data, selected }: NodeProps<WorkflowCanvasNode>) 
 
   return (
     <article className={`workflow-node workflow-node--${data.category} ${selected ? "workflow-node--selected" : ""}`}>
-      <Handle type="target" position={Position.Left} className="workflow-node__handle" />
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="workflow-node__handle workflow-node__handle--target"
+        aria-label={`Connect input to ${data.label}`}
+        title="Drag to connect"
+      />
       <p className="workflow-node__category">{categoryName[data.category]}</p>
       <div className="workflow-node__heading">
         {definition && <span className="workflow-node__provider-icon"><NodeIcon name={definition.icon} size={16} /></span>}
@@ -27,10 +33,12 @@ export function WorkflowNode({ data, selected }: NodeProps<WorkflowCanvasNode>) 
         <span key={kind} className="workflow-node__output" style={{ top: `${((index + 1) / (outputKinds.length + 1)) * 100}%` }}>
           <span className="workflow-node__handle-label">{kind}</span>
           <Handle
-            className="workflow-node__handle"
+            className="workflow-node__handle workflow-node__handle--source"
             id={kind}
             position={Position.Right}
             type="source"
+            aria-label={`Connect ${kind} output from ${data.label}`}
+            title="Drag to connect"
           />
         </span>
       ))}

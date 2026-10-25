@@ -38,6 +38,17 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(page.locator(".editor-header")).toHaveCSS("background-color", "rgb(8, 10, 9)");
   await expect(page.getByRole("button", { name: "Run test" })).toHaveCSS("background-color", "rgb(214, 255, 50)");
 
+  const nodeHandles = page.locator(".workflow-node__handle");
+  await expect(nodeHandles.first()).toBeVisible();
+  await expect(nodeHandles.first()).toHaveCSS("width", "12px");
+  await expect(nodeHandles.first()).toHaveCSS("height", "12px");
+  await expect(nodeHandles.first()).toHaveAttribute("title", "Drag to connect");
+  const handleHitArea = await nodeHandles.first().evaluate((element) => {
+    const style = getComputedStyle(element, "::before");
+    return { content: style.content, inset: style.inset };
+  });
+  expect(handleHitArea).toEqual({ content: '""', inset: "-10px" });
+
   await expect(page.getByRole("heading", { name: "Add a step" })).toBeVisible();
   const editorShell = page.locator(".editor-shell");
   const canvasRegion = page.locator(".canvas-region");

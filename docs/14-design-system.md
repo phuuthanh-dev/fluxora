@@ -113,6 +113,28 @@ buttons, and overlay classes) are compatibility surfaces. They now consume the
 same tokens through the migration overrides in `globals.css`; new features
 should prefer the `ui-*` recipes or a typed component wrapper when one exists.
 
+### Component and utility audit
+
+Tailwind CSS v4 is installed through `@tailwindcss/postcss` and imported from
+`globals.css`, but it is currently a compatibility/tooling layer rather than
+the primary styling system. Most existing screens still use feature-scoped CSS
+selectors. The current `.ui-*` recipes are reusable CSS contracts, not a
+typed React component library yet.
+
+Do not describe the product as having a complete shared component system until
+the next UI foundation slice adds typed primitives for `Button`, `IconButton`,
+`Field`, `Select`, `Menu`, `Dialog`, and `Status`. Those primitives should
+consume these tokens and replace route-specific variants incrementally. A
+feature may keep a legacy selector temporarily, but new buttons and form
+controls must use a shared primitive or document why they cannot.
+
+Workflow connection handles have a deliberately separate visual dot and
+interaction hit-area: the dot is 12px, while the pseudo-element hit-area is
+32px (`inset: -10px`). Keep this minimum target size, preserve keyboard focus,
+and retain the `Drag to connect` title/accessible label when changing node
+markup. The hit-area must not change the edge geometry or hide adjacent output
+labels.
+
 ## Non-goals and forbidden drift
 
 - Do not reintroduce violet as the product-wide primary accent.
