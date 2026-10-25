@@ -305,6 +305,12 @@ button:focus-visible, summary:focus-visible { outline: 3px solid rgba(214, 255, 
 .dashboard-workflow-toolbar__clear { min-height: 36px; padding: 8px 10px; }
 .dashboard-workflow-summary { color: var(--muted); font-size: 11px; margin: 0 0 12px; }
 .dashboard-executions { margin-top: 34px; }
+.dashboard-execution-toolbar { align-items: center; margin-bottom: 0; }
+.dashboard-execution-toolbar__actions { align-items: center; display: flex; gap: 10px; }
+.dashboard-execution-toolbar__actions > span { color: var(--muted); font-size: 11px; }
+.dashboard-execution-toggle { align-items: center; border: 1px solid var(--line); color: var(--ink); display: inline-flex; font-size: 10px; gap: 5px; min-height: 30px; padding: 6px 9px; }
+.dashboard-execution-toggle svg { transition: transform 140ms ease; }
+.dashboard-execution-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
 .dashboard-execution-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 13px; overflow: hidden; }
 .dashboard-execution-heading { align-items: center; border-bottom: 1px solid var(--line); color: var(--muted); display: flex; font-size: 11px; justify-content: space-between; padding: 13px 16px; }
 .dashboard-execution-heading strong { color: var(--ink); font-size: 12px; }
@@ -325,11 +331,20 @@ button:focus-visible, summary:focus-visible { outline: 3px solid rgba(214, 255, 
 @media (max-width: 760px) { .dashboard-execution { align-items: start; grid-template-columns: auto minmax(0, 1fr); } .dashboard-execution__open { grid-column: 2; justify-self: start; } }
 .workflow-card__title { align-items: flex-start; display: flex; gap: 8px; justify-content: space-between; margin-top: 13px; }
 .workflow-card__title h3 { margin: 0 0 6px; }
+.workflow-card__status { align-items: flex-start; }
+.workflow-card { min-height: 180px; padding: 15px; }
+.workflow-card__status { gap: 12px; }
+.workflow-card__title { margin-top: 8px; }
+.workflow-card h3 { line-height: 1.2; margin-top: 0; }
+.workflow-card__meta { align-items: flex-start; display: flex; flex-direction: row; flex: 0 0 auto; gap: 10px; position: relative; }
 .workflow-card__menu { flex: 0 0 auto; }
-.workflow-card__menu > summary { align-items: center; background: transparent; border: 1px solid var(--line); border-radius: 7px; color: var(--muted); display: flex; height: 30px; justify-content: center; list-style: none; width: 30px; }
+.workflow-card__menu > summary { align-items: center; background: transparent; border: 1px solid transparent; border-radius: 7px; color: var(--muted); display: flex; height: 30px; justify-content: center; list-style: none; width: 30px; }
 .workflow-card__menu > summary::-webkit-details-marker { display: none; }
 .workflow-card__menu > summary > span { display: none; }
 .workflow-card__menu[open] > summary { border-color: var(--accent-strong); color: var(--accent-strong); }
+.workflow-card__updated { color: var(--muted); font-size: 10px; line-height: 1.2; white-space: nowrap; }
+.workflow-card__menu > summary { transition: border-color 140ms ease, color 140ms ease; }
+.workflow-card__menu > summary:hover, .workflow-card__menu[open] > summary { background: var(--relay-lime-soft); border-color: var(--accent-strong); color: var(--accent-strong); }
 .workflow-card__menu-list { background: var(--panel); border: 1px solid var(--line); border-radius: 9px; box-shadow: 0 12px 28px rgba(8, 10, 9, .16); display: grid; gap: 3px; min-width: 170px; padding: 5px; position: absolute; right: 0; top: calc(100% + 6px); z-index: 5; }
 .workflow-card__menu-list button { align-items: center; background: transparent; border: 0; border-radius: 6px; color: var(--ink); display: flex; font-size: 11px; gap: 7px; padding: 8px 9px; text-align: left; width: 100%; }
 .workflow-card__menu-list button:hover { background: var(--surface-dark-raised); color: var(--text-on-dark); }

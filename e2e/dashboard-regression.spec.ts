@@ -165,6 +165,10 @@ test("workflow cards expose rename, duplicate, archive, and guarded delete actio
   const actionMenu = actionCard.locator("summary.ui-menu__trigger");
   await expect(actionMenu).toHaveCSS("width", "30px");
   await expect(actionMenu.locator("svg")).toBeVisible();
+  const cardMeta = actionCard.locator(".workflow-card__meta");
+  await expect(cardMeta.locator("summary")).toHaveCount(1);
+  await expect(cardMeta).toHaveCSS("flex-direction", "row");
+  await expect(cardMeta.locator(".workflow-card__updated")).toHaveCSS("font-size", "10px");
   await actionCard.getByLabel("Workflow actions for Action target actions").click();
   await actionCard.getByRole("button", { name: "Rename" }).click();
   await expect(page.getByRole("dialog", { name: "Rename workflow" })).toBeVisible();
@@ -186,6 +190,10 @@ test("workflow cards expose rename, duplicate, archive, and guarded delete actio
   await expect(page.getByText(/Mock execution succeeded/i)).toBeVisible({ timeout: 15_000 });
   await page.goto("/dashboard");
   await expect(page.getByRole("heading", { name: "Execution center" })).toBeVisible();
+  const executionCenterToggle = page.getByRole("button", { name: "Expand execution center" });
+  await expect(executionCenterToggle).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByText("Recent runs", { exact: true })).toHaveCount(0);
+  await executionCenterToggle.click();
   await expect(page.getByText("Recent runs", { exact: true })).toBeVisible();
   await expect(page.getByText("Succeeded", { exact: true })).toBeVisible();
 
