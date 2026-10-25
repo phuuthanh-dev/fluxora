@@ -49,8 +49,8 @@ export type NodeIconName =
   | "instagram";
 
 const brandColors: Record<NodeIconName, string> = {
-  manual: "#635bff",
-  schedule: "#7c3aed",
+  manual: "#b8ed00",
+  schedule: "#8cab12",
   webhook: "#0284c7",
   if: "#d97706",
   switch: "#ea580c",

@@ -21,6 +21,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | GitHub account sign-in and identity lifecycle | Verified locally | GitHub authorization-code callback with verified-email lookup, shared identity/session model, social-identity unlink guard, auth rate-limit baseline, security headers, environment validation, and focused unit coverage. A user-owned GitHub OAuth App was configured locally and a browser sign-in returned to the authenticated dashboard. |
 | Safe expression compatibility and terminal failure handling | Complete locally | Hyphenated node IDs resolve safely, the Steam daily report template uses the canonical `steam` step ID, and malformed expressions persist `INVALID_EXPRESSION` on the node and terminate inline executions instead of leaving them running. Unit, mock-run, and full quality-gate checks pass. |
 | UI redesign contract and collapsible editor layout | Complete locally | `docs/13-ui-redesign-brief.md` defines the unified direction and staged migration; the canvas now reclaims Node Library width while the inspector remains stable, with Playwright and full quality-gate coverage. |
+| Relay-inspired global design system foundation | Complete locally | Global semantic tokens, reusable button/surface recipes, provider-color rules, auth/dashboard/editor migration, focused token regression, full quality gate, and localhost visual QA are complete in `apps/web/src/app/design-system.css` and `globals.css`. |
 
 ## Milestone 1 — Product foundation
 

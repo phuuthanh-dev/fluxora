@@ -6,17 +6,19 @@
 
 Redesign Workflow Automation into a coherent desktop-first control plane that feels clear on first use, credible in a portfolio demo, and efficient during repeated workflow operations. The redesign must improve hierarchy and interaction feedback without changing workflow semantics, credential boundaries, or execution safety.
 
-The visual direction is **operational calm with Relay-inspired character**:
+The visual direction is **operational calm with Relay-inspired character** and
+is now concretized in `apps/web/src/app/design-system.css` plus the migration
+overrides in `apps/web/src/app/globals.css`:
 
 - dark navigation and command surfaces communicate system control;
 - a light, high-contrast canvas keeps workflow graphs readable;
-- restrained lime/mint is reserved for successful or primary execution actions;
-- violet identifies product/navigation focus, not every clickable element;
+- acid-lime is the product primary action and focus color;
+- amber identifies live external side effects and approval attention;
 - amber identifies live external side effects and approval attention;
 - provider marks retain recognizable brand colors;
 - motion explains state changes and hierarchy, never delays work.
 
-Relay is a reference for typography, contrast, token discipline, and tactile motion. It is not the information architecture for the authenticated application. Marketing-only WebGL, smooth scrolling, and large storytelling layouts remain outside the dashboard and editor.
+Relay is a reference for typography, contrast, token discipline, and tactile motion. It is not the information architecture for the authenticated application. Marketing-only WebGL, smooth scrolling, and large storytelling layouts remain outside the dashboard and editor. The light canvas is an intentional product adaptation for graph readability; the shell and overlays use the near-black/lime foundation.
 
 ## Primary users and jobs
 
@@ -118,6 +120,9 @@ Every interactive surface must define default, hover, focus-visible, active, dis
 ### R1 — Tokens and primitives
 
 - Define semantic color, spacing, type, radius, elevation, and motion tokens.
+- **Complete locally in this slice:** global Relay-inspired color, surface, radius,
+  shadow, and motion tokens plus reusable CSS recipes are available in
+  `docs/14-design-system.md` and `apps/web/src/app/design-system.css`.
 - Implement the shared primitives listed above.
 - Add a local component showcase route or development story surface.
 

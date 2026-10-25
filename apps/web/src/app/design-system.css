@@ -1,0 +1,102 @@
+:root {
+  color-scheme: dark;
+
+  /* Relay-inspired product foundation: near-black surfaces and acid-lime action color. */
+  --relay-void: #080a09;
+  --relay-surface: #111512;
+  --relay-surface-raised: #1a201b;
+  --relay-surface-border: #303a32;
+  --relay-text: #f3f6ec;
+  --relay-muted: #9aa596;
+  --relay-lime: #d6ff32;
+  --relay-lime-strong: #b8ed00;
+  --relay-lime-soft: #efffc4;
+
+  /* Semantic tokens are intentionally separate from provider brand colors. */
+  --semantic-success: #197a4b;
+  --semantic-warning: #b36a00;
+  --semantic-danger: #c52f4e;
+  --semantic-info: #267da3;
+
+  /* Product surfaces. Keep the graph light for readability; shell and overlays stay dark. */
+  --canvas: #f5f7f1;
+  --ink: #101410;
+  --muted: #687064;
+  --line: #e1e6dc;
+  --panel: #fffef9;
+  --nav: var(--relay-void);
+  --accent: var(--relay-lime);
+  --accent-strong: var(--relay-lime-strong);
+  --soft-purple: var(--relay-lime-soft);
+  --green: var(--semantic-success);
+  --warning: var(--semantic-warning);
+  --danger: var(--semantic-danger);
+
+  --surface-dark: var(--relay-surface);
+  --surface-dark-raised: var(--relay-surface-raised);
+  --surface-dark-border: var(--relay-surface-border);
+  --text-on-dark: var(--relay-text);
+  --muted-on-dark: var(--relay-muted);
+  --shadow-soft: 0 10px 30px rgba(8, 10, 9, 0.1);
+  --shadow-dark: 0 18px 48px rgba(8, 10, 9, 0.38);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --text-xs: 10px;
+  --text-sm: 12px;
+  --text-md: 14px;
+  --text-lg: 18px;
+  --text-xl: 24px;
+  --weight-medium: 600;
+  --weight-bold: 700;
+  --weight-extrabold: 800;
+  --radius-sm: 7px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --motion-fast: 140ms;
+  --motion-standard: 220ms;
+}
+
+/* Reusable recipes for new screens and incremental migration of existing surfaces. */
+.ui-surface-dark {
+  background: var(--surface-dark);
+  border: 1px solid var(--surface-dark-border);
+  color: var(--text-on-dark);
+}
+
+.ui-kicker {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ui-button {
+  align-items: center;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 7px;
+  justify-content: center;
+  min-height: 36px;
+  padding: 9px 12px;
+  transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease, transform var(--motion-fast) ease;
+}
+
+.ui-button:hover:not(:disabled) { transform: translateY(-1px); }
+.ui-button:disabled { cursor: not-allowed; opacity: 0.45; transform: none; }
+.ui-button--primary { background: var(--accent); border: 1px solid var(--accent); color: var(--nav); }
+.ui-button--secondary { background: var(--panel); border: 1px solid var(--line); color: var(--ink); }
+.ui-button--ghost { background: transparent; border: 1px solid var(--surface-dark-border); color: var(--text-on-dark); }
+.ui-button--danger { background: var(--semantic-danger); border: 1px solid var(--semantic-danger); color: #fff; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-button { transition: none; }
+}

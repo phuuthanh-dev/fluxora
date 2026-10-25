@@ -26,6 +26,18 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(page.getByLabel("Manage actions")).toBeVisible();
   await expect(page.getByRole("button", { name: "Run test" })).toBeVisible();
 
+  const relayTokens = await page.evaluate(() => {
+    const styles = getComputedStyle(document.documentElement);
+    return {
+      void: styles.getPropertyValue("--relay-void").trim(),
+      lime: styles.getPropertyValue("--relay-lime").trim(),
+      canvas: styles.getPropertyValue("--canvas").trim(),
+    };
+  });
+  expect(relayTokens).toEqual({ void: "#080a09", lime: "#d6ff32", canvas: "#f5f7f1" });
+  await expect(page.locator(".editor-header")).toHaveCSS("background-color", "rgb(8, 10, 9)");
+  await expect(page.getByRole("button", { name: "Run test" })).toHaveCSS("background-color", "rgb(214, 255, 50)");
+
   await expect(page.getByRole("heading", { name: "Add a step" })).toBeVisible();
   const editorShell = page.locator(".editor-shell");
   const canvasRegion = page.locator(".canvas-region");
