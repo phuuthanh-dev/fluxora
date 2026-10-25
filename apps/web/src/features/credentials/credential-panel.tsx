@@ -231,7 +231,7 @@ export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId
   };
 
   const isGoogleOAuth = (cred: CredentialSummary) =>
-    cred.provider === "GOOGLE" && cred.label.toLowerCase().includes("oauth");
+    cred.isManaged ?? (cred.provider === "GOOGLE" && cred.label === "Google OAuth");
 
   return (
     <section className="credential-panel" aria-label="Credential manager">

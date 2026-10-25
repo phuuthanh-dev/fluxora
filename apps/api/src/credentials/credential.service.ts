@@ -40,6 +40,13 @@ export class CredentialService {
     if (!input.data || typeof input.data !== "object" || Array.isArray(input.data)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Credential data must be a JSON object." });
 
     const trimmedLabel = input.label.trim();
+    if (isCanonicalGoogleOAuth({ provider: input.provider as CredentialProvider, label: trimmedLabel })) {
+      throw new BadRequestException({
+        code: "CREDENTIAL_MANAGED_BY_OAUTH",
+        message: "Google OAuth credentials are managed through Google sign-in and cannot be manually created.",
+      });
+    }
+
     const existing = await this.prisma.credential.findUnique({
       where: { workspaceId_provider_label: { workspaceId, provider: input.provider as CredentialProvider, label: trimmedLabel } },
     });
@@ -90,6 +97,12 @@ export class CredentialService {
         throw new BadRequestException({ code: "INVALID_INPUT", message: "Credential label must be between 1 and 80 characters." });
       }
       if (nextLabel !== credential.label) {
+        if (isCanonicalGoogleOAuth({ provider: credential.provider, label: nextLabel })) {
+          throw new BadRequestException({
+            code: "CREDENTIAL_MANAGED_BY_OAUTH",
+            message: "Google OAuth credentials are managed through Google sign-in and cannot be manually edited.",
+          });
+        }
         const conflicting = await this.prisma.credential.findUnique({
           where: { workspaceId_provider_label: { workspaceId, provider: credential.provider, label: nextLabel } },
         });
@@ -292,7 +305,14 @@ export class CredentialService {
   }
 
   private summary(credential: { id: string; provider: CredentialProvider; label: string; createdAt: Date; updatedAt: Date }) {
-    return { id: credential.id, provider: credential.provider, label: credential.label, createdAt: credential.createdAt, updatedAt: credential.updatedAt };
+    return {
+      id: credential.id,
+      provider: credential.provider,
+      label: credential.label,
+      createdAt: credential.createdAt,
+      updatedAt: credential.updatedAt,
+      isManaged: isCanonicalGoogleOAuth(credential),
+    };
   }
 }
 

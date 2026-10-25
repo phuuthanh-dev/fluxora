@@ -89,6 +89,57 @@ test("create rejects duplicate label with CREDENTIAL_LABEL_CONFLICT", async () =
   );
 });
 
+test("create rejects canonical Google OAuth credential with CREDENTIAL_MANAGED_BY_OAUTH", async () => {
+  const workspaces = { requireOwner: async () => {} } as never;
+  const service = new CredentialService({} as never, workspaces, {} as never);
+
+  await assert.rejects(
+    async () => {
+      await service.create("ws-1", "user-1", {
+        provider: "GOOGLE",
+        label: "Google OAuth",
+        data: { accessToken: "manual" },
+      });
+    },
+    (err: unknown) => {
+      const error = err as HttpErrorShape;
+      assert.equal(error.response?.code, "CREDENTIAL_MANAGED_BY_OAUTH");
+      assert.match(error.response?.message ?? "", /Google sign-in/);
+      return true;
+    },
+  );
+});
+
+test("create allows manual Google credentials including names that contain OAuth", async () => {
+  const prisma = {
+    credential: {
+      findUnique: async () => null,
+      create: async ({ data }: { data: { provider: string; label: string; encryptedData: string } }) => ({
+        id: "cred-google-manual",
+        provider: data.provider,
+        label: data.label,
+        createdAt: new Date("2026-10-25T00:00:00Z"),
+        updatedAt: new Date("2026-10-25T00:00:00Z"),
+      }),
+    },
+    auditLog: { create: async () => {} },
+  } as unknown as PrismaService;
+  const workspaces = { requireOwner: async () => {} } as never;
+  const vault = { encrypt: () => "enc" } as never;
+  const service = new CredentialService(prisma, workspaces, vault);
+
+  const summary = await service.create("ws-1", "user-1", {
+    provider: "GOOGLE",
+    label: "OAuth backup",
+    data: { accessToken: "manual-token" },
+  });
+
+  assert.equal(summary.id, "cred-google-manual");
+  assert.equal(summary.provider, "GOOGLE");
+  assert.equal(summary.label, "OAuth backup");
+  assert.equal(summary.isManaged, false);
+});
+
 test("create encrypts data, emits audit log without secret, and returns summary only", async () => {
   const auditLogs: Array<{ action: string; metadata?: Record<string, unknown> }> = [];
   const createdRecords: Array<{ provider: string; label: string; encryptedData: string }> = [];
@@ -175,6 +226,66 @@ test("update rejects canonical Google OAuth credential with CREDENTIAL_MANAGED_B
       return true;
     },
   );
+});
+
+test("update rejects renaming a manual Google credential to canonical Google OAuth with CREDENTIAL_MANAGED_BY_OAUTH", async () => {
+  const existing = {
+    id: "google-manual-1",
+    workspaceId: "ws-1",
+    provider: "GOOGLE",
+    label: "OAuth backup",
+    encryptedData: "encrypted-manual",
+    createdAt: new Date("2026-10-25T00:00:00Z"),
+    updatedAt: new Date("2026-10-25T00:00:00Z"),
+  };
+  const prisma = {
+    credential: {
+      findFirst: async () => existing,
+    },
+  } as unknown as PrismaService;
+  const workspaces = { requireOwner: async () => {} } as never;
+  const service = new CredentialService(prisma, workspaces, {} as never);
+
+  await assert.rejects(
+    async () => {
+      await service.update("ws-1", "google-manual-1", "user-1", { label: "Google OAuth" });
+    },
+    (err: unknown) => {
+      const error = err as HttpErrorShape;
+      assert.equal(error.response?.code, "CREDENTIAL_MANAGED_BY_OAUTH");
+      assert.match(error.response?.message ?? "", /Google sign-in/);
+      return true;
+    },
+  );
+});
+
+test("update allows renaming a manual Google credential to names that contain OAuth", async () => {
+  const existing = {
+    id: "google-manual-1",
+    workspaceId: "ws-1",
+    provider: "GOOGLE",
+    label: "Original Google",
+    encryptedData: "encrypted-manual",
+    createdAt: new Date("2026-10-25T00:00:00Z"),
+    updatedAt: new Date("2026-10-25T00:00:00Z"),
+  };
+  const prisma = {
+    credential: {
+      findFirst: async () => existing,
+      findUnique: async () => null,
+      update: async ({ data }: { data: { label?: string } }) => ({
+        ...existing,
+        label: data.label ?? existing.label,
+      }),
+    },
+    auditLog: { create: async () => {} },
+  } as unknown as PrismaService;
+  const workspaces = { requireOwner: async () => {} } as never;
+  const service = new CredentialService(prisma, workspaces, {} as never);
+
+  const updated = await service.update("ws-1", "google-manual-1", "user-1", { label: "OAuth backup" });
+  assert.equal(updated.label, "OAuth backup");
+  assert.equal(updated.isManaged, false);
 });
 
 test("delete rejects canonical Google OAuth credential with CREDENTIAL_MANAGED_BY_OAUTH", async () => {

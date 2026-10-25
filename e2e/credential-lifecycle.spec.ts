@@ -159,31 +159,68 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   await expect(page.getByText('Credential "Discord Ops Main" deleted.')).toBeVisible();
   await expect(page.locator(`li[data-credential-id="${discordCred.credential.id}"]`)).toHaveCount(0);
 
-  // 9. Google OAuth protection test
-  // Create a canonical Google OAuth credential
-  const googleOAuthRes = await page.request.post(`http://localhost:3001/api/v1/workspaces/${workspaceId}/credentials`, {
-    data: { provider: "GOOGLE", label: "Google OAuth", data: { accessToken: "initial-oauth-token" } },
+  // 9. Google OAuth protection and manual "OAuth backup" test
+  // Verify manual create of canonical Google OAuth is rejected with CREDENTIAL_MANAGED_BY_OAUTH
+  const rejectedOAuthCreateRes = await page.request.post(`http://localhost:3001/api/v1/workspaces/${workspaceId}/credentials`, {
+    data: { provider: "GOOGLE", label: "Google OAuth", data: { accessToken: "manual" } },
   });
-  expect(googleOAuthRes.ok()).toBeTruthy();
-  const googleOAuthCred = (await googleOAuthRes.json()) as { credential: { id: string } };
+  expect(rejectedOAuthCreateRes.status()).toBe(400);
+  const rejectedOAuthCreateBody = (await rejectedOAuthCreateRes.json()) as { code: string };
+  expect(rejectedOAuthCreateBody.code).toBe("CREDENTIAL_MANAGED_BY_OAUTH");
+
+  // Create a manual Google credential named "OAuth backup" (must be permitted)
+  const oauthBackupRes = await page.request.post(`http://localhost:3001/api/v1/workspaces/${workspaceId}/credentials`, {
+    data: { provider: "GOOGLE", label: "OAuth backup", data: { accessToken: "backup-token" } },
+  });
+  expect(oauthBackupRes.ok()).toBeTruthy();
+  const oauthBackupCred = (await oauthBackupRes.json()) as { credential: { id: string } };
+
+  // Verify manual rename of "OAuth backup" to "Google OAuth" is rejected with CREDENTIAL_MANAGED_BY_OAUTH
+  const rejectedRenameRes = await page.request.patch(`http://localhost:3001/api/v1/workspaces/${workspaceId}/credentials/${oauthBackupCred.credential.id}`, {
+    data: { label: "Google OAuth" },
+  });
+  expect(rejectedRenameRes.status()).toBe(400);
+  const rejectedRenameBody = (await rejectedRenameRes.json()) as { code: string };
+  expect(rejectedRenameBody.code).toBe("CREDENTIAL_MANAGED_BY_OAUTH");
+
+  // Seed canonical Google OAuth credential directly into database (not via invalid public create API)
+  const fs = await import("node:fs");
+  if (!process.env.DATABASE_URL && fs.existsSync(".env")) {
+    const match = fs.readFileSync(".env", "utf8").match(/^DATABASE_URL="?([^"\n]+)"?/m);
+    if (match) process.env.DATABASE_URL = match[1];
+  }
+  const { PrismaClient } = await import("../apps/api/node_modules/@prisma/client/default.js");
+  const prisma = new PrismaClient();
+  const googleOAuthCred = await prisma.credential.upsert({
+    where: { workspaceId_provider_label: { workspaceId, provider: "GOOGLE", label: "Google OAuth" } },
+    create: { workspaceId, provider: "GOOGLE", label: "Google OAuth", encryptedData: "dGVzdC1lbmNyeXB0ZWQtZGF0YQ==" },
+    update: {},
+  });
 
   // Re-open credential manager so the list refreshes
   await page.getByRole("button", { name: "Close credential manager" }).click();
   await page.getByLabel("Manage actions").click();
   await page.getByRole("button", { name: "Credentials" }).click();
 
-  const googleOAuthCard = page.locator(`li[data-credential-id="${googleOAuthCred.credential.id}"]`);
+  // Verify the manual "OAuth backup" card displays Rename, Rotate secret, and Delete actions
+  const oauthBackupCard = page.locator(`li[data-credential-id="${oauthBackupCred.credential.id}"]`);
+  await expect(oauthBackupCard).toBeVisible();
+  await expect(oauthBackupCard.getByText("Managed by Google OAuth")).toHaveCount(0);
+  await expect(oauthBackupCard.getByRole("button", { name: "Rename OAuth backup" })).toBeVisible();
+  await expect(oauthBackupCard.getByRole("button", { name: "Rotate secret for OAuth backup" })).toBeVisible();
+  await expect(oauthBackupCard.getByRole("button", { name: "Delete OAuth backup" })).toBeVisible();
+
+  // Verify the canonical "Google OAuth" card displays managed state and no Rename/Rotate/Delete buttons
+  const googleOAuthCard = page.locator(`li[data-credential-id="${googleOAuthCred.id}"]`);
   await expect(googleOAuthCard).toBeVisible();
   await expect(googleOAuthCard.getByText("Managed by Google OAuth")).toBeVisible();
   await expect(googleOAuthCard.getByRole("button", { name: "Reconnect Google OAuth" })).toBeVisible();
-
-  // Assert Rename, Rotate secret, and Delete buttons do NOT exist on the Google OAuth card
   await expect(googleOAuthCard.getByRole("button", { name: /Rename/ })).toHaveCount(0);
   await expect(googleOAuthCard.getByRole("button", { name: /Rotate/ })).toHaveCount(0);
   await expect(googleOAuthCard.getByRole("button", { name: /Delete/ })).toHaveCount(0);
 
   // Direct API regression: direct PATCH must be rejected with CREDENTIAL_MANAGED_BY_OAUTH
-  const directPatchRes = await page.request.patch(`http://localhost:3001/api/v1/workspaces/${workspaceId}/credentials/${googleOAuthCred.credential.id}`, {
+  const directPatchRes = await page.request.patch(`http://localhost:3001/api/v1/workspaces/${workspaceId}/credentials/${googleOAuthCred.id}`, {
     data: { label: "Hacked Google" },
   });
   expect(directPatchRes.status()).toBe(400);
@@ -191,10 +228,14 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   expect(directPatchBody.code).toBe("CREDENTIAL_MANAGED_BY_OAUTH");
 
   // Direct API regression: direct DELETE must be rejected with CREDENTIAL_MANAGED_BY_OAUTH
-  const directDeleteRes = await page.request.delete(`http://localhost:3001/api/v1/workspaces/${workspaceId}/credentials/${googleOAuthCred.credential.id}`);
+  const directDeleteRes = await page.request.delete(`http://localhost:3001/api/v1/workspaces/${workspaceId}/credentials/${googleOAuthCred.id}`);
   expect(directDeleteRes.status()).toBe(400);
   const directDeleteBody = (await directDeleteRes.json()) as { code: string };
   expect(directDeleteBody.code).toBe("CREDENTIAL_MANAGED_BY_OAUTH");
+
+  // Clean up manual OAuth backup credential via delete
+  await page.request.delete(`http://localhost:3001/api/v1/workspaces/${workspaceId}/credentials/${oauthBackupCred.credential.id}`);
+  await prisma.$disconnect();
 
   // 10. Telegram legacy fallback rotation test:
   // Create a legacy Telegram credential with both botToken and chatId
