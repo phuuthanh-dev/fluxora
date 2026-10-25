@@ -50,6 +50,14 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   });
   expect(handleHitArea).toEqual({ content: '""', inset: "-10px" });
 
+  await page.getByRole("button", { name: "Switch to dark mode" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator(".workflow-node__category").first()).toHaveCSS("color", "rgb(198, 242, 27)");
+  await expect(page.locator(".workflow-node h3").first()).toHaveCSS("color", "rgb(243, 246, 236)");
+  await expect(page.locator(".workflow-node__handle-label").first()).toHaveCSS("color", "rgb(243, 246, 236)");
+  await page.getByRole("button", { name: "Switch to light mode" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+
   await expect(page.getByRole("heading", { name: "Add a step" })).toBeVisible();
   const editorShell = page.locator(".editor-shell");
   const canvasRegion = page.locator(".canvas-region");

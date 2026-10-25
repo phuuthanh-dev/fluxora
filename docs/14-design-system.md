@@ -86,16 +86,21 @@ migrated incrementally without changing component APIs.
    overlays are for control/status surfaces.
 6. **Typography:** use the system sans stack for product text. Use monospace
    only for IDs, expressions, logs, webhook URLs, and JSON.
-7. **Shape and depth:** use `--radius-sm`, `--radius-md`, `--radius-lg`,
+7. **Text hierarchy:** primary labels, node titles, and interactive control
+   labels use `--text-on-dark` on dark surfaces; descriptions, hints, and
+   supporting metadata use `--muted-on-dark`. On graph nodes, category labels
+   use `--accent-strong` and output labels must remain readable without relying
+   on color alone. Do not use light-theme gray tokens on dark surfaces.
+8. **Shape and depth:** use `--radius-sm`, `--radius-md`, `--radius-lg`,
    `--shadow-soft`, and `--shadow-dark`; do not introduce one-off radii or
    shadows without a documented reason.
-8. **Motion:** use `--motion-fast` for feedback and `--motion-standard` for
+9. **Motion:** use `--motion-fast` for feedback and `--motion-standard` for
    layout transitions. Every new animation must respect
    `prefers-reduced-motion` and must not delay an action.
-9. **Accessibility:** retain visible focus, textual loading/error status, and
+10. **Accessibility:** retain visible focus, textual loading/error status, and
    enough contrast for dark and light surfaces. Do not communicate state by
    color alone.
-10. **Theme parity:** every new surface must be readable in both
+11. **Theme parity:** every new surface must be readable in both
     `data-theme="light"` and `data-theme="dark"`; do not use a hard-coded white
     or black background for product UI.
 
