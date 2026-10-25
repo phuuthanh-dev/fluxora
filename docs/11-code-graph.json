@@ -375,7 +375,9 @@
       "internalImports": [
         "apps/api/src/execution/outbound-url-policy.ts"
       ],
-      "externalImports": []
+      "externalImports": [
+        "@nestjs/common"
+      ]
     },
     {
       "id": "apps/api/src/execution/outbound-url-policy.ts",

@@ -17,7 +17,7 @@ type RunMode = "mock" | "live";
 type NodeResult = { status: "succeeded" | "failed" | "waiting"; output: Record<string, unknown>; route?: WorkflowEdgeKind; error?: NodeFailure };
 const executionLeaseMs = 5 * 60 * 1000;
 
-import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
+import { NodeFailure, nodeFailureFromExecutionError, nodeFailureFromOutboundPolicy } from "./node-failure";
 import { defaultNotificationDispatcher, validateDiscordWebhookUrl, sanitizeTelegramFailure, type DiscordAllowedMentions } from "../notifications";
 
 export { NodeFailure, nodeFailureFromOutboundPolicy, validateDiscordWebhookUrl, sanitizeTelegramFailure };
@@ -254,18 +254,23 @@ export class ExecutionService {
   }
 
   private async runNode(executionId: string, workspaceId: string, node: WorkflowNode, context: Record<string, unknown>, mode: RunMode): Promise<NodeResult> {
-    const config = resolveExpressions(node.config, context) as Record<string, unknown>;
-    const input = { config, trigger: context.trigger };
-    const retries = readRetries(config);
+    const rawConfig = node.config as Record<string, unknown>;
+    const retries = readRetries(rawConfig);
     let attempt = 0;
     while (attempt < retries) {
       attempt += 1;
       const startedAt = new Date();
       await this.prisma.nodeExecution.update({
         where: { executionId_nodeId: { executionId, nodeId: node.id } },
-        data: { status: NodeExecutionStatus.RUNNING, attempt, input: redactValue(input) as Prisma.InputJsonValue, startedAt, completedAt: null, errorCode: null, errorMessage: null },
+        data: { status: NodeExecutionStatus.RUNNING, attempt, input: redactValue({ config: rawConfig, trigger: context.trigger }) as Prisma.InputJsonValue, startedAt, completedAt: null, errorCode: null, errorMessage: null },
       });
       try {
+        const config = resolveExpressions(rawConfig, context) as Record<string, unknown>;
+        const input = { config, trigger: context.trigger };
+        await this.prisma.nodeExecution.update({
+          where: { executionId_nodeId: { executionId, nodeId: node.id } },
+          data: { input: redactValue(input) as Prisma.InputJsonValue },
+        });
         const result = await executeNode(node, config, context, mode, workspaceId, this.credentials);
         await this.prisma.nodeExecution.update({
           where: { executionId_nodeId: { executionId, nodeId: node.id } },
@@ -274,7 +279,7 @@ export class ExecutionService {
         this.events.publish(executionId, "node.updated");
         return result;
       } catch (reason) {
-        const failure = reason instanceof NodeFailure ? reason : new NodeFailure("NODE_ERROR", "Node execution failed.", false);
+        const failure = nodeFailureFromExecutionError(reason);
         const retryable = failure.retryable || isRetryableFailure(failure);
         await this.prisma.nodeExecution.update({
           where: { executionId_nodeId: { executionId, nodeId: node.id } },
