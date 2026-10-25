@@ -661,12 +661,16 @@ export function validateDiscordWebhookUrl(rawUrl: string): void {
   if (parsed.protocol !== "https:") {
     throw new NodeFailure("INVALID_CONFIGURATION", "Discord webhook URL must use HTTPS.", false);
   }
+  if (parsed.username || parsed.password) {
+    throw new NodeFailure("INVALID_CONFIGURATION", "Discord webhook URL must not include credentials in the authority.", false);
+  }
   const hostname = parsed.hostname.toLowerCase();
   if (hostname !== "discord.com" && hostname !== "discordapp.com") {
     throw new NodeFailure("INVALID_CONFIGURATION", "Discord webhook URL must be hosted on discord.com or discordapp.com.", false);
   }
-  if (!/^\/api\/webhooks\/.+/.test(parsed.pathname)) {
-    throw new NodeFailure("INVALID_CONFIGURATION", "Discord webhook URL must have a valid /api/webhooks/ path.", false);
+  const match = /^\/api\/webhooks\/([^/]+)\/([^/]+)$/.exec(parsed.pathname);
+  if (!match || !match[1]?.trim() || !match[2]?.trim()) {
+    throw new NodeFailure("INVALID_CONFIGURATION", "Discord webhook URL must have the path /api/webhooks/{webhookId}/{webhookToken}.", false);
   }
 }
 

@@ -3,12 +3,12 @@
 ## Outcome
 
 - Status: `complete`
-- One-sentence result: Implemented vertical slice L6.3 Notifications v1 and resolved review findings by hardening Discord webhook URL validation and adding focused transient error tests (TimeoutError and network failure) alongside full test suite verification.
+- One-sentence result: Implemented vertical slice L6.3 Notifications v1 and applied review corrections by strictly hardening Discord webhook URL path validation (`/api/webhooks/{webhookId}/{webhookToken}`) and verifying all failure modes and test counts.
 
 ## Commit and scope
 
 - Base commit: `00327983809af4c6a0f5dedb7429aa1b6dd48bff`
-- Implementation commit(s): `c689849`, `6ae53ea493b869d80d24ebf5eb33d9c8cebf8ee9`
+- Implementation commit(s): `c689849b95e89ace3a4dd44513b2b78877763466`, `38728addc653022b5b43a18d2f2347dc601a439d`, `4cade5132d7ec1fbb4ef0500f40d16c52a0a2df3`
 - Branch: `codex/dashboard-regression`
 - Scope respected: `yes` — only addressed Discord webhook URL validation hardening, simulated TimeoutError and network fetch failure tests for Discord/Telegram, and associated test/report updates. No real credentials, no PR or merge.
 
@@ -20,12 +20,12 @@
 | Prisma schema and migration add `DISCORD_WEBHOOK` and `TELEGRAM_BOT` to `CredentialProvider` | `apps/api/prisma/schema.prisma` and `apps/api/prisma/migrations/20261025110000_notifications_v1/migration.sql` deployed via `npm run db:deploy` | pass |
 | Discord and Telegram credential schemas supported in vault and frontend panel | `apps/web/src/features/credentials/credential-panel.tsx` and `credential-types.ts` include `DISCORD_WEBHOOK` (`webhookUrl`) and `TELEGRAM_BOT` (`botToken`, `chatId`) presets and form options | pass |
 | Safe expression interpolation in message bodies | Resolves expressions via `resolveExpressions` without executing JavaScript; tested in unit and E2E tests | pass |
-| Discord webhook URL hardening | `validateDiscordWebhookUrl` enforces HTTPS, allowlists `discord.com` and `discordapp.com` only, requires `/api/webhooks/...` path, and throws non-retryable `INVALID_CONFIGURATION` without leaking the URL; tested in `notifications.test.ts` | pass |
+| Discord webhook URL hardening | `validateDiscordWebhookUrl` accepts only HTTPS URLs on `discord.com` and `discordapp.com`; requires exactly `/api/webhooks/{webhookId}/{webhookToken}` with non-empty ID and token; rejects missing token, empty segments, extra segments, or authority credentials; throws non-retryable `INVALID_CONFIGURATION` without leaking the URL or tokens; tested in `notifications.test.ts` | pass |
 | SSRF egress safety, 15s timeout, transient retry classification | `fetchSafeOutbound` used with 15s timeout; simulated `TimeoutError` produces retryable `TIMEOUT`, simulated network failure produces retryable `NETWORK_ERROR`, 429 and 5xx classified as retryable, 400/401/404 as non-retryable; tested in `notifications.test.ts` | pass |
 | Secret redaction in URLs, error messages, and execution history | `apps/api/src/execution/redaction.ts` and `sanitizeTelegramFailure` mask Telegram bot tokens and webhook secrets across logs, errors, and persisted execution state | pass |
 | Live readiness requires matching valid credentials | `apps/api/src/execution/live-readiness.ts` requires `DISCORD_WEBHOOK` and `TELEGRAM_BOT` credentials for live runs; tested in `live-readiness.test.ts` | pass |
 | Node inspector configuration UX | `apps/web/src/features/workflow/workflow-editor.tsx` provides dedicated forms for Discord (content, username, avatar) and Telegram (chatId, text, parseMode) with credential pickers | pass |
-| Unit and integration test coverage | `apps/api/src/execution/notifications.test.ts` tests mock/live execution, request payload formation, URL hardening, TimeoutError/network error retryability, token redaction in errors, and status retry classification | pass |
+| Unit and integration test coverage | `apps/api/src/execution/notifications.test.ts` tests mock/live execution, request payload formation, URL hardening for rejected/valid path shapes, TimeoutError/network error retryability, token redaction in errors, and status retry classification | pass |
 | Playwright E2E test with mocked HTTP | `e2e/notifications-v1.spec.ts` passes end-to-end credential creation, node addition, form configuration, draft saving, mock test run, and execution output inspection | pass |
 | Full verification gate | `npm run verify` passed all checks (code graph freshness, schema validation, 60 API tests, 10 web tests, build, 10 Playwright tests) | pass |
 

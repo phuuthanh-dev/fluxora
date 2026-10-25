@@ -158,16 +158,32 @@ test("Discord webhook: validates HTTPS scheme, official hosts, and /api/webhooks
     },
   );
 
-  // Invalid path
-  assert.throws(
-    () => validateDiscordWebhookUrl("https://discord.com/api/channels/12345/messages"),
-    (err: any) => {
-      assert.equal(err.code, "INVALID_CONFIGURATION");
-      assert.equal(isRetryableFailure(err), false);
-      assert.ok(!err.message.includes("channels"));
-      return true;
-    },
-  );
+  // Rejected path shapes:
+  const rejectedPaths = [
+    { url: "https://discord.com/api/webhooks", desc: "missing both id and token" },
+    { url: "https://discord.com/api/webhooks/", desc: "trailing slash after webhooks without id/token" },
+    { url: "https://discord.com/api/webhooks/12345", desc: "missing token" },
+    { url: "https://discord.com/api/webhooks/12345/", desc: "missing token with trailing slash" },
+    { url: "https://discord.com/api/webhooks//abcdef", desc: "empty webhookId segment" },
+    { url: "https://discord.com/api/webhooks/12345//", desc: "empty token segment" },
+    { url: "https://discord.com/api/webhooks/12345/abcdef/", desc: "extra trailing slash" },
+    { url: "https://discord.com/api/webhooks/12345/abcdef/extra", desc: "extra path segment" },
+    { url: "https://discord.com/api/webhooks/12345/abcdef/github", desc: "extra github segment" },
+    { url: "https://discord.com/api/channels/12345/messages", desc: "completely invalid path" },
+  ];
+
+  for (const { url, desc } of rejectedPaths) {
+    assert.throws(
+      () => validateDiscordWebhookUrl(url),
+      (err: any) => {
+        assert.equal(err.code, "INVALID_CONFIGURATION", `Expected INVALID_CONFIGURATION for ${desc}`);
+        assert.equal(isRetryableFailure(err), false);
+        assert.ok(!err.message.includes("12345"), `Error message must not leak ID for ${desc}`);
+        assert.ok(!err.message.includes("abcdef"), `Error message must not leak token for ${desc}`);
+        return true;
+      },
+    );
+  }
 
   // Rejects invalid webhook URL inside executeDiscordWebhook without leaking the URL
   const secretWebhookUrl = "https://attacker-controlled.site/api/webhooks/secret-webhook-key";
