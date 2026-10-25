@@ -143,6 +143,11 @@ Every interactive surface must define default, hover, focus-visible, active, dis
 - Rebuild workflow list/search/filter/create hierarchy.
 - Consolidate runtime health and recent execution status.
 - Preserve current workspace race protection and failure retries.
+- **Complete locally:** an empty workspace has an explicit three-step onboarding
+  path, a recommended Steam daily report template with its initial node flow,
+  and a blank-workflow action that focuses the shared creation form instead of
+  duplicating it. This keeps first-run guidance contextual and the creation
+  contract in one place.
 
 ### R3 — Editor shell redesign
 

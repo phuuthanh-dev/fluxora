@@ -18,6 +18,10 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await page.getByLabel("Account actions").click();
   await expect(page.getByRole("button", { name: /^(Steam setup|Link Steam)$/ })).toBeVisible();
   await expect(page.getByText("No workflows in this workspace")).toBeVisible();
+  const firstWorkflowGuide = page.getByRole("region", { name: "First workflow guide" });
+  await expect(firstWorkflowGuide).toBeVisible();
+  await expect(firstWorkflowGuide.getByText("Steam daily report", { exact: true })).toBeVisible();
+  await expect(firstWorkflowGuide.getByRole("button", { name: "Start from scratch" })).toBeVisible();
   const createTemplate = page.waitForResponse((response) => response.request().method() === "POST" && response.url().includes("/workflows/from-template/steam-daily-report"));
   await page.getByRole("button", { name: "Use Steam template" }).click();
   expect((await createTemplate).ok()).toBeTruthy();
