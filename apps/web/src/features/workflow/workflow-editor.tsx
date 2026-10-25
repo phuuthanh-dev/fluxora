@@ -54,6 +54,7 @@ import { buildExpressionSuggestions } from "./expression-suggestions";
 import { manualTriggerTestData } from "./test-data";
 import { NodeIcon } from "./node-icon";
 import { ThemeToggle } from "../theme/theme-toggle";
+import { Button } from "../../components/ui";
 
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNode };
 
@@ -983,7 +984,7 @@ export function WorkflowEditor() {
           </div>
         </div>
         <div className="editor-header__actions">
-          <button className="ghost-button" type="button" onClick={() => router.push("/dashboard")}>Dashboard</button>
+          <Button variant="ghost" className="ghost-button" onClick={() => router.push("/dashboard")}>Dashboard</Button>
           <ActionMenu label="Edit">
             <button type="button" onClick={undo} disabled={historyIndex === 0}><ChevronLeft size={15} /> Undo</button>
             <button type="button" onClick={redo} disabled={historyIndex === history.length - 1}>Redo <ChevronRight size={15} /></button>
@@ -1003,10 +1004,10 @@ export function WorkflowEditor() {
             <button type="button" onClick={() => void cloneWorkflow()} disabled={!workflow}>Clone workflow</button>
           </ActionMenu>
           <input ref={inputRef} className="visually-hidden" type="file" accept="application/json" onChange={importGraph} />
-          <button className="save-button" type="button" onClick={() => void saveDraft()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "saving" ? <LoaderCircle className="ui-spinner" size={16} /> : <Save size={16} />} {activeOperation === "saving" ? "Saving…" : "Save draft"}</button>
-          <button className="ghost-button" type="button" onClick={() => void publish()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "publishing" ? <LoaderCircle className="ui-spinner" size={16} /> : <Check size={16} />} {activeOperation === "publishing" ? "Publishing…" : "Publish"}</button>
-          <button className="run-button" type="button" onClick={() => void runTest()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "running" ? <LoaderCircle className="ui-spinner" size={16} /> : <Play size={16} />} {activeOperation === "running" ? "Starting…" : "Run test"}</button>
-          <button className="go-live-button" type="button" onClick={() => setLiveConfirmOpen(true)} disabled={!workflow?.published || isSaving}>{activeOperation === "live" ? <LoaderCircle className="ui-spinner" size={16} /> : null} Go live</button>
+          <Button variant="secondary" className="save-button" onClick={() => void saveDraft()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "saving" ? <LoaderCircle className="ui-spinner" size={16} /> : <Save size={16} />} {activeOperation === "saving" ? "Saving…" : "Save draft"}</Button>
+          <Button variant="ghost" className="ghost-button" onClick={() => void publish()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "publishing" ? <LoaderCircle className="ui-spinner" size={16} /> : <Check size={16} />} {activeOperation === "publishing" ? "Publishing…" : "Publish"}</Button>
+          <Button variant="primary" className="run-button" onClick={() => void runTest()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "running" ? <LoaderCircle className="ui-spinner" size={16} /> : <Play size={16} />} {activeOperation === "running" ? "Starting…" : "Run test"}</Button>
+          <Button variant="secondary" className="go-live-button" onClick={() => setLiveConfirmOpen(true)} disabled={!workflow?.published || isSaving}>{activeOperation === "live" ? <LoaderCircle className="ui-spinner" size={16} /> : null} Go live</Button>
           {execution && ["QUEUED", "RUNNING", "WAITING_APPROVAL"].includes(execution.status) && <button className="ghost-button" type="button" onClick={() => void cancelExecution()}>Cancel run</button>}
           <ThemeToggle />
         </div>

@@ -135,6 +135,13 @@
 .ui-button--ghost { background: transparent; border: 1px solid var(--surface-dark-border); color: var(--text-on-dark); }
 .ui-button--danger { background: var(--semantic-danger); border: 1px solid var(--semantic-danger); color: #fff; }
 
+.ui-icon-button { min-width: 36px; padding-inline: 9px; }
+
+.ui-field { display: grid; gap: 5px; }
+.ui-field__label { color: var(--muted-on-dark); font-size: var(--text-sm); font-weight: var(--weight-bold); }
+.ui-field__hint { color: var(--muted-on-dark); font-size: var(--text-xs); line-height: 1.4; margin: 0; }
+.ui-field__error { color: var(--semantic-danger); font-size: var(--text-xs); line-height: 1.4; margin: 0; }
+
 @media (prefers-reduced-motion: reduce) {
   .ui-button { transition: none; }
 }

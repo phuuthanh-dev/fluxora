@@ -110,8 +110,9 @@ The first shared CSS recipes are intentionally framework-agnostic:
 
 Existing classes (`.run-button`, `.save-button`, `.ghost-button`, dashboard
 buttons, and overlay classes) are compatibility surfaces. They now consume the
-same tokens through the migration overrides in `globals.css`; new features
-should prefer the `ui-*` recipes or a typed component wrapper when one exists.
+same tokens through the migration overrides in `globals.css`. New features
+should prefer the typed primitives in `apps/web/src/components/ui` and use the
+legacy class only when a migration-specific selector is still needed.
 
 ### Component and utility audit
 
@@ -121,12 +122,12 @@ the primary styling system. Most existing screens still use feature-scoped CSS
 selectors. The current `.ui-*` recipes are reusable CSS contracts, not a
 typed React component library yet.
 
-Do not describe the product as having a complete shared component system until
-the next UI foundation slice adds typed primitives for `Button`, `IconButton`,
-`Field`, `Select`, `Menu`, `Dialog`, and `Status`. Those primitives should
-consume these tokens and replace route-specific variants incrementally. A
-feature may keep a legacy selector temporarily, but new buttons and form
-controls must use a shared primitive or document why they cannot.
+The first typed primitives are now available: `Button`, `IconButton`, and
+`Field`. `Select`, `Menu`, `Dialog`, and `Status` remain planned. These
+primitives consume the same tokens and replace route-specific variants
+incrementally. A feature may keep a legacy selector temporarily, but new
+buttons and form controls must use a shared primitive or document why they
+cannot.
 
 Workflow connection handles have a deliberately separate visual dot and
 interaction hit-area: the dot is 12px, while the pseudo-element hit-area is

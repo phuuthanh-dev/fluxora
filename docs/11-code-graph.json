@@ -753,6 +753,31 @@
       ]
     },
     {
+      "id": "apps/web/src/components/ui/button.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/components/ui/form-field.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/components/ui/index.ts",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/ui/button.tsx",
+        "apps/web/src/components/ui/form-field.tsx"
+      ],
+      "externalImports": []
+    },
+    {
       "id": "apps/web/src/features/api/api-client.ts",
       "boundary": "web",
       "internalImports": [],
@@ -1569,6 +1594,14 @@
     {
       "from": "apps/api/src/workspaces/workspace.service.ts",
       "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/web/src/components/ui/index.ts",
+      "to": "apps/web/src/components/ui/button.tsx"
+    },
+    {
+      "from": "apps/web/src/components/ui/index.ts",
+      "to": "apps/web/src/components/ui/form-field.tsx"
     },
     {
       "from": "apps/web/src/features/auth/login-form.tsx",
