@@ -419,3 +419,52 @@ button:focus-visible, summary:focus-visible { outline: 3px solid rgba(214, 255, 
 @media (prefers-reduced-motion: reduce) {
   .theme-toggle { transition: none; }
 }
+
+/* Dedicated workspace management surfaces. These reuse the editor credential
+   behavior, but intentionally remove the fixed overlay constraint. */
+.dashboard-header__user .dashboard-header__link { align-items: center; font-size: 10px; gap: 6px; height: 32px; padding: 0 9px; white-space: nowrap; width: auto; }
+.connections-main, .executions-main { margin: 0 auto; max-width: 1220px; padding: clamp(30px, 5vw, 64px) clamp(22px, 4vw, 48px) 72px; }
+.connections-main .ui-page-header, .executions-main .ui-page-header { margin-bottom: 28px; }
+.connections-error, .executions-error { align-items: center; display: flex; gap: 9px; margin-bottom: 18px; padding: 12px 14px; }
+.connections-error .ui-button, .executions-error .ui-button { margin-left: auto; min-height: 29px; padding: 6px 9px; }
+.connections-loading__mark { border-radius: 999px; height: 32px; min-width: 32px; width: 32px; }
+.credential-panel--page { background: var(--surface-dark); border: 1px solid var(--surface-dark-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-dark); color: var(--text-on-dark); max-height: none; overflow: visible; padding: clamp(18px, 3vw, 30px); position: static; width: auto; }
+.credential-panel--page > p { color: var(--muted-on-dark); font-size: 13px; margin: 0; max-width: 680px; }
+.credential-panel--page h2 { font-size: 24px; }
+.credential-panel--page .credential-form { border-top: 1px solid var(--surface-dark-border); grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); margin-top: 22px; max-width: 760px; padding-top: 20px; }
+.credential-panel--page .credential-form__field:nth-of-type(3), .credential-panel--page .credential-form__hint, .credential-panel--page .credential-form > .run-button, .credential-panel--page .credential-form__error { grid-column: 1 / -1; }
+.credential-panel--page .credential-form textarea { min-height: 132px; }
+.credential-panel--page .credential-panel__notice { border-top-color: var(--surface-dark-border); color: var(--muted-on-dark); }
+.credential-panel--page .credential-list { border-top: 1px solid var(--surface-dark-border); grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); margin-top: 18px; padding-top: 18px; }
+.credential-panel--page .credential-card { min-height: 128px; }
+.credential-panel--page .credential-card__actions { justify-content: flex-end; }
+.credential-panel--page .credential-card__oauth-managed { justify-items: start; text-align: left; }
+.credential-panel--page .credential-card__oauth-text { max-width: none; }
+.executions-loading { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); display: grid; gap: 12px; padding: 20px; }
+.executions-loading .ui-skeleton { height: 17px; min-width: 100%; }
+.executions-list-panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; }
+.executions-list-panel__heading { align-items: center; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; padding: 16px 18px; }
+.executions-list-panel__heading h2 { color: var(--ink); font-size: 17px; letter-spacing: -.02em; margin: 5px 0 0; }
+.executions-list-panel__heading > span { color: var(--muted); font-size: 11px; }
+.executions-filters { padding-inline: 18px; }
+.executions-list { display: grid; }
+.executions-list__item { padding: 15px 18px; }
+.executions-filtered-empty { border: 0; border-radius: 0; }
+
+@media (max-width: 900px) {
+  .dashboard-header { grid-template-columns: 1fr auto; }
+  .dashboard-header__workspace { grid-column: 1 / -1; grid-row: 2; }
+  .dashboard-header__user { flex-wrap: wrap; }
+  .credential-panel--page .credential-form { grid-template-columns: 1fr; }
+  .credential-panel--page .credential-form__field:nth-of-type(3), .credential-panel--page .credential-form__hint, .credential-panel--page .credential-form > .run-button, .credential-panel--page .credential-form__error { grid-column: auto; }
+}
+
+@media (max-width: 760px) {
+  .dashboard-header__user { gap: 6px; }
+  .dashboard-header__user > span:first-child { display: none; }
+  .ui-page-header { align-items: flex-start; flex-direction: column; }
+  .ui-page-header__actions { justify-content: flex-start; }
+  .credential-panel--page .credential-list { grid-template-columns: 1fr; }
+  .credential-card__header { flex-direction: column; }
+  .credential-panel--page .credential-card__actions { justify-content: flex-start; }
+}

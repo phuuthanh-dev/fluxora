@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Archive, ArrowRight, ChevronDown, CirclePlus, Copy, FilePlus2, FolderKanban, History, LayoutDashboard, LoaderCircle, LogOut, MoreVertical, Pencil, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { Activity, Archive, ArrowRight, ChevronDown, CirclePlus, Copy, FilePlus2, FolderKanban, History, LayoutDashboard, LoaderCircle, LogOut, MoreVertical, Pencil, PlugZap, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest, apiUrl } from "../api/api-client";
@@ -307,7 +307,9 @@ export function WorkflowDashboard() {
         <button className="dashboard-brand" type="button" onClick={() => router.push("/dashboard")}><span><Sparkles size={17} /></span><strong>Workflow Automation</strong></button>
         <div className="dashboard-header__workspace"><label htmlFor="dashboard-workspace">Workspace</label><Select id="dashboard-workspace" value={workspaceId} onChange={(event) => void switchWorkspace(event.target.value)}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</Select></div>
         <div className="dashboard-header__user"><span>{user?.displayName ?? user?.email ?? "Owner"}</span>{steamIdentity ? <span className="dashboard-steam-status" title={`Steam ID ${steamIdentity.providerAccountId}`}>Steam linked</span> : <Button variant="ghost" className="dashboard-steam-link" disabled={!providers.steam} onClick={() => window.location.assign(`${apiUrl}/auth/steam/connect`)}>{providers.steam ? "Link Steam" : "Steam setup"}</Button>}
-          <Menu label={`Connections${identities.length ? ` (${identities.length})` : ""}`} className="dashboard-connections">{identities.length ? identities.map((identity) => <div key={identity.provider}><span>{identityLabel(identity.provider)}</span><Button variant="ghost" disabled={unlinkingProvider === identity.provider} onClick={() => void unlinkIdentity(identity.provider)}>{unlinkingProvider === identity.provider ? "Unlinking…" : "Unlink"}</Button></div>) : <p>No external identities linked.</p>}</Menu>
+          <Button variant="ghost" className="dashboard-header__link" onClick={() => router.push(`/dashboard/connections?workspace=${encodeURIComponent(workspaceId)}`)}><PlugZap size={15} /> Connections</Button>
+          <Button variant="ghost" className="dashboard-header__link" onClick={() => router.push(`/dashboard/executions?workspace=${encodeURIComponent(workspaceId)}`)}><History size={15} /> Executions</Button>
+          <Menu label={`Account${identities.length ? ` (${identities.length})` : ""}`} className="dashboard-connections dashboard-account-menu">{identities.length ? identities.map((identity) => <div key={identity.provider}><span>{identityLabel(identity.provider)}</span><Button variant="ghost" disabled={unlinkingProvider === identity.provider} onClick={() => void unlinkIdentity(identity.provider)}>{unlinkingProvider === identity.provider ? "Unlinking…" : "Unlink"}</Button></div>) : <p>No external identities linked.</p>}</Menu>
           <ThemeToggle /><IconButton label="Sign out" onClick={() => void logout()}><LogOut size={16} /></IconButton></div>
       </header>
       <section className="dashboard-main">

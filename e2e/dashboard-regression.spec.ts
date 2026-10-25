@@ -164,11 +164,11 @@ test("editor text, controls, and provider icons meet contrast targets in both th
   await expectContrast(toLight, 4.5);
 });
 
-test("connections dropdown keeps its trigger inline and opens below the header", async ({ page }) => {
+test("account dropdown keeps its trigger inline and opens below the header", async ({ page }) => {
   const email = `regression-connections-${Date.now()}@example.test`;
   await signUpAndDashboard(page, email);
 
-  const trigger = page.locator(".dashboard-connections summary");
+  const trigger = page.locator(".dashboard-account-menu summary");
   await expect(trigger).toHaveCSS("display", "flex");
   await expect(trigger).toHaveCSS("flex-direction", "row");
   const triggerBox = await trigger.boundingBox();
@@ -182,6 +182,66 @@ test("connections dropdown keeps its trigger inline and opens below the header",
   expect(menuBox).not.toBeNull();
   expect(menuBox!.y).toBeGreaterThan(triggerBox!.y + triggerBox!.height);
   await expect(menu).toContainText("No external identities linked.");
+});
+
+test("connections are managed on a dedicated workspace page without exposing a close-only editor panel", async ({ page }) => {
+  const email = `regression-connection-center-${Date.now()}@example.test`;
+  await signUpAndDashboard(page, email);
+
+  await page.getByRole("button", { name: "Connections" }).click();
+  await expect(page).toHaveURL(/\/dashboard\/connections\?workspace=/);
+  await expect(page.getByRole("heading", { name: "Connections", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Credential manager" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Close credential manager" })).toHaveCount(0);
+
+  await page.getByLabel("Provider").selectOption("STEAM");
+  await page.getByLabel("Connection name").fill("Steam page connection");
+  await page.getByLabel("Secret JSON").fill('{"apiKey":"test-key","steamId":"76561198000000000"}');
+  await page.getByRole("button", { name: "Encrypt & save" }).click();
+  await expect(page.getByText("Credential encrypted and saved. Select it from a compatible node in the editor.")).toBeVisible();
+  await expect(page.getByText("Steam page connection", { exact: true })).toBeVisible();
+});
+
+test("management pages retain theme parity and a visible keyboard focus target", async ({ page }) => {
+  const email = `regression-management-a11y-${Date.now()}@example.test`;
+  await signUpAndDashboard(page, email);
+
+  await page.getByRole("button", { name: "Connections" }).click();
+  await expect(page.getByRole("heading", { name: "Connections", exact: true })).toBeVisible();
+  const dashboardButton = page.getByRole("button", { name: "Dashboard" });
+  await dashboardButton.focus();
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Shift+Tab");
+  await expect(dashboardButton).toHaveCSS("outline-style", "solid");
+  expect(await dashboardButton.evaluate((element) => element.matches(":focus-visible"))).toBe(true);
+
+  await page.getByRole("button", { name: "Switch to dark mode" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expectContrast(page.getByRole("heading", { name: "Connections", exact: true }), 4.5);
+
+  await page.getByRole("button", { name: "Executions" }).click();
+  await expect(page).toHaveURL(/\/dashboard\/executions\?workspace=/);
+  await expect(page.getByRole("heading", { name: "Execution history" })).toBeVisible();
+  await expectContrast(page.getByRole("heading", { name: "Execution history" }), 4.5);
+});
+
+test("execution history has a dedicated page and opens immutable execution detail", async ({ page }) => {
+  const email = `regression-execution-center-${Date.now()}@example.test`;
+  await signUpAndDashboard(page, email);
+
+  await page.getByRole("button", { name: "Use Steam template" }).click();
+  await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+  await page.getByRole("button", { name: "Run test" }).click();
+  await expect(page.getByText(/Mock execution succeeded/i)).toBeVisible({ timeout: 15_000 });
+  await page.goto("/dashboard");
+
+  await page.getByRole("button", { name: "Executions", exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard\/executions\?workspace=/);
+  await expect(page.getByRole("heading", { name: "Execution history" })).toBeVisible();
+  await expect(page.getByText("Steam daily report", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Inspect run" }).click();
+  await expect(page).toHaveURL(/execution=/);
+  await expect(page.getByText("Execution detail", { exact: true })).toBeVisible();
 });
 
 test("execution center loads stable cursor pages without losing existing runs", async ({ page }) => {

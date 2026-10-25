@@ -722,6 +722,24 @@
       ]
     },
     {
+      "id": "apps/web/src/app/dashboard/connections/page.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "@/features/credentials/connections-dashboard",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/app/dashboard/executions/page.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "@/features/dashboard/executions-dashboard",
+        "react"
+      ]
+    },
+    {
       "id": "apps/web/src/app/dashboard/page.tsx",
       "boundary": "web",
       "internalImports": [],
@@ -772,6 +790,14 @@
       ]
     },
     {
+      "id": "apps/web/src/components/ui/empty-state.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
       "id": "apps/web/src/components/ui/form-field.tsx",
       "boundary": "web",
       "internalImports": [],
@@ -785,9 +811,13 @@
       "internalImports": [
         "apps/web/src/components/ui/button.tsx",
         "apps/web/src/components/ui/dialog.tsx",
+        "apps/web/src/components/ui/empty-state.tsx",
         "apps/web/src/components/ui/form-field.tsx",
         "apps/web/src/components/ui/menu.tsx",
+        "apps/web/src/components/ui/page-header.tsx",
+        "apps/web/src/components/ui/progress.tsx",
         "apps/web/src/components/ui/select.tsx",
+        "apps/web/src/components/ui/skeleton.tsx",
         "apps/web/src/components/ui/status.tsx"
       ],
       "externalImports": []
@@ -802,7 +832,29 @@
       ]
     },
     {
+      "id": "apps/web/src/components/ui/page-header.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/components/ui/progress.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
       "id": "apps/web/src/components/ui/select.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/components/ui/skeleton.tsx",
       "boundary": "web",
       "internalImports": [],
       "externalImports": [
@@ -836,6 +888,20 @@
       ]
     },
     {
+      "id": "apps/web/src/features/credentials/connections-dashboard.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/api/api-client.ts",
+        "apps/web/src/features/credentials/credential-panel.tsx",
+        "apps/web/src/features/theme/theme-toggle.tsx"
+      ],
+      "externalImports": [
+        "lucide-react",
+        "next/navigation",
+        "react"
+      ]
+    },
+    {
       "id": "apps/web/src/features/credentials/credential-panel.tsx",
       "boundary": "web",
       "internalImports": [
@@ -851,6 +917,19 @@
       "boundary": "web",
       "internalImports": [],
       "externalImports": []
+    },
+    {
+      "id": "apps/web/src/features/dashboard/executions-dashboard.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/api/api-client.ts",
+        "apps/web/src/features/theme/theme-toggle.tsx"
+      ],
+      "externalImports": [
+        "lucide-react",
+        "next/navigation",
+        "react"
+      ]
     },
     {
       "id": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
@@ -1654,6 +1733,10 @@
     },
     {
       "from": "apps/web/src/components/ui/index.ts",
+      "to": "apps/web/src/components/ui/empty-state.tsx"
+    },
+    {
+      "from": "apps/web/src/components/ui/index.ts",
       "to": "apps/web/src/components/ui/form-field.tsx"
     },
     {
@@ -1662,7 +1745,19 @@
     },
     {
       "from": "apps/web/src/components/ui/index.ts",
+      "to": "apps/web/src/components/ui/page-header.tsx"
+    },
+    {
+      "from": "apps/web/src/components/ui/index.ts",
+      "to": "apps/web/src/components/ui/progress.tsx"
+    },
+    {
+      "from": "apps/web/src/components/ui/index.ts",
       "to": "apps/web/src/components/ui/select.tsx"
+    },
+    {
+      "from": "apps/web/src/components/ui/index.ts",
+      "to": "apps/web/src/components/ui/skeleton.tsx"
     },
     {
       "from": "apps/web/src/components/ui/index.ts",
@@ -1677,12 +1772,32 @@
       "to": "apps/web/src/features/theme/theme-toggle.tsx"
     },
     {
+      "from": "apps/web/src/features/credentials/connections-dashboard.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/credentials/connections-dashboard.tsx",
+      "to": "apps/web/src/features/credentials/credential-panel.tsx"
+    },
+    {
+      "from": "apps/web/src/features/credentials/connections-dashboard.tsx",
+      "to": "apps/web/src/features/theme/theme-toggle.tsx"
+    },
+    {
       "from": "apps/web/src/features/credentials/credential-panel.tsx",
       "to": "apps/web/src/features/api/api-client.ts"
     },
     {
       "from": "apps/web/src/features/credentials/credential-panel.tsx",
       "to": "apps/web/src/features/credentials/credential-types.ts"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/executions-dashboard.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/executions-dashboard.tsx",
+      "to": "apps/web/src/features/theme/theme-toggle.tsx"
     },
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",

@@ -14,7 +14,6 @@ overrides in `apps/web/src/app/globals.css`:
 - a light, high-contrast canvas keeps workflow graphs readable;
 - acid-lime is the product primary action and focus color;
 - amber identifies live external side effects and approval attention;
-- amber identifies live external side effects and approval attention;
 - provider marks retain recognizable brand colors;
 - motion explains state changes and hierarchy, never delays work.
 
@@ -103,7 +102,8 @@ Every interactive surface must define default, hover, focus-visible, active, dis
 
 - Component styling is mostly page-specific CSS, so buttons, panels, and form controls drift.
 - Dashboard, editor chrome, credentials, and overlays do not yet share one spacing/type/elevation scale.
-- Credentials still behave like an editor utility panel instead of a first-class management area.
+- Credentials had behaved only like an editor utility panel. A workspace-scoped Connections page now reuses the same credential manager; the editor keeps a contextual panel and links out to the full surface.
+- Execution history had only appeared as a compact dashboard section. A dedicated workspace-scoped Executions page now supports loading, empty, failure, filtering, pagination, and immutable execution inspection.
 - The inspector disappears at a breakpoint rather than becoming an intentional drawer.
 - Several overlay panels use duplicated CSS and have no shared dialog behavior.
 - Responsive and reduced-motion behavior need explicit regression coverage.
@@ -142,14 +142,15 @@ Every interactive surface must define default, hover, focus-visible, active, dis
 
 ### R4 — Credentials and execution management
 
-- Add dedicated dashboard routes for credentials and executions.
-- Reuse contextual drawers from the editor without duplicating business logic.
-- Improve credential provider cards, compatibility labels, and safe lifecycle actions.
+- **Complete locally:** dedicated workspace routes exist at `/dashboard/connections` and `/dashboard/executions`.
+- **Complete locally:** the Connections page reuses the credential manager rather than duplicating vault behavior; the editor links to it while retaining contextual selection.
+- **Complete locally:** the Executions page exposes independent loading, empty, error/retry, filter, cursor-pagination, and immutable-inspection states.
+- Continue to improve provider compatibility labels and lifecycle actions as each new provider is introduced.
 
 ### R5 — Motion, accessibility, and purchased Relay audit
 
 - Add restrained spring motion only where CSS transitions are insufficient.
-- Test keyboard navigation, focus return, contrast, zoom, and reduced motion.
+- Keep visible focus styles in every shared form/action primitive; test keyboard navigation, focus return, contrast, zoom, and reduced motion as routes are migrated.
 - After Relay is purchased, inspect its real manifest and license before importing any source component.
 
 ## Acceptance rules for every redesign slice
