@@ -52,6 +52,7 @@ import { CredentialPanel } from "../credentials/credential-panel";
 import type { CredentialProvider, CredentialSummary } from "../credentials/credential-types";
 import { buildExpressionSuggestions } from "./expression-suggestions";
 import { manualTriggerTestData } from "./test-data";
+import { NodeIcon } from "./node-icon";
 
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNode };
 
@@ -1050,7 +1051,7 @@ export function WorkflowEditor() {
                     onClick={() => addDefinition(definition)}
                     aria-label={`${definition.label} ${definition.description}${definition.available ? "" : " Planned"}`}
                   >
-                    <span className="palette-node__icon">{definition.icon}</span>
+                    <span className="palette-node__icon"><NodeIcon name={definition.icon} size={16} /></span>
                     <span className="palette-node__body"><span className="palette-node__title"><strong>{definition.label}</strong>{!definition.available && <em>Planned</em>}</span><small>{definition.description}</small></span>
                   </button>
                 ))}

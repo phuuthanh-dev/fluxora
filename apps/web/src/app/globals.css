@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 :root {
   color-scheme: dark;
   --canvas: #f8f9fc;
@@ -109,7 +111,7 @@ button:focus-visible, summary:focus-visible { outline: 3px solid rgba(99, 91, 25
 .workflow-node:hover { box-shadow: 0 10px 25px rgba(42, 42, 93, 0.13); transform: translateY(-1px); }
 .workflow-node--selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99, 91, 255, 0.15), 0 10px 25px rgba(42, 42, 93, 0.15); }
 .workflow-node__category { color: #7784a2; font-size: 9px; font-weight: 800; letter-spacing: 0.1em; margin: 0 0 6px; text-transform: uppercase; }
-.workflow-node h3 { font-size: 13px; margin: 0; }
+.workflow-node__heading { align-items: center; display: flex; gap: 8px; }.workflow-node__provider-icon { align-items: center; background: #f7f8fb; border: 1px solid #e7e9ef; border-radius: 7px; display: inline-flex; flex: 0 0 auto; height: 27px; justify-content: center; width: 27px; }.workflow-node h3 { font-size: 13px; line-height: 1.25; margin: 0; }
 .workflow-node p:not(.workflow-node__category) { color: var(--muted); font-size: 11px; line-height: 1.4; margin: 5px 0 0; }
 .workflow-node__badge { background: #f1f2f6; border-radius: 20px; color: #657087; display: inline-block; font-size: 9px; font-weight: 700; margin-top: 9px; padding: 3px 7px; }
 .workflow-node__handle { background: var(--accent); border: 2px solid white; height: 10px; width: 10px; }.workflow-node__output { align-items: center; display: flex; pointer-events: none; position: absolute; right: 0; transform: translateY(-50%); }.workflow-node__output .workflow-node__handle { pointer-events: auto; position: relative; right: -5px; top: auto !important; transform: none; }.workflow-node__handle-label { color: #68738a; font-size: 8px; font-weight: 800; letter-spacing: .035em; padding-right: 2px; text-transform: uppercase; white-space: nowrap; }

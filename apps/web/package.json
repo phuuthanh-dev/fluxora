@@ -11,19 +11,24 @@
     "test": "tsx --test src/features/workflow/*.test.ts"
   },
   "dependencies": {
+    "@iconify-icons/logos": "^2.0.4",
+    "@iconify/react": "^6.0.3",
     "@workflow/contracts": "*",
     "@xyflow/react": "^12.12.0",
     "lucide-react": "^1.61.0",
     "next": "^16.4.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "react-icons": "^5.7.0",
     "zod": "^4.6.7",
     "zustand": "^5.0.16"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "tailwindcss": "^4.3.3",
     "tsx": "^4.20.0"
   }
 }

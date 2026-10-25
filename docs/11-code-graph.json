@@ -837,10 +837,27 @@
     {
       "id": "apps/web/src/features/workflow/node-catalog.ts",
       "boundary": "web",
-      "internalImports": [],
+      "internalImports": [
+        "apps/web/src/features/workflow/node-icon.tsx"
+      ],
       "externalImports": [
         "@workflow/contracts",
         "@xyflow/react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/workflow/node-icon.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "@iconify-icons/logos/discord-icon",
+        "@iconify-icons/logos/google-drive-2020",
+        "@iconify-icons/logos/google-gemini-icon",
+        "@iconify-icons/logos/google-icon",
+        "@iconify/react/offline",
+        "lucide-react",
+        "react-icons/bs",
+        "react-icons/si"
       ]
     },
     {
@@ -881,6 +898,7 @@
         "apps/web/src/features/workflow/expression-suggestions.ts",
         "apps/web/src/features/workflow/graph-validation.ts",
         "apps/web/src/features/workflow/node-catalog.ts",
+        "apps/web/src/features/workflow/node-icon.tsx",
         "apps/web/src/features/workflow/test-data.ts",
         "apps/web/src/features/workflow/workflow-api.ts",
         "apps/web/src/features/workflow/workflow-graph-schema.ts",
@@ -909,7 +927,8 @@
       "id": "apps/web/src/features/workflow/workflow-node.tsx",
       "boundary": "web",
       "internalImports": [
-        "apps/web/src/features/workflow/node-catalog.ts"
+        "apps/web/src/features/workflow/node-catalog.ts",
+        "apps/web/src/features/workflow/node-icon.tsx"
       ],
       "externalImports": [
         "@xyflow/react"
@@ -1580,6 +1599,10 @@
       "to": "apps/web/src/features/workflow/node-catalog.ts"
     },
     {
+      "from": "apps/web/src/features/workflow/node-catalog.ts",
+      "to": "apps/web/src/features/workflow/node-icon.tsx"
+    },
+    {
       "from": "apps/web/src/features/workflow/node-operations.ts",
       "to": "apps/web/src/features/workflow/node-catalog.ts"
     },
@@ -1625,6 +1648,10 @@
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/node-icon.tsx"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
       "to": "apps/web/src/features/workflow/test-data.ts"
     },
     {
@@ -1646,6 +1673,10 @@
     {
       "from": "apps/web/src/features/workflow/workflow-node.tsx",
       "to": "apps/web/src/features/workflow/node-catalog.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-node.tsx",
+      "to": "apps/web/src/features/workflow/node-icon.tsx"
     }
   ]
 }
