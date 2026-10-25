@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { ApiClientError, apiRequest, apiUrl } from "../api/api-client";
 import type { CredentialProvider, CredentialReferenceDetails, CredentialSummary } from "./credential-types";
-import { Button, Field, IconButton } from "../../components/ui";
+import { Button, Field, IconButton, Select } from "../../components/ui";
 
 type CredentialPreset = {
   label: string;
@@ -251,14 +251,14 @@ export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId
       ) : null}
       <form onSubmit={submit} className="credential-form">
         <Field label="Provider" className="credential-form__field">
-          <select aria-label="Provider" value={provider} onChange={(event) => changeProvider(event.target.value as CredentialProvider)}>
+          <Select aria-label="Provider" value={provider} onChange={(event) => changeProvider(event.target.value as CredentialProvider)}>
             <option value="GOOGLE">Google Drive / Sheets</option>
             <option value="STEAM">Steam</option>
             <option value="GOOGLE_CHAT_WEBHOOK">Google Chat webhook</option>
             <option value="DISCORD_WEBHOOK">Discord webhook</option>
             <option value="TELEGRAM_BOT">Telegram bot</option>
             <option value="HTTP">HTTP</option>
-          </select>
+          </Select>
         </Field>
         <p className="credential-form__hint" aria-live="polite">{credentialPresets[provider].hint}</p>
         <Field label="Connection name" className="credential-form__field">
@@ -346,12 +346,12 @@ export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId
                   </label>
                   {actionError && <p className="credential-card__error" role="alert">{actionError}</p>}
                   <div className="credential-card__form-actions">
-                    <button type="submit" className="run-button" disabled={isActionSubmitting}>
+                    <Button variant="primary" type="submit" className="run-button" disabled={isActionSubmitting}>
                       {isActionSubmitting ? "Saving…" : "Save name"}
-                    </button>
-                    <button type="button" className="ghost-button" onClick={cancelAction} disabled={isActionSubmitting}>
+                    </Button>
+                    <Button variant="ghost" type="button" className="ghost-button" onClick={cancelAction} disabled={isActionSubmitting}>
                       Cancel
-                    </button>
+                    </Button>
                   </div>
                 </form>
               )}
@@ -376,12 +376,12 @@ export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId
                   </label>
                   {actionError && <p className="credential-card__error" role="alert">{actionError}</p>}
                   <div className="credential-card__form-actions">
-                    <button type="submit" className="run-button" disabled={isActionSubmitting}>
+                    <Button variant="primary" type="submit" className="run-button" disabled={isActionSubmitting}>
                       {isActionSubmitting ? "Rotating…" : "Rotate secret"}
-                    </button>
-                    <button type="button" className="ghost-button" onClick={cancelAction} disabled={isActionSubmitting}>
+                    </Button>
+                    <Button variant="ghost" type="button" className="ghost-button" onClick={cancelAction} disabled={isActionSubmitting}>
                       Cancel
-                    </button>
+                    </Button>
                   </div>
                 </form>
               )}
@@ -407,17 +407,18 @@ export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId
                     </div>
                   )}
                   <div className="credential-card__form-actions">
-                    <button
+                    <Button
+                      variant="danger"
                       type="button"
                       className="danger-button"
                       onClick={() => void confirmDelete(credential)}
                       disabled={isActionSubmitting}
                     >
                       {isActionSubmitting ? "Deleting…" : "Confirm delete"}
-                    </button>
-                    <button type="button" className="ghost-button" onClick={cancelAction} disabled={isActionSubmitting}>
+                    </Button>
+                    <Button variant="ghost" type="button" className="ghost-button" onClick={cancelAction} disabled={isActionSubmitting}>
                       Cancel
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}

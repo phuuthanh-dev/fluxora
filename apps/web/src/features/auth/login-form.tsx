@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { apiUrl } from "../api/api-client";
 import { ThemeToggle } from "../theme/theme-toggle";
+import { Button, Field } from "../../components/ui";
 
 type AuthMode = "login" | "register";
 type AuthResponse = { user?: { email: string }; message?: string | { message?: string } };
@@ -72,17 +73,17 @@ export function LoginForm() {
           <h2>{mode === "login" ? "Sign in to your workspace" : "Create your workspace"}</h2>
           <p className="auth-subtitle">{mode === "login" ? "Continue building your workflow." : "Your personal automation space starts here."}</p>
           <form onSubmit={submit}>
-            {mode === "register" && <label className="auth-field"><span>Name</span><input autoComplete="name" onChange={(event) => setDisplayName(event.target.value)} value={displayName} /></label>}
-            <label className="auth-field"><span>Email</span><input autoComplete="email" onChange={(event) => setEmail(event.target.value)} required type="email" value={email} /></label>
-            <label className="auth-field"><span>Password</span><input autoComplete={mode === "login" ? "current-password" : "new-password"} minLength={mode === "register" ? 12 : 1} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} /></label>
+            {mode === "register" && <Field label="Name" className="auth-field"><input autoComplete="name" onChange={(event) => setDisplayName(event.target.value)} value={displayName} /></Field>}
+            <Field label="Email" className="auth-field"><input autoComplete="email" onChange={(event) => setEmail(event.target.value)} required type="email" value={email} /></Field>
+            <Field label="Password" className="auth-field"><input autoComplete={mode === "login" ? "current-password" : "new-password"} minLength={mode === "register" ? 12 : 1} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} /></Field>
             {mode === "register" && <p className="auth-help">Use at least 12 characters. Your password is stored as an Argon2id hash.</p>}
             {error && <p className="auth-error" role="alert">{error}</p>}
-            <button className="auth-submit" disabled={isSubmitting} type="submit">{isSubmitting ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}</button>
+            <Button variant="primary" className="auth-submit" disabled={isSubmitting} type="submit">{isSubmitting ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}</Button>
           </form>
           <div className="auth-divider"><span>or continue with</span></div>
           <div className="auth-oauth-actions">
-            <button disabled={!googleAvailable} onClick={() => window.location.assign(`${apiUrl}/auth/google/start`)} type="button">Google <small>{googleAvailable ? "Continue securely" : "Configure server"}</small></button>
-            <button disabled={!githubAvailable} onClick={() => window.location.assign(`${apiUrl}/auth/github/start`)} type="button">GitHub <small>{githubAvailable ? "Continue securely" : "Configure server"}</small></button>
+            <Button variant="secondary" disabled={!googleAvailable} onClick={() => window.location.assign(`${apiUrl}/auth/google/start`)}>Google <small>{googleAvailable ? "Continue securely" : "Configure server"}</small></Button>
+            <Button variant="secondary" disabled={!githubAvailable} onClick={() => window.location.assign(`${apiUrl}/auth/github/start`)}>GitHub <small>{githubAvailable ? "Continue securely" : "Configure server"}</small></Button>
           </div>
           <p className="auth-switch">{mode === "login" ? "New here?" : "Already have an account?"} <button onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); }} type="button">{mode === "login" ? "Create an account" : "Sign in"}</button></p>
         </div>

@@ -761,6 +761,14 @@
       ]
     },
     {
+      "id": "apps/web/src/components/ui/dialog.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
       "id": "apps/web/src/components/ui/form-field.tsx",
       "boundary": "web",
       "internalImports": [],
@@ -773,9 +781,38 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/components/ui/button.tsx",
-        "apps/web/src/components/ui/form-field.tsx"
+        "apps/web/src/components/ui/dialog.tsx",
+        "apps/web/src/components/ui/form-field.tsx",
+        "apps/web/src/components/ui/menu.tsx",
+        "apps/web/src/components/ui/select.tsx",
+        "apps/web/src/components/ui/status.tsx"
       ],
       "externalImports": []
+    },
+    {
+      "id": "apps/web/src/components/ui/menu.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "lucide-react",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/components/ui/select.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/components/ui/status.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "react"
+      ]
     },
     {
       "id": "apps/web/src/features/api/api-client.ts",
@@ -1601,7 +1638,23 @@
     },
     {
       "from": "apps/web/src/components/ui/index.ts",
+      "to": "apps/web/src/components/ui/dialog.tsx"
+    },
+    {
+      "from": "apps/web/src/components/ui/index.ts",
       "to": "apps/web/src/components/ui/form-field.tsx"
+    },
+    {
+      "from": "apps/web/src/components/ui/index.ts",
+      "to": "apps/web/src/components/ui/menu.tsx"
+    },
+    {
+      "from": "apps/web/src/components/ui/index.ts",
+      "to": "apps/web/src/components/ui/select.tsx"
+    },
+    {
+      "from": "apps/web/src/components/ui/index.ts",
+      "to": "apps/web/src/components/ui/status.tsx"
     },
     {
       "from": "apps/web/src/features/auth/login-form.tsx",

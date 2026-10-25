@@ -11,7 +11,6 @@ import {
 } from "@xyflow/react";
 import {
   Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CirclePlay,
@@ -54,7 +53,7 @@ import { buildExpressionSuggestions } from "./expression-suggestions";
 import { manualTriggerTestData } from "./test-data";
 import { NodeIcon } from "./node-icon";
 import { ThemeToggle } from "../theme/theme-toggle";
-import { Button } from "../../components/ui";
+import { Button, Dialog, Field, IconButton, Menu, Select, Status } from "../../components/ui";
 
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNode };
 
@@ -87,14 +86,13 @@ function ConfigField({ label, value, onChange, multiline = false }: {
   multiline?: boolean;
 }) {
   return (
-    <label className="config-field">
-      <span>{label}</span>
+    <Field label={label} className="config-field">
       {multiline ? (
         <textarea value={value} onChange={(event) => onChange(event.target.value)} rows={5} />
       ) : (
         <input value={value} onChange={(event) => onChange(event.target.value)} />
       )}
-    </label>
+    </Field>
   );
 }
 
@@ -109,25 +107,19 @@ function CredentialField({ label, value, providers, credentials, onChange, optio
   const compatibleCredentials = credentials.filter((credential) => providers.includes(credential.provider));
   const selectedIsCompatible = !value || compatibleCredentials.some((credential) => credential.id === value);
   return (
-    <label className="config-field credential-field">
-      <span>{label}</span>
-      <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}>
+    <Field label={label} className="config-field credential-field">
+      <Select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">{optional ? "No credential" : "Select a credential"}</option>
         {!selectedIsCompatible && <option value={value}>Unavailable credential</option>}
         {compatibleCredentials.map((credential) => <option key={credential.id} value={credential.id}>{credential.label}</option>)}
-      </select>
+      </Select>
       {compatibleCredentials.length === 0 && <small>No compatible connection yet. Open Manage → Credentials to add one.</small>}
-    </label>
+    </Field>
   );
 }
 
 function ActionMenu({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <details className="action-menu">
-      <summary aria-label={`${label} actions`}><span>{label}</span><ChevronDown size={14} aria-hidden="true" /></summary>
-      <div className="action-menu__content" role="group" aria-label={`${label} menu`} onClick={(event) => { if (event.target instanceof HTMLElement && event.target.closest("button")) event.currentTarget.closest("details")?.removeAttribute("open"); }}>{children}</div>
-    </details>
-  );
+  return <Menu label={label} className="action-menu" contentClassName="action-menu__content">{children}</Menu>;
 }
 
 type ResultViewMode = "tree" | "table" | "raw";
@@ -209,32 +201,32 @@ function SwitchCaseEditor({ cases, onChange }: { cases: unknown; onChange: (case
 }
 
 function WorkflowHistoryPanel({ versions, loading, onClose }: { versions: WorkflowVersionSummary[]; loading: boolean; onClose: () => void }) {
-  return <section className="workflow-history" aria-label="Workflow version history"><div className="credential-panel__heading"><div><p className="section-label">VERSION HISTORY</p><h2>Immutable releases</h2></div><button className="icon-button" type="button" aria-label="Close workflow history" onClick={onClose}>×</button></div>{loading ? <p>Loading versions…</p> : <ol>{versions.map((version) => <li key={version.id}><strong>v{version.version} · {version.status.toLowerCase()}</strong><span>{version.nodeCount} nodes · {version.publishedAt ? `published ${new Date(version.publishedAt).toLocaleString()}` : `draft ${new Date(version.createdAt).toLocaleString()}`}</span></li>)}</ol>}</section>;
+  return <Dialog label="Workflow version history" className="workflow-history" modal={false}><div className="credential-panel__heading"><div><p className="section-label">VERSION HISTORY</p><h2>Immutable releases</h2></div><IconButton label="Close workflow history" className="icon-button" onClick={onClose}>×</IconButton></div>{loading ? <p>Loading versions…</p> : <ol>{versions.map((version) => <li key={version.id}><strong>v{version.version} · {version.status.toLowerCase()}</strong><span>{version.nodeCount} nodes · {version.publishedAt ? `published ${new Date(version.publishedAt).toLocaleString()}` : `draft ${new Date(version.createdAt).toLocaleString()}`}</span></li>)}</ol>}</Dialog>;
 }
 
 function GraphValidationPanel({ issues, onClose }: { issues: ReturnType<typeof validateWorkflowGraph>; onClose: () => void }) {
   const errors = issues.filter((issue) => issue.severity === "error");
   const warnings = issues.filter((issue) => issue.severity === "warning");
   return (
-    <section className="graph-validation-panel" role="dialog" aria-modal="false" aria-label="Workflow validation details">
+    <Dialog label="Workflow validation details" className="graph-validation-panel" modal={false}>
       <div className="credential-panel__heading">
         <div>
           <p className="section-label">LIVE VALIDATION</p>
           <h2>{errors.length ? "Fix these before saving" : "Graph checks"}</h2>
         </div>
-        <button className="icon-button" type="button" aria-label="Close validation details" onClick={onClose}>×</button>
+        <IconButton label="Close validation details" className="icon-button" onClick={onClose}>×</IconButton>
       </div>
       {errors.length === 0 && warnings.length === 0 ? <p className="graph-validation-panel__ready">Your graph is ready for a test run.</p> : <>
         {errors.length > 0 && <div className="graph-validation-panel__group"><strong>{errors.length} error{errors.length === 1 ? "" : "s"}</strong><ul>{errors.map((issue, index) => <li key={`error-${index}`} className="graph-validation-panel__issue graph-validation-panel__issue--error">{issue.message}</li>)}</ul></div>}
         {warnings.length > 0 && <div className="graph-validation-panel__group"><strong>{warnings.length} warning{warnings.length === 1 ? "" : "s"}</strong><ul>{warnings.map((issue, index) => <li key={`warning-${index}`} className="graph-validation-panel__issue graph-validation-panel__issue--warning">{issue.message}</li>)}</ul></div>}
       </>}
-    </section>
+    </Dialog>
   );
 }
 
 function GoLivePanel({ workflow, isRunning, onConfirm, onClose }: { workflow: ApiWorkflow; isRunning: boolean; onConfirm: () => void; onClose: () => void }) {
   const canRun = Boolean(workflow.published) && !isRunning;
-  return <section className="go-live-panel" role="dialog" aria-modal="true" aria-label="Confirm live execution"><div className="credential-panel__heading"><div><p className="section-label">LIVE EXECUTION</p><h2>Run the published workflow?</h2></div><button className="icon-button" type="button" aria-label="Close live execution confirmation" onClick={onClose}>×</button></div><p>This will call real providers and may send messages, write data, or create external side effects. The editor will run <strong>published version {workflow.published?.version ?? "—"}</strong>, never unsaved draft changes.</p>{!workflow.published && <p className="go-live-panel__warning">Publish this workflow first. Test runs stay safe and use deterministic mock providers.</p>}<div className="go-live-panel__actions"><button className="ghost-button" type="button" onClick={onClose}>Cancel</button><button className="go-live-button" type="button" disabled={!canRun} onClick={onConfirm}>{isRunning ? "Starting…" : "Run live now"}</button></div></section>;
+  return <Dialog label="Confirm live execution" className="go-live-panel"><div className="credential-panel__heading"><div><p className="section-label">LIVE EXECUTION</p><h2>Run the published workflow?</h2></div><IconButton label="Close live execution confirmation" className="icon-button" onClick={onClose}>×</IconButton></div><p>This will call real providers and may send messages, write data, or create external side effects. The editor will run <strong>published version {workflow.published?.version ?? "—"}</strong>, never unsaved draft changes.</p>{!workflow.published && <p className="go-live-panel__warning">Publish this workflow first. Test runs stay safe and use deterministic mock providers.</p>}<div className="go-live-panel__actions"><Button variant="ghost" className="ghost-button" onClick={onClose}>Cancel</Button><Button variant="secondary" className="go-live-button" disabled={!canRun} onClick={onConfirm}>{isRunning ? "Starting…" : "Run live now"}</Button></div></Dialog>;
 }
 
 function WebhookEndpointPanel({ workflow, config, onClose }: { workflow: ApiWorkflow; config: Record<string, unknown>; onClose: () => void }) {
@@ -271,7 +263,7 @@ function WebhookEndpointPanel({ workflow, config, onClose }: { workflow: ApiWork
     }
   };
 
-  return <section className="webhook-endpoint-panel" role="dialog" aria-modal="false" aria-label="Webhook endpoint"><div className="credential-panel__heading"><div><p className="section-label">INBOUND WEBHOOK</p><h2>Webhook endpoint</h2></div><button className="icon-button" type="button" aria-label="Close webhook endpoint" onClick={onClose}>×</button></div><p>Endpoints are pinned to a published workflow version. Publishing again does not change an existing endpoint until you rotate it here.</p><ConfigField label="Public path" value={path} onChange={setPath} /><label className="checkbox-field"><input type="checkbox" checked={secretRequired} onChange={(event) => setSecretRequired(event.target.checked)} /> Require <code>x-workflow-secret</code> header</label><div className="webhook-endpoint-panel__url"><span>POST URL</span><code>{endpointUrl}</code></div>{createdSecret && <div className="webhook-endpoint-panel__secret"><strong>Copy this secret now</strong><code>{createdSecret}</code><small>It is displayed only after this creation or rotation.</small></div>}<p className="webhook-endpoint-panel__notice">{notice}</p><button className="run-button" type="button" onClick={() => void createEndpoint()} disabled={!workflow.published || isSaving || !path.trim()}>{isSaving ? "Creating…" : endpoint ? "Rotate endpoint secret" : "Create endpoint"}</button>{!workflow.published && <small className="webhook-endpoint-panel__warning">Publish a version containing this Webhook trigger before creating its endpoint.</small>}</section>;
+  return <Dialog label="Webhook endpoint" className="webhook-endpoint-panel" modal={false}><div className="credential-panel__heading"><div><p className="section-label">INBOUND WEBHOOK</p><h2>Webhook endpoint</h2></div><IconButton label="Close webhook endpoint" className="icon-button" onClick={onClose}>×</IconButton></div><p>Endpoints are pinned to a published workflow version. Publishing again does not change an existing endpoint until you rotate it here.</p><ConfigField label="Public path" value={path} onChange={setPath} /><label className="checkbox-field"><input type="checkbox" checked={secretRequired} onChange={(event) => setSecretRequired(event.target.checked)} /> Require <code>x-workflow-secret</code> header</label><div className="webhook-endpoint-panel__url"><span>POST URL</span><code>{endpointUrl}</code></div>{createdSecret && <div className="webhook-endpoint-panel__secret"><strong>Copy this secret now</strong><code>{createdSecret}</code><small>It is displayed only after this creation or rotation.</small></div>}<Status tone="info" className="webhook-endpoint-panel__notice">{notice}</Status><Button variant="primary" className="run-button" onClick={() => void createEndpoint()} disabled={!workflow.published || isSaving || !path.trim()}>{isSaving ? "Creating…" : endpoint ? "Rotate endpoint secret" : "Create endpoint"}</Button>{!workflow.published && <small className="webhook-endpoint-panel__warning">Publish a version containing this Webhook trigger before creating its endpoint.</small>}</Dialog>;
 }
 
 function WorkflowLibraryPanel({ initialWorkspaces, activeWorkflowId, activeWorkspaceId, onOpen, onWorkspaceCreated, onClose }: { initialWorkspaces: WorkspaceSummary[]; activeWorkflowId: string | undefined; activeWorkspaceId: string | undefined; onOpen: (workflow: ApiWorkflow) => void; onWorkspaceCreated: (workspace: WorkspaceSummary) => void; onClose: () => void }) {
@@ -462,16 +454,15 @@ function NodeInspector({ node, execution, credentials, onResolveApproval }: { no
             const destinationLabel = destinationLabels[destinationType] ?? destinationLabels.dm;
             return (
               <>
-                <label className="config-field">
-                  <span>Destination type</span>
-                  <select aria-label="Telegram destination type" value={destinationType} onChange={(event) => updateConfig("destinationType", event.target.value)}>
+                <Field label="Destination type" className="config-field">
+                  <Select aria-label="Telegram destination type" value={destinationType} onChange={(event) => updateConfig("destinationType", event.target.value)}>
                     <option value="dm">Direct message (DM)</option>
                     <option value="group">Group</option>
                     <option value="supergroup">Supergroup</option>
                     <option value="channel">Channel</option>
-                  </select>
+                  </Select>
                   <small>{destinationHints[destinationType] ?? destinationHints.dm}</small>
-                </label>
+                </Field>
                 <ConfigField label={`${destinationLabel} chat ID (legacy credential chatId is deprecated)`} value={readConfigText(node.data.config, "chatId")} onChange={(value) => updateConfig("chatId", value)} />
                 {destinationType === "supergroup" && <ConfigField label="Topic / thread ID (optional)" value={readConfigText(node.data.config, "messageThreadId")} onChange={(value) => updateConfig("messageThreadId", value)} />}
               </>

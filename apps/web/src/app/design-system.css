@@ -142,6 +142,17 @@
 .ui-field__hint { color: var(--muted-on-dark); font-size: var(--text-xs); line-height: 1.4; margin: 0; }
 .ui-field__error { color: var(--semantic-danger); font-size: var(--text-xs); line-height: 1.4; margin: 0; }
 
+.ui-select { min-height: 36px; }
+.ui-menu { position: relative; }
+.ui-menu__trigger { cursor: pointer; }
+.ui-menu__trigger:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.ui-dialog { color: var(--text-on-dark); }
+.ui-status { border-radius: var(--radius-md); }
+.ui-status--info { border-color: var(--semantic-info); }
+.ui-status--success { border-color: var(--semantic-success); }
+.ui-status--warning { border-color: var(--semantic-warning); }
+.ui-status--error { border-color: var(--semantic-danger); }
+
 @media (prefers-reduced-motion: reduce) {
   .ui-button { transition: none; }
 }
