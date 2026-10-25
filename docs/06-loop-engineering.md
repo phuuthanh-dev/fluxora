@@ -60,6 +60,7 @@ CI runs the same gate for every pull request and push to `main`.
 | L7.4 | Execution Center triage | Complete locally | The collapsed-by-default dashboard panel now supports independent refresh, isolated loading/error/retry states, and accessible filters for attention, in-progress, failed, and succeeded runs. It retains immutable execution deep links; dashboard Playwright coverage passed. |
 | L7.5 | Safe retry and trigger idempotency | Complete locally | Failed runs can be retried only against their original pinned version and redacted trigger payload; mock retries stay mock while live retries require a new confirmation and readiness re-check. Cron runs have database-backed occurrence keys; webhooks can opt into `Idempotency-Key`, namespaced to their endpoint. Database migration, API/unit tests, browser regression, and local migration deployment passed. |
 | L7.6 | Execution Center pagination | Complete locally | The dashboard's execution history is cursor-paginated with stable `createdAt`/ID ordering, a bounded API page size, append-only Load more state, and browser coverage proving existing rows remain visible after the next page arrives. |
+| L8.1 | Theme contrast foundation | Complete locally | Semantic text/action/control/provider tokens resolve light and dark contrast drift; active filters, theme hover, amber live action text, palette metadata, and dark-safe Steam/GitHub/OpenAI icon variants are covered by Playwright contrast regression. |
 
 ## External-boundary rule
 

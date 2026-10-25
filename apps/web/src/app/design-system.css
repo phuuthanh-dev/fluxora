@@ -24,11 +24,47 @@
   --canvas: #f5f7f1;
   --ink: #101410;
   --muted: #687064;
+  --text-secondary: #566052;
+  --text-tertiary: #5f685b;
+  --text-accent: #486200;
+  --icon-muted: #566052;
   --line: #e1e6dc;
   --panel: #fffef9;
   --nav: var(--relay-void);
   --accent: var(--relay-lime);
   --accent-strong: var(--relay-lime-strong);
+  --accent-soft: var(--relay-lime-soft);
+  --text-on-accent: #080a09;
+  --text-on-accent-soft: #080a09;
+  --text-on-live: #342000;
+  --control-selected-bg: #45561e;
+  --control-selected-border: #45561e;
+  --control-selected-text: #f3f6ec;
+  --provider-tile: #f7f8fb;
+  --provider-tile-border: #d8e0d5;
+
+  /* Accessible light-surface variants for single-color provider marks. */
+  --provider-manual: #486200;
+  --provider-schedule: #647f00;
+  --provider-webhook: #0277a8;
+  --provider-if: #a44c04;
+  --provider-switch: #b74708;
+  --provider-steam: #1b2838;
+  --provider-google: #1a73e8;
+  --provider-google-chat: #007f3b;
+  --provider-discord: #4752c4;
+  --provider-telegram: #087ea9;
+  --provider-google-drive: #1a73e8;
+  --provider-google-sheets: #188038;
+  --provider-http: #0f766e;
+  --provider-approval: #15803d;
+  --provider-email: #c5221f;
+  --provider-openai: #412991;
+  --provider-gemini: #6d5190;
+  --provider-mongodb: #208a3d;
+  --provider-github: #181717;
+  --provider-facebook: #075bdf;
+  --provider-instagram: #c13584;
   --soft-purple: var(--relay-lime-soft);
   --green: var(--semantic-success);
   --warning: var(--semantic-warning);
@@ -85,11 +121,47 @@
   --canvas: #0b100c;
   --ink: #f3f6ec;
   --muted: #a8b3a4;
+  --text-secondary: #c8d1c4;
+  --text-tertiary: #a8b3a4;
+  --text-accent: #c6f21b;
+  --icon-muted: #c8d1c4;
   --line: #2b372d;
   --panel: #111712;
   --nav: var(--relay-void);
   --accent: var(--relay-lime);
   --accent-strong: var(--relay-lime-strong);
+  --accent-soft: var(--relay-lime-soft);
+  --text-on-accent: #050706;
+  --text-on-accent-soft: #c6f21b;
+  --text-on-live: #342000;
+  --control-selected-bg: #2c3b0b;
+  --control-selected-border: #607b1d;
+  --control-selected-text: #c6f21b;
+  --provider-tile: #171e18;
+  --provider-tile-border: #334334;
+
+  /* Brand-safe dark variants prevent dark provider marks disappearing. */
+  --provider-manual: #c6f21b;
+  --provider-schedule: #c8e96a;
+  --provider-webhook: #65c9f0;
+  --provider-if: #ffcc80;
+  --provider-switch: #ffb681;
+  --provider-steam: #8ec5ee;
+  --provider-google: #8ab4f8;
+  --provider-google-chat: #72df9b;
+  --provider-discord: #b4beff;
+  --provider-telegram: #76cfff;
+  --provider-google-drive: #8ab4f8;
+  --provider-google-sheets: #85db91;
+  --provider-http: #69d1c6;
+  --provider-approval: #7ce0a4;
+  --provider-email: #ff9b90;
+  --provider-openai: #d1b1ff;
+  --provider-gemini: #d3b7fa;
+  --provider-mongodb: #88d99a;
+  --provider-github: #f3f6ec;
+  --provider-facebook: #9bbcff;
+  --provider-instagram: #ffb0c0;
   --soft-purple: var(--relay-lime-soft);
   --green: var(--semantic-success);
   --warning: var(--semantic-warning);
@@ -134,7 +206,7 @@
 
 .ui-button:hover:not(:disabled) { transform: translateY(-1px); }
 .ui-button:disabled { cursor: not-allowed; opacity: 0.45; transform: none; }
-.ui-button--primary { background: var(--accent); border: 1px solid var(--accent); color: var(--nav); }
+.ui-button--primary { background: var(--accent); border: 1px solid var(--accent); color: var(--text-on-accent); }
 .ui-button--secondary { background: var(--panel); border: 1px solid var(--line); color: var(--ink); }
 .ui-button--ghost { background: transparent; border: 1px solid var(--surface-dark-border); color: var(--text-on-dark); }
 .ui-button--danger { background: var(--semantic-danger); border: 1px solid var(--semantic-danger); color: #fff; }

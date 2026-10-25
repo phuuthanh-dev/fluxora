@@ -1,4 +1,35 @@
 import { expect, test } from "@playwright/test";
+import type { Locator } from "@playwright/test";
+
+async function expectContrast(locator: Locator, minimum: number) {
+  const sample = await locator.evaluate((element) => {
+    const parseColor = (value: string) => {
+      const channels = value.match(/[\d.]+/g)?.map(Number);
+      if (!channels || channels.length < 3 || (channels.length > 3 && channels[3] === 0)) return null;
+      return channels.slice(0, 3);
+    };
+    const luminance = (color: number[]) => color
+      .map((channel) => {
+        const value = channel / 255;
+        return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+      })
+      .reduce((total, value, index) => total + value * [0.2126, 0.7152, 0.0722][index], 0);
+
+    const foreground = parseColor(getComputedStyle(element).color);
+    let current: Element | null = element;
+    let background: number[] | null = null;
+    while (current && !background) {
+      background = parseColor(getComputedStyle(current).backgroundColor);
+      current = current.parentElement;
+    }
+    if (!foreground || !background) return null;
+    const [darker, lighter] = [luminance(foreground), luminance(background)].sort((left, right) => left - right);
+    return (lighter + 0.05) / (darker + 0.05);
+  });
+
+  expect(sample).not.toBeNull();
+  expect(sample!).toBeGreaterThanOrEqual(minimum);
+}
 
 // Shared helpers
 async function signUpAndDashboard(page: import("@playwright/test").Page, email: string) {
@@ -96,6 +127,41 @@ test("light and dark themes stay readable across dashboard and editor", async ({
   await page.getByRole("button", { name: "Switch to light mode" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await expect(page.locator(".canvas-region")).toHaveCSS("background-color", "rgb(245, 247, 241)");
+});
+
+test("editor text, controls, and provider icons meet contrast targets in both themes", async ({ page }) => {
+  const email = `regression-contrast-${Date.now()}@example.test`;
+  await signUpAndDashboard(page, email);
+  await page.getByRole("button", { name: "Use Steam template" }).click();
+  await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+
+  const assertEditorContrast = async () => {
+    await expectContrast(page.locator(".palette-filter--active"), 4.5);
+    await expectContrast(page.locator(".palette-group > header p").first(), 4.5);
+    await expectContrast(page.locator(".workflow-node p:not(.workflow-node__category)").first(), 4.5);
+    await expect(page.getByRole("button", { name: "Go live" })).toHaveCSS("color", "rgb(52, 32, 0)");
+    await expectContrast(
+      page.locator(".react-flow__node").filter({ hasText: "Steam account snapshot" }).locator(".workflow-node__provider-icon svg"),
+      3,
+    );
+    await page.getByRole("button", { name: "Roadmap" }).click();
+    await expectContrast(page.locator(".palette-node").filter({ hasText: "OpenAI" }).locator("svg"), 3);
+    await expectContrast(page.locator(".palette-node").filter({ hasText: "GitHub" }).locator("svg"), 3);
+  };
+
+  await assertEditorContrast();
+  const toDark = page.getByRole("button", { name: "Switch to dark mode" });
+  await toDark.hover();
+  await page.waitForTimeout(180);
+  await expectContrast(toDark, 4.5);
+  await toDark.click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await assertEditorContrast();
+
+  const toLight = page.getByRole("button", { name: "Switch to light mode" });
+  await toLight.hover();
+  await page.waitForTimeout(180);
+  await expectContrast(toLight, 4.5);
 });
 
 test("connections dropdown keeps its trigger inline and opens below the header", async ({ page }) => {

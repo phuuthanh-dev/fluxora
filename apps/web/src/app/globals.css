@@ -376,6 +376,46 @@ button:focus-visible, summary:focus-visible { outline: 3px solid rgba(214, 255, 
 
 .execution-detail-banner { align-items: center; background: var(--relay-lime-soft); border-bottom: 1px solid color-mix(in srgb, var(--accent-strong) 30%, var(--line)); display: flex; gap: 14px; justify-content: space-between; padding: 9px 20px; }.execution-detail-banner div { display: grid; gap: 2px; }.execution-detail-banner strong { color: var(--ink); font-size: 12px; }.execution-detail-banner span { color: var(--muted); font-size: 10px; }.execution-detail-banner .ui-button { font-size: 10px; min-height: 29px; padding: 6px 9px; }
 
+/* Contrast layer: semantic roles stay readable in both product themes. */
+.ui-kicker,
+.auth-card .auth-eyebrow,
+.auth-switch button,
+.dashboard-stats svg,
+.dashboard-empty svg,
+.palette-reopen,
+.inspector__category,
+.dashboard-execution__open { color: var(--text-accent); }
+
+.workflow-card footer button { color: var(--text-accent); }
+
+.palette-search { background: var(--panel); border-color: var(--line); color: var(--icon-muted); }
+.palette-search kbd { background: var(--panel); border-color: var(--line); color: var(--text-tertiary); }
+.palette-results { border-color: var(--line); color: var(--text-tertiary); }
+.palette-results button { color: var(--text-accent); }
+.section-label { color: var(--text-tertiary); }
+.palette-group > header h3 { color: var(--text-secondary); }
+.palette-group > header p { color: var(--text-tertiary); font-size: 10px; }
+.palette-group > header > span { background: var(--panel); color: var(--text-tertiary); }
+
+.palette-filter { background: var(--panel); color: var(--text-secondary); }
+.palette-filter:hover:not(.palette-filter--active) { border-color: var(--text-accent); color: var(--text-accent); }
+.palette-filter--active,
+.palette-filter--active:hover { background: var(--control-selected-bg); border-color: var(--control-selected-border); color: var(--control-selected-text); }
+
+.palette-node__icon,
+.workflow-node__provider-icon { background: var(--provider-tile); border-color: var(--provider-tile-border); }
+
+.canvas-status { color: var(--text-secondary); }
+.inspector--empty > svg { color: var(--text-accent); }
+
+.editor-header .go-live-button,
+.go-live-button { color: var(--text-on-live); }
+.theme-toggle:hover { background: var(--accent-soft); border-color: var(--accent-strong); color: var(--text-on-accent-soft); }
+
+.dashboard-execution-filters button.is-active { background: var(--control-selected-bg); border-color: var(--control-selected-border); color: var(--control-selected-text); }
+.workflow-card__menu > summary:hover,
+.workflow-card__menu[open] > summary { background: var(--accent-soft); border-color: var(--text-accent); color: var(--text-accent); }
+
 @media (prefers-reduced-motion: reduce) {
   .theme-toggle { transition: none; }
 }

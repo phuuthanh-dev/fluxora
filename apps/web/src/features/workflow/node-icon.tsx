@@ -48,32 +48,8 @@ export type NodeIconName =
   | "facebook"
   | "instagram";
 
-const brandColors: Record<NodeIconName, string> = {
-  manual: "#b8ed00",
-  schedule: "#8cab12",
-  webhook: "#0284c7",
-  if: "#d97706",
-  switch: "#ea580c",
-  steam: "#1b2838",
-  google: "#4285f4",
-  "google-chat": "#00ac47",
-  discord: "#5865f2",
-  telegram: "#26a5e4",
-  "google-drive": "#4285f4",
-  "google-sheets": "#34a853",
-  http: "#0f766e",
-  approval: "#16a34a",
-  email: "#ea4335",
-  openai: "#412991",
-  gemini: "#8e75b2",
-  mongodb: "#47a248",
-  github: "#181717",
-  facebook: "#0866ff",
-  instagram: "#e4405f",
-};
-
 export function NodeIcon({ name, size = 18, className = "" }: { name: NodeIconName; size?: number; className?: string }) {
-  const props = { size, "aria-hidden": true as const, style: { color: brandColors[name] } };
+  const props = { size, "aria-hidden": true as const, style: { color: `var(--provider-${name})` } };
   const multicolorProps = { width: size, height: size, "aria-hidden": true as const };
   const icon = (() => {
     switch (name) {

@@ -60,6 +60,11 @@ only when it is a provider brand color or a clearly documented semantic state.
 | Canvas | `--canvas` | `#f5f7f1`, graph and dashboard background |
 | Ink | `--ink` | `#101410`, light-surface text |
 | Muted text | `--muted` | `#687064` |
+| Text hierarchy | `--text-secondary`, `--text-tertiary` | Readable supporting text for the current theme |
+| Text link/icon accent | `--text-accent` | Accessible lime-family emphasis; never raw lime on a light surface |
+| Selected control | `--control-selected-*` | Background, border, and text for active filters/tabs |
+| Provider icon tile | `--provider-tile`, `--provider-*` | Theme-safe icon tile and provider mark variants |
+| Action text | `--text-on-accent`, `--text-on-accent-soft`, `--text-on-live` | Fixed readable text on lime, soft-lime, and amber actions |
 | Light border | `--line` | `#e1e6dc` |
 | Light panel | `--panel` | `#fffef9` |
 | Spacing | `--space-1` … `--space-7` | 4px–32px rhythm |
@@ -83,7 +88,9 @@ migrated incrementally without changing component APIs.
    lime to communicate failure.
 4. **Provider identity:** Google, Drive, Sheets, Discord, Telegram, Steam,
    GitHub, Meta, and other provider icons retain their recognizable brand
-   colors. The product shell must not recolor them to the accent.
+   identity. The product shell must not recolor them to the accent. Single-color
+   marks use `--provider-*` so dark marks such as Steam, GitHub, and OpenAI
+   receive an accessible light variant on dark tiles.
 5. **Surfaces:** light canvas and cards are for reading and graph work; dark
    shell, menus, drawers, credential panels, execution history, and runtime
    overlays are for control/status surfaces.
@@ -102,11 +109,16 @@ migrated incrementally without changing component APIs.
    layout transitions. Every new animation must respect
    `prefers-reduced-motion` and must not delay an action.
 10. **Accessibility:** retain visible focus, textual loading/error status, and
-   enough contrast for dark and light surfaces. Do not communicate state by
-   color alone.
+   at least 4.5:1 for readable text and 3:1 for non-text UI/icons in both
+   themes. Disabled controls may be de-emphasized, but must retain a clear
+   disabled affordance. Do not communicate state by color alone.
 11. **Theme parity:** every new surface must be readable in both
     `data-theme="light"` and `data-theme="dark"`; do not use a hard-coded white
     or black background for product UI.
+12. **Lime is a surface color, not universal foreground text:** use
+    `--text-accent` for text/icons on light surfaces, `--text-on-accent` on
+    lime fills, and `--control-selected-*` for active chips. Do not pair
+    `--accent-strong` with `--relay-lime-soft` as foreground/background.
 
 ## Reusable recipes
 
