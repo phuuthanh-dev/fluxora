@@ -38,8 +38,8 @@ const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
   },
   TELEGRAM_BOT: {
     label: "Telegram bot",
-    data: '{\n  "botToken": "",\n  "chatId": ""\n}',
-    hint: "Enter your Telegram Bot API token from @BotFather and your default Chat ID.",
+    data: '{\n  "botToken": ""\n}',
+    hint: "Enter your Telegram Bot API token from @BotFather. Destination Chat ID is configured on the Telegram message node (credential chatId is deprecated).",
   },
 };
 

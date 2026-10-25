@@ -333,6 +333,7 @@
         "apps/api/src/execution/expression.ts",
         "apps/api/src/execution/http-credential.ts",
         "apps/api/src/execution/live-readiness.ts",
+        "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
         "apps/api/src/execution/redaction.ts",
         "apps/api/src/execution/retry-policy.ts",
@@ -367,6 +368,14 @@
         "@prisma/client",
         "@workflow/contracts"
       ]
+    },
+    {
+      "id": "apps/api/src/execution/node-failure.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/outbound-url-policy.ts"
+      ],
+      "externalImports": []
     },
     {
       "id": "apps/api/src/execution/outbound-url-policy.ts",
@@ -437,6 +446,79 @@
         "@nestjs/platform-express",
         "reflect-metadata"
       ]
+    },
+    {
+      "id": "apps/api/src/notifications/discord.adapter.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/notifications/notification-contracts.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/notifications/google-chat.adapter.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/notifications/notification-contracts.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/notifications/http-webhook.adapter.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/http-credential.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/notifications/notification-contracts.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/notifications/index.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/notifications/discord.adapter.ts",
+        "apps/api/src/notifications/google-chat.adapter.ts",
+        "apps/api/src/notifications/http-webhook.adapter.ts",
+        "apps/api/src/notifications/notification-contracts.ts",
+        "apps/api/src/notifications/notification-dispatcher.ts",
+        "apps/api/src/notifications/telegram.adapter.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/notifications/notification-contracts.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/notifications/notification-dispatcher.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/notifications/discord.adapter.ts",
+        "apps/api/src/notifications/google-chat.adapter.ts",
+        "apps/api/src/notifications/http-webhook.adapter.ts",
+        "apps/api/src/notifications/notification-contracts.ts",
+        "apps/api/src/notifications/telegram.adapter.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/notifications/telegram.adapter.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/notifications/notification-contracts.ts"
+      ],
+      "externalImports": []
     },
     {
       "id": "apps/api/src/platform/api-exception.filter.ts",
@@ -1128,6 +1210,10 @@
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/execution/outbound-url-policy.ts"
     },
     {
@@ -1141,6 +1227,10 @@
     {
       "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/workflows/workflow-graph.ts"
+    },
+    {
+      "from": "apps/api/src/execution/node-failure.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
     },
     {
       "from": "apps/api/src/execution/worker.ts",
@@ -1177,6 +1267,106 @@
     {
       "from": "apps/api/src/main.ts",
       "to": "apps/api/src/platform/environment.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/discord.adapter.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/discord.adapter.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/discord.adapter.ts",
+      "to": "apps/api/src/notifications/notification-contracts.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/google-chat.adapter.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/google-chat.adapter.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/google-chat.adapter.ts",
+      "to": "apps/api/src/notifications/notification-contracts.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/http-webhook.adapter.ts",
+      "to": "apps/api/src/execution/http-credential.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/http-webhook.adapter.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/http-webhook.adapter.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/http-webhook.adapter.ts",
+      "to": "apps/api/src/notifications/notification-contracts.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/index.ts",
+      "to": "apps/api/src/notifications/discord.adapter.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/index.ts",
+      "to": "apps/api/src/notifications/google-chat.adapter.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/index.ts",
+      "to": "apps/api/src/notifications/http-webhook.adapter.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/index.ts",
+      "to": "apps/api/src/notifications/notification-contracts.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/index.ts",
+      "to": "apps/api/src/notifications/notification-dispatcher.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/index.ts",
+      "to": "apps/api/src/notifications/telegram.adapter.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/notification-dispatcher.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/notification-dispatcher.ts",
+      "to": "apps/api/src/notifications/discord.adapter.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/notification-dispatcher.ts",
+      "to": "apps/api/src/notifications/google-chat.adapter.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/notification-dispatcher.ts",
+      "to": "apps/api/src/notifications/http-webhook.adapter.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/notification-dispatcher.ts",
+      "to": "apps/api/src/notifications/notification-contracts.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/notification-dispatcher.ts",
+      "to": "apps/api/src/notifications/telegram.adapter.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/telegram.adapter.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/telegram.adapter.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/telegram.adapter.ts",
+      "to": "apps/api/src/notifications/notification-contracts.ts"
     },
     {
       "from": "apps/api/src/platform/environment.ts",

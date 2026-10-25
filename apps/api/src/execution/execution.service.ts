@@ -17,11 +17,10 @@ type RunMode = "mock" | "live";
 type NodeResult = { status: "succeeded" | "failed" | "waiting"; output: Record<string, unknown>; route?: WorkflowEdgeKind; error?: NodeFailure };
 const executionLeaseMs = 5 * 60 * 1000;
 
-class NodeFailure extends Error {
-  constructor(readonly code: string, message: string, readonly retryable: boolean, readonly statusCode?: number) {
-    super(message);
-  }
-}
+import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
+import { defaultNotificationDispatcher, validateDiscordWebhookUrl, sanitizeTelegramFailure, type DiscordAllowedMentions } from "../notifications";
+
+export { NodeFailure, nodeFailureFromOutboundPolicy, validateDiscordWebhookUrl, sanitizeTelegramFailure };
 
 @Injectable()
 export class ExecutionService {
@@ -289,24 +288,28 @@ export class ExecutionService {
     return { status: "failed", output: {}, error: new NodeFailure("RETRY_EXHAUSTED", "Retry attempts were exhausted.", false) };
   }
 
-  private async notifyApproval(workspaceId: string, approvalId: string, output: Record<string, unknown>, mode: RunMode) {
+  async notifyApproval(workspaceId: string, approvalId: string, output: Record<string, unknown>, mode: RunMode): Promise<string> {
     const credentialId = typeof output.notificationCredentialId === "string" ? output.notificationCredentialId : "";
     if (!credentialId) return "not_configured";
     if (mode === "mock") return "mock_not_sent";
     try {
       const link = `${process.env.WEB_ORIGIN ?? "http://localhost:3000"}/editor?approval=${encodeURIComponent(approvalId)}`;
-      const message = `${String(output.message ?? "Approval requested")}\n\nReview: ${link}`;
-      const provider = output.notificationProvider === "http_webhook" ? CredentialProvider.HTTP : CredentialProvider.GOOGLE_CHAT_WEBHOOK;
+      const rawMessage = String(output.message ?? "Approval requested");
+      const message = `${rawMessage}\n\nReview: ${link}`;
+      const isHttp = output.notificationProvider === "http_webhook";
+      const provider = isHttp ? CredentialProvider.HTTP : CredentialProvider.GOOGLE_CHAT_WEBHOOK;
       const credential = await this.credentials.readForExecution(credentialId, workspaceId, provider);
-      const webhookUrl = readCredentialValue(credential, "webhookUrl");
-      const request = provider === CredentialProvider.HTTP
-        ? applyHttpCredential(webhookUrl, { "Content-Type": "application/json" }, credential)
-        : { url: webhookUrl, headers: { "Content-Type": "application/json" } };
-      const body = provider === CredentialProvider.HTTP
-        ? { type: "workflow.approval.requested", message: String(output.message ?? "Approval requested"), approvalUrl: link }
-        : { text: message };
-      const response = await fetchSafeOutbound(request.url, { method: "POST", headers: request.headers, body: JSON.stringify(body), signal: AbortSignal.timeout(15_000) });
-      return response.ok ? "sent" : "failed";
+      const delivery = await defaultNotificationDispatcher.dispatch(
+        {
+          provider: isHttp ? "http_webhook" : "google_chat",
+          message: isHttp ? rawMessage : message,
+          content: isHttp ? rawMessage : message,
+          approvalUrl: link,
+        },
+        credential,
+        mode,
+      );
+      return delivery.delivered ? "sent" : "failed";
     } catch {
       return "failed";
     }
@@ -374,19 +377,7 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
     return { status: "succeeded", output: mockSteamSnapshot(String(config.steamId ?? "76561198000000000")), route: "success" };
   }
   if (node.type === "action.google-chat.webhook") {
-    if (mode === "live") {
-      const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.GOOGLE_CHAT_WEBHOOK);
-      const webhookUrl = readCredentialValue(credential, "webhookUrl");
-      let response: Response;
-      try {
-        response = await fetchSafeOutbound(webhookUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: String(config.message ?? "") }), signal: AbortSignal.timeout(15_000) });
-      } catch (reason) {
-        throw nodeFailureFromOutboundPolicy(reason);
-      }
-      if (!response.ok) throw new NodeFailure("HTTP_ERROR", `Google Chat returned ${response.status}.`, response.status === 429 || response.status >= 500, response.status);
-      return { status: "succeeded", output: { delivered: true, mode: "live" }, route: "success" };
-    }
-    return { status: "succeeded", output: { delivered: true, mode: "mock", message: String(config.message ?? "Steam daily report") }, route: "success" };
+    return executeGoogleChatWebhook(config, mode, workspaceId, credentials);
   }
   if (node.type === "action.discord.webhook") {
     return executeDiscordWebhook(config, mode, workspaceId, credentials);
@@ -442,11 +433,6 @@ async function executeHttpRequest(config: Record<string, unknown>, credential?: 
   }
 }
 
-function nodeFailureFromOutboundPolicy(reason: unknown) {
-  if (reason instanceof OutboundRequestPolicyError) return new NodeFailure(reason.code, reason.message, false);
-  const timeout = reason instanceof Error && reason.name === "TimeoutError";
-  return new NodeFailure(timeout ? "TIMEOUT" : "NETWORK_ERROR", timeout ? "Outbound request timed out." : "Outbound request failed.", true);
-}
 
 function readHttpHeaders(value: unknown) {
   if (value === undefined) return {} as Record<string, string>;
@@ -651,76 +637,60 @@ function normalizeValues(value: unknown) {
   return value;
 }
 
-export function validateDiscordWebhookUrl(rawUrl: string): void {
-  let parsed: URL;
-  try {
-    parsed = new URL(rawUrl);
-  } catch {
-    throw new NodeFailure("INVALID_CONFIGURATION", "Discord webhook URL is invalid.", false);
+export async function executeGoogleChatWebhook(config: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService): Promise<NodeResult> {
+  const message = typeof config.message === "string" ? config.message : "";
+  if (mode === "live") {
+    if (!message.trim()) {
+      throw new NodeFailure("INVALID_CONFIGURATION", "Google Chat message is required.", false);
+    }
+    const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.GOOGLE_CHAT_WEBHOOK);
+    const output = await defaultNotificationDispatcher.dispatch({
+      provider: "google_chat",
+      message,
+      content: message,
+    }, credential, mode);
+    return { status: "succeeded", output, route: "success" };
   }
-  if (parsed.protocol !== "https:") {
-    throw new NodeFailure("INVALID_CONFIGURATION", "Discord webhook URL must use HTTPS.", false);
-  }
-  if (parsed.username || parsed.password) {
-    throw new NodeFailure("INVALID_CONFIGURATION", "Discord webhook URL must not include credentials in the authority.", false);
-  }
-  const hostname = parsed.hostname.toLowerCase();
-  if (hostname !== "discord.com" && hostname !== "discordapp.com") {
-    throw new NodeFailure("INVALID_CONFIGURATION", "Discord webhook URL must be hosted on discord.com or discordapp.com.", false);
-  }
-  const match = /^\/api\/webhooks\/([^/]+)\/([^/]+)$/.exec(parsed.pathname);
-  if (!match || !match[1]?.trim() || !match[2]?.trim()) {
-    throw new NodeFailure("INVALID_CONFIGURATION", "Discord webhook URL must have the path /api/webhooks/{webhookId}/{webhookToken}.", false);
-  }
+  const output = await defaultNotificationDispatcher.dispatch({
+    provider: "google_chat",
+    message,
+    content: message,
+  }, undefined, mode);
+  return { status: "succeeded", output, route: "success" };
 }
 
 export async function executeDiscordWebhook(config: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService): Promise<NodeResult> {
   const content = typeof config.content === "string" ? config.content : (typeof config.message === "string" ? config.message : "");
   const username = typeof config.username === "string" && config.username.trim() ? config.username.trim() : undefined;
   const avatarUrl = typeof config.avatarUrl === "string" && config.avatarUrl.trim() ? config.avatarUrl.trim() : undefined;
+  const embeds = config.embeds as unknown[] | undefined;
+  const allowedMentions = config.allowedMentions as DiscordAllowedMentions | undefined;
 
-  if (mode === "mock") {
-    return {
-      status: "succeeded",
-      output: {
-        delivered: true,
-        mode: "mock",
-        content,
-        ...(username ? { username } : {}),
-        ...(avatarUrl ? { avatarUrl } : {}),
-      },
-      route: "success",
-    };
+  if (mode === "live") {
+    if (!content.trim() && (!embeds || (Array.isArray(embeds) && embeds.length === 0))) {
+      throw new NodeFailure("INVALID_CONFIGURATION", "Discord message content is required.", false);
+    }
+    const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.DISCORD_WEBHOOK);
+    const output = await defaultNotificationDispatcher.dispatch({
+      provider: "discord",
+      content,
+      username,
+      avatarUrl,
+      embeds,
+      allowedMentions,
+    }, credential, mode);
+    return { status: "succeeded", output, route: "success" };
   }
 
-  if (!content.trim()) {
-    throw new NodeFailure("INVALID_CONFIGURATION", "Discord message content is required.", false);
-  }
-
-  const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.DISCORD_WEBHOOK);
-  const webhookUrl = readCredentialValue(credential, "webhookUrl");
-  validateDiscordWebhookUrl(webhookUrl);
-  const payload: Record<string, unknown> = { content };
-  if (username) payload.username = username;
-  if (avatarUrl) payload.avatar_url = avatarUrl;
-
-  let response: Response;
-  try {
-    response = await fetchSafeOutbound(webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(15_000),
-    });
-  } catch (reason) {
-    throw nodeFailureFromOutboundPolicy(reason);
-  }
-
-  if (!response.ok) {
-    throw new NodeFailure("HTTP_ERROR", `Discord returned ${response.status}.`, response.status === 429 || response.status >= 500, response.status);
-  }
-
-  return { status: "succeeded", output: { delivered: true, mode: "live" }, route: "success" };
+  const output = await defaultNotificationDispatcher.dispatch({
+    provider: "discord",
+    content,
+    username,
+    avatarUrl,
+    embeds,
+    allowedMentions,
+  }, undefined, mode);
+  return { status: "succeeded", output, route: "success" };
 }
 
 export async function executeTelegramMessage(config: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService): Promise<NodeResult> {
@@ -728,65 +698,27 @@ export async function executeTelegramMessage(config: Record<string, unknown>, mo
   const parseMode = typeof config.parseMode === "string" && config.parseMode.trim() ? config.parseMode.trim() : undefined;
   const configChatId = typeof config.chatId === "string" && config.chatId.trim() ? config.chatId.trim() : (typeof config.chatId === "number" ? String(config.chatId) : undefined);
 
-  if (mode === "mock") {
-    return {
-      status: "succeeded",
-      output: {
-        delivered: true,
-        mode: "mock",
-        chatId: configChatId ?? "mock-chat-id",
-        text,
-        ...(parseMode ? { parseMode } : {}),
-      },
-      route: "success",
-    };
+  if (mode === "live") {
+    if (!text.trim()) {
+      throw new NodeFailure("INVALID_CONFIGURATION", "Telegram message text is required.", false);
+    }
+    const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.TELEGRAM_BOT);
+    const output = await defaultNotificationDispatcher.dispatch({
+      provider: "telegram",
+      text,
+      chatId: configChatId,
+      destination: configChatId,
+      parseMode,
+    }, credential, mode);
+    return { status: "succeeded", output, route: "success" };
   }
 
-  if (!text.trim()) {
-    throw new NodeFailure("INVALID_CONFIGURATION", "Telegram message text is required.", false);
-  }
-
-  const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.TELEGRAM_BOT);
-  const botToken = readCredentialValue(credential, "botToken");
-  const chatId = configChatId ?? (typeof credential.chatId === "string" && credential.chatId.trim() ? credential.chatId.trim() : (typeof credential.chatId === "number" ? String(credential.chatId) : undefined));
-
-  if (!chatId) {
-    throw new NodeFailure("INVALID_CONFIGURATION", "Telegram chat ID is required in node configuration or credential.", false);
-  }
-
-  const payload: Record<string, unknown> = {
-    chat_id: chatId,
+  const output = await defaultNotificationDispatcher.dispatch({
+    provider: "telegram",
     text,
-  };
-  if (parseMode) payload.parse_mode = parseMode;
-
-  const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
-  let response: Response;
-  try {
-    response = await fetchSafeOutbound(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(15_000),
-    });
-  } catch (reason) {
-    throw sanitizeTelegramFailure(reason, botToken);
-  }
-
-  if (!response.ok) {
-    throw new NodeFailure("HTTP_ERROR", `Telegram returned ${response.status}.`, response.status === 429 || response.status >= 500, response.status);
-  }
-
-  return { status: "succeeded", output: { delivered: true, mode: "live" }, route: "success" };
-}
-
-function sanitizeTelegramFailure(reason: unknown, token?: string): NodeFailure {
-  const failure = nodeFailureFromOutboundPolicy(reason);
-  const rawMessage = reason instanceof Error && reason.message ? reason.message : failure.message;
-  let message = rawMessage;
-  if (token) {
-    message = message.replaceAll(token, "[REDACTED]");
-  }
-  message = message.replace(/(\/bot)[^/\s]+/gi, "$1[REDACTED]");
-  return new NodeFailure(failure.code, message, failure.retryable, failure.statusCode);
+    chatId: configChatId,
+    destination: configChatId,
+    parseMode,
+  }, undefined, mode);
+  return { status: "succeeded", output, route: "success" };
 }

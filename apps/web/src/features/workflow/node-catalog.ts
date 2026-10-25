@@ -119,7 +119,7 @@ export const nodeCatalog: NodeDefinition[] = [
     category: "action",
     icon: "💬",
     available: true,
-    defaultConfig: { credentialId: "", content: "", username: "", avatarUrl: "" },
+    defaultConfig: { credentialId: "", content: "", username: "", avatarUrl: "", embeds: "" },
   },
   {
     type: "action.telegram.message",
