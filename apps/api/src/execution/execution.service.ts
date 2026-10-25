@@ -78,6 +78,7 @@ export class ExecutionService {
       mode: execution.mode.toLowerCase(),
       workflowId: execution.workflowVersion.workflowId,
       workflowVersion: execution.workflowVersion.version,
+      graph: execution.workflowVersion.graph,
       triggerData: execution.triggerData,
       error: execution.errorCode ? { code: execution.errorCode, message: execution.errorMessage } : null,
       startedAt: execution.startedAt,

@@ -980,6 +980,7 @@
         "apps/web/src/features/workflow/workflow-node.tsx"
       ],
       "externalImports": [
+        "@workflow/contracts",
         "@xyflow/react",
         "@xyflow/react/dist/style.css",
         "lucide-react",

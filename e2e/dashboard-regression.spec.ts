@@ -213,6 +213,13 @@ test("workflow cards expose rename, duplicate, archive, and guarded delete actio
   await page.getByRole("button", { name: "Delete permanently" }).click();
   await expect(page.getByRole("dialog", { name: "Delete workflow" })).toContainText("execution history");
   await page.getByRole("button", { name: "Cancel" }).click();
+
+  await page.goto("/dashboard");
+  await page.getByRole("button", { name: "Expand execution center" }).click();
+  const executionRow = page.locator(".dashboard-execution", { hasText: "Renamed target copy" });
+  await executionRow.getByRole("button", { name: "Open workflow" }).click();
+  await expect(page).toHaveURL(/execution=/);
+  await expect(page.getByText("Execution detail", { exact: true })).toBeVisible();
 });
 
 test("failed template creation shows error with retry button, preserves input, and allows retry", async ({ page }) => {

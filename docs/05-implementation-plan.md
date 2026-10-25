@@ -30,6 +30,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | Editor connection affordance | Complete locally | Dragging from a node output enters an explicit connection mode, highlights and pulses target handles, expands only the temporary hit-area, and exposes a live instruction without changing node dimensions. Playwright covers start/end interaction and the full quality gate. |
 | Live-provider readiness preflight | Complete locally | A read-only readiness endpoint checks the published graph and validates credential selection/provider ownership before live execution. Go Live now shows blockers, retry, and credential navigation while server-side confirmation and guards remain authoritative; no provider call occurs during preflight. Unit, browser, and full quality-gate checks passed. |
 | Node-level mock debug | Complete locally | The selected supported node can be saved and run alone from the inspector using mock transport only. Its redacted input/output/error is persisted as an execution, downstream nodes are skipped, and live node debug is rejected. Approval nodes retain their full-workflow pause/resume behavior. |
+| Execution-focused navigation | Complete locally | The Execution Center opens an immutable execution snapshot inside the editor, with a visible Test/Live mode, pinned version, terminal state, and automatic focus on the most relevant node execution. |
 
 ## Milestone 1 — Product foundation
 
@@ -67,6 +68,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 - Live HTTP Request supports optional encrypted Bearer, API-key, Basic Auth, or custom-header credentials; request body, headers, and timeout are configured without leaking credential values into the graph.
 - The editor can launch a mock run, receive server-sent execution updates, and inspect selected-node redacted execution input, output/error, attempt, and duration as JSON tree, table, or raw JSON.
 - The inspector can run one supported node in mock mode after saving the draft. This creates a normal persisted execution, runs no downstream node, and never calls a provider. Approval nodes are intentionally tested only through a full workflow run.
+- The Execution Center opens a focused immutable execution snapshot rather than relying on the current draft graph, retaining the exact node layout/configuration that produced the run.
 - Manual Trigger includes a JSON test-data editor; mock execution sends only that object as `triggerData`.
 - Local HTTP E2E verifies a `NETWORK_ERROR` retries twice, follows its error edge, and pauses at a downstream Approval node.
 - Local Switch E2E verifies a configured matching case executes while the default branch is persisted as skipped.

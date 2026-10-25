@@ -1,6 +1,7 @@
 "use client";
 
 import "@xyflow/react/dist/style.css";
+import type { WorkflowGraph } from "@workflow/contracts";
 import {
   Background,
   Controls,
@@ -61,6 +62,10 @@ const nodeTypes: NodeTypes = { workflowNode: WorkflowNode };
 type ApiExecution = {
   id: string;
   status: string;
+  mode: "mock" | "live";
+  workflowId: string;
+  workflowVersion: number;
+  graph: WorkflowGraph;
   nodeExecutions: Array<{ nodeId: string; status: string; attempt: number; input: unknown; output: unknown; error: { code: string; message: string } | null; durationMs: number | null }>;
 };
 
@@ -593,6 +598,7 @@ export function WorkflowEditor() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [approvalLinkId, setApprovalLinkId] = useState<string | null | undefined>(undefined);
   const [workflowLinkId, setWorkflowLinkId] = useState<string | null | undefined>(undefined);
+  const [executionLinkId, setExecutionLinkId] = useState<string | null | undefined>(undefined);
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [credentials, setCredentials] = useState<CredentialSummary[]>([]);
   const nodes = useWorkflowEditorStore((state) => state.nodes);
@@ -626,6 +632,7 @@ export function WorkflowEditor() {
     const search = new URLSearchParams(window.location.search);
     setApprovalLinkId(search.get("approval"));
     setWorkflowLinkId(search.get("workflow"));
+    setExecutionLinkId(search.get("execution"));
   }, []);
 
   useEffect(() => {
@@ -665,7 +672,7 @@ export function WorkflowEditor() {
   }, [execution?.id]);
 
   useEffect(() => {
-    if (approvalLinkId === undefined || workflowLinkId === undefined) return;
+    if (approvalLinkId === undefined || workflowLinkId === undefined || executionLinkId === undefined) return;
     let isCurrent = true;
     const load = async () => {
       try {
@@ -674,11 +681,11 @@ export function WorkflowEditor() {
         if (!isCurrent) return;
         setWorkspaces(workspaceResponse.workspaces);
         const linkedApproval = approvalLinkId ? (await apiRequest<{ approval: ApiApproval }>(`/approvals/${approvalLinkId}`)).approval : null;
-        let linkedExecution: ApiExecution | null = null;
+        const resolvedExecutionId = executionLinkId ?? linkedApproval?.executionId ?? null;
+        const linkedExecution = resolvedExecutionId ? (await apiRequest<{ execution: ApiExecution }>(`/executions/${resolvedExecutionId}`)).execution : null;
         let loadedWorkflow: ApiWorkflow;
-        if (linkedApproval) {
-          loadedWorkflow = (await apiRequest<{ workflow: ApiWorkflow }>(`/workflows/${linkedApproval.workflowId}`)).workflow;
-          linkedExecution = (await apiRequest<{ execution: ApiExecution }>(`/executions/${linkedApproval.executionId}`)).execution;
+        if (linkedExecution) {
+          loadedWorkflow = (await apiRequest<{ workflow: ApiWorkflow }>(`/workflows/${linkedExecution.workflowId}`)).workflow;
         } else if (workflowLinkId) {
           loadedWorkflow = (await apiRequest<{ workflow: ApiWorkflow }>(`/workflows/${workflowLinkId}`)).workflow;
         } else {
@@ -687,16 +694,16 @@ export function WorkflowEditor() {
           const workflowsResponse = await apiRequest<{ workflows: ApiWorkflow[] }>(`/workspaces/${workspace.id}/workflows`);
           loadedWorkflow = workflowsResponse.workflows[0] ?? (await apiRequest<{ workflow: ApiWorkflow }>(`/workspaces/${workspace.id}/workflows/from-template/steam-daily-report`, { method: "POST" })).workflow;
         }
-        const graph = loadedWorkflow.draft?.graph ?? loadedWorkflow.published?.graph;
+        const graph = linkedExecution?.graph ?? loadedWorkflow.draft?.graph ?? loadedWorkflow.published?.graph;
         if (!graph) throw new Error("The workflow has no editable version.");
         if (!isCurrent) return;
         loadGraph(graphFromApi(graph));
         setWorkflow(loadedWorkflow);
         if (linkedExecution) {
           setExecution(linkedExecution);
-          const waitingNode = linkedExecution.nodeExecutions.find((node) => node.status === "WAITING");
-          if (waitingNode) selectNode(waitingNode.nodeId);
-          setNotice(linkedApproval?.status === "PENDING" ? "Approval request loaded. Review and choose an action in the selected node." : `Approval is ${linkedApproval?.status.toLowerCase() ?? "no longer pending"}.`);
+          const focusNode = linkedExecution.nodeExecutions.find((node) => ["FAILED", "RUNNING", "WAITING"].includes(node.status)) ?? linkedExecution.nodeExecutions.find((node) => node.status === "SUCCEEDED");
+          if (focusNode) selectNode(focusNode.nodeId);
+          setNotice(linkedApproval?.status === "PENDING" ? "Approval request loaded. Review and choose an action in the selected node." : `Execution detail loaded · ${linkedExecution.mode === "live" ? "Live run" : "Test run"} v${linkedExecution.workflowVersion}.`);
         } else {
           setNotice("Draft loaded from your workspace.");
         }
@@ -714,7 +721,7 @@ export function WorkflowEditor() {
     };
     void load();
     return () => { isCurrent = false; };
-  }, [approvalLinkId, workflowLinkId, loadGraph, router, selectNode]);
+  }, [approvalLinkId, executionLinkId, workflowLinkId, loadGraph, router, selectNode]);
 
   const refreshCredentials = async (workspaceId = workflow?.workspaceId) => {
     if (!workspaceId) {
@@ -1087,6 +1094,7 @@ export function WorkflowEditor() {
         </div>
       </header>
       {progressLabel && <div className="editor-progress" role="status" aria-live="polite"><LoaderCircle className="ui-spinner" size={14} /> <span>{progressLabel}…</span><i /></div>}
+      {executionLinkId && execution && <section className="execution-detail-banner" aria-label="Execution detail"><div><p className="section-label">EXECUTION DETAIL</p><strong>Execution detail</strong><span>{execution.mode === "live" ? "Live run" : "Test run"} · Version {execution.workflowVersion} · {execution.status.toLowerCase()}</span></div><Button variant="ghost" onClick={() => { setExecution(null); router.replace(`/editor?workflow=${encodeURIComponent(execution.workflowId)}`); }}>Return to workflow</Button></section>}
 
       <div className={paletteOpen ? "editor-shell" : "editor-shell editor-shell--palette-closed"}>
         {paletteOpen && (

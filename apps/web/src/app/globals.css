@@ -364,6 +364,8 @@ button:focus-visible, summary:focus-visible { outline: 3px solid rgba(214, 255, 
 .dashboard-action-dialog__actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 22px; }
 .dashboard-empty--filtered button { margin-top: 12px; }
 
+.execution-detail-banner { align-items: center; background: var(--relay-lime-soft); border-bottom: 1px solid color-mix(in srgb, var(--accent-strong) 30%, var(--line)); display: flex; gap: 14px; justify-content: space-between; padding: 9px 20px; }.execution-detail-banner div { display: grid; gap: 2px; }.execution-detail-banner strong { color: var(--ink); font-size: 12px; }.execution-detail-banner span { color: var(--muted); font-size: 10px; }.execution-detail-banner .ui-button { font-size: 10px; min-height: 29px; padding: 6px 9px; }
+
 @media (prefers-reduced-motion: reduce) {
   .theme-toggle { transition: none; }
 }
