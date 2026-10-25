@@ -98,6 +98,26 @@ test("light and dark themes stay readable across dashboard and editor", async ({
   await expect(page.locator(".canvas-region")).toHaveCSS("background-color", "rgb(245, 247, 241)");
 });
 
+test("connections dropdown keeps its trigger inline and opens below the header", async ({ page }) => {
+  const email = `regression-connections-${Date.now()}@example.test`;
+  await signUpAndDashboard(page, email);
+
+  const trigger = page.locator(".dashboard-connections summary");
+  await expect(trigger).toHaveCSS("display", "flex");
+  await expect(trigger).toHaveCSS("flex-direction", "row");
+  const triggerBox = await trigger.boundingBox();
+  expect(triggerBox).not.toBeNull();
+  expect(triggerBox!.height).toBeLessThanOrEqual(40);
+
+  await trigger.click();
+  const menu = page.locator(".dashboard-connections > div");
+  await expect(menu).toBeVisible();
+  const menuBox = await menu.boundingBox();
+  expect(menuBox).not.toBeNull();
+  expect(menuBox!.y).toBeGreaterThan(triggerBox!.y + triggerBox!.height);
+  await expect(menu).toContainText("No external identities linked.");
+});
+
 test("failed template creation shows error with retry button, preserves input, and allows retry", async ({ page }) => {
   const email = `regression-tc-${Date.now()}@example.test`;
   await signUpAndDashboard(page, email);

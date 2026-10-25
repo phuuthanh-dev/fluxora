@@ -741,6 +741,7 @@
       "internalImports": [],
       "externalImports": [
         "next",
+        "next/font/local",
         "react"
       ]
     },

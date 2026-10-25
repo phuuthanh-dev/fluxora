@@ -11,6 +11,8 @@
   --relay-lime: #d6ff32;
   --relay-lime-strong: #b8ed00;
   --relay-lime-soft: #efffc4;
+  --font-ui: var(--font-vietauction-gilroy), Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* Semantic tokens are intentionally separate from provider brand colors. */
   --semantic-success: #197a4b;
@@ -74,6 +76,8 @@
   --relay-lime: #d6ff32;
   --relay-lime-strong: #c6f21b;
   --relay-lime-soft: #2c3b0b;
+  --font-ui: var(--font-vietauction-gilroy), Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --semantic-success: #73dca5;
   --semantic-warning: #ffca72;
   --semantic-danger: #ff8fa3;

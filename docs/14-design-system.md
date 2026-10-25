@@ -36,6 +36,8 @@ The implementation source is:
 - `apps/web/src/app/design-system.css` — global tokens and reusable recipes;
 - `apps/web/src/app/globals.css` — legacy class migration and route-level
   composition;
+- `apps/web/src/app/fonts/` — local Gilroy family copied from the
+  VietAuction source project and loaded through `next/font/local`;
 - `apps/web/src/features/workflow/node-icon.tsx` — provider and node icon
   identity.
 
@@ -63,6 +65,7 @@ only when it is a provider brand color or a clearly documented semantic state.
 | Spacing | `--space-1` … `--space-7` | 4px–32px rhythm |
 | Type scale | `--text-xs` … `--text-xl` | 10px–24px product scale |
 | Type weight | `--weight-medium` … `--weight-extrabold` | 600–800 |
+| UI font | `--font-ui` | VietAuction Gilroy, Arial fallback |
 
 Compatibility aliases such as `--accent`, `--nav`, `--soft-purple`, and
 `--surface-dark` remain intentionally available so existing feature CSS can be
@@ -84,8 +87,9 @@ migrated incrementally without changing component APIs.
 5. **Surfaces:** light canvas and cards are for reading and graph work; dark
    shell, menus, drawers, credential panels, execution history, and runtime
    overlays are for control/status surfaces.
-6. **Typography:** use the system sans stack for product text. Use monospace
-   only for IDs, expressions, logs, webhook URLs, and JSON.
+6. **Typography:** use the local Gilroy family through `--font-ui` for all
+   product text. Use the bundled 500/600/700 weights consistently; use
+   `--font-mono` only for IDs, expressions, logs, webhook URLs, and JSON.
 7. **Text hierarchy:** primary labels, node titles, and interactive control
    labels use `--text-on-dark` on dark surfaces; descriptions, hints, and
    supporting metadata use `--muted-on-dark`. On graph nodes, category labels
