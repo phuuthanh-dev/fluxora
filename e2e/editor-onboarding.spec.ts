@@ -26,6 +26,68 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(page.getByLabel("Manage actions")).toBeVisible();
   await expect(page.getByRole("button", { name: "Run test" })).toBeVisible();
 
+  const relayTokens = await page.evaluate(() => {
+    const styles = getComputedStyle(document.documentElement);
+    return {
+      void: styles.getPropertyValue("--relay-void").trim(),
+      lime: styles.getPropertyValue("--relay-lime").trim(),
+      canvas: styles.getPropertyValue("--canvas").trim(),
+    };
+  });
+  expect(relayTokens).toEqual({ void: "#080a09", lime: "#d6ff32", canvas: "#f5f7f1" });
+  await expect(page.locator(".editor-header")).toHaveCSS("background-color", "rgb(8, 10, 9)");
+  await expect(page.getByRole("button", { name: "Run test" })).toHaveCSS("background-color", "rgb(214, 255, 50)");
+  await expect(page.getByRole("button", { name: "Run test" })).toHaveCSS("color", "rgb(8, 10, 9)");
+
+  const nodeHandles = page.locator(".workflow-node__handle");
+  await expect(nodeHandles.first()).toBeVisible();
+  await expect(nodeHandles.first()).toHaveCSS("width", "12px");
+  await expect(nodeHandles.first()).toHaveCSS("height", "12px");
+  await expect(nodeHandles.first()).toHaveCSS("position", "absolute");
+  await expect(nodeHandles.first()).toHaveAttribute("title", "Drag to connect");
+  const handleHitArea = await nodeHandles.first().evaluate((element) => {
+    const style = getComputedStyle(element, "::before");
+    return { content: style.content, inset: style.inset };
+  });
+  expect(handleHitArea).toEqual({ content: '""', inset: "-10px" });
+
+  await page.getByRole("button", { name: "Switch to dark mode" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.getByRole("button", { name: "Run test" })).toHaveCSS("color", "rgb(5, 7, 6)");
+  await expect(page.locator(".workflow-node__category").first()).toHaveCSS("color", "rgb(198, 242, 27)");
+  await expect(page.locator(".workflow-node h3").first()).toHaveCSS("color", "rgb(243, 246, 236)");
+  await expect(page.locator(".workflow-node__handle-label").first()).toHaveCSS("color", "rgb(243, 246, 236)");
+  await page.getByRole("button", { name: "Switch to light mode" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+
+  await expect(page.getByRole("heading", { name: "Add a step" })).toBeVisible();
+  const editorShell = page.locator(".editor-shell");
+  const canvasRegion = page.locator(".canvas-region");
+  const inspector = page.locator(".inspector");
+  const canvasBeforeCollapse = await canvasRegion.boundingBox();
+  const inspectorBeforeCollapse = await inspector.boundingBox();
+  await page.getByRole("button", { name: "Collapse node palette" }).click();
+  await expect(editorShell).toHaveClass(/editor-shell--palette-closed/);
+  await expect(page.getByRole("button", { name: "Add node" })).toBeVisible();
+  const canvasAfterCollapse = await canvasRegion.boundingBox();
+  const inspectorAfterCollapse = await inspector.boundingBox();
+  expect(canvasBeforeCollapse).not.toBeNull();
+  expect(canvasAfterCollapse).not.toBeNull();
+  expect(inspectorBeforeCollapse).not.toBeNull();
+  expect(inspectorAfterCollapse).not.toBeNull();
+  expect(canvasAfterCollapse!.width).toBeGreaterThan(canvasBeforeCollapse!.width + 250);
+  expect(Math.abs(inspectorAfterCollapse!.width - inspectorBeforeCollapse!.width)).toBeLessThan(2);
+  await page.getByRole("button", { name: "Add node" }).click();
+  await expect(editorShell).not.toHaveClass(/editor-shell--palette-closed/);
+  await expect(page.getByRole("heading", { name: "Add a step" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Apps", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Communication" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Manual trigger/ })).toHaveCount(0);
+  await page.getByLabel("Search nodes").fill("OpenAI");
+  await expect(page.getByRole("button", { name: /OpenAI.*Planned/ })).toBeDisabled();
+  await page.getByRole("button", { name: "Clear filters" }).click();
+
   await page.getByRole("button", { name: /Switch Route to multiple cases/ }).click();
   await expect(page.getByText("SWITCH CASES")).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Switch case 1" })).toHaveValue("case-a");

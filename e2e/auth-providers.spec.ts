@@ -5,6 +5,13 @@ test("password sign-in works while social providers expose their configured stat
   const password = "e2e-password-123";
   await page.goto("/");
 
+  await expect(page.getByRole("button", { name: "Switch to dark mode" })).toBeVisible();
+  await page.getByRole("button", { name: "Switch to dark mode" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator("body")).toHaveCSS("background-color", "rgb(11, 16, 12)");
+  await page.getByRole("button", { name: "Switch to light mode" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+
   await expect(page.getByRole("button", { name: /^Google/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /^GitHub/ })).toBeVisible();
   await page.getByRole("button", { name: "Create an account" }).click();

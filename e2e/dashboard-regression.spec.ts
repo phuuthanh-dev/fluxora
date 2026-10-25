@@ -81,6 +81,43 @@ test("degraded runtime state is visually distinct from unreachable state", async
   await expect(runtimePanel).not.toHaveClass(/dashboard-runtime--unreachable/);
 });
 
+test("light and dark themes stay readable across dashboard and editor", async ({ page }) => {
+  const email = `regression-theme-${Date.now()}@example.test`;
+  await signUpAndDashboard(page, email);
+
+  await page.getByRole("button", { name: "Switch to dark mode" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator(".dashboard-page")).toHaveCSS("background-color", "rgb(11, 16, 12)");
+  await page.getByRole("button", { name: "Use Steam template" }).click();
+  await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+  await expect(page.locator(".canvas-region")).toHaveCSS("background-color", "rgb(11, 16, 12)");
+  await expect(page.locator(".workflow-node").first()).toHaveCSS("background-color", "rgb(17, 23, 18)");
+
+  await page.getByRole("button", { name: "Switch to light mode" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(page.locator(".canvas-region")).toHaveCSS("background-color", "rgb(245, 247, 241)");
+});
+
+test("connections dropdown keeps its trigger inline and opens below the header", async ({ page }) => {
+  const email = `regression-connections-${Date.now()}@example.test`;
+  await signUpAndDashboard(page, email);
+
+  const trigger = page.locator(".dashboard-connections summary");
+  await expect(trigger).toHaveCSS("display", "flex");
+  await expect(trigger).toHaveCSS("flex-direction", "row");
+  const triggerBox = await trigger.boundingBox();
+  expect(triggerBox).not.toBeNull();
+  expect(triggerBox!.height).toBeLessThanOrEqual(40);
+
+  await trigger.click();
+  const menu = page.locator(".dashboard-connections > div");
+  await expect(menu).toBeVisible();
+  const menuBox = await menu.boundingBox();
+  expect(menuBox).not.toBeNull();
+  expect(menuBox!.y).toBeGreaterThan(triggerBox!.y + triggerBox!.height);
+  await expect(menu).toContainText("No external identities linked.");
+});
+
 test("failed template creation shows error with retry button, preserves input, and allows retry", async ({ page }) => {
   const email = `regression-tc-${Date.now()}@example.test`;
   await signUpAndDashboard(page, email);

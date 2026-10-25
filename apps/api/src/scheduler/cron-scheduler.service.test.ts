@@ -3,6 +3,7 @@ import test from "node:test";
 import { CronSchedulerService } from "./cron-scheduler.service";
 
 test("cron scheduler creates and dispatches one live execution for a due published workflow", async () => {
+  const now = new Date("2026-10-25T10:30:30.000Z");
   const created: Array<{ versionId: string; triggerData: Record<string, unknown> }> = [];
   const jobs: Array<{ executionId: string; mode: string }> = [];
   const prisma = {
@@ -25,8 +26,8 @@ test("cron scheduler creates and dispatches one live execution for a due publish
   const queue = { dispatch: async (job: { executionId: string; mode: string }) => { jobs.push(job); } } as never;
   const scheduler = new CronSchedulerService(prisma, executions, queue);
 
-  await (scheduler as unknown as { tick: () => Promise<void> }).tick();
-  await (scheduler as unknown as { tick: () => Promise<void> }).tick();
+  await (scheduler as unknown as { tick: (now: Date) => Promise<void> }).tick(now);
+  await (scheduler as unknown as { tick: (now: Date) => Promise<void> }).tick(now);
 
   assert.equal(created.length, 1);
   assert.equal(created[0]?.versionId, "version-1");
@@ -48,6 +49,7 @@ test("a worker process never starts the cron scheduler", () => {
 });
 
 test("a live-readiness failure for one schedule does not stop later cron dispatch", async () => {
+  const now = new Date("2026-10-25T10:30:30.000Z");
   const created: string[] = [];
   const prisma = {
     workflowVersion: {
@@ -67,7 +69,7 @@ test("a live-readiness failure for one schedule does not stop later cron dispatc
   const jobs: unknown[] = [];
   const scheduler = new CronSchedulerService(prisma, executions, { dispatch: async (job: unknown) => { jobs.push(job); } } as never);
   (scheduler as unknown as { logger: { error: () => void } }).logger.error = () => undefined;
-  await (scheduler as unknown as { tick: () => Promise<void> }).tick();
+  await (scheduler as unknown as { tick: (now: Date) => Promise<void> }).tick(now);
   assert.equal(created.length, 2);
   assert.deepEqual(jobs, [{ executionId: "execution-2", mode: "live" }]);
 });

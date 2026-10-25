@@ -11,7 +11,6 @@ import {
 } from "@xyflow/react";
 import {
   Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CirclePlay,
@@ -33,13 +32,14 @@ import { useRouter } from "next/navigation";
 import { apiRequest, apiUrl } from "../api/api-client";
 import { validateWorkflowGraph } from "./graph-validation";
 import {
-  categoryLabels,
-  categoryOrder,
   createNodeData,
   getNodeDefinition,
-  matchesNodeSearch,
+  groupNodeLibrary,
+  matchesNodeLibraryFilter,
   nodeCatalog,
+  nodeLibraryFilters,
   type NodeDefinition,
+  type NodeLibraryFilter,
   type WorkflowCanvasEdge,
   type WorkflowCanvasNode,
 } from "./node-catalog";
@@ -51,6 +51,9 @@ import { CredentialPanel } from "../credentials/credential-panel";
 import type { CredentialProvider, CredentialSummary } from "../credentials/credential-types";
 import { buildExpressionSuggestions } from "./expression-suggestions";
 import { manualTriggerTestData } from "./test-data";
+import { NodeIcon } from "./node-icon";
+import { ThemeToggle } from "../theme/theme-toggle";
+import { Button, Dialog, Field, IconButton, Menu, Select, Status } from "../../components/ui";
 
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNode };
 
@@ -83,14 +86,13 @@ function ConfigField({ label, value, onChange, multiline = false }: {
   multiline?: boolean;
 }) {
   return (
-    <label className="config-field">
-      <span>{label}</span>
+    <Field label={label} className="config-field">
       {multiline ? (
         <textarea value={value} onChange={(event) => onChange(event.target.value)} rows={5} />
       ) : (
         <input value={value} onChange={(event) => onChange(event.target.value)} />
       )}
-    </label>
+    </Field>
   );
 }
 
@@ -105,25 +107,19 @@ function CredentialField({ label, value, providers, credentials, onChange, optio
   const compatibleCredentials = credentials.filter((credential) => providers.includes(credential.provider));
   const selectedIsCompatible = !value || compatibleCredentials.some((credential) => credential.id === value);
   return (
-    <label className="config-field credential-field">
-      <span>{label}</span>
-      <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}>
+    <Field label={label} className="config-field credential-field">
+      <Select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">{optional ? "No credential" : "Select a credential"}</option>
         {!selectedIsCompatible && <option value={value}>Unavailable credential</option>}
         {compatibleCredentials.map((credential) => <option key={credential.id} value={credential.id}>{credential.label}</option>)}
-      </select>
+      </Select>
       {compatibleCredentials.length === 0 && <small>No compatible connection yet. Open Manage → Credentials to add one.</small>}
-    </label>
+    </Field>
   );
 }
 
 function ActionMenu({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <details className="action-menu">
-      <summary aria-label={`${label} actions`}><span>{label}</span><ChevronDown size={14} aria-hidden="true" /></summary>
-      <div className="action-menu__content" role="group" aria-label={`${label} menu`} onClick={(event) => { if (event.target instanceof HTMLElement && event.target.closest("button")) event.currentTarget.closest("details")?.removeAttribute("open"); }}>{children}</div>
-    </details>
-  );
+  return <Menu label={label} className="action-menu" contentClassName="action-menu__content">{children}</Menu>;
 }
 
 type ResultViewMode = "tree" | "table" | "raw";
@@ -205,32 +201,32 @@ function SwitchCaseEditor({ cases, onChange }: { cases: unknown; onChange: (case
 }
 
 function WorkflowHistoryPanel({ versions, loading, onClose }: { versions: WorkflowVersionSummary[]; loading: boolean; onClose: () => void }) {
-  return <section className="workflow-history" aria-label="Workflow version history"><div className="credential-panel__heading"><div><p className="section-label">VERSION HISTORY</p><h2>Immutable releases</h2></div><button className="icon-button" type="button" aria-label="Close workflow history" onClick={onClose}>×</button></div>{loading ? <p>Loading versions…</p> : <ol>{versions.map((version) => <li key={version.id}><strong>v{version.version} · {version.status.toLowerCase()}</strong><span>{version.nodeCount} nodes · {version.publishedAt ? `published ${new Date(version.publishedAt).toLocaleString()}` : `draft ${new Date(version.createdAt).toLocaleString()}`}</span></li>)}</ol>}</section>;
+  return <Dialog label="Workflow version history" className="workflow-history" modal={false}><div className="credential-panel__heading"><div><p className="section-label">VERSION HISTORY</p><h2>Immutable releases</h2></div><IconButton label="Close workflow history" className="icon-button" onClick={onClose}>×</IconButton></div>{loading ? <p>Loading versions…</p> : <ol>{versions.map((version) => <li key={version.id}><strong>v{version.version} · {version.status.toLowerCase()}</strong><span>{version.nodeCount} nodes · {version.publishedAt ? `published ${new Date(version.publishedAt).toLocaleString()}` : `draft ${new Date(version.createdAt).toLocaleString()}`}</span></li>)}</ol>}</Dialog>;
 }
 
 function GraphValidationPanel({ issues, onClose }: { issues: ReturnType<typeof validateWorkflowGraph>; onClose: () => void }) {
   const errors = issues.filter((issue) => issue.severity === "error");
   const warnings = issues.filter((issue) => issue.severity === "warning");
   return (
-    <section className="graph-validation-panel" role="dialog" aria-modal="false" aria-label="Workflow validation details">
+    <Dialog label="Workflow validation details" className="graph-validation-panel" modal={false}>
       <div className="credential-panel__heading">
         <div>
           <p className="section-label">LIVE VALIDATION</p>
           <h2>{errors.length ? "Fix these before saving" : "Graph checks"}</h2>
         </div>
-        <button className="icon-button" type="button" aria-label="Close validation details" onClick={onClose}>×</button>
+        <IconButton label="Close validation details" className="icon-button" onClick={onClose}>×</IconButton>
       </div>
       {errors.length === 0 && warnings.length === 0 ? <p className="graph-validation-panel__ready">Your graph is ready for a test run.</p> : <>
         {errors.length > 0 && <div className="graph-validation-panel__group"><strong>{errors.length} error{errors.length === 1 ? "" : "s"}</strong><ul>{errors.map((issue, index) => <li key={`error-${index}`} className="graph-validation-panel__issue graph-validation-panel__issue--error">{issue.message}</li>)}</ul></div>}
         {warnings.length > 0 && <div className="graph-validation-panel__group"><strong>{warnings.length} warning{warnings.length === 1 ? "" : "s"}</strong><ul>{warnings.map((issue, index) => <li key={`warning-${index}`} className="graph-validation-panel__issue graph-validation-panel__issue--warning">{issue.message}</li>)}</ul></div>}
       </>}
-    </section>
+    </Dialog>
   );
 }
 
 function GoLivePanel({ workflow, isRunning, onConfirm, onClose }: { workflow: ApiWorkflow; isRunning: boolean; onConfirm: () => void; onClose: () => void }) {
   const canRun = Boolean(workflow.published) && !isRunning;
-  return <section className="go-live-panel" role="dialog" aria-modal="true" aria-label="Confirm live execution"><div className="credential-panel__heading"><div><p className="section-label">LIVE EXECUTION</p><h2>Run the published workflow?</h2></div><button className="icon-button" type="button" aria-label="Close live execution confirmation" onClick={onClose}>×</button></div><p>This will call real providers and may send messages, write data, or create external side effects. The editor will run <strong>published version {workflow.published?.version ?? "—"}</strong>, never unsaved draft changes.</p>{!workflow.published && <p className="go-live-panel__warning">Publish this workflow first. Test runs stay safe and use deterministic mock providers.</p>}<div className="go-live-panel__actions"><button className="ghost-button" type="button" onClick={onClose}>Cancel</button><button className="go-live-button" type="button" disabled={!canRun} onClick={onConfirm}>{isRunning ? "Starting…" : "Run live now"}</button></div></section>;
+  return <Dialog label="Confirm live execution" className="go-live-panel"><div className="credential-panel__heading"><div><p className="section-label">LIVE EXECUTION</p><h2>Run the published workflow?</h2></div><IconButton label="Close live execution confirmation" className="icon-button" onClick={onClose}>×</IconButton></div><p>This will call real providers and may send messages, write data, or create external side effects. The editor will run <strong>published version {workflow.published?.version ?? "—"}</strong>, never unsaved draft changes.</p>{!workflow.published && <p className="go-live-panel__warning">Publish this workflow first. Test runs stay safe and use deterministic mock providers.</p>}<div className="go-live-panel__actions"><Button variant="ghost" className="ghost-button" onClick={onClose}>Cancel</Button><Button variant="secondary" className="go-live-button" disabled={!canRun} onClick={onConfirm}>{isRunning ? "Starting…" : "Run live now"}</Button></div></Dialog>;
 }
 
 function WebhookEndpointPanel({ workflow, config, onClose }: { workflow: ApiWorkflow; config: Record<string, unknown>; onClose: () => void }) {
@@ -267,7 +263,7 @@ function WebhookEndpointPanel({ workflow, config, onClose }: { workflow: ApiWork
     }
   };
 
-  return <section className="webhook-endpoint-panel" role="dialog" aria-modal="false" aria-label="Webhook endpoint"><div className="credential-panel__heading"><div><p className="section-label">INBOUND WEBHOOK</p><h2>Webhook endpoint</h2></div><button className="icon-button" type="button" aria-label="Close webhook endpoint" onClick={onClose}>×</button></div><p>Endpoints are pinned to a published workflow version. Publishing again does not change an existing endpoint until you rotate it here.</p><ConfigField label="Public path" value={path} onChange={setPath} /><label className="checkbox-field"><input type="checkbox" checked={secretRequired} onChange={(event) => setSecretRequired(event.target.checked)} /> Require <code>x-workflow-secret</code> header</label><div className="webhook-endpoint-panel__url"><span>POST URL</span><code>{endpointUrl}</code></div>{createdSecret && <div className="webhook-endpoint-panel__secret"><strong>Copy this secret now</strong><code>{createdSecret}</code><small>It is displayed only after this creation or rotation.</small></div>}<p className="webhook-endpoint-panel__notice">{notice}</p><button className="run-button" type="button" onClick={() => void createEndpoint()} disabled={!workflow.published || isSaving || !path.trim()}>{isSaving ? "Creating…" : endpoint ? "Rotate endpoint secret" : "Create endpoint"}</button>{!workflow.published && <small className="webhook-endpoint-panel__warning">Publish a version containing this Webhook trigger before creating its endpoint.</small>}</section>;
+  return <Dialog label="Webhook endpoint" className="webhook-endpoint-panel" modal={false}><div className="credential-panel__heading"><div><p className="section-label">INBOUND WEBHOOK</p><h2>Webhook endpoint</h2></div><IconButton label="Close webhook endpoint" className="icon-button" onClick={onClose}>×</IconButton></div><p>Endpoints are pinned to a published workflow version. Publishing again does not change an existing endpoint until you rotate it here.</p><ConfigField label="Public path" value={path} onChange={setPath} /><label className="checkbox-field"><input type="checkbox" checked={secretRequired} onChange={(event) => setSecretRequired(event.target.checked)} /> Require <code>x-workflow-secret</code> header</label><div className="webhook-endpoint-panel__url"><span>POST URL</span><code>{endpointUrl}</code></div>{createdSecret && <div className="webhook-endpoint-panel__secret"><strong>Copy this secret now</strong><code>{createdSecret}</code><small>It is displayed only after this creation or rotation.</small></div>}<Status tone="info" className="webhook-endpoint-panel__notice">{notice}</Status><Button variant="primary" className="run-button" onClick={() => void createEndpoint()} disabled={!workflow.published || isSaving || !path.trim()}>{isSaving ? "Creating…" : endpoint ? "Rotate endpoint secret" : "Create endpoint"}</Button>{!workflow.published && <small className="webhook-endpoint-panel__warning">Publish a version containing this Webhook trigger before creating its endpoint.</small>}</Dialog>;
 }
 
 function WorkflowLibraryPanel({ initialWorkspaces, activeWorkflowId, activeWorkspaceId, onOpen, onWorkspaceCreated, onClose }: { initialWorkspaces: WorkspaceSummary[]; activeWorkflowId: string | undefined; activeWorkspaceId: string | undefined; onOpen: (workflow: ApiWorkflow) => void; onWorkspaceCreated: (workspace: WorkspaceSummary) => void; onClose: () => void }) {
@@ -458,16 +454,15 @@ function NodeInspector({ node, execution, credentials, onResolveApproval }: { no
             const destinationLabel = destinationLabels[destinationType] ?? destinationLabels.dm;
             return (
               <>
-                <label className="config-field">
-                  <span>Destination type</span>
-                  <select aria-label="Telegram destination type" value={destinationType} onChange={(event) => updateConfig("destinationType", event.target.value)}>
+                <Field label="Destination type" className="config-field">
+                  <Select aria-label="Telegram destination type" value={destinationType} onChange={(event) => updateConfig("destinationType", event.target.value)}>
                     <option value="dm">Direct message (DM)</option>
                     <option value="group">Group</option>
                     <option value="supergroup">Supergroup</option>
                     <option value="channel">Channel</option>
-                  </select>
+                  </Select>
                   <small>{destinationHints[destinationType] ?? destinationHints.dm}</small>
-                </label>
+                </Field>
                 <ConfigField label={`${destinationLabel} chat ID (legacy credential chatId is deprecated)`} value={readConfigText(node.data.config, "chatId")} onChange={(value) => updateConfig("chatId", value)} />
                 {destinationType === "supergroup" && <ConfigField label="Topic / thread ID (optional)" value={readConfigText(node.data.config, "messageThreadId")} onChange={(value) => updateConfig("messageThreadId", value)} />}
               </>
@@ -556,6 +551,7 @@ export function WorkflowEditor() {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const flowRef = useRef<ReactFlowInstance<WorkflowCanvasNode, WorkflowCanvasEdge> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const paletteSearchRef = useRef<HTMLInputElement>(null);
   const [notice, setNotice] = useState("Loading your workflow…");
   const [paletteOpen, setPaletteOpen] = useState(true);
   const [workflow, setWorkflow] = useState<ApiWorkflow | null>(null);
@@ -572,6 +568,7 @@ export function WorkflowEditor() {
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [validationOpen, setValidationOpen] = useState(false);
   const [paletteSearch, setPaletteSearch] = useState("");
+  const [paletteFilter, setPaletteFilter] = useState<NodeLibraryFilter>("all");
   const [copiedNodeId, setCopiedNodeId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
   const [approvalLinkId, setApprovalLinkId] = useState<string | null | undefined>(undefined);
@@ -595,6 +592,13 @@ export function WorkflowEditor() {
   const redo = useWorkflowEditorStore((state) => state.redo);
   const loadGraph = useWorkflowEditorStore((state) => state.loadGraph);
   const issues = useMemo(() => validateWorkflowGraph(nodes, edges), [nodes, edges]);
+  const filteredNodeGroups = useMemo(() => groupNodeLibrary(
+    nodeCatalog.filter((definition) => matchesNodeLibraryFilter(definition, paletteFilter, paletteSearch)),
+  ), [paletteFilter, paletteSearch]);
+  const filteredNodeCount = useMemo(
+    () => filteredNodeGroups.reduce((total, group) => total + group.nodes.length, 0),
+    [filteredNodeGroups],
+  );
   const selectedNode = nodes.find((node) => node.id === selectedNodeId);
   const webhookTrigger = nodes.find((node) => node.data.nodeType === "trigger.webhook");
 
@@ -602,6 +606,25 @@ export function WorkflowEditor() {
     const search = new URLSearchParams(window.location.search);
     setApprovalLinkId(search.get("approval"));
     setWorkflowLinkId(search.get("workflow"));
+  }, []);
+
+  useEffect(() => {
+    const focusNodeSearch = (event: KeyboardEvent) => {
+      const target = event.target;
+      const isEditing = target instanceof HTMLElement
+        && (target.matches("input, textarea, select") || target.isContentEditable);
+      if (event.key === "/" && !isEditing) {
+        event.preventDefault();
+        setPaletteOpen(true);
+        requestAnimationFrame(() => paletteSearchRef.current?.focus());
+      }
+      if (event.key === "Escape" && document.activeElement === paletteSearchRef.current) {
+        setPaletteSearch("");
+        paletteSearchRef.current?.blur();
+      }
+    };
+    window.addEventListener("keydown", focusNodeSearch);
+    return () => window.removeEventListener("keydown", focusNodeSearch);
   }, []);
 
   useEffect(() => {
@@ -952,7 +975,7 @@ export function WorkflowEditor() {
           </div>
         </div>
         <div className="editor-header__actions">
-          <button className="ghost-button" type="button" onClick={() => router.push("/dashboard")}>Dashboard</button>
+          <Button variant="ghost" className="ghost-button" onClick={() => router.push("/dashboard")}>Dashboard</Button>
           <ActionMenu label="Edit">
             <button type="button" onClick={undo} disabled={historyIndex === 0}><ChevronLeft size={15} /> Undo</button>
             <button type="button" onClick={redo} disabled={historyIndex === history.length - 1}>Redo <ChevronRight size={15} /></button>
@@ -972,49 +995,67 @@ export function WorkflowEditor() {
             <button type="button" onClick={() => void cloneWorkflow()} disabled={!workflow}>Clone workflow</button>
           </ActionMenu>
           <input ref={inputRef} className="visually-hidden" type="file" accept="application/json" onChange={importGraph} />
-          <button className="save-button" type="button" onClick={() => void saveDraft()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "saving" ? <LoaderCircle className="ui-spinner" size={16} /> : <Save size={16} />} {activeOperation === "saving" ? "Saving…" : "Save draft"}</button>
-          <button className="ghost-button" type="button" onClick={() => void publish()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "publishing" ? <LoaderCircle className="ui-spinner" size={16} /> : <Check size={16} />} {activeOperation === "publishing" ? "Publishing…" : "Publish"}</button>
-          <button className="run-button" type="button" onClick={() => void runTest()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "running" ? <LoaderCircle className="ui-spinner" size={16} /> : <Play size={16} />} {activeOperation === "running" ? "Starting…" : "Run test"}</button>
-          <button className="go-live-button" type="button" onClick={() => setLiveConfirmOpen(true)} disabled={!workflow?.published || isSaving}>{activeOperation === "live" ? <LoaderCircle className="ui-spinner" size={16} /> : null} Go live</button>
+          <Button variant="secondary" className="save-button" onClick={() => void saveDraft()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "saving" ? <LoaderCircle className="ui-spinner" size={16} /> : <Save size={16} />} {activeOperation === "saving" ? "Saving…" : "Save draft"}</Button>
+          <Button variant="ghost" className="ghost-button" onClick={() => void publish()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "publishing" ? <LoaderCircle className="ui-spinner" size={16} /> : <Check size={16} />} {activeOperation === "publishing" ? "Publishing…" : "Publish"}</Button>
+          <Button variant="primary" className="run-button" onClick={() => void runTest()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "running" ? <LoaderCircle className="ui-spinner" size={16} /> : <Play size={16} />} {activeOperation === "running" ? "Starting…" : "Run test"}</Button>
+          <Button variant="secondary" className="go-live-button" onClick={() => setLiveConfirmOpen(true)} disabled={!workflow?.published || isSaving}>{activeOperation === "live" ? <LoaderCircle className="ui-spinner" size={16} /> : null} Go live</Button>
           {execution && ["QUEUED", "RUNNING", "WAITING_APPROVAL"].includes(execution.status) && <button className="ghost-button" type="button" onClick={() => void cancelExecution()}>Cancel run</button>}
+          <ThemeToggle />
         </div>
       </header>
       {progressLabel && <div className="editor-progress" role="status" aria-live="polite"><LoaderCircle className="ui-spinner" size={14} /> <span>{progressLabel}…</span><i /></div>}
 
-      <div className="editor-shell">
+      <div className={paletteOpen ? "editor-shell" : "editor-shell editor-shell--palette-closed"}>
         {paletteOpen && (
-          <aside className="node-palette">
+          <aside className="node-palette" id="node-library">
             <div className="node-palette__header">
               <div>
-                <p className="section-label">BUILDING BLOCKS</p>
-                <h2>Add a node</h2>
+                <p className="section-label">NODE LIBRARY</p>
+                <h2>Add a step</h2>
               </div>
-              <button className="icon-button" type="button" aria-label="Collapse node palette" onClick={() => setPaletteOpen(false)}><ChevronLeft size={17} /></button>
+              <button className="icon-button" type="button" aria-label="Collapse node palette" aria-controls="node-library" aria-expanded="true" onClick={() => setPaletteOpen(false)}><ChevronLeft size={17} /></button>
             </div>
-            <p className="node-palette__hint">Drag onto the canvas or click to add.</p>
-            <label className="palette-search"><Search size={14} /><span className="visually-hidden">Search nodes</span><input value={paletteSearch} onChange={(event) => setPaletteSearch(event.target.value)} placeholder="Search nodes" /></label>
-            {categoryOrder.map((category) => (
-              <section key={category} className="palette-group">
-                <h3>{categoryLabels[category]}</h3>
-                {nodeCatalog.filter((node) => node.category === category && matchesNodeSearch(node, paletteSearch)).map((definition) => (
+            <div className="node-palette__summary" aria-label="Node availability">
+              <span><i className="status-dot status-dot--ready" />{nodeCatalog.filter((node) => node.available).length} ready</span>
+              <span><i className="status-dot" />{nodeCatalog.filter((node) => !node.available).length} roadmap</span>
+            </div>
+            <p className="node-palette__hint">Pick a step by purpose, or search by app. Drag it anywhere on the canvas.</p>
+            <label className="palette-search"><Search size={15} /><span className="visually-hidden">Search nodes</span><input ref={paletteSearchRef} value={paletteSearch} onChange={(event) => setPaletteSearch(event.target.value)} placeholder="Search apps and actions" aria-label="Search nodes" /><kbd>/</kbd></label>
+            <div className="palette-filters" role="group" aria-label="Filter node library">
+              {nodeLibraryFilters.map((filter) => <button key={filter.id} type="button" className={paletteFilter === filter.id ? "palette-filter palette-filter--active" : "palette-filter"} aria-pressed={paletteFilter === filter.id} onClick={() => setPaletteFilter(filter.id)}>{filter.label}</button>)}
+            </div>
+            <div className="palette-results" aria-live="polite">
+              <span>{filteredNodeCount} {filteredNodeCount === 1 ? "node" : "nodes"}</span>
+              {(paletteSearch || paletteFilter !== "all") && <button type="button" onClick={() => { setPaletteSearch(""); setPaletteFilter("all"); }}>Clear filters</button>}
+            </div>
+            {filteredNodeGroups.map((group) => (
+              <section key={group.id} className="palette-group" aria-labelledby={`palette-group-${group.id}`}>
+                <header>
+                  <div><h3 id={`palette-group-${group.id}`}>{group.label}</h3><p>{group.description}</p></div>
+                  <span>{group.nodes.length}</span>
+                </header>
+                {group.nodes.map((definition) => (
                   <button
-                    className="palette-node"
+                    className={definition.available ? "palette-node" : "palette-node palette-node--planned"}
                     key={definition.type}
                     type="button"
-                    draggable
+                    draggable={definition.available}
+                    disabled={!definition.available}
                     onDragStart={(event) => onDragStart(event, definition)}
                     onClick={() => addDefinition(definition)}
+                    aria-label={`${definition.label} ${definition.description}${definition.available ? "" : " Planned"}`}
                   >
-                    <span className="palette-node__icon">{definition.icon}</span>
-                    <span><strong>{definition.label}</strong><small>{definition.available ? definition.description : "Planned after MVP"}</small></span>
+                    <span className="palette-node__icon"><NodeIcon name={definition.icon} size={16} /></span>
+                    <span className="palette-node__body"><span className="palette-node__title"><strong>{definition.label}</strong>{!definition.available && <em>Planned</em>}</span><small>{definition.description}</small></span>
                   </button>
                 ))}
               </section>
             ))}
+            {filteredNodeCount === 0 && <div className="palette-empty"><Search size={21} /><strong>No matching nodes</strong><p>Try an app name like “Telegram” or clear the current filters.</p><button type="button" onClick={() => { setPaletteSearch(""); setPaletteFilter("all"); }}>Show all ready nodes</button></div>}
           </aside>
         )}
         <section className="canvas-region" ref={wrapperRef} onDrop={onDrop} onDragOver={(event) => event.preventDefault()}>
-          {!paletteOpen && <button className="palette-reopen" type="button" onClick={() => setPaletteOpen(true)}>Add node</button>}
+          {!paletteOpen && <button className="palette-reopen" type="button" aria-controls="node-library" aria-expanded="false" onClick={() => setPaletteOpen(true)}>Add node</button>}
           <ReactFlow
             nodes={nodes}
             edges={edges}

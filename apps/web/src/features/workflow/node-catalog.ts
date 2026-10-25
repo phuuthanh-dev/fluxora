@@ -1,5 +1,6 @@
 import type { Edge, Node } from "@xyflow/react";
 import type { WorkflowEdgeKind, WorkflowNodeCategory, WorkflowNodeType } from "@workflow/contracts";
+import type { NodeIconName } from "./node-icon";
 
 export type WorkflowNodeData = {
   nodeType: WorkflowNodeType;
@@ -16,12 +17,25 @@ export type WorkflowCanvasEdge = Edge & {
   caseValue?: string;
 };
 
+export type NodeLibraryGroup =
+  | "start"
+  | "logic"
+  | "communication"
+  | "google-workspace"
+  | "developer-data"
+  | "ai"
+  | "social"
+  | "approval";
+
+export type NodeLibraryFilter = "all" | "trigger" | "logic" | "apps" | "approval" | "roadmap";
+
 export type NodeDefinition = {
   type: WorkflowNodeType;
   label: string;
   description: string;
   category: WorkflowNodeCategory;
-  icon: string;
+  libraryGroup: NodeLibraryGroup;
+  icon: NodeIconName;
   available: boolean;
   defaultConfig: Record<string, unknown>;
 };
@@ -34,6 +48,26 @@ export const categoryLabels: Record<WorkflowNodeCategory, string> = {
   action: "Action",
   approval: "Approval",
 };
+
+export const nodeLibraryFilters: Array<{ id: NodeLibraryFilter; label: string }> = [
+  { id: "all", label: "All" },
+  { id: "trigger", label: "Triggers" },
+  { id: "logic", label: "Logic" },
+  { id: "apps", label: "Apps" },
+  { id: "approval", label: "Approval" },
+  { id: "roadmap", label: "Roadmap" },
+];
+
+export const nodeLibraryGroups: Array<{ id: NodeLibraryGroup; label: string; description: string }> = [
+  { id: "start", label: "Start workflow", description: "Choose how this workflow begins" },
+  { id: "logic", label: "Flow control", description: "Branch and route incoming data" },
+  { id: "communication", label: "Communication", description: "Send messages and notifications" },
+  { id: "google-workspace", label: "Google Workspace", description: "Work with Google files, sheets, and chat" },
+  { id: "developer-data", label: "Developer & data", description: "Connect APIs, services, and databases" },
+  { id: "ai", label: "AI", description: "Generate and transform content with AI" },
+  { id: "social", label: "Social", description: "Automate social channels" },
+  { id: "approval", label: "Human in the loop", description: "Pause and wait for a decision" },
+];
 
 export function outputKindsForNodeType(nodeType: WorkflowNodeType): WorkflowEdgeKind[] {
   if (nodeType === "condition.if") return ["true", "false"];
@@ -54,7 +88,8 @@ export const nodeCatalog: NodeDefinition[] = [
     label: "Manual trigger",
     description: "Start a test run from the editor.",
     category: "trigger",
-    icon: "▶",
+    libraryGroup: "start",
+    icon: "manual",
     available: true,
     defaultConfig: { testData: {} },
   },
@@ -63,7 +98,8 @@ export const nodeCatalog: NodeDefinition[] = [
     label: "Schedule",
     description: "Start on a cron schedule.",
     category: "trigger",
-    icon: "◷",
+    libraryGroup: "start",
+    icon: "schedule",
     available: true,
     defaultConfig: { expression: "0 8 * * *", timezone: "Asia/Ho_Chi_Minh" },
   },
@@ -72,7 +108,8 @@ export const nodeCatalog: NodeDefinition[] = [
     label: "Webhook",
     description: "Receive an inbound HTTP event.",
     category: "trigger",
-    icon: "⌁",
+    libraryGroup: "start",
+    icon: "webhook",
     available: true,
     defaultConfig: { path: "steam-daily-report", secretRequired: true },
   },
@@ -81,7 +118,8 @@ export const nodeCatalog: NodeDefinition[] = [
     label: "If / else",
     description: "Route using a condition.",
     category: "condition",
-    icon: "◇",
+    libraryGroup: "logic",
+    icon: "if",
     available: true,
     defaultConfig: { left: "", operator: "equals", right: "" },
   },
@@ -90,7 +128,8 @@ export const nodeCatalog: NodeDefinition[] = [
     label: "Switch",
     description: "Route to multiple cases.",
     category: "condition",
-    icon: "⇆",
+    libraryGroup: "logic",
+    icon: "switch",
     available: true,
     defaultConfig: { value: "", cases: [{ value: "case-a" }] },
   },
@@ -99,7 +138,8 @@ export const nodeCatalog: NodeDefinition[] = [
     label: "Steam account snapshot",
     description: "Read public Steam account data.",
     category: "action",
-    icon: "◉",
+    libraryGroup: "developer-data",
+    icon: "steam",
     available: true,
     defaultConfig: { credentialId: "", steamId: "", includeOwnedGames: true, includeRecentGames: true, achievementAppId: "" },
   },
@@ -108,7 +148,8 @@ export const nodeCatalog: NodeDefinition[] = [
     label: "Google Chat message",
     description: "Send a message through an incoming webhook.",
     category: "action",
-    icon: "✦",
+    libraryGroup: "communication",
+    icon: "google-chat",
     available: true,
     defaultConfig: { credentialId: "", message: "" },
   },
@@ -117,7 +158,8 @@ export const nodeCatalog: NodeDefinition[] = [
     label: "Discord webhook",
     description: "Post a message to a Discord channel via incoming webhook.",
     category: "action",
-    icon: "💬",
+    libraryGroup: "communication",
+    icon: "discord",
     available: true,
     defaultConfig: { credentialId: "", content: "", username: "", avatarUrl: "", embeds: "" },
   },
@@ -126,7 +168,8 @@ export const nodeCatalog: NodeDefinition[] = [
     label: "Telegram message",
     description: "Send a message via Telegram Bot API.",
     category: "action",
-    icon: "✈",
+    libraryGroup: "communication",
+    icon: "telegram",
     available: true,
     defaultConfig: { credentialId: "", destinationType: "dm", chatId: "", messageThreadId: "", text: "", parseMode: "Markdown" },
   },
@@ -135,7 +178,8 @@ export const nodeCatalog: NodeDefinition[] = [
     label: "Google Drive",
     description: "Search, read, or upload a file.",
     category: "action",
-    icon: "△",
+    libraryGroup: "google-workspace",
+    icon: "google-drive",
     available: true,
     defaultConfig: { credentialId: "", operation: "search", query: "", fileId: "", name: "daily-report.txt", text: "" },
   },
@@ -144,7 +188,8 @@ export const nodeCatalog: NodeDefinition[] = [
     label: "Google Sheets",
     description: "Read or write spreadsheet data.",
     category: "action",
-    icon: "▤",
+    libraryGroup: "google-workspace",
+    icon: "google-sheets",
     available: true,
     defaultConfig: { credentialId: "", operation: "append", spreadsheetId: "", range: "Sheet1!A1", values: [["", ""]] },
   },
@@ -153,7 +198,8 @@ export const nodeCatalog: NodeDefinition[] = [
     label: "HTTP request",
     description: "Call any REST API.",
     category: "action",
-    icon: "↗",
+    libraryGroup: "developer-data",
+    icon: "http",
     available: true,
     defaultConfig: { credentialId: "", method: "GET", url: "", headers: {}, body: "", timeoutMs: 15_000 },
   },
@@ -162,79 +208,88 @@ export const nodeCatalog: NodeDefinition[] = [
     label: "Approval",
     description: "Pause until a person approves or rejects.",
     category: "approval",
-    icon: "✓",
+    libraryGroup: "approval",
+    icon: "approval",
     available: true,
     defaultConfig: { message: "", expiresInHours: 24, notificationProvider: "google_chat", notificationCredentialId: "" },
   },
   {
     type: "action.email",
     label: "Email",
-    description: "Not available in MVP — configure the future email payload.",
+    description: "Send an email notification.",
     category: "action",
-    icon: "✉",
+    libraryGroup: "communication",
+    icon: "email",
     available: false,
     defaultConfig: { to: "", subject: "", body: "" },
   },
   {
     type: "action.google-chat.oauth",
     label: "Google Chat OAuth",
-    description: "Not available in MVP — OAuth Chat delivery is planned.",
+    description: "Send a Google Chat message with OAuth.",
     category: "action",
-    icon: "✦",
+    libraryGroup: "google-workspace",
+    icon: "google-chat",
     available: false,
     defaultConfig: { credentialId: "", space: "", message: "" },
   },
   {
     type: "action.openai",
     label: "OpenAI",
-    description: "Not available in MVP — configure for a later connector.",
+    description: "Generate text with an OpenAI model.",
     category: "action",
-    icon: "◌",
+    libraryGroup: "ai",
+    icon: "openai",
     available: false,
     defaultConfig: { credentialId: "", model: "gpt-4.1-mini", prompt: "" },
   },
   {
     type: "action.gemini",
     label: "Gemini",
-    description: "Not available in MVP — configure for a later connector.",
+    description: "Generate text with a Gemini model.",
     category: "action",
-    icon: "◇",
+    libraryGroup: "ai",
+    icon: "gemini",
     available: false,
     defaultConfig: { credentialId: "", model: "gemini-2.5-flash", prompt: "" },
   },
   {
     type: "action.mongodb",
     label: "MongoDB",
-    description: "Not available in MVP — configure for a later connector.",
+    description: "Read or write MongoDB documents.",
     category: "action",
-    icon: "◫",
+    libraryGroup: "developer-data",
+    icon: "mongodb",
     available: false,
     defaultConfig: { credentialId: "", database: "", collection: "", operation: "find" },
   },
   {
     type: "action.github",
     label: "GitHub",
-    description: "Not available in MVP — configure for a later connector.",
+    description: "Automate repositories, issues, and pull requests.",
     category: "action",
-    icon: "◉",
+    libraryGroup: "developer-data",
+    icon: "github",
     available: false,
     defaultConfig: { credentialId: "", repository: "", operation: "createIssue" },
   },
   {
     type: "action.facebook-meta",
     label: "Facebook Meta",
-    description: "Not available in MVP — configure for a later connector.",
+    description: "Publish and manage Facebook content.",
     category: "action",
-    icon: "f",
+    libraryGroup: "social",
+    icon: "facebook",
     available: false,
     defaultConfig: { credentialId: "", operation: "" },
   },
   {
     type: "action.instagram",
     label: "Instagram",
-    description: "Not available in MVP — configure for a later connector.",
+    description: "Publish and manage Instagram content.",
     category: "action",
-    icon: "◎",
+    libraryGroup: "social",
+    icon: "instagram",
     available: false,
     defaultConfig: { credentialId: "", operation: "" },
   },
@@ -242,7 +297,27 @@ export const nodeCatalog: NodeDefinition[] = [
 
 export function matchesNodeSearch(node: NodeDefinition, query: string) {
   const normalized = query.trim().toLowerCase();
-  return !normalized || [node.label, node.description, node.category, node.type].some((value) => value.toLowerCase().includes(normalized));
+  const group = nodeLibraryGroups.find((candidate) => candidate.id === node.libraryGroup);
+  return !normalized || [node.label, node.description, node.category, node.type, group?.label ?? "", group?.description ?? ""]
+    .some((value) => value.toLowerCase().includes(normalized));
+}
+
+export function matchesNodeLibraryFilter(node: NodeDefinition, filter: NodeLibraryFilter, query = "") {
+  if (!matchesNodeSearch(node, query)) return false;
+  if (filter === "roadmap") return !node.available;
+  if (!query.trim() && !node.available) return false;
+  if (filter === "all") return true;
+  if (filter === "trigger") return node.category === "trigger";
+  if (filter === "logic") return node.category === "condition";
+  if (filter === "apps") return node.category === "action";
+  return node.category === "approval";
+}
+
+export function groupNodeLibrary(nodes: NodeDefinition[]) {
+  return nodeLibraryGroups.flatMap((group) => {
+    const definitions = nodes.filter((node) => node.libraryGroup === group.id);
+    return definitions.length ? [{ ...group, nodes: definitions }] : [];
+  });
 }
 
 export function getNodeDefinition(type: string) {

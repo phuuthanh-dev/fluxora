@@ -24,6 +24,9 @@ All contributors and coding agents must read [`AGENTS.md`](./AGENTS.md) before c
 
 The repository supports a cost-aware planner → implementer → CI → reviewer loop. Start with the task and report templates in [`.agent`](./.agent), read the [harness protocol](./docs/10-agent-harness.md), and use the generated [code graph](./docs/11-code-graph.md) to navigate source boundaries.
 
+UI implementation decisions for the planned GetLayers Relay purchase are recorded in the [Relay UI research and adoption plan](./docs/12-getlayers-relay-ui-research.md).
+The unified product redesign direction, debrief, and staged delivery sequence are defined in the [UI/UX redesign brief](./docs/13-ui-redesign-brief.md).
+
 ```bash
 npm run codegraph:generate # after source-import changes
 npm run harness:check      # fails if the committed graph is stale

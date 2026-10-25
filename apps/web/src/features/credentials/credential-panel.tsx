@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { ApiClientError, apiRequest, apiUrl } from "../api/api-client";
 import type { CredentialProvider, CredentialReferenceDetails, CredentialSummary } from "./credential-types";
+import { Button, Field, IconButton, Select } from "../../components/ui";
 
 type CredentialPreset = {
   label: string;
@@ -240,38 +241,35 @@ export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId
           <p className="section-label">CREDENTIALS</p>
           <h2>Secure connections</h2>
         </div>
-        <button className="icon-button" type="button" aria-label="Close credential manager" onClick={onClose}>×</button>
+        <IconButton className="icon-button" label="Close credential manager" onClick={onClose}>×</IconButton>
       </div>
       <p>Secrets are encrypted server-side and never shown again after save.</p>
       {provider === "GOOGLE" ? (
-        <button className="ghost-button credential-panel__oauth" type="button" onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google/connect`); }}>
+        <Button variant="ghost" className="ghost-button credential-panel__oauth" onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google/connect`); }}>
           Connect Google with OAuth
-        </button>
+        </Button>
       ) : null}
       <form onSubmit={submit} className="credential-form">
-        <label>
-          <span>Provider</span>
-          <select aria-label="Provider" value={provider} onChange={(event) => changeProvider(event.target.value as CredentialProvider)}>
+        <Field label="Provider" className="credential-form__field">
+          <Select aria-label="Provider" value={provider} onChange={(event) => changeProvider(event.target.value as CredentialProvider)}>
             <option value="GOOGLE">Google Drive / Sheets</option>
             <option value="STEAM">Steam</option>
             <option value="GOOGLE_CHAT_WEBHOOK">Google Chat webhook</option>
             <option value="DISCORD_WEBHOOK">Discord webhook</option>
             <option value="TELEGRAM_BOT">Telegram bot</option>
             <option value="HTTP">HTTP</option>
-          </select>
-        </label>
+          </Select>
+        </Field>
         <p className="credential-form__hint" aria-live="polite">{credentialPresets[provider].hint}</p>
-        <label>
-          <span>Connection name</span>
+        <Field label="Connection name" className="credential-form__field">
           <input aria-label="Connection name" value={label} onChange={(event) => { setLabel(event.target.value); setCreateError(null); }} />
-        </label>
-        <label>
-          <span>Secret JSON</span>
+        </Field>
+        <Field label="Secret JSON" className="credential-form__field">
           <textarea aria-label="Secret JSON" aria-invalid={jsonError ? "true" : undefined} value={data} onChange={(event) => { setData(event.target.value); setJsonError(null); setCreateError(null); }} rows={provider === "STEAM" ? 7 : 6} spellCheck={false} />
-        </label>
+        </Field>
         {jsonError && <p className="credential-form__error" role="alert">{jsonError}</p>}
         {createError && <p className="credential-form__error" role="alert">{createError}</p>}
-        <button className="run-button" type="submit" disabled={isSaving}>{isSaving ? "Encrypting…" : "Encrypt & save"}</button>
+        <Button variant="primary" className="run-button" type="submit" disabled={isSaving}>{isSaving ? "Encrypting…" : "Encrypt & save"}</Button>
       </form>
       <p className="credential-panel__notice">{notice}</p>
       <ul className="credential-list">
@@ -293,40 +291,44 @@ export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId
                     <p className="credential-card__oauth-text">
                       Managed by Google OAuth. Reconnect through Google sign-in to refresh or reauthorize permissions.
                     </p>
-                    <button
+                      <Button
+                        variant="ghost"
                       type="button"
                       className="ghost-button credential-panel__oauth"
                       onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google/connect`); }}
                     >
                       Reconnect Google OAuth
-                    </button>
+                    </Button>
                   </div>
                 ) : (
                   <div className="credential-card__actions">
-                    <button
+                    <Button
+                      variant="ghost"
                       type="button"
                       className="ghost-button"
                       aria-label={`Rename ${credential.label}`}
                       onClick={() => startRename(credential)}
                     >
                       Rename
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="ghost"
                       type="button"
                       className="ghost-button"
                       aria-label={`Rotate secret for ${credential.label}`}
                       onClick={() => startRotate(credential)}
                     >
                       Rotate secret
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="ghost"
                       type="button"
                       className="ghost-button credential-card__btn-delete"
                       aria-label={`Delete ${credential.label}`}
                       onClick={() => startDelete(credential)}
                     >
                       Delete
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
@@ -344,12 +346,12 @@ export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId
                   </label>
                   {actionError && <p className="credential-card__error" role="alert">{actionError}</p>}
                   <div className="credential-card__form-actions">
-                    <button type="submit" className="run-button" disabled={isActionSubmitting}>
+                    <Button variant="primary" type="submit" className="run-button" disabled={isActionSubmitting}>
                       {isActionSubmitting ? "Saving…" : "Save name"}
-                    </button>
-                    <button type="button" className="ghost-button" onClick={cancelAction} disabled={isActionSubmitting}>
+                    </Button>
+                    <Button variant="ghost" type="button" className="ghost-button" onClick={cancelAction} disabled={isActionSubmitting}>
                       Cancel
-                    </button>
+                    </Button>
                   </div>
                 </form>
               )}
@@ -374,12 +376,12 @@ export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId
                   </label>
                   {actionError && <p className="credential-card__error" role="alert">{actionError}</p>}
                   <div className="credential-card__form-actions">
-                    <button type="submit" className="run-button" disabled={isActionSubmitting}>
+                    <Button variant="primary" type="submit" className="run-button" disabled={isActionSubmitting}>
                       {isActionSubmitting ? "Rotating…" : "Rotate secret"}
-                    </button>
-                    <button type="button" className="ghost-button" onClick={cancelAction} disabled={isActionSubmitting}>
+                    </Button>
+                    <Button variant="ghost" type="button" className="ghost-button" onClick={cancelAction} disabled={isActionSubmitting}>
                       Cancel
-                    </button>
+                    </Button>
                   </div>
                 </form>
               )}
@@ -405,17 +407,18 @@ export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId
                     </div>
                   )}
                   <div className="credential-card__form-actions">
-                    <button
+                    <Button
+                      variant="danger"
                       type="button"
                       className="danger-button"
                       onClick={() => void confirmDelete(credential)}
                       disabled={isActionSubmitting}
                     >
                       {isActionSubmitting ? "Deleting…" : "Confirm delete"}
-                    </button>
-                    <button type="button" className="ghost-button" onClick={cancelAction} disabled={isActionSubmitting}>
+                    </Button>
+                    <Button variant="ghost" type="button" className="ghost-button" onClick={cancelAction} disabled={isActionSubmitting}>
                       Cancel
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
