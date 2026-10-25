@@ -1,7 +1,7 @@
 import { BadRequestException } from "@nestjs/common";
 
 const expressionPattern = /{{\s*([^{}]+?)\s*}}/g;
-const pathPattern = /^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*|\[\d+\])*$/;
+const pathPattern = /^[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z_][A-Za-z0-9_-]*|\[\d+\])*$/;
 
 export type ExpressionContext = Record<string, unknown>;
 
@@ -46,7 +46,7 @@ function resolveArgument(value: string, context: ExpressionContext): unknown {
 }
 
 function readPath(context: ExpressionContext, path: string): unknown {
-  const tokens = [...path.matchAll(/[A-Za-z_][A-Za-z0-9_]*|\[(\d+)\]/g)].map((match) => match[1] === undefined ? match[0] : Number(match[1]));
+  const tokens = [...path.matchAll(/[A-Za-z_][A-Za-z0-9_-]*|\[(\d+)\]/g)].map((match) => match[1] === undefined ? match[0] : Number(match[1]));
   return tokens.reduce<unknown>((value, token) => {
     if (typeof token === "number") return Array.isArray(value) ? value[token] : undefined;
     return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>)[token] : undefined;

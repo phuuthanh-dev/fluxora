@@ -7,5 +7,5 @@ test("Steam daily report template is a valid executable graph", () => {
   const template = systemWorkflowTemplates.find((candidate) => candidate.slug === "steam-daily-report");
   assert.ok(template);
   assert.doesNotThrow(() => parseWorkflowGraph(template.graph));
-  assert.match(String(template.graph.nodes[2]?.config.message), /{{steps\.steam-account\.output\.summary\.totalGames}}/);
+  assert.match(String(template.graph.nodes[2]?.config.message), /{{steps\.steam\.output\.summary\.totalGames}}/);
 });

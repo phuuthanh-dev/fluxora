@@ -4,4 +4,12 @@ export type CredentialSummary = {
   id: string;
   provider: CredentialProvider;
   label: string;
+  isManaged?: boolean;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
+};
+
+export type CredentialReferenceDetails = {
+  workflows?: Array<{ id: string; name: string }>;
+  executions?: Array<{ id: string }>;
 };

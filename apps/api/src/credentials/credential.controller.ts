@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Inject, Param, Post, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Controller, Delete, Get, Inject, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
 import { CredentialService } from "./credential.service";
@@ -21,6 +21,32 @@ export class CredentialController {
       label: readString(body.label, "Credential label", 1, 80),
       data: body.data,
     }) };
+  }
+
+  @Patch(":credentialId")
+  async update(
+    @Param("workspaceId") workspaceId: string,
+    @Param("credentialId") credentialId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    const body = readBody(request.body);
+    const label = body.label === undefined ? undefined : readString(body.label, "Credential label", 1, 80);
+    const data = body.data;
+    if (label === undefined && data === undefined) {
+      throw new BadRequestException({ code: "INVALID_INPUT", message: "Provide a label or secret data to update." });
+    }
+    return {
+      credential: await this.credentials.update(workspaceId, credentialId, userId(request), { label, data }),
+    };
+  }
+
+  @Delete(":credentialId")
+  async delete(
+    @Param("workspaceId") workspaceId: string,
+    @Param("credentialId") credentialId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return await this.credentials.delete(workspaceId, credentialId, userId(request));
   }
 }
 

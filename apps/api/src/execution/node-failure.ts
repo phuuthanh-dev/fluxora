@@ -1,4 +1,5 @@
 import { OutboundRequestPolicyError } from "./outbound-url-policy";
+import { BadRequestException } from "@nestjs/common";
 
 export class NodeFailure extends Error {
   constructor(
@@ -21,4 +22,18 @@ export function nodeFailureFromOutboundPolicy(reason: unknown): NodeFailure {
     timeout ? "Outbound request timed out." : "Outbound request failed.",
     true,
   );
+}
+
+export function nodeFailureFromExecutionError(reason: unknown): NodeFailure {
+  if (reason instanceof NodeFailure) return reason;
+  if (reason instanceof BadRequestException) {
+    const response = reason.getResponse();
+    if (response && typeof response === "object" && !Array.isArray(response)) {
+      const record = response as Record<string, unknown>;
+      const code = typeof record.code === "string" ? record.code : "NODE_ERROR";
+      const message = typeof record.message === "string" ? record.message : "Node execution failed.";
+      return new NodeFailure(code, message, false);
+    }
+  }
+  return new NodeFailure("NODE_ERROR", "Node execution failed.", false);
 }
