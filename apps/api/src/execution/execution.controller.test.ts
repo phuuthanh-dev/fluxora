@@ -26,3 +26,9 @@ test("confirmed live execution reaches the pinned-version service and queue", as
   assert.deepEqual(queued, [{ executionId: "execution-1", mode: "live" }]);
   assert.deepEqual(result, { execution: { id: "execution-1", status: "QUEUED" } });
 });
+
+test("workspace execution list is owner-scoped", async () => {
+  const controller = new ExecutionController({ listForWorkspace: async (...args: unknown[]) => [{ id: "execution-1", args }] } as never, {} as never, {} as never);
+  const result = await controller.listForWorkspace("workspace-1", { currentUser: { id: "user-1" } } as never);
+  assert.deepEqual(result, { executions: [{ id: "execution-1", args: ["workspace-1", "user-1"] }] });
+});

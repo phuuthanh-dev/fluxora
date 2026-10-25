@@ -182,6 +182,9 @@ test("workflow cards expose rename, duplicate, archive, and guarded delete actio
   await page.getByRole("button", { name: "Run test" }).click();
   await expect(page.getByText(/Mock execution succeeded/i)).toBeVisible({ timeout: 15_000 });
   await page.goto("/dashboard");
+  await expect(page.getByRole("heading", { name: "Execution center" })).toBeVisible();
+  await expect(page.getByText("Recent runs", { exact: true })).toBeVisible();
+  await expect(page.getByText("Succeeded", { exact: true })).toBeVisible();
 
   const renamedCardAfterRun = page.locator(".workflow-card", { has: page.getByRole("heading", { name: "Renamed target", exact: true }) });
   await renamedCardAfterRun.getByLabel("Workflow actions for Renamed target actions").click();

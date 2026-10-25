@@ -26,6 +26,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | Dashboard workflow management UX | Complete locally | Workflow search, Draft/Live filtering, name/status/last-updated sorting, clear controls, workspace-switch reset, shared controls, responsive styling, and Playwright regression coverage are complete. |
 | Dashboard workflow lifecycle actions | Complete locally | Workflow cards support rename, duplicate, archive, and confirmation-based permanent delete; archive is persisted as a soft-delete and permanent delete is guarded when execution history exists. Dashboard regression coverage, localhost visual QA, and the full quality gate passed. |
 | Compact checkbox controls | Complete locally | Shared `.checkbox-field` controls are reduced from 14×14px to 12×12px without shrinking the label click target; editor regression coverage and the full quality gate passed. |
+| Dashboard Execution Center and compact workflow menu | Complete locally | Dashboard lists recent workspace-scoped executions with loading, empty, status, error, and open-workflow states; workflow card actions use a compact vertical three-dot dropdown. Responsive styling, API ownership coverage, Playwright regression, and the full quality gate passed. |
 
 ## Milestone 1 — Product foundation
 
@@ -42,6 +43,12 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 2. Build `WorkflowModule`: create/list/get/update draft, publish immutable version, and clone.
 3. Replace the editor's local notice/save behavior with API calls and server state.
 4. Add foreign-key workflow-version pointers, pinned webhook-version schema, and workflow templates schema.
+
+## Next UI/UX roadmap
+
+1. **Editor interaction polish:** make node handles easier to target without enlarging the node, refine selection/connection feedback, and group editor actions into predictable menus while preserving keyboard and screen-reader access.
+2. **Production readiness surface:** complete safe live-provider readiness states, credential guidance, and publish/Go Live guardrails without making external calls until the user supplies and confirms provider credentials.
+3. **Execution details:** let users open a run from the Execution Center into a focused execution detail view with node-level input/output, retry/error-branch information, and an explicit mock/live indicator.
 
 **Exit criterion:** a logged-in owner can create a workspace, create a workflow, save a draft graph, publish a frozen version, reload the page, and see the saved workflow.
 

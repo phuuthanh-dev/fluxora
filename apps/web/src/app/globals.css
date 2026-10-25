@@ -299,6 +299,25 @@ button:focus-visible, summary:focus-visible { outline: 3px solid rgba(214, 255, 
 .dashboard-workflow-toolbar select:focus { border-color: var(--accent-strong); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
 .dashboard-workflow-toolbar__clear { min-height: 36px; padding: 8px 10px; }
 .dashboard-workflow-summary { color: var(--muted); font-size: 11px; margin: 0 0 12px; }
+.dashboard-executions { margin-top: 34px; }
+.dashboard-execution-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 13px; overflow: hidden; }
+.dashboard-execution-heading { align-items: center; border-bottom: 1px solid var(--line); color: var(--muted); display: flex; font-size: 11px; justify-content: space-between; padding: 13px 16px; }
+.dashboard-execution-heading strong { color: var(--ink); font-size: 12px; }
+.dashboard-execution-list { display: grid; }
+.dashboard-execution { align-items: center; border-bottom: 1px solid var(--line); display: grid; gap: 12px; grid-template-columns: auto minmax(0, 1fr) auto; padding: 13px 16px; }
+.dashboard-execution:last-child { border-bottom: 0; }
+.dashboard-execution__detail { display: grid; gap: 3px; min-width: 0; }
+.dashboard-execution__detail strong { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dashboard-execution__detail span, .dashboard-execution__detail small { color: var(--muted); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dashboard-execution__detail small { color: var(--semantic-danger); }
+.execution-status { border-radius: 99px; font-size: 9px; font-weight: 800; padding: 5px 8px; white-space: nowrap; }
+.execution-status--succeeded { background: var(--relay-lime-soft); color: var(--semantic-success); }
+.execution-status--failed, .execution-status--cancelled { background: color-mix(in srgb, var(--semantic-danger) 14%, transparent); color: var(--semantic-danger); }
+.execution-status--queued, .execution-status--running, .execution-status--waiting_approval { background: color-mix(in srgb, var(--semantic-warning) 18%, transparent); color: var(--semantic-warning); }
+.dashboard-execution__open { border: 0; color: var(--accent-strong); font-size: 10px; min-height: 28px; padding: 5px 7px; }
+.dashboard-execution-empty { align-items: center; color: var(--muted); display: flex; flex-direction: column; font-size: 11px; gap: 6px; justify-content: center; min-height: 110px; padding: 18px; text-align: center; }
+.dashboard-execution-empty strong { color: var(--ink); font-size: 12px; }
+@media (max-width: 760px) { .dashboard-execution { align-items: start; grid-template-columns: auto minmax(0, 1fr); } .dashboard-execution__open { grid-column: 2; justify-self: start; } }
 .workflow-card__title { align-items: flex-start; display: flex; gap: 8px; justify-content: space-between; margin-top: 13px; }
 .workflow-card__title h3 { margin: 0 0 6px; }
 .workflow-card__menu { flex: 0 0 auto; }

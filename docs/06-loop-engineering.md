@@ -51,6 +51,7 @@ CI runs the same gate for every pull request and push to `main`.
 | L6.10 | Dashboard workflow management UX | Complete locally | Search, Draft/Live filtering, name/status/last-updated sorting, clear filters, workspace-switch reset, shared Select/Button controls, responsive toolbar styling, and Playwright coverage passed the full quality gate. |
 | L6.11 | Dashboard workflow lifecycle actions | Complete locally | Rename, duplicate, archive, and guarded permanent delete use shared Menu/Dialog/Button primitives; archive persistence, execution-history protection, visual QA, and the full quality gate passed. |
 | L6.12 | Compact checkbox controls | Complete locally | Shared checkbox fields now render at 12×12px while the label remains the click target; editor E2E asserts the compact dimensions and the full quality gate passed. |
+| L6.13 | Dashboard Execution Center and compact workflow menu | Complete locally | Workspace-scoped recent execution list with loading/empty/status/error states and workflow deep links; workflow cards now expose actions through a compact vertical three-dot dropdown. API, Playwright, responsive, and full quality-gate checks passed. |
 
 ## External-boundary rule
 

@@ -80,6 +80,29 @@ export class ExecutionService {
     };
   }
 
+  async listForWorkspace(workspaceId: string, userId: string, limit = 20) {
+    const membership = await this.prisma.workspaceMember.findUnique({ where: { workspaceId_userId: { workspaceId, userId } } });
+    if (!membership || membership.role !== "OWNER") throw new NotFoundException({ code: "WORKSPACE_NOT_FOUND", message: "Workspace was not found." });
+    const executions = await this.prisma.execution.findMany({
+      where: { workflowVersion: { workflow: { workspaceId } } },
+      include: { workflowVersion: { include: { workflow: true } } },
+      orderBy: { createdAt: "desc" },
+      take: Math.min(Math.max(limit, 1), 50),
+    });
+    return executions.map((execution) => ({
+      id: execution.id,
+      workflowId: execution.workflowVersion.workflowId,
+      workflowName: execution.workflowVersion.workflow.name,
+      workflowVersion: execution.workflowVersion.version,
+      status: execution.status,
+      mode: execution.mode.toLowerCase(),
+      createdAt: execution.createdAt,
+      startedAt: execution.startedAt,
+      completedAt: execution.completedAt,
+      error: execution.errorCode ? { code: execution.errorCode, message: execution.errorMessage } : null,
+    }));
+  }
+
   async getApproval(approvalId: string, userId: string) {
     const approval = await this.prisma.approvalRequest.findFirst({
       where: { id: approvalId, execution: { workflowVersion: { workflow: { workspace: { members: { some: { userId, role: "OWNER" } } } } } } },

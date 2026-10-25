@@ -26,6 +26,11 @@ export class ExecutionController {
     return { execution: await this.executions.get(executionId, requireUserId(request)) };
   }
 
+  @Get("workspaces/:workspaceId/executions")
+  async listForWorkspace(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest) {
+    return { executions: await this.executions.listForWorkspace(workspaceId, requireUserId(request)) };
+  }
+
   @Post("executions/:executionId/cancel")
   async cancel(@Param("executionId") executionId: string, @Req() request: AuthenticatedRequest) {
     return { execution: await this.executions.cancel(executionId, requireUserId(request)) };
