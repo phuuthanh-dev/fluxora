@@ -67,6 +67,7 @@ CI runs the same gate for every pull request and push to `main`.
 | L8.5 | Persisted initials avatar | Complete locally | `User.avatarColor` stores a stable palette key selected at registration, and the shared App Shell displays accessible initials in a compact circular avatar instead of generic Account text. Local migration, API unit coverage, browser regression, and visual QA passed; uploaded profile photos are deferred until profile settings and asset storage exist. |
 | L8.6 | Compact Account exit action | Complete locally | Theme control precedes the avatar and the avatar is now the right-most header control. Sign out is grouped inside the Account menu beneath identity actions; browser coverage confirms it remains discoverable and completes the logout flow. |
 | L8.7 | Shared section and toolbar primitives | Complete locally | `SectionHeader` and `Toolbar` define one hierarchy/action contract. Dashboard workflow controls, execution filters, and the Executions page list heading now reuse them without changing their labels, filter behavior, or accessibility. Focused browser regressions and the full gate passed. |
+| L8.8 | Editor density and inspector hierarchy | Complete locally | Workflow node cards are more compact while their invisible port targets expand to 38×38px (44×44px while connecting). The Inspector now groups fields into Setup, Configuration, Test & debug, Advanced, and Last execution regions. Focused editor E2E, visual desktop QA, and the full quality gate passed. |
 
 ## External-boundary rule
 

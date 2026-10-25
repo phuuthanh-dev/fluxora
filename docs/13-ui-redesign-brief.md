@@ -151,6 +151,10 @@ Every interactive surface must define default, hover, focus-visible, active, dis
 - Make left and right regions independently collapsible.
 - **Complete locally:** at narrower desktop widths, selecting a node opens an intentional inspector drawer; it has backdrop/Escape controls, a focus trap, and focus return to the Inspector trigger.
 - Standardize save/publish/test/live progress and confirmation states.
+- **Complete locally:** editor node cards now preserve compact visual density while
+  ports expose a 38×38px pointer target (44×44px during a connection), and the
+  Inspector separates Setup, Configuration, Test & debug, Advanced, and Last
+  execution into labeled reading regions.
 
 ### R4 — Credentials and execution management
 

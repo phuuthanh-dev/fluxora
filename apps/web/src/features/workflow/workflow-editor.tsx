@@ -150,6 +150,15 @@ function CredentialField({ label, value, providers, credentials, onChange, optio
   );
 }
 
+function InspectorSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="inspector-section" aria-label={title}>
+      <p className="inspector-section__title">{title}</p>
+      <div className="inspector-section__content">{children}</div>
+    </section>
+  );
+}
+
 function ActionMenu({ label, children }: { label: string; children: ReactNode }) {
   return <Menu label={label} className="action-menu" contentClassName="action-menu__content">{children}</Menu>;
 }
@@ -475,11 +484,14 @@ function NodeInspector({ node, execution, credentials, onResolveApproval, onDebu
         <h2>{node.data.label}</h2>
         <p>{node.data.description}</p>
       </div>
-      <ConfigField
-        label="Display name"
-        value={node.data.label}
-        onChange={(label) => updateNodeData(node.id, { label })}
-      />
+      <InspectorSection title="Setup">
+        <ConfigField
+          label="Display name"
+          value={node.data.label}
+          onChange={(label) => updateNodeData(node.id, { label })}
+        />
+      </InspectorSection>
+      <InspectorSection title="Configuration">
       {node.data.nodeType === "trigger.manual" && <TestDataEditor value={node.data.config.testData} onApply={(testData) => updateConfig("testData", testData)} />}
       {node.data.nodeType === "trigger.cron" && (
         <>
@@ -606,28 +618,35 @@ function NodeInspector({ node, execution, credentials, onResolveApproval, onDebu
         <ConfigField label="Body" value={readConfigText(node.data.config, "body")} onChange={(value) => updateConfig("body", value)} multiline />
       </>}
       {definition && !definition.available && <p className="planned-note">This node is visible for roadmap clarity, but cannot run in the MVP.</p>}
-      <section className="node-debug-panel">
-        <div><p className="section-label">NODE DEBUG</p><p>Runs only this node with mock providers. No live request or downstream node will run.</p></div>
-        <Button variant="secondary" className="node-debug-panel__button" disabled={!definition?.available || node.data.nodeType === "approval.request" || isDebugging} title={node.data.nodeType === "approval.request" ? "Approval nodes are tested in a full workflow run." : undefined} onClick={() => onDebugNode(node)}><Play size={14} />{isDebugging ? "Running node…" : "Run node"}</Button>
-      </section>
-      <JsonConfigEditor config={node.data.config} onApply={(config) => updateNodeData(node.id, { config })} />
-      <ExpressionSuggestions suggestions={suggestions} />
-      <section className="input-preview">
-        <div className="section-label">INPUT PREVIEW</div>
-        <pre>{JSON.stringify(node.data.config, null, 2)}</pre>
-      </section>
-      {nodeExecution && (
-        <section className="input-preview">
-          <div className="section-label">LAST EXECUTION · {nodeExecution.status} · ATTEMPT {nodeExecution.attempt} · {nodeExecution.durationMs ?? 0}MS</div>
-          <div className="execution-inspector__section"><strong>Redacted input</strong><ResultView value={nodeExecution.input} /></div>
-          <div className="execution-inspector__section"><strong>{nodeExecution.error ? "Normalized error" : "Output"}</strong><ResultView value={nodeExecution.error ?? nodeExecution.output} /></div>
-          {nodeExecution.status === "WAITING" && approvalId && (
-            <div className="approval-actions">
-              <button className="run-button" type="button" onClick={() => onResolveApproval(approvalId, "approved")}>Approve &amp; resume</button>
-              <button className="ghost-button" type="button" onClick={() => onResolveApproval(approvalId, "rejected")}>Reject</button>
-            </div>
-          )}
+      </InspectorSection>
+      <InspectorSection title="Test & debug">
+        <section className="node-debug-panel">
+          <div><p className="section-label">NODE DEBUG</p><p>Runs only this node with mock providers. No live request or downstream node will run.</p></div>
+          <Button variant="secondary" className="node-debug-panel__button" disabled={!definition?.available || node.data.nodeType === "approval.request" || isDebugging} title={node.data.nodeType === "approval.request" ? "Approval nodes are tested in a full workflow run." : undefined} onClick={() => onDebugNode(node)}><Play size={14} />{isDebugging ? "Running node…" : "Run node"}</Button>
         </section>
+        <section className="input-preview">
+          <div className="section-label">INPUT PREVIEW</div>
+          <pre>{JSON.stringify(node.data.config, null, 2)}</pre>
+        </section>
+      </InspectorSection>
+      <InspectorSection title="Advanced">
+        <JsonConfigEditor config={node.data.config} onApply={(config) => updateNodeData(node.id, { config })} />
+        <ExpressionSuggestions suggestions={suggestions} />
+      </InspectorSection>
+      {nodeExecution && (
+        <InspectorSection title="Last execution">
+          <section className="input-preview">
+            <div className="section-label">{nodeExecution.status} · ATTEMPT {nodeExecution.attempt} · {nodeExecution.durationMs ?? 0}MS</div>
+            <div className="execution-inspector__section"><strong>Redacted input</strong><ResultView value={nodeExecution.input} /></div>
+            <div className="execution-inspector__section"><strong>{nodeExecution.error ? "Normalized error" : "Output"}</strong><ResultView value={nodeExecution.error ?? nodeExecution.output} /></div>
+            {nodeExecution.status === "WAITING" && approvalId && (
+              <div className="approval-actions">
+                <button className="run-button" type="button" onClick={() => onResolveApproval(approvalId, "approved")}>Approve &amp; resume</button>
+                <button className="ghost-button" type="button" onClick={() => onResolveApproval(approvalId, "rejected")}>Reject</button>
+              </div>
+            )}
+          </section>
+        </InspectorSection>
       )}
     </aside>
   );

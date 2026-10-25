@@ -50,7 +50,7 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
     const style = getComputedStyle(element, "::before");
     return { content: style.content, inset: style.inset };
   });
-  expect(handleHitArea).toEqual({ content: '""', inset: "-10px" });
+  expect(handleHitArea).toEqual({ content: '""', inset: "-13px" });
   const sourceHandle = page.locator(".workflow-node__handle--source").first();
   const sourceBox = await sourceHandle.boundingBox();
   expect(sourceBox).not.toBeNull();
@@ -73,6 +73,10 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
 
   await expect(page.getByRole("heading", { name: "Add a step" })).toBeVisible();
   await page.locator(".react-flow__node").filter({ hasText: "Steam account snapshot" }).click();
+  await expect(page.getByRole("region", { name: "Setup" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Configuration" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Test & debug" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Advanced" })).toBeVisible();
   const configCheckbox = page.locator('.checkbox-field input[type="checkbox"]').first();
   await expect(configCheckbox).toBeVisible();
   await expect(configCheckbox).toHaveCSS("width", "12px");
@@ -130,9 +134,9 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
 
   await page.getByRole("button", { name: "Run node" }).click();
   await expect(page.getByText("Mock node debug succeeded — only Steam account snapshot ran.")).toBeVisible();
-  await expect(page.getByText(/LAST EXECUTION · SUCCEEDED/)).toBeVisible();
+  await expect(page.getByRole("region", { name: "Last execution" }).getByText(/SUCCEEDED · ATTEMPT/)).toBeVisible();
   await page.locator(".react-flow__node").filter({ hasText: "Google Chat message" }).first().click();
-  await expect(page.getByText(/LAST EXECUTION · SKIPPED/)).toBeVisible();
+  await expect(page.getByRole("region", { name: "Last execution" }).getByText(/SKIPPED · ATTEMPT/)).toBeVisible();
 
   await page.getByRole("button", { name: "Save draft" }).click();
   await expect(page.getByText("Draft saved to your workspace.")).toBeVisible();
