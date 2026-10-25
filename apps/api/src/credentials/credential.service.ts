@@ -1,5 +1,5 @@
-import { CredentialProvider } from "@prisma/client";
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { CredentialProvider, ExecutionStatus } from "@prisma/client";
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../database/prisma.service";
 import { WorkspaceService } from "../workspaces/workspace.service";
 import { CredentialVaultService } from "./credential-vault.service";
@@ -29,11 +29,182 @@ export class CredentialService {
     await this.workspaces.requireOwner(workspaceId, userId);
     if (!providers.has(input.provider as CredentialProvider)) throw new BadRequestException({ code: "CREDENTIAL_PROVIDER_NOT_FOUND", message: "Credential provider is not supported." });
     if (!input.data || typeof input.data !== "object" || Array.isArray(input.data)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Credential data must be a JSON object." });
-    const credential = await this.prisma.credential.create({
-      data: { workspaceId, provider: input.provider as CredentialProvider, label: input.label, encryptedData: this.vault.encrypt(input.data as Record<string, unknown>) },
+
+    const trimmedLabel = input.label.trim();
+    const existing = await this.prisma.credential.findUnique({
+      where: { workspaceId_provider_label: { workspaceId, provider: input.provider as CredentialProvider, label: trimmedLabel } },
     });
-    await this.prisma.auditLog.create({ data: { workspaceId, actorId: userId, action: "credential.created", targetType: "credential", targetId: credential.id, metadata: { provider: credential.provider, label: credential.label } } });
-    return this.summary(credential);
+    if (existing) {
+      throw new ConflictException({
+        code: "CREDENTIAL_LABEL_CONFLICT",
+        message: `A ${input.provider} credential named "${trimmedLabel}" already exists in this workspace.`,
+      });
+    }
+
+    try {
+      const credential = await this.prisma.credential.create({
+        data: { workspaceId, provider: input.provider as CredentialProvider, label: trimmedLabel, encryptedData: this.vault.encrypt(input.data as Record<string, unknown>) },
+      });
+      await this.prisma.auditLog.create({ data: { workspaceId, actorId: userId, action: "credential.created", targetType: "credential", targetId: credential.id, metadata: { provider: credential.provider, label: credential.label } } });
+      return this.summary(credential);
+    } catch (error: any) {
+      if (error?.code === "P2002") {
+        throw new ConflictException({
+          code: "CREDENTIAL_LABEL_CONFLICT",
+          message: `A ${input.provider} credential named "${trimmedLabel}" already exists in this workspace.`,
+        });
+      }
+      throw error;
+    }
+  }
+
+  async update(workspaceId: string, credentialId: string, userId: string, input: { label?: string; data?: unknown }) {
+    await this.workspaces.requireOwner(workspaceId, userId);
+    const credential = await this.prisma.credential.findFirst({ where: { id: credentialId, workspaceId } });
+    if (!credential) throw new NotFoundException({ code: "CREDENTIAL_NOT_FOUND", message: "A matching credential was not found in this workspace." });
+
+    if (input.label === undefined && input.data === undefined) {
+      throw new BadRequestException({ code: "INVALID_INPUT", message: "Provide a label or secret data to update." });
+    }
+
+    let nextLabel: string | undefined;
+    if (input.label !== undefined) {
+      nextLabel = input.label.trim();
+      if (nextLabel.length === 0 || nextLabel.length > 80) {
+        throw new BadRequestException({ code: "INVALID_INPUT", message: "Credential label must be between 1 and 80 characters." });
+      }
+      if (nextLabel !== credential.label) {
+        const conflicting = await this.prisma.credential.findUnique({
+          where: { workspaceId_provider_label: { workspaceId, provider: credential.provider, label: nextLabel } },
+        });
+        if (conflicting && conflicting.id !== credential.id) {
+          throw new ConflictException({
+            code: "CREDENTIAL_LABEL_CONFLICT",
+            message: `A ${credential.provider} credential named "${nextLabel}" already exists in this workspace.`,
+          });
+        }
+      }
+    }
+
+    let nextEncryptedData: string | undefined;
+    if (input.data !== undefined) {
+      if (!input.data || typeof input.data !== "object" || Array.isArray(input.data)) {
+        throw new BadRequestException({ code: "INVALID_INPUT", message: "Credential data must be a JSON object." });
+      }
+      nextEncryptedData = this.vault.encrypt(input.data as Record<string, unknown>);
+    }
+
+    try {
+      const updated = await this.prisma.credential.update({
+        where: { id: credential.id },
+        data: {
+          ...(nextLabel !== undefined ? { label: nextLabel } : {}),
+          ...(nextEncryptedData !== undefined ? { encryptedData: nextEncryptedData } : {}),
+        },
+      });
+
+      const isRenamed = nextLabel !== undefined && nextLabel !== credential.label;
+      const isRotated = nextEncryptedData !== undefined;
+      const action = isRotated && isRenamed ? "credential.updated" : isRotated ? "credential.rotated" : "credential.renamed";
+
+      await this.prisma.auditLog.create({
+        data: {
+          workspaceId,
+          actorId: userId,
+          action,
+          targetType: "credential",
+          targetId: credential.id,
+          metadata: {
+            provider: credential.provider,
+            label: updated.label,
+            ...(isRotated && isRenamed ? { rotated: true, renamed: true } : {}),
+          },
+        },
+      });
+
+      return this.summary(updated);
+    } catch (error: any) {
+      if (error?.code === "P2002") {
+        throw new ConflictException({
+          code: "CREDENTIAL_LABEL_CONFLICT",
+          message: `A ${credential.provider} credential named "${nextLabel}" already exists in this workspace.`,
+        });
+      }
+      throw error;
+    }
+  }
+
+  async delete(workspaceId: string, credentialId: string, userId: string) {
+    await this.workspaces.requireOwner(workspaceId, userId);
+    const credential = await this.prisma.credential.findFirst({ where: { id: credentialId, workspaceId } });
+    if (!credential) throw new NotFoundException({ code: "CREDENTIAL_NOT_FOUND", message: "A matching credential was not found in this workspace." });
+
+    const workflows = await this.prisma.workflow.findMany({
+      where: { workspaceId },
+      include: {
+        draftVersion: { select: { id: true, graph: true } },
+        publishedVersion: { select: { id: true, graph: true } },
+      },
+    });
+
+    const blockingWorkflows: Array<{ id: string; name: string }> = [];
+    for (const wf of workflows) {
+      const draftUses = wf.draftVersion && graphUsesCredential(wf.draftVersion.graph, credentialId);
+      const pubUses = wf.publishedVersion && graphUsesCredential(wf.publishedVersion.graph, credentialId);
+      if (draftUses || pubUses) {
+        blockingWorkflows.push({ id: wf.id, name: wf.name });
+      }
+    }
+
+    const activeExecutions = await this.prisma.execution.findMany({
+      where: {
+        status: { in: [ExecutionStatus.QUEUED, ExecutionStatus.RUNNING, ExecutionStatus.WAITING_APPROVAL] },
+        workflowVersion: {
+          workflow: { workspaceId },
+        },
+      },
+      include: {
+        workflowVersion: {
+          select: {
+            id: true,
+            graph: true,
+            workflow: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+
+    const blockingExecutions: Array<{ id: string }> = [];
+    for (const exec of activeExecutions) {
+      if (graphUsesCredential(exec.workflowVersion.graph, credentialId)) {
+        blockingExecutions.push({ id: exec.id });
+      }
+    }
+
+    if (blockingWorkflows.length > 0 || blockingExecutions.length > 0) {
+      throw new ConflictException({
+        code: "CREDENTIAL_IN_USE",
+        message: "Credential is in use and cannot be deleted.",
+        details: {
+          workflows: blockingWorkflows,
+          executions: blockingExecutions,
+        },
+      });
+    }
+
+    await this.prisma.credential.delete({ where: { id: credential.id } });
+    await this.prisma.auditLog.create({
+      data: {
+        workspaceId,
+        actorId: userId,
+        action: "credential.deleted",
+        targetType: "credential",
+        targetId: credential.id,
+        metadata: { provider: credential.provider, label: credential.label },
+      },
+    });
+
+    return { success: true, id: credential.id };
   }
 
   async readForExecution(credentialId: string, workspaceId: string, provider: CredentialProvider) {
@@ -103,4 +274,20 @@ function requiredEnv(name: "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET") {
   const value = process.env[name];
   if (!value) throw new BadRequestException({ code: "GOOGLE_OAUTH_NOT_CONFIGURED", message: `${name} is not configured.` });
   return value;
+}
+
+function graphUsesCredential(graphValue: unknown, credentialId: string): boolean {
+  if (!graphValue || typeof graphValue !== "object") return false;
+  const nodes = (graphValue as Record<string, unknown>).nodes;
+  if (!Array.isArray(nodes)) return false;
+  for (const node of nodes) {
+    if (!node || typeof node !== "object") continue;
+    const config = (node as Record<string, unknown>).config ?? ((node as Record<string, unknown>).data as Record<string, unknown> | undefined)?.config;
+    if (config && typeof config === "object") {
+      const configRecord = config as Record<string, unknown>;
+      if (configRecord.credentialId === credentialId) return true;
+      if (configRecord.notificationCredentialId === credentialId) return true;
+    }
+  }
+  return false;
 }
