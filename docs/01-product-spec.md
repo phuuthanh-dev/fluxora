@@ -38,7 +38,7 @@ The Steam profile is public. The Steam node returns every field available throug
 | Action | Steam Account Snapshot | Profile, current game, owned/recent games, playtime, and optional per-game achievements. |
 | Action | Google Chat Webhook | Send formatted daily report into one space. |
 | Action | Discord Webhook | Send message into a Discord channel via incoming webhook. |
-| Action | Telegram Message | Send message via Telegram Bot API with bot token and chat ID. |
+| Action | Telegram Message | Send message via Telegram Bot API with bot token and a typed destination: DM, group, supergroup, or channel. Supergroups may optionally target a topic/thread. |
 | Action | Google Drive | List/search file metadata and upload/download text assets. |
 | Action | Google Sheets | Read ranges, append rows, update ranges. |
 | Action | HTTP Request | Generic REST request with structured response. |
@@ -116,6 +116,7 @@ Action nodes support timeout, retry with exponential backoff, and an error edge.
 - All credential values are encrypted at rest and never returned to the client after save.
 - Credential lifecycle: Workspace owners can rename credentials or rotate secret payloads while preserving their immutable ID, provider, and node bindings. Existing secrets cannot be exported or viewed; rotation requires a full replacement payload. Google OAuth credentials direct owners to reconnect via OAuth.
 - Safe deletion & conflict handling: Duplicate `(workspaceId, provider, label)` combinations are rejected with a stable conflict error. Deletion is blocked with a stable `CREDENTIAL_IN_USE` error whenever the credential is referenced by a workflow's current draft or published version, or by an active (queued, running, waiting) execution. Historic versions without active executions do not permanently prevent cleanup.
+- Telegram bot credentials contain only the encrypted bot token for new connections. The node stores the destination type and chat ID; legacy credential-level chat IDs remain a backwards-compatible fallback. DM IDs are positive numeric user IDs, group/supergroup IDs are negative numeric IDs, and channels may use a negative numeric ID or a public `@username`.
 
 Google OAuth must use incremental, least-privilege scopes. Google Drive and Sheets share a Google credential when appropriate.
 

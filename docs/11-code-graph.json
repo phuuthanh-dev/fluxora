@@ -489,6 +489,7 @@
         "apps/api/src/notifications/http-webhook.adapter.ts",
         "apps/api/src/notifications/notification-contracts.ts",
         "apps/api/src/notifications/notification-dispatcher.ts",
+        "apps/api/src/notifications/telegram-destination.ts",
         "apps/api/src/notifications/telegram.adapter.ts"
       ],
       "externalImports": []
@@ -509,6 +510,14 @@
         "apps/api/src/notifications/http-webhook.adapter.ts",
         "apps/api/src/notifications/notification-contracts.ts",
         "apps/api/src/notifications/telegram.adapter.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/notifications/telegram-destination.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts"
       ],
       "externalImports": []
     },
@@ -1332,6 +1341,10 @@
     },
     {
       "from": "apps/api/src/notifications/index.ts",
+      "to": "apps/api/src/notifications/telegram-destination.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/index.ts",
       "to": "apps/api/src/notifications/telegram.adapter.ts"
     },
     {
@@ -1357,6 +1370,10 @@
     {
       "from": "apps/api/src/notifications/notification-dispatcher.ts",
       "to": "apps/api/src/notifications/telegram.adapter.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/telegram-destination.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
     },
     {
       "from": "apps/api/src/notifications/telegram.adapter.ts",

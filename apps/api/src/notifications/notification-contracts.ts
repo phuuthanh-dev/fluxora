@@ -20,6 +20,7 @@ export type NotificationPayload = {
   parseMode?: string;
   approvalUrl?: string;
   chatId?: string | number;
+  messageThreadId?: string | number;
 };
 
 export type NormalizedDeliveryResult = {

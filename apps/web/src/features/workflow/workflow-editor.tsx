@@ -441,7 +441,38 @@ function NodeInspector({ node, execution, credentials, onResolveApproval }: { no
       {node.data.nodeType === "action.telegram.message" && (
         <>
           <CredentialField label="Telegram credential" value={readConfigText(node.data.config, "credentialId")} providers={["TELEGRAM_BOT"]} credentials={credentials} onChange={(value) => updateConfig("credentialId", value)} />
-          <ConfigField label="Chat ID (destination; legacy credential chatId is deprecated)" value={readConfigText(node.data.config, "chatId")} onChange={(value) => updateConfig("chatId", value)} />
+          {(() => {
+            const destinationType = readConfigText(node.data.config, "destinationType") || "dm";
+            const destinationLabels: Record<string, string> = {
+              dm: "Direct message (DM)",
+              group: "Group",
+              supergroup: "Supergroup",
+              channel: "Channel",
+            };
+            const destinationHints: Record<string, string> = {
+              dm: "Use the positive numeric chat ID from a private conversation where the user has started the bot.",
+              group: "Use the negative numeric chat ID of the group.",
+              supergroup: "Use the migrated -100… chat ID. The old group ID no longer works after migration.",
+              channel: "Use a negative numeric ID or a public @channel username; the bot must be allowed to post.",
+            };
+            const destinationLabel = destinationLabels[destinationType] ?? destinationLabels.dm;
+            return (
+              <>
+                <label className="config-field">
+                  <span>Destination type</span>
+                  <select aria-label="Telegram destination type" value={destinationType} onChange={(event) => updateConfig("destinationType", event.target.value)}>
+                    <option value="dm">Direct message (DM)</option>
+                    <option value="group">Group</option>
+                    <option value="supergroup">Supergroup</option>
+                    <option value="channel">Channel</option>
+                  </select>
+                  <small>{destinationHints[destinationType] ?? destinationHints.dm}</small>
+                </label>
+                <ConfigField label={`${destinationLabel} chat ID (legacy credential chatId is deprecated)`} value={readConfigText(node.data.config, "chatId")} onChange={(value) => updateConfig("chatId", value)} />
+                {destinationType === "supergroup" && <ConfigField label="Topic / thread ID (optional)" value={readConfigText(node.data.config, "messageThreadId")} onChange={(value) => updateConfig("messageThreadId", value)} />}
+              </>
+            );
+          })()}
           <ConfigField label="Message text" value={readConfigText(node.data.config, "text") || readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("text", value)} multiline />
           <ConfigField label="Parse mode (optional: Markdown, HTML, MarkdownV2)" value={readConfigText(node.data.config, "parseMode")} onChange={(value) => updateConfig("parseMode", value)} />
         </>

@@ -71,6 +71,11 @@ test("configure Discord and Telegram notification nodes with encrypted credentia
   // Configure Telegram node in inspector
   await expect(page.getByLabel("Telegram credential")).toBeVisible();
   await page.getByLabel("Telegram credential").selectOption({ label: "Telegram Ops Bot" });
+  await expect(page.getByLabel("Telegram destination type")).toHaveValue("dm");
+  await page.getByLabel("Telegram destination type").selectOption("supergroup");
+  await expect(page.getByLabel(/Supergroup chat ID/)).toBeVisible();
+  await expect(page.getByLabel("Topic / thread ID (optional)")).toBeVisible();
+  await page.getByLabel(/Supergroup chat ID/).fill("-1004413027775");
   await page.getByLabel("Message text").fill("Status update: All systems operational");
 
   // Save the draft with added nodes

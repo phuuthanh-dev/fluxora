@@ -18,7 +18,7 @@ type NodeResult = { status: "succeeded" | "failed" | "waiting"; output: Record<s
 const executionLeaseMs = 5 * 60 * 1000;
 
 import { NodeFailure, nodeFailureFromExecutionError, nodeFailureFromOutboundPolicy } from "./node-failure";
-import { defaultNotificationDispatcher, validateDiscordWebhookUrl, sanitizeTelegramFailure, type DiscordAllowedMentions } from "../notifications";
+import { defaultNotificationDispatcher, readTelegramDestinationType, validateTelegramDestination, validateDiscordWebhookUrl, sanitizeTelegramFailure, type DiscordAllowedMentions } from "../notifications";
 
 export { NodeFailure, nodeFailureFromOutboundPolicy, validateDiscordWebhookUrl, sanitizeTelegramFailure };
 
@@ -702,18 +702,24 @@ export async function executeTelegramMessage(config: Record<string, unknown>, mo
   const text = typeof config.text === "string" ? config.text : (typeof config.message === "string" ? config.message : "");
   const parseMode = typeof config.parseMode === "string" && config.parseMode.trim() ? config.parseMode.trim() : undefined;
   const configChatId = typeof config.chatId === "string" && config.chatId.trim() ? config.chatId.trim() : (typeof config.chatId === "number" ? String(config.chatId) : undefined);
+  const destinationType = readTelegramDestinationType(config.destinationType);
+  const messageThreadId = typeof config.messageThreadId === "string" && config.messageThreadId.trim()
+    ? config.messageThreadId.trim()
+    : (typeof config.messageThreadId === "number" ? String(config.messageThreadId) : undefined);
 
   if (mode === "live") {
     if (!text.trim()) {
       throw new NodeFailure("INVALID_CONFIGURATION", "Telegram message text is required.", false);
     }
     const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.TELEGRAM_BOT);
+    validateTelegramDestination(destinationType, configChatId, messageThreadId);
     const output = await defaultNotificationDispatcher.dispatch({
       provider: "telegram",
       text,
       chatId: configChatId,
       destination: configChatId,
       parseMode,
+      messageThreadId,
     }, credential, mode);
     return { status: "succeeded", output, route: "success" };
   }
@@ -724,6 +730,7 @@ export async function executeTelegramMessage(config: Record<string, unknown>, mo
     chatId: configChatId,
     destination: configChatId,
     parseMode,
+    messageThreadId,
   }, undefined, mode);
   return { status: "succeeded", output, route: "success" };
 }

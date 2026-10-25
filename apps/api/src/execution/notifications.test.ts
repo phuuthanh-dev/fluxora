@@ -364,6 +364,50 @@ test("Telegram message: overrides chatId in node config if provided", async () =
   }
 });
 
+test("Telegram message: validates destination type and sends a supergroup topic message", async () => {
+  const credentials = createMockCredentials({
+    "tg-cred": {
+      provider: CredentialProvider.TELEGRAM_BOT,
+      data: { botToken: "123456:SECRET-TOKEN" },
+    },
+  });
+  const originalFetch = globalThis.fetch;
+  let sentBody: Record<string, unknown> = {};
+  globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+    sentBody = JSON.parse(String(init?.body ?? "{}"));
+    return new Response(JSON.stringify({ ok: true, result: { message_id: 43 } }), { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    const result = await executeTelegramMessage({
+      credentialId: "tg-cred",
+      destinationType: "supergroup",
+      chatId: "-1004413027775",
+      messageThreadId: "42",
+      text: "Topic update",
+    }, "live", "workspace-1", credentials);
+    assert.equal(result.status, "succeeded");
+    assert.equal(sentBody.chat_id, "-1004413027775");
+    assert.equal(sentBody.message_thread_id, 42);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Telegram message: rejects a DM configuration with a group ID", async () => {
+  const credentials = createMockCredentials({
+    "tg-cred": {
+      provider: CredentialProvider.TELEGRAM_BOT,
+      data: { botToken: "123456:SECRET-TOKEN" },
+    },
+  });
+
+  await assert.rejects(
+    () => executeTelegramMessage({ credentialId: "tg-cred", destinationType: "dm", chatId: "-1004413027775", text: "Invalid target" }, "live", "workspace-1", credentials),
+    { message: "Telegram DM chat ID must be a positive numeric user ID." },
+  );
+});
+
 test("Telegram message: redacts bot token in error messages", async () => {
   const credentials = createMockCredentials({
     "tg-cred": {
