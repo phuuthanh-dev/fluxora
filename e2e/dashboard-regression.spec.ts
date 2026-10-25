@@ -315,10 +315,12 @@ test("workflow dashboard can search, filter, sort, and clear workflow controls",
   await page.goto("/dashboard");
 
   const search = page.getByRole("searchbox", { name: "Search workflows" });
+  await expect(page.getByRole("group", { name: "Workflow controls" })).toContainText("All statuses");
   await expect(search).toBeVisible();
   await expect(page.getByText("Showing 2 of 2 workflows", { exact: true })).toBeVisible();
 
   await search.fill("Alpha");
+  await expect(page.getByRole("group", { name: "Workflow controls" })).toContainText("Clear");
   await expect(page.getByRole("heading", { name: "Alpha audit" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Steam daily report" })).toHaveCount(0);
   await expect(page.getByText("Showing 1 of 2 workflows", { exact: true })).toBeVisible();

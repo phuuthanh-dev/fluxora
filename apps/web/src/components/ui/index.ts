@@ -8,3 +8,5 @@ export { EmptyState } from "./empty-state";
 export { PageHeader } from "./page-header";
 export { Progress } from "./progress";
 export { Skeleton } from "./skeleton";
+export { SectionHeader } from "./section-header";
+export { Toolbar } from "./toolbar";

@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, CircleAlert, History, LoaderCircle, RefreshCw } 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "../api/api-client";
-import { Button, EmptyState, IconButton, PageHeader, Progress, Skeleton, Status } from "../../components/ui";
+import { Button, EmptyState, IconButton, PageHeader, Progress, SectionHeader, Skeleton, Status, Toolbar } from "../../components/ui";
 import { AppShellHeader } from "../app-shell/app-shell-header";
 
 type WorkspaceSummary = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
@@ -138,14 +138,14 @@ export function ExecutionsDashboard() {
         {!isLoading && !error && !workspaceId ? <EmptyState icon={<History size={24} />} title="Create a workspace first" description="Execution history is scoped to the workspace that owns the workflow." action={<Button variant="primary" onClick={() => router.push("/dashboard")}>Go to dashboard</Button>} /> : null}
         {!isLoading && !error && workspaceId && executions.length === 0 ? <EmptyState icon={<History size={24} />} title="No runs yet" description="Run a mock test from an editor, or activate a workflow for incoming triggers to build execution history." action={<Button variant="primary" onClick={() => router.push("/dashboard")}>Open workflows</Button>} /> : null}
         {!isLoading && !error && executions.length > 0 ? <section className="executions-list-panel" aria-labelledby="execution-list-heading">
-          <div className="executions-list-panel__heading"><div><p className="section-label">RUNS</p><h2 id="execution-list-heading">Recent runs</h2></div><span>{visibleExecutions.length} of {executions.length} shown</span></div>
-          <div className="dashboard-execution-filters executions-filters" role="group" aria-label="Filter execution history">
+          <SectionHeader className="executions-list-panel__heading" eyebrow="RUNS" id="execution-list-heading" title="Recent runs" meta={`${visibleExecutions.length} of ${executions.length} shown`} />
+          <Toolbar className="dashboard-execution-filters executions-filters" label="Filter execution history">
             <button type="button" className={filter === "ALL" ? "is-active" : undefined} aria-pressed={filter === "ALL"} onClick={() => setFilter("ALL")}>All ({executions.length})</button>
             <button type="button" className={filter === "ATTENTION" ? "is-active" : undefined} aria-pressed={filter === "ATTENTION"} onClick={() => setFilter("ATTENTION")}>Needs attention ({counts.attention})</button>
             <button type="button" className={filter === "IN_PROGRESS" ? "is-active" : undefined} aria-pressed={filter === "IN_PROGRESS"} onClick={() => setFilter("IN_PROGRESS")}>In progress ({counts.inProgress})</button>
             <button type="button" className={filter === "FAILED" ? "is-active" : undefined} aria-pressed={filter === "FAILED"} onClick={() => setFilter("FAILED")}>Failed ({counts.failed})</button>
             <button type="button" className={filter === "SUCCEEDED" ? "is-active" : undefined} aria-pressed={filter === "SUCCEEDED"} onClick={() => setFilter("SUCCEEDED")}>Succeeded ({counts.succeeded})</button>
-          </div>
+          </Toolbar>
           {visibleExecutions.length === 0 ? <EmptyState className="executions-filtered-empty" icon={<History size={21} />} title="No matching runs" description="Choose another filter to see the remaining execution history." action={<Button variant="ghost" onClick={() => setFilter("ALL")}>Show all runs</Button>} /> : <div className="executions-list">{visibleExecutions.map((execution) => <article className="dashboard-execution executions-list__item" key={execution.id}>
             <span className={`execution-status execution-status--${execution.status.toLowerCase()}`}>{executionLabel(execution.status)}</span>
             <div className="dashboard-execution__detail"><strong>{execution.workflowName}</strong><span>v{execution.workflowVersion} · {execution.mode === "mock" ? "Test run" : "Live run"} · {formatExecutionTime(execution.createdAt)}</span>{execution.error ? <small>{execution.error.code}: {execution.error.message}</small> : null}</div>

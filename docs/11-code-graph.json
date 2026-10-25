@@ -816,9 +816,11 @@
         "apps/web/src/components/ui/menu.tsx",
         "apps/web/src/components/ui/page-header.tsx",
         "apps/web/src/components/ui/progress.tsx",
+        "apps/web/src/components/ui/section-header.tsx",
         "apps/web/src/components/ui/select.tsx",
         "apps/web/src/components/ui/skeleton.tsx",
-        "apps/web/src/components/ui/status.tsx"
+        "apps/web/src/components/ui/status.tsx",
+        "apps/web/src/components/ui/toolbar.tsx"
       ],
       "externalImports": []
     },
@@ -846,6 +848,14 @@
       "externalImports": []
     },
     {
+      "id": "apps/web/src/components/ui/section-header.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
       "id": "apps/web/src/components/ui/select.tsx",
       "boundary": "web",
       "internalImports": [],
@@ -863,6 +873,14 @@
     },
     {
       "id": "apps/web/src/components/ui/status.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/components/ui/toolbar.tsx",
       "boundary": "web",
       "internalImports": [],
       "externalImports": [
@@ -1766,6 +1784,10 @@
     },
     {
       "from": "apps/web/src/components/ui/index.ts",
+      "to": "apps/web/src/components/ui/section-header.tsx"
+    },
+    {
+      "from": "apps/web/src/components/ui/index.ts",
       "to": "apps/web/src/components/ui/select.tsx"
     },
     {
@@ -1775,6 +1797,10 @@
     {
       "from": "apps/web/src/components/ui/index.ts",
       "to": "apps/web/src/components/ui/status.tsx"
+    },
+    {
+      "from": "apps/web/src/components/ui/index.ts",
+      "to": "apps/web/src/components/ui/toolbar.tsx"
     },
     {
       "from": "apps/web/src/features/app-shell/app-shell-header.tsx",

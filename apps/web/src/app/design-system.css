@@ -232,6 +232,12 @@
 .ui-page-header h1 { color: var(--ink); font-size: clamp(30px, 4vw, 44px); letter-spacing: -.05em; margin: 7px 0; }
 .ui-page-header > div > p:not(.ui-kicker) { color: var(--muted); font-size: var(--text-md); line-height: 1.55; margin: 0; max-width: 620px; }
 .ui-page-header__actions { align-items: center; display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; }
+.ui-section-header { align-items: end; display: flex; gap: var(--space-4); justify-content: space-between; }
+.ui-section-header h2 { color: var(--ink); font-size: var(--text-lg); letter-spacing: -.03em; margin: 5px 0 0; }
+.ui-section-header__content > p:not(.ui-kicker) { color: var(--muted); font-size: var(--text-sm); line-height: 1.5; margin: 5px 0 0; }
+.ui-section-header__aside, .ui-section-header__actions { align-items: center; display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; }
+.ui-section-header__meta { color: var(--muted); font-size: var(--text-xs); white-space: nowrap; }
+.ui-toolbar { align-items: center; display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .ui-empty-state { align-items: center; background: var(--panel); border: 1px dashed var(--line); border-radius: var(--radius-lg); color: var(--muted); display: flex; flex-direction: column; padding: var(--space-7) var(--space-5); text-align: center; }
 .ui-empty-state__icon { color: var(--text-accent); display: inline-flex; margin-bottom: var(--space-2); }
 .ui-empty-state h2 { color: var(--ink); font-size: var(--text-md); margin: 0; }
