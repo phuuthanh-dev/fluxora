@@ -35,6 +35,11 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | Execution Center triage | Complete locally | The dashboard remains compact by default but can refresh execution history independently, recover from its own loading error, and filter current recent runs by attention, active work, failures, or successes before opening the immutable execution detail. |
 | Safe retry and trigger idempotency | Complete locally | Failed executions can create a new run only from their original pinned version and original redacted trigger payload. Mock retry remains mock; a live retry requires a second explicit confirmation and re-evaluates live credentials. Cron dispatches use a durable occurrence key and public webhooks accept an optional endpoint-scoped `Idempotency-Key`. |
 | Execution Center pagination | Complete locally | Execution history uses an owner-scoped stable cursor and a 1–50 bounded API page size. The dashboard appends further history with a dedicated loading affordance without resetting triage filters or losing already rendered runs. |
+| Dedicated Connections and Executions pages | Complete locally | Workspace-scoped `/dashboard/connections` reuses the encrypted credential manager without an editor-only close affordance; `/dashboard/executions` provides independent loading, empty, error/retry, filtering, pagination, and immutable execution inspection. Both share page, status, skeleton, and progress primitives and have focused Playwright coverage. |
+| Responsive node inspector drawer | Complete locally | At desktop widths up to 1080px, selecting a node opens a dedicated inspector drawer instead of silently hiding configuration. The drawer supports a backdrop, Escape, focus trapping, focus return, reduced motion, and a persistent Inspector trigger; Playwright covers the user flow at 1024px. |
+| Shared authenticated application shell | Complete locally | Dashboard, Connections, Executions, and Editor use one workspace-aware App Shell for product navigation, account, theme, and sign-out. The editor has a visually distinct local toolbar for workflow commands only; Playwright guards the boundary. |
+| Persisted user avatar identity | Complete locally | A database-backed avatar palette and initials trigger replace the generic Account text; file/image upload remains deliberately out of scope until asset storage and profile settings are introduced. |
+| Shared section and toolbar primitives | Complete locally | Reusable `SectionHeader` and `Toolbar` now power workflow controls and execution filters, reducing page-specific hierarchy/action markup while preserving existing browser behavior. |
 
 ## Milestone 1 — Product foundation
 
@@ -54,9 +59,9 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 
 ## Next UI/UX roadmap
 
-1. **Editor interaction polish:** make node handles easier to target without enlarging the node, refine selection/connection feedback, and group editor actions into predictable menus while preserving keyboard and screen-reader access.
-2. **Production readiness surface:** complete safe live-provider readiness states, credential guidance, and publish/Go Live guardrails without making external calls until the user supplies and confirms provider credentials.
-3. **Execution details:** let users open a run from the Execution Center into a focused execution detail view with node-level input/output, retry/error-branch information, and an explicit mock/live indicator.
+1. **Accessibility coverage:** complete keyboard/zoom/reduced-motion regression across the command bar, canvas, dialogs, and Node Library; keep focus behavior explicit whenever an overlay is added.
+2. **Credential lifecycle clarity:** add provider compatibility labels, a safe rename/rotate/delete flow to the full Connections surface, and clear “used by” references before a destructive action.
+3. **Execution detail evolution:** extend the immutable execution view with an event timeline, node-level retry/error-branch explanation, and shareable/redacted diagnostic snapshots.
 
 **Exit criterion:** a logged-in owner can create a workspace, create a workflow, save a draft graph, publish a frozen version, reload the page, and see the saved workflow.
 

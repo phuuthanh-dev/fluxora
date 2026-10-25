@@ -144,11 +144,16 @@ selectors. The current `.ui-*` recipes are reusable CSS contracts, not a
 typed React component library yet.
 
 The typed primitive set is now available: `Button`, `IconButton`, `Field`,
-`Select`, `Menu`, `Dialog`, and `Status`. They consume the same tokens and are
-used by auth, dashboard, editor overlays, editor actions, and credential
-surfaces. A feature may keep a legacy selector temporarily for visual
-compatibility, but new buttons and form controls must use a shared primitive
-or document why they cannot.
+`Select`, `Menu`, `Dialog`, `Status`, `PageHeader`, `EmptyState`, `Skeleton`,
+and `Progress`. They consume the same tokens and are used by auth, dashboard,
+editor overlays, editor actions, credential surfaces, and execution views. A
+feature may keep a legacy selector temporarily for visual compatibility, but
+new buttons and form controls must use a shared primitive or document why they
+cannot.
+
+All shared action and form primitives expose the same lime `:focus-visible`
+outline. The outline is intentionally distinct from hover and selected states
+so keyboard users can track focus in either theme.
 
 Legacy class names such as `.run-button`, `.ghost-button`, and
 `.dashboard-primary-button` are compatibility hooks during migration. They

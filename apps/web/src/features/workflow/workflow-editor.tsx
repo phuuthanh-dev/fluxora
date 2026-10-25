@@ -29,6 +29,7 @@ import {
   Sparkles,
   Search,
   Upload,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
@@ -55,8 +56,8 @@ import type { CredentialProvider, CredentialSummary } from "../credentials/crede
 import { buildExpressionSuggestions } from "./expression-suggestions";
 import { manualTriggerTestData } from "./test-data";
 import { NodeIcon } from "./node-icon";
-import { ThemeToggle } from "../theme/theme-toggle";
 import { Button, Dialog, Field, IconButton, Menu, Select, Status } from "../../components/ui";
+import { AppShellHeader } from "../app-shell/app-shell-header";
 
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNode };
 
@@ -88,6 +89,20 @@ function providerLabel(provider: CredentialProvider) {
 
 function reasonLabel(reason: LiveReadinessRequirement["reason"]) {
   return reason === "MISSING_CREDENTIAL" ? "Select a credential in the node inspector." : reason === "CREDENTIAL_NOT_FOUND" ? "The selected credential no longer exists." : "The selected credential belongs to another provider.";
+}
+
+function useNarrowEditorLayout() {
+  const [isNarrow, setIsNarrow] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 1080px)");
+    const update = () => setIsNarrow(mediaQuery.matches);
+    update();
+    mediaQuery.addEventListener("change", update);
+    return () => mediaQuery.removeEventListener("change", update);
+  }, []);
+
+  return isNarrow;
 }
 
 function readFirstRow(config: Record<string, unknown>) {
@@ -132,6 +147,15 @@ function CredentialField({ label, value, providers, credentials, onChange, optio
       </Select>
       {compatibleCredentials.length === 0 && <small>No compatible connection yet. Open Manage → Credentials to add one.</small>}
     </Field>
+  );
+}
+
+function InspectorSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="inspector-section" aria-label={title}>
+      <p className="inspector-section__title">{title}</p>
+      <div className="inspector-section__content">{children}</div>
+    </section>
   );
 }
 
@@ -392,12 +416,49 @@ function WorkflowLibraryPanel({ initialWorkspaces, activeWorkflowId, activeWorks
   return <section className="workflow-library" role="dialog" aria-modal="false" aria-label="Workflow library"><div className="credential-panel__heading"><div><p className="section-label">WORKSPACE LIBRARY</p><h2>Workflows</h2></div><button className="icon-button" type="button" aria-label="Close workflow library" onClick={onClose}>×</button></div><label className="workflow-library__field"><span>Workspace</span><select value={workspaceId} onChange={(event) => switchWorkspace(event.target.value)}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</select></label><div className="workflow-library__create"><input value={newWorkspaceName} onChange={(event) => setNewWorkspaceName(event.target.value)} placeholder="New workspace name" /><button className="ghost-button" type="button" onClick={() => void createWorkspace()} disabled={isSaving || !newWorkspaceName.trim()}>Create workspace</button></div><div className="workflow-library__list">{workflows.map((candidate) => <button key={candidate.id} className={candidate.id === activeWorkflowId ? "workflow-library__item workflow-library__item--active" : "workflow-library__item"} type="button" onClick={() => onOpen(candidate)}><strong>{candidate.name}</strong><span>{candidate.published ? `Published v${candidate.published.version}` : "Draft only"}</span></button>)}</div><div className="workflow-library__new"><p className="section-label">CREATE WORKFLOW</p><input value={newWorkflowName} onChange={(event) => setNewWorkflowName(event.target.value)} aria-label="New workflow name" /><div><button className="run-button" type="button" onClick={() => void createWorkflow()} disabled={isSaving || !workspaceId || !newWorkflowName.trim()}>{isSaving && !lastCreateTemplate ? "Creating…" : "Start blank"}</button><button className="ghost-button" type="button" onClick={() => void createWorkflow("steam-daily-report")} disabled={isSaving || !workspaceId}>{isSaving && lastCreateTemplate ? "Creating…" : "Use Steam template"}</button></div>{createError && <p className="workflow-library__error" role="alert">{createError} <button type="button" className="ghost-button" onClick={() => void createWorkflow(lastCreateTemplate)}>Retry</button></p>}</div>{isLoadingWorkflows && <p className="workflow-library__notice" aria-live="polite">Loading workflows…</p>}{loadError && <p className="workflow-library__notice workflow-library__notice--error" role="alert">{loadError} <button type="button" className="ghost-button" onClick={() => void loadWorkflows(workspaceId)}>Retry</button></p>}{!isLoadingWorkflows && !loadError && <p className="workflow-library__notice">{notice}</p>}</section>;
 }
 
-function NodeInspector({ node, execution, credentials, onResolveApproval, onDebugNode, isDebugging }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null; credentials: CredentialSummary[]; onResolveApproval: (approvalId: string, decision: "approved" | "rejected") => void; onDebugNode: (node: WorkflowCanvasNode) => void; isDebugging: boolean }) {
+function NodeInspector({ node, execution, credentials, onResolveApproval, onDebugNode, isDebugging, isDrawerOpen, onCloseDrawer }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null; credentials: CredentialSummary[]; onResolveApproval: (approvalId: string, decision: "approved" | "rejected") => void; onDebugNode: (node: WorkflowCanvasNode) => void; isDebugging: boolean; isDrawerOpen: boolean; onCloseDrawer: () => void }) {
   const updateNodeData = useWorkflowEditorStore((state) => state.updateNodeData);
+  const inspectorRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!isDrawerOpen) return;
+    const frame = window.requestAnimationFrame(() => {
+      const inspector = inspectorRef.current;
+      const initialFocusTarget = inspector?.querySelector<HTMLElement>('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+      (initialFocusTarget ?? inspector)?.focus();
+    });
+    const inspector = inspectorRef.current;
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== "Tab" || !inspector) return;
+      const focusable = Array.from(inspector.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'));
+      if (focusable.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first || !last) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    inspector?.addEventListener("keydown", trapFocus);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      inspector?.removeEventListener("keydown", trapFocus);
+    };
+  }, [isDrawerOpen, node?.id]);
+
+  const drawerProps = isDrawerOpen ? { "aria-label": "Node inspector", "aria-modal": true, role: "dialog" as const, tabIndex: -1 } : {};
 
   if (!node) {
     return (
-      <aside className="inspector inspector--empty">
+      <aside id="node-inspector" ref={inspectorRef} className={`inspector inspector--empty${isDrawerOpen ? " inspector--drawer-open" : ""}`} {...drawerProps}>
+        {isDrawerOpen ? <IconButton className="inspector__close" label="Close node inspector" onClick={onCloseDrawer}><X size={16} /></IconButton> : null}
         <Layers3 size={22} />
         <h2>Configure a node</h2>
         <p>Select a node on the canvas to inspect its setup, test data, and runtime output.</p>
@@ -416,17 +477,21 @@ function NodeInspector({ node, execution, credentials, onResolveApproval, onDebu
   const suggestions = buildExpressionSuggestions(execution?.nodeExecutions.map((item) => ({ nodeId: item.nodeId, output: item.output })) ?? []);
 
   return (
-    <aside className="inspector">
+    <aside id="node-inspector" ref={inspectorRef} className={`inspector${isDrawerOpen ? " inspector--drawer-open" : ""}`} {...drawerProps}>
       <div className="inspector__heading">
+        {isDrawerOpen ? <IconButton className="inspector__close" label="Close node inspector" onClick={onCloseDrawer}><X size={16} /></IconButton> : null}
         <span className="inspector__category">{node.data.category}</span>
         <h2>{node.data.label}</h2>
         <p>{node.data.description}</p>
       </div>
-      <ConfigField
-        label="Display name"
-        value={node.data.label}
-        onChange={(label) => updateNodeData(node.id, { label })}
-      />
+      <InspectorSection title="Setup">
+        <ConfigField
+          label="Display name"
+          value={node.data.label}
+          onChange={(label) => updateNodeData(node.id, { label })}
+        />
+      </InspectorSection>
+      <InspectorSection title="Configuration">
       {node.data.nodeType === "trigger.manual" && <TestDataEditor value={node.data.config.testData} onApply={(testData) => updateConfig("testData", testData)} />}
       {node.data.nodeType === "trigger.cron" && (
         <>
@@ -553,28 +618,35 @@ function NodeInspector({ node, execution, credentials, onResolveApproval, onDebu
         <ConfigField label="Body" value={readConfigText(node.data.config, "body")} onChange={(value) => updateConfig("body", value)} multiline />
       </>}
       {definition && !definition.available && <p className="planned-note">This node is visible for roadmap clarity, but cannot run in the MVP.</p>}
-      <section className="node-debug-panel">
-        <div><p className="section-label">NODE DEBUG</p><p>Runs only this node with mock providers. No live request or downstream node will run.</p></div>
-        <Button variant="secondary" className="node-debug-panel__button" disabled={!definition?.available || node.data.nodeType === "approval.request" || isDebugging} title={node.data.nodeType === "approval.request" ? "Approval nodes are tested in a full workflow run." : undefined} onClick={() => onDebugNode(node)}><Play size={14} />{isDebugging ? "Running node…" : "Run node"}</Button>
-      </section>
-      <JsonConfigEditor config={node.data.config} onApply={(config) => updateNodeData(node.id, { config })} />
-      <ExpressionSuggestions suggestions={suggestions} />
-      <section className="input-preview">
-        <div className="section-label">INPUT PREVIEW</div>
-        <pre>{JSON.stringify(node.data.config, null, 2)}</pre>
-      </section>
-      {nodeExecution && (
-        <section className="input-preview">
-          <div className="section-label">LAST EXECUTION · {nodeExecution.status} · ATTEMPT {nodeExecution.attempt} · {nodeExecution.durationMs ?? 0}MS</div>
-          <div className="execution-inspector__section"><strong>Redacted input</strong><ResultView value={nodeExecution.input} /></div>
-          <div className="execution-inspector__section"><strong>{nodeExecution.error ? "Normalized error" : "Output"}</strong><ResultView value={nodeExecution.error ?? nodeExecution.output} /></div>
-          {nodeExecution.status === "WAITING" && approvalId && (
-            <div className="approval-actions">
-              <button className="run-button" type="button" onClick={() => onResolveApproval(approvalId, "approved")}>Approve &amp; resume</button>
-              <button className="ghost-button" type="button" onClick={() => onResolveApproval(approvalId, "rejected")}>Reject</button>
-            </div>
-          )}
+      </InspectorSection>
+      <InspectorSection title="Test & debug">
+        <section className="node-debug-panel">
+          <div><p className="section-label">NODE DEBUG</p><p>Runs only this node with mock providers. No live request or downstream node will run.</p></div>
+          <Button variant="secondary" className="node-debug-panel__button" disabled={!definition?.available || node.data.nodeType === "approval.request" || isDebugging} title={node.data.nodeType === "approval.request" ? "Approval nodes are tested in a full workflow run." : undefined} onClick={() => onDebugNode(node)}><Play size={14} />{isDebugging ? "Running node…" : "Run node"}</Button>
         </section>
+        <section className="input-preview">
+          <div className="section-label">INPUT PREVIEW</div>
+          <pre>{JSON.stringify(node.data.config, null, 2)}</pre>
+        </section>
+      </InspectorSection>
+      <InspectorSection title="Advanced">
+        <JsonConfigEditor config={node.data.config} onApply={(config) => updateNodeData(node.id, { config })} />
+        <ExpressionSuggestions suggestions={suggestions} />
+      </InspectorSection>
+      {nodeExecution && (
+        <InspectorSection title="Last execution">
+          <section className="input-preview">
+            <div className="section-label">{nodeExecution.status} · ATTEMPT {nodeExecution.attempt} · {nodeExecution.durationMs ?? 0}MS</div>
+            <div className="execution-inspector__section"><strong>Redacted input</strong><ResultView value={nodeExecution.input} /></div>
+            <div className="execution-inspector__section"><strong>{nodeExecution.error ? "Normalized error" : "Output"}</strong><ResultView value={nodeExecution.error ?? nodeExecution.output} /></div>
+            {nodeExecution.status === "WAITING" && approvalId && (
+              <div className="approval-actions">
+                <button className="run-button" type="button" onClick={() => onResolveApproval(approvalId, "approved")}>Approve &amp; resume</button>
+                <button className="ghost-button" type="button" onClick={() => onResolveApproval(approvalId, "rejected")}>Reject</button>
+              </div>
+            )}
+          </section>
+        </InspectorSection>
       )}
     </aside>
   );
@@ -586,8 +658,10 @@ export function WorkflowEditor() {
   const flowRef = useRef<ReactFlowInstance<WorkflowCanvasNode, WorkflowCanvasEdge> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const paletteSearchRef = useRef<HTMLInputElement>(null);
+  const inspectorTriggerRef = useRef<HTMLButtonElement>(null);
   const [notice, setNotice] = useState("Loading your workflow…");
   const [paletteOpen, setPaletteOpen] = useState(true);
+  const [inspectorDrawerOpen, setInspectorDrawerOpen] = useState(false);
   const [workflow, setWorkflow] = useState<ApiWorkflow | null>(null);
   const [execution, setExecution] = useState<ApiExecution | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -642,6 +716,13 @@ export function WorkflowEditor() {
   );
   const selectedNode = nodes.find((node) => node.id === selectedNodeId);
   const webhookTrigger = nodes.find((node) => node.data.nodeType === "trigger.webhook");
+  const isNarrowEditorLayout = useNarrowEditorLayout();
+  const isInspectorDrawerOpen = isNarrowEditorLayout && inspectorDrawerOpen;
+
+  const closeInspectorDrawer = () => {
+    setInspectorDrawerOpen(false);
+    window.requestAnimationFrame(() => inspectorTriggerRef.current?.focus());
+  };
 
   useEffect(() => {
     const search = new URLSearchParams(window.location.search);
@@ -660,6 +741,11 @@ export function WorkflowEditor() {
         setPaletteOpen(true);
         requestAnimationFrame(() => paletteSearchRef.current?.focus());
       }
+      if (event.key === "Escape" && isInspectorDrawerOpen) {
+        event.preventDefault();
+        closeInspectorDrawer();
+        return;
+      }
       if (event.key === "Escape" && document.activeElement === paletteSearchRef.current) {
         setPaletteSearch("");
         paletteSearchRef.current?.blur();
@@ -667,7 +753,7 @@ export function WorkflowEditor() {
     };
     window.addEventListener("keydown", focusNodeSearch);
     return () => window.removeEventListener("keydown", focusNodeSearch);
-  }, []);
+  }, [isInspectorDrawerOpen]);
 
   useEffect(() => {
     if (!execution) return;
@@ -1115,16 +1201,16 @@ export function WorkflowEditor() {
 
   return (
     <main className="editor-page">
-      <header className="editor-header">
+      <AppShellHeader workspaces={workspaces} workspaceId={workflow?.workspaceId ?? ""} onWorkspaceChange={(nextWorkspaceId) => router.push(`/dashboard?workspace=${encodeURIComponent(nextWorkspaceId)}`)} active="editor" />
+      <header className="editor-header editor-toolbar">
         <div className="editor-header__title">
-          <span className="brand-mark"><Sparkles size={17} /></span>
           <div>
             <p>WORKFLOW / DRAFT</p>
             <h1>{workflow?.name ?? "Steam daily report"}</h1>
           </div>
         </div>
         <div className="editor-header__actions">
-          <Button variant="ghost" className="ghost-button" onClick={() => router.push("/dashboard")}>Dashboard</Button>
+          <Button variant="ghost" className="ghost-button" onClick={() => router.push(`/dashboard?workspace=${encodeURIComponent(workflow?.workspaceId ?? "")}`)}>Back to dashboard</Button>
           <ActionMenu label="Edit">
             <button type="button" onClick={undo} disabled={historyIndex === 0}><ChevronLeft size={15} /> Undo</button>
             <button type="button" onClick={redo} disabled={historyIndex === history.length - 1}>Redo <ChevronRight size={15} /></button>
@@ -1151,7 +1237,6 @@ export function WorkflowEditor() {
           <Button variant="secondary" className="go-live-button" onClick={openLivePanel} disabled={!workflow?.published || isSaving}>{activeOperation === "live" || activeOperation === "activating" ? <LoaderCircle className="ui-spinner" size={16} /> : null} {workflow?.isActive ? "Run live" : "Go live"}</Button>
           {execution && ["QUEUED", "RUNNING", "WAITING_APPROVAL"].includes(execution.status) && <button className="ghost-button" type="button" onClick={() => void cancelExecution()}>Cancel run</button>}
           {execution?.status === "FAILED" && <Button variant="ghost" className="ghost-button" disabled={isSaving} onClick={() => setRetryConfirmOpen(true)}><RotateCcw size={15} /> Retry {execution.mode === "live" ? "live" : "test"}</Button>}
-          <ThemeToggle />
         </div>
       </header>
       {progressLabel && <div className="editor-progress" role="status" aria-live="polite"><LoaderCircle className="ui-spinner" size={14} /> <span>{progressLabel}…</span><i /></div>}
@@ -1208,6 +1293,7 @@ export function WorkflowEditor() {
         )}
         <section className={`canvas-region${isConnecting ? " canvas-region--connecting" : ""}`} ref={wrapperRef} onDrop={onDrop} onDragOver={(event) => event.preventDefault()}>
           {!paletteOpen && <button className="palette-reopen" type="button" aria-controls="node-library" aria-expanded="false" onClick={() => setPaletteOpen(true)}>Add node</button>}
+          {isNarrowEditorLayout && <button ref={inspectorTriggerRef} className="inspector-reopen" type="button" aria-controls="node-inspector" aria-expanded={isInspectorDrawerOpen} onClick={() => setInspectorDrawerOpen(true)}><Layers3 size={15} /> Inspector</button>}
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -1217,9 +1303,9 @@ export function WorkflowEditor() {
             onConnect={handleConnect}
             onConnectStart={startConnection}
             onConnectEnd={finishConnection}
-            onNodeClick={(_, node) => selectNode(node.id)}
+            onNodeClick={(_, node) => { selectNode(node.id); if (isNarrowEditorLayout) setInspectorDrawerOpen(true); }}
             onNodeContextMenu={(event, node) => { event.preventDefault(); setContextMenu({ nodeId: node.id, x: event.clientX, y: event.clientY }); }}
-            onPaneClick={() => { selectNode(null); setContextMenu(null); }}
+            onPaneClick={() => { selectNode(null); setContextMenu(null); if (isNarrowEditorLayout) setInspectorDrawerOpen(false); }}
             onInit={(instance) => { flowRef.current = instance; }}
             selectionOnDrag
             multiSelectionKeyCode={["Meta", "Control"]}
@@ -1238,7 +1324,8 @@ export function WorkflowEditor() {
             {issues.length === 0 ? "Graph is ready for a test run" : `View ${issues.length} validation notice${issues.length === 1 ? "" : "s"}`}
           </button>
         </section>
-        <NodeInspector node={selectedNode} execution={execution} credentials={credentials} onResolveApproval={resolveApproval} onDebugNode={(node) => void runNodeDebug(node)} isDebugging={activeOperation === "debugging"} />
+        {isInspectorDrawerOpen && <button className="inspector-backdrop" type="button" aria-label="Dismiss node inspector" onClick={closeInspectorDrawer} />}
+        <NodeInspector node={selectedNode} execution={execution} credentials={credentials} onResolveApproval={resolveApproval} onDebugNode={(node) => void runNodeDebug(node)} isDebugging={activeOperation === "debugging"} isDrawerOpen={isInspectorDrawerOpen} onCloseDrawer={closeInspectorDrawer} />
       </div>
       {contextMenu && <div className="node-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} role="menu" onMouseLeave={() => setContextMenu(null)}>
         <button type="button" onClick={() => { copyNode(contextMenu.nodeId); setContextMenu(null); }}>Copy node</button>

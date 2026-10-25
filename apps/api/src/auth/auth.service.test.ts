@@ -8,9 +8,13 @@ import { AuthService } from "./auth.service";
 test("register creates an owner workspace and stores only a hashed session token", async () => {
   const sessions: Array<{ tokenHash: string }> = [];
   const auditActions: string[] = [];
+  let persistedAvatarColor: string | undefined;
   const transaction = {
     user: {
-      create: async () => ({ id: "user-1", email: "owner@example.com", displayName: "Owner" }),
+      create: async ({ data }: { data: { avatarColor: string } }) => {
+        persistedAvatarColor = data.avatarColor;
+        return { id: "user-1", email: "owner@example.com", displayName: "Owner", avatarColor: data.avatarColor };
+      },
     },
     workspace: {
       create: async () => ({ id: "workspace-1" }),
@@ -31,7 +35,8 @@ test("register creates an owner workspace and stores only a hashed session token
     displayName: "Owner",
   });
 
-  assert.deepEqual(result.user, { id: "user-1", email: "owner@example.com", displayName: "Owner" });
+  assert.deepEqual(result.user, { id: "user-1", email: "owner@example.com", displayName: "Owner", avatarColor: persistedAvatarColor });
+  assert.ok(["lime", "violet", "sky", "coral"].includes(persistedAvatarColor ?? ""));
   assert.equal(sessions.length, 1);
   assert.notEqual(sessions[0]?.tokenHash, result.token);
   assert.deepEqual(auditActions, ["auth.registered"]);
@@ -60,7 +65,7 @@ test("Google identity registration creates an owner workspace without a password
     },
     user: {
       findUnique: async () => null,
-      create: async () => ({ id: "google-user-1", email: "owner@example.com", passwordHash: null, displayName: "Google Owner" }),
+      create: async () => ({ id: "google-user-1", email: "owner@example.com", passwordHash: null, displayName: "Google Owner", avatarColor: "violet" }),
     },
     workspace: { create: async () => ({ id: "workspace-1" }) },
     session: { create: async ({ data }: { data: { userId: string; tokenHash: string } }) => sessions.push(data) },
@@ -75,7 +80,7 @@ test("Google identity registration creates an owner workspace without a password
     displayName: "Google Owner",
   });
 
-  assert.deepEqual(result.user, { id: "google-user-1", email: "owner@example.com", displayName: "Google Owner" });
+  assert.deepEqual(result.user, { id: "google-user-1", email: "owner@example.com", displayName: "Google Owner", avatarColor: "violet" });
   assert.equal(identities.length, 1);
   assert.deepEqual(identities[0], { userId: "google-user-1", provider: AuthIdentityProvider.GOOGLE, providerAccountId: "google-subject-1", email: "owner@example.com" });
   assert.equal(sessions[0]?.userId, "google-user-1");

@@ -15,8 +15,13 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByRole("heading", { name: "Your workflow control room." })).toBeVisible();
   await expect(page.getByText("Execution runtime ready")).toBeVisible();
+  await page.getByLabel("Account actions").click();
   await expect(page.getByRole("button", { name: /^(Steam setup|Link Steam)$/ })).toBeVisible();
   await expect(page.getByText("No workflows in this workspace")).toBeVisible();
+  const firstWorkflowGuide = page.getByRole("region", { name: "First workflow guide" });
+  await expect(firstWorkflowGuide).toBeVisible();
+  await expect(firstWorkflowGuide.getByText("Steam daily report", { exact: true })).toBeVisible();
+  await expect(firstWorkflowGuide.getByRole("button", { name: "Start from scratch" })).toBeVisible();
   const createTemplate = page.waitForResponse((response) => response.request().method() === "POST" && response.url().includes("/workflows/from-template/steam-daily-report"));
   await page.getByRole("button", { name: "Use Steam template" }).click();
   expect((await createTemplate).ok()).toBeTruthy();
@@ -49,7 +54,7 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
     const style = getComputedStyle(element, "::before");
     return { content: style.content, inset: style.inset };
   });
-  expect(handleHitArea).toEqual({ content: '""', inset: "-10px" });
+  expect(handleHitArea).toEqual({ content: '""', inset: "-13px" });
   const sourceHandle = page.locator(".workflow-node__handle--source").first();
   const sourceBox = await sourceHandle.boundingBox();
   expect(sourceBox).not.toBeNull();
@@ -72,6 +77,10 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
 
   await expect(page.getByRole("heading", { name: "Add a step" })).toBeVisible();
   await page.locator(".react-flow__node").filter({ hasText: "Steam account snapshot" }).click();
+  await expect(page.getByRole("region", { name: "Setup" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Configuration" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Test & debug" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Advanced" })).toBeVisible();
   const configCheckbox = page.locator('.checkbox-field input[type="checkbox"]').first();
   await expect(configCheckbox).toBeVisible();
   await expect(configCheckbox).toHaveCSS("width", "12px");
@@ -129,9 +138,9 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
 
   await page.getByRole("button", { name: "Run node" }).click();
   await expect(page.getByText("Mock node debug succeeded — only Steam account snapshot ran.")).toBeVisible();
-  await expect(page.getByText(/LAST EXECUTION · SUCCEEDED/)).toBeVisible();
+  await expect(page.getByRole("region", { name: "Last execution" }).getByText(/SUCCEEDED · ATTEMPT/)).toBeVisible();
   await page.locator(".react-flow__node").filter({ hasText: "Google Chat message" }).first().click();
-  await expect(page.getByText(/LAST EXECUTION · SKIPPED/)).toBeVisible();
+  await expect(page.getByRole("region", { name: "Last execution" }).getByText(/SKIPPED · ATTEMPT/)).toBeVisible();
 
   await page.getByRole("button", { name: "Save draft" }).click();
   await expect(page.getByText("Draft saved to your workspace.")).toBeVisible();
@@ -160,4 +169,42 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(page.getByText("This creates a new execution from the original immutable workflow version and its original redacted trigger data.")).toBeVisible();
   await page.getByRole("button", { name: "Retry test run" }).click();
   await expect(page.getByText(/Mock retry failed — using the original version 2/)).toBeVisible({ timeout: 15_000 });
+});
+
+test("narrow desktop opens the node inspector as a focus-managed drawer", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 820 });
+  const email = `e2e-inspector-${Date.now()}@example.test`;
+  await page.goto("/");
+  await page.getByRole("button", { name: "Create an account" }).click();
+  await page.locator('input[autocomplete="name"]').fill("Inspector Owner");
+  await page.locator('input[autocomplete="email"]').fill(email);
+  await page.locator('input[autocomplete="new-password"]').fill("e2e-password-123");
+  await page.getByRole("button", { name: "Create account" }).click();
+  await page.getByRole("button", { name: "Use Steam template" }).click();
+  await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+
+  const inspectorTrigger = page.getByRole("button", { name: "Inspector" });
+  await expect(inspectorTrigger).toBeVisible();
+  await page.locator(".react-flow__node").filter({ hasText: "Steam account snapshot" }).first().click();
+
+  const drawer = page.getByRole("dialog", { name: "Node inspector" });
+  await expect(drawer).toBeVisible();
+  await expect(drawer).toHaveClass(/inspector--drawer-open/);
+  await expect(drawer.getByRole("heading", { name: "Steam account snapshot" })).toBeVisible();
+  await expect(drawer).toHaveAttribute("aria-modal", "true");
+  const closeDrawer = drawer.getByRole("button", { name: "Close node inspector" });
+  await expect(closeDrawer).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  expect(await drawer.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+
+  await closeDrawer.click();
+  await expect(drawer).toBeHidden();
+  await expect(inspectorTrigger).toBeFocused();
+  await expect(inspectorTrigger).toHaveAttribute("aria-expanded", "false");
+
+  await inspectorTrigger.click();
+  await expect(drawer).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(drawer).toBeHidden();
+  await expect(inspectorTrigger).toBeFocused();
 });

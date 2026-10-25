@@ -159,14 +159,14 @@ test("configure Discord and Telegram notification nodes with encrypted credentia
 
   // Inspect Discord node output in execution result
   await page.locator(".react-flow__node").filter({ hasText: "Discord webhook" }).first().click();
-  await expect(page.getByText(/LAST EXECUTION · SUCCEEDED/i)).toBeVisible();
+  await expect(page.getByRole("region", { name: "Last execution" }).getByText(/SUCCEEDED · ATTEMPT/i)).toBeVisible();
   await expect(page.locator(".result-view").getByText("delivered", { exact: true })).toBeVisible();
   await expect(page.locator(".result-view").getByText(": mock", { exact: true })).toBeVisible();
   await expect(page.locator(".result-view").getByText("destination", { exact: true })).toBeVisible();
 
   // Inspect Telegram node output in execution result
   await page.locator(".react-flow__node").filter({ hasText: "Telegram message" }).first().click();
-  await expect(page.getByText(/LAST EXECUTION · SUCCEEDED/i)).toBeVisible();
+  await expect(page.getByRole("region", { name: "Last execution" }).getByText(/SUCCEEDED · ATTEMPT/i)).toBeVisible();
   await expect(page.locator(".result-view").getByText("delivered", { exact: true })).toBeVisible();
   await expect(page.locator(".result-view").getByText(": mock", { exact: true })).toBeVisible();
   await expect(page.locator(".result-view").getByText("destination", { exact: true })).toBeVisible();

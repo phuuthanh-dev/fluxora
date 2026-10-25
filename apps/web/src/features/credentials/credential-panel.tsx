@@ -53,7 +53,14 @@ function requestErrorMessage(reason: unknown, fallback: string) {
   return reason instanceof Error ? reason.message : fallback;
 }
 
-export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId: string; onClose: () => void; onSaved?: (credentials: CredentialSummary[]) => void }) {
+type CredentialManagerProps = {
+  workspaceId: string;
+  onClose?: () => void;
+  onSaved?: (credentials: CredentialSummary[]) => void;
+  presentation?: "panel" | "page";
+};
+
+export function CredentialManager({ workspaceId, onClose, onSaved, presentation = "panel" }: CredentialManagerProps) {
   const [credentials, setCredentials] = useState<CredentialSummary[]>([]);
   const [provider, setProvider] = useState<CredentialProvider>("GOOGLE");
   const [label, setLabel] = useState(credentialPresets.GOOGLE.label);
@@ -235,15 +242,20 @@ export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId
     cred.isManaged ?? (cred.provider === "GOOGLE" && cred.label === "Google OAuth");
 
   return (
-    <section className="credential-panel" aria-label="Credential manager">
+    <section className={`credential-panel credential-panel--${presentation}`} aria-label="Credential manager">
       <div className="credential-panel__heading">
         <div>
           <p className="section-label">CREDENTIALS</p>
           <h2>Secure connections</h2>
         </div>
-        <IconButton className="icon-button" label="Close credential manager" onClick={onClose}>×</IconButton>
+        {onClose ? <IconButton className="icon-button" label="Close credential manager" onClick={onClose}>×</IconButton> : null}
       </div>
       <p>Secrets are encrypted server-side and never shown again after save.</p>
+      {presentation === "panel" ? (
+        <Button variant="ghost" className="credential-panel__directory-link" onClick={() => window.open(`/dashboard/connections?workspace=${encodeURIComponent(workspaceId)}`, "_blank", "noopener,noreferrer")}>
+          Open full connection center
+        </Button>
+      ) : null}
       {provider === "GOOGLE" ? (
         <Button variant="ghost" className="ghost-button credential-panel__oauth" onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google/connect`); }}>
           Connect Google with OAuth
@@ -428,4 +440,8 @@ export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId
       </ul>
     </section>
   );
+}
+
+export function CredentialPanel(props: Omit<CredentialManagerProps, "presentation"> & { onClose: () => void }) {
+  return <CredentialManager {...props} presentation="panel" />;
 }

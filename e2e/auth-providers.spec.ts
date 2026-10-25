@@ -21,6 +21,7 @@ test("password sign-in works while social providers expose their configured stat
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
 
+  await page.getByLabel("Account actions").click();
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/$/);
   await page.locator('input[autocomplete="email"]').fill(email);
