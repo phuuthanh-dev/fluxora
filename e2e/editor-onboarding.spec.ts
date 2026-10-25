@@ -27,6 +27,26 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(page.getByRole("button", { name: "Run test" })).toBeVisible();
 
   await expect(page.getByRole("heading", { name: "Add a step" })).toBeVisible();
+  const editorShell = page.locator(".editor-shell");
+  const canvasRegion = page.locator(".canvas-region");
+  const inspector = page.locator(".inspector");
+  const canvasBeforeCollapse = await canvasRegion.boundingBox();
+  const inspectorBeforeCollapse = await inspector.boundingBox();
+  await page.getByRole("button", { name: "Collapse node palette" }).click();
+  await expect(editorShell).toHaveClass(/editor-shell--palette-closed/);
+  await expect(page.getByRole("button", { name: "Add node" })).toBeVisible();
+  const canvasAfterCollapse = await canvasRegion.boundingBox();
+  const inspectorAfterCollapse = await inspector.boundingBox();
+  expect(canvasBeforeCollapse).not.toBeNull();
+  expect(canvasAfterCollapse).not.toBeNull();
+  expect(inspectorBeforeCollapse).not.toBeNull();
+  expect(inspectorAfterCollapse).not.toBeNull();
+  expect(canvasAfterCollapse!.width).toBeGreaterThan(canvasBeforeCollapse!.width + 250);
+  expect(Math.abs(inspectorAfterCollapse!.width - inspectorBeforeCollapse!.width)).toBeLessThan(2);
+  await page.getByRole("button", { name: "Add node" }).click();
+  await expect(editorShell).not.toHaveClass(/editor-shell--palette-closed/);
+  await expect(page.getByRole("heading", { name: "Add a step" })).toBeVisible();
+
   await page.getByRole("button", { name: "Apps", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Communication" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Manual trigger/ })).toHaveCount(0);

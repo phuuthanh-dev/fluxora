@@ -1011,15 +1011,15 @@ export function WorkflowEditor() {
       </header>
       {progressLabel && <div className="editor-progress" role="status" aria-live="polite"><LoaderCircle className="ui-spinner" size={14} /> <span>{progressLabel}…</span><i /></div>}
 
-      <div className="editor-shell">
+      <div className={paletteOpen ? "editor-shell" : "editor-shell editor-shell--palette-closed"}>
         {paletteOpen && (
-          <aside className="node-palette">
+          <aside className="node-palette" id="node-library">
             <div className="node-palette__header">
               <div>
                 <p className="section-label">NODE LIBRARY</p>
                 <h2>Add a step</h2>
               </div>
-              <button className="icon-button" type="button" aria-label="Collapse node palette" onClick={() => setPaletteOpen(false)}><ChevronLeft size={17} /></button>
+              <button className="icon-button" type="button" aria-label="Collapse node palette" aria-controls="node-library" aria-expanded="true" onClick={() => setPaletteOpen(false)}><ChevronLeft size={17} /></button>
             </div>
             <div className="node-palette__summary" aria-label="Node availability">
               <span><i className="status-dot status-dot--ready" />{nodeCatalog.filter((node) => node.available).length} ready</span>
@@ -1061,7 +1061,7 @@ export function WorkflowEditor() {
           </aside>
         )}
         <section className="canvas-region" ref={wrapperRef} onDrop={onDrop} onDragOver={(event) => event.preventDefault()}>
-          {!paletteOpen && <button className="palette-reopen" type="button" onClick={() => setPaletteOpen(true)}>Add node</button>}
+          {!paletteOpen && <button className="palette-reopen" type="button" aria-controls="node-library" aria-expanded="false" onClick={() => setPaletteOpen(true)}>Add node</button>}
           <ReactFlow
             nodes={nodes}
             edges={edges}
