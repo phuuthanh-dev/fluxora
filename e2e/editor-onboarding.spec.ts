@@ -61,6 +61,11 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 
   await expect(page.getByRole("heading", { name: "Add a step" })).toBeVisible();
+  await page.locator(".react-flow__node").filter({ hasText: "Steam account snapshot" }).click();
+  const configCheckbox = page.locator('.checkbox-field input[type="checkbox"]').first();
+  await expect(configCheckbox).toBeVisible();
+  await expect(configCheckbox).toHaveCSS("width", "12px");
+  await expect(configCheckbox).toHaveCSS("height", "12px");
   const editorShell = page.locator(".editor-shell");
   const canvasRegion = page.locator(".canvas-region");
   const inspector = page.locator(".inspector");

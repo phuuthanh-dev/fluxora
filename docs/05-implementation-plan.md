@@ -25,6 +25,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | Global light/dark theme parity | Complete locally | Theme preference is applied before first paint, persisted in local storage, exposed on auth/dashboard/editor, and audited across reading surfaces, graph controls, forms, cards, and overlays with Playwright coverage. |
 | Dashboard workflow management UX | Complete locally | Workflow search, Draft/Live filtering, name/status/last-updated sorting, clear controls, workspace-switch reset, shared controls, responsive styling, and Playwright regression coverage are complete. |
 | Dashboard workflow lifecycle actions | Complete locally | Workflow cards support rename, duplicate, archive, and confirmation-based permanent delete; archive is persisted as a soft-delete and permanent delete is guarded when execution history exists. Dashboard regression coverage, localhost visual QA, and the full quality gate passed. |
+| Compact checkbox controls | Complete locally | Shared `.checkbox-field` controls are reduced from 14×14px to 12×12px without shrinking the label click target; editor regression coverage and the full quality gate passed. |
 
 ## Milestone 1 — Product foundation
 

@@ -50,6 +50,7 @@ CI runs the same gate for every pull request and push to `main`.
 | L6.9 | Global light/dark theme parity | Complete locally | Theme preference is applied before paint, persisted, exposed on the three primary routes, and tested for both root state and dark reading-surface contrast. |
 | L6.10 | Dashboard workflow management UX | Complete locally | Search, Draft/Live filtering, name/status/last-updated sorting, clear filters, workspace-switch reset, shared Select/Button controls, responsive toolbar styling, and Playwright coverage passed the full quality gate. |
 | L6.11 | Dashboard workflow lifecycle actions | Complete locally | Rename, duplicate, archive, and guarded permanent delete use shared Menu/Dialog/Button primitives; archive persistence, execution-history protection, visual QA, and the full quality gate passed. |
+| L6.12 | Compact checkbox controls | Complete locally | Shared checkbox fields now render at 12×12px while the label remains the click target; editor E2E asserts the compact dimensions and the full quality gate passed. |
 
 ## External-boundary rule
 
