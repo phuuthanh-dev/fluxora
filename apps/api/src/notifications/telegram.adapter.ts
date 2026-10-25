@@ -25,9 +25,7 @@ export class TelegramNotificationAdapter implements NotificationAdapter {
       ? payload.text
       : (typeof payload.content === "string" ? payload.content : (typeof payload.message === "string" ? payload.message : ""));
     const parseMode = typeof payload.parseMode === "string" && payload.parseMode.trim() ? payload.parseMode.trim() : undefined;
-    const messageThreadId = payload.messageThreadId !== undefined && payload.messageThreadId !== ""
-      ? String(payload.messageThreadId).trim()
-      : undefined;
+    const messageThreadId = normalizeMessageThreadId(payload.messageThreadId);
 
     const payloadChatId = payload.destination !== undefined && payload.destination !== ""
       ? String(payload.destination).trim()
@@ -68,7 +66,7 @@ export class TelegramNotificationAdapter implements NotificationAdapter {
       text,
     };
     if (parseMode) requestPayload.parse_mode = parseMode;
-    if (messageThreadId) requestPayload.message_thread_id = messageThreadId;
+    if (messageThreadId !== undefined) requestPayload.message_thread_id = messageThreadId;
 
     const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
     let response: Response;
@@ -112,4 +110,17 @@ export class TelegramNotificationAdapter implements NotificationAdapter {
       mode: "live",
     };
   }
+}
+
+function normalizeMessageThreadId(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  const text = typeof value === "string" ? value.trim() : String(value);
+  if (!/^[1-9]\d*$/.test(text)) {
+    throw new NodeFailure("INVALID_CONFIGURATION", "Telegram topic / thread ID must be a positive integer.", false);
+  }
+  const parsed = Number(text);
+  if (!Number.isSafeInteger(parsed)) {
+    throw new NodeFailure("INVALID_CONFIGURATION", "Telegram topic / thread ID must be a safe integer.", false);
+  }
+  return parsed;
 }

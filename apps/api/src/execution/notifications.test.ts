@@ -388,7 +388,7 @@ test("Telegram message: validates destination type and sends a supergroup topic 
     }, "live", "workspace-1", credentials);
     assert.equal(result.status, "succeeded");
     assert.equal(sentBody.chat_id, "-1004413027775");
-    assert.equal(sentBody.message_thread_id, "42");
+    assert.equal(sentBody.message_thread_id, 42);
   } finally {
     globalThis.fetch = originalFetch;
   }
