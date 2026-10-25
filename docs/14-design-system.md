@@ -139,8 +139,12 @@ Workflow connection handles have a deliberately separate visual dot and
 interaction hit-area: the dot is 12px, while the pseudo-element hit-area is
 32px (`inset: -10px`). Keep this minimum target size, preserve keyboard focus,
 and retain the `Drag to connect` title/accessible label when changing node
-markup. The hit-area must not change the edge geometry or hide adjacent output
-labels.
+markup. The target handle must remain absolutely positioned so React Flow can
+center it on the node edge; only output handles may use relative positioning
+inside `.workflow-node__output`. The hit-area must not change the edge geometry
+or hide adjacent output labels. Dark node text and output labels must consume
+the readable `--text-on-dark`/`--muted-on-dark` tokens rather than low-contrast
+light-theme gray values.
 
 ## Non-goals and forbidden drift
 

@@ -42,6 +42,7 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(nodeHandles.first()).toBeVisible();
   await expect(nodeHandles.first()).toHaveCSS("width", "12px");
   await expect(nodeHandles.first()).toHaveCSS("height", "12px");
+  await expect(nodeHandles.first()).toHaveCSS("position", "absolute");
   await expect(nodeHandles.first()).toHaveAttribute("title", "Drag to connect");
   const handleHitArea = await nodeHandles.first().evaluate((element) => {
     const style = getComputedStyle(element, "::before");
