@@ -47,13 +47,25 @@ export class ExecutionService {
     return execution;
   }
 
-  async createScheduledExecution(workflowVersionId: string, triggerData: Record<string, unknown>) {
+  async createScheduledExecution(workflowVersionId: string, triggerData: Record<string, unknown>, idempotencyKey?: string) {
     const version = await this.prisma.workflowVersion.findUnique({ where: { id: workflowVersionId }, include: { workflow: true } });
     if (!version) throw new NotFoundException({ code: "WORKFLOW_VERSION_NOT_FOUND", message: "Workflow version was not found." });
     await this.assertLiveReady(version.workflow.workspaceId, parseWorkflowGraph(version.graph));
-    return this.prisma.execution.create({
-      data: { workflowVersionId, mode: "LIVE", triggerData: redactValue(triggerData) as Prisma.InputJsonValue },
-    });
+    if (idempotencyKey) {
+      const existing = await this.prisma.execution.findUnique({ where: { idempotencyKey } });
+      if (existing) return existing;
+    }
+    try {
+      return await this.prisma.execution.create({
+        data: { workflowVersionId, mode: "LIVE", triggerData: redactValue(triggerData) as Prisma.InputJsonValue, ...(idempotencyKey ? { idempotencyKey } : {}) },
+      });
+    } catch (reason) {
+      if (idempotencyKey && isUniqueConstraintError(reason)) {
+        const existing = await this.prisma.execution.findUnique({ where: { idempotencyKey } });
+        if (existing) return existing;
+      }
+      throw reason;
+    }
   }
 
   async getLiveReadiness(workflowId: string, userId: string) {
@@ -94,6 +106,25 @@ export class ExecutionService {
         durationMs: node.startedAt && node.completedAt ? node.completedAt.getTime() - node.startedAt.getTime() : null,
       })),
     };
+  }
+
+  async retry(executionId: string, userId: string) {
+    const source = await this.prisma.execution.findFirst({
+      where: { id: executionId, workflowVersion: { workflow: { workspace: { members: { some: { userId, role: "OWNER" } } } } } },
+      include: { workflowVersion: { include: { workflow: true } } },
+    });
+    if (!source) throw new NotFoundException({ code: "EXECUTION_NOT_FOUND", message: "Execution was not found." });
+    if (source.status !== ExecutionStatus.FAILED) throw new BadRequestException({ code: "EXECUTION_NOT_RETRYABLE", message: "Only failed executions can be retried." });
+    if (source.mode === "LIVE") await this.assertLiveReady(source.workflowVersion.workflow.workspaceId, parseWorkflowGraph(source.workflowVersion.graph));
+    const execution = await this.prisma.execution.create({
+      data: {
+        workflowVersionId: source.workflowVersionId,
+        mode: source.mode,
+        triggerData: source.triggerData ?? Prisma.JsonNull,
+      },
+    });
+    await this.prisma.auditLog.create({ data: { workspaceId: source.workflowVersion.workflow.workspaceId, actorId: userId, action: "execution.retried", targetType: "execution", targetId: execution.id, metadata: { sourceExecutionId: source.id, mode: source.mode.toLowerCase(), workflowVersion: source.workflowVersion.version } } });
+    return execution;
   }
 
   async listForWorkspace(workspaceId: string, userId: string, limit = 20) {
@@ -418,6 +449,10 @@ export class ExecutionService {
     });
     return { ready: checked.every((requirement) => requirement.ready), requirements: checked };
   }
+}
+
+function isUniqueConstraintError(reason: unknown) {
+  return Boolean(reason && typeof reason === "object" && "code" in reason && (reason as { code?: unknown }).code === "P2002");
 }
 
 function leaseExpiry(now: Date) {

@@ -24,6 +24,7 @@ import {
   KeyRound,
   LoaderCircle,
   Play,
+  RotateCcw,
   Save,
   Sparkles,
   Search,
@@ -244,6 +245,11 @@ function GoLivePanel({ workflow, isRunning, readiness, loading, error, onConfirm
   const canRun = Boolean(workflow.published && readiness?.ready && !loading && !error && !isRunning);
   const blockers = readiness?.requirements.filter((requirement) => !requirement.ready) ?? [];
   return <Dialog label="Confirm live execution" className="go-live-panel"><div className="credential-panel__heading"><div><p className="section-label">LIVE EXECUTION</p><h2>Run the published workflow?</h2></div><IconButton label="Close live execution confirmation" className="icon-button" onClick={onClose}>×</IconButton></div><p>This will call real providers and may send messages, write data, or create external side effects. The editor will run <strong>published version {workflow.published?.version ?? "—"}</strong>, never unsaved draft changes.</p>{!workflow.published && <p className="go-live-panel__warning">Publish this workflow first. Test runs stay safe and use deterministic mock providers.</p>}{loading && <Status tone="info" className="go-live-panel__readiness" aria-busy="true"><LoaderCircle className="ui-spinner" size={15} /> Checking live credentials…</Status>}{error && <Status tone="error" className="go-live-panel__readiness">{error} <Button variant="ghost" onClick={onRefresh}>Retry check</Button></Status>}{!loading && !error && readiness?.ready && <Status tone="success" className="go-live-panel__readiness">All live integrations are configured.</Status>}{!loading && !error && readiness && !readiness.ready && <div className="go-live-panel__blockers"><Status tone="error" className="go-live-panel__readiness">Live execution is blocked until these integrations are configured.</Status><ul>{blockers.map((requirement) => <li key={requirement.nodeId}><strong>{providerLabel(requirement.provider)}</strong><span>{reasonLabel(requirement.reason)}</span></li>)}</ul><Button variant="ghost" onClick={onOpenCredentials}>Open credentials</Button></div>}<div className="go-live-panel__actions"><Button variant="ghost" className="ghost-button" onClick={onClose}>Cancel</Button><Button variant="secondary" className="go-live-button" disabled={!canRun} onClick={onConfirm}>{isRunning ? "Starting…" : "Run live now"}</Button></div></Dialog>;
+}
+
+function RetryExecutionPanel({ execution, isRetrying, onConfirm, onClose }: { execution: ApiExecution; isRetrying: boolean; onConfirm: () => void; onClose: () => void }) {
+  const isLive = execution.mode === "live";
+  return <Dialog label={isLive ? "Confirm live retry" : "Retry execution"} className="go-live-panel"><div className="credential-panel__heading"><div><p className="section-label">RETRY EXECUTION</p><h2>{isLive ? "Retry this live execution?" : "Retry this test execution?"}</h2></div><IconButton label="Close retry confirmation" className="icon-button" onClick={onClose}>×</IconButton></div><p>This creates a new execution from the original immutable workflow version and its original redacted trigger data.</p>{isLive ? <p className="go-live-panel__warning">This calls real providers again. A previous request may already have been accepted before the failure was recorded, so external delivery can be duplicated.</p> : <Status tone="info" className="go-live-panel__readiness">This remains a deterministic mock run and will not call an external provider.</Status>}<div className="go-live-panel__actions"><Button variant="ghost" className="ghost-button" disabled={isRetrying} onClick={onClose}>Cancel</Button><Button variant={isLive ? "secondary" : "primary"} disabled={isRetrying} onClick={onConfirm}>{isRetrying ? "Starting…" : isLive ? "Retry live run" : "Retry test run"}</Button></div></Dialog>;
 }
 
 function WorkflowActivationPanel({ workflow, isSaving, readiness, loading, error, onConfirm, onClose, onRefresh, onOpenCredentials }: { workflow: ApiWorkflow; isSaving: boolean; readiness: LiveReadiness | null; loading: boolean; error: string | null; onConfirm: () => void; onClose: () => void; onRefresh: () => void; onOpenCredentials: () => void }) {
@@ -586,12 +592,13 @@ export function WorkflowEditor() {
   const [execution, setExecution] = useState<ApiExecution | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeOperation, setActiveOperation] = useState<"saving" | "publishing" | "running" | "debugging" | "activating" | "deactivating" | "live" | "cloning" | null>(null);
+  const [activeOperation, setActiveOperation] = useState<"saving" | "publishing" | "running" | "debugging" | "retrying" | "activating" | "deactivating" | "live" | "cloning" | null>(null);
   const [credentialsOpen, setCredentialsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [webhookOpen, setWebhookOpen] = useState(false);
   const [liveConfirmOpen, setLiveConfirmOpen] = useState(false);
+  const [retryConfirmOpen, setRetryConfirmOpen] = useState(false);
   const [activationOpen, setActivationOpen] = useState(false);
   const [liveReadiness, setLiveReadiness] = useState<LiveReadiness | null>(null);
   const [liveReadinessLoading, setLiveReadinessLoading] = useState(false);
@@ -1079,11 +1086,32 @@ export function WorkflowEditor() {
     }
   };
 
+  const retryExecution = async () => {
+    if (!execution || execution.status !== "FAILED") return;
+    setRetryConfirmOpen(false);
+    setActiveOperation("retrying");
+    setIsSaving(true);
+    try {
+      const response = await apiRequest<{ execution: ApiExecution }>(`/executions/${execution.id}/retry`, {
+        method: "POST",
+        body: JSON.stringify(execution.mode === "live" ? { confirmLive: true } : {}),
+      });
+      setExecution(response.execution);
+      setNotice(`${execution.mode === "live" ? "Live" : "Mock"} retry ${response.execution.status.toLowerCase()} — using the original version ${execution.workflowVersion}.`);
+      router.replace(`/editor?workflow=${encodeURIComponent(response.execution.workflowId)}&execution=${encodeURIComponent(response.execution.id)}`);
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "Unable to retry this execution.");
+    } finally {
+      setIsSaving(false);
+      setActiveOperation(null);
+    }
+  };
+
   if (isLoading) {
     return <main className="editor-page editor-loading" aria-busy="true"><div className="editor-loading__card"><LoaderCircle className="ui-spinner" size={20} aria-hidden="true" /><strong>Preparing your workspace</strong><span>Loading workflow, credentials, and the editor canvas…</span><div className="editor-loading__progress" /></div></main>;
   }
 
-  const progressLabel = activeOperation === "saving" ? "Saving draft" : activeOperation === "publishing" ? "Publishing workflow" : activeOperation === "running" ? "Starting test run" : activeOperation === "debugging" ? "Running node debug" : activeOperation === "activating" ? "Activating workflow" : activeOperation === "deactivating" ? "Deactivating workflow" : activeOperation === "live" ? "Starting live execution" : activeOperation === "cloning" ? "Creating workflow copy" : null;
+  const progressLabel = activeOperation === "saving" ? "Saving draft" : activeOperation === "publishing" ? "Publishing workflow" : activeOperation === "running" ? "Starting test run" : activeOperation === "debugging" ? "Running node debug" : activeOperation === "retrying" ? "Retrying execution" : activeOperation === "activating" ? "Activating workflow" : activeOperation === "deactivating" ? "Deactivating workflow" : activeOperation === "live" ? "Starting live execution" : activeOperation === "cloning" ? "Creating workflow copy" : null;
 
   return (
     <main className="editor-page">
@@ -1122,6 +1150,7 @@ export function WorkflowEditor() {
           <Button variant="primary" className="run-button" onClick={() => void runTest()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "running" ? <LoaderCircle className="ui-spinner" size={16} /> : <Play size={16} />} {activeOperation === "running" ? "Starting…" : "Run test"}</Button>
           <Button variant="secondary" className="go-live-button" onClick={openLivePanel} disabled={!workflow?.published || isSaving}>{activeOperation === "live" || activeOperation === "activating" ? <LoaderCircle className="ui-spinner" size={16} /> : null} {workflow?.isActive ? "Run live" : "Go live"}</Button>
           {execution && ["QUEUED", "RUNNING", "WAITING_APPROVAL"].includes(execution.status) && <button className="ghost-button" type="button" onClick={() => void cancelExecution()}>Cancel run</button>}
+          {execution?.status === "FAILED" && <Button variant="ghost" className="ghost-button" disabled={isSaving} onClick={() => setRetryConfirmOpen(true)}><RotateCcw size={15} /> Retry {execution.mode === "live" ? "live" : "test"}</Button>}
           <ThemeToggle />
         </div>
       </header>
@@ -1221,6 +1250,7 @@ export function WorkflowEditor() {
       {webhookOpen && workflow && webhookTrigger && <WebhookEndpointPanel workflow={workflow} config={webhookTrigger.data.config} onClose={() => setWebhookOpen(false)} />}
       {activationOpen && workflow && <WorkflowActivationPanel workflow={workflow} isSaving={activeOperation === "activating" || activeOperation === "deactivating"} readiness={liveReadiness} loading={liveReadinessLoading} error={liveReadinessError} onConfirm={() => void updateActivation()} onRefresh={() => void checkLiveReadiness()} onOpenCredentials={() => { setActivationOpen(false); setCredentialsOpen(true); }} onClose={() => setActivationOpen(false)} />}
       {liveConfirmOpen && workflow && <GoLivePanel workflow={workflow} isRunning={activeOperation === "live"} readiness={liveReadiness} loading={liveReadinessLoading} error={liveReadinessError} onConfirm={() => void runLive()} onRefresh={() => void checkLiveReadiness()} onOpenCredentials={() => { setLiveConfirmOpen(false); setCredentialsOpen(true); }} onClose={() => setLiveConfirmOpen(false)} />}
+      {retryConfirmOpen && execution && <RetryExecutionPanel execution={execution} isRetrying={activeOperation === "retrying"} onConfirm={() => void retryExecution()} onClose={() => setRetryConfirmOpen(false)} />}
       {libraryOpen && <WorkflowLibraryPanel initialWorkspaces={workspaces} activeWorkflowId={workflow?.id} activeWorkspaceId={workflow?.workspaceId} onOpen={openWorkflow} onWorkspaceCreated={(workspace) => setWorkspaces((current) => [workspace, ...current])} onClose={() => setLibraryOpen(false)} />}
       {credentialsOpen && workflow && <CredentialPanel workspaceId={workflow.workspaceId} onClose={() => setCredentialsOpen(false)} onSaved={setCredentials} />}
     </main>

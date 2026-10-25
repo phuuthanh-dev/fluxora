@@ -135,6 +135,51 @@ test("node debug executes only the selected mock node and skips downstream nodes
   assert.equal(nodeUpdates.some((update) => (update.where.executionId_nodeId as { nodeId: string }).nodeId === "downstream"), false);
 });
 
+test("retry creates a new execution from the failed pinned version and original redacted trigger data", async () => {
+  const created: Array<Record<string, unknown>> = [];
+  const audits: Array<Record<string, unknown>> = [];
+  const source = {
+    id: "execution-source",
+    status: ExecutionStatus.FAILED,
+    mode: "MOCK",
+    workflowVersionId: "version-7",
+    triggerData: { event: "daily-report", authorization: "[REDACTED]" },
+    workflowVersion: { version: 7, graph: { nodes: [], edges: [] }, workflow: { workspaceId: "workspace-1" } },
+  };
+  const prisma = {
+    execution: {
+      findFirst: async () => source,
+      create: async ({ data }: { data: Record<string, unknown> }) => { created.push(data); return { id: "execution-retry", ...data }; },
+    },
+    auditLog: { create: async ({ data }: { data: Record<string, unknown> }) => { audits.push(data); return {}; } },
+  };
+  const service = new ExecutionService(prisma as never, {} as never, {} as never);
+
+  const retry = await service.retry("execution-source", "user-1");
+
+  assert.equal(retry.id, "execution-retry");
+  assert.deepEqual(created, [{ workflowVersionId: "version-7", mode: "MOCK", triggerData: { event: "daily-report", authorization: "[REDACTED]" } }]);
+  assert.deepEqual(audits[0]?.metadata, { sourceExecutionId: "execution-source", mode: "mock", workflowVersion: 7 });
+});
+
+test("trigger idempotency returns the existing pinned execution without creating another run", async () => {
+  const created: Array<Record<string, unknown>> = [];
+  const existing = { id: "execution-existing", workflowVersionId: "version-1", mode: "LIVE" };
+  const prisma = {
+    workflowVersion: { findUnique: async () => ({ id: "version-1", graph: { nodes: [], edges: [] }, workflow: { workspaceId: "workspace-1" } }) },
+    execution: {
+      findUnique: async () => existing,
+      create: async ({ data }: { data: Record<string, unknown> }) => { created.push(data); return { id: "execution-new", ...data }; },
+    },
+  };
+  const service = new ExecutionService(prisma as never, {} as never, {} as never);
+
+  const execution = await service.createScheduledExecution("version-1", { scheduledAt: "2026-10-25T10:30:00.000Z" }, "cron:version-1:cron:2026-10-25T10:30:00.000Z");
+
+  assert.equal(execution.id, "execution-existing");
+  assert.deepEqual(created, []);
+});
+
 test("retries only transient failures with capped exponential backoff", () => {
   assert.equal(isRetryableFailure({ code: "NETWORK_ERROR" }), true);
   assert.equal(isRetryableFailure({ code: "HTTP_ERROR", statusCode: 503 }), true);

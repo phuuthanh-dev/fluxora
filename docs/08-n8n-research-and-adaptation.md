@@ -156,7 +156,7 @@ Each provider has its own form and validation, while sharing redaction, retries,
 | Telegram | bot token | chat ID, text, parse mode, silent flag | Keep bot token out of URLs/logs/persisted output. [Telegram Bot API](https://core.telegram.org/bots/api) |
 | Email | provider/API credential | recipients, subject, body | Defer until notification adapter behavior is proven. |
 
-**Delivery semantics:** A retry may occur after a provider accepted a request but before the client received its response. Use an execution/node/attempt-derived idempotency identity where a provider supports it, and show a `delivery may have been duplicated` warning where it does not.
+**Delivery semantics:** A retry may occur after a provider accepted a request but before the client received its response. Cron ingress now uses a database-backed occurrence key and public webhooks accept an endpoint-scoped `Idempotency-Key`; failed execution retry reuses the immutable version and redacted trigger payload. Provider-level idempotency is still connector-specific: use an execution/node/attempt-derived idempotency identity where a provider supports it, and show a `delivery may have been duplicated` warning where it does not. The live retry confirmation now displays that warning.
 
 ## Delivery sequence
 

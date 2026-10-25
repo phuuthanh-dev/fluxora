@@ -4,7 +4,7 @@ import { CronSchedulerService } from "./cron-scheduler.service";
 
 test("cron scheduler creates and dispatches one live execution for a due published workflow", async () => {
   const now = new Date("2026-10-25T10:30:30.000Z");
-  const created: Array<{ versionId: string; triggerData: Record<string, unknown> }> = [];
+  const created: Array<{ versionId: string; triggerData: Record<string, unknown>; idempotencyKey: string | undefined }> = [];
   const jobs: Array<{ executionId: string; mode: string }> = [];
   const queries: unknown[] = [];
   const prisma = {
@@ -22,8 +22,8 @@ test("cron scheduler creates and dispatches one live execution for a due publish
     },
   } as never;
   const executions = {
-    createScheduledExecution: async (versionId: string, triggerData: Record<string, unknown>) => {
-      created.push({ versionId, triggerData });
+    createScheduledExecution: async (versionId: string, triggerData: Record<string, unknown>, idempotencyKey: string | undefined) => {
+      created.push({ versionId, triggerData, idempotencyKey });
       return { id: "execution-1" };
     },
   } as never;
@@ -37,6 +37,7 @@ test("cron scheduler creates and dispatches one live execution for a due publish
   assert.equal(created.length, 1);
   assert.equal(created[0]?.versionId, "version-1");
   assert.equal(typeof created[0]?.triggerData.scheduledAt, "string");
+  assert.match(created[0]?.idempotencyKey ?? "", /^cron:version-1:cron:/);
   assert.deepEqual(jobs, [{ executionId: "execution-1", mode: "live" }]);
 });
 

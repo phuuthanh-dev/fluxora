@@ -185,6 +185,7 @@ model Execution {
   workflowVersionId String
   status            ExecutionStatus @default(QUEUED)
   mode              String          @default("LIVE")
+  idempotencyKey    String?         @unique
   triggerData       Json?
   errorCode         String?
   errorMessage      String?

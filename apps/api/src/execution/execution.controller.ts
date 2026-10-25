@@ -30,6 +30,17 @@ export class ExecutionController {
     return { execution: await this.executions.get(executionId, requireUserId(request)) };
   }
 
+  @Post("executions/:executionId/retry")
+  async retry(@Param("executionId") executionId: string, @Req() request: AuthenticatedRequest) {
+    const userId = requireUserId(request);
+    const source = await this.executions.get(executionId, userId);
+    const body = request.body && typeof request.body === "object" && !Array.isArray(request.body) ? request.body as Record<string, unknown> : {};
+    if (source.mode === "live" && body.confirmLive !== true) throw new BadRequestException({ code: "LIVE_RETRY_CONFIRMATION_REQUIRED", message: "Confirm the live retry before calling providers again." });
+    const execution = await this.executions.retry(executionId, userId);
+    await this.queue.dispatch({ executionId: execution.id, mode: execution.mode === "LIVE" ? "live" : "mock" });
+    return { execution: await this.executions.get(execution.id, userId) };
+  }
+
   @Get("workspaces/:workspaceId/executions")
   async listForWorkspace(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest) {
     return { executions: await this.executions.listForWorkspace(workspaceId, requireUserId(request)) };

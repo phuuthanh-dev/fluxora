@@ -43,6 +43,31 @@ test("node debug is always queued as a mock run for only the selected node", asy
   assert.deepEqual(result, { execution: { id: "execution-debug-1", status: "SUCCEEDED" } });
 });
 
+test("retry dispatches the same safe mode and requires a fresh confirmation for live providers", async () => {
+  const queued: unknown[] = [];
+  const executions = {
+    get: async (id: string) => id === "live-source" || id === "retry-live-source"
+      ? { id, mode: "live" }
+      : { id, mode: "mock" },
+    retry: async (id: string) => ({ id: `retry-${id}`, mode: id === "live-source" ? "LIVE" : "MOCK" }),
+  };
+  const controller = new ExecutionController(executions as never, { dispatch: async (job: unknown) => { queued.push(job); } } as never, {} as never);
+
+  await assert.rejects(
+    () => controller.retry("live-source", { body: {}, currentUser: { id: "user-1" } } as never),
+    (error: unknown) => error instanceof BadRequestException && (error.getResponse() as { code: string }).code === "LIVE_RETRY_CONFIRMATION_REQUIRED",
+  );
+
+  const mockResult = await controller.retry("mock-source", { body: {}, currentUser: { id: "user-1" } } as never);
+  assert.deepEqual(mockResult, { execution: { id: "retry-mock-source", mode: "mock" } });
+  const liveResult = await controller.retry("live-source", { body: { confirmLive: true }, currentUser: { id: "user-1" } } as never);
+  assert.deepEqual(liveResult, { execution: { id: "retry-live-source", mode: "live" } });
+  assert.deepEqual(queued, [
+    { executionId: "retry-mock-source", mode: "mock" },
+    { executionId: "retry-live-source", mode: "live" },
+  ]);
+});
+
 test("workspace execution list is owner-scoped", async () => {
   const controller = new ExecutionController({ listForWorkspace: async (...args: unknown[]) => [{ id: "execution-1", args }] } as never, {} as never, {} as never);
   const result = await controller.listForWorkspace("workspace-1", { currentUser: { id: "user-1" } } as never);

@@ -39,10 +39,10 @@ export class CronSchedulerService implements OnModuleInit, OnModuleDestroy {
         if (!scheduledAt) continue;
         const key = `${version.id}:${node.id}:${scheduledAt.toISOString()}`;
         if (this.dispatched.has(key)) continue;
-        this.dispatched.add(key);
         try {
-          const execution = await this.executions.createScheduledExecution(version.id, { scheduledAt: scheduledAt.toISOString(), timezone });
+          const execution = await this.executions.createScheduledExecution(version.id, { scheduledAt: scheduledAt.toISOString(), timezone }, `cron:${key}`);
           await this.queue.dispatch({ executionId: execution.id, mode: "live" });
+          this.dispatched.add(key);
         } catch (error) {
           this.logger.error(`Cron dispatch failed for workflow version ${version.id}.`, error instanceof Error ? error.stack : undefined);
         }

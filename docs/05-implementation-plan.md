@@ -33,6 +33,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | Execution-focused navigation | Complete locally | The Execution Center opens an immutable execution snapshot inside the editor, with a visible Test/Live mode, pinned version, terminal state, and automatic focus on the most relevant node execution. |
 | Explicit workflow activation | Complete locally | Publish and activation are separate workflow states. Activation needs the server-side live-credential preflight; it enables Cron/Webhook ingress without running a manual execution. Deactivation stops new trigger ingress without cancelling work already queued or running. |
 | Execution Center triage | Complete locally | The dashboard remains compact by default but can refresh execution history independently, recover from its own loading error, and filter current recent runs by attention, active work, failures, or successes before opening the immutable execution detail. |
+| Safe retry and trigger idempotency | Complete locally | Failed executions can create a new run only from their original pinned version and original redacted trigger payload. Mock retry remains mock; a live retry requires a second explicit confirmation and re-evaluates live credentials. Cron dispatches use a durable occurrence key and public webhooks accept an optional endpoint-scoped `Idempotency-Key`. |
 
 ## Milestone 1 — Product foundation
 

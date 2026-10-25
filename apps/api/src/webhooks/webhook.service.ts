@@ -46,13 +46,17 @@ export class WebhookService {
     return workflow;
   }
 
-  async receive(path: string, secret: string | undefined, payload: unknown) {
+  async receive(path: string, secret: string | undefined, payload: unknown, idempotencyKey?: string) {
     const endpoint = await this.prisma.webhookEndpoint.findUnique({ where: { path }, include: { workflow: true } });
     if (!endpoint || !endpoint.isActive || !endpoint.workflow.isActive || endpoint.workflow.archivedAt) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
     if (endpoint.secretHash && (!secret || !matchesWebhookSecret(secret, endpoint.secretHash))) {
       throw new ForbiddenException({ code: "WEBHOOK_SECRET_INVALID", message: "Webhook secret is invalid." });
     }
-    const execution = await this.executions.createScheduledExecution(endpoint.workflowVersionId, payload && typeof payload === "object" && !Array.isArray(payload) ? payload as Record<string, unknown> : { payload });
+    const execution = await this.executions.createScheduledExecution(
+      endpoint.workflowVersionId,
+      payload && typeof payload === "object" && !Array.isArray(payload) ? payload as Record<string, unknown> : { payload },
+      idempotencyKey ? `webhook:${endpoint.id}:${idempotencyKey}` : undefined,
+    );
     await this.queue.dispatch({ executionId: execution.id, mode: "live" });
     return { executionId: execution.id };
   }
