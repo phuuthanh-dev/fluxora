@@ -435,12 +435,13 @@ function NodeInspector({ node, execution, credentials, onResolveApproval }: { no
           <ConfigField label="Message content" value={readConfigText(node.data.config, "content") || readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("content", value)} multiline />
           <ConfigField label="Username (optional)" value={readConfigText(node.data.config, "username")} onChange={(value) => updateConfig("username", value)} />
           <ConfigField label="Avatar URL (optional)" value={readConfigText(node.data.config, "avatarUrl")} onChange={(value) => updateConfig("avatarUrl", value)} />
+          <ConfigField label="Embeds JSON (optional)" value={typeof node.data.config.embeds === "object" ? JSON.stringify(node.data.config.embeds, null, 2) : readConfigText(node.data.config, "embeds")} onChange={(value) => updateConfig("embeds", value)} multiline />
         </>
       )}
       {node.data.nodeType === "action.telegram.message" && (
         <>
           <CredentialField label="Telegram credential" value={readConfigText(node.data.config, "credentialId")} providers={["TELEGRAM_BOT"]} credentials={credentials} onChange={(value) => updateConfig("credentialId", value)} />
-          <ConfigField label="Chat ID (optional override)" value={readConfigText(node.data.config, "chatId")} onChange={(value) => updateConfig("chatId", value)} />
+          <ConfigField label="Chat ID (destination; legacy credential chatId is deprecated)" value={readConfigText(node.data.config, "chatId")} onChange={(value) => updateConfig("chatId", value)} />
           <ConfigField label="Message text" value={readConfigText(node.data.config, "text") || readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("text", value)} multiline />
           <ConfigField label="Parse mode (optional: Markdown, HTML, MarkdownV2)" value={readConfigText(node.data.config, "parseMode")} onChange={(value) => updateConfig("parseMode", value)} />
         </>

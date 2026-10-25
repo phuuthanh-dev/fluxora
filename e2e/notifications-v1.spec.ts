@@ -43,7 +43,7 @@ test("configure Discord and Telegram notification nodes with encrypted credentia
   await page.getByLabel("Provider").selectOption("TELEGRAM_BOT");
   await expect(page.getByRole("textbox", { name: "Connection name" })).toHaveValue("Telegram bot");
   await expect(page.getByRole("textbox", { name: "Secret JSON" })).toContainText('"botToken"');
-  await expect(page.getByText("Enter your Telegram Bot API token from @BotFather and your default Chat ID.")).toBeVisible();
+  await expect(page.getByText("Enter your Telegram Bot API token from @BotFather. Destination Chat ID is configured on the Telegram message node (credential chatId is deprecated).")).toBeVisible();
 
   await page.getByRole("textbox", { name: "Connection name" }).fill("Telegram Ops Bot");
   await page.getByRole("textbox", { name: "Secret JSON" }).fill('{"botToken":"123456:FAKE-BOT-TOKEN","chatId":"-100987654321"}');
@@ -156,10 +156,13 @@ test("configure Discord and Telegram notification nodes with encrypted credentia
   await page.locator(".react-flow__node").filter({ hasText: "Discord webhook" }).first().click();
   await expect(page.getByText(/LAST EXECUTION · SUCCEEDED/i)).toBeVisible();
   await expect(page.locator(".result-view").getByText("delivered", { exact: true })).toBeVisible();
-  await expect(page.locator(".result-view").getByText(": mock")).toBeVisible();
+  await expect(page.locator(".result-view").getByText(": mock", { exact: true })).toBeVisible();
+  await expect(page.locator(".result-view").getByText("destination", { exact: true })).toBeVisible();
 
   // Inspect Telegram node output in execution result
   await page.locator(".react-flow__node").filter({ hasText: "Telegram message" }).first().click();
   await expect(page.getByText(/LAST EXECUTION · SUCCEEDED/i)).toBeVisible();
   await expect(page.locator(".result-view").getByText("delivered", { exact: true })).toBeVisible();
+  await expect(page.locator(".result-view").getByText(": mock", { exact: true })).toBeVisible();
+  await expect(page.locator(".result-view").getByText("destination", { exact: true })).toBeVisible();
 });
