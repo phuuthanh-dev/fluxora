@@ -66,7 +66,6 @@ export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId
   const [activeAction, setActiveAction] = useState<ActiveAction | null>(null);
   const [actionLabel, setActionLabel] = useState("");
   const [actionData, setActionData] = useState("");
-  const [actionSecret, setActionSecret] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [blockerDetails, setBlockerDetails] = useState<CredentialReferenceDetails | null>(null);
   const [isActionSubmitting, setIsActionSubmitting] = useState(false);
@@ -134,7 +133,6 @@ export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId
     setActiveAction(null);
     setActionLabel("");
     setActionData("");
-    setActionSecret("");
     setActionError(null);
     setBlockerDetails(null);
   };
@@ -148,8 +146,7 @@ export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId
 
   const startRotate = (cred: CredentialSummary) => {
     setActiveAction({ credentialId: cred.id, type: "rotate" });
-    setActionData(cred.provider === "TELEGRAM_BOT" ? "" : (credentialPresets[cred.provider]?.data ?? '{\n  ""\n}'));
-    setActionSecret("");
+    setActionData(credentialPresets[cred.provider]?.data ?? '{\n  ""\n}');
     setActionError(null);
     setBlockerDetails(null);
   };
@@ -190,12 +187,7 @@ export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId
     if (isActionSubmitting) return;
     let parsed: unknown;
     try {
-      if (cred.provider === "TELEGRAM_BOT") {
-        if (!actionSecret.trim()) throw new Error("Telegram bot token is required.");
-        parsed = { botToken: actionSecret.trim() };
-      } else {
-        parsed = JSON.parse(actionData);
-      }
+      parsed = JSON.parse(actionData);
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Secret JSON must be an object.");
     } catch (reason) {
       setActionError(reason instanceof Error ? reason.message : "Secret JSON is invalid.");
@@ -296,32 +288,47 @@ export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId
                   <span>{credential.provider}</span>
                   <code>{credential.id}</code>
                 </div>
-                <div className="credential-card__actions">
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    aria-label={`Rename ${credential.label}`}
-                    onClick={() => startRename(credential)}
-                  >
-                    Rename
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    aria-label={`Rotate secret for ${credential.label}`}
-                    onClick={() => startRotate(credential)}
-                  >
-                    Rotate secret
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-button credential-card__btn-delete"
-                    aria-label={`Delete ${credential.label}`}
-                    onClick={() => startDelete(credential)}
-                  >
-                    Delete
-                  </button>
-                </div>
+                {isGoogleOAuth(credential) ? (
+                  <div className="credential-card__oauth-managed">
+                    <p className="credential-card__oauth-text">
+                      Managed by Google OAuth. Reconnect through Google sign-in to refresh or reauthorize permissions.
+                    </p>
+                    <button
+                      type="button"
+                      className="ghost-button credential-panel__oauth"
+                      onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google/connect`); }}
+                    >
+                      Reconnect Google OAuth
+                    </button>
+                  </div>
+                ) : (
+                  <div className="credential-card__actions">
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      aria-label={`Rename ${credential.label}`}
+                      onClick={() => startRename(credential)}
+                    >
+                      Rename
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      aria-label={`Rotate secret for ${credential.label}`}
+                      onClick={() => startRotate(credential)}
+                    >
+                      Rotate secret
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-button credential-card__btn-delete"
+                      aria-label={`Delete ${credential.label}`}
+                      onClick={() => startDelete(credential)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
               </div>
 
               {isRenaming && (
@@ -348,66 +355,33 @@ export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId
               )}
 
               {isRotating && (
-                isGoogleOAuth(credential) ? (
-                  <div className="credential-card__form">
-                    <p className="credential-card__warning">
-                      Google OAuth credentials cannot be rotated with raw secrets. Reconnect through Google OAuth to refresh access.
-                    </p>
-                    <div className="credential-card__form-actions">
-                      <button
-                        type="button"
-                        className="ghost-button credential-panel__oauth"
-                        onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google/connect`); }}
-                      >
-                        Reconnect Google OAuth
-                      </button>
-                      <button type="button" className="ghost-button" onClick={cancelAction}>
-                        Cancel
-                      </button>
-                    </div>
+                <form className="credential-card__form" onSubmit={(event) => void submitRotate(event, credential)}>
+                  <p className="credential-card__warning">
+                    {credential.provider === "TELEGRAM_BOT"
+                      ? "Updating replaces only the bot token. Any legacy fallback chat ID stored with this credential will be preserved server-side until destinations are migrated to workflow nodes."
+                      : "Existing secret values cannot be displayed for security. Enter a complete replacement JSON payload."}
+                  </p>
+                  <label>
+                    <span>Replacement secret JSON</span>
+                    <textarea
+                      aria-label="Replacement secret JSON"
+                      value={actionData}
+                      onChange={(event) => { setActionData(event.target.value); setActionError(null); }}
+                      rows={credential.provider === "STEAM" ? 7 : 5}
+                      spellCheck={false}
+                      autoFocus
+                    />
+                  </label>
+                  {actionError && <p className="credential-card__error" role="alert">{actionError}</p>}
+                  <div className="credential-card__form-actions">
+                    <button type="submit" className="run-button" disabled={isActionSubmitting}>
+                      {isActionSubmitting ? "Rotating…" : "Rotate secret"}
+                    </button>
+                    <button type="button" className="ghost-button" onClick={cancelAction} disabled={isActionSubmitting}>
+                      Cancel
+                    </button>
                   </div>
-                ) : (
-                  <form className="credential-card__form" onSubmit={(event) => void submitRotate(event, credential)}>
-                    <p className="credential-card__warning">
-                      Existing secret values cannot be displayed for security. Enter a complete replacement secret.
-                    </p>
-                    {credential.provider === "TELEGRAM_BOT" ? (
-                      <label>
-                        <span>New Telegram bot token</span>
-                        <input
-                          aria-label="New Telegram bot token"
-                          type="password"
-                          autoComplete="new-password"
-                          value={actionSecret}
-                          onChange={(event) => { setActionSecret(event.target.value); setActionError(null); }}
-                          placeholder="Paste the token from @BotFather"
-                          autoFocus
-                        />
-                      </label>
-                    ) : (
-                      <label>
-                        <span>Replacement secret JSON</span>
-                        <textarea
-                          aria-label="Replacement secret JSON"
-                          value={actionData}
-                          onChange={(event) => { setActionData(event.target.value); setActionError(null); }}
-                          rows={5}
-                          spellCheck={false}
-                          autoFocus
-                        />
-                      </label>
-                    )}
-                    {actionError && <p className="credential-card__error" role="alert">{actionError}</p>}
-                    <div className="credential-card__form-actions">
-                      <button type="submit" className="run-button" disabled={isActionSubmitting}>
-                        {isActionSubmitting ? "Rotating…" : "Rotate secret"}
-                      </button>
-                      <button type="button" className="ghost-button" onClick={cancelAction} disabled={isActionSubmitting}>
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                )
+                </form>
               )}
 
               {isDeleting && (

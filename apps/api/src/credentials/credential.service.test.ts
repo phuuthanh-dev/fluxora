@@ -51,6 +51,17 @@ test("manual Google access tokens do not require OAuth client configuration", as
   assert.deepEqual(credential, { accessToken: "manual-token" });
 });
 
+type HttpErrorShape = {
+  response?: {
+    code?: string;
+    message?: string;
+    details?: {
+      workflows?: Array<{ id: string; name: string }>;
+      executions?: Array<{ id: string }>;
+    };
+  };
+};
+
 test("create rejects duplicate label with CREDENTIAL_LABEL_CONFLICT", async () => {
   const prisma = {
     credential: {
@@ -69,21 +80,22 @@ test("create rejects duplicate label with CREDENTIAL_LABEL_CONFLICT", async () =
         data: { webhookUrl: "https://discord.com/api/webhooks/1/abc" },
       });
     },
-    (err: any) => {
-      assert.equal(err.response?.code, "CREDENTIAL_LABEL_CONFLICT");
-      assert.match(err.response?.message, /already exists/);
+    (err: unknown) => {
+      const error = err as HttpErrorShape;
+      assert.equal(error.response?.code, "CREDENTIAL_LABEL_CONFLICT");
+      assert.match(error.response?.message ?? "", /already exists/);
       return true;
     },
   );
 });
 
 test("create encrypts data, emits audit log without secret, and returns summary only", async () => {
-  const auditLogs: any[] = [];
-  const createdRecords: any[] = [];
+  const auditLogs: Array<{ action: string; metadata?: Record<string, unknown> }> = [];
+  const createdRecords: Array<{ provider: string; label: string; encryptedData: string }> = [];
   const prisma = {
     credential: {
       findUnique: async () => null,
-      create: async ({ data }: any) => {
+      create: async ({ data }: { data: { provider: string; label: string; encryptedData: string } }) => {
         createdRecords.push(data);
         return {
           id: "cred-new",
@@ -95,7 +107,7 @@ test("create encrypts data, emits audit log without secret, and returns summary 
       },
     },
     auditLog: {
-      create: async ({ data }: any) => { auditLogs.push(data); },
+      create: async ({ data }: { data: { action: string; metadata?: Record<string, unknown> } }) => { auditLogs.push(data); },
     },
   } as unknown as PrismaService;
   const workspaces = { requireOwner: async () => {} } as never;
@@ -111,21 +123,128 @@ test("create encrypts data, emits audit log without secret, and returns summary 
   assert.equal(summary.id, "cred-new");
   assert.equal(summary.provider, "DISCORD_WEBHOOK");
   assert.equal(summary.label, "Ops Webhook");
-  assert.equal((summary as any).encryptedData, undefined);
-  assert.equal((summary as any).webhookUrl, undefined);
+  assert.equal("encryptedData" in summary, false);
+  assert.equal("webhookUrl" in summary, false);
 
   assert.equal(createdRecords.length, 1);
-  assert.equal(createdRecords[0].encryptedData, 'encrypted:{"webhookUrl":"https://discord.com/api/webhooks/1/supersecret"}');
+  assert.equal(createdRecords[0]?.encryptedData, 'encrypted:{"webhookUrl":"https://discord.com/api/webhooks/1/supersecret"}');
 
   assert.equal(auditLogs.length, 1);
-  assert.equal(auditLogs[0].action, "credential.created");
-  assert.deepEqual(auditLogs[0].metadata, { provider: "DISCORD_WEBHOOK", label: "Ops Webhook" });
+  assert.equal(auditLogs[0]?.action, "credential.created");
+  assert.deepEqual(auditLogs[0]?.metadata, { provider: "DISCORD_WEBHOOK", label: "Ops Webhook" });
   assert.doesNotMatch(JSON.stringify(auditLogs[0]), /supersecret/);
 });
 
+test("update rejects canonical Google OAuth credential with CREDENTIAL_MANAGED_BY_OAUTH on rename and rotation", async () => {
+  const existing = {
+    id: "google-oauth-1",
+    workspaceId: "ws-1",
+    provider: "GOOGLE",
+    label: "Google OAuth",
+    encryptedData: "encrypted-oauth",
+  };
+  const prisma = {
+    credential: {
+      findFirst: async () => existing,
+    },
+  } as unknown as PrismaService;
+  const workspaces = { requireOwner: async () => {} } as never;
+  const service = new CredentialService(prisma, workspaces, {} as never);
+
+  // Reject rename
+  await assert.rejects(
+    async () => {
+      await service.update("ws-1", "google-oauth-1", "user-1", { label: "My Google" });
+    },
+    (err: unknown) => {
+      const error = err as HttpErrorShape;
+      assert.equal(error.response?.code, "CREDENTIAL_MANAGED_BY_OAUTH");
+      assert.match(error.response?.message ?? "", /managed through Google sign-in/);
+      return true;
+    },
+  );
+
+  // Reject secret rotation
+  await assert.rejects(
+    async () => {
+      await service.update("ws-1", "google-oauth-1", "user-1", { data: { accessToken: "manual" } });
+    },
+    (err: unknown) => {
+      const error = err as HttpErrorShape;
+      assert.equal(error.response?.code, "CREDENTIAL_MANAGED_BY_OAUTH");
+      return true;
+    },
+  );
+});
+
+test("delete rejects canonical Google OAuth credential with CREDENTIAL_MANAGED_BY_OAUTH", async () => {
+  const existing = {
+    id: "google-oauth-1",
+    workspaceId: "ws-1",
+    provider: "GOOGLE",
+    label: "Google OAuth",
+    encryptedData: "encrypted-oauth",
+  };
+  const prisma = {
+    credential: {
+      findFirst: async () => existing,
+    },
+  } as unknown as PrismaService;
+  const workspaces = { requireOwner: async () => {} } as never;
+  const service = new CredentialService(prisma, workspaces, {} as never);
+
+  await assert.rejects(
+    async () => {
+      await service.delete("ws-1", "google-oauth-1", "user-1");
+    },
+    (err: unknown) => {
+      const error = err as HttpErrorShape;
+      assert.equal(error.response?.code, "CREDENTIAL_MANAGED_BY_OAUTH");
+      assert.match(error.response?.message ?? "", /managed through Google sign-in/);
+      return true;
+    },
+  );
+});
+
+test("manual Google credentials can be updated and deleted normally", async () => {
+  const updatedRecords: Array<{ label?: string }> = [];
+  const deletedIds: string[] = [];
+  const existing = {
+    id: "google-manual-1",
+    workspaceId: "ws-1",
+    provider: "GOOGLE",
+    label: "Manual Google Drive",
+    encryptedData: "encrypted-manual",
+    createdAt: new Date("2026-10-25T00:00:00Z"),
+    updatedAt: new Date("2026-10-25T00:00:00Z"),
+  };
+  const prisma = {
+    credential: {
+      findFirst: async () => existing,
+      findUnique: async () => null,
+      update: async ({ data }: { data: { label?: string } }) => {
+        updatedRecords.push(data);
+        return { ...existing, label: data.label ?? existing.label };
+      },
+      delete: async ({ where }: { where: { id: string } }) => { deletedIds.push(where.id); },
+    },
+    workflow: { findMany: async () => [] },
+    execution: { findMany: async () => [] },
+    auditLog: { create: async () => {} },
+  } as unknown as PrismaService;
+  const workspaces = { requireOwner: async () => {} } as never;
+  const service = new CredentialService(prisma, workspaces, {} as never);
+
+  const updated = await service.update("ws-1", "google-manual-1", "user-1", { label: "Renamed Manual Google" });
+  assert.equal(updated.label, "Renamed Manual Google");
+
+  const deleted = await service.delete("ws-1", "google-manual-1", "user-1");
+  assert.deepEqual(deleted, { success: true, id: "google-manual-1" });
+});
+
 test("update renames credential while preserving ID and provider", async () => {
-  const auditLogs: any[] = [];
-  const updatedRecords: any[] = [];
+  const auditLogs: Array<{ action: string; metadata?: Record<string, unknown> }> = [];
+  const updatedRecords: Array<{ label?: string; encryptedData?: string }> = [];
   const existing = {
     id: "cred-1",
     workspaceId: "ws-1",
@@ -139,13 +258,13 @@ test("update renames credential while preserving ID and provider", async () => {
     credential: {
       findFirst: async () => existing,
       findUnique: async () => null,
-      update: async ({ data }: any) => {
+      update: async ({ data }: { data: { label?: string; encryptedData?: string } }) => {
         updatedRecords.push(data);
-        return { ...existing, label: data.label, updatedAt: new Date("2026-10-25T01:00:00Z") };
+        return { ...existing, label: data.label ?? existing.label, updatedAt: new Date("2026-10-25T01:00:00Z") };
       },
     },
     auditLog: {
-      create: async ({ data }: any) => { auditLogs.push(data); },
+      create: async ({ data }: { data: { action: string; metadata?: Record<string, unknown> } }) => { auditLogs.push(data); },
     },
   } as unknown as PrismaService;
   const workspaces = { requireOwner: async () => {} } as never;
@@ -157,12 +276,12 @@ test("update renames credential while preserving ID and provider", async () => {
   assert.equal(summary.id, "cred-1");
   assert.equal(summary.provider, "HTTP");
   assert.equal(summary.label, "New Name");
-  assert.equal(updatedRecords[0].label, "New Name");
-  assert.equal(updatedRecords[0].encryptedData, undefined);
+  assert.equal(updatedRecords[0]?.label, "New Name");
+  assert.equal(updatedRecords[0]?.encryptedData, undefined);
 
   assert.equal(auditLogs.length, 1);
-  assert.equal(auditLogs[0].action, "credential.renamed");
-  assert.deepEqual(auditLogs[0].metadata, { provider: "HTTP", label: "New Name" });
+  assert.equal(auditLogs[0]?.action, "credential.renamed");
+  assert.deepEqual(auditLogs[0]?.metadata, { provider: "HTTP", label: "New Name" });
 });
 
 test("update rejects duplicate label conflict on rename", async () => {
@@ -186,22 +305,23 @@ test("update rejects duplicate label conflict on rename", async () => {
     async () => {
       await service.update("ws-1", "cred-1", "user-1", { label: "Discord 2" });
     },
-    (err: any) => {
-      assert.equal(err.response?.code, "CREDENTIAL_LABEL_CONFLICT");
-      assert.match(err.response?.message, /already exists/);
+    (err: unknown) => {
+      const error = err as HttpErrorShape;
+      assert.equal(error.response?.code, "CREDENTIAL_LABEL_CONFLICT");
+      assert.match(error.response?.message ?? "", /already exists/);
       return true;
     },
   );
 });
 
 test("update rotates secret payload, encrypts data, and records redacted audit log", async () => {
-  const auditLogs: any[] = [];
-  const updatedRecords: any[] = [];
+  const auditLogs: Array<{ action: string; metadata?: Record<string, unknown> }> = [];
+  const updatedRecords: Array<{ label?: string; encryptedData?: string }> = [];
   const existing = {
     id: "cred-1",
     workspaceId: "ws-1",
-    provider: "TELEGRAM_BOT",
-    label: "Telegram Bot",
+    provider: "HTTP",
+    label: "API Key",
     encryptedData: "old-encrypted",
     createdAt: new Date("2026-10-25T00:00:00Z"),
     updatedAt: new Date("2026-10-25T00:00:00Z"),
@@ -209,13 +329,13 @@ test("update rotates secret payload, encrypts data, and records redacted audit l
   const prisma = {
     credential: {
       findFirst: async () => existing,
-      update: async ({ data }: any) => {
+      update: async ({ data }: { data: { label?: string; encryptedData?: string } }) => {
         updatedRecords.push(data);
-        return { ...existing, encryptedData: data.encryptedData, updatedAt: new Date("2026-10-25T01:00:00Z") };
+        return { ...existing, encryptedData: data.encryptedData ?? existing.encryptedData, updatedAt: new Date("2026-10-25T01:00:00Z") };
       },
     },
     auditLog: {
-      create: async ({ data }: any) => { auditLogs.push(data); },
+      create: async ({ data }: { data: { action: string; metadata?: Record<string, unknown> } }) => { auditLogs.push(data); },
     },
   } as unknown as PrismaService;
   const workspaces = { requireOwner: async () => {} } as never;
@@ -223,23 +343,152 @@ test("update rotates secret payload, encrypts data, and records redacted audit l
   const service = new CredentialService(prisma, workspaces, vault);
 
   const summary = await service.update("ws-1", "cred-1", "user-1", {
-    data: { botToken: "999:rotated-token-secret" },
+    data: { token: "secret-token-123" },
   });
 
   assert.equal(summary.id, "cred-1");
-  assert.equal(summary.provider, "TELEGRAM_BOT");
-  assert.equal(summary.label, "Telegram Bot");
-  assert.equal((summary as any).encryptedData, undefined);
-  assert.equal((summary as any).botToken, undefined);
+  assert.equal(summary.provider, "HTTP");
+  assert.equal(summary.label, "API Key");
+  assert.equal("encryptedData" in summary, false);
+  assert.equal("token" in summary, false);
 
   assert.equal(updatedRecords.length, 1);
-  assert.equal(updatedRecords[0].label, undefined);
-  assert.equal(updatedRecords[0].encryptedData, 'new-encrypted:{"botToken":"999:rotated-token-secret"}');
+  assert.equal(updatedRecords[0]?.label, undefined);
+  assert.equal(updatedRecords[0]?.encryptedData, 'new-encrypted:{"token":"secret-token-123"}');
 
   assert.equal(auditLogs.length, 1);
-  assert.equal(auditLogs[0].action, "credential.rotated");
-  assert.deepEqual(auditLogs[0].metadata, { provider: "TELEGRAM_BOT", label: "Telegram Bot" });
-  assert.doesNotMatch(JSON.stringify(auditLogs[0]), /rotated-token-secret/);
+  assert.equal(auditLogs[0]?.action, "credential.rotated");
+  assert.deepEqual(auditLogs[0]?.metadata, { provider: "HTTP", label: "API Key" });
+  assert.doesNotMatch(JSON.stringify(auditLogs[0]), /secret-token-123/);
+});
+
+test("update TELEGRAM_BOT preserves existing legacy chatId when replacement payload omits chatId", async () => {
+  const updatedRecords: Array<{ encryptedData?: string }> = [];
+  const existing = {
+    id: "tg-legacy-1",
+    workspaceId: "ws-1",
+    provider: "TELEGRAM_BOT",
+    label: "Legacy Telegram",
+    encryptedData: "legacy-encrypted",
+    createdAt: new Date("2026-10-25T00:00:00Z"),
+    updatedAt: new Date("2026-10-25T00:00:00Z"),
+  };
+  const prisma = {
+    credential: {
+      findFirst: async () => existing,
+      update: async ({ data }: { data: { encryptedData?: string } }) => {
+        updatedRecords.push(data);
+        return { ...existing, encryptedData: data.encryptedData ?? existing.encryptedData };
+      },
+    },
+    auditLog: { create: async () => {} },
+  } as unknown as PrismaService;
+  const workspaces = { requireOwner: async () => {} } as never;
+  const vault = {
+    decrypt: (val: string) => {
+      if (val === "legacy-encrypted") return { botToken: "old-bot-token", chatId: "-100123456789" };
+      return JSON.parse(val) as Record<string, unknown>;
+    },
+    encrypt: (val: Record<string, unknown>) => JSON.stringify(val),
+  } as never;
+  const service = new CredentialService(prisma, workspaces, vault);
+
+  // Rotation payload omits chatId
+  const summary = await service.update("ws-1", "tg-legacy-1", "user-1", {
+    data: { botToken: "new-rotated-bot-token" },
+  });
+
+  assert.equal(summary.id, "tg-legacy-1");
+  assert.equal("chatId" in summary, false);
+  assert.equal("botToken" in summary, false);
+
+  assert.equal(updatedRecords.length, 1);
+  const parsedEncrypted = JSON.parse(updatedRecords[0]?.encryptedData ?? "{}") as Record<string, unknown>;
+  assert.equal(parsedEncrypted.botToken, "new-rotated-bot-token");
+  assert.equal(parsedEncrypted.chatId, "-100123456789");
+});
+
+test("update TELEGRAM_BOT keeps current vault-only credential vault-only when replacement omits chatId", async () => {
+  const updatedRecords: Array<{ encryptedData?: string }> = [];
+  const existing = {
+    id: "tg-vault-only-1",
+    workspaceId: "ws-1",
+    provider: "TELEGRAM_BOT",
+    label: "Modern Telegram",
+    encryptedData: "modern-encrypted",
+    createdAt: new Date("2026-10-25T00:00:00Z"),
+    updatedAt: new Date("2026-10-25T00:00:00Z"),
+  };
+  const prisma = {
+    credential: {
+      findFirst: async () => existing,
+      update: async ({ data }: { data: { encryptedData?: string } }) => {
+        updatedRecords.push(data);
+        return { ...existing, encryptedData: data.encryptedData ?? existing.encryptedData };
+      },
+    },
+    auditLog: { create: async () => {} },
+  } as unknown as PrismaService;
+  const workspaces = { requireOwner: async () => {} } as never;
+  const vault = {
+    decrypt: (val: string) => {
+      if (val === "modern-encrypted") return { botToken: "old-bot-token" }; // No chatId
+      return JSON.parse(val) as Record<string, unknown>;
+    },
+    encrypt: (val: Record<string, unknown>) => JSON.stringify(val),
+  } as never;
+  const service = new CredentialService(prisma, workspaces, vault);
+
+  const summary = await service.update("ws-1", "tg-vault-only-1", "user-1", {
+    data: { botToken: "new-token-only" },
+  });
+
+  assert.equal(summary.id, "tg-vault-only-1");
+  assert.equal(updatedRecords.length, 1);
+  const parsedEncrypted = JSON.parse(updatedRecords[0]?.encryptedData ?? "{}") as Record<string, unknown>;
+  assert.equal(parsedEncrypted.botToken, "new-token-only");
+  assert.equal("chatId" in parsedEncrypted, false);
+});
+
+test("update TELEGRAM_BOT overwrites legacy chatId if replacement payload explicitly provides chatId", async () => {
+  const updatedRecords: Array<{ encryptedData?: string }> = [];
+  const existing = {
+    id: "tg-legacy-2",
+    workspaceId: "ws-1",
+    provider: "TELEGRAM_BOT",
+    label: "Legacy Telegram",
+    encryptedData: "legacy-encrypted-2",
+    createdAt: new Date("2026-10-25T00:00:00Z"),
+    updatedAt: new Date("2026-10-25T00:00:00Z"),
+  };
+  const prisma = {
+    credential: {
+      findFirst: async () => existing,
+      update: async ({ data }: { data: { encryptedData?: string } }) => {
+        updatedRecords.push(data);
+        return { ...existing, encryptedData: data.encryptedData ?? existing.encryptedData };
+      },
+    },
+    auditLog: { create: async () => {} },
+  } as unknown as PrismaService;
+  const workspaces = { requireOwner: async () => {} } as never;
+  const vault = {
+    decrypt: (val: string) => {
+      if (val === "legacy-encrypted-2") return { botToken: "old-token", chatId: "-100111" };
+      return JSON.parse(val) as Record<string, unknown>;
+    },
+    encrypt: (val: Record<string, unknown>) => JSON.stringify(val),
+  } as never;
+  const service = new CredentialService(prisma, workspaces, vault);
+
+  await service.update("ws-1", "tg-legacy-2", "user-1", {
+    data: { botToken: "new-token", chatId: "-100222" },
+  });
+
+  assert.equal(updatedRecords.length, 1);
+  const parsedEncrypted = JSON.parse(updatedRecords[0]?.encryptedData ?? "{}") as Record<string, unknown>;
+  assert.equal(parsedEncrypted.botToken, "new-token");
+  assert.equal(parsedEncrypted.chatId, "-100222");
 });
 
 test("delete blocks with CREDENTIAL_IN_USE when referenced by current draft version", async () => {
@@ -276,9 +525,10 @@ test("delete blocks with CREDENTIAL_IN_USE when referenced by current draft vers
     async () => {
       await service.delete("ws-1", "cred-target", "user-1");
     },
-    (err: any) => {
-      assert.equal(err.response?.code, "CREDENTIAL_IN_USE");
-      assert.deepEqual(err.response?.details?.workflows, [{ id: "wf-1", name: "Alert Workflow" }]);
+    (err: unknown) => {
+      const error = err as HttpErrorShape;
+      assert.equal(error.response?.code, "CREDENTIAL_IN_USE");
+      assert.deepEqual(error.response?.details?.workflows, [{ id: "wf-1", name: "Alert Workflow" }]);
       return true;
     },
   );
@@ -318,9 +568,10 @@ test("delete blocks with CREDENTIAL_IN_USE when referenced by notificationCreden
     async () => {
       await service.delete("ws-1", "cred-notif", "user-1");
     },
-    (err: any) => {
-      assert.equal(err.response?.code, "CREDENTIAL_IN_USE");
-      assert.deepEqual(err.response?.details?.workflows, [{ id: "wf-approval", name: "Approval Flow" }]);
+    (err: unknown) => {
+      const error = err as HttpErrorShape;
+      assert.equal(error.response?.code, "CREDENTIAL_IN_USE");
+      assert.deepEqual(error.response?.details?.workflows, [{ id: "wf-approval", name: "Approval Flow" }]);
       return true;
     },
   );
@@ -360,22 +611,23 @@ test("delete blocks with CREDENTIAL_IN_USE when referenced by active execution",
     async () => {
       await service.delete("ws-1", "cred-active", "user-1");
     },
-    (err: any) => {
-      assert.equal(err.response?.code, "CREDENTIAL_IN_USE");
-      assert.deepEqual(err.response?.details?.executions, [{ id: "exec-active-123" }]);
+    (err: unknown) => {
+      const error = err as HttpErrorShape;
+      assert.equal(error.response?.code, "CREDENTIAL_IN_USE");
+      assert.deepEqual(error.response?.details?.executions, [{ id: "exec-active-123" }]);
       return true;
     },
   );
 });
 
 test("delete allows cleanup when credential is unreferenced or only in historic version with completed executions", async () => {
-  const auditLogs: any[] = [];
+  const auditLogs: Array<{ action: string; metadata?: Record<string, unknown> }> = [];
   const deletedIds: string[] = [];
   const existing = { id: "cred-free", workspaceId: "ws-1", provider: "STEAM", label: "Steam Key" };
   const prisma = {
     credential: {
       findFirst: async () => existing,
-      delete: async ({ where }: any) => { deletedIds.push(where.id); },
+      delete: async ({ where }: { where: { id: string } }) => { deletedIds.push(where.id); },
     },
     workflow: {
       findMany: async () => [
@@ -397,7 +649,7 @@ test("delete allows cleanup when credential is unreferenced or only in historic 
       findMany: async () => [], // No non-terminal executions
     },
     auditLog: {
-      create: async ({ data }: any) => { auditLogs.push(data); },
+      create: async ({ data }: { data: { action: string; metadata?: Record<string, unknown> } }) => { auditLogs.push(data); },
     },
   } as unknown as PrismaService;
   const workspaces = { requireOwner: async () => {} } as never;
@@ -407,6 +659,6 @@ test("delete allows cleanup when credential is unreferenced or only in historic 
   assert.deepEqual(result, { success: true, id: "cred-free" });
   assert.deepEqual(deletedIds, ["cred-free"]);
   assert.equal(auditLogs.length, 1);
-  assert.equal(auditLogs[0].action, "credential.deleted");
-  assert.deepEqual(auditLogs[0].metadata, { provider: "STEAM", label: "Steam Key" });
+  assert.equal(auditLogs[0]?.action, "credential.deleted");
+  assert.deepEqual(auditLogs[0]?.metadata, { provider: "STEAM", label: "Steam Key" });
 });

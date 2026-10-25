@@ -6,6 +6,15 @@ import { CredentialVaultService } from "./credential-vault.service";
 
 const providers = new Set(Object.values(CredentialProvider));
 const googleRefreshSkewMs = 60_000;
+const canonicalGoogleOAuthLabel = "Google OAuth";
+
+function isCanonicalGoogleOAuth(credential: { provider: CredentialProvider; label: string }): boolean {
+  return credential.provider === CredentialProvider.GOOGLE && credential.label === canonicalGoogleOAuthLabel;
+}
+
+function hasErrorCode(error: unknown, code: string): boolean {
+  return typeof error === "object" && error !== null && "code" in error && (error as { code: unknown }).code === code;
+}
 
 @Injectable()
 export class CredentialService {
@@ -47,8 +56,8 @@ export class CredentialService {
       });
       await this.prisma.auditLog.create({ data: { workspaceId, actorId: userId, action: "credential.created", targetType: "credential", targetId: credential.id, metadata: { provider: credential.provider, label: credential.label } } });
       return this.summary(credential);
-    } catch (error: any) {
-      if (error?.code === "P2002") {
+    } catch (error: unknown) {
+      if (hasErrorCode(error, "P2002")) {
         throw new ConflictException({
           code: "CREDENTIAL_LABEL_CONFLICT",
           message: `A ${input.provider} credential named "${trimmedLabel}" already exists in this workspace.`,
@@ -62,6 +71,13 @@ export class CredentialService {
     await this.workspaces.requireOwner(workspaceId, userId);
     const credential = await this.prisma.credential.findFirst({ where: { id: credentialId, workspaceId } });
     if (!credential) throw new NotFoundException({ code: "CREDENTIAL_NOT_FOUND", message: "A matching credential was not found in this workspace." });
+
+    if (isCanonicalGoogleOAuth(credential)) {
+      throw new BadRequestException({
+        code: "CREDENTIAL_MANAGED_BY_OAUTH",
+        message: "Google OAuth credentials are managed through Google sign-in and cannot be manually edited.",
+      });
+    }
 
     if (input.label === undefined && input.data === undefined) {
       throw new BadRequestException({ code: "INVALID_INPUT", message: "Provide a label or secret data to update." });
@@ -91,7 +107,21 @@ export class CredentialService {
       if (!input.data || typeof input.data !== "object" || Array.isArray(input.data)) {
         throw new BadRequestException({ code: "INVALID_INPUT", message: "Credential data must be a JSON object." });
       }
-      nextEncryptedData = this.vault.encrypt(input.data as Record<string, unknown>);
+      let replacementData = input.data as Record<string, unknown>;
+      if (credential.provider === CredentialProvider.TELEGRAM_BOT && replacementData.chatId === undefined) {
+        try {
+          const existingData = this.vault.decrypt(credential.encryptedData);
+          if (existingData && typeof existingData === "object" && "chatId" in existingData && existingData.chatId !== undefined) {
+            replacementData = {
+              ...replacementData,
+              chatId: existingData.chatId,
+            };
+          }
+        } catch {
+          // If existing credential cannot be decrypted, proceed with replacementData
+        }
+      }
+      nextEncryptedData = this.vault.encrypt(replacementData);
     }
 
     try {
@@ -123,8 +153,8 @@ export class CredentialService {
       });
 
       return this.summary(updated);
-    } catch (error: any) {
-      if (error?.code === "P2002") {
+    } catch (error: unknown) {
+      if (hasErrorCode(error, "P2002")) {
         throw new ConflictException({
           code: "CREDENTIAL_LABEL_CONFLICT",
           message: `A ${credential.provider} credential named "${nextLabel}" already exists in this workspace.`,
@@ -138,6 +168,13 @@ export class CredentialService {
     await this.workspaces.requireOwner(workspaceId, userId);
     const credential = await this.prisma.credential.findFirst({ where: { id: credentialId, workspaceId } });
     if (!credential) throw new NotFoundException({ code: "CREDENTIAL_NOT_FOUND", message: "A matching credential was not found in this workspace." });
+
+    if (isCanonicalGoogleOAuth(credential)) {
+      throw new BadRequestException({
+        code: "CREDENTIAL_MANAGED_BY_OAUTH",
+        message: "Google OAuth credentials are managed through Google sign-in and cannot be deleted directly.",
+      });
+    }
 
     const workflows = await this.prisma.workflow.findMany({
       where: { workspaceId },

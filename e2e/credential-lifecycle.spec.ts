@@ -20,7 +20,8 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   await page.getByRole("textbox", { name: "New workflow name" }).fill("Lifecycle Test Workflow");
   const createPromise = page.waitForResponse((res) => res.request().method() === "POST" && res.url().includes("/workflows"));
   await page.getByRole("button", { name: "Blank workflow" }).click();
-  expect((await createPromise).ok()).toBeTruthy();
+  const createdWorkflowRes = await (await createPromise).json() as { workflow: { id: string; workspaceId: string } };
+  const workspaceId = createdWorkflowRes.workflow.workspaceId;
 
   await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
   await expect(page.getByRole("heading", { name: "Lifecycle Test Workflow" })).toBeVisible();
@@ -81,7 +82,7 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
 
   // 4. Secret rotation test
   await primaryCard.getByRole("button", { name: "Rotate secret for Discord Ops Main" }).click();
-  await expect(primaryCard.getByText("Existing secret values cannot be displayed for security. Enter a complete replacement secret.")).toBeVisible();
+  await expect(primaryCard.getByText("Existing secret values cannot be displayed for security. Enter a complete replacement JSON payload.")).toBeVisible();
 
   // Try invalid JSON
   await primaryCard.getByLabel("Replacement secret JSON").fill("not-json");
@@ -157,4 +158,68 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   expect((await primaryDeletePromise).ok()).toBeTruthy();
   await expect(page.getByText('Credential "Discord Ops Main" deleted.')).toBeVisible();
   await expect(page.locator(`li[data-credential-id="${discordCred.credential.id}"]`)).toHaveCount(0);
+
+  // 9. Google OAuth protection test
+  // Create a canonical Google OAuth credential
+  const googleOAuthRes = await page.request.post(`http://localhost:3001/api/v1/workspaces/${workspaceId}/credentials`, {
+    data: { provider: "GOOGLE", label: "Google OAuth", data: { accessToken: "initial-oauth-token" } },
+  });
+  expect(googleOAuthRes.ok()).toBeTruthy();
+  const googleOAuthCred = (await googleOAuthRes.json()) as { credential: { id: string } };
+
+  // Re-open credential manager so the list refreshes
+  await page.getByRole("button", { name: "Close credential manager" }).click();
+  await page.getByLabel("Manage actions").click();
+  await page.getByRole("button", { name: "Credentials" }).click();
+
+  const googleOAuthCard = page.locator(`li[data-credential-id="${googleOAuthCred.credential.id}"]`);
+  await expect(googleOAuthCard).toBeVisible();
+  await expect(googleOAuthCard.getByText("Managed by Google OAuth")).toBeVisible();
+  await expect(googleOAuthCard.getByRole("button", { name: "Reconnect Google OAuth" })).toBeVisible();
+
+  // Assert Rename, Rotate secret, and Delete buttons do NOT exist on the Google OAuth card
+  await expect(googleOAuthCard.getByRole("button", { name: /Rename/ })).toHaveCount(0);
+  await expect(googleOAuthCard.getByRole("button", { name: /Rotate/ })).toHaveCount(0);
+  await expect(googleOAuthCard.getByRole("button", { name: /Delete/ })).toHaveCount(0);
+
+  // Direct API regression: direct PATCH must be rejected with CREDENTIAL_MANAGED_BY_OAUTH
+  const directPatchRes = await page.request.patch(`http://localhost:3001/api/v1/workspaces/${workspaceId}/credentials/${googleOAuthCred.credential.id}`, {
+    data: { label: "Hacked Google" },
+  });
+  expect(directPatchRes.status()).toBe(400);
+  const directPatchBody = (await directPatchRes.json()) as { code: string };
+  expect(directPatchBody.code).toBe("CREDENTIAL_MANAGED_BY_OAUTH");
+
+  // Direct API regression: direct DELETE must be rejected with CREDENTIAL_MANAGED_BY_OAUTH
+  const directDeleteRes = await page.request.delete(`http://localhost:3001/api/v1/workspaces/${workspaceId}/credentials/${googleOAuthCred.credential.id}`);
+  expect(directDeleteRes.status()).toBe(400);
+  const directDeleteBody = (await directDeleteRes.json()) as { code: string };
+  expect(directDeleteBody.code).toBe("CREDENTIAL_MANAGED_BY_OAUTH");
+
+  // 10. Telegram legacy fallback rotation test:
+  // Create a legacy Telegram credential with both botToken and chatId
+  const legacyTgRes = await page.request.post(`http://localhost:3001/api/v1/workspaces/${workspaceId}/credentials`, {
+    data: { provider: "TELEGRAM_BOT", label: "Legacy Telegram Ops", data: { botToken: "legacy-token-123", chatId: "-100998877" } },
+  });
+  expect(legacyTgRes.ok()).toBeTruthy();
+  const legacyTgCred = (await legacyTgRes.json()) as { credential: { id: string } };
+
+  // Re-open credential manager to view the new Telegram credential
+  await page.getByRole("button", { name: "Close credential manager" }).click();
+  await page.getByLabel("Manage actions").click();
+  await page.getByRole("button", { name: "Credentials" }).click();
+
+  const legacyTgCard = page.locator(`li[data-credential-id="${legacyTgCred.credential.id}"]`);
+  await expect(legacyTgCard).toBeVisible();
+  await legacyTgCard.getByRole("button", { name: "Rotate secret for Legacy Telegram Ops" }).click();
+
+  // Verify UI explainer for Telegram bot token rotation preserving legacy fallback
+  await expect(legacyTgCard.getByText(/legacy fallback chat ID stored with this credential will be preserved server-side/)).toBeVisible();
+
+  // Rotate with payload that omits chatId
+  await legacyTgCard.getByLabel("Replacement secret JSON").fill('{"botToken":"new-rotated-token-456"}');
+  const tgRotatePromise = page.waitForResponse((res) => res.request().method() === "PATCH" && res.url().includes(legacyTgCred.credential.id));
+  await legacyTgCard.getByRole("button", { name: "Rotate secret", exact: true }).click();
+  expect((await tgRotatePromise).ok()).toBeTruthy();
+  await expect(page.getByText('Secret rotated for "Legacy Telegram Ops". Node bindings preserved.')).toBeVisible();
 });
