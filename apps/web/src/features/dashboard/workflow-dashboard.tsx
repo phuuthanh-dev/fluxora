@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Archive, ArrowRight, ChevronDown, CirclePlus, Copy, FilePlus2, FolderKanban, History, LayoutDashboard, LoaderCircle, LogOut, MoreVertical, Pencil, Sparkles, Trash2 } from "lucide-react";
+import { Activity, Archive, ArrowRight, ChevronDown, CirclePlus, Copy, FilePlus2, FolderKanban, History, LayoutDashboard, LoaderCircle, LogOut, MoreVertical, Pencil, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest, apiUrl } from "../api/api-client";
@@ -17,6 +17,7 @@ type WorkflowStatusFilter = "ALL" | "LIVE" | "DRAFT";
 type WorkflowSort = "UPDATED" | "NAME" | "STATUS";
 type WorkflowAction = { type: "rename" | "archive" | "delete"; workflow: ApiWorkflow } | { type: "duplicate"; workflow: ApiWorkflow };
 type ExecutionSummary = { id: string; workflowId: string; workflowName: string; workflowVersion: number; status: "QUEUED" | "RUNNING" | "WAITING_APPROVAL" | "SUCCEEDED" | "FAILED" | "CANCELLED"; mode: "mock" | "live"; createdAt: string; startedAt: string | null; completedAt: string | null; error: { code: string; message: string | null } | null };
+type ExecutionFilter = "ALL" | "ATTENTION" | "IN_PROGRESS" | "FAILED" | "SUCCEEDED";
 
 export function WorkflowDashboard() {
   const router = useRouter();
@@ -26,7 +27,9 @@ export function WorkflowDashboard() {
   const [workflows, setWorkflows] = useState<ApiWorkflow[]>([]);
   const [executions, setExecutions] = useState<ExecutionSummary[]>([]);
   const [executionsLoading, setExecutionsLoading] = useState(false);
+  const [executionsError, setExecutionsError] = useState<string | null>(null);
   const [executionCenterOpen, setExecutionCenterOpen] = useState(false);
+  const [executionFilter, setExecutionFilter] = useState<ExecutionFilter>("ALL");
   const [providers, setProviders] = useState<ProviderStatus>({ google: false, github: false, steam: false });
   const [identities, setIdentities] = useState<IdentitySummary[]>([]);
   const [workflowName, setWorkflowName] = useState("Untitled workflow");
@@ -68,6 +71,7 @@ export function WorkflowDashboard() {
       return;
     }
     setExecutionsLoading(true);
+    setExecutionsError(null);
     try {
       const response = await apiRequest<{ executions: ExecutionSummary[] }>(
         `/workspaces/${targetWorkspaceId}/executions`,
@@ -75,6 +79,10 @@ export function WorkflowDashboard() {
       );
       if (activeWorkspaceIdRef.current !== targetWorkspaceId) return;
       setExecutions(response.executions);
+    } catch (reason) {
+      if (signal?.aborted || activeWorkspaceIdRef.current !== targetWorkspaceId) return;
+      setExecutions([]);
+      setExecutionsError(reason instanceof Error ? reason.message : "Unable to load recent executions.");
     } finally {
       if (!signal?.aborted && activeWorkspaceIdRef.current === targetWorkspaceId) setExecutionsLoading(false);
     }
@@ -133,6 +141,8 @@ export function WorkflowDashboard() {
     setWorkspaceId(nextWorkspaceId);
     setWorkflows([]);
     setExecutions([]);
+    setExecutionsError(null);
+    setExecutionFilter("ALL");
     setWorkflowQuery("");
     setWorkflowStatus("ALL");
     setWorkflowSort("UPDATED");
@@ -164,6 +174,19 @@ export function WorkflowDashboard() {
   }, [workflowQuery, workflowSort, workflowStatus, workflows]);
 
   const hasWorkflowFilters = workflowQuery.trim().length > 0 || workflowStatus !== "ALL" || workflowSort !== "UPDATED";
+  const executionCounts = useMemo(() => ({
+    attention: executions.filter((execution) => execution.status === "FAILED" || execution.status === "WAITING_APPROVAL").length,
+    inProgress: executions.filter((execution) => execution.status === "QUEUED" || execution.status === "RUNNING").length,
+    failed: executions.filter((execution) => execution.status === "FAILED").length,
+    succeeded: executions.filter((execution) => execution.status === "SUCCEEDED").length,
+  }), [executions]);
+  const visibleExecutions = useMemo(() => executions.filter((execution) => {
+    if (executionFilter === "ATTENTION") return execution.status === "FAILED" || execution.status === "WAITING_APPROVAL";
+    if (executionFilter === "IN_PROGRESS") return execution.status === "QUEUED" || execution.status === "RUNNING";
+    if (executionFilter === "FAILED") return execution.status === "FAILED";
+    if (executionFilter === "SUCCEEDED") return execution.status === "SUCCEEDED";
+    return true;
+  }), [executionFilter, executions]);
 
   const openWorkflowAction = (action: WorkflowAction["type"], workflow: ApiWorkflow) => {
     setWorkflowAction({ type: action, workflow } as WorkflowAction);
@@ -278,7 +301,30 @@ export function WorkflowDashboard() {
         <div className="dashboard-hero"><div><p className="section-label">{activeWorkspace?.name ?? "WORKSPACE"}</p><h1>Your workflow control room.</h1><p>Create, publish, monitor, and revisit every automation from one place.</p></div><Button variant="primary" className="dashboard-new-button" onClick={() => document.getElementById("workflow-create")?.scrollIntoView({ behavior: "smooth", block: "center" })}><CirclePlus size={17} /> New workflow</Button></div>
         <div className="dashboard-stats"><div><LayoutDashboard size={17} /><strong>{workflows.length}</strong><span>workflows</span></div><div><FolderKanban size={17} /><strong>{workflows.filter((workflow) => workflow.isActive).length}</strong><span>active workflows</span></div><div><FilePlus2 size={17} /><strong>{workflows.filter((workflow) => !workflow.published).length}</strong><span>draft-only</span></div></div>
         <Status tone={runtimeLoading ? "info" : runtime?.status === "ready" ? "success" : runtime?.status === "degraded" ? "warning" : "error"} className={`dashboard-runtime dashboard-runtime--${runtimeLoading ? "checking" : runtime?.status ?? "unreachable"}`} aria-live="polite" aria-busy={runtimeLoading}><Activity size={17} /><div><strong>{runtimeLoading ? "Checking runtime status…" : runtime?.status === "ready" ? "Execution runtime ready" : runtime?.status === "degraded" ? "Execution runtime needs attention" : "Runtime status unreachable"}</strong><span>{runtimeLoading ? "Contacting the API readiness endpoint." : runtime ? `Database ${runtime.checks.database} · ${runtime.checks.queue.mode} queue ${runtime.checks.queue.status} · ${runtime.checks.queue.active}/${runtime.checks.queue.configuredWorkerConcurrency} active · ${runtime.checks.queue.waiting} queued` : "Could not reach the API readiness endpoint."}</span></div></Status>
-        <section className="dashboard-executions" aria-labelledby="execution-center-heading"><div className="dashboard-section-heading dashboard-execution-toolbar"><div><p className="section-label">OPERATIONS</p><h2 id="execution-center-heading">Execution center</h2></div><div className="dashboard-execution-toolbar__actions"><span>{executionsLoading ? "Checking recent runs…" : `${executions.length} recent run${executions.length === 1 ? "" : "s"}`}</span><Button variant="ghost" className="dashboard-execution-toggle" aria-label={`${executionCenterOpen ? "Collapse" : "Expand"} execution center`} aria-expanded={executionCenterOpen} aria-controls="dashboard-execution-content" onClick={() => setExecutionCenterOpen((current) => !current)}>{executionCenterOpen ? "Collapse" : "Expand"}<ChevronDown size={15} aria-hidden="true" /></Button></div></div>{executionCenterOpen && <div id="dashboard-execution-content" className="dashboard-execution-panel">{executionsLoading ? <div className="dashboard-execution-empty" aria-busy="true"><LoaderCircle className="ui-spinner" size={18} /><span>Loading recent runs…</span></div> : executions.length === 0 ? <div className="dashboard-execution-empty"><History size={22} /><strong>Recent runs</strong><span>Run a test or publish a workflow to see execution activity here.</span></div> : <><div className="dashboard-execution-heading"><strong>Recent runs</strong><span>{executions.length} shown</span></div><div className="dashboard-execution-list">{executions.map((execution) => <article className="dashboard-execution" key={execution.id}><span className={`execution-status execution-status--${execution.status.toLowerCase()}`}>{executionLabel(execution.status)}</span><div className="dashboard-execution__detail"><strong>{execution.workflowName}</strong><span>v{execution.workflowVersion} · {execution.mode === "mock" ? "Test run" : "Live run"} · {formatExecutionTime(execution.createdAt)}</span>{execution.error && <small>{execution.error.code}: {execution.error.message}</small>}</div><Button variant="ghost" className="dashboard-execution__open" onClick={() => router.push(`/editor?workflow=${encodeURIComponent(execution.workflowId)}&execution=${encodeURIComponent(execution.id)}`)}>Open workflow <ArrowRight size={14} /></Button></article>)}</div></>}</div>}</section>
+        <section className="dashboard-executions" aria-labelledby="execution-center-heading">
+          <div className="dashboard-section-heading dashboard-execution-toolbar">
+            <div><p className="section-label">OPERATIONS</p><h2 id="execution-center-heading">Execution center</h2></div>
+            <div className="dashboard-execution-toolbar__actions">
+              <span>{executionsLoading ? "Checking recent runs…" : `${executions.length} recent run${executions.length === 1 ? "" : "s"}`}</span>
+              {executionCounts.attention > 0 && <button type="button" className="dashboard-execution-attention" onClick={() => { setExecutionCenterOpen(true); setExecutionFilter("ATTENTION"); }}>{executionCounts.attention} need attention</button>}
+              <IconButton label="Refresh executions" disabled={executionsLoading || !workspaceId} onClick={() => void loadExecutions(workspaceId)}><RefreshCw className={executionsLoading ? "ui-spinner" : undefined} size={15} /></IconButton>
+              <Button variant="ghost" className="dashboard-execution-toggle" aria-label={`${executionCenterOpen ? "Collapse" : "Expand"} execution center`} aria-expanded={executionCenterOpen} aria-controls="dashboard-execution-content" onClick={() => setExecutionCenterOpen((current) => !current)}>{executionCenterOpen ? "Collapse" : "Expand"}<ChevronDown size={15} aria-hidden="true" /></Button>
+            </div>
+          </div>
+          {executionCenterOpen && <div id="dashboard-execution-content" className="dashboard-execution-panel">
+            {executionsLoading ? <div className="dashboard-execution-empty" aria-busy="true"><LoaderCircle className="ui-spinner" size={18} /><span>Loading recent runs…</span></div> : executionsError ? <div className="dashboard-execution-empty" role="alert"><History size={22} /><strong>Could not load executions</strong><span>{executionsError}</span><Button variant="ghost" onClick={() => void loadExecutions(workspaceId)}>Retry</Button></div> : executions.length === 0 ? <div className="dashboard-execution-empty"><History size={22} /><strong>Recent runs</strong><span>Run a test or publish a workflow to see execution activity here.</span></div> : <>
+              <div className="dashboard-execution-heading"><strong>Recent runs</strong><span>{visibleExecutions.length} of {executions.length} shown</span></div>
+              <div className="dashboard-execution-filters" role="group" aria-label="Filter executions">
+                <button type="button" className={executionFilter === "ALL" ? "is-active" : undefined} aria-pressed={executionFilter === "ALL"} onClick={() => setExecutionFilter("ALL")}>All ({executions.length})</button>
+                <button type="button" className={executionFilter === "ATTENTION" ? "is-active" : undefined} aria-pressed={executionFilter === "ATTENTION"} onClick={() => setExecutionFilter("ATTENTION")}>Needs attention ({executionCounts.attention})</button>
+                <button type="button" className={executionFilter === "IN_PROGRESS" ? "is-active" : undefined} aria-pressed={executionFilter === "IN_PROGRESS"} onClick={() => setExecutionFilter("IN_PROGRESS")}>In progress ({executionCounts.inProgress})</button>
+                <button type="button" className={executionFilter === "FAILED" ? "is-active" : undefined} aria-pressed={executionFilter === "FAILED"} onClick={() => setExecutionFilter("FAILED")}>Failed ({executionCounts.failed})</button>
+                <button type="button" className={executionFilter === "SUCCEEDED" ? "is-active" : undefined} aria-pressed={executionFilter === "SUCCEEDED"} onClick={() => setExecutionFilter("SUCCEEDED")}>Succeeded ({executionCounts.succeeded})</button>
+              </div>
+              {visibleExecutions.length === 0 ? <div className="dashboard-execution-empty dashboard-execution-empty--filtered"><History size={22} /><strong>No matching runs</strong><span>Try another execution status.</span><Button variant="ghost" onClick={() => setExecutionFilter("ALL")}>Show all runs</Button></div> : <div className="dashboard-execution-list">{visibleExecutions.map((execution) => <article className="dashboard-execution" key={execution.id}><span className={`execution-status execution-status--${execution.status.toLowerCase()}`}>{executionLabel(execution.status)}</span><div className="dashboard-execution__detail"><strong>{execution.workflowName}</strong><span>v{execution.workflowVersion} · {execution.mode === "mock" ? "Test run" : "Live run"} · {formatExecutionTime(execution.createdAt)}</span>{execution.error && <small>{execution.error.code}: {execution.error.message}</small>}</div><Button variant="ghost" className="dashboard-execution__open" onClick={() => router.push(`/editor?workflow=${encodeURIComponent(execution.workflowId)}&execution=${encodeURIComponent(execution.id)}`)}>Open workflow <ArrowRight size={14} /></Button></article>)}</div>}
+            </>}
+          </div>}
+        </section>
         <section id="workflow-create" className="dashboard-create"><div><p className="section-label">CREATE</p><h2>Start a workflow</h2><p>Use a blank canvas or the Steam daily report template.</p></div><div className="dashboard-create__actions"><input aria-label="New workflow name" value={workflowName} onChange={(event) => setWorkflowName(event.target.value)} /><Button variant="secondary" className="dashboard-secondary-button" onClick={() => void createWorkflow()} disabled={isCreating || !workspaceId || !workflowName.trim()}>{isCreating && lastCreateTemplate === undefined ? "Creating…" : "Blank workflow"}</Button><Button variant="primary" className="dashboard-primary-button" onClick={() => void createWorkflow("steam-daily-report")} disabled={isCreating || !workspaceId}>{isCreating && lastCreateTemplate === "steam-daily-report" ? "Creating…" : "Use Steam template"}</Button></div>{createError && <Status tone="error" className="dashboard-create__error"><span>{createError}</span><Button variant="ghost" className="dashboard-create__retry" onClick={() => void createWorkflow(lastCreateTemplate)} disabled={isCreating}>Retry</Button></Status>}</section>
         <section className="dashboard-workflows"><div className="dashboard-section-heading"><div><p className="section-label">WORKFLOWS</p><h2>All automations</h2></div><span role="status" aria-live="polite">{notice}</span></div><div className="dashboard-workflow-toolbar" aria-label="Workflow controls"><input type="search" aria-label="Search workflows" placeholder="Search workflows" value={workflowQuery} onChange={(event) => setWorkflowQuery(event.target.value)} /><Select aria-label="Workflow status" value={workflowStatus} onChange={(event) => setWorkflowStatus(event.target.value as WorkflowStatusFilter)}><option value="ALL">All statuses</option><option value="LIVE">Live</option><option value="DRAFT">Draft</option></Select><Select aria-label="Workflow sort" value={workflowSort} onChange={(event) => setWorkflowSort(event.target.value as WorkflowSort)}><option value="UPDATED">Last updated</option><option value="NAME">Name A–Z</option><option value="STATUS">Status</option></Select>{hasWorkflowFilters && <Button variant="ghost" className="dashboard-workflow-toolbar__clear" aria-label="Clear workflow filters" onClick={() => { setWorkflowQuery(""); setWorkflowStatus("ALL"); setWorkflowSort("UPDATED"); }}>Clear</Button>}</div><p className="dashboard-workflow-summary" role="status" aria-live="polite">{workflows.length === 0 ? "No workflows yet" : `Showing ${visibleWorkflows.length} of ${workflows.length} workflow${workflows.length === 1 ? "" : "s"}`}</p>{workflows.length === 0 ? <div className="dashboard-empty"><FolderKanban size={26} /><h3>No workflows in this workspace</h3><p>Start with the Steam template or create a blank automation.</p></div> : visibleWorkflows.length === 0 ? <div className="dashboard-empty dashboard-empty--filtered"><FolderKanban size={26} /><h3>No workflows match these filters</h3><p>Try a different search or clear the current filters.</p><Button variant="ghost" onClick={() => { setWorkflowQuery(""); setWorkflowStatus("ALL"); setWorkflowSort("UPDATED"); }}>Clear workflow filters</Button></div> : <div className="workflow-card-grid">{visibleWorkflows.map((workflow) => <article key={workflow.id} className="workflow-card"><div className="workflow-card__status"><span className={workflow.isActive ? "workflow-status workflow-status--live" : "workflow-status"}>{workflow.isActive ? `Live · v${workflow.published?.version ?? "—"}` : workflow.published ? `Published · v${workflow.published.version}` : "Draft"}</span><div className="workflow-card__meta"><span className="workflow-card__updated">Updated {new Date(workflow.updatedAt ?? Date.now()).toLocaleDateString()}</span><Menu label={`Workflow actions for ${workflow.name}`} trigger={<MoreVertical size={16} aria-hidden="true" />} className="workflow-card__menu"><div className="workflow-card__menu-list"><button type="button" onClick={() => openWorkflowAction("rename", workflow)}><Pencil size={14} />Rename</button><button type="button" onClick={() => openWorkflowAction("duplicate", workflow)}><Copy size={14} />Duplicate</button><button type="button" onClick={() => openWorkflowAction("archive", workflow)}><Archive size={14} />Archive</button><button type="button" className="workflow-card__delete" onClick={() => openWorkflowAction("delete", workflow)}><Trash2 size={14} />Delete permanently</button></div></Menu></div></div><div className="workflow-card__title"><h3>{workflow.name}</h3></div><p>{workflow.description || "No description yet. Open the editor to configure this workflow."}</p><footer><span>{workflow.draft?.graph.nodes.length ?? workflow.published?.graph.nodes.length ?? 0} nodes</span><Button variant="ghost" className="workflow-card__open" onClick={() => router.push(`/editor?workflow=${encodeURIComponent(workflow.id)}`)}>Open editor <ArrowRight size={15} /></Button></footer></article>)}</div>}</section>
         <section className="dashboard-workspace-create"><div><p className="section-label">WORKSPACE</p><h2>Create another workspace</h2></div><form onSubmit={createWorkspace}><input aria-label="New workspace name" value={workspaceName} onChange={(event) => setWorkspaceName(event.target.value)} placeholder="e.g. Personal automations" /><Button variant="secondary" className="dashboard-secondary-button" disabled={isCreating || !workspaceName.trim()} type="submit">Create workspace</Button></form></section>

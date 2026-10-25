@@ -32,6 +32,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | Node-level mock debug | Complete locally | The selected supported node can be saved and run alone from the inspector using mock transport only. Its redacted input/output/error is persisted as an execution, downstream nodes are skipped, and live node debug is rejected. Approval nodes retain their full-workflow pause/resume behavior. |
 | Execution-focused navigation | Complete locally | The Execution Center opens an immutable execution snapshot inside the editor, with a visible Test/Live mode, pinned version, terminal state, and automatic focus on the most relevant node execution. |
 | Explicit workflow activation | Complete locally | Publish and activation are separate workflow states. Activation needs the server-side live-credential preflight; it enables Cron/Webhook ingress without running a manual execution. Deactivation stops new trigger ingress without cancelling work already queued or running. |
+| Execution Center triage | Complete locally | The dashboard remains compact by default but can refresh execution history independently, recover from its own loading error, and filter current recent runs by attention, active work, failures, or successes before opening the immutable execution detail. |
 
 ## Milestone 1 — Product foundation
 
