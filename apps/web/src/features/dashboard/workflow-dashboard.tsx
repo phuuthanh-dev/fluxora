@@ -27,7 +27,9 @@ export function WorkflowDashboard() {
   const [workflows, setWorkflows] = useState<ApiWorkflow[]>([]);
   const [executions, setExecutions] = useState<ExecutionSummary[]>([]);
   const [executionsLoading, setExecutionsLoading] = useState(false);
+  const [executionsLoadingMore, setExecutionsLoadingMore] = useState(false);
   const [executionsError, setExecutionsError] = useState<string | null>(null);
+  const [executionCursor, setExecutionCursor] = useState<string | null>(null);
   const [executionCenterOpen, setExecutionCenterOpen] = useState(false);
   const [executionFilter, setExecutionFilter] = useState<ExecutionFilter>("ALL");
   const [providers, setProviders] = useState<ProviderStatus>({ google: false, github: false, steam: false });
@@ -65,26 +67,36 @@ export function WorkflowDashboard() {
     setWorkflows(response.workflows);
   };
 
-  const loadExecutions = async (targetWorkspaceId: string, signal?: AbortSignal) => {
+  const loadExecutions = async (targetWorkspaceId: string, signal?: AbortSignal, cursor?: string) => {
     if (!targetWorkspaceId) {
       setExecutions([]);
+      setExecutionCursor(null);
       return;
     }
-    setExecutionsLoading(true);
-    setExecutionsError(null);
+    if (cursor) setExecutionsLoadingMore(true);
+    else {
+      setExecutionsLoading(true);
+      setExecutionsError(null);
+    }
     try {
-      const response = await apiRequest<{ executions: ExecutionSummary[] }>(
-        `/workspaces/${targetWorkspaceId}/executions`,
+      const parameters = new URLSearchParams({ limit: "20" });
+      if (cursor) parameters.set("cursor", cursor);
+      const response = await apiRequest<{ executions: ExecutionSummary[]; nextCursor: string | null }>(
+        `/workspaces/${targetWorkspaceId}/executions?${parameters.toString()}`,
         signal ? { signal } : undefined,
       );
       if (activeWorkspaceIdRef.current !== targetWorkspaceId) return;
-      setExecutions(response.executions);
+      setExecutions((current) => cursor ? [...current, ...response.executions.filter((candidate) => !current.some((existing) => existing.id === candidate.id))] : response.executions);
+      setExecutionCursor(response.nextCursor);
     } catch (reason) {
       if (signal?.aborted || activeWorkspaceIdRef.current !== targetWorkspaceId) return;
       setExecutions([]);
       setExecutionsError(reason instanceof Error ? reason.message : "Unable to load recent executions.");
     } finally {
-      if (!signal?.aborted && activeWorkspaceIdRef.current === targetWorkspaceId) setExecutionsLoading(false);
+      if (!signal?.aborted && activeWorkspaceIdRef.current === targetWorkspaceId) {
+        if (cursor) setExecutionsLoadingMore(false);
+        else setExecutionsLoading(false);
+      }
     }
   };
 
@@ -141,6 +153,7 @@ export function WorkflowDashboard() {
     setWorkspaceId(nextWorkspaceId);
     setWorkflows([]);
     setExecutions([]);
+    setExecutionCursor(null);
     setExecutionsError(null);
     setExecutionFilter("ALL");
     setWorkflowQuery("");
@@ -321,7 +334,7 @@ export function WorkflowDashboard() {
                 <button type="button" className={executionFilter === "FAILED" ? "is-active" : undefined} aria-pressed={executionFilter === "FAILED"} onClick={() => setExecutionFilter("FAILED")}>Failed ({executionCounts.failed})</button>
                 <button type="button" className={executionFilter === "SUCCEEDED" ? "is-active" : undefined} aria-pressed={executionFilter === "SUCCEEDED"} onClick={() => setExecutionFilter("SUCCEEDED")}>Succeeded ({executionCounts.succeeded})</button>
               </div>
-              {visibleExecutions.length === 0 ? <div className="dashboard-execution-empty dashboard-execution-empty--filtered"><History size={22} /><strong>No matching runs</strong><span>Try another execution status.</span><Button variant="ghost" onClick={() => setExecutionFilter("ALL")}>Show all runs</Button></div> : <div className="dashboard-execution-list">{visibleExecutions.map((execution) => <article className="dashboard-execution" key={execution.id}><span className={`execution-status execution-status--${execution.status.toLowerCase()}`}>{executionLabel(execution.status)}</span><div className="dashboard-execution__detail"><strong>{execution.workflowName}</strong><span>v{execution.workflowVersion} · {execution.mode === "mock" ? "Test run" : "Live run"} · {formatExecutionTime(execution.createdAt)}</span>{execution.error && <small>{execution.error.code}: {execution.error.message}</small>}</div><Button variant="ghost" className="dashboard-execution__open" onClick={() => router.push(`/editor?workflow=${encodeURIComponent(execution.workflowId)}&execution=${encodeURIComponent(execution.id)}`)}>Open workflow <ArrowRight size={14} /></Button></article>)}</div>}
+              {visibleExecutions.length === 0 ? <div className="dashboard-execution-empty dashboard-execution-empty--filtered"><History size={22} /><strong>No matching runs</strong><span>Try another execution status.</span><Button variant="ghost" onClick={() => setExecutionFilter("ALL")}>Show all runs</Button></div> : <div className="dashboard-execution-list">{visibleExecutions.map((execution) => <article className="dashboard-execution" key={execution.id}><span className={`execution-status execution-status--${execution.status.toLowerCase()}`}>{executionLabel(execution.status)}</span><div className="dashboard-execution__detail"><strong>{execution.workflowName}</strong><span>v{execution.workflowVersion} · {execution.mode === "mock" ? "Test run" : "Live run"} · {formatExecutionTime(execution.createdAt)}</span>{execution.error && <small>{execution.error.code}: {execution.error.message}</small>}</div><Button variant="ghost" className="dashboard-execution__open" onClick={() => router.push(`/editor?workflow=${encodeURIComponent(execution.workflowId)}&execution=${encodeURIComponent(execution.id)}`)}>Open workflow <ArrowRight size={14} /></Button></article>)}{executionCursor && <div className="dashboard-execution-load-more"><Button variant="ghost" disabled={executionsLoadingMore} onClick={() => void loadExecutions(workspaceId, undefined, executionCursor)}>{executionsLoadingMore ? <><LoaderCircle className="ui-spinner" size={14} /> Loading more…</> : "Load more runs"}</Button></div>}</div>}
             </>}
           </div>}
         </section>

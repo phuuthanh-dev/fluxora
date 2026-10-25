@@ -127,16 +127,20 @@ export class ExecutionService {
     return execution;
   }
 
-  async listForWorkspace(workspaceId: string, userId: string, limit = 20) {
+  async listForWorkspace(workspaceId: string, userId: string, limit = 20, cursor?: string) {
     const membership = await this.prisma.workspaceMember.findUnique({ where: { workspaceId_userId: { workspaceId, userId } } });
     if (!membership || membership.role !== "OWNER") throw new NotFoundException({ code: "WORKSPACE_NOT_FOUND", message: "Workspace was not found." });
+    const take = Math.min(Math.max(limit, 1), 50);
     const executions = await this.prisma.execution.findMany({
       where: { workflowVersion: { workflow: { workspaceId } } },
       include: { workflowVersion: { include: { workflow: true } } },
-      orderBy: { createdAt: "desc" },
-      take: Math.min(Math.max(limit, 1), 50),
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: take + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
-    return executions.map((execution) => ({
+    const page = executions.slice(0, take);
+    return {
+      executions: page.map((execution) => ({
       id: execution.id,
       workflowId: execution.workflowVersion.workflowId,
       workflowName: execution.workflowVersion.workflow.name,
@@ -147,7 +151,9 @@ export class ExecutionService {
       startedAt: execution.startedAt,
       completedAt: execution.completedAt,
       error: execution.errorCode ? { code: execution.errorCode, message: execution.errorMessage } : null,
-    }));
+      })),
+      nextCursor: executions.length > take ? page.at(-1)?.id ?? null : null,
+    };
   }
 
   async getApproval(approvalId: string, userId: string) {

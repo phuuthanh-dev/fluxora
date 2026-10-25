@@ -118,6 +118,40 @@ test("connections dropdown keeps its trigger inline and opens below the header",
   await expect(menu).toContainText("No external identities linked.");
 });
 
+test("execution center loads stable cursor pages without losing existing runs", async ({ page }) => {
+  const email = `regression-execution-pages-${Date.now()}@example.test`;
+  let pageRequest = 0;
+  const execution = (id: string, workflowName: string, createdAt: string) => ({
+    id,
+    workflowId: "workflow-1",
+    workflowName,
+    workflowVersion: 1,
+    status: "SUCCEEDED",
+    mode: "mock",
+    createdAt,
+    startedAt: createdAt,
+    completedAt: createdAt,
+    error: null,
+  });
+  await page.route("**/workspaces/*/executions?*", async (route) => {
+    pageRequest++;
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify(pageRequest === 1
+        ? { executions: [execution("execution-new", "Newest report", "2026-10-25T10:31:00.000Z")], nextCursor: "execution-new" }
+        : { executions: [execution("execution-old", "Older report", "2026-10-25T10:30:00.000Z")], nextCursor: null }),
+    });
+  });
+
+  await signUpAndDashboard(page, email);
+  await page.getByRole("button", { name: "Expand execution center" }).click();
+  await expect(page.getByText("Newest report", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Load more runs" }).click();
+  await expect(page.getByText("Older report", { exact: true })).toBeVisible();
+  await expect(page.getByText("Newest report", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Load more runs" })).toHaveCount(0);
+});
+
 test("workflow dashboard can search, filter, sort, and clear workflow controls", async ({ page }) => {
   const email = `regression-workflow-controls-${Date.now()}@example.test`;
   await signUpAndDashboard(page, email);

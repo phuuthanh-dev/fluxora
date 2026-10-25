@@ -69,9 +69,9 @@ test("retry dispatches the same safe mode and requires a fresh confirmation for 
 });
 
 test("workspace execution list is owner-scoped", async () => {
-  const controller = new ExecutionController({ listForWorkspace: async (...args: unknown[]) => [{ id: "execution-1", args }] } as never, {} as never, {} as never);
-  const result = await controller.listForWorkspace("workspace-1", { currentUser: { id: "user-1" } } as never);
-  assert.deepEqual(result, { executions: [{ id: "execution-1", args: ["workspace-1", "user-1"] }] });
+  const controller = new ExecutionController({ listForWorkspace: async (...args: unknown[]) => ({ executions: [{ id: "execution-1", args }], nextCursor: "execution-1" }) } as never, {} as never, {} as never);
+  const result = await controller.listForWorkspace("workspace-1", "cursor-1", "10", { currentUser: { id: "user-1" } } as never);
+  assert.deepEqual(result, { executions: [{ id: "execution-1", args: ["workspace-1", "user-1", 10, "cursor-1"] }], nextCursor: "execution-1" });
 });
 
 test("live readiness is exposed without starting an execution", async () => {

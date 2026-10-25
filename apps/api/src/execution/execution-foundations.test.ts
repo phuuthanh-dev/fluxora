@@ -180,6 +180,30 @@ test("trigger idempotency returns the existing pinned execution without creating
   assert.deepEqual(created, []);
 });
 
+test("execution history uses an owner-scoped stable cursor page", async () => {
+  const queries: unknown[] = [];
+  const item = (id: string, createdAt: string) => ({ id, status: ExecutionStatus.SUCCEEDED, mode: "MOCK", createdAt: new Date(createdAt), startedAt: null, completedAt: null, errorCode: null, errorMessage: null, workflowVersion: { workflowId: "workflow-1", version: 3, workflow: { name: "Report" } } });
+  const prisma = {
+    workspaceMember: { findUnique: async () => ({ role: "OWNER" }) },
+    execution: { findMany: async (query: unknown) => { queries.push(query); return [item("execution-2", "2026-10-25T10:31:00.000Z"), item("execution-1", "2026-10-25T10:30:00.000Z")]; } },
+  };
+  const service = new ExecutionService(prisma as never, {} as never, {} as never);
+
+  const page = await service.listForWorkspace("workspace-1", "user-1", 1, "cursor-0");
+
+  assert.equal(page.executions.length, 1);
+  assert.equal(page.executions[0]?.id, "execution-2");
+  assert.equal(page.nextCursor, "execution-2");
+  assert.deepEqual(queries[0], {
+    where: { workflowVersion: { workflow: { workspaceId: "workspace-1" } } },
+    include: { workflowVersion: { include: { workflow: true } } },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: 2,
+    cursor: { id: "cursor-0" },
+    skip: 1,
+  });
+});
+
 test("retries only transient failures with capped exponential backoff", () => {
   assert.equal(isRetryableFailure({ code: "NETWORK_ERROR" }), true);
   assert.equal(isRetryableFailure({ code: "HTTP_ERROR", statusCode: 503 }), true);

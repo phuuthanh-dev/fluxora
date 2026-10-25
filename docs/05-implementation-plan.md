@@ -34,6 +34,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | Explicit workflow activation | Complete locally | Publish and activation are separate workflow states. Activation needs the server-side live-credential preflight; it enables Cron/Webhook ingress without running a manual execution. Deactivation stops new trigger ingress without cancelling work already queued or running. |
 | Execution Center triage | Complete locally | The dashboard remains compact by default but can refresh execution history independently, recover from its own loading error, and filter current recent runs by attention, active work, failures, or successes before opening the immutable execution detail. |
 | Safe retry and trigger idempotency | Complete locally | Failed executions can create a new run only from their original pinned version and original redacted trigger payload. Mock retry remains mock; a live retry requires a second explicit confirmation and re-evaluates live credentials. Cron dispatches use a durable occurrence key and public webhooks accept an optional endpoint-scoped `Idempotency-Key`. |
+| Execution Center pagination | Complete locally | Execution history uses an owner-scoped stable cursor and a 1–50 bounded API page size. The dashboard appends further history with a dedicated loading affordance without resetting triage filters or losing already rendered runs. |
 
 ## Milestone 1 — Product foundation
 

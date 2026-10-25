@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Inject, Param, Post, Req, Sse, UseGuards } from "@nestjs/common";
+import { BadRequestException, Controller, Get, Inject, Param, Post, Query, Req, Sse, UseGuards } from "@nestjs/common";
 import { from, switchMap } from "rxjs";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
@@ -42,8 +42,9 @@ export class ExecutionController {
   }
 
   @Get("workspaces/:workspaceId/executions")
-  async listForWorkspace(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest) {
-    return { executions: await this.executions.listForWorkspace(workspaceId, requireUserId(request)) };
+  async listForWorkspace(@Param("workspaceId") workspaceId: string, @Query("cursor") cursor: string | undefined, @Query("limit") limit: string | undefined, @Req() request: AuthenticatedRequest) {
+    const page = await this.executions.listForWorkspace(workspaceId, requireUserId(request), readExecutionLimit(limit), cursor);
+    return page;
   }
 
   @Get("workflows/:workflowId/live-readiness")
@@ -65,4 +66,11 @@ export class ExecutionController {
 function requireUserId(request: AuthenticatedRequest) {
   if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
   return request.currentUser.id;
+}
+
+function readExecutionLimit(value: string | undefined) {
+  if (!value) return 20;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 50) throw new BadRequestException({ code: "INVALID_LIMIT", message: "Execution limit must be an integer between 1 and 50." });
+  return parsed;
 }
