@@ -27,6 +27,22 @@ test("confirmed live execution reaches the pinned-version service and queue", as
   assert.deepEqual(result, { execution: { id: "execution-1", status: "QUEUED" } });
 });
 
+test("node debug is always queued as a mock run for only the selected node", async () => {
+  const calls: unknown[] = [];
+  const queued: unknown[] = [];
+  const executions = {
+    createManualExecution: async (...args: unknown[]) => { calls.push(args); return { id: "execution-debug-1" }; },
+    get: async () => ({ id: "execution-debug-1", status: "SUCCEEDED" }),
+  };
+  const controller = new ExecutionController(executions as never, { dispatch: async (job: unknown) => { queued.push(job); } } as never, {} as never);
+
+  const result = await controller.startManual("workflow-1", { body: { mock: true, nodeId: "steam", triggerData: { source: "debug" } }, currentUser: { id: "user-1" } } as never);
+
+  assert.deepEqual(calls, [["workflow-1", "user-1", true, { source: "debug" }, "steam"]]);
+  assert.deepEqual(queued, [{ executionId: "execution-debug-1", mode: "mock", debugNodeId: "steam" }]);
+  assert.deepEqual(result, { execution: { id: "execution-debug-1", status: "SUCCEEDED" } });
+});
+
 test("workspace execution list is owner-scoped", async () => {
   const controller = new ExecutionController({ listForWorkspace: async (...args: unknown[]) => [{ id: "execution-1", args }] } as never, {} as never, {} as never);
   const result = await controller.listForWorkspace("workspace-1", { currentUser: { id: "user-1" } } as never);

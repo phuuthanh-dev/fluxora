@@ -5,7 +5,7 @@ import { ExecutionService } from "./execution.service";
 import { resolveWorkerConcurrency } from "./worker-concurrency";
 
 type QueueMode = "inline" | "redis";
-export type ExecutionJob = { executionId: string; mode: "mock" | "live"; startNodeIds?: string[] };
+export type ExecutionJob = { executionId: string; mode: "mock" | "live"; startNodeIds?: string[]; debugNodeId?: string };
 export type QueueHealth = { status: "ready" | "unavailable"; mode: QueueMode; configuredWorkerConcurrency: number; waiting: number; active: number; delayed: number; failed: number };
 export const executionQueueName = "workflow-executions";
 
@@ -24,7 +24,7 @@ export class ExecutionQueueService implements OnModuleDestroy {
   constructor(@Inject(ExecutionService) private readonly executions: ExecutionService) {}
 
   async dispatch(job: ExecutionJob) {
-    if (this.mode === "inline") return this.executions.run(job.executionId, job.mode, job.startNodeIds);
+    if (this.mode === "inline") return this.executions.run(job.executionId, job.mode, job.startNodeIds, job.debugNodeId);
     const queue = this.getQueue();
     await queue.add("execute", job, { jobId: job.executionId, removeOnComplete: 100, removeOnFail: 100 });
   }

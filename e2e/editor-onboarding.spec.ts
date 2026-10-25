@@ -127,6 +127,12 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(page.getByLabel("Steam credential")).toContainText("E2E Steam connection");
   await page.getByLabel("Steam credential").selectOption({ label: "E2E Steam connection" });
 
+  await page.getByRole("button", { name: "Run node" }).click();
+  await expect(page.getByText("Mock node debug succeeded — only Steam account snapshot ran.")).toBeVisible();
+  await expect(page.getByText(/LAST EXECUTION · SUCCEEDED/)).toBeVisible();
+  await page.locator(".react-flow__node").filter({ hasText: "Google Chat message" }).first().click();
+  await expect(page.getByText(/LAST EXECUTION · SKIPPED/)).toBeVisible();
+
   await page.getByRole("button", { name: "Save draft" }).click();
   await expect(page.getByText("Draft saved to your workspace.")).toBeVisible();
   await page.getByRole("button", { name: "Publish" }).click();

@@ -90,6 +90,51 @@ test("invalid expressions fail the execution instead of leaving it running", asy
   assert.equal(nodeUpdates.at(-1)?.errorCode, "INVALID_EXPRESSION");
 });
 
+test("node debug executes only the selected mock node and skips downstream nodes", async () => {
+  const executionUpdates: Array<Record<string, unknown>> = [];
+  const nodeUpdates: Array<{ where: Record<string, unknown>; data: Record<string, unknown> }> = [];
+  const execution = {
+    id: "execution-node-debug",
+    status: ExecutionStatus.QUEUED,
+    triggerData: { source: "debug" },
+    nodeExecutions: [],
+    workflowVersion: {
+      graph: {
+        nodes: [
+          { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
+          { id: "http", type: "action.http-request", position: { x: 200, y: 0 }, config: { url: "https://example.com" } },
+          { id: "downstream", type: "action.http-request", position: { x: 400, y: 0 }, config: { url: "https://example.com/next" } },
+        ],
+        edges: [
+          { id: "manual-to-http", source: "manual", target: "http", kind: "success" },
+          { id: "http-to-downstream", source: "http", target: "downstream", kind: "success" },
+        ],
+      },
+      workflow: { workspaceId: "workspace-1" },
+    },
+  };
+  const prisma = {
+    execution: {
+      findUnique: async () => execution,
+      updateMany: async () => ({ count: 1 }),
+      update: async ({ data }: { data: Record<string, unknown> }) => { executionUpdates.push(data); return { ...execution, ...data }; },
+    },
+    nodeExecution: {
+      upsert: async () => ({}),
+      update: async ({ where, data }: { where: Record<string, unknown>; data: Record<string, unknown> }) => { nodeUpdates.push({ where, data }); return {}; },
+      updateMany: async () => ({ count: 0 }),
+    },
+    $transaction: async (operations: Promise<unknown>[]) => Promise.all(operations),
+  };
+  const service = new ExecutionService(prisma as never, {} as never, { publish: () => undefined } as never);
+
+  await service.run(execution.id, "mock", undefined, "http");
+
+  assert.equal(executionUpdates.at(-1)?.status, ExecutionStatus.SUCCEEDED);
+  assert.ok(nodeUpdates.some((update) => (update.where.executionId_nodeId as { nodeId: string }).nodeId === "http" && update.data.status === "RUNNING"));
+  assert.equal(nodeUpdates.some((update) => (update.where.executionId_nodeId as { nodeId: string }).nodeId === "downstream"), false);
+});
+
 test("retries only transient failures with capped exponential backoff", () => {
   assert.equal(isRetryableFailure({ code: "NETWORK_ERROR" }), true);
   assert.equal(isRetryableFailure({ code: "HTTP_ERROR", statusCode: 503 }), true);

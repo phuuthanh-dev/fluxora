@@ -20,7 +20,7 @@ export async function bootstrapExecutionWorker() {
   const connection = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", { maxRetriesPerRequest: null });
   const worker = createExecutionWorker(connection, async (job) => {
     try {
-      await executions.run(job.executionId, job.mode, job.startNodeIds);
+      await executions.run(job.executionId, job.mode, job.startNodeIds, job.debugNodeId);
     } catch (error) {
       await executions.failFromWorker(job.executionId);
       throw error;

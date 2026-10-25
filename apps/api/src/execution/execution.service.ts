@@ -26,7 +26,7 @@ export { NodeFailure, nodeFailureFromOutboundPolicy, validateDiscordWebhookUrl, 
 export class ExecutionService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService, @Inject(CredentialService) private readonly credentials: CredentialService, @Inject(ExecutionEventsService) private readonly events: ExecutionEventsService) {}
 
-  async createManualExecution(workflowId: string, userId: string, mock: boolean, triggerData: unknown = {}) {
+  async createManualExecution(workflowId: string, userId: string, mock: boolean, triggerData: unknown = {}, debugNodeId?: string) {
     const workflow = await this.prisma.workflow.findFirst({
       where: { id: workflowId, workspace: { members: { some: { userId, role: "OWNER" } } } },
       include: { draftVersion: true, publishedVersion: true },
@@ -34,11 +34,16 @@ export class ExecutionService {
     if (!workflow) throw new NotFoundException({ code: "WORKFLOW_NOT_FOUND", message: "Workflow was not found." });
     const version = mock ? workflow.draftVersion ?? workflow.publishedVersion : workflow.publishedVersion;
     if (!version) throw new NotFoundException({ code: "PUBLISHED_VERSION_REQUIRED", message: "Publish the workflow before starting a live execution." });
+    if (debugNodeId) {
+      const debugNode = parseWorkflowGraph(version.graph).nodes.find((node) => node.id === debugNodeId);
+      if (!debugNode) throw new BadRequestException({ code: "NODE_NOT_FOUND", message: "The selected node does not exist in this workflow." });
+      if (debugNode.type === "approval.request") throw new BadRequestException({ code: "NODE_DEBUG_UNSUPPORTED", message: "Approval nodes must be tested as part of the full workflow." });
+    }
     if (!mock) await this.assertLiveReady(workflow.workspaceId, parseWorkflowGraph(version.graph));
     const execution = await this.prisma.execution.create({
       data: { workflowVersionId: version.id, mode: mock ? "MOCK" : "LIVE", triggerData: redactValue(triggerData) as Prisma.InputJsonValue },
     });
-    await this.prisma.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "execution.manual_started", targetType: "execution", targetId: execution.id, metadata: { mode: mock ? "mock" : "live" } } });
+    await this.prisma.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: debugNodeId ? "execution.node_debug_started" : "execution.manual_started", targetType: "execution", targetId: execution.id, metadata: { mode: mock ? "mock" : "live", ...(debugNodeId ? { nodeId: debugNodeId } : {}) } } });
     return execution;
   }
 
@@ -148,7 +153,7 @@ export class ExecutionService {
     return this.get(executionId, userId);
   }
 
-  async run(executionId: string, mode: RunMode, startNodeIds?: string[]) {
+  async run(executionId: string, mode: RunMode, startNodeIds?: string[], debugNodeId?: string) {
     const execution = await this.prisma.execution.findUnique({ include: { workflowVersion: { include: { workflow: true } }, nodeExecutions: true }, where: { id: executionId } });
     if (!execution) throw new NotFoundException({ code: "EXECUTION_NOT_FOUND", message: "Execution was not found." });
     if (execution.status !== ExecutionStatus.QUEUED) return execution;
@@ -175,7 +180,9 @@ export class ExecutionService {
         outputs[nodeExecution.nodeId] = { output: nodeExecution.output };
       }
     }
-    const pending = (startNodeIds ? graph.nodes.filter((node) => startNodeIds.includes(node.id)) : graph.nodes.filter((node) => node.type.startsWith("trigger.")));
+    const pending = debugNodeId
+      ? graph.nodes.filter((node) => node.id === debugNodeId)
+      : (startNodeIds ? graph.nodes.filter((node) => startNodeIds.includes(node.id)) : graph.nodes.filter((node) => node.type.startsWith("trigger.")));
     const visited = new Set(execution.nodeExecutions.filter((node) => node.status !== NodeExecutionStatus.PENDING && node.status !== NodeExecutionStatus.SKIPPED).map((node) => node.nodeId));
 
     while (pending.length) {
@@ -185,6 +192,18 @@ export class ExecutionService {
       if (!node || visited.has(node.id)) continue;
       visited.add(node.id);
       const result = await this.runNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, mode);
+      if (debugNodeId) {
+        await this.markUnvisitedSkipped(executionId, graph, visited);
+        const completedAt = new Date();
+        if (result.status === "failed") {
+          const failed = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.FAILED, completedAt, leaseExpiresAt: null, errorCode: result.error?.code ?? "NODE_FAILED", errorMessage: result.error?.message ?? "Workflow node failed." } });
+          this.events.publish(executionId, "execution.failed");
+          return failed;
+        }
+        const succeeded = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.SUCCEEDED, completedAt, leaseExpiresAt: null } });
+        this.events.publish(executionId, "execution.succeeded");
+        return succeeded;
+      }
       if (result.status === "waiting") {
         const approval = await this.prisma.approvalRequest.create({
           data: {
