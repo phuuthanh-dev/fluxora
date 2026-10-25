@@ -132,6 +132,8 @@ model Workflow {
   name               String
   description        String?
   archivedAt         DateTime?
+  isActive           Boolean           @default(false)
+  activatedAt        DateTime?
   draftVersionId     String?           @unique
   publishedVersionId String?           @unique
   createdAt          DateTime          @default(now())

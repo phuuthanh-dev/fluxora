@@ -1,12 +1,13 @@
 import { BadRequestException, Controller, Delete, Get, Inject, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
+import { ExecutionService } from "../execution/execution.service";
 import { WorkflowService } from "./workflow.service";
 
 @Controller()
 @UseGuards(AuthenticationGuard)
 export class WorkflowController {
-  constructor(@Inject(WorkflowService) private readonly workflows: WorkflowService) {}
+  constructor(@Inject(WorkflowService) private readonly workflows: WorkflowService, @Inject(ExecutionService) private readonly executions: ExecutionService) {}
 
   @Get("workspaces/:workspaceId/workflows")
   async list(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest) {
@@ -46,6 +47,18 @@ export class WorkflowController {
   @Post("workflows/:workflowId/publish")
   async publish(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
     return { workflow: await this.workflows.publish(workflowId, requireUserId(request)) };
+  }
+
+  @Post("workflows/:workflowId/activate")
+  async activate(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    const readiness = await this.executions.getLiveReadiness(workflowId, requireUserId(request));
+    if (!readiness.ready) throw new BadRequestException({ code: "LIVE_CREDENTIAL_REQUIRED", message: "Configure every live integration before activating this workflow.", details: readiness.requirements.filter((requirement) => !requirement.ready) });
+    return { workflow: await this.workflows.activate(workflowId, requireUserId(request)) };
+  }
+
+  @Post("workflows/:workflowId/deactivate")
+  async deactivate(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return { workflow: await this.workflows.deactivate(workflowId, requireUserId(request)) };
   }
 
   @Post("workflows/:workflowId/clone")

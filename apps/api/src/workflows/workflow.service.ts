@@ -119,6 +119,36 @@ export class WorkflowService {
     return this.serialize(updated);
   }
 
+  async activate(workflowId: string, userId: string) {
+    const workflow = await this.findOwned(workflowId, userId);
+    if (!workflow.publishedVersion) throw new NotFoundException({ code: "PUBLISHED_VERSION_REQUIRED", message: "Publish this workflow before activating it." });
+    const activatedAt = new Date();
+    const updated = await this.prisma.$transaction(async (transaction) => {
+      const activated = await transaction.workflow.update({
+        where: { id: workflowId },
+        data: { isActive: true, activatedAt },
+        include: { draftVersion: true, publishedVersion: true },
+      });
+      await transaction.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "workflow.activated", targetType: "workflow", targetId: workflowId, metadata: { version: workflow.publishedVersion?.version } } });
+      return activated;
+    });
+    return this.serialize(updated);
+  }
+
+  async deactivate(workflowId: string, userId: string) {
+    const workflow = await this.findOwned(workflowId, userId);
+    const updated = await this.prisma.$transaction(async (transaction) => {
+      const deactivated = await transaction.workflow.update({
+        where: { id: workflowId },
+        data: { isActive: false, activatedAt: null },
+        include: { draftVersion: true, publishedVersion: true },
+      });
+      await transaction.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "workflow.deactivated", targetType: "workflow", targetId: workflowId } });
+      return deactivated;
+    });
+    return this.serialize(updated);
+  }
+
   async clone(workflowId: string, userId: string) {
     const source = await this.findOwned(workflowId, userId);
     const sourceGraph = source.draftVersion?.graph ?? source.publishedVersion?.graph;
@@ -179,13 +209,15 @@ export class WorkflowService {
     return workflow;
   }
 
-  private serialize(workflow: { id: string; workspaceId: string; name: string; description: string | null; archivedAt: Date | null; draftVersion: { id: string; version: number; status: WorkflowVersionStatus; graph: Prisma.JsonValue } | null; publishedVersion: { id: string; version: number; status: WorkflowVersionStatus; graph: Prisma.JsonValue } | null; createdAt: Date; updatedAt: Date }) {
+  private serialize(workflow: { id: string; workspaceId: string; name: string; description: string | null; archivedAt: Date | null; isActive: boolean; activatedAt: Date | null; draftVersion: { id: string; version: number; status: WorkflowVersionStatus; graph: Prisma.JsonValue } | null; publishedVersion: { id: string; version: number; status: WorkflowVersionStatus; graph: Prisma.JsonValue } | null; createdAt: Date; updatedAt: Date }) {
     return {
       id: workflow.id,
       workspaceId: workflow.workspaceId,
       name: workflow.name,
       description: workflow.description,
       archivedAt: workflow.archivedAt,
+      isActive: workflow.isActive,
+      activatedAt: workflow.activatedAt,
       draft: workflow.draftVersion ? { id: workflow.draftVersion.id, version: workflow.draftVersion.version, graph: workflow.draftVersion.graph } : null,
       published: workflow.publishedVersion ? { id: workflow.publishedVersion.id, version: workflow.publishedVersion.version, graph: workflow.publishedVersion.graph } : null,
       createdAt: workflow.createdAt,

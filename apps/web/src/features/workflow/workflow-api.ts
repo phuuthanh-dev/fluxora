@@ -8,6 +8,8 @@ export type ApiWorkflow = {
   name: string;
   description: string | null;
   archivedAt?: string | null;
+  isActive: boolean;
+  activatedAt?: string | null;
   updatedAt?: string;
   draft: { id: string; version: number; graph: WorkflowGraph } | null;
   published: { id: string; version: number; graph: WorkflowGraph } | null;

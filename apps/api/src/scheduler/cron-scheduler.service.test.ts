@@ -6,15 +6,19 @@ test("cron scheduler creates and dispatches one live execution for a due publish
   const now = new Date("2026-10-25T10:30:30.000Z");
   const created: Array<{ versionId: string; triggerData: Record<string, unknown> }> = [];
   const jobs: Array<{ executionId: string; mode: string }> = [];
+  const queries: unknown[] = [];
   const prisma = {
     workflowVersion: {
-      findMany: async () => [{
+      findMany: async (query: unknown) => {
+        queries.push(query);
+        return [{
         id: "version-1",
         graph: {
           nodes: [{ id: "cron", type: "trigger.cron", position: { x: 0, y: 0 }, config: { expression: "* * * * *", timezone: "Asia/Ho_Chi_Minh" } }],
           edges: [],
         },
-      }],
+        }];
+      },
     },
   } as never;
   const executions = {
@@ -29,6 +33,7 @@ test("cron scheduler creates and dispatches one live execution for a due publish
   await (scheduler as unknown as { tick: (now: Date) => Promise<void> }).tick(now);
   await (scheduler as unknown as { tick: (now: Date) => Promise<void> }).tick(now);
 
+  assert.deepEqual(queries[0], { where: { status: "PUBLISHED", publishedFor: { is: { isActive: true, archivedAt: null } } } });
   assert.equal(created.length, 1);
   assert.equal(created[0]?.versionId, "version-1");
   assert.equal(typeof created[0]?.triggerData.scheduledAt, "string");

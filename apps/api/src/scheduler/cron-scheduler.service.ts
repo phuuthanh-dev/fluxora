@@ -29,7 +29,7 @@ export class CronSchedulerService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async tick(now = new Date()) {
-    const versions = await this.prisma.workflowVersion.findMany({ where: { status: WorkflowVersionStatus.PUBLISHED } });
+    const versions = await this.prisma.workflowVersion.findMany({ where: { status: WorkflowVersionStatus.PUBLISHED, publishedFor: { is: { isActive: true, archivedAt: null } } } });
     for (const version of versions) {
       const graph = parseWorkflowGraph(version.graph);
       for (const node of graph.nodes.filter((item) => item.type === "trigger.cron")) {

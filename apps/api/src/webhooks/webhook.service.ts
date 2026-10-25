@@ -47,8 +47,8 @@ export class WebhookService {
   }
 
   async receive(path: string, secret: string | undefined, payload: unknown) {
-    const endpoint = await this.prisma.webhookEndpoint.findUnique({ where: { path } });
-    if (!endpoint || !endpoint.isActive) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
+    const endpoint = await this.prisma.webhookEndpoint.findUnique({ where: { path }, include: { workflow: true } });
+    if (!endpoint || !endpoint.isActive || !endpoint.workflow.isActive || endpoint.workflow.archivedAt) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
     if (endpoint.secretHash && (!secret || !matchesWebhookSecret(secret, endpoint.secretHash))) {
       throw new ForbiddenException({ code: "WEBHOOK_SECRET_INVALID", message: "Webhook secret is invalid." });
     }

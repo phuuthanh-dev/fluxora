@@ -1,0 +1,3 @@
+ALTER TABLE "Workflow"
+ADD COLUMN "isActive" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "activatedAt" TIMESTAMP(3);

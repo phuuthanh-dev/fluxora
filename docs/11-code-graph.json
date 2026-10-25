@@ -650,6 +650,7 @@
       "internalImports": [
         "apps/api/src/auth/authenticated-request.ts",
         "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/execution/execution.service.ts",
         "apps/api/src/workflows/workflow.service.ts"
       ],
       "externalImports": [
@@ -661,6 +662,7 @@
       "boundary": "api",
       "internalImports": [
         "apps/api/src/auth/auth.module.ts",
+        "apps/api/src/execution/execution.module.ts",
         "apps/api/src/workflows/workflow.controller.ts",
         "apps/api/src/workflows/workflow.service.ts",
         "apps/api/src/workspaces/workspace.module.ts"
@@ -1572,11 +1574,19 @@
     },
     {
       "from": "apps/api/src/workflows/workflow.controller.ts",
+      "to": "apps/api/src/execution/execution.service.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow.controller.ts",
       "to": "apps/api/src/workflows/workflow.service.ts"
     },
     {
       "from": "apps/api/src/workflows/workflow.module.ts",
       "to": "apps/api/src/auth/auth.module.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow.module.ts",
+      "to": "apps/api/src/execution/execution.module.ts"
     },
     {
       "from": "apps/api/src/workflows/workflow.module.ts",
