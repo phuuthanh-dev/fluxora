@@ -288,34 +288,23 @@ export class ExecutionService {
     return { status: "failed", output: {}, error: new NodeFailure("RETRY_EXHAUSTED", "Retry attempts were exhausted.", false) };
   }
 
-  private async notifyApproval(workspaceId: string, approvalId: string, output: Record<string, unknown>, mode: RunMode) {
+  async notifyApproval(workspaceId: string, approvalId: string, output: Record<string, unknown>, mode: RunMode): Promise<string> {
     const credentialId = typeof output.notificationCredentialId === "string" ? output.notificationCredentialId : "";
     if (!credentialId) return "not_configured";
     if (mode === "mock") return "mock_not_sent";
     try {
       const link = `${process.env.WEB_ORIGIN ?? "http://localhost:3000"}/editor?approval=${encodeURIComponent(approvalId)}`;
-      const message = `${String(output.message ?? "Approval requested")}\n\nReview: ${link}`;
-      const provider = output.notificationProvider === "http_webhook"
-        ? CredentialProvider.HTTP
-        : output.notificationProvider === "discord"
-        ? CredentialProvider.DISCORD_WEBHOOK
-        : output.notificationProvider === "telegram"
-        ? CredentialProvider.TELEGRAM_BOT
-        : CredentialProvider.GOOGLE_CHAT_WEBHOOK;
+      const rawMessage = String(output.message ?? "Approval requested");
+      const message = `${rawMessage}\n\nReview: ${link}`;
+      const isHttp = output.notificationProvider === "http_webhook";
+      const provider = isHttp ? CredentialProvider.HTTP : CredentialProvider.GOOGLE_CHAT_WEBHOOK;
       const credential = await this.credentials.readForExecution(credentialId, workspaceId, provider);
       const delivery = await defaultNotificationDispatcher.dispatch(
         {
-          provider: output.notificationProvider === "http_webhook"
-            ? "http_webhook"
-            : output.notificationProvider === "discord"
-            ? "discord"
-            : output.notificationProvider === "telegram"
-            ? "telegram"
-            : "google_chat",
-          message,
-          content: message,
+          provider: isHttp ? "http_webhook" : "google_chat",
+          message: isHttp ? rawMessage : message,
+          content: isHttp ? rawMessage : message,
           approvalUrl: link,
-          destination: typeof output.chatId === "string" ? output.chatId : undefined,
         },
         credential,
         mode,

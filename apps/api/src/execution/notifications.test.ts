@@ -1,15 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { CredentialProvider } from "@prisma/client";
-import { executeDiscordWebhook, executeGoogleChatWebhook, executeTelegramMessage, validateDiscordWebhookUrl } from "./execution.service";
+import { executeDiscordWebhook, executeGoogleChatWebhook, executeTelegramMessage, validateDiscordWebhookUrl, ExecutionService } from "./execution.service";
 import type { CredentialService } from "../credentials/credential.service";
+import type { PrismaService } from "../database/prisma.service";
+import type { ExecutionEventsService } from "./execution-events.service";
 import { isRetryableFailure } from "./retry-policy";
+import { redactValue } from "./redaction";
 import {
   NotificationDispatcher,
   GoogleChatNotificationAdapter,
   DiscordNotificationAdapter,
   TelegramNotificationAdapter,
   HttpWebhookNotificationAdapter,
+  sanitizeHttpDestination,
   defaultNotificationDispatcher,
 } from "../notifications";
 
@@ -780,6 +784,304 @@ test("HttpWebhookNotificationAdapter: live mode applies authentication and deliv
       message: "Approval needed for deploy #42",
       approvalUrl: "https://example.com/editor?approval=app-1",
     });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Telegram message: treats HTTP 200 with ok: false as a failed delivery without exposing bot token or provider description", async () => {
+  const credentials = createMockCredentials({
+    "tg-cred": {
+      provider: CredentialProvider.TELEGRAM_BOT,
+      data: { botToken: "987654:SUPER_SECRET_TOKEN", chatId: "-1001111" },
+    },
+  });
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error_code: 400,
+        description: "Bad Request: chat not found for token 987654:SUPER_SECRET_TOKEN",
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () => executeTelegramMessage({ credentialId: "tg-cred", text: "Hello" }, "live", "workspace-1", credentials),
+      (err: any) => {
+        assert.equal(err.code, "HTTP_ERROR");
+        assert.equal(err.statusCode, 400);
+        assert.equal(err.retryable, false);
+        assert.equal(err.message, "Telegram returned 400.");
+        assert.equal(err.message.includes("chat not found"), false);
+        assert.equal(err.message.includes("987654:SUPER_SECRET_TOKEN"), false);
+        return true;
+      },
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Telegram message: maps retryability from error_code on 200 ok: false responses", async () => {
+  const credentials = createMockCredentials({
+    "tg-cred": {
+      provider: CredentialProvider.TELEGRAM_BOT,
+      data: { botToken: "987654:TOKEN", chatId: "-1001111" },
+    },
+  });
+
+  const originalFetch = globalThis.fetch;
+  try {
+    // 429 rate limit inside 200 ok: false
+    globalThis.fetch = (async () => {
+      return new Response(
+        JSON.stringify({ ok: false, error_code: 429, description: "Too Many Requests" }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }) as typeof fetch;
+
+    await assert.rejects(
+      () => executeTelegramMessage({ credentialId: "tg-cred", text: "Rate limit test" }, "live", "workspace-1", credentials),
+      (err: any) => err.statusCode === 429 && isRetryableFailure(err) === true,
+    );
+
+    // 502 bad gateway inside 200 ok: false
+    globalThis.fetch = (async () => {
+      return new Response(
+        JSON.stringify({ ok: false, error_code: 502, description: "Bad Gateway" }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }) as typeof fetch;
+
+    await assert.rejects(
+      () => executeTelegramMessage({ credentialId: "tg-cred", text: "Gateway test" }, "live", "workspace-1", credentials),
+      (err: any) => err.statusCode === 502 && isRetryableFailure(err) === true,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("HttpWebhookNotificationAdapter: destination strips query parameters, credentials, fragments, and API keys while outbound request remains authenticated", async () => {
+  const adapter = new HttpWebhookNotificationAdapter();
+  const originalFetch = globalThis.fetch;
+  let sentUrl = "";
+
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    sentUrl = String(input);
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    const result = await adapter.send(
+      {
+        provider: "http_webhook",
+        message: "Approval needed for deploy #99",
+        approvalUrl: "https://example.com/editor?approval=app-99",
+      },
+      {
+        webhookUrl: "https://example.com/api/approval-listener?existingParam=123#fragSection",
+        authType: "apiKey",
+        location: "query",
+        name: "secretKey",
+        value: "SUPER_SECRET_QUERY_API_KEY",
+      },
+      "live",
+    );
+
+    assert.equal(result.delivered, true);
+    assert.equal(result.provider, "http_webhook");
+
+    // Outbound request MUST be authenticated with the query API key and preserved URL details:
+    assert.equal(sentUrl.includes("secretKey=SUPER_SECRET_QUERY_API_KEY"), true);
+    assert.equal(sentUrl.includes("existingParam=123"), true);
+
+    // Result destination MUST NEVER contain username, password, query parameters, fragments, or API keys:
+    assert.equal(result.destination, "https://example.com/api/approval-listener");
+    assert.equal(result.destination.includes("secretKey"), false);
+    assert.equal(result.destination.includes("SUPER_SECRET_QUERY_API_KEY"), false);
+    assert.equal(result.destination.includes("existingParam"), false);
+    assert.equal(result.destination.includes("fragSection"), false);
+
+    // Persisted output sanitized via redactValue does not leak query key or token:
+    const persisted = redactValue(result) as typeof result;
+    assert.equal(JSON.stringify(persisted).includes("SUPER_SECRET_QUERY_API_KEY"), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("HttpWebhookNotificationAdapter: sanitizeHttpDestination handles invalid and unparseable URLs safely", () => {
+  assert.equal(sanitizeHttpDestination("not-a-valid-url"), "http://[invalid-destination]");
+  assert.equal(sanitizeHttpDestination(""), "http://[invalid-destination]");
+  assert.equal(sanitizeHttpDestination(null as any), "http://[invalid-destination]");
+  assert.equal(sanitizeHttpDestination(undefined as any), "http://[invalid-destination]");
+  assert.equal(
+    sanitizeHttpDestination("https://user:pass@example.com:8080/path/to/hook?token=secret#section"),
+    "https://example.com:8080/path/to/hook",
+  );
+});
+
+test("Approval notification: delegates through dispatcher and preserves Google Chat delivery", async () => {
+  const credentials = createMockCredentials({
+    "gchat-approval-cred": {
+      provider: CredentialProvider.GOOGLE_CHAT_WEBHOOK,
+      data: { webhookUrl: "https://chat.googleapis.com/v1/spaces/APPROVAL_SPACE/messages?key=KEY&token=TOK" },
+    },
+  });
+
+  const prisma = {} as unknown as PrismaService;
+  const events = {} as unknown as ExecutionEventsService;
+  const executionService = new ExecutionService(prisma, credentials, events);
+
+  const originalFetch = globalThis.fetch;
+  let sentUrl = "";
+  let sentBody: any = null;
+
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    sentUrl = String(input);
+    sentBody = JSON.parse(String(init?.body ?? "{}"));
+    return new Response(JSON.stringify({ name: "spaces/APPROVAL_SPACE/messages/MSG123" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  try {
+    const status = await executionService.notifyApproval(
+      "workspace-1",
+      "app-101",
+      {
+        message: "Staging deployment needs approval",
+        notificationProvider: "google_chat",
+        notificationCredentialId: "gchat-approval-cred",
+      },
+      "live",
+    );
+
+    assert.equal(status, "sent");
+    assert.equal(sentUrl, "https://chat.googleapis.com/v1/spaces/APPROVAL_SPACE/messages?key=KEY&token=TOK");
+    assert.deepEqual(sentBody, {
+      text: "Staging deployment needs approval\n\nReview: http://localhost:3000/editor?approval=app-101",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Approval notification: delegates through dispatcher and preserves HTTP webhook delivery", async () => {
+  const credentials = createMockCredentials({
+    "http-approval-cred": {
+      provider: CredentialProvider.HTTP,
+      data: {
+        webhookUrl: "https://example.com/api/approvals",
+        authType: "bearer",
+        token: "APPROVAL_BEARER_TOKEN",
+      },
+    },
+  });
+
+  const prisma = {} as unknown as PrismaService;
+  const events = {} as unknown as ExecutionEventsService;
+  const executionService = new ExecutionService(prisma, credentials, events);
+
+  const originalFetch = globalThis.fetch;
+  let sentUrl = "";
+  let sentHeaders: any = null;
+  let sentBody: any = null;
+
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    sentUrl = String(input);
+    sentHeaders = init?.headers;
+    sentBody = JSON.parse(String(init?.body ?? "{}"));
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    const status = await executionService.notifyApproval(
+      "workspace-1",
+      "app-102",
+      {
+        message: "Production deployment release",
+        notificationProvider: "http_webhook",
+        notificationCredentialId: "http-approval-cred",
+      },
+      "live",
+    );
+
+    assert.equal(status, "sent");
+    assert.equal(sentUrl, "https://example.com/api/approvals");
+    assert.equal(sentHeaders?.Authorization, "Bearer APPROVAL_BEARER_TOKEN");
+    assert.deepEqual(sentBody, {
+      type: "workflow.approval.requested",
+      message: "Production deployment release",
+      approvalUrl: "http://localhost:3000/editor?approval=app-102",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Approval notification: preserves failed, mock_not_sent, and not_configured outcomes", async () => {
+  const credentials = createMockCredentials({
+    "failing-cred": {
+      provider: CredentialProvider.HTTP,
+      data: { webhookUrl: "https://example.com/api/failing" },
+    },
+  });
+
+  const prisma = {} as unknown as PrismaService;
+  const events = {} as unknown as ExecutionEventsService;
+  const executionService = new ExecutionService(prisma, credentials, events);
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    return new Response("Server error", { status: 500 });
+  }) as typeof fetch;
+
+  try {
+    // Delivery failure returns "failed"
+    const failedStatus = await executionService.notifyApproval(
+      "workspace-1",
+      "app-103",
+      {
+        message: "Failing test",
+        notificationProvider: "http_webhook",
+        notificationCredentialId: "failing-cred",
+      },
+      "live",
+    );
+    assert.equal(failedStatus, "failed");
+
+    // Mock mode returns "mock_not_sent"
+    const mockStatus = await executionService.notifyApproval(
+      "workspace-1",
+      "app-104",
+      {
+        message: "Mock test",
+        notificationProvider: "http_webhook",
+        notificationCredentialId: "failing-cred",
+      },
+      "mock",
+    );
+    assert.equal(mockStatus, "mock_not_sent");
+
+    // Missing credential returns "not_configured"
+    const unconfiguredStatus = await executionService.notifyApproval(
+      "workspace-1",
+      "app-105",
+      {
+        message: "Unconfigured test",
+        notificationProvider: "http_webhook",
+      },
+      "live",
+    );
+    assert.equal(unconfiguredStatus, "not_configured");
   } finally {
     globalThis.fetch = originalFetch;
   }

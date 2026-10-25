@@ -79,24 +79,25 @@ export class TelegramNotificationAdapter implements NotificationAdapter {
       throw sanitizeTelegramFailure(reason, botToken);
     }
 
-    if (!response.ok) {
+    let json: { ok?: boolean; error_code?: number; description?: string; result?: { message_id?: number | string } } | undefined;
+    try {
+      json = await response.json() as typeof json;
+    } catch {
+      // ignore JSON parse error on non-JSON response
+    }
+
+    if (!response.ok || (json && json.ok === false)) {
+      const errorCode = typeof json?.error_code === "number" ? json.error_code : response.status;
+      const retryable = errorCode === 429 || errorCode >= 500;
       throw new NodeFailure(
         "HTTP_ERROR",
-        `Telegram returned ${response.status}.`,
-        response.status === 429 || response.status >= 500,
-        response.status,
+        `Telegram returned ${errorCode}.`,
+        retryable,
+        errorCode,
       );
     }
 
-    let messageId: string | undefined;
-    try {
-      const json = await response.json() as { ok?: boolean; result?: { message_id?: number | string } };
-      if (json?.result?.message_id !== undefined) {
-        messageId = String(json.result.message_id);
-      }
-    } catch {
-      // ignore JSON parse error on ok response
-    }
+    const messageId = json?.result?.message_id !== undefined ? String(json.result.message_id) : undefined;
 
     return {
       delivered: true,

@@ -3,14 +3,19 @@ import { NodeFailure, nodeFailureFromOutboundPolicy } from "../execution/node-fa
 import { applyHttpCredential, HttpCredentialError } from "../execution/http-credential";
 import type { NotificationAdapter, NotificationPayload, NormalizedDeliveryResult } from "./notification-contracts";
 
-function sanitizeHttpDestination(rawUrl: string): string {
+export function sanitizeHttpDestination(rawUrl: string): string {
+  if (!rawUrl || typeof rawUrl !== "string") {
+    return "http://[invalid-destination]";
+  }
   try {
     const url = new URL(rawUrl);
     url.username = "";
     url.password = "";
+    url.search = "";
+    url.hash = "";
     return url.toString();
   } catch {
-    return rawUrl;
+    return "http://[invalid-destination]";
   }
 }
 
