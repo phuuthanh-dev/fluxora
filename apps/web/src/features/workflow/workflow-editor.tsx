@@ -6,6 +6,7 @@ import {
   Controls,
   MiniMap,
   ReactFlow,
+  type Connection,
   type ReactFlowInstance,
   type NodeTypes,
 } from "@xyflow/react";
@@ -571,6 +572,7 @@ export function WorkflowEditor() {
   const [paletteFilter, setPaletteFilter] = useState<NodeLibraryFilter>("all");
   const [copiedNodeId, setCopiedNodeId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [approvalLinkId, setApprovalLinkId] = useState<string | null | undefined>(undefined);
   const [workflowLinkId, setWorkflowLinkId] = useState<string | null | undefined>(undefined);
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
@@ -714,6 +716,22 @@ export function WorkflowEditor() {
   const addDefinition = (definition: NodeDefinition, position?: { x: number; y: number }) => {
     addNode(definition, position);
     setNotice(`${definition.label} added to the draft.`);
+  };
+
+  const startConnection = () => {
+    setIsConnecting(true);
+    setContextMenu(null);
+    setNotice("Drag to a highlighted node input to connect.");
+  };
+
+  const finishConnection = () => {
+    setIsConnecting(false);
+  };
+
+  const handleConnect = (connection: Connection) => {
+    connect(connection);
+    setIsConnecting(false);
+    setNotice("Connection added to the draft.");
   };
 
   const openWorkflow = (nextWorkflow: ApiWorkflow) => {
@@ -1054,7 +1072,7 @@ export function WorkflowEditor() {
             {filteredNodeCount === 0 && <div className="palette-empty"><Search size={21} /><strong>No matching nodes</strong><p>Try an app name like “Telegram” or clear the current filters.</p><button type="button" onClick={() => { setPaletteSearch(""); setPaletteFilter("all"); }}>Show all ready nodes</button></div>}
           </aside>
         )}
-        <section className="canvas-region" ref={wrapperRef} onDrop={onDrop} onDragOver={(event) => event.preventDefault()}>
+        <section className={`canvas-region${isConnecting ? " canvas-region--connecting" : ""}`} ref={wrapperRef} onDrop={onDrop} onDragOver={(event) => event.preventDefault()}>
           {!paletteOpen && <button className="palette-reopen" type="button" aria-controls="node-library" aria-expanded="false" onClick={() => setPaletteOpen(true)}>Add node</button>}
           <ReactFlow
             nodes={nodes}
@@ -1062,10 +1080,12 @@ export function WorkflowEditor() {
             nodeTypes={nodeTypes}
             onNodesChange={applyNodesChange}
             onEdgesChange={applyEdgesChange}
-            onConnect={connect}
+            onConnect={handleConnect}
+            onConnectStart={startConnection}
+            onConnectEnd={finishConnection}
             onNodeClick={(_, node) => selectNode(node.id)}
             onNodeContextMenu={(event, node) => { event.preventDefault(); setContextMenu({ nodeId: node.id, x: event.clientX, y: event.clientY }); }}
-            onPaneClick={() => selectNode(null)}
+            onPaneClick={() => { selectNode(null); setContextMenu(null); }}
             onInit={(instance) => { flowRef.current = instance; }}
             selectionOnDrag
             multiSelectionKeyCode={["Meta", "Control"]}

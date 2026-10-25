@@ -50,6 +50,16 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
     return { content: style.content, inset: style.inset };
   });
   expect(handleHitArea).toEqual({ content: '""', inset: "-10px" });
+  const sourceHandle = page.locator(".workflow-node__handle--source").first();
+  const sourceBox = await sourceHandle.boundingBox();
+  expect(sourceBox).not.toBeNull();
+  await page.mouse.move(sourceBox!.x + sourceBox!.width / 2, sourceBox!.y + sourceBox!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(sourceBox!.x + sourceBox!.width / 2 + 24, sourceBox!.y + sourceBox!.height / 2 + 4);
+  await expect(page.locator(".canvas-region")).toHaveClass(/canvas-region--connecting/);
+  await expect(page.getByText("Drag to a highlighted node input to connect.")).toBeVisible();
+  await page.mouse.up();
+  await expect(page.locator(".canvas-region")).not.toHaveClass(/canvas-region--connecting/);
 
   await page.getByRole("button", { name: "Switch to dark mode" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
