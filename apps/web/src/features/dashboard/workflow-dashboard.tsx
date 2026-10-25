@@ -2,7 +2,7 @@
 
 import { Activity, ArrowRight, CirclePlus, FilePlus2, FolderKanban, LayoutDashboard, LogOut, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest, apiUrl } from "../api/api-client";
 import { ThemeToggle } from "../theme/theme-toggle";
 import type { ApiWorkflow } from "../workflow/workflow-api";
@@ -13,6 +13,8 @@ type CurrentUser = { email: string; displayName: string | null };
 type ProviderStatus = { google: boolean; github: boolean; steam: boolean };
 type IdentitySummary = { provider: "GOOGLE" | "GITHUB" | "STEAM"; providerAccountId: string };
 type RuntimeStatus = { status: "ready" | "degraded"; checks: { database: "ready" | "unavailable"; queue: { status: "ready" | "unavailable"; mode: "inline" | "redis"; configuredWorkerConcurrency: number; waiting: number; active: number; delayed: number; failed: number } } };
+type WorkflowStatusFilter = "ALL" | "LIVE" | "DRAFT";
+type WorkflowSort = "UPDATED" | "NAME" | "STATUS";
 
 export function WorkflowDashboard() {
   const router = useRouter();
@@ -32,6 +34,9 @@ export function WorkflowDashboard() {
   const [runtimeLoading, setRuntimeLoading] = useState(true);
   const [createError, setCreateError] = useState<string | null>(null);
   const [lastCreateTemplate, setLastCreateTemplate] = useState<string | undefined>(undefined);
+  const [workflowQuery, setWorkflowQuery] = useState("");
+  const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatusFilter>("ALL");
+  const [workflowSort, setWorkflowSort] = useState<WorkflowSort>("UPDATED");
   const activeWorkspaceIdRef = useRef("");
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -100,6 +105,9 @@ export function WorkflowDashboard() {
 
     setWorkspaceId(nextWorkspaceId);
     setWorkflows([]);
+    setWorkflowQuery("");
+    setWorkflowStatus("ALL");
+    setWorkflowSort("UPDATED");
     setNotice("Loading workflows…");
     try {
       await loadWorkflows(nextWorkspaceId, controller.signal);
@@ -110,6 +118,24 @@ export function WorkflowDashboard() {
       setNotice(reason instanceof Error ? reason.message : "Unable to load workflows.");
     }
   };
+
+  const visibleWorkflows = useMemo(() => {
+    const query = workflowQuery.trim().toLocaleLowerCase();
+    return workflows
+      .filter((workflow) => {
+        if (workflowStatus === "LIVE" && !workflow.published) return false;
+        if (workflowStatus === "DRAFT" && workflow.published) return false;
+        if (!query) return true;
+        return `${workflow.name} ${workflow.description ?? ""}`.toLocaleLowerCase().includes(query);
+      })
+      .sort((left, right) => {
+        if (workflowSort === "NAME") return left.name.localeCompare(right.name);
+        if (workflowSort === "STATUS") return Number(Boolean(right.published)) - Number(Boolean(left.published)) || left.name.localeCompare(right.name);
+        return new Date(right.updatedAt ?? 0).getTime() - new Date(left.updatedAt ?? 0).getTime();
+      });
+  }, [workflowQuery, workflowSort, workflowStatus, workflows]);
+
+  const hasWorkflowFilters = workflowQuery.trim().length > 0 || workflowStatus !== "ALL" || workflowSort !== "UPDATED";
 
   const createWorkflow = async (templateSlug?: string) => {
     if (!workspaceId || (!templateSlug && !workflowName.trim())) return;
@@ -181,7 +207,7 @@ export function WorkflowDashboard() {
         <div className="dashboard-stats"><div><LayoutDashboard size={17} /><strong>{workflows.length}</strong><span>workflows</span></div><div><FolderKanban size={17} /><strong>{workflows.filter((workflow) => workflow.published).length}</strong><span>live versions</span></div><div><FilePlus2 size={17} /><strong>{workflows.filter((workflow) => !workflow.published).length}</strong><span>draft-only</span></div></div>
         <Status tone={runtimeLoading ? "info" : runtime?.status === "ready" ? "success" : runtime?.status === "degraded" ? "warning" : "error"} className={`dashboard-runtime dashboard-runtime--${runtimeLoading ? "checking" : runtime?.status ?? "unreachable"}`} aria-live="polite" aria-busy={runtimeLoading}><Activity size={17} /><div><strong>{runtimeLoading ? "Checking runtime status…" : runtime?.status === "ready" ? "Execution runtime ready" : runtime?.status === "degraded" ? "Execution runtime needs attention" : "Runtime status unreachable"}</strong><span>{runtimeLoading ? "Contacting the API readiness endpoint." : runtime ? `Database ${runtime.checks.database} · ${runtime.checks.queue.mode} queue ${runtime.checks.queue.status} · ${runtime.checks.queue.active}/${runtime.checks.queue.configuredWorkerConcurrency} active · ${runtime.checks.queue.waiting} queued` : "Could not reach the API readiness endpoint."}</span></div></Status>
         <section id="workflow-create" className="dashboard-create"><div><p className="section-label">CREATE</p><h2>Start a workflow</h2><p>Use a blank canvas or the Steam daily report template.</p></div><div className="dashboard-create__actions"><input aria-label="New workflow name" value={workflowName} onChange={(event) => setWorkflowName(event.target.value)} /><Button variant="secondary" className="dashboard-secondary-button" onClick={() => void createWorkflow()} disabled={isCreating || !workspaceId || !workflowName.trim()}>{isCreating && lastCreateTemplate === undefined ? "Creating…" : "Blank workflow"}</Button><Button variant="primary" className="dashboard-primary-button" onClick={() => void createWorkflow("steam-daily-report")} disabled={isCreating || !workspaceId}>{isCreating && lastCreateTemplate === "steam-daily-report" ? "Creating…" : "Use Steam template"}</Button></div>{createError && <Status tone="error" className="dashboard-create__error"><span>{createError}</span><Button variant="ghost" className="dashboard-create__retry" onClick={() => void createWorkflow(lastCreateTemplate)} disabled={isCreating}>Retry</Button></Status>}</section>
-        <section className="dashboard-workflows"><div className="dashboard-section-heading"><div><p className="section-label">WORKFLOWS</p><h2>All automations</h2></div><span role="status" aria-live="polite">{notice}</span></div>{workflows.length === 0 ? <div className="dashboard-empty"><FolderKanban size={26} /><h3>No workflows in this workspace</h3><p>Start with the Steam template or create a blank automation.</p></div> : <div className="workflow-card-grid">{workflows.map((workflow) => <article key={workflow.id} className="workflow-card"><div className="workflow-card__status"><span className={workflow.published ? "workflow-status workflow-status--live" : "workflow-status"}>{workflow.published ? `Live · v${workflow.published.version}` : "Draft"}</span><span>Updated {new Date(workflow.updatedAt ?? Date.now()).toLocaleDateString()}</span></div><h3>{workflow.name}</h3><p>{workflow.description || "No description yet. Open the editor to configure this workflow."}</p><footer><span>{workflow.draft?.graph.nodes.length ?? workflow.published?.graph.nodes.length ?? 0} nodes</span><Button variant="ghost" className="workflow-card__open" onClick={() => router.push(`/editor?workflow=${encodeURIComponent(workflow.id)}`)}>Open editor <ArrowRight size={15} /></Button></footer></article>)}</div>}</section>
+        <section className="dashboard-workflows"><div className="dashboard-section-heading"><div><p className="section-label">WORKFLOWS</p><h2>All automations</h2></div><span role="status" aria-live="polite">{notice}</span></div><div className="dashboard-workflow-toolbar" aria-label="Workflow controls"><input type="search" aria-label="Search workflows" placeholder="Search workflows" value={workflowQuery} onChange={(event) => setWorkflowQuery(event.target.value)} /><Select aria-label="Workflow status" value={workflowStatus} onChange={(event) => setWorkflowStatus(event.target.value as WorkflowStatusFilter)}><option value="ALL">All statuses</option><option value="LIVE">Live</option><option value="DRAFT">Draft</option></Select><Select aria-label="Workflow sort" value={workflowSort} onChange={(event) => setWorkflowSort(event.target.value as WorkflowSort)}><option value="UPDATED">Last updated</option><option value="NAME">Name A–Z</option><option value="STATUS">Status</option></Select>{hasWorkflowFilters && <Button variant="ghost" className="dashboard-workflow-toolbar__clear" aria-label="Clear workflow filters" onClick={() => { setWorkflowQuery(""); setWorkflowStatus("ALL"); setWorkflowSort("UPDATED"); }}>Clear</Button>}</div><p className="dashboard-workflow-summary" role="status" aria-live="polite">{workflows.length === 0 ? "No workflows yet" : `Showing ${visibleWorkflows.length} of ${workflows.length} workflow${workflows.length === 1 ? "" : "s"}`}</p>{workflows.length === 0 ? <div className="dashboard-empty"><FolderKanban size={26} /><h3>No workflows in this workspace</h3><p>Start with the Steam template or create a blank automation.</p></div> : visibleWorkflows.length === 0 ? <div className="dashboard-empty dashboard-empty--filtered"><FolderKanban size={26} /><h3>No workflows match these filters</h3><p>Try a different search or clear the current filters.</p><Button variant="ghost" onClick={() => { setWorkflowQuery(""); setWorkflowStatus("ALL"); setWorkflowSort("UPDATED"); }}>Clear workflow filters</Button></div> : <div className="workflow-card-grid">{visibleWorkflows.map((workflow) => <article key={workflow.id} className="workflow-card"><div className="workflow-card__status"><span className={workflow.published ? "workflow-status workflow-status--live" : "workflow-status"}>{workflow.published ? `Live · v${workflow.published.version}` : "Draft"}</span><span>Updated {new Date(workflow.updatedAt ?? Date.now()).toLocaleDateString()}</span></div><h3>{workflow.name}</h3><p>{workflow.description || "No description yet. Open the editor to configure this workflow."}</p><footer><span>{workflow.draft?.graph.nodes.length ?? workflow.published?.graph.nodes.length ?? 0} nodes</span><Button variant="ghost" className="workflow-card__open" onClick={() => router.push(`/editor?workflow=${encodeURIComponent(workflow.id)}`)}>Open editor <ArrowRight size={15} /></Button></footer></article>)}</div>}</section>
         <section className="dashboard-workspace-create"><div><p className="section-label">WORKSPACE</p><h2>Create another workspace</h2></div><form onSubmit={createWorkspace}><input aria-label="New workspace name" value={workspaceName} onChange={(event) => setWorkspaceName(event.target.value)} placeholder="e.g. Personal automations" /><Button variant="secondary" className="dashboard-secondary-button" disabled={isCreating || !workspaceName.trim()} type="submit">Create workspace</Button></form></section>
       </section>
     </main>

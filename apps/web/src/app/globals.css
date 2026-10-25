@@ -289,6 +289,18 @@ button:focus-visible, summary:focus-visible { outline: 3px solid rgba(214, 255, 
 [data-theme="dark"] .json-tree__value,
 [data-theme="dark"] .result-view td { color: var(--muted-on-dark); }
 
+/* Workflow dashboard controls: keep filtering usable without competing with the cards. */
+.dashboard-workflow-toolbar { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 7px; }
+.dashboard-workflow-toolbar input,
+.dashboard-workflow-toolbar select { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; color: var(--ink); font-size: 11px; min-height: 36px; outline: none; padding: 8px 10px; }
+.dashboard-workflow-toolbar input { flex: 1 1 240px; min-width: 180px; }
+.dashboard-workflow-toolbar select { min-width: 126px; }
+.dashboard-workflow-toolbar input:focus,
+.dashboard-workflow-toolbar select:focus { border-color: var(--accent-strong); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.dashboard-workflow-toolbar__clear { min-height: 36px; padding: 8px 10px; }
+.dashboard-workflow-summary { color: var(--muted); font-size: 11px; margin: 0 0 12px; }
+.dashboard-empty--filtered button { margin-top: 12px; }
+
 @media (prefers-reduced-motion: reduce) {
   .theme-toggle { transition: none; }
 }

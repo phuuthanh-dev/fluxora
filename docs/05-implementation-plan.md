@@ -23,6 +23,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | UI redesign contract and collapsible editor layout | Complete locally | `docs/13-ui-redesign-brief.md` defines the unified direction and staged migration; the canvas now reclaims Node Library width while the inspector remains stable, with Playwright and full quality-gate coverage. |
 | Relay-inspired global design system foundation | Complete locally | Global semantic tokens, reusable button/surface recipes, provider-color rules, auth/dashboard/editor migration, focused token regression, full quality gate, and localhost visual QA are complete in `apps/web/src/app/design-system.css` and `globals.css`. |
 | Global light/dark theme parity | Complete locally | Theme preference is applied before first paint, persisted in local storage, exposed on auth/dashboard/editor, and audited across reading surfaces, graph controls, forms, cards, and overlays with Playwright coverage. |
+| Dashboard workflow management UX | Complete locally | Workflow search, Draft/Live filtering, name/status/last-updated sorting, clear controls, workspace-switch reset, shared controls, responsive styling, and Playwright regression coverage are complete. |
 
 ## Milestone 1 — Product foundation
 

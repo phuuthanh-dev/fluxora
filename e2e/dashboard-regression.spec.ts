@@ -118,6 +118,38 @@ test("connections dropdown keeps its trigger inline and opens below the header",
   await expect(menu).toContainText("No external identities linked.");
 });
 
+test("workflow dashboard can search, filter, sort, and clear workflow controls", async ({ page }) => {
+  const email = `regression-workflow-controls-${Date.now()}@example.test`;
+  await signUpAndDashboard(page, email);
+
+  await page.getByRole("button", { name: "Use Steam template" }).click();
+  await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+  await page.goto("/dashboard");
+  await expect(page.getByRole("heading", { name: "Steam daily report" })).toBeVisible();
+
+  const nameInput = page.getByRole("textbox", { name: "New workflow name" });
+  await nameInput.fill("Alpha audit");
+  await page.getByRole("button", { name: "Blank workflow" }).click();
+  await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+  await page.goto("/dashboard");
+
+  const search = page.getByRole("searchbox", { name: "Search workflows" });
+  await expect(search).toBeVisible();
+  await expect(page.getByText("Showing 2 of 2 workflows", { exact: true })).toBeVisible();
+
+  await search.fill("Alpha");
+  await expect(page.getByRole("heading", { name: "Alpha audit" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Steam daily report" })).toHaveCount(0);
+  await expect(page.getByText("Showing 1 of 2 workflows", { exact: true })).toBeVisible();
+
+  await page.getByLabel("Workflow status").selectOption("DRAFT");
+  await page.getByLabel("Workflow sort").selectOption("NAME");
+  await expect(page.getByRole("heading", { name: "Alpha audit" })).toBeVisible();
+  await page.getByRole("button", { name: "Clear workflow filters" }).click();
+  await expect(search).toHaveValue("");
+  await expect(page.getByText("Showing 2 of 2 workflows", { exact: true })).toBeVisible();
+});
+
 test("failed template creation shows error with retry button, preserves input, and allows retry", async ({ page }) => {
   const email = `regression-tc-${Date.now()}@example.test`;
   await signUpAndDashboard(page, email);
