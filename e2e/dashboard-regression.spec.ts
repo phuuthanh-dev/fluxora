@@ -174,6 +174,10 @@ test("account dropdown keeps its trigger inline and opens below the header", asy
   const triggerBox = await trigger.boundingBox();
   expect(triggerBox).not.toBeNull();
   expect(triggerBox!.height).toBeLessThanOrEqual(40);
+  const avatar = page.locator(".app-shell-avatar");
+  await expect(avatar).toBeVisible();
+  await expect(avatar).toHaveCSS("border-radius", "999px");
+  await expect(avatar).toHaveCSS("width", "34px");
 
   await trigger.click();
   const menu = page.locator(".app-shell-account-menu .ui-menu__content");

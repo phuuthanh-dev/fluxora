@@ -10,7 +10,7 @@ import { Button, IconButton, Menu, Select } from "../../components/ui";
 export type AppShellWorkspace = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
 type Identity = { provider: "GOOGLE" | "GITHUB" | "STEAM"; providerAccountId: string };
 type ProviderStatus = { google: boolean; github: boolean; steam: boolean };
-type User = { email: string; displayName: string | null };
+type User = { email: string; displayName: string | null; avatarColor: "lime" | "violet" | "sky" | "coral" };
 
 type AppShellHeaderProps = {
   workspaces: AppShellWorkspace[];
@@ -21,6 +21,12 @@ type AppShellHeaderProps = {
 
 function providerLabel(provider: Identity["provider"]) {
   return provider === "GOOGLE" ? "Google" : provider === "GITHUB" ? "GitHub" : "Steam";
+}
+
+function avatarInitials(user: User | null) {
+  const source = user?.displayName?.trim() || user?.email || "U";
+  const words = source.split(/\s+/).filter(Boolean);
+  return words.length > 1 ? `${words[0]?.[0] ?? ""}${words.at(-1)?.[0] ?? ""}`.toLocaleUpperCase() : source.slice(0, 2).toLocaleUpperCase();
 }
 
 export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, active }: AppShellHeaderProps) {
@@ -72,7 +78,7 @@ export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, act
         </nav>
       </div>
       <div className="app-shell-account">
-        <Menu label="Account" className="app-shell-account-menu">
+        <Menu label="Account" trigger={<span className={`app-shell-avatar app-shell-avatar--${user?.avatarColor ?? "lime"}`} aria-hidden="true">{avatarInitials(user)}</span>} className="app-shell-account-menu">
           <p className="app-shell-account-menu__user">{user?.displayName ?? user?.email ?? "Your account"}</p>
           {identities.length ? identities.map((identity) => <div key={identity.provider}><span>{providerLabel(identity.provider)}{identity.provider === "STEAM" ? " linked" : ""}</span><Button variant="ghost" disabled={unlinking === identity.provider} onClick={() => void unlink(identity.provider)}>{unlinking === identity.provider ? "Unlinking…" : "Unlink"}</Button></div>) : <p>No external identities linked.</p>}
           {!identities.some((identity) => identity.provider === "STEAM") && <Button variant="ghost" disabled={!providers.steam} onClick={() => window.location.assign(`${apiUrl}/auth/steam/connect`)}>{providers.steam ? "Link Steam" : "Steam setup"}</Button>}

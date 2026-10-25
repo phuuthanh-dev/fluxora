@@ -22,7 +22,8 @@ Relay is a reference for typography, contrast, token discipline, and tactile mot
 ### Shell rule
 
 Every authenticated route uses one `AppShellHeader`: product home, selected
-workspace, Dashboard/Connections/Executions navigation, Account, theme, and
+workspace, Dashboard/Connections/Executions navigation, a persisted initials
+avatar/account menu, theme, and
 sign-out. The workflow editor intentionally adds a second, shorter
 `EditorToolbar` directly below it for workflow-local operations only (save,
 publish, test/live run, undo, graph actions). A global navigation action must

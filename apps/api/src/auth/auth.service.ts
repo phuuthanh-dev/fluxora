@@ -7,11 +7,13 @@ import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
 
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 7;
+const AVATAR_COLORS = ["lime", "violet", "sky", "coral"] as const;
 
 export type AuthenticatedUser = {
   id: string;
   email: string;
   displayName: string | null;
+  avatarColor: string;
 };
 
 export type AuthSession = {
@@ -47,7 +49,7 @@ export class AuthService {
 
     const user = await this.prisma.$transaction(async (transaction) => {
       const createdUser = await transaction.user.create({
-        data: { email, passwordHash, displayName },
+        data: { email, passwordHash, displayName, avatarColor: avatarColorForEmail(email) },
       });
       const workspace = await transaction.workspace.create({
         data: {
@@ -109,7 +111,7 @@ export class AuthService {
       }
 
       const existingUser = await transaction.user.findUnique({ where: { email } });
-      const user = existingUser ?? await transaction.user.create({ data: { email, passwordHash: null, displayName } });
+      const user = existingUser ?? await transaction.user.create({ data: { email, passwordHash: null, displayName, avatarColor: avatarColorForEmail(email) } });
       await transaction.authIdentity.create({ data: { userId: user.id, provider: identity.provider, providerAccountId: identity.providerAccountId, email } });
       if (!existingUser) {
         const workspaceName = displayName ? `${displayName}'s workspace` : "My workspace";
@@ -192,7 +194,17 @@ export class AuthService {
     return createHash("sha256").update(token).digest("hex");
   }
 
-  private toAuthenticatedUser(user: { id: string; email: string; displayName: string | null }): AuthenticatedUser {
-    return { id: user.id, email: user.email, displayName: user.displayName };
+  private toAuthenticatedUser(user: { id: string; email: string; displayName: string | null; avatarColor?: string | null }): AuthenticatedUser {
+    return { id: user.id, email: user.email, displayName: user.displayName, avatarColor: isAvatarColor(user.avatarColor) ? user.avatarColor : "lime" };
   }
+}
+
+function avatarColorForEmail(email: string) {
+  let hash = 0;
+  for (const character of email) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+
+function isAvatarColor(value: string | null | undefined): value is (typeof AVATAR_COLORS)[number] {
+  return typeof value === "string" && AVATAR_COLORS.includes(value as (typeof AVATAR_COLORS)[number]);
 }

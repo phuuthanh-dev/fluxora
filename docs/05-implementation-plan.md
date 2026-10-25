@@ -38,6 +38,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | Dedicated Connections and Executions pages | Complete locally | Workspace-scoped `/dashboard/connections` reuses the encrypted credential manager without an editor-only close affordance; `/dashboard/executions` provides independent loading, empty, error/retry, filtering, pagination, and immutable execution inspection. Both share page, status, skeleton, and progress primitives and have focused Playwright coverage. |
 | Responsive node inspector drawer | Complete locally | At desktop widths up to 1080px, selecting a node opens a dedicated inspector drawer instead of silently hiding configuration. The drawer supports a backdrop, Escape, focus trapping, focus return, reduced motion, and a persistent Inspector trigger; Playwright covers the user flow at 1024px. |
 | Shared authenticated application shell | Complete locally | Dashboard, Connections, Executions, and Editor use one workspace-aware App Shell for product navigation, account, theme, and sign-out. The editor has a visually distinct local toolbar for workflow commands only; Playwright guards the boundary. |
+| Persisted user avatar identity | Complete locally | A database-backed avatar palette and initials trigger replace the generic Account text; file/image upload remains deliberately out of scope until asset storage and profile settings are introduced. |
 
 ## Milestone 1 — Product foundation
 
