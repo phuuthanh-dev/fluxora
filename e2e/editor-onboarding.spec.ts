@@ -26,6 +26,14 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(page.getByLabel("Manage actions")).toBeVisible();
   await expect(page.getByRole("button", { name: "Run test" })).toBeVisible();
 
+  await expect(page.getByRole("heading", { name: "Add a step" })).toBeVisible();
+  await page.getByRole("button", { name: "Apps", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Communication" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Manual trigger/ })).toHaveCount(0);
+  await page.getByLabel("Search nodes").fill("OpenAI");
+  await expect(page.getByRole("button", { name: /OpenAI.*Planned/ })).toBeDisabled();
+  await page.getByRole("button", { name: "Clear filters" }).click();
+
   await page.getByRole("button", { name: /Switch Route to multiple cases/ }).click();
   await expect(page.getByText("SWITCH CASES")).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Switch case 1" })).toHaveValue("case-a");
