@@ -137,7 +137,7 @@ Every interactive surface must define default, hover, focus-visible, active, dis
 
 - Migrate the command bar, Node Library, canvas overlays, and inspector to primitives.
 - Make left and right regions independently collapsible.
-- Provide intentional inspector drawer behavior at narrower desktop widths.
+- **Complete locally:** at narrower desktop widths, selecting a node opens an intentional inspector drawer; it has backdrop/Escape controls, a focus trap, and focus return to the Inspector trigger.
 - Standardize save/publish/test/live progress and confirmation states.
 
 ### R4 — Credentials and execution management

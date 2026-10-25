@@ -62,6 +62,7 @@ CI runs the same gate for every pull request and push to `main`.
 | L7.6 | Execution Center pagination | Complete locally | The dashboard's execution history is cursor-paginated with stable `createdAt`/ID ordering, a bounded API page size, append-only Load more state, and browser coverage proving existing rows remain visible after the next page arrives. |
 | L8.1 | Theme contrast foundation | Complete locally | Semantic text/action/control/provider tokens resolve light and dark contrast drift; active filters, theme hover, amber live action text, palette metadata, and dark-safe Steam/GitHub/OpenAI icon variants are covered by Playwright contrast regression. |
 | L8.2 | Connections and executions management surfaces | Complete locally | Dedicated workspace-scoped Connections and Executions pages reuse shared primitives and existing credential/execution contracts. They cover loading, empty, error/retry, filters, cursor pagination, and immutable execution links; Connections remains reachable contextually from the editor without duplicating vault behavior. |
+| L8.3 | Responsive inspector drawer | Complete locally | At ≤1080px, the node inspector is a focused drawer rather than a hidden grid region. Node selection opens it, the persistent Inspector trigger reopens it, and backdrop/Escape/close controls trap and return keyboard focus. It respects reduced motion and has 1024px Playwright coverage. |
 
 ## External-boundary rule
 

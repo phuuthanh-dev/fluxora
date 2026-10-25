@@ -161,3 +161,41 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await page.getByRole("button", { name: "Retry test run" }).click();
   await expect(page.getByText(/Mock retry failed — using the original version 2/)).toBeVisible({ timeout: 15_000 });
 });
+
+test("narrow desktop opens the node inspector as a focus-managed drawer", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 820 });
+  const email = `e2e-inspector-${Date.now()}@example.test`;
+  await page.goto("/");
+  await page.getByRole("button", { name: "Create an account" }).click();
+  await page.locator('input[autocomplete="name"]').fill("Inspector Owner");
+  await page.locator('input[autocomplete="email"]').fill(email);
+  await page.locator('input[autocomplete="new-password"]').fill("e2e-password-123");
+  await page.getByRole("button", { name: "Create account" }).click();
+  await page.getByRole("button", { name: "Use Steam template" }).click();
+  await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+
+  const inspectorTrigger = page.getByRole("button", { name: "Inspector" });
+  await expect(inspectorTrigger).toBeVisible();
+  await page.locator(".react-flow__node").filter({ hasText: "Steam account snapshot" }).first().click();
+
+  const drawer = page.getByRole("dialog", { name: "Node inspector" });
+  await expect(drawer).toBeVisible();
+  await expect(drawer).toHaveClass(/inspector--drawer-open/);
+  await expect(drawer.getByRole("heading", { name: "Steam account snapshot" })).toBeVisible();
+  await expect(drawer).toHaveAttribute("aria-modal", "true");
+  const closeDrawer = drawer.getByRole("button", { name: "Close node inspector" });
+  await expect(closeDrawer).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  expect(await drawer.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+
+  await closeDrawer.click();
+  await expect(drawer).toBeHidden();
+  await expect(inspectorTrigger).toBeFocused();
+  await expect(inspectorTrigger).toHaveAttribute("aria-expanded", "false");
+
+  await inspectorTrigger.click();
+  await expect(drawer).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(drawer).toBeHidden();
+  await expect(inspectorTrigger).toBeFocused();
+});

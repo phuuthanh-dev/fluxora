@@ -36,6 +36,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | Safe retry and trigger idempotency | Complete locally | Failed executions can create a new run only from their original pinned version and original redacted trigger payload. Mock retry remains mock; a live retry requires a second explicit confirmation and re-evaluates live credentials. Cron dispatches use a durable occurrence key and public webhooks accept an optional endpoint-scoped `Idempotency-Key`. |
 | Execution Center pagination | Complete locally | Execution history uses an owner-scoped stable cursor and a 1–50 bounded API page size. The dashboard appends further history with a dedicated loading affordance without resetting triage filters or losing already rendered runs. |
 | Dedicated Connections and Executions pages | Complete locally | Workspace-scoped `/dashboard/connections` reuses the encrypted credential manager without an editor-only close affordance; `/dashboard/executions` provides independent loading, empty, error/retry, filtering, pagination, and immutable execution inspection. Both share page, status, skeleton, and progress primitives and have focused Playwright coverage. |
+| Responsive node inspector drawer | Complete locally | At desktop widths up to 1080px, selecting a node opens a dedicated inspector drawer instead of silently hiding configuration. The drawer supports a backdrop, Escape, focus trapping, focus return, reduced motion, and a persistent Inspector trigger; Playwright covers the user flow at 1024px. |
 
 ## Milestone 1 — Product foundation
 
@@ -55,7 +56,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 
 ## Next UI/UX roadmap
 
-1. **Editor responsive interaction:** turn the narrow-desktop inspector into an intentional drawer, preserve keyboard focus/return, and validate zoom, focus, and reduced-motion behavior across the command bar, canvas, and inspector.
+1. **Accessibility coverage:** complete keyboard/zoom/reduced-motion regression across the command bar, canvas, dialogs, and Node Library; keep focus behavior explicit whenever an overlay is added.
 2. **Credential lifecycle clarity:** add provider compatibility labels, a safe rename/rotate/delete flow to the full Connections surface, and clear “used by” references before a destructive action.
 3. **Execution detail evolution:** extend the immutable execution view with an event timeline, node-level retry/error-branch explanation, and shareable/redacted diagnostic snapshots.
 
