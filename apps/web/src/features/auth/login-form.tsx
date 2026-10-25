@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { apiUrl } from "../api/api-client";
+import { ThemeToggle } from "../theme/theme-toggle";
 
 type AuthMode = "login" | "register";
 type AuthResponse = { user?: { email: string }; message?: string | { message?: string } };
@@ -65,6 +66,7 @@ export function LoginForm() {
         </div>
       </section>
       <section className="auth-panel">
+        <ThemeToggle />
         <div className="auth-card">
           <p className="auth-eyebrow">WELCOME</p>
           <h2>{mode === "login" ? "Sign in to your workspace" : "Create your workspace"}</h2>

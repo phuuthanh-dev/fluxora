@@ -47,6 +47,7 @@ CI runs the same gate for every pull request and push to `main`.
 | L6.6 | Safe expression compatibility and terminal execution failures | Complete locally | Hyphenated node IDs are resolved safely; malformed expressions become persisted `INVALID_EXPRESSION` node failures and terminal execution failures in inline mode; the Steam template uses the canonical `steam` step ID; mock run and full quality gate passed. |
 | L6.7 | UI redesign contract and collapsible editor layout | Complete locally | The redesign brief defines the target information architecture, visual direction, primitives, and staged migration. Playwright proves the canvas reclaims Node Library width and restores the palette without moving the inspector; the full quality gate passed. |
 | L6.8 | Relay-inspired global design system foundation | Complete locally | Semantic tokens, reusable recipes, provider-color rules, auth/dashboard/editor migration, focused token regression, localhost visual QA, and `npm run verify` passed. |
+| L6.9 | Global light/dark theme parity | Complete locally | Theme preference is applied before paint, persisted, exposed on the three primary routes, and tested for both root state and dark reading-surface contrast. |
 
 ## External-boundary rule
 

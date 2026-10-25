@@ -762,7 +762,8 @@
       "id": "apps/web/src/features/auth/login-form.tsx",
       "boundary": "web",
       "internalImports": [
-        "apps/web/src/features/api/api-client.ts"
+        "apps/web/src/features/api/api-client.ts",
+        "apps/web/src/features/theme/theme-toggle.tsx"
       ],
       "externalImports": [
         "next/navigation",
@@ -791,11 +792,21 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/features/api/api-client.ts",
+        "apps/web/src/features/theme/theme-toggle.tsx",
         "apps/web/src/features/workflow/workflow-api.ts"
       ],
       "externalImports": [
         "lucide-react",
         "next/navigation",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/theme/theme-toggle.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "lucide-react",
         "react"
       ]
     },
@@ -894,6 +905,7 @@
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/credentials/credential-panel.tsx",
         "apps/web/src/features/credentials/credential-types.ts",
+        "apps/web/src/features/theme/theme-toggle.tsx",
         "apps/web/src/features/workflow/editor-store.ts",
         "apps/web/src/features/workflow/expression-suggestions.ts",
         "apps/web/src/features/workflow/graph-validation.ts",
@@ -1563,6 +1575,10 @@
       "to": "apps/web/src/features/api/api-client.ts"
     },
     {
+      "from": "apps/web/src/features/auth/login-form.tsx",
+      "to": "apps/web/src/features/theme/theme-toggle.tsx"
+    },
+    {
       "from": "apps/web/src/features/credentials/credential-panel.tsx",
       "to": "apps/web/src/features/api/api-client.ts"
     },
@@ -1573,6 +1589,10 @@
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
       "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
+      "to": "apps/web/src/features/theme/theme-toggle.tsx"
     },
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
@@ -1629,6 +1649,10 @@
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",
       "to": "apps/web/src/features/credentials/credential-types.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/theme/theme-toggle.tsx"
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",

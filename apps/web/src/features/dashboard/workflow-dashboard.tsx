@@ -4,6 +4,7 @@ import { Activity, ArrowRight, CirclePlus, FilePlus2, FolderKanban, LayoutDashbo
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { apiRequest, apiUrl } from "../api/api-client";
+import { ThemeToggle } from "../theme/theme-toggle";
 import type { ApiWorkflow } from "../workflow/workflow-api";
 
 type WorkspaceSummary = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
@@ -172,7 +173,7 @@ export function WorkflowDashboard() {
         <div className="dashboard-header__workspace"><label htmlFor="dashboard-workspace">Workspace</label><select id="dashboard-workspace" value={workspaceId} onChange={(event) => void switchWorkspace(event.target.value)}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</select></div>
         <div className="dashboard-header__user"><span>{user?.displayName ?? user?.email ?? "Owner"}</span>{steamIdentity ? <span className="dashboard-steam-status" title={`Steam ID ${steamIdentity.providerAccountId}`}>Steam linked</span> : <button className="dashboard-steam-link" disabled={!providers.steam} type="button" onClick={() => window.location.assign(`${apiUrl}/auth/steam/connect`)}>{providers.steam ? "Link Steam" : "Steam setup"}</button>}
           <details className="dashboard-connections"><summary>Connections{identities.length ? ` (${identities.length})` : ""}</summary><div>{identities.length ? identities.map((identity) => <div key={identity.provider}><span>{identityLabel(identity.provider)}</span><button type="button" disabled={unlinkingProvider === identity.provider} onClick={() => void unlinkIdentity(identity.provider)}>{unlinkingProvider === identity.provider ? "Unlinking…" : "Unlink"}</button></div>) : <p>No external identities linked.</p>}</div></details>
-          <button type="button" onClick={() => void logout()} aria-label="Sign out"><LogOut size={16} /></button></div>
+          <ThemeToggle /><button type="button" onClick={() => void logout()} aria-label="Sign out"><LogOut size={16} /></button></div>
       </header>
       <section className="dashboard-main">
         <div className="dashboard-hero"><div><p className="section-label">{activeWorkspace?.name ?? "WORKSPACE"}</p><h1>Your workflow control room.</h1><p>Create, publish, monitor, and revisit every automation from one place.</p></div><button className="dashboard-new-button" type="button" onClick={() => document.getElementById("workflow-create")?.scrollIntoView({ behavior: "smooth", block: "center" })}><CirclePlus size={17} /> New workflow</button></div>

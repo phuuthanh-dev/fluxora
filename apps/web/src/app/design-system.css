@@ -1,5 +1,5 @@
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
   /* Relay-inspired product foundation: near-black surfaces and acid-lime action color. */
   --relay-void: #080a09;
@@ -59,6 +59,44 @@
   --radius-lg: 14px;
   --motion-fast: 140ms;
   --motion-standard: 220ms;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Dark mode keeps the Relay character while moving reading surfaces into the shell. */
+  --relay-void: #050706;
+  --relay-surface: #0d120e;
+  --relay-surface-raised: #171e18;
+  --relay-surface-border: #2d3a2f;
+  --relay-text: #f3f6ec;
+  --relay-muted: #a8b3a4;
+  --relay-lime: #d6ff32;
+  --relay-lime-strong: #c6f21b;
+  --relay-lime-soft: #2c3b0b;
+  --semantic-success: #73dca5;
+  --semantic-warning: #ffca72;
+  --semantic-danger: #ff8fa3;
+  --semantic-info: #82cbe9;
+  --canvas: #0b100c;
+  --ink: #f3f6ec;
+  --muted: #a8b3a4;
+  --line: #2b372d;
+  --panel: #111712;
+  --nav: var(--relay-void);
+  --accent: var(--relay-lime);
+  --accent-strong: var(--relay-lime-strong);
+  --soft-purple: var(--relay-lime-soft);
+  --green: var(--semantic-success);
+  --warning: var(--semantic-warning);
+  --danger: var(--semantic-danger);
+  --surface-dark: var(--relay-surface);
+  --surface-dark-raised: var(--relay-surface-raised);
+  --surface-dark-border: var(--relay-surface-border);
+  --text-on-dark: var(--relay-text);
+  --muted-on-dark: var(--relay-muted);
+  --shadow-soft: 0 14px 34px rgba(0, 0, 0, 0.28);
+  --shadow-dark: 0 18px 48px rgba(0, 0, 0, 0.52);
 }
 
 /* Reusable recipes for new screens and incremental migration of existing surfaces. */

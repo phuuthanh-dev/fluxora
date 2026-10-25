@@ -22,6 +22,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | Safe expression compatibility and terminal failure handling | Complete locally | Hyphenated node IDs resolve safely, the Steam daily report template uses the canonical `steam` step ID, and malformed expressions persist `INVALID_EXPRESSION` on the node and terminate inline executions instead of leaving them running. Unit, mock-run, and full quality-gate checks pass. |
 | UI redesign contract and collapsible editor layout | Complete locally | `docs/13-ui-redesign-brief.md` defines the unified direction and staged migration; the canvas now reclaims Node Library width while the inspector remains stable, with Playwright and full quality-gate coverage. |
 | Relay-inspired global design system foundation | Complete locally | Global semantic tokens, reusable button/surface recipes, provider-color rules, auth/dashboard/editor migration, focused token regression, full quality gate, and localhost visual QA are complete in `apps/web/src/app/design-system.css` and `globals.css`. |
+| Global light/dark theme parity | Complete locally | Theme preference is applied before first paint, persisted in local storage, exposed on auth/dashboard/editor, and audited across reading surfaces, graph controls, forms, cards, and overlays with Playwright coverage. |
 
 ## Milestone 1 — Product foundation
 

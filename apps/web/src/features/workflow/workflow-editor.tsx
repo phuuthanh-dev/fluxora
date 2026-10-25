@@ -53,6 +53,7 @@ import type { CredentialProvider, CredentialSummary } from "../credentials/crede
 import { buildExpressionSuggestions } from "./expression-suggestions";
 import { manualTriggerTestData } from "./test-data";
 import { NodeIcon } from "./node-icon";
+import { ThemeToggle } from "../theme/theme-toggle";
 
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNode };
 
@@ -1007,6 +1008,7 @@ export function WorkflowEditor() {
           <button className="run-button" type="button" onClick={() => void runTest()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "running" ? <LoaderCircle className="ui-spinner" size={16} /> : <Play size={16} />} {activeOperation === "running" ? "Starting…" : "Run test"}</button>
           <button className="go-live-button" type="button" onClick={() => setLiveConfirmOpen(true)} disabled={!workflow?.published || isSaving}>{activeOperation === "live" ? <LoaderCircle className="ui-spinner" size={16} /> : null} Go live</button>
           {execution && ["QUEUED", "RUNNING", "WAITING_APPROVAL"].includes(execution.status) && <button className="ghost-button" type="button" onClick={() => void cancelExecution()}>Cancel run</button>}
+          <ThemeToggle />
         </div>
       </header>
       {progressLabel && <div className="editor-progress" role="status" aria-live="polite"><LoaderCircle className="ui-spinner" size={14} /> <span>{progressLabel}…</span><i /></div>}

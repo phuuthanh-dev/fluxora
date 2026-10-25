@@ -21,6 +21,14 @@ long-running configuration work are more important than copying a marketing
 hero. The shell, command surfaces, drawers, dialogs, and runtime overlays use
 the near-black foundation.
 
+Light mode is the default product presentation. Dark mode keeps the same
+Relay-inspired shell and lime hierarchy but moves the dashboard, canvas,
+inspector, forms, cards, and graph controls onto dark reading surfaces. The
+choice is stored under `workflow-automation-theme` and is applied by the
+shared client toggle on mount. The default light presentation keeps the first
+render stable, while subsequent visits restore the saved choice. The toggle is
+available on auth, dashboard, and editor surfaces.
+
 ## Token source
 
 The implementation source is:
@@ -87,6 +95,9 @@ migrated incrementally without changing component APIs.
 9. **Accessibility:** retain visible focus, textual loading/error status, and
    enough contrast for dark and light surfaces. Do not communicate state by
    color alone.
+10. **Theme parity:** every new surface must be readable in both
+    `data-theme="light"` and `data-theme="dark"`; do not use a hard-coded white
+    or black background for product UI.
 
 ## Reusable recipes
 
