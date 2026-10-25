@@ -31,6 +31,16 @@ const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
     data: '{\n  "authType": "bearer",\n  "token": ""\n}',
     hint: "Use bearer, basic, or custom-header JSON authentication for HTTP and approval-webhook nodes.",
   },
+  DISCORD_WEBHOOK: {
+    label: "Discord incoming webhook",
+    data: '{\n  "webhookUrl": ""\n}',
+    hint: "Paste the webhook URL from your Discord channel integrations.",
+  },
+  TELEGRAM_BOT: {
+    label: "Telegram bot",
+    data: '{\n  "botToken": "",\n  "chatId": ""\n}',
+    hint: "Enter your Telegram Bot API token from @BotFather and your default Chat ID.",
+  },
 };
 
 export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId: string; onClose: () => void; onSaved?: (credentials: CredentialSummary[]) => void }) {
@@ -60,7 +70,15 @@ export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId
     setLabel(preset.label);
     setData(preset.data);
     setJsonError(null);
-    setNotice(`${nextProvider === "GOOGLE" ? "Google" : nextProvider === "STEAM" ? "Steam" : nextProvider === "GOOGLE_CHAT_WEBHOOK" ? "Google Chat" : "HTTP"} credential template loaded.`);
+    const providerLabels: Record<CredentialProvider, string> = {
+      GOOGLE: "Google",
+      STEAM: "Steam",
+      GOOGLE_CHAT_WEBHOOK: "Google Chat",
+      HTTP: "HTTP",
+      DISCORD_WEBHOOK: "Discord",
+      TELEGRAM_BOT: "Telegram",
+    };
+    setNotice(`${providerLabels[nextProvider] ?? nextProvider} credential template loaded.`);
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -93,7 +111,7 @@ export function CredentialPanel({ workspaceId, onClose, onSaved }: { workspaceId
       <p>Secrets are encrypted server-side and never shown again after save.</p>
       {provider === "GOOGLE" ? <button className="ghost-button credential-panel__oauth" type="button" onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google/connect`); }}>Connect Google with OAuth</button> : null}
       <form onSubmit={submit} className="credential-form">
-        <label><span>Provider</span><select aria-label="Provider" value={provider} onChange={(event) => changeProvider(event.target.value as CredentialProvider)}><option value="GOOGLE">Google Drive / Sheets</option><option value="STEAM">Steam</option><option value="GOOGLE_CHAT_WEBHOOK">Google Chat webhook</option><option value="HTTP">HTTP</option></select></label>
+        <label><span>Provider</span><select aria-label="Provider" value={provider} onChange={(event) => changeProvider(event.target.value as CredentialProvider)}><option value="GOOGLE">Google Drive / Sheets</option><option value="STEAM">Steam</option><option value="GOOGLE_CHAT_WEBHOOK">Google Chat webhook</option><option value="DISCORD_WEBHOOK">Discord webhook</option><option value="TELEGRAM_BOT">Telegram bot</option><option value="HTTP">HTTP</option></select></label>
         <p className="credential-form__hint" aria-live="polite">{credentialPresets[provider].hint}</p>
         <label><span>Connection name</span><input aria-label="Connection name" value={label} onChange={(event) => setLabel(event.target.value)} /></label>
         <label><span>Secret JSON</span><textarea aria-label="Secret JSON" aria-invalid={jsonError ? "true" : undefined} value={data} onChange={(event) => { setData(event.target.value); setJsonError(null); }} rows={provider === "STEAM" ? 7 : 6} spellCheck={false} /></label>

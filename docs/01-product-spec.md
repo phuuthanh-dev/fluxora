@@ -37,6 +37,8 @@ The Steam profile is public. The Steam node returns every field available throug
 | Condition | Switch | Multiple cases and a default path. |
 | Action | Steam Account Snapshot | Profile, current game, owned/recent games, playtime, and optional per-game achievements. |
 | Action | Google Chat Webhook | Send formatted daily report into one space. |
+| Action | Discord Webhook | Send message into a Discord channel via incoming webhook. |
+| Action | Telegram Message | Send message via Telegram Bot API with bot token and chat ID. |
 | Action | Google Drive | List/search file metadata and upload/download text assets. |
 | Action | Google Sheets | Read ranges, append rows, update ranges. |
 | Action | HTTP Request | Generic REST request with structured response. |

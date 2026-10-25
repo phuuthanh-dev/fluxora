@@ -10,6 +10,8 @@ export const workflowNodeTypes = [
   "condition.switch",
   "action.steam.account-snapshot",
   "action.google-chat.webhook",
+  "action.discord.webhook",
+  "action.telegram.message",
   "action.google-drive",
   "action.google-sheets",
   "action.http-request",

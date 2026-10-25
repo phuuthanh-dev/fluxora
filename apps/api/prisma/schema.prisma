@@ -30,6 +30,8 @@ enum CredentialProvider {
   GOOGLE
   GOOGLE_CHAT_WEBHOOK
   HTTP
+  DISCORD_WEBHOOK
+  TELEGRAM_BOT
 }
 
 enum ExecutionStatus {
