@@ -83,10 +83,10 @@ export class TelegramNotificationAdapter implements NotificationAdapter {
     try {
       json = await response.json() as typeof json;
     } catch {
-      // ignore JSON parse error on non-JSON response
+      // response could not be parsed as JSON
     }
 
-    if (!response.ok || (json && json.ok === false)) {
+    if (!response.ok || !json || json.ok !== true) {
       const errorCode = typeof json?.error_code === "number" ? json.error_code : response.status;
       const retryable = errorCode === 429 || errorCode >= 500;
       throw new NodeFailure(

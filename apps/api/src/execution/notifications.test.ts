@@ -867,6 +867,72 @@ test("Telegram message: maps retryability from error_code on 200 ok: false respo
   }
 });
 
+test("Telegram message: treats HTTP 200 with malformed JSON as a failed delivery", async () => {
+  const credentials = createMockCredentials({
+    "tg-cred": {
+      provider: CredentialProvider.TELEGRAM_BOT,
+      data: { botToken: "987654:TOKEN", chatId: "-1001111" },
+    },
+  });
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    return new Response("<html>Not a valid JSON response</html>", {
+      status: 200,
+      headers: { "Content-Type": "text/html" },
+    });
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () => executeTelegramMessage({ credentialId: "tg-cred", text: "Malformed JSON test" }, "live", "workspace-1", credentials),
+      (err: any) => {
+        assert.equal(err.code, "HTTP_ERROR");
+        assert.equal(err.statusCode, 200);
+        assert.equal(err.retryable, false);
+        assert.equal(err.message, "Telegram returned 200.");
+        assert.equal(err.message.includes("987654:TOKEN"), false);
+        return true;
+      },
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Telegram message: treats HTTP 200 with empty JSON object {} as a failed delivery", async () => {
+  const credentials = createMockCredentials({
+    "tg-cred": {
+      provider: CredentialProvider.TELEGRAM_BOT,
+      data: { botToken: "987654:TOKEN", chatId: "-1001111" },
+    },
+  });
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    return new Response(JSON.stringify({}), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () => executeTelegramMessage({ credentialId: "tg-cred", text: "Empty JSON test" }, "live", "workspace-1", credentials),
+      (err: any) => {
+        assert.equal(err.code, "HTTP_ERROR");
+        assert.equal(err.statusCode, 200);
+        assert.equal(err.retryable, false);
+        assert.equal(err.message, "Telegram returned 200.");
+        assert.equal(err.message.includes("987654:TOKEN"), false);
+        return true;
+      },
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("HttpWebhookNotificationAdapter: destination strips query parameters, credentials, fragments, and API keys while outbound request remains authenticated", async () => {
   const adapter = new HttpWebhookNotificationAdapter();
   const originalFetch = globalThis.fetch;
