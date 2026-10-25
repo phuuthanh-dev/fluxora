@@ -20,6 +20,7 @@
 
 ## Phase 2
 
+- Notifications v1: Discord Incoming Webhook and Telegram Bot API action nodes with encrypted credentials and safe expression interpolation.
 - Actual Email sending.
 - OpenAI, Gemini, MongoDB, GitHub nodes.
 - GitHub runtime node and OAuth credential mode.

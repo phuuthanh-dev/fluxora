@@ -388,6 +388,12 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
     }
     return { status: "succeeded", output: { delivered: true, mode: "mock", message: String(config.message ?? "Steam daily report") }, route: "success" };
   }
+  if (node.type === "action.discord.webhook") {
+    return executeDiscordWebhook(config, mode, workspaceId, credentials);
+  }
+  if (node.type === "action.telegram.message") {
+    return executeTelegramMessage(config, mode, workspaceId, credentials);
+  }
   if (node.type === "action.google-drive") {
     if (mode === "mock") return { status: "succeeded", output: mockDrive(config), route: "success" };
     const credential = await credentials.readGoogleForExecution(readCredentialId(config), workspaceId);
@@ -643,4 +649,120 @@ function readConfigString(config: Record<string, unknown>, key: string) {
 function normalizeValues(value: unknown) {
   if (!Array.isArray(value) || !value.every((row) => Array.isArray(row))) throw new NodeFailure("INVALID_CONFIGURATION", "values must be a table (an array of rows).", false);
   return value;
+}
+
+export async function executeDiscordWebhook(config: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService): Promise<NodeResult> {
+  const content = typeof config.content === "string" ? config.content : (typeof config.message === "string" ? config.message : "");
+  const username = typeof config.username === "string" && config.username.trim() ? config.username.trim() : undefined;
+  const avatarUrl = typeof config.avatarUrl === "string" && config.avatarUrl.trim() ? config.avatarUrl.trim() : undefined;
+
+  if (mode === "mock") {
+    return {
+      status: "succeeded",
+      output: {
+        delivered: true,
+        mode: "mock",
+        content,
+        ...(username ? { username } : {}),
+        ...(avatarUrl ? { avatarUrl } : {}),
+      },
+      route: "success",
+    };
+  }
+
+  if (!content.trim()) {
+    throw new NodeFailure("INVALID_CONFIGURATION", "Discord message content is required.", false);
+  }
+
+  const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.DISCORD_WEBHOOK);
+  const webhookUrl = readCredentialValue(credential, "webhookUrl");
+  const payload: Record<string, unknown> = { content };
+  if (username) payload.username = username;
+  if (avatarUrl) payload.avatar_url = avatarUrl;
+
+  let response: Response;
+  try {
+    response = await fetchSafeOutbound(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch (reason) {
+    throw nodeFailureFromOutboundPolicy(reason);
+  }
+
+  if (!response.ok) {
+    throw new NodeFailure("HTTP_ERROR", `Discord returned ${response.status}.`, response.status === 429 || response.status >= 500, response.status);
+  }
+
+  return { status: "succeeded", output: { delivered: true, mode: "live" }, route: "success" };
+}
+
+export async function executeTelegramMessage(config: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService): Promise<NodeResult> {
+  const text = typeof config.text === "string" ? config.text : (typeof config.message === "string" ? config.message : "");
+  const parseMode = typeof config.parseMode === "string" && config.parseMode.trim() ? config.parseMode.trim() : undefined;
+  const configChatId = typeof config.chatId === "string" && config.chatId.trim() ? config.chatId.trim() : (typeof config.chatId === "number" ? String(config.chatId) : undefined);
+
+  if (mode === "mock") {
+    return {
+      status: "succeeded",
+      output: {
+        delivered: true,
+        mode: "mock",
+        chatId: configChatId ?? "mock-chat-id",
+        text,
+        ...(parseMode ? { parseMode } : {}),
+      },
+      route: "success",
+    };
+  }
+
+  if (!text.trim()) {
+    throw new NodeFailure("INVALID_CONFIGURATION", "Telegram message text is required.", false);
+  }
+
+  const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.TELEGRAM_BOT);
+  const botToken = readCredentialValue(credential, "botToken");
+  const chatId = configChatId ?? (typeof credential.chatId === "string" && credential.chatId.trim() ? credential.chatId.trim() : (typeof credential.chatId === "number" ? String(credential.chatId) : undefined));
+
+  if (!chatId) {
+    throw new NodeFailure("INVALID_CONFIGURATION", "Telegram chat ID is required in node configuration or credential.", false);
+  }
+
+  const payload: Record<string, unknown> = {
+    chat_id: chatId,
+    text,
+  };
+  if (parseMode) payload.parse_mode = parseMode;
+
+  const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+  let response: Response;
+  try {
+    response = await fetchSafeOutbound(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch (reason) {
+    throw sanitizeTelegramFailure(reason, botToken);
+  }
+
+  if (!response.ok) {
+    throw new NodeFailure("HTTP_ERROR", `Telegram returned ${response.status}.`, response.status === 429 || response.status >= 500, response.status);
+  }
+
+  return { status: "succeeded", output: { delivered: true, mode: "live" }, route: "success" };
+}
+
+function sanitizeTelegramFailure(reason: unknown, token?: string): NodeFailure {
+  const failure = nodeFailureFromOutboundPolicy(reason);
+  const rawMessage = reason instanceof Error && reason.message ? reason.message : failure.message;
+  let message = rawMessage;
+  if (token) {
+    message = message.replaceAll(token, "[REDACTED]");
+  }
+  message = message.replace(/(\/bot)[^/\s]+/gi, "$1[REDACTED]");
+  return new NodeFailure(failure.code, message, failure.retryable, failure.statusCode);
 }

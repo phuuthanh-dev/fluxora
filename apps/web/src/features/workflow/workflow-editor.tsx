@@ -429,6 +429,22 @@ function NodeInspector({ node, execution, credentials, onResolveApproval }: { no
           <ConfigField label="Message template" value={readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("message", value)} multiline />
         </>
       )}
+      {node.data.nodeType === "action.discord.webhook" && (
+        <>
+          <CredentialField label="Discord credential" value={readConfigText(node.data.config, "credentialId")} providers={["DISCORD_WEBHOOK"]} credentials={credentials} onChange={(value) => updateConfig("credentialId", value)} />
+          <ConfigField label="Message content" value={readConfigText(node.data.config, "content") || readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("content", value)} multiline />
+          <ConfigField label="Username (optional)" value={readConfigText(node.data.config, "username")} onChange={(value) => updateConfig("username", value)} />
+          <ConfigField label="Avatar URL (optional)" value={readConfigText(node.data.config, "avatarUrl")} onChange={(value) => updateConfig("avatarUrl", value)} />
+        </>
+      )}
+      {node.data.nodeType === "action.telegram.message" && (
+        <>
+          <CredentialField label="Telegram credential" value={readConfigText(node.data.config, "credentialId")} providers={["TELEGRAM_BOT"]} credentials={credentials} onChange={(value) => updateConfig("credentialId", value)} />
+          <ConfigField label="Chat ID (optional override)" value={readConfigText(node.data.config, "chatId")} onChange={(value) => updateConfig("chatId", value)} />
+          <ConfigField label="Message text" value={readConfigText(node.data.config, "text") || readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("text", value)} multiline />
+          <ConfigField label="Parse mode (optional: Markdown, HTML, MarkdownV2)" value={readConfigText(node.data.config, "parseMode")} onChange={(value) => updateConfig("parseMode", value)} />
+        </>
+      )}
       {node.data.nodeType === "action.google-drive" && (
         <>
           <CredentialField label="Google credential" value={readConfigText(node.data.config, "credentialId")} providers={["GOOGLE"]} credentials={credentials} onChange={(value) => updateConfig("credentialId", value)} />

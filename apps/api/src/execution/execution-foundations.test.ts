@@ -14,9 +14,24 @@ test("resolves safe expressions without evaluating JavaScript", () => {
 });
 
 test("redacts nested provider secrets before execution data is persisted", () => {
-  assert.deepEqual(redactValue({ authorization: "Bearer secret", nested: { apiKey: "abc", safe: "visible" } }), {
+  assert.deepEqual(redactValue({
+    authorization: "Bearer secret",
+    webhookUrl: "https://discord.com/api/webhooks/123/abc",
+    nested: {
+      apiKey: "abc",
+      botToken: "123456:ABC-DEF",
+      safe: "visible",
+      url: "https://api.telegram.org/bot123456:ABC-DEF/sendMessage",
+    },
+  }), {
     authorization: "[REDACTED]",
-    nested: { apiKey: "[REDACTED]", safe: "visible" },
+    webhookUrl: "[REDACTED]",
+    nested: {
+      apiKey: "[REDACTED]",
+      botToken: "[REDACTED]",
+      safe: "visible",
+      url: "https://api.telegram.org/bot[REDACTED]/sendMessage",
+    },
   });
 });
 
