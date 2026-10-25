@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { CredentialProvider } from "@prisma/client";
 import { liveCredentialRequirements } from "./live-readiness";
+import { ExecutionService } from "./execution.service";
 
 test("live readiness derives credential requirements from executable node types", () => {
   const requirements = liveCredentialRequirements({
@@ -22,5 +23,26 @@ test("live readiness derives credential requirements from executable node types"
     { nodeId: "telegram", provider: CredentialProvider.TELEGRAM_BOT, credentialId: null },
     { nodeId: "http", provider: CredentialProvider.HTTP, credentialId: "http-credential" },
     { nodeId: "approval", provider: CredentialProvider.HTTP, credentialId: "approval-webhook" },
+  ]);
+});
+
+test("live readiness marks missing credentials without reading secret payloads", async () => {
+  const prisma = {
+    workflow: {
+      findFirst: async () => ({ workspaceId: "workspace-1", publishedVersion: { graph: { nodes: [
+        { id: "steam", type: "action.steam.account-snapshot", position: { x: 0, y: 0 }, config: { credentialId: "steam-credential" } },
+        { id: "chat", type: "action.google-chat.webhook", position: { x: 1, y: 0 }, config: {} },
+      ], edges: [] } } }),
+    },
+    credential: {
+      findMany: async () => [{ id: "steam-credential", provider: CredentialProvider.STEAM }],
+    },
+  };
+  const service = new ExecutionService(prisma as never, {} as never, {} as never);
+  const readiness = await service.getLiveReadiness("workflow-1", "user-1");
+  assert.equal(readiness.ready, false);
+  assert.deepEqual(readiness.requirements, [
+    { nodeId: "steam", provider: CredentialProvider.STEAM, credentialId: "steam-credential", ready: true, reason: null },
+    { nodeId: "chat", provider: CredentialProvider.GOOGLE_CHAT_WEBHOOK, credentialId: null, ready: false, reason: "MISSING_CREDENTIAL" },
   ]);
 });

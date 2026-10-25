@@ -51,6 +51,16 @@ export class ExecutionService {
     });
   }
 
+  async getLiveReadiness(workflowId: string, userId: string) {
+    const workflow = await this.prisma.workflow.findFirst({
+      where: { id: workflowId, workspace: { members: { some: { userId, role: "OWNER" } } } },
+      include: { publishedVersion: true },
+    });
+    if (!workflow) throw new NotFoundException({ code: "WORKFLOW_NOT_FOUND", message: "Workflow was not found." });
+    if (!workflow.publishedVersion) throw new BadRequestException({ code: "PUBLISHED_VERSION_REQUIRED", message: "Publish the workflow before checking live readiness." });
+    return this.evaluateLiveReadiness(workflow.workspaceId, parseWorkflowGraph(workflow.publishedVersion.graph));
+  }
+
   async get(executionId: string, userId: string) {
     const execution = await this.prisma.execution.findFirst({
       where: { id: executionId, workflowVersion: { workflow: { workspace: { members: { some: { userId, role: "OWNER" } } } } } },
@@ -363,20 +373,30 @@ export class ExecutionService {
   }
 
   private async assertLiveReady(workspaceId: string, graph: WorkflowGraph) {
+    const readiness = await this.evaluateLiveReadiness(workspaceId, graph);
+    if (readiness.ready) return;
+    throw new BadRequestException({
+      code: "LIVE_CREDENTIAL_REQUIRED",
+      message: "Select valid credentials for every live integration node before going live.",
+      details: readiness.requirements.filter((requirement) => !requirement.ready).map((requirement) => ({ nodeId: requirement.nodeId, provider: requirement.provider })),
+    });
+  }
+
+  private async evaluateLiveReadiness(workspaceId: string, graph: WorkflowGraph) {
     const requirements = liveCredentialRequirements(graph);
-    const missingSelection = requirements.filter((requirement) => !requirement.credentialId);
     const selectedIds = requirements.flatMap((requirement) => requirement.credentialId ? [requirement.credentialId] : []);
     const credentials = selectedIds.length
       ? await this.prisma.credential.findMany({ where: { id: { in: selectedIds }, workspaceId }, select: { id: true, provider: true } })
       : [];
     const providerById = new Map(credentials.map((credential) => [credential.id, credential.provider]));
-    const invalid = requirements.filter((requirement) => requirement.credentialId && providerById.get(requirement.credentialId) !== requirement.provider);
-    if (!missingSelection.length && !invalid.length) return;
-    throw new BadRequestException({
-      code: "LIVE_CREDENTIAL_REQUIRED",
-      message: "Select valid credentials for every live integration node before going live.",
-      details: [...missingSelection, ...invalid].map((requirement) => ({ nodeId: requirement.nodeId, provider: requirement.provider })),
+    const checked = requirements.map((requirement) => {
+      if (!requirement.credentialId) return { ...requirement, ready: false, reason: "MISSING_CREDENTIAL" as const };
+      const provider = providerById.get(requirement.credentialId);
+      if (!provider) return { ...requirement, ready: false, reason: "CREDENTIAL_NOT_FOUND" as const };
+      if (provider !== requirement.provider) return { ...requirement, ready: false, reason: "CREDENTIAL_PROVIDER_MISMATCH" as const };
+      return { ...requirement, ready: true, reason: null };
     });
+    return { ready: checked.every((requirement) => requirement.ready), requirements: checked };
   }
 }
 

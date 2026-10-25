@@ -68,10 +68,20 @@ type WorkflowVersionSummary = { id: string; version: number; status: "DRAFT" | "
 type WebhookEndpoint = { id: string; path: string; secretRequired: boolean; workflowVersionId: string; createdAt: string; updatedAt: string };
 type ApiApproval = { id: string; status: string; expiresAt: string; executionId: string; workflowId: string };
 type WorkspaceSummary = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
+type LiveReadinessRequirement = { nodeId: string; provider: CredentialProvider; credentialId: string | null; ready: boolean; reason: "MISSING_CREDENTIAL" | "CREDENTIAL_NOT_FOUND" | "CREDENTIAL_PROVIDER_MISMATCH" | null };
+type LiveReadiness = { ready: boolean; requirements: LiveReadinessRequirement[] };
 
 function readConfigText(config: Record<string, unknown>, key: string) {
   const value = config[key];
   return typeof value === "string" || typeof value === "number" ? String(value) : "";
+}
+
+function providerLabel(provider: CredentialProvider) {
+  return provider === "GOOGLE_CHAT_WEBHOOK" ? "Google Chat" : provider === "DISCORD_WEBHOOK" ? "Discord" : provider === "TELEGRAM_BOT" ? "Telegram" : provider === "GOOGLE" ? "Google" : provider === "STEAM" ? "Steam" : "HTTP";
+}
+
+function reasonLabel(reason: LiveReadinessRequirement["reason"]) {
+  return reason === "MISSING_CREDENTIAL" ? "Select a credential in the node inspector." : reason === "CREDENTIAL_NOT_FOUND" ? "The selected credential no longer exists." : "The selected credential belongs to another provider.";
 }
 
 function readFirstRow(config: Record<string, unknown>) {
@@ -225,9 +235,10 @@ function GraphValidationPanel({ issues, onClose }: { issues: ReturnType<typeof v
   );
 }
 
-function GoLivePanel({ workflow, isRunning, onConfirm, onClose }: { workflow: ApiWorkflow; isRunning: boolean; onConfirm: () => void; onClose: () => void }) {
-  const canRun = Boolean(workflow.published) && !isRunning;
-  return <Dialog label="Confirm live execution" className="go-live-panel"><div className="credential-panel__heading"><div><p className="section-label">LIVE EXECUTION</p><h2>Run the published workflow?</h2></div><IconButton label="Close live execution confirmation" className="icon-button" onClick={onClose}>×</IconButton></div><p>This will call real providers and may send messages, write data, or create external side effects. The editor will run <strong>published version {workflow.published?.version ?? "—"}</strong>, never unsaved draft changes.</p>{!workflow.published && <p className="go-live-panel__warning">Publish this workflow first. Test runs stay safe and use deterministic mock providers.</p>}<div className="go-live-panel__actions"><Button variant="ghost" className="ghost-button" onClick={onClose}>Cancel</Button><Button variant="secondary" className="go-live-button" disabled={!canRun} onClick={onConfirm}>{isRunning ? "Starting…" : "Run live now"}</Button></div></Dialog>;
+function GoLivePanel({ workflow, isRunning, readiness, loading, error, onConfirm, onClose, onRefresh, onOpenCredentials }: { workflow: ApiWorkflow; isRunning: boolean; readiness: LiveReadiness | null; loading: boolean; error: string | null; onConfirm: () => void; onClose: () => void; onRefresh: () => void; onOpenCredentials: () => void }) {
+  const canRun = Boolean(workflow.published && readiness?.ready && !loading && !error && !isRunning);
+  const blockers = readiness?.requirements.filter((requirement) => !requirement.ready) ?? [];
+  return <Dialog label="Confirm live execution" className="go-live-panel"><div className="credential-panel__heading"><div><p className="section-label">LIVE EXECUTION</p><h2>Run the published workflow?</h2></div><IconButton label="Close live execution confirmation" className="icon-button" onClick={onClose}>×</IconButton></div><p>This will call real providers and may send messages, write data, or create external side effects. The editor will run <strong>published version {workflow.published?.version ?? "—"}</strong>, never unsaved draft changes.</p>{!workflow.published && <p className="go-live-panel__warning">Publish this workflow first. Test runs stay safe and use deterministic mock providers.</p>}{loading && <Status tone="info" className="go-live-panel__readiness" aria-busy="true"><LoaderCircle className="ui-spinner" size={15} /> Checking live credentials…</Status>}{error && <Status tone="error" className="go-live-panel__readiness">{error} <Button variant="ghost" onClick={onRefresh}>Retry check</Button></Status>}{!loading && !error && readiness?.ready && <Status tone="success" className="go-live-panel__readiness">All live integrations are configured.</Status>}{!loading && !error && readiness && !readiness.ready && <div className="go-live-panel__blockers"><Status tone="error" className="go-live-panel__readiness">Live execution is blocked until these integrations are configured.</Status><ul>{blockers.map((requirement) => <li key={requirement.nodeId}><strong>{providerLabel(requirement.provider)}</strong><span>{reasonLabel(requirement.reason)}</span></li>)}</ul><Button variant="ghost" onClick={onOpenCredentials}>Open credentials</Button></div>}<div className="go-live-panel__actions"><Button variant="ghost" className="ghost-button" onClick={onClose}>Cancel</Button><Button variant="secondary" className="go-live-button" disabled={!canRun} onClick={onConfirm}>{isRunning ? "Starting…" : "Run live now"}</Button></div></Dialog>;
 }
 
 function WebhookEndpointPanel({ workflow, config, onClose }: { workflow: ApiWorkflow; config: Record<string, unknown>; onClose: () => void }) {
@@ -565,6 +576,9 @@ export function WorkflowEditor() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [webhookOpen, setWebhookOpen] = useState(false);
   const [liveConfirmOpen, setLiveConfirmOpen] = useState(false);
+  const [liveReadiness, setLiveReadiness] = useState<LiveReadiness | null>(null);
+  const [liveReadinessLoading, setLiveReadinessLoading] = useState(false);
+  const [liveReadinessError, setLiveReadinessError] = useState<string | null>(null);
   const [versions, setVersions] = useState<WorkflowVersionSummary[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [validationOpen, setValidationOpen] = useState(false);
@@ -931,6 +945,30 @@ export function WorkflowEditor() {
     }
   };
 
+  const checkLiveReadiness = async () => {
+    if (!workflow?.published) return;
+    setLiveReadinessLoading(true);
+    setLiveReadinessError(null);
+    try {
+      const response = await apiRequest<{ readiness: LiveReadiness }>(`/workflows/${workflow.id}/live-readiness`);
+      setLiveReadiness(response.readiness);
+    } catch (reason) {
+      setLiveReadiness(null);
+      setLiveReadinessError(reason instanceof Error ? reason.message : "Unable to check live readiness.");
+    } finally {
+      setLiveReadinessLoading(false);
+    }
+  };
+
+  const openLivePanel = () => {
+    if (!workflow?.published) {
+      setNotice("Publish the workflow before going live.");
+      return;
+    }
+    setLiveConfirmOpen(true);
+    void checkLiveReadiness();
+  };
+
   const runLive = async () => {
     if (!workflow?.published) return;
     setLiveConfirmOpen(false);
@@ -1016,7 +1054,7 @@ export function WorkflowEditor() {
           <Button variant="secondary" className="save-button" onClick={() => void saveDraft()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "saving" ? <LoaderCircle className="ui-spinner" size={16} /> : <Save size={16} />} {activeOperation === "saving" ? "Saving…" : "Save draft"}</Button>
           <Button variant="ghost" className="ghost-button" onClick={() => void publish()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "publishing" ? <LoaderCircle className="ui-spinner" size={16} /> : <Check size={16} />} {activeOperation === "publishing" ? "Publishing…" : "Publish"}</Button>
           <Button variant="primary" className="run-button" onClick={() => void runTest()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "running" ? <LoaderCircle className="ui-spinner" size={16} /> : <Play size={16} />} {activeOperation === "running" ? "Starting…" : "Run test"}</Button>
-          <Button variant="secondary" className="go-live-button" onClick={() => setLiveConfirmOpen(true)} disabled={!workflow?.published || isSaving}>{activeOperation === "live" ? <LoaderCircle className="ui-spinner" size={16} /> : null} Go live</Button>
+          <Button variant="secondary" className="go-live-button" onClick={openLivePanel} disabled={!workflow?.published || isSaving}>{activeOperation === "live" ? <LoaderCircle className="ui-spinner" size={16} /> : null} Go live</Button>
           {execution && ["QUEUED", "RUNNING", "WAITING_APPROVAL"].includes(execution.status) && <button className="ghost-button" type="button" onClick={() => void cancelExecution()}>Cancel run</button>}
           <ThemeToggle />
         </div>
@@ -1114,7 +1152,7 @@ export function WorkflowEditor() {
       {historyOpen && <WorkflowHistoryPanel versions={versions} loading={versionsLoading} onClose={() => setHistoryOpen(false)} />}
       {validationOpen && <GraphValidationPanel issues={issues} onClose={() => setValidationOpen(false)} />}
       {webhookOpen && workflow && webhookTrigger && <WebhookEndpointPanel workflow={workflow} config={webhookTrigger.data.config} onClose={() => setWebhookOpen(false)} />}
-      {liveConfirmOpen && workflow && <GoLivePanel workflow={workflow} isRunning={activeOperation === "live"} onConfirm={() => void runLive()} onClose={() => setLiveConfirmOpen(false)} />}
+      {liveConfirmOpen && workflow && <GoLivePanel workflow={workflow} isRunning={activeOperation === "live"} readiness={liveReadiness} loading={liveReadinessLoading} error={liveReadinessError} onConfirm={() => void runLive()} onRefresh={() => void checkLiveReadiness()} onOpenCredentials={() => { setLiveConfirmOpen(false); setCredentialsOpen(true); }} onClose={() => setLiveConfirmOpen(false)} />}
       {libraryOpen && <WorkflowLibraryPanel initialWorkspaces={workspaces} activeWorkflowId={workflow?.id} activeWorkspaceId={workflow?.workspaceId} onOpen={openWorkflow} onWorkspaceCreated={(workspace) => setWorkspaces((current) => [workspace, ...current])} onClose={() => setLibraryOpen(false)} />}
       {credentialsOpen && workflow && <CredentialPanel workspaceId={workflow.workspaceId} onClose={() => setCredentialsOpen(false)} onSaved={setCredentials} />}
     </main>

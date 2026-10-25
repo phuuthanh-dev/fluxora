@@ -31,6 +31,11 @@ export class ExecutionController {
     return { executions: await this.executions.listForWorkspace(workspaceId, requireUserId(request)) };
   }
 
+  @Get("workflows/:workflowId/live-readiness")
+  async liveReadiness(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return { readiness: await this.executions.getLiveReadiness(workflowId, requireUserId(request)) };
+  }
+
   @Post("executions/:executionId/cancel")
   async cancel(@Param("executionId") executionId: string, @Req() request: AuthenticatedRequest) {
     return { execution: await this.executions.cancel(executionId, requireUserId(request)) };

@@ -133,6 +133,9 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(page.getByText(/Version 1 published\. A new editable draft is ready\./)).toBeVisible();
   await page.getByRole("button", { name: "Go live" }).click();
   await expect(page.getByRole("heading", { name: "Run the published workflow?" })).toBeVisible();
+  await expect(page.getByText("Live execution is blocked until these integrations are configured.")).toBeVisible();
+  await expect(page.getByText("Google Chat", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Run live now" })).toBeDisabled();
   await expect(page.getByText("This will call real providers and may send messages, write data, or create external side effects.")).toBeVisible();
   await page.getByRole("button", { name: "Cancel" }).click();
 

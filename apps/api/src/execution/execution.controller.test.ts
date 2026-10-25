@@ -32,3 +32,14 @@ test("workspace execution list is owner-scoped", async () => {
   const result = await controller.listForWorkspace("workspace-1", { currentUser: { id: "user-1" } } as never);
   assert.deepEqual(result, { executions: [{ id: "execution-1", args: ["workspace-1", "user-1"] }] });
 });
+
+test("live readiness is exposed without starting an execution", async () => {
+  const calls: unknown[] = [];
+  const executions = {
+    getLiveReadiness: async (...args: unknown[]) => { calls.push(args); return { ready: false, requirements: [{ nodeId: "steam", provider: "STEAM", credentialId: null, ready: false, reason: "MISSING_CREDENTIAL" }] }; },
+  };
+  const controller = new ExecutionController(executions as never, {} as never, {} as never);
+  const result = await controller.liveReadiness("workflow-1", { currentUser: { id: "user-1" } } as never);
+  assert.deepEqual(calls, [["workflow-1", "user-1"]]);
+  assert.deepEqual(result, { readiness: { ready: false, requirements: [{ nodeId: "steam", provider: "STEAM", credentialId: null, ready: false, reason: "MISSING_CREDENTIAL" }] } });
+});

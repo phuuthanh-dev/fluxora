@@ -28,6 +28,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | Compact checkbox controls | Complete locally | Shared `.checkbox-field` controls are reduced from 14×14px to 12×12px without shrinking the label click target; editor regression coverage and the full quality gate passed. |
 | Dashboard Execution Center and compact workflow menu | Complete locally | Dashboard lists recent workspace-scoped executions with loading, empty, status, error, and open-workflow states; workflow card actions use a compact vertical three-dot dropdown. Responsive styling, API ownership coverage, Playwright regression, and the full quality gate passed. |
 | Editor connection affordance | Complete locally | Dragging from a node output enters an explicit connection mode, highlights and pulses target handles, expands only the temporary hit-area, and exposes a live instruction without changing node dimensions. Playwright covers start/end interaction and the full quality gate. |
+| Live-provider readiness preflight | Complete locally | A read-only readiness endpoint checks the published graph and validates credential selection/provider ownership before live execution. Go Live now shows blockers, retry, and credential navigation while server-side confirmation and guards remain authoritative; no provider call occurs during preflight. Unit, browser, and full quality-gate checks passed. |
 
 ## Milestone 1 — Product foundation
 
