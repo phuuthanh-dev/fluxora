@@ -37,6 +37,7 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   expect(relayTokens).toEqual({ void: "#080a09", lime: "#d6ff32", canvas: "#f5f7f1" });
   await expect(page.locator(".editor-header")).toHaveCSS("background-color", "rgb(8, 10, 9)");
   await expect(page.getByRole("button", { name: "Run test" })).toHaveCSS("background-color", "rgb(214, 255, 50)");
+  await expect(page.getByRole("button", { name: "Run test" })).toHaveCSS("color", "rgb(8, 10, 9)");
 
   const nodeHandles = page.locator(".workflow-node__handle");
   await expect(nodeHandles.first()).toBeVisible();
@@ -52,6 +53,7 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
 
   await page.getByRole("button", { name: "Switch to dark mode" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.getByRole("button", { name: "Run test" })).toHaveCSS("color", "rgb(5, 7, 6)");
   await expect(page.locator(".workflow-node__category").first()).toHaveCSS("color", "rgb(198, 242, 27)");
   await expect(page.locator(".workflow-node h3").first()).toHaveCSS("color", "rgb(243, 246, 236)");
   await expect(page.locator(".workflow-node__handle-label").first()).toHaveCSS("color", "rgb(243, 246, 236)");

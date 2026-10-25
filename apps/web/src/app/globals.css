@@ -178,6 +178,7 @@ button:focus-visible, summary:focus-visible { outline: 3px solid rgba(214, 255, 
 .editor-header__title p, .dashboard-header__workspace label, .dashboard-header__user { color: var(--muted-on-dark); }
 .editor-header button, .ghost-button, .save-button, .action-menu summary { border-color: var(--surface-dark-border); color: var(--text-on-dark); }
 .save-button, .action-menu[open] summary { background: var(--surface-dark-raised); }
+.editor-header .run-button { color: var(--nav); }
 .run-button { background: var(--accent); border-color: var(--accent); color: var(--nav); }
 .editor-progress { background: var(--surface-dark); border-color: var(--surface-dark-border); color: var(--text-on-dark); }
 .editor-progress i { background: var(--accent); }
