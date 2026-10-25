@@ -128,7 +128,7 @@ export const nodeCatalog: NodeDefinition[] = [
     category: "action",
     icon: "✈",
     available: true,
-    defaultConfig: { credentialId: "", chatId: "", text: "", parseMode: "Markdown" },
+    defaultConfig: { credentialId: "", destinationType: "dm", chatId: "", messageThreadId: "", text: "", parseMode: "Markdown" },
   },
   {
     type: "action.google-drive",

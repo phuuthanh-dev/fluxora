@@ -25,6 +25,9 @@ export class TelegramNotificationAdapter implements NotificationAdapter {
       ? payload.text
       : (typeof payload.content === "string" ? payload.content : (typeof payload.message === "string" ? payload.message : ""));
     const parseMode = typeof payload.parseMode === "string" && payload.parseMode.trim() ? payload.parseMode.trim() : undefined;
+    const messageThreadId = payload.messageThreadId !== undefined && payload.messageThreadId !== ""
+      ? String(payload.messageThreadId).trim()
+      : undefined;
 
     const payloadChatId = payload.destination !== undefined && payload.destination !== ""
       ? String(payload.destination).trim()
@@ -65,6 +68,7 @@ export class TelegramNotificationAdapter implements NotificationAdapter {
       text,
     };
     if (parseMode) requestPayload.parse_mode = parseMode;
+    if (messageThreadId) requestPayload.message_thread_id = messageThreadId;
 
     const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
     let response: Response;
