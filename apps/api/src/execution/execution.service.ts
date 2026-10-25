@@ -651,6 +651,25 @@ function normalizeValues(value: unknown) {
   return value;
 }
 
+export function validateDiscordWebhookUrl(rawUrl: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new NodeFailure("INVALID_CONFIGURATION", "Discord webhook URL is invalid.", false);
+  }
+  if (parsed.protocol !== "https:") {
+    throw new NodeFailure("INVALID_CONFIGURATION", "Discord webhook URL must use HTTPS.", false);
+  }
+  const hostname = parsed.hostname.toLowerCase();
+  if (hostname !== "discord.com" && hostname !== "discordapp.com") {
+    throw new NodeFailure("INVALID_CONFIGURATION", "Discord webhook URL must be hosted on discord.com or discordapp.com.", false);
+  }
+  if (!/^\/api\/webhooks\/.+/.test(parsed.pathname)) {
+    throw new NodeFailure("INVALID_CONFIGURATION", "Discord webhook URL must have a valid /api/webhooks/ path.", false);
+  }
+}
+
 export async function executeDiscordWebhook(config: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService): Promise<NodeResult> {
   const content = typeof config.content === "string" ? config.content : (typeof config.message === "string" ? config.message : "");
   const username = typeof config.username === "string" && config.username.trim() ? config.username.trim() : undefined;
@@ -676,6 +695,7 @@ export async function executeDiscordWebhook(config: Record<string, unknown>, mod
 
   const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.DISCORD_WEBHOOK);
   const webhookUrl = readCredentialValue(credential, "webhookUrl");
+  validateDiscordWebhookUrl(webhookUrl);
   const payload: Record<string, unknown> = { content };
   if (username) payload.username = username;
   if (avatarUrl) payload.avatar_url = avatarUrl;
