@@ -65,6 +65,7 @@ CI runs the same gate for every pull request and push to `main`.
 | L8.3 | Responsive inspector drawer | Complete locally | At ≤1080px, the node inspector is a focused drawer rather than a hidden grid region. Node selection opens it, the persistent Inspector trigger reopens it, and backdrop/Escape/close controls trap and return keyboard focus. It respects reduced motion and has 1024px Playwright coverage. |
 | L8.4 | Shared App Shell and editor-toolbar boundary | Complete locally | A single workspace-aware App Shell now owns cross-product navigation, account/identity actions, theme, and sign-out on Dashboard, Connections, Executions, and Editor. The editor keeps a shorter distinct toolbar for workflow-local actions only; regression proves navigation remains present without duplicating the brand or command scope. |
 | L8.5 | Persisted initials avatar | Complete locally | `User.avatarColor` stores a stable palette key selected at registration, and the shared App Shell displays accessible initials in a compact circular avatar instead of generic Account text. Local migration, API unit coverage, browser regression, and visual QA passed; uploaded profile photos are deferred until profile settings and asset storage exist. |
+| L8.6 | Compact Account exit action | Complete locally | Theme control precedes the avatar and the avatar is now the right-most header control. Sign out is grouped inside the Account menu beneath identity actions; browser coverage confirms it remains discoverable and completes the logout flow. |
 
 ## External-boundary rule
 

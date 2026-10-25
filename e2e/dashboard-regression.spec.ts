@@ -186,6 +186,7 @@ test("account dropdown keeps its trigger inline and opens below the header", asy
   expect(menuBox).not.toBeNull();
   expect(menuBox!.y).toBeGreaterThan(triggerBox!.y + triggerBox!.height);
   await expect(menu).toContainText("No external identities linked.");
+  await expect(menu.getByRole("button", { name: "Sign out" })).toBeVisible();
 });
 
 test("connections are managed on a dedicated workspace page without exposing a close-only editor panel", async ({ page }) => {

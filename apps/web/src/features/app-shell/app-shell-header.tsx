@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiRequest, apiUrl } from "../api/api-client";
 import { ThemeToggle } from "../theme/theme-toggle";
-import { Button, IconButton, Menu, Select } from "../../components/ui";
+import { Button, Menu, Select } from "../../components/ui";
 
 export type AppShellWorkspace = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
 type Identity = { provider: "GOOGLE" | "GITHUB" | "STEAM"; providerAccountId: string };
@@ -78,13 +78,14 @@ export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, act
         </nav>
       </div>
       <div className="app-shell-account">
+        <ThemeToggle />
         <Menu label="Account" trigger={<span className={`app-shell-avatar app-shell-avatar--${user?.avatarColor ?? "lime"}`} aria-hidden="true">{avatarInitials(user)}</span>} className="app-shell-account-menu">
           <p className="app-shell-account-menu__user">{user?.displayName ?? user?.email ?? "Your account"}</p>
           {identities.length ? identities.map((identity) => <div key={identity.provider}><span>{providerLabel(identity.provider)}{identity.provider === "STEAM" ? " linked" : ""}</span><Button variant="ghost" disabled={unlinking === identity.provider} onClick={() => void unlink(identity.provider)}>{unlinking === identity.provider ? "Unlinking…" : "Unlink"}</Button></div>) : <p>No external identities linked.</p>}
           {!identities.some((identity) => identity.provider === "STEAM") && <Button variant="ghost" disabled={!providers.steam} onClick={() => window.location.assign(`${apiUrl}/auth/steam/connect`)}>{providers.steam ? "Link Steam" : "Steam setup"}</Button>}
+          <hr className="app-shell-account-menu__divider" />
+          <Button variant="ghost" className="app-shell-account-menu__sign-out" onClick={() => void logout()}><LogOut size={14} /> Sign out</Button>
         </Menu>
-        <ThemeToggle />
-        <IconButton label="Sign out" onClick={() => void logout()}><LogOut size={16} /></IconButton>
       </div>
     </header>
   );
