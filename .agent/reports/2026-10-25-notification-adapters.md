@@ -1,0 +1,68 @@
+# Agent handoff report
+
+## Outcome
+
+- Status: `complete`
+- One-sentence result: Unified Google Chat, Discord, Telegram, and approval HTTP webhooks behind a provider-neutral notification dispatcher and adapter architecture returning normalized, persisted-safe delivery results while preserving distinct UI nodes and vault-only secrets.
+
+## Commit and scope
+
+- Base commit: `85c52c874430d92dd801643b32e7a5444e4a0fc1`
+- Implementation commit(s):
+  - `4d92fd80a4c4409e7c022a3b496eb6dbf9fafbd1`
+- Branch: `codex/notification-adapters`
+- Scope respected: `yes` — Separate UI nodes preserved; provider-neutral notification contracts, dispatcher, and adapters introduced; normalized safe delivery result returned; Discord embeds and default-deny mention policy implemented; Telegram chat ID moved to node destination with vault-only bot token credentials and deprecated legacy fallback; approval notifications routed through dispatcher; no email, OAuth, queue, CI, or deployment changes.
+
+## Acceptance criteria
+
+| Criterion | Evidence | Status |
+|---|---|---|
+| Separate provider nodes in UI; no generic node | Preserved `action.google-chat.webhook`, `action.discord.webhook`, and `action.telegram.message` in `apps/web/src/features/workflow/node-catalog.ts` and `workflow-editor.tsx`. | pass |
+| Google Chat, Discord, and Telegram action execution call one dispatcher and return normalized safe delivery result | `executeGoogleChatWebhook`, `executeDiscordWebhook`, and `executeTelegramMessage` delegate to `defaultNotificationDispatcher.dispatch(...)` and return `{ delivered, provider, destination, messageId?, sentAt, mode }`. Covered in `apps/api/src/execution/notifications.test.ts`. | pass |
+| Discord supports validated `content`, optional `embeds`, and default-deny mention policy; Telegram uses vault-only bot token and node-level destination | Discord adapter sets `allowed_mentions: { parse: [] }` by default and validates JSON array embeds; Telegram adapter prioritizes node `chatId` destination and supports vault-only `botToken`. Tested in `notifications.test.ts`. | pass |
+| Approval delivery uses the dispatcher and existing Google Chat/HTTP-webhook behavior remains covered | `ExecutionService.notifyApproval` routes both Google Chat and HTTP webhook approvals through `defaultNotificationDispatcher.dispatch(...)`. Tested in `notifications.test.ts` with `HttpWebhookNotificationAdapter`. | pass |
+| Adapter error paths preserve redaction, SSRF safety, timeouts, and retry classification | Outbound requests use `fetchSafeOutbound` with 15s timeout; Discord URL validation rejects non-official hosts/paths without leaking credentials; Telegram errors redact bot tokens; 429/5xx classified as retryable, 4xx non-retryable. Tested in `notifications.test.ts`. | pass |
+| Unit/integration tests prove adapter request/result mapping and approval reuse; browser tests use mock transport only | `apps/api/src/execution/notifications.test.ts` passed 70 tests; `e2e/notifications-v1.spec.ts` and all 10 Playwright tests passed using deterministic mock transport without external network calls. | pass |
+| `npm run verify` passes and the handoff report contains only verified Git SHAs | Full quality gate (`harness:check`, `db:validate`, `db:generate`, `test`, `lint`, `typecheck`, `build`, `test:e2e`) passed with zero errors; commit verified with `git rev-parse --verify`. | pass |
+
+## Validation receipts
+
+| Command | Result | Relevant output or artifact |
+|---|---|---|
+| `npm run codegraph:generate` | pass | Wrote `docs/11-code-graph.json` |
+| `npm run codegraph:check` | pass | Code graph check passed cleanly |
+| `npm --prefix apps/api test` | pass | 73 tests, 70 passed, 3 skipped (Redis integration) in 1626ms |
+| `npm run typecheck` | pass | Zero TypeScript compiler errors across `@workflow/api`, `@workflow/web`, and `@workflow/contracts` |
+| `npx playwright test e2e/notifications-v1.spec.ts` | pass | 1 passed (2.0s) |
+| `npx playwright test` | pass | 10 passed across all 4 test suites (12.4s) |
+| `npm run verify` | pass | All gates passed (`harness:check`, `db:validate`, `db:generate`, `test`, `lint`, `typecheck`, `build`, `test:e2e`) |
+| `npm run harness:report -- .agent/reports/2026-10-25-notification-adapters.md` | pass | Format and length valid (< 12,000 characters) |
+
+## Files changed
+
+- `apps/api/src/execution/node-failure.ts`: Extracted `NodeFailure` error class and `nodeFailureFromOutboundPolicy` helper for shared use by execution and notification adapters.
+- `apps/api/src/notifications/notification-contracts.ts`: Provider-neutral interfaces and types (`NotificationProvider`, `NotificationPayload`, `NormalizedDeliveryResult`, `NotificationAdapter`, `DiscordAllowedMentions`).
+- `apps/api/src/notifications/google-chat.adapter.ts`: Google Chat incoming webhook adapter with stripped-secret destination masking and response message ID parsing.
+- `apps/api/src/notifications/discord.adapter.ts`: Discord webhook adapter with strict URL validation, token-masked destination, embeds parsing, default-deny allowed mentions (`{ parse: [] }`), and response ID parsing.
+- `apps/api/src/notifications/telegram.adapter.ts`: Telegram Bot API adapter with node-level destination priority, vault-only bot token, legacy credential fallback, token redaction in errors, and `message_id` response parsing.
+- `apps/api/src/notifications/http-webhook.adapter.ts`: HTTP webhook adapter for approval requests with authenticated headers and safe destination sanitization.
+- `apps/api/src/notifications/notification-dispatcher.ts`: Central notification registry and dispatcher routing payloads to provider adapters.
+- `apps/api/src/notifications/index.ts`: Public module barrel export.
+- `apps/api/src/execution/execution.service.ts`: Replaced bespoke webhook handling with `defaultNotificationDispatcher.dispatch(...)` for `executeGoogleChatWebhook`, `executeDiscordWebhook`, `executeTelegramMessage`, and `notifyApproval`.
+- `apps/api/src/execution/notifications.test.ts`: Added tests for Google Chat adapter, Discord embeds and mention policies, Telegram vault-only credentials and destination handling, dispatcher routing, and approval webhook delivery.
+- `apps/web/src/features/credentials/credential-panel.tsx`: Updated Telegram preset to vault-only `{"botToken": ""}` with guidance noting node-level destination and deprecated credential fallback.
+- `apps/web/src/features/workflow/workflow-editor.tsx`: Added optional embeds JSON field to Discord inspector; updated Telegram destination label.
+- `apps/web/src/features/workflow/node-catalog.ts`: Added `embeds: ""` to default Discord configuration.
+- `docs/02-architecture.md`: Documented notification dispatcher and adapter architecture.
+- `docs/04-roadmap.md`: Updated Phase 2 with notification adapters slice.
+- `docs/06-loop-engineering.md`: Added L6.4 Notification adapters entry marked Complete locally.
+- `docs/11-code-graph.json`: Regenerated code graph including new notification module nodes and edges.
+- `e2e/notifications-v1.spec.ts`: Updated Telegram credential preset hint expectation and asserted normalized result structure.
+
+## Risks and follow-up
+
+- Legacy Telegram credentials: Saved credentials containing `chatId` continue to work via fallback, but users should be encouraged to configure destination on the node for multi-chat flexibility.
+- Discord rate limits: Discord enforces channel-level rate limits (5 requests per 2 seconds); transient retries handle 429 responses, but application-level rate scheduling can be considered in Phase 3.
+- Approval provider options: Approval node UX currently supports `google_chat` and `http_webhook` (and now dispatcher-ready for `discord` and `telegram` if extended in the approval UI).
+
+The reviewer must inspect the commit diff and independently verify critical tests. This report is not proof by itself.
