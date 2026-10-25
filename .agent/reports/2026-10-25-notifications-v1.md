@@ -8,7 +8,7 @@
 ## Commit and scope
 
 - Base commit: `00327983809af4c6a0f5dedb7429aa1b6dd48bff`
-- Implementation commit(s): `c689849b95e89ace3a4dd44513b2b78877763466`, `38728addc653022b5b43a18d2f2347dc601a439d`, `4cade5132d7ec1fbb4ef0500f40d16c52a0a2df3`
+- Implementation commit(s): `c689849b95e89ace3a4dd44513b2b78877763466`, `38728addc653022b5b43a18d2f2347dc601a439d`, `bc1f8faba20eae96b20f2f29ae491a79fc8bb8ca`
 - Branch: `codex/dashboard-regression`
 - Scope respected: `yes` — only addressed Discord webhook URL validation hardening, simulated TimeoutError and network fetch failure tests for Discord/Telegram, and associated test/report updates. No real credentials, no PR or merge.
 
