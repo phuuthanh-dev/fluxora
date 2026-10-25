@@ -168,15 +168,15 @@ test("account dropdown keeps its trigger inline and opens below the header", asy
   const email = `regression-connections-${Date.now()}@example.test`;
   await signUpAndDashboard(page, email);
 
-  const trigger = page.locator(".dashboard-account-menu summary");
-  await expect(trigger).toHaveCSS("display", "flex");
+  const trigger = page.locator(".app-shell-account-menu summary");
+  await expect(trigger).toHaveCSS("display", "inline-flex");
   await expect(trigger).toHaveCSS("flex-direction", "row");
   const triggerBox = await trigger.boundingBox();
   expect(triggerBox).not.toBeNull();
   expect(triggerBox!.height).toBeLessThanOrEqual(40);
 
   await trigger.click();
-  const menu = page.locator(".dashboard-connections > div");
+  const menu = page.locator(".app-shell-account-menu .ui-menu__content");
   await expect(menu).toBeVisible();
   const menuBox = await menu.boundingBox();
   expect(menuBox).not.toBeNull();
@@ -208,7 +208,7 @@ test("management pages retain theme parity and a visible keyboard focus target",
 
   await page.getByRole("button", { name: "Connections" }).click();
   await expect(page.getByRole("heading", { name: "Connections", exact: true })).toBeVisible();
-  const dashboardButton = page.getByRole("button", { name: "Dashboard" });
+  const dashboardButton = page.getByRole("button", { name: "Dashboard" }).last();
   await dashboardButton.focus();
   await page.keyboard.press("Tab");
   await page.keyboard.press("Shift+Tab");
@@ -223,6 +223,22 @@ test("management pages retain theme parity and a visible keyboard focus target",
   await expect(page).toHaveURL(/\/dashboard\/executions\?workspace=/);
   await expect(page.getByRole("heading", { name: "Execution history" })).toBeVisible();
   await expectContrast(page.getByRole("heading", { name: "Execution history" }), 4.5);
+});
+
+test("product navigation stays consistent while the editor keeps workflow tools separate", async ({ page }) => {
+  const email = `regression-app-shell-${Date.now()}@example.test`;
+  await signUpAndDashboard(page, email);
+
+  const shell = page.locator(".app-shell-header");
+  await expect(shell.getByRole("button", { name: "Dashboard" })).toBeVisible();
+  await expect(shell.getByRole("button", { name: "Connections" })).toBeVisible();
+  await expect(shell.getByRole("button", { name: "Executions" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Use Steam template" }).click();
+  await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+  await expect(page.locator(".app-shell-header").getByRole("button", { name: "Connections" })).toBeVisible();
+  await expect(page.locator(".editor-toolbar").getByRole("button", { name: "Run test" })).toBeVisible();
+  await expect(page.getByText("Workflow Automation", { exact: true })).toHaveCount(1);
 });
 
 test("execution history has a dedicated page and opens immutable execution detail", async ({ page }) => {
@@ -487,7 +503,7 @@ test("switching workspace clears stale workflows and guards against out-of-order
   await expect(page.getByText("No workflows in this workspace")).toBeVisible();
 
   // Get workspace options
-  const workspaceSelect = page.locator("select#dashboard-workspace");
+  const workspaceSelect = page.locator("select#app-shell-workspace");
   const options = workspaceSelect.locator("option");
   const secondWorkspaceId = await options.first().getAttribute("value");
   const firstWorkspaceId = await options.nth(1).getAttribute("value");

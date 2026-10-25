@@ -876,6 +876,19 @@
       "externalImports": []
     },
     {
+      "id": "apps/web/src/features/app-shell/app-shell-header.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/api/api-client.ts",
+        "apps/web/src/features/theme/theme-toggle.tsx"
+      ],
+      "externalImports": [
+        "lucide-react",
+        "next/navigation",
+        "react"
+      ]
+    },
+    {
       "id": "apps/web/src/features/auth/login-form.tsx",
       "boundary": "web",
       "internalImports": [
@@ -892,8 +905,8 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/features/api/api-client.ts",
-        "apps/web/src/features/credentials/credential-panel.tsx",
-        "apps/web/src/features/theme/theme-toggle.tsx"
+        "apps/web/src/features/app-shell/app-shell-header.tsx",
+        "apps/web/src/features/credentials/credential-panel.tsx"
       ],
       "externalImports": [
         "lucide-react",
@@ -923,7 +936,7 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/features/api/api-client.ts",
-        "apps/web/src/features/theme/theme-toggle.tsx"
+        "apps/web/src/features/app-shell/app-shell-header.tsx"
       ],
       "externalImports": [
         "lucide-react",
@@ -936,7 +949,7 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/features/api/api-client.ts",
-        "apps/web/src/features/theme/theme-toggle.tsx",
+        "apps/web/src/features/app-shell/app-shell-header.tsx",
         "apps/web/src/features/workflow/workflow-api.ts"
       ],
       "externalImports": [
@@ -1047,9 +1060,9 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/features/api/api-client.ts",
+        "apps/web/src/features/app-shell/app-shell-header.tsx",
         "apps/web/src/features/credentials/credential-panel.tsx",
         "apps/web/src/features/credentials/credential-types.ts",
-        "apps/web/src/features/theme/theme-toggle.tsx",
         "apps/web/src/features/workflow/editor-store.ts",
         "apps/web/src/features/workflow/expression-suggestions.ts",
         "apps/web/src/features/workflow/graph-validation.ts",
@@ -1764,6 +1777,14 @@
       "to": "apps/web/src/components/ui/status.tsx"
     },
     {
+      "from": "apps/web/src/features/app-shell/app-shell-header.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/app-shell/app-shell-header.tsx",
+      "to": "apps/web/src/features/theme/theme-toggle.tsx"
+    },
+    {
       "from": "apps/web/src/features/auth/login-form.tsx",
       "to": "apps/web/src/features/api/api-client.ts"
     },
@@ -1774,14 +1795,14 @@
     {
       "from": "apps/web/src/features/credentials/connections-dashboard.tsx",
       "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/credentials/connections-dashboard.tsx",
+      "to": "apps/web/src/features/app-shell/app-shell-header.tsx"
     },
     {
       "from": "apps/web/src/features/credentials/connections-dashboard.tsx",
       "to": "apps/web/src/features/credentials/credential-panel.tsx"
-    },
-    {
-      "from": "apps/web/src/features/credentials/connections-dashboard.tsx",
-      "to": "apps/web/src/features/theme/theme-toggle.tsx"
     },
     {
       "from": "apps/web/src/features/credentials/credential-panel.tsx",
@@ -1797,7 +1818,7 @@
     },
     {
       "from": "apps/web/src/features/dashboard/executions-dashboard.tsx",
-      "to": "apps/web/src/features/theme/theme-toggle.tsx"
+      "to": "apps/web/src/features/app-shell/app-shell-header.tsx"
     },
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
@@ -1805,7 +1826,7 @@
     },
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
-      "to": "apps/web/src/features/theme/theme-toggle.tsx"
+      "to": "apps/web/src/features/app-shell/app-shell-header.tsx"
     },
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
@@ -1857,15 +1878,15 @@
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/app-shell/app-shell-header.tsx"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
       "to": "apps/web/src/features/credentials/credential-panel.tsx"
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",
       "to": "apps/web/src/features/credentials/credential-types.ts"
-    },
-    {
-      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
-      "to": "apps/web/src/features/theme/theme-toggle.tsx"
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",

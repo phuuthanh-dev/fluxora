@@ -19,6 +19,16 @@ overrides in `apps/web/src/app/globals.css`:
 
 Relay is a reference for typography, contrast, token discipline, and tactile motion. It is not the information architecture for the authenticated application. Marketing-only WebGL, smooth scrolling, and large storytelling layouts remain outside the dashboard and editor. The light canvas is an intentional product adaptation for graph readability; the shell and overlays use the near-black/lime foundation.
 
+### Shell rule
+
+Every authenticated route uses one `AppShellHeader`: product home, selected
+workspace, Dashboard/Connections/Executions navigation, Account, theme, and
+sign-out. The workflow editor intentionally adds a second, shorter
+`EditorToolbar` directly below it for workflow-local operations only (save,
+publish, test/live run, undo, graph actions). A global navigation action must
+not be duplicated in that toolbar. This separates *where the user is* from
+*what they can do to this workflow* without making either surface disappear.
+
 ## Primary users and jobs
 
 The MVP owner must be able to:
@@ -53,7 +63,7 @@ Node Library (optional) | Canvas (owns remaining space) | Inspector
 
 - Collapsing the Node Library must remove its grid track and give all reclaimed width to the canvas.
 - The inspector remains stable so configuration fields do not jump horizontally.
-- The top command bar groups navigation, edit operations, workflow management, persistence, and execution.
+- The shared shell owns product/workspace navigation; the editor toolbar owns edit operations, workflow management, persistence, and execution.
 - Test and live execution must remain visually and semantically distinct.
 - Canvas overlays must not cover nodes, minimap, controls, or each other at supported desktop sizes.
 
@@ -101,7 +111,7 @@ Every interactive surface must define default, hover, focus-visible, active, dis
 ### What remains inconsistent
 
 - Component styling is mostly page-specific CSS, so buttons, panels, and form controls drift.
-- Dashboard, editor chrome, credentials, and overlays do not yet share one spacing/type/elevation scale.
+- Dashboard, editor chrome, credentials, and overlays now share the App Shell; the remaining migration work is finer page-level spacing/type/elevation consistency.
 - Credentials had behaved only like an editor utility panel. A workspace-scoped Connections page now reuses the same credential manager; the editor keeps a contextual panel and links out to the full surface.
 - Execution history had only appeared as a compact dashboard section. A dedicated workspace-scoped Executions page now supports loading, empty, failure, filtering, pagination, and immutable execution inspection.
 - The inspector disappears at a breakpoint rather than becoming an intentional drawer.
@@ -128,7 +138,7 @@ Every interactive surface must define default, hover, focus-visible, active, dis
 
 ### R2 — Dashboard redesign
 
-- Introduce persistent navigation and a consistent page header.
+- **Complete locally:** `AppShellHeader` provides persistent workspace-aware navigation on Dashboard, Connections, Executions, and Editor; it owns account/theme/sign-out behavior once rather than duplicating it per page.
 - Rebuild workflow list/search/filter/create hierarchy.
 - Consolidate runtime health and recent execution status.
 - Preserve current workspace race protection and failure retries.
@@ -136,6 +146,7 @@ Every interactive surface must define default, hover, focus-visible, active, dis
 ### R3 — Editor shell redesign
 
 - Migrate the command bar, Node Library, canvas overlays, and inspector to primitives.
+- **Complete locally:** `EditorToolbar` is visually separate from the shared App Shell and contains only workflow-local commands.
 - Make left and right regions independently collapsible.
 - **Complete locally:** at narrower desktop widths, selecting a node opens an intentional inspector drawer; it has backdrop/Escape controls, a focus trap, and focus return to the Inspector trigger.
 - Standardize save/publish/test/live progress and confirmation states.

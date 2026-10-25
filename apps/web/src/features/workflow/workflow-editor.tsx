@@ -56,8 +56,8 @@ import type { CredentialProvider, CredentialSummary } from "../credentials/crede
 import { buildExpressionSuggestions } from "./expression-suggestions";
 import { manualTriggerTestData } from "./test-data";
 import { NodeIcon } from "./node-icon";
-import { ThemeToggle } from "../theme/theme-toggle";
 import { Button, Dialog, Field, IconButton, Menu, Select, Status } from "../../components/ui";
+import { AppShellHeader } from "../app-shell/app-shell-header";
 
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNode };
 
@@ -1182,16 +1182,16 @@ export function WorkflowEditor() {
 
   return (
     <main className="editor-page">
-      <header className="editor-header">
+      <AppShellHeader workspaces={workspaces} workspaceId={workflow?.workspaceId ?? ""} onWorkspaceChange={(nextWorkspaceId) => router.push(`/dashboard?workspace=${encodeURIComponent(nextWorkspaceId)}`)} active="editor" />
+      <header className="editor-header editor-toolbar">
         <div className="editor-header__title">
-          <span className="brand-mark"><Sparkles size={17} /></span>
           <div>
             <p>WORKFLOW / DRAFT</p>
             <h1>{workflow?.name ?? "Steam daily report"}</h1>
           </div>
         </div>
         <div className="editor-header__actions">
-          <Button variant="ghost" className="ghost-button" onClick={() => router.push("/dashboard")}>Dashboard</Button>
+          <Button variant="ghost" className="ghost-button" onClick={() => router.push(`/dashboard?workspace=${encodeURIComponent(workflow?.workspaceId ?? "")}`)}>Back to dashboard</Button>
           <ActionMenu label="Edit">
             <button type="button" onClick={undo} disabled={historyIndex === 0}><ChevronLeft size={15} /> Undo</button>
             <button type="button" onClick={redo} disabled={historyIndex === history.length - 1}>Redo <ChevronRight size={15} /></button>
@@ -1218,7 +1218,6 @@ export function WorkflowEditor() {
           <Button variant="secondary" className="go-live-button" onClick={openLivePanel} disabled={!workflow?.published || isSaving}>{activeOperation === "live" || activeOperation === "activating" ? <LoaderCircle className="ui-spinner" size={16} /> : null} {workflow?.isActive ? "Run live" : "Go live"}</Button>
           {execution && ["QUEUED", "RUNNING", "WAITING_APPROVAL"].includes(execution.status) && <button className="ghost-button" type="button" onClick={() => void cancelExecution()}>Cancel run</button>}
           {execution?.status === "FAILED" && <Button variant="ghost" className="ghost-button" disabled={isSaving} onClick={() => setRetryConfirmOpen(true)}><RotateCcw size={15} /> Retry {execution.mode === "live" ? "live" : "test"}</Button>}
-          <ThemeToggle />
         </div>
       </header>
       {progressLabel && <div className="editor-progress" role="status" aria-live="polite"><LoaderCircle className="ui-spinner" size={14} /> <span>{progressLabel}…</span><i /></div>}

@@ -63,6 +63,7 @@ CI runs the same gate for every pull request and push to `main`.
 | L8.1 | Theme contrast foundation | Complete locally | Semantic text/action/control/provider tokens resolve light and dark contrast drift; active filters, theme hover, amber live action text, palette metadata, and dark-safe Steam/GitHub/OpenAI icon variants are covered by Playwright contrast regression. |
 | L8.2 | Connections and executions management surfaces | Complete locally | Dedicated workspace-scoped Connections and Executions pages reuse shared primitives and existing credential/execution contracts. They cover loading, empty, error/retry, filters, cursor pagination, and immutable execution links; Connections remains reachable contextually from the editor without duplicating vault behavior. |
 | L8.3 | Responsive inspector drawer | Complete locally | At ≤1080px, the node inspector is a focused drawer rather than a hidden grid region. Node selection opens it, the persistent Inspector trigger reopens it, and backdrop/Escape/close controls trap and return keyboard focus. It respects reduced motion and has 1024px Playwright coverage. |
+| L8.4 | Shared App Shell and editor-toolbar boundary | Complete locally | A single workspace-aware App Shell now owns cross-product navigation, account/identity actions, theme, and sign-out on Dashboard, Connections, Executions, and Editor. The editor keeps a shorter distinct toolbar for workflow-local actions only; regression proves navigation remains present without duplicating the brand or command scope. |
 
 ## External-boundary rule
 

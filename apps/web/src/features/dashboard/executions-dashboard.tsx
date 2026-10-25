@@ -1,14 +1,13 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, CircleAlert, History, LoaderCircle, LogOut, PlugZap, RefreshCw } from "lucide-react";
+import { ArrowLeft, ArrowRight, CircleAlert, History, LoaderCircle, RefreshCw } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "../api/api-client";
-import { ThemeToggle } from "../theme/theme-toggle";
-import { Button, EmptyState, IconButton, PageHeader, Progress, Select, Skeleton, Status } from "../../components/ui";
+import { Button, EmptyState, IconButton, PageHeader, Progress, Skeleton, Status } from "../../components/ui";
+import { AppShellHeader } from "../app-shell/app-shell-header";
 
 type WorkspaceSummary = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
-type CurrentUser = { email: string; displayName: string | null };
 type ExecutionStatus = "QUEUED" | "RUNNING" | "WAITING_APPROVAL" | "SUCCEEDED" | "FAILED" | "CANCELLED";
 type ExecutionFilter = "ALL" | "ATTENTION" | "IN_PROGRESS" | "FAILED" | "SUCCEEDED";
 type ExecutionSummary = {
@@ -35,7 +34,6 @@ function formatExecutionTime(value: string) {
 export function ExecutionsDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [user, setUser] = useState<CurrentUser | null>(null);
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [workspaceId, setWorkspaceId] = useState("");
   const [executions, setExecutions] = useState<ExecutionSummary[]>([]);
@@ -81,12 +79,8 @@ export function ExecutionsDashboard() {
     let active = true;
     void (async () => {
       try {
-        const [auth, workspaceResponse] = await Promise.all([
-          apiRequest<{ user: CurrentUser }>("/auth/me"),
-          apiRequest<{ workspaces: WorkspaceSummary[] }>("/workspaces"),
-        ]);
+        const workspaceResponse = await apiRequest<{ workspaces: WorkspaceSummary[] }>("/workspaces");
         if (!active) return;
-        setUser(auth.user);
         setWorkspaces(workspaceResponse.workspaces);
         const requestedWorkspace = searchParams.get("workspace");
         const initialWorkspace = workspaceResponse.workspaces.find((workspace) => workspace.id === requestedWorkspace) ?? workspaceResponse.workspaces[0];
@@ -114,11 +108,6 @@ export function ExecutionsDashboard() {
     void loadExecutions(nextWorkspaceId);
   };
 
-  const logout = async () => {
-    await apiRequest("/auth/logout", { method: "POST" }).catch(() => undefined);
-    router.replace("/");
-  };
-
   const counts = useMemo(() => ({
     attention: executions.filter((execution) => execution.status === "FAILED" || execution.status === "WAITING_APPROVAL").length,
     inProgress: executions.filter((execution) => execution.status === "QUEUED" || execution.status === "RUNNING").length,
@@ -136,25 +125,7 @@ export function ExecutionsDashboard() {
   const activeWorkspace = workspaces.find((workspace) => workspace.id === workspaceId);
   return (
     <main className="dashboard-page executions-page">
-      <header className="dashboard-header">
-        <button className="dashboard-brand" type="button" onClick={() => router.push("/dashboard")}>
-          <span><PlugZap size={17} /></span><strong>Workflow Automation</strong>
-        </button>
-        <div className="dashboard-header__workspace">
-          <label htmlFor="executions-workspace">Workspace</label>
-          <Select id="executions-workspace" value={workspaceId} onChange={(event) => switchWorkspace(event.target.value)} disabled={workspaces.length === 0}>
-            {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
-          </Select>
-        </div>
-        <div className="dashboard-header__user">
-          <span>{user?.displayName ?? user?.email ?? "Owner"}</span>
-          <Button variant="ghost" className="dashboard-header__link" onClick={() => router.push(workspaceId ? `/dashboard/connections?workspace=${encodeURIComponent(workspaceId)}` : "/dashboard/connections")}>
-            <PlugZap size={15} /> Connections
-          </Button>
-          <ThemeToggle />
-          <IconButton label="Sign out" onClick={() => void logout()}><LogOut size={16} /></IconButton>
-        </div>
-      </header>
+      <AppShellHeader workspaces={workspaces} workspaceId={workspaceId} onWorkspaceChange={switchWorkspace} active="executions" />
       <section className="executions-main">
         <PageHeader
           eyebrow={activeWorkspace?.name ?? "EXECUTIONS"}

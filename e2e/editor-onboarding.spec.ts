@@ -15,6 +15,7 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByRole("heading", { name: "Your workflow control room." })).toBeVisible();
   await expect(page.getByText("Execution runtime ready")).toBeVisible();
+  await page.getByLabel("Account actions").click();
   await expect(page.getByRole("button", { name: /^(Steam setup|Link Steam)$/ })).toBeVisible();
   await expect(page.getByText("No workflows in this workspace")).toBeVisible();
   const createTemplate = page.waitForResponse((response) => response.request().method() === "POST" && response.url().includes("/workflows/from-template/steam-daily-report"));

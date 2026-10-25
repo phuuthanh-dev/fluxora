@@ -1,20 +1,18 @@
 "use client";
 
-import { ArrowLeft, KeyRound, LayoutDashboard, LogOut, PlugZap } from "lucide-react";
+import { ArrowLeft, KeyRound } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { apiRequest } from "../api/api-client";
-import { ThemeToggle } from "../theme/theme-toggle";
-import { Button, EmptyState, IconButton, PageHeader, Select, Skeleton, Status } from "../../components/ui";
+import { Button, EmptyState, PageHeader, Skeleton, Status } from "../../components/ui";
 import { CredentialManager } from "./credential-panel";
+import { AppShellHeader } from "../app-shell/app-shell-header";
 
 type WorkspaceSummary = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
-type CurrentUser = { email: string; displayName: string | null };
 
 export function ConnectionsDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [user, setUser] = useState<CurrentUser | null>(null);
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [workspaceId, setWorkspaceId] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -24,12 +22,8 @@ export function ConnectionsDashboard() {
     let active = true;
     void (async () => {
       try {
-        const [auth, workspaceResponse] = await Promise.all([
-          apiRequest<{ user: CurrentUser }>("/auth/me"),
-          apiRequest<{ workspaces: WorkspaceSummary[] }>("/workspaces"),
-        ]);
+        const workspaceResponse = await apiRequest<{ workspaces: WorkspaceSummary[] }>("/workspaces");
         if (!active) return;
-        setUser(auth.user);
         setWorkspaces(workspaceResponse.workspaces);
         const requestedWorkspace = searchParams.get("workspace");
         const initialWorkspace = workspaceResponse.workspaces.find((workspace) => workspace.id === requestedWorkspace) ?? workspaceResponse.workspaces[0];
@@ -53,11 +47,6 @@ export function ConnectionsDashboard() {
     router.replace(`/dashboard/connections?workspace=${encodeURIComponent(nextWorkspaceId)}`);
   };
 
-  const logout = async () => {
-    await apiRequest("/auth/logout", { method: "POST" }).catch(() => undefined);
-    router.replace("/");
-  };
-
   if (isLoading) {
     return (
       <main className="dashboard-loading connections-loading" aria-busy="true">
@@ -70,25 +59,7 @@ export function ConnectionsDashboard() {
 
   return (
     <main className="dashboard-page connections-page">
-      <header className="dashboard-header">
-        <button className="dashboard-brand" type="button" onClick={() => router.push("/dashboard")}>
-          <span><PlugZap size={17} /></span><strong>Workflow Automation</strong>
-        </button>
-        <div className="dashboard-header__workspace">
-          <label htmlFor="connections-workspace">Workspace</label>
-          <Select id="connections-workspace" value={workspaceId} onChange={(event) => switchWorkspace(event.target.value)} disabled={workspaces.length === 0}>
-            {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
-          </Select>
-        </div>
-        <div className="dashboard-header__user">
-          <span>{user?.displayName ?? user?.email ?? "Owner"}</span>
-          <Button variant="ghost" className="dashboard-header__link" onClick={() => router.push(workspaceId ? `/dashboard/executions?workspace=${encodeURIComponent(workspaceId)}` : "/dashboard/executions")}>
-            <LayoutDashboard size={15} /> Executions
-          </Button>
-          <ThemeToggle />
-          <IconButton label="Sign out" onClick={() => void logout()}><LogOut size={16} /></IconButton>
-        </div>
-      </header>
+      <AppShellHeader workspaces={workspaces} workspaceId={workspaceId} onWorkspaceChange={switchWorkspace} active="connections" />
       <section className="connections-main">
         <PageHeader
           eyebrow={activeWorkspace?.name ?? "CONNECTIONS"}

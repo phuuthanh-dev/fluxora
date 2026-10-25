@@ -1,17 +1,14 @@
 "use client";
 
-import { Activity, Archive, ArrowRight, ChevronDown, CirclePlus, Copy, FilePlus2, FolderKanban, History, LayoutDashboard, LoaderCircle, LogOut, MoreVertical, Pencil, PlugZap, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { Activity, Archive, ArrowRight, ChevronDown, CirclePlus, Copy, FilePlus2, FolderKanban, History, LayoutDashboard, LoaderCircle, MoreVertical, Pencil, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest, apiUrl } from "../api/api-client";
-import { ThemeToggle } from "../theme/theme-toggle";
 import type { ApiWorkflow } from "../workflow/workflow-api";
 import { Button, Dialog, IconButton, Menu, Select, Status } from "../../components/ui";
+import { AppShellHeader } from "../app-shell/app-shell-header";
 
 type WorkspaceSummary = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
-type CurrentUser = { email: string; displayName: string | null };
-type ProviderStatus = { google: boolean; github: boolean; steam: boolean };
-type IdentitySummary = { provider: "GOOGLE" | "GITHUB" | "STEAM"; providerAccountId: string };
 type RuntimeStatus = { status: "ready" | "degraded"; checks: { database: "ready" | "unavailable"; queue: { status: "ready" | "unavailable"; mode: "inline" | "redis"; configuredWorkerConcurrency: number; waiting: number; active: number; delayed: number; failed: number } } };
 type WorkflowStatusFilter = "ALL" | "LIVE" | "DRAFT";
 type WorkflowSort = "UPDATED" | "NAME" | "STATUS";
@@ -21,7 +18,6 @@ type ExecutionFilter = "ALL" | "ATTENTION" | "IN_PROGRESS" | "FAILED" | "SUCCEED
 
 export function WorkflowDashboard() {
   const router = useRouter();
-  const [user, setUser] = useState<CurrentUser | null>(null);
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [workspaceId, setWorkspaceId] = useState("");
   const [workflows, setWorkflows] = useState<ApiWorkflow[]>([]);
@@ -32,13 +28,10 @@ export function WorkflowDashboard() {
   const [executionCursor, setExecutionCursor] = useState<string | null>(null);
   const [executionCenterOpen, setExecutionCenterOpen] = useState(false);
   const [executionFilter, setExecutionFilter] = useState<ExecutionFilter>("ALL");
-  const [providers, setProviders] = useState<ProviderStatus>({ google: false, github: false, steam: false });
-  const [identities, setIdentities] = useState<IdentitySummary[]>([]);
   const [workflowName, setWorkflowName] = useState("Untitled workflow");
   const [workspaceName, setWorkspaceName] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
-  const [unlinkingProvider, setUnlinkingProvider] = useState<IdentitySummary["provider"] | null>(null);
   const [notice, setNotice] = useState("Loading your workspace…");
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
   const [runtimeLoading, setRuntimeLoading] = useState(true);
@@ -104,18 +97,11 @@ export function WorkflowDashboard() {
     let active = true;
     void (async () => {
       try {
-        const [auth, workspaceResponse, providerResponse, identityResponse] = await Promise.all([
-          apiRequest<{ user: CurrentUser }>("/auth/me"),
-          apiRequest<{ workspaces: WorkspaceSummary[] }>("/workspaces"),
-          apiRequest<ProviderStatus>("/auth/providers"),
-          apiRequest<{ identities: IdentitySummary[] }>("/auth/identities"),
-        ]);
+        const workspaceResponse = await apiRequest<{ workspaces: WorkspaceSummary[] }>("/workspaces");
         if (!active) return;
-        setUser(auth.user);
         setWorkspaces(workspaceResponse.workspaces);
-        setProviders(providerResponse);
-        setIdentities(identityResponse.identities);
-        const initialWorkspaceId = workspaceResponse.workspaces[0]?.id ?? "";
+        const requestedWorkspace = new URLSearchParams(window.location.search).get("workspace");
+        const initialWorkspaceId = workspaceResponse.workspaces.find((workspace) => workspace.id === requestedWorkspace)?.id ?? workspaceResponse.workspaces[0]?.id ?? "";
         activeWorkspaceIdRef.current = initialWorkspaceId;
         setWorkspaceId(initialWorkspaceId);
         await Promise.all([loadWorkflows(initialWorkspaceId), loadExecutions(initialWorkspaceId)]);
@@ -149,6 +135,7 @@ export function WorkflowDashboard() {
     const controller = new AbortController();
     abortControllerRef.current = controller;
     activeWorkspaceIdRef.current = nextWorkspaceId;
+    router.replace(`/dashboard?workspace=${encodeURIComponent(nextWorkspaceId)}`);
 
     setWorkspaceId(nextWorkspaceId);
     setWorkflows([]);
@@ -279,39 +266,12 @@ export function WorkflowDashboard() {
     }
   };
 
-  const logout = async () => {
-    await apiRequest("/auth/logout", { method: "POST" }).catch(() => undefined);
-    router.replace("/");
-  };
-
-  const unlinkIdentity = async (provider: IdentitySummary["provider"]) => {
-    setUnlinkingProvider(provider);
-    try {
-      const response = await apiRequest<{ identities: IdentitySummary[] }>(`/auth/identities/${provider.toLowerCase()}`, { method: "DELETE" });
-      setIdentities(response.identities);
-      setNotice(`${identityLabel(provider)} identity unlinked.`);
-    } catch (reason) {
-      setNotice(reason instanceof Error ? reason.message : "Unable to unlink this identity.");
-    } finally {
-      setUnlinkingProvider(null);
-    }
-  };
-
   if (isLoading) return <main className="dashboard-loading" aria-busy="true"><Sparkles className="ui-spinner" size={22} /><strong>Preparing your dashboard</strong><span>Loading workspaces and workflows…</span></main>;
 
   const activeWorkspace = workspaces.find((workspace) => workspace.id === workspaceId);
-  const steamIdentity = identities.find((identity) => identity.provider === "STEAM");
   return (
     <main className="dashboard-page">
-      <header className="dashboard-header">
-        <button className="dashboard-brand" type="button" onClick={() => router.push("/dashboard")}><span><Sparkles size={17} /></span><strong>Workflow Automation</strong></button>
-        <div className="dashboard-header__workspace"><label htmlFor="dashboard-workspace">Workspace</label><Select id="dashboard-workspace" value={workspaceId} onChange={(event) => void switchWorkspace(event.target.value)}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</Select></div>
-        <div className="dashboard-header__user"><span>{user?.displayName ?? user?.email ?? "Owner"}</span>{steamIdentity ? <span className="dashboard-steam-status" title={`Steam ID ${steamIdentity.providerAccountId}`}>Steam linked</span> : <Button variant="ghost" className="dashboard-steam-link" disabled={!providers.steam} onClick={() => window.location.assign(`${apiUrl}/auth/steam/connect`)}>{providers.steam ? "Link Steam" : "Steam setup"}</Button>}
-          <Button variant="ghost" className="dashboard-header__link" onClick={() => router.push(`/dashboard/connections?workspace=${encodeURIComponent(workspaceId)}`)}><PlugZap size={15} /> Connections</Button>
-          <Button variant="ghost" className="dashboard-header__link" onClick={() => router.push(`/dashboard/executions?workspace=${encodeURIComponent(workspaceId)}`)}><History size={15} /> Executions</Button>
-          <Menu label={`Account${identities.length ? ` (${identities.length})` : ""}`} className="dashboard-connections dashboard-account-menu">{identities.length ? identities.map((identity) => <div key={identity.provider}><span>{identityLabel(identity.provider)}</span><Button variant="ghost" disabled={unlinkingProvider === identity.provider} onClick={() => void unlinkIdentity(identity.provider)}>{unlinkingProvider === identity.provider ? "Unlinking…" : "Unlink"}</Button></div>) : <p>No external identities linked.</p>}</Menu>
-          <ThemeToggle /><IconButton label="Sign out" onClick={() => void logout()}><LogOut size={16} /></IconButton></div>
-      </header>
+      <AppShellHeader workspaces={workspaces} workspaceId={workspaceId} onWorkspaceChange={(nextWorkspaceId) => void switchWorkspace(nextWorkspaceId)} active="dashboard" />
       <section className="dashboard-main">
         <div className="dashboard-hero"><div><p className="section-label">{activeWorkspace?.name ?? "WORKSPACE"}</p><h1>Your workflow control room.</h1><p>Create, publish, monitor, and revisit every automation from one place.</p></div><Button variant="primary" className="dashboard-new-button" onClick={() => document.getElementById("workflow-create")?.scrollIntoView({ behavior: "smooth", block: "center" })}><CirclePlus size={17} /> New workflow</Button></div>
         <div className="dashboard-stats"><div><LayoutDashboard size={17} /><strong>{workflows.length}</strong><span>workflows</span></div><div><FolderKanban size={17} /><strong>{workflows.filter((workflow) => workflow.isActive).length}</strong><span>active workflows</span></div><div><FilePlus2 size={17} /><strong>{workflows.filter((workflow) => !workflow.published).length}</strong><span>draft-only</span></div></div>
@@ -347,10 +307,6 @@ export function WorkflowDashboard() {
       {workflowAction && <div className="dashboard-action-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeWorkflowAction(); }}><Dialog label={workflowAction.type === "rename" ? "Rename workflow" : workflowAction.type === "archive" ? "Archive workflow" : workflowAction.type === "delete" ? "Delete workflow" : "Duplicate workflow"} className="dashboard-action-dialog"><p className="section-label">WORKFLOW ACTION</p><h2>{workflowAction.type === "rename" ? "Rename workflow" : workflowAction.type === "archive" ? "Archive workflow" : workflowAction.type === "delete" ? "Delete workflow" : "Duplicate workflow"}</h2>{workflowAction.type === "rename" ? <><p>Choose a clear name for <strong>{workflowAction.workflow.name}</strong>.</p><label className="dashboard-action-dialog__field"><span>Workflow name</span><input aria-label="Workflow name" value={workflowActionName} onChange={(event) => setWorkflowActionName(event.target.value)} autoFocus /></label></> : <p>{workflowAction.type === "archive" ? <><strong>{workflowAction.workflow.name}</strong> will be hidden from this workspace. Its versions and execution history stay available.</> : workflowAction.type === "delete" ? <><strong>{workflowAction.workflow.name}</strong> will be permanently removed. This is only allowed when it has no execution history.</> : <>Create a new draft copy of <strong>{workflowAction.workflow.name}</strong>?</>}</p>}{workflowActionError && <Status tone="error" className="dashboard-action-dialog__error">{workflowActionError}</Status>}<div className="dashboard-action-dialog__actions"><Button variant="ghost" onClick={closeWorkflowAction} disabled={workflowActionLoading}>Cancel</Button><Button variant={workflowAction.type === "delete" ? "danger" : "primary"} onClick={() => void applyWorkflowAction()} disabled={workflowActionLoading || (workflowAction.type === "rename" && !workflowActionName.trim())}>{workflowActionLoading ? "Working…" : workflowAction.type === "rename" ? "Save name" : workflowAction.type === "archive" ? "Archive workflow" : workflowAction.type === "delete" ? "Delete permanently" : "Duplicate workflow"}</Button></div></Dialog></div>}
     </main>
   );
-}
-
-function identityLabel(provider: IdentitySummary["provider"]) {
-  return provider === "GOOGLE" ? "Google" : provider === "GITHUB" ? "GitHub" : "Steam";
 }
 
 function executionLabel(status: ExecutionSummary["status"]) {
