@@ -8,7 +8,7 @@
 ## Commit and scope
 
 - Base commit: `47d7236ce0f8672379572334fabeadda03b7a307`
-- Implementation commit(s): pending review commit
+- Implementation commit(s): `6c2e932094663ea3e9ea2c41e5f3f0533f189df2`
 - Branch: `codex/ci-cd-p0-p2`
 - Scope respected: `yes` — no provider credentials, deploy, application runtime behavior, or CI secrets were changed.
 
