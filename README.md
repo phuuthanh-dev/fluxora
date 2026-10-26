@@ -70,7 +70,7 @@ To enable encrypted provider credentials, create a 32-byte base64 key and place 
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ```
 
-Set that output as `APP_ENCRYPTION_KEY`. Credentials are encrypted before storage and are never returned by the API. Docker infrastructure and production deployment are intentionally deferred until after the MVP.
+Set that output as `APP_ENCRYPTION_KEY`. Credentials are encrypted before storage and are never returned by the API. The production-shaped Docker and VPS setup is documented in [`docs/15-deployment.md`](./docs/15-deployment.md); it requires a real HTTPS domain and operator-supplied secrets before activation.
 
 ### Google Drive and Sheets
 

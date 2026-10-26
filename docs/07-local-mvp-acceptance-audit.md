@@ -22,7 +22,7 @@ This document is the current, evidence-based audit for the local MVP. It intenti
 
 - **Redis/BullMQ process E2E:** queue and worker code are present, but this machine has neither `redis-server` nor Docker. Inline mode is the verified local default.
 - **Real providers:** Google and GitHub account sign-in plus Steam identity linking have been verified locally with user-owned accounts. Steam Web API, Google Chat, Google connector OAuth, Drive, and Sheets still require their own user-owned credentials and live smoke checks. No secret is stored in source or test fixtures.
-- **Deployment/VPS:** intentionally deferred by product scope.
+- **Deployment/VPS:** the production foundation is now present in `infra/`; first rollout remains operator-gated on the real HTTPS domains, GitHub/VPS secrets, and a separate production credential decision.
 
 ## Remaining local hardening candidates
 
