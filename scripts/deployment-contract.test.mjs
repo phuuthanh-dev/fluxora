@@ -9,6 +9,7 @@ const validator = resolve(root, "infra/scripts/validate-image-tag.sh");
 const deploy = resolve(root, "infra/scripts/deploy.sh");
 const rollback = resolve(root, "infra/scripts/rollback.sh");
 const deployStaging = resolve(root, "infra/scripts/deploy-staging.sh");
+const healthcheck = resolve(root, "infra/scripts/healthcheck.sh");
 const apiDockerfile = readFileSync(resolve(root, "apps/api/Dockerfile"), "utf8");
 const webDockerfile = readFileSync(resolve(root, "apps/web/Dockerfile"), "utf8");
 const compose = readFileSync(resolve(root, "infra/docker-compose.production.yml"), "utf8");
@@ -54,4 +55,5 @@ test("deployment scripts pass shell syntax validation", () => {
   execFileSync("sh", ["-n", deploy]);
   execFileSync("sh", ["-n", rollback]);
   execFileSync("sh", ["-n", deployStaging]);
+  execFileSync("sh", ["-n", healthcheck]);
 });
