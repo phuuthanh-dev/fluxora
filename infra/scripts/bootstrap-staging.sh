@@ -19,9 +19,9 @@ umask 077
   printf '%s\n' \
     'POSTGRES_USER=workflow' \
     'POSTGRES_DB=workflow' \
-    'IMAGE_TAG=staging' \
-    'API_IMAGE=workflow-automation-api' \
-    'WEB_IMAGE=workflow-automation-web' \
+    'IMAGE_TAG=' \
+    'API_IMAGE=ghcr.io/phuuthanh-dev/workflow-automation-api' \
+    'WEB_IMAGE=ghcr.io/phuuthanh-dev/workflow-automation-web' \
     'NODE_ENV=staging' \
     'NEXT_PUBLIC_API_URL=http://103.140.249.73/api/v1' \
     'WEB_ORIGIN=http://103.140.249.73' \

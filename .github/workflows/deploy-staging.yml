@@ -1,0 +1,101 @@
+name: Deploy staging
+
+on:
+  workflow_run:
+    workflows: ["Quality gate"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: "Full 40-character commit SHA to build and deploy"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: staging-deploy
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAMESPACE: ${{ github.repository_owner }}
+  COMMIT_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.commit_sha || github.event.workflow_run.head_sha }}
+
+jobs:
+  build:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.COMMIT_SHA }}
+      - name: Validate immutable commit
+        run: |
+          case "$COMMIT_SHA" in
+            ''|*[!0-9a-f]*) echo "COMMIT_SHA must be a 40-character lowercase commit SHA"; exit 1 ;;
+          esac
+          test "${#COMMIT_SHA}" -eq 40 || { echo "COMMIT_SHA must be a 40-character lowercase commit SHA"; exit 1; }
+          test "$(git rev-parse HEAD)" = "$COMMIT_SHA" || { echo "checked out commit does not match COMMIT_SHA"; exit 1; }
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Validate staging API origin
+        env:
+          NEXT_PUBLIC_API_URL: ${{ vars.STAGING_NEXT_PUBLIC_API_URL || 'http://103.140.249.73/api/v1' }}
+        run: |
+          case "$NEXT_PUBLIC_API_URL" in
+            http://*/api/v1|https://*/api/v1) ;;
+            *) echo "STAGING_NEXT_PUBLIC_API_URL must end in /api/v1"; exit 1 ;;
+          esac
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: ghcr.io/${{ env.IMAGE_NAMESPACE }}/workflow-automation-api:${{ env.COMMIT_SHA }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          build-args: NEXT_PUBLIC_API_URL=${{ vars.STAGING_NEXT_PUBLIC_API_URL || 'http://103.140.249.73/api/v1' }}
+          tags: ghcr.io/${{ env.IMAGE_NAMESPACE }}/workflow-automation-web:${{ env.COMMIT_SHA }}
+
+  deploy:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.COMMIT_SHA }}
+      - name: Copy staging deployment files
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "infra/docker-compose.production.yml,infra/docker-compose.staging.yml,infra/scripts,infra/nginx"
+          target: "/opt/workflow-automation"
+      - name: Deploy immutable staging image
+        uses: appleboy/ssh-action@v1.2.2
+        env:
+          IMAGE_TAG: ${{ env.COMMIT_SHA }}
+          GHCR_PULL_USERNAME: ${{ secrets.GHCR_PULL_USERNAME }}
+          GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: IMAGE_TAG,GHCR_PULL_USERNAME,GHCR_PULL_TOKEN
+          script: |
+            set -eu
+            if [ -n "${GHCR_PULL_TOKEN:-}" ]; then
+              printf '%s' "$GHCR_PULL_TOKEN" | docker login ghcr.io --username "$GHCR_PULL_USERNAME" --password-stdin
+            fi
+            chmod +x /opt/workflow-automation/infra/scripts/*.sh
+            IMAGE_TAG="$IMAGE_TAG" APP_DIR=/opt/workflow-automation /opt/workflow-automation/infra/scripts/deploy-staging.sh
