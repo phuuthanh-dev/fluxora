@@ -26,8 +26,8 @@ The API and worker use the same application image and encryption key. Only the A
 - `apps/web/Dockerfile` builds the Next.js image with `NEXT_PUBLIC_API_URL`.
 - `infra/docker-compose.production.yml` defines the production services, health checks, volumes, and log rotation.
 - `infra/.env.production.example` is the production variable contract.
-- `infra/scripts/deploy.sh` pulls an immutable image tag, applies migrations, starts services, and checks health.
-- `infra/scripts/rollback.sh` restarts API/worker/web at a known-good image tag.
+- `infra/scripts/deploy.sh` accepts only a full lowercase commit SHA as the image tag, applies migrations, starts services, and checks health.
+- `infra/scripts/rollback.sh` restarts API/worker/web at a known-good full commit SHA.
 - `infra/nginx/workflow-automation.conf.template` is the HTTP reverse-proxy template. TLS is added by the VPS operator with the chosen certificate workflow.
 
 ## One-time VPS setup
@@ -54,10 +54,10 @@ If GHCR packages are private, configure a read-only package token on the VPS and
 
 ## First deployment
 
-The workflow is manual by design. It builds both images in GitHub Actions, pushes them to GHCR, copies the deployment files, and runs the remote deploy script. Use an immutable commit or release tag rather than relying on `latest` after the first successful smoke test.
+The workflow is manual by design. It checks out the exact commit SHA supplied to the workflow, builds both images in GitHub Actions, pushes them to GHCR, copies the deployment files, and runs the remote deploy script. Mutable tags such as `latest` and `staging` are rejected by the deployment contract.
 
 ```bash
-IMAGE_TAG=<commit-sha> \
+IMAGE_TAG=<40-character-commit-sha> \
   APP_DIR=/opt/workflow-automation \
   /opt/workflow-automation/infra/scripts/deploy.sh
 ```

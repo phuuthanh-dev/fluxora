@@ -22,7 +22,8 @@
     "db:validate": "node --env-file-if-exists=.env ./scripts/run-prisma.mjs validate",
     "codegraph:generate": "node scripts/generate-code-graph.mjs",
     "codegraph:check": "node scripts/generate-code-graph.mjs --check",
-    "harness:check": "npm run codegraph:check",
+    "deployment:check": "node --test scripts/deployment-contract.test.mjs",
+    "harness:check": "npm run codegraph:check && npm run deployment:check",
     "harness:report": "node scripts/verify-agent-report.mjs",
     "verify": "npm run harness:check && npm run db:validate && npm run db:generate && npm run test && npm run lint && npm run typecheck && npm run build && npm run test:e2e"
   },

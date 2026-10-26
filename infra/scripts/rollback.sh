@@ -11,6 +11,8 @@ env_file="${ENV_FILE:-$app_dir/.env.production}"
 compose_file="$app_dir/infra/docker-compose.production.yml"
 image_tag="$1"
 
+"$app_dir/infra/scripts/validate-image-tag.sh" "$image_tag" >/dev/null
+
 IMAGE_TAG="$image_tag" docker compose --env-file "$env_file" -f "$compose_file" pull
 IMAGE_TAG="$image_tag" docker compose --env-file "$env_file" -f "$compose_file" up -d api worker web
 APP_DIR="$app_dir" "$app_dir/infra/scripts/healthcheck.sh"

@@ -33,7 +33,7 @@ services:
     networks: [workflow]
 
   migrate:
-    image: ${API_IMAGE:-ghcr.io/phuuthanh-dev/workflow-automation-api}:${IMAGE_TAG:-latest}
+    image: ${API_IMAGE:?API_IMAGE is required}:${IMAGE_TAG:?IMAGE_TAG is required}
     restart: "no"
     env_file:
       - ../.env.production
@@ -46,7 +46,7 @@ services:
     networks: [workflow]
 
   api:
-    image: ${API_IMAGE:-ghcr.io/phuuthanh-dev/workflow-automation-api}:${IMAGE_TAG:-latest}
+    image: ${API_IMAGE:?API_IMAGE is required}:${IMAGE_TAG:?IMAGE_TAG is required}
     restart: unless-stopped
     env_file:
       - ../.env.production
@@ -76,7 +76,7 @@ services:
     networks: [workflow]
 
   worker:
-    image: ${API_IMAGE:-ghcr.io/phuuthanh-dev/workflow-automation-api}:${IMAGE_TAG:-latest}
+    image: ${API_IMAGE:?API_IMAGE is required}:${IMAGE_TAG:?IMAGE_TAG is required}
     restart: unless-stopped
     env_file:
       - ../.env.production
@@ -99,7 +99,7 @@ services:
     networks: [workflow]
 
   web:
-    image: ${WEB_IMAGE:-ghcr.io/phuuthanh-dev/workflow-automation-web}:${IMAGE_TAG:-latest}
+    image: ${WEB_IMAGE:?WEB_IMAGE is required}:${IMAGE_TAG:?IMAGE_TAG is required}
     restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000"
