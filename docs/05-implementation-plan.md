@@ -134,7 +134,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 
 ## Production-preparation follow-up
 
-1. Add deployment/runtime hardening after provider configuration is supplied: production CORS/cookie policy, secure environment validation, health/readiness checks, migrations, Redis worker qualification, and Docker/VPS manifests.
+1. **Completed locally — deployment/runtime hardening:** production CORS/cookie policy, secure environment validation, health/readiness checks, migrations, Redis worker qualification, Docker/VPS manifests, immutable image deployment, rollback retention, and CI/CD release checks are implemented. Live rollout remains operator-gated on the configured domain and secrets.
 2. **Completed locally — outbound request policy:** generic HTTP, Google Chat webhooks, and approval webhooks now validate protocol, hostname, resolved IP ranges, and redirect targets before requesting external services. The optional `OUTBOUND_ALLOWED_HOSTNAMES` setting is reserved for controlled internal DNS zones; it must never be `*`.
 
 ## Agent-assisted delivery follow-up
@@ -142,7 +142,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 1. **Active — repository-native harness:** task contracts, factual handoff reports, generated internal-import graph, graph freshness validation, and CI-backed review make it possible to delegate bounded slices to a lower-cost implementation agent without trusting its prose.
 2. **Next — credential-free regression expansion:** add deterministic failure-path and responsive UI coverage for the dashboard/editor. This remains mock-only and is safe to delegate after the harness passes.
 3. **Needs user input — live provider validation:** validate the Steam → Google Chat flow only after the owner supplies credentials in the application and explicitly authorizes the external side effect.
-4. **Deferred by product scope — Docker/VPS deployment:** start only after a VPS/domain decision and an explicit deployment request.
+4. **Operator-gated — live provider and production validation:** deployment automation is ready, but real provider calls, OAuth callback validation, and production go-live still require the owner's configured domains, secrets, and explicit release approval.
 
 ## Working order for agents
 
