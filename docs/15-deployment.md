@@ -76,7 +76,7 @@ http://103.140.249.73/api/v1/ → NestJS API
 
 The staging environment must use `NODE_ENV=staging`, `WEB_ORIGIN=http://103.140.249.73`, and `NEXT_PUBLIC_API_URL=http://103.140.249.73/api/v1`. It is for UI, authentication, mock execution, and queue smoke tests only. Do not enter provider credentials or enable real workflows over this HTTP endpoint. Replace it with HTTPS domains before any production credential or OAuth callback is configured.
 
-The staging workflow builds images in GitHub Actions and deploys them to the VPS by commit SHA; it does not build application images on the VPS. Configure `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, and, when GHCR packages are private, `GHCR_PULL_USERNAME` and `GHCR_PULL_TOKEN` as repository/environment secrets. `STAGING_NEXT_PUBLIC_API_URL` may be configured as a repository variable and defaults to the temporary IP origin.
+The staging workflow builds images in GitHub Actions and deploys them to the VPS by commit SHA; it does not build application images on the VPS. Both final images include the OCI source label so GHCR can associate them with this repository. Configure `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, and, when GHCR packages are private, `GHCR_PULL_USERNAME` and `GHCR_PULL_TOKEN` as repository/environment secrets. `STAGING_NEXT_PUBLIC_API_URL` may be configured as a repository variable and defaults to the temporary IP origin.
 
 ## Nginx and HTTPS
 

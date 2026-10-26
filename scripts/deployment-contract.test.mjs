@@ -9,6 +9,8 @@ const validator = resolve(root, "infra/scripts/validate-image-tag.sh");
 const deploy = resolve(root, "infra/scripts/deploy.sh");
 const rollback = resolve(root, "infra/scripts/rollback.sh");
 const deployStaging = resolve(root, "infra/scripts/deploy-staging.sh");
+const apiDockerfile = readFileSync(resolve(root, "apps/api/Dockerfile"), "utf8");
+const webDockerfile = readFileSync(resolve(root, "apps/web/Dockerfile"), "utf8");
 const compose = readFileSync(resolve(root, "infra/docker-compose.production.yml"), "utf8");
 const stagingCompose = readFileSync(resolve(root, "infra/docker-compose.staging.yml"), "utf8");
 const workflow = readFileSync(resolve(root, ".github/workflows/deploy-production.yml"), "utf8");
@@ -42,6 +44,8 @@ test("production deployment contract cannot fall back to latest", () => {
   assert.match(stagingWorkflow, /workflow_run:/);
   assert.match(stagingWorkflow, /workflow_run\.conclusion == 'success'/);
   assert.match(stagingWorkflow, /deploy-staging\.sh/);
+  assert.match(apiDockerfile, /org\.opencontainers\.image\.source="https:\/\/github\.com\/phuuthanh-dev\/workflow-automation"/);
+  assert.match(webDockerfile, /org\.opencontainers\.image\.source="https:\/\/github\.com\/phuuthanh-dev\/workflow-automation"/);
   assert.match(envExample, /^IMAGE_TAG=$/m);
 });
 
