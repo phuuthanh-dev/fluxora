@@ -7,9 +7,6 @@ services:
 
   migrate:
     image: workflow-automation-api:staging
-    build:
-      context: ..
-      dockerfile: apps/api/Dockerfile
     env_file:
       - ../.env.staging
     environment:
@@ -31,9 +28,6 @@ services:
 
   worker:
     image: workflow-automation-api:staging
-    build:
-      context: ..
-      dockerfile: apps/api/Dockerfile
     env_file:
       - ../.env.staging
     environment:
