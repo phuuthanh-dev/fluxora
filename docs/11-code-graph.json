@@ -968,9 +968,11 @@
       "internalImports": [
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/app-shell/app-shell-header.tsx",
+        "apps/web/src/features/workflow/node-catalog.ts",
         "apps/web/src/features/workflow/workflow-api.ts"
       ],
       "externalImports": [
+        "@workflow/contracts",
         "lucide-react",
         "next/navigation",
         "react"
@@ -1853,6 +1855,10 @@
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
       "to": "apps/web/src/features/app-shell/app-shell-header.tsx"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
+      "to": "apps/web/src/features/workflow/node-catalog.ts"
     },
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
