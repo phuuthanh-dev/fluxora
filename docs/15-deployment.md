@@ -99,7 +99,8 @@ Issue the certificate only after DNS points to the VPS. The resulting HTTPS orig
 
 - Back up PostgreSQL before migrations and on a schedule; copy backups off the VPS.
 - Preserve the `postgres_data` volume and never use `docker compose down -v` in production.
-- Keep at least one known-good image tag for rollback.
+- After a successful health check, deploy scripts retain the current and previous API/Web commit-SHA images and remove only older SHA-tagged images from those two application repositories. PostgreSQL/Redis images and volumes are never part of this cleanup. Rollback can still pull any older known-good SHA from GHCR when needed.
+- Application deploys explicitly pull only `migrate`, `api`, `worker`, and `web`; PostgreSQL/Redis are pulled by Compose only when missing and are not refreshed on every application release.
 - Keep execution retention bounded by the configured success/failed day limits and maximum count.
 - Docker logs are limited to three 10 MB files per service.
 - Use `docker compose ps`, `docker compose logs --tail=100 api worker`, and the API readiness endpoint for triage.

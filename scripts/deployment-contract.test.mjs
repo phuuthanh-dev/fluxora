@@ -10,13 +10,20 @@ const deploy = resolve(root, "infra/scripts/deploy.sh");
 const rollback = resolve(root, "infra/scripts/rollback.sh");
 const deployStaging = resolve(root, "infra/scripts/deploy-staging.sh");
 const healthcheck = resolve(root, "infra/scripts/healthcheck.sh");
+const pruneImages = resolve(root, "infra/scripts/prune-application-images.sh");
 const apiDockerfile = readFileSync(resolve(root, "apps/api/Dockerfile"), "utf8");
+const apiRuntimeDockerfile = apiDockerfile.split("FROM node:22-bookworm-slim AS runtime", 2)[1] ?? "";
+const apiPackage = JSON.parse(readFileSync(resolve(root, "apps/api/package.json"), "utf8"));
 const webDockerfile = readFileSync(resolve(root, "apps/web/Dockerfile"), "utf8");
 const compose = readFileSync(resolve(root, "infra/docker-compose.production.yml"), "utf8");
 const stagingCompose = readFileSync(resolve(root, "infra/docker-compose.staging.yml"), "utf8");
 const workflow = readFileSync(resolve(root, ".github/workflows/deploy-production.yml"), "utf8");
 const stagingWorkflow = readFileSync(resolve(root, ".github/workflows/deploy-staging.yml"), "utf8");
+const qualityWorkflow = readFileSync(resolve(root, ".github/workflows/quality.yml"), "utf8");
 const envExample = readFileSync(resolve(root, "infra/.env.production.example"), "utf8");
+const deployScript = readFileSync(deploy, "utf8");
+const deployStagingScript = readFileSync(deployStaging, "utf8");
+const pruneImagesScript = readFileSync(pruneImages, "utf8");
 
 const sha = "0123456789abcdef0123456789abcdef01234567";
 
@@ -56,4 +63,58 @@ test("deployment scripts pass shell syntax validation", () => {
   execFileSync("sh", ["-n", rollback]);
   execFileSync("sh", ["-n", deployStaging]);
   execFileSync("sh", ["-n", healthcheck]);
+  execFileSync("sh", ["-n", pruneImages]);
+});
+
+test("CI/CD workflow keeps bounded jobs, cache, and least-privilege deploy permissions", () => {
+  assert.match(qualityWorkflow, /timeout-minutes:\s*20/);
+  assert.match(qualityWorkflow, /uses: actions\/cache@v4/);
+  assert.match(qualityWorkflow, /path: ~\/\.cache\/ms-playwright/);
+
+  for (const deployWorkflow of [workflow, stagingWorkflow]) {
+    assert.match(deployWorkflow, /timeout-minutes:\s*20/);
+    assert.match(deployWorkflow, /timeout-minutes:\s*15/);
+    assert.match(deployWorkflow, /cache-from: type=gha,scope=workflow-api/);
+    assert.match(deployWorkflow, /cache-to: type=gha,mode=max,scope=workflow-api/);
+    assert.match(deployWorkflow, /cache-from: type=gha,scope=workflow-web/);
+    assert.match(deployWorkflow, /cache-to: type=gha,mode=max,scope=workflow-web/);
+    assert.doesNotMatch(deployWorkflow, /source:.*infra\/nginx/);
+  }
+
+  assert.match(workflow, /build:\n[\s\S]*permissions:\n\s+contents: read\n\s+packages: write/);
+  assert.match(stagingWorkflow, /build:\n[\s\S]*permissions:\n\s+contents: read\n\s+packages: write/);
+  assert.match(workflow, /deploy:\n[\s\S]*permissions:\n\s+contents: read/);
+  assert.match(stagingWorkflow, /deploy:\n[\s\S]*permissions:\n\s+contents: read/);
+});
+
+test("deploy cleanup retains rollback images and never prunes infrastructure", () => {
+  assert.match(deployScript, /prune-application-images\.sh/);
+  assert.match(deployStagingScript, /prune-application-images\.sh/);
+  assert.match(pruneImagesScript, /API_IMAGE/);
+  assert.match(pruneImagesScript, /WEB_IMAGE/);
+  assert.match(pruneImagesScript, /PREVIOUS_API_IMAGE_TAG/);
+  assert.match(pruneImagesScript, /PREVIOUS_WEB_IMAGE_TAG/);
+  assert.match(pruneImagesScript, /validate-image-tag\.sh/);
+  assert.match(pruneImagesScript, /docker image rm/);
+  assert.doesNotMatch(pruneImagesScript, /docker system prune/);
+  assert.doesNotMatch(pruneImagesScript, /docker volume/);
+  assert.doesNotMatch(pruneImagesScript, /postgres|redis/i);
+});
+
+test("API runtime image installs only API and contracts workspaces", () => {
+  assert.equal(apiPackage.dependencies["@workflow/contracts"], "*");
+  assert.match(apiRuntimeDockerfile, /--workspace=@workflow\/api/);
+  assert.match(apiRuntimeDockerfile, /--workspace=@workflow\/contracts/);
+  assert.match(apiRuntimeDockerfile, /--include-workspace-root=false/);
+  assert.match(apiRuntimeDockerfile, /COPY packages\/workflow-contracts\/package\.json/);
+  assert.match(apiRuntimeDockerfile, /COPY --from=build \/app\/packages\/workflow-contracts\/dist/);
+  assert.doesNotMatch(apiRuntimeDockerfile, /COPY packages packages/);
+  assert.doesNotMatch(apiRuntimeDockerfile, /COPY --from=build \/app\/packages\/workflow-contracts \.\/packages\/workflow-contracts/);
+});
+
+test("application deploy does not refresh database or Redis images", () => {
+  assert.match(deployScript, /pull migrate api worker web/);
+  assert.match(deployStagingScript, /pull migrate api worker web/);
+  assert.doesNotMatch(deployScript, /\bpull\s*\n/);
+  assert.doesNotMatch(deployStagingScript, /\bpull\s*\n/);
 });
