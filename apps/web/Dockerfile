@@ -27,12 +27,13 @@ RUN apt-get update \
 
 ENV NODE_ENV=production
 WORKDIR /app
-COPY --from=build /app/package.json /app/package-lock.json ./
-COPY --from=build /app/node_modules ./node_modules
+COPY package.json package-lock.json ./
+COPY apps/api/package.json apps/api/package.json
+COPY apps/web/package.json apps/web/package.json
+COPY packages packages
+RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 COPY --from=build /app/packages/workflow-contracts ./packages/workflow-contracts
-COPY --from=build /app/apps/web/package.json ./apps/web/package.json
 COPY --from=build /app/apps/web/.next ./apps/web/.next
-RUN npm prune --omit=dev
 
 EXPOSE 3000
 USER node
