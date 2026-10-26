@@ -108,6 +108,7 @@ test("CI/CD workflow keeps bounded jobs, cache, and least-privilege deploy permi
   for (const deployWorkflow of [workflow, stagingWorkflow]) {
     assert.match(deployWorkflow, /uses: [^\n]+@[0-9a-f]{40}/);
     assert.doesNotMatch(deployWorkflow, /uses: [^\n]+@v\d/);
+    assert.match(deployWorkflow, /docker\/setup-buildx-action@[0-9a-f]{40}/);
   }
 });
 
