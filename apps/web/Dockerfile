@@ -21,7 +21,8 @@ RUN npm run build --workspace=@workflow/contracts \
 
 FROM node:22-bookworm-slim AS runtime
 
-ENV NODE_ENV=production
+ENV NODE_ENV=production \
+    HOSTNAME=0.0.0.0
 WORKDIR /app
 COPY --from=build /app/apps/web/.next/standalone ./
 COPY --from=build /app/apps/web/.next/static ./apps/web/.next/static
