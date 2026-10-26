@@ -22,6 +22,7 @@ if [ ! -f "$base_compose" ] || [ ! -f "$staging_compose" ]; then
 fi
 
 "$app_dir/infra/scripts/validate-image-tag.sh" "$image_tag" >/dev/null
+APP_DIR="$app_dir" "$app_dir/infra/scripts/check-disk-space.sh"
 
 api_container_id="$(API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" \
   docker compose --project-name workflow-automation-staging --env-file "$env_file" \

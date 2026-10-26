@@ -2,6 +2,7 @@
 set -eu
 
 api_url="${API_HEALTH_URL:-http://127.0.0.1:3001/api/v1/health}"
+ready_url="${API_READY_URL:-http://127.0.0.1:3001/api/v1/health/ready}"
 web_url="${WEB_HEALTH_URL:-http://127.0.0.1:3000/}"
 retries="${HEALTHCHECK_RETRIES:-30}"
 delay_seconds="${HEALTHCHECK_DELAY_SECONDS:-2}"
@@ -26,6 +27,7 @@ check_url() {
 }
 
 check_url "$api_url"
+check_url "$ready_url"
 check_url "$web_url"
 printf '%s\n' "workflow-automation health check passed"
 

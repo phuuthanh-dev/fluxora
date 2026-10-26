@@ -11,6 +11,8 @@ const rollback = resolve(root, "infra/scripts/rollback.sh");
 const deployStaging = resolve(root, "infra/scripts/deploy-staging.sh");
 const healthcheck = resolve(root, "infra/scripts/healthcheck.sh");
 const pruneImages = resolve(root, "infra/scripts/prune-application-images.sh");
+const checkDiskSpace = resolve(root, "infra/scripts/check-disk-space.sh");
+const pruneGhcrVersions = resolve(root, "infra/scripts/prune-ghcr-versions.sh");
 const apiDockerfile = readFileSync(resolve(root, "apps/api/Dockerfile"), "utf8");
 const apiRuntimeDockerfile = apiDockerfile.split("FROM node:22-bookworm-slim AS runtime", 2)[1] ?? "";
 const apiPackage = JSON.parse(readFileSync(resolve(root, "apps/api/package.json"), "utf8"));
@@ -20,10 +22,14 @@ const stagingCompose = readFileSync(resolve(root, "infra/docker-compose.staging.
 const workflow = readFileSync(resolve(root, ".github/workflows/deploy-production.yml"), "utf8");
 const stagingWorkflow = readFileSync(resolve(root, ".github/workflows/deploy-staging.yml"), "utf8");
 const qualityWorkflow = readFileSync(resolve(root, ".github/workflows/quality.yml"), "utf8");
+const retentionWorkflow = readFileSync(resolve(root, ".github/workflows/retain-ghcr.yml"), "utf8");
 const envExample = readFileSync(resolve(root, "infra/.env.production.example"), "utf8");
+const rootPackage = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
 const deployScript = readFileSync(deploy, "utf8");
 const deployStagingScript = readFileSync(deployStaging, "utf8");
+const healthcheckScript = readFileSync(healthcheck, "utf8");
 const pruneImagesScript = readFileSync(pruneImages, "utf8");
+const pruneGhcrScript = readFileSync(pruneGhcrVersions, "utf8");
 
 const sha = "0123456789abcdef0123456789abcdef01234567";
 
@@ -64,12 +70,20 @@ test("deployment scripts pass shell syntax validation", () => {
   execFileSync("sh", ["-n", deployStaging]);
   execFileSync("sh", ["-n", healthcheck]);
   execFileSync("sh", ["-n", pruneImages]);
+  execFileSync("sh", ["-n", checkDiskSpace]);
+  execFileSync("sh", ["-n", pruneGhcrVersions]);
 });
 
 test("CI/CD workflow keeps bounded jobs, cache, and least-privilege deploy permissions", () => {
   assert.match(qualityWorkflow, /timeout-minutes:\s*20/);
-  assert.match(qualityWorkflow, /uses: actions\/cache@v4/);
+  assert.match(qualityWorkflow, /uses: actions\/cache@[0-9a-f]{40}/);
   assert.match(qualityWorkflow, /path: ~\/\.cache\/ms-playwright/);
+  assert.match(qualityWorkflow, /concurrency:/);
+  assert.match(qualityWorkflow, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/);
+  assert.doesNotMatch(qualityWorkflow, /uses: [^\n]+@v\d/);
+  assert.match(qualityWorkflow, /Install Playwright Chromium/);
+  assert.match(qualityWorkflow, /npx playwright install chromium/);
+  assert.doesNotMatch(qualityWorkflow, /playwright install --with-deps/);
 
   for (const deployWorkflow of [workflow, stagingWorkflow]) {
     assert.match(deployWorkflow, /timeout-minutes:\s*20/);
@@ -85,6 +99,32 @@ test("CI/CD workflow keeps bounded jobs, cache, and least-privilege deploy permi
   assert.match(stagingWorkflow, /build:\n[\s\S]*permissions:\n\s+contents: read\n\s+packages: write/);
   assert.match(workflow, /deploy:\n[\s\S]*permissions:\n\s+contents: read/);
   assert.match(stagingWorkflow, /deploy:\n[\s\S]*permissions:\n\s+contents: read/);
+  assert.match(workflow, /GHCR_PULL_USERNAME/);
+  assert.match(workflow, /GHCR_PULL_TOKEN/);
+  assert.match(workflow, /docker login ghcr\.io --username/);
+  assert.match(stagingWorkflow, /GHCR_PULL_USERNAME/);
+  assert.match(stagingWorkflow, /GHCR_PULL_TOKEN/);
+  assert.match(workflow, /vars\.NEXT_PUBLIC_API_URL \|\| secrets\.NEXT_PUBLIC_API_URL/);
+  for (const deployWorkflow of [workflow, stagingWorkflow]) {
+    assert.match(deployWorkflow, /uses: [^\n]+@[0-9a-f]{40}/);
+    assert.doesNotMatch(deployWorkflow, /uses: [^\n]+@v\d/);
+  }
+});
+
+test("verification and operational retention contracts avoid redundant work", () => {
+  assert.match(rootPackage.scripts.verify, /build:contracts/);
+  assert.match(rootPackage.scripts.verify, /test:workspaces/);
+  assert.match(rootPackage.scripts.verify, /lint:workspaces/);
+  assert.match(rootPackage.scripts.verify, /typecheck:workspaces/);
+  assert.match(rootPackage.scripts.verify, /build:apps/);
+  assert.match(deployScript, /check-disk-space\.sh/);
+  assert.match(deployStagingScript, /check-disk-space\.sh/);
+  assert.match(healthcheckScript, /health\/ready/);
+  assert.match(retentionWorkflow, /packages: write/);
+  assert.match(retentionWorkflow, /prune-ghcr-versions\.sh/);
+  assert.match(pruneGhcrScript, /\^\[0-9a-f\]\{40\}\$/);
+  assert.match(pruneGhcrScript, /GHCR_KEEP_VERSIONS/);
+  assert.doesNotMatch(pruneGhcrScript, /docker system prune/);
 });
 
 test("deploy cleanup retains rollback images and never prunes infrastructure", () => {

@@ -21,6 +21,7 @@ if [ ! -f "$compose_file" ]; then
 fi
 
 "$app_dir/infra/scripts/validate-image-tag.sh" "$image_tag" >/dev/null
+APP_DIR="$app_dir" "$app_dir/infra/scripts/check-disk-space.sh"
 
 api_container_id="$(API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" \
   docker compose --env-file "$env_file" -f "$compose_file" ps -q api 2>/dev/null || true)"

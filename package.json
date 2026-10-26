@@ -12,10 +12,15 @@
     "dev:web": "npm run dev --workspace=@workflow/web",
     "dev:api": "npm run dev --workspace=@workflow/api",
     "dev:worker": "npm run worker --workspace=@workflow/api",
-    "build": "npm run build --workspace=@workflow/contracts && npm run build --workspace=@workflow/api && npm run build --workspace=@workflow/web",
+    "build:contracts": "npm run build --workspace=@workflow/contracts",
+    "build:apps": "npm run build --workspace=@workflow/api && npm run build --workspace=@workflow/web",
+    "build": "npm run build:contracts && npm run build:apps",
     "typecheck": "npm run build --workspace=@workflow/contracts && npm run typecheck --workspaces --if-present",
     "lint": "npm run build --workspace=@workflow/contracts && npm run lint --workspaces --if-present",
     "test": "npm run build --workspace=@workflow/contracts && npm run test --workspaces --if-present",
+    "test:workspaces": "npm run test --workspaces --if-present",
+    "lint:workspaces": "npm run lint --workspaces --if-present",
+    "typecheck:workspaces": "npm run typecheck --workspaces --if-present",
     "test:e2e": "playwright test",
     "db:deploy": "node --env-file-if-exists=.env ./scripts/run-prisma.mjs migrate deploy",
     "db:generate": "npm run prisma:generate --workspace=@workflow/api",
@@ -25,7 +30,7 @@
     "deployment:check": "node --test scripts/deployment-contract.test.mjs",
     "harness:check": "npm run codegraph:check && npm run deployment:check",
     "harness:report": "node scripts/verify-agent-report.mjs",
-    "verify": "npm run harness:check && npm run db:validate && npm run db:generate && npm run test && npm run lint && npm run typecheck && npm run build && npm run test:e2e"
+    "verify": "npm run harness:check && npm run db:validate && npm run db:generate && npm run build:contracts && npm run test:workspaces && npm run lint:workspaces && npm run typecheck:workspaces && npm run build:apps && npm run test:e2e"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",

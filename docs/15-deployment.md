@@ -49,9 +49,12 @@ The GitHub Actions deploy workflow expects these GitHub Actions secrets:
 - `VPS_HOST`
 - `VPS_USER`
 - `VPS_SSH_KEY` (a deploy-only key, not a personal private key)
-- `NEXT_PUBLIC_API_URL`
+- `GHCR_PULL_USERNAME` (required when the application packages are private)
+- `GHCR_PULL_TOKEN` (read-only package token, required when the application packages are private)
 
-If GHCR packages are private, configure a read-only package token on the VPS and authenticate Docker before the first pull. Do not place that token in this repository or in the production env file.
+The production workflow reads the public frontend API origin from the `NEXT_PUBLIC_API_URL` repository/environment variable. It temporarily falls back to a legacy secret with the same name so an existing setup does not break during migration; prefer the variable and remove the old secret after the next successful production build.
+
+If GHCR packages are private, configure `GHCR_PULL_USERNAME` and `GHCR_PULL_TOKEN` as GitHub Actions secrets. The deploy workflow authenticates Docker on the VPS immediately before pulling the immutable application images. Do not place that token in this repository or in the production env file.
 
 ## First deployment
 
@@ -64,6 +67,8 @@ IMAGE_TAG=<40-character-commit-sha> \
 ```
 
 The deploy script runs Prisma migrations before starting the API, worker, and web services. It does not enable any workflow or call a real provider.
+
+Before pulling a release, the deploy scripts require at least 2 GiB of free space on the application filesystem (`MIN_FREE_KB` can override the threshold). After starting the stack they check liveness, dependency readiness, and the web response. A failed preflight or smoke check stops the deployment before image cleanup.
 
 ## Temporary IP staging
 
@@ -100,6 +105,7 @@ Issue the certificate only after DNS points to the VPS. The resulting HTTPS orig
 - Back up PostgreSQL before migrations and on a schedule; copy backups off the VPS.
 - Preserve the `postgres_data` volume and never use `docker compose down -v` in production.
 - After a successful health check, deploy scripts retain the current and previous API/Web commit-SHA images and remove only older SHA-tagged images from those two application repositories. PostgreSQL/Redis images and volumes are never part of this cleanup. Rollback can still pull any older known-good SHA from GHCR when needed.
+- `.github/workflows/retain-ghcr.yml` runs weekly and keeps the five newest immutable SHA-tagged versions for each application package. It never deletes mutable/non-SHA tags; manual runs default to dry-run so retention can be inspected before deletion.
 - Application deploys explicitly pull only `migrate`, `api`, `worker`, and `web`; PostgreSQL/Redis are pulled by Compose only when missing and are not refreshed on every application release.
 - Keep execution retention bounded by the configured success/failed day limits and maximum count.
 - Docker logs are limited to three 10 MB files per service.
