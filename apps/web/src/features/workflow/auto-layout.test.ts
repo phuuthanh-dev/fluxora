@@ -43,3 +43,14 @@ test("search can discover a planned node without opening the roadmap filter", ()
   const results = nodeCatalog.filter((node) => matchesNodeLibraryFilter(node, "all", "OpenAI"));
   assert.deepEqual(results.map((node) => node.type), ["action.openai"]);
 });
+
+test("provider nodes declare reusable inspector fields in the catalog", () => {
+  const discord = nodeCatalog.find((node) => node.type === "action.discord.webhook");
+  const http = nodeCatalog.find((node) => node.type === "action.http-request");
+  const drive = nodeCatalog.find((node) => node.type === "action.google-drive");
+
+  assert.deepEqual(discord?.configurationFields?.map((field) => field.key), ["credentialId", "content", "username", "avatarUrl", "embeds"]);
+  assert.deepEqual(http?.configurationFields?.map((field) => field.key), ["credentialId", "method", "url", "body", "timeoutMs"]);
+  assert.equal(http?.configurationFields?.find((field) => field.key === "credentialId")?.kind, "credential");
+  assert.equal(drive?.configurationFields?.find((field) => field.key === "text")?.kind, "textarea");
+});

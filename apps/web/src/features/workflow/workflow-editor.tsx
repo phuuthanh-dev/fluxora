@@ -43,6 +43,7 @@ import {
   nodeCatalog,
   nodeLibraryFilters,
   type NodeDefinition,
+  type NodeConfigurationField,
   type NodeLibraryFilter,
   type WorkflowCanvasEdge,
   type WorkflowCanvasNode,
@@ -111,21 +112,53 @@ function readFirstRow(config: Record<string, unknown>) {
   return values[0].map((value) => String(value ?? "")).join(", ");
 }
 
-function ConfigField({ label, value, onChange, multiline = false }: {
+function ConfigField({ label, value, onChange, multiline = false, inputMode }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   multiline?: boolean;
+  inputMode?: "number";
 }) {
   return (
     <Field label={label} className="config-field">
       {multiline ? (
         <textarea value={value} onChange={(event) => onChange(event.target.value)} rows={5} />
       ) : (
-        <input value={value} onChange={(event) => onChange(event.target.value)} />
+        <input type={inputMode} value={value} onChange={(event) => onChange(event.target.value)} />
       )}
     </Field>
   );
+}
+
+function readConfigurationFieldValue(config: Record<string, unknown>, field: NodeConfigurationField) {
+  const value = config[field.key];
+  return field.key === "embeds" && value && typeof value === "object"
+    ? JSON.stringify(value, null, 2)
+    : readConfigText(config, field.key);
+}
+
+function NodeConfigurationFields({ fields, config, credentials, onChange }: {
+  fields: NodeConfigurationField[];
+  config: Record<string, unknown>;
+  credentials: CredentialSummary[];
+  onChange: (key: string, value: unknown) => void;
+}) {
+  return <>
+    {fields.map((field) => {
+      const value = readConfigurationFieldValue(config, field);
+      if (field.kind === "credential") {
+        return <CredentialField key={field.key} label={field.label} value={value} providers={field.providers} credentials={credentials} onChange={(nextValue) => onChange(field.key, nextValue)} optional={field.optional} />;
+      }
+      return <ConfigField
+        key={field.key}
+        label={field.label}
+        value={value}
+        multiline={field.kind === "textarea"}
+        inputMode={field.kind === "number" ? "number" : undefined}
+        onChange={(nextValue) => onChange(field.key, field.kind === "number" ? Number(nextValue) || field.fallbackValue : nextValue)}
+      />;
+    })}
+  </>;
 }
 
 function CredentialField({ label, value, providers, credentials, onChange, optional = false }: {
@@ -492,6 +525,7 @@ function NodeInspector({ node, execution, credentials, onResolveApproval, onDebu
         />
       </InspectorSection>
       <InspectorSection title="Configuration">
+      {definition?.configurationFields && <NodeConfigurationFields fields={definition.configurationFields} config={node.data.config} credentials={credentials} onChange={updateConfig} />}
       {node.data.nodeType === "trigger.manual" && <TestDataEditor value={node.data.config.testData} onApply={(testData) => updateConfig("testData", testData)} />}
       {node.data.nodeType === "trigger.cron" && (
         <>
@@ -512,21 +546,6 @@ function NodeInspector({ node, execution, credentials, onResolveApproval, onDebu
           <label className="checkbox-field"><input type="checkbox" checked={node.data.config.includeOwnedGames !== false} onChange={(event) => updateConfig("includeOwnedGames", event.target.checked)} /> Include owned games and playtime</label>
           <label className="checkbox-field"><input type="checkbox" checked={node.data.config.includeRecentGames !== false} onChange={(event) => updateConfig("includeRecentGames", event.target.checked)} /> Include recently played games</label>
           <ConfigField label="Achievement app ID (optional)" value={readConfigText(node.data.config, "achievementAppId")} onChange={(value) => updateConfig("achievementAppId", value)} />
-        </>
-      )}
-      {node.data.nodeType === "action.google-chat.webhook" && (
-        <>
-          <CredentialField label="Google Chat credential" value={readConfigText(node.data.config, "credentialId")} providers={["GOOGLE_CHAT_WEBHOOK"]} credentials={credentials} onChange={(value) => updateConfig("credentialId", value)} />
-          <ConfigField label="Message template" value={readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("message", value)} multiline />
-        </>
-      )}
-      {node.data.nodeType === "action.discord.webhook" && (
-        <>
-          <CredentialField label="Discord credential" value={readConfigText(node.data.config, "credentialId")} providers={["DISCORD_WEBHOOK"]} credentials={credentials} onChange={(value) => updateConfig("credentialId", value)} />
-          <ConfigField label="Message content" value={readConfigText(node.data.config, "content") || readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("content", value)} multiline />
-          <ConfigField label="Username (optional)" value={readConfigText(node.data.config, "username")} onChange={(value) => updateConfig("username", value)} />
-          <ConfigField label="Avatar URL (optional)" value={readConfigText(node.data.config, "avatarUrl")} onChange={(value) => updateConfig("avatarUrl", value)} />
-          <ConfigField label="Embeds JSON (optional)" value={typeof node.data.config.embeds === "object" ? JSON.stringify(node.data.config.embeds, null, 2) : readConfigText(node.data.config, "embeds")} onChange={(value) => updateConfig("embeds", value)} multiline />
         </>
       )}
       {node.data.nodeType === "action.telegram.message" && (
@@ -568,22 +587,10 @@ function NodeInspector({ node, execution, credentials, onResolveApproval, onDebu
         </>
       )}
       {node.data.nodeType === "action.google-drive" && (
-        <>
-          <CredentialField label="Google credential" value={readConfigText(node.data.config, "credentialId")} providers={["GOOGLE"]} credentials={credentials} onChange={(value) => updateConfig("credentialId", value)} />
-          <ConfigField label="Operation (list, search, uploadText, downloadText)" value={readConfigText(node.data.config, "operation")} onChange={(value) => updateConfig("operation", value)} />
-          <ConfigField label="Search query / file ID" value={readConfigText(node.data.config, "query") || readConfigText(node.data.config, "fileId")} onChange={(value) => updateConfig(readConfigText(node.data.config, "operation") === "downloadText" ? "fileId" : "query", value)} />
-          <ConfigField label="File name" value={readConfigText(node.data.config, "name")} onChange={(value) => updateConfig("name", value)} />
-          <ConfigField label="Text content" value={readConfigText(node.data.config, "text")} onChange={(value) => updateConfig("text", value)} multiline />
-        </>
+        <ConfigField label="Search query / file ID" value={readConfigText(node.data.config, "query") || readConfigText(node.data.config, "fileId")} onChange={(value) => updateConfig(readConfigText(node.data.config, "operation") === "downloadText" ? "fileId" : "query", value)} />
       )}
       {node.data.nodeType === "action.google-sheets" && (
-        <>
-          <CredentialField label="Google credential" value={readConfigText(node.data.config, "credentialId")} providers={["GOOGLE"]} credentials={credentials} onChange={(value) => updateConfig("credentialId", value)} />
-          <ConfigField label="Spreadsheet ID" value={readConfigText(node.data.config, "spreadsheetId")} onChange={(value) => updateConfig("spreadsheetId", value)} />
-          <ConfigField label="Operation (read, append, update)" value={readConfigText(node.data.config, "operation")} onChange={(value) => updateConfig("operation", value)} />
-          <ConfigField label="Range" value={readConfigText(node.data.config, "range")} onChange={(value) => updateConfig("range", value)} />
-          <ConfigField label="Values (one row, comma-separated)" value={readFirstRow(node.data.config)} onChange={(value) => updateConfig("values", [value.split(",").map((cell) => cell.trim())])} />
-        </>
+        <ConfigField label="Values (one row, comma-separated)" value={readFirstRow(node.data.config)} onChange={(value) => updateConfig("values", [value.split(",").map((cell) => cell.trim())])} />
       )}
       {node.data.nodeType === "condition.if" && (
         <>
@@ -598,24 +605,10 @@ function NodeInspector({ node, execution, credentials, onResolveApproval, onDebu
           <SwitchCaseEditor cases={node.data.config.cases} onChange={(cases) => updateConfig("cases", cases)} />
         </>
       )}
-      {node.data.nodeType === "action.http-request" && (
-        <>
-          <CredentialField label="HTTP credential (optional)" value={readConfigText(node.data.config, "credentialId")} providers={["HTTP"]} credentials={credentials} onChange={(value) => updateConfig("credentialId", value)} optional />
-          <ConfigField label="Method" value={readConfigText(node.data.config, "method")} onChange={(value) => updateConfig("method", value)} />
-          <ConfigField label="URL" value={readConfigText(node.data.config, "url")} onChange={(value) => updateConfig("url", value)} />
-          <ConfigField label="Request body" value={readConfigText(node.data.config, "body")} onChange={(value) => updateConfig("body", value)} multiline />
-          <ConfigField label="Timeout (ms)" value={readConfigText(node.data.config, "timeoutMs")} onChange={(value) => updateConfig("timeoutMs", Number(value) || 15_000)} />
-        </>
-      )}
       {node.data.nodeType === "approval.request" && <>
         <ConfigField label="Approval message" value={readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("message", value)} multiline />
         <ConfigField label="Notification provider (google_chat or http_webhook)" value={readConfigText(node.data.config, "notificationProvider")} onChange={(value) => updateConfig("notificationProvider", value)} />
         <CredentialField label="Notification credential (optional)" value={readConfigText(node.data.config, "notificationCredentialId")} providers={readConfigText(node.data.config, "notificationProvider") === "http_webhook" ? ["HTTP"] : ["GOOGLE_CHAT_WEBHOOK"]} credentials={credentials} onChange={(value) => updateConfig("notificationCredentialId", value)} optional />
-      </>}
-      {node.data.nodeType === "action.email" && <>
-        <ConfigField label="To" value={readConfigText(node.data.config, "to")} onChange={(value) => updateConfig("to", value)} />
-        <ConfigField label="Subject" value={readConfigText(node.data.config, "subject")} onChange={(value) => updateConfig("subject", value)} />
-        <ConfigField label="Body" value={readConfigText(node.data.config, "body")} onChange={(value) => updateConfig("body", value)} multiline />
       </>}
       {definition && !definition.available && <p className="planned-note">This node is visible for roadmap clarity, but cannot run in the MVP.</p>}
       </InspectorSection>

@@ -1,5 +1,6 @@
 import type { Edge, Node } from "@xyflow/react";
 import type { WorkflowEdgeKind, WorkflowNodeCategory, WorkflowNodeType } from "@workflow/contracts";
+import type { CredentialProvider } from "../credentials/credential-types";
 import type { NodeIconName } from "./node-icon";
 
 export type WorkflowNodeData = {
@@ -38,7 +39,18 @@ export type NodeDefinition = {
   icon: NodeIconName;
   available: boolean;
   defaultConfig: Record<string, unknown>;
+  configurationFields?: NodeConfigurationField[];
 };
+
+/**
+ * Declarative fields that the inspector can render without growing another
+ * provider-specific branch. Complex controls (such as Telegram destinations)
+ * remain intentionally bespoke in the editor.
+ */
+export type NodeConfigurationField =
+  | { kind: "credential"; key: string; label: string; providers: CredentialProvider[]; optional?: boolean }
+  | { kind: "text" | "textarea"; key: string; label: string }
+  | { kind: "number"; key: string; label: string; fallbackValue: number };
 
 export const categoryOrder: WorkflowNodeCategory[] = ["trigger", "condition", "action", "approval"];
 
@@ -152,6 +164,10 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "google-chat",
     available: true,
     defaultConfig: { credentialId: "", message: "" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Google Chat credential", providers: ["GOOGLE_CHAT_WEBHOOK"] },
+      { kind: "textarea", key: "message", label: "Message template" },
+    ],
   },
   {
     type: "action.discord.webhook",
@@ -162,6 +178,13 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "discord",
     available: true,
     defaultConfig: { credentialId: "", content: "", username: "", avatarUrl: "", embeds: "" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Discord credential", providers: ["DISCORD_WEBHOOK"] },
+      { kind: "textarea", key: "content", label: "Message content" },
+      { kind: "text", key: "username", label: "Username (optional)" },
+      { kind: "text", key: "avatarUrl", label: "Avatar URL (optional)" },
+      { kind: "textarea", key: "embeds", label: "Embeds JSON (optional)" },
+    ],
   },
   {
     type: "action.telegram.message",
@@ -182,6 +205,12 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "google-drive",
     available: true,
     defaultConfig: { credentialId: "", operation: "search", query: "", fileId: "", name: "daily-report.txt", text: "" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Google credential", providers: ["GOOGLE"] },
+      { kind: "text", key: "operation", label: "Operation (list, search, uploadText, downloadText)" },
+      { kind: "text", key: "name", label: "File name" },
+      { kind: "textarea", key: "text", label: "Text content" },
+    ],
   },
   {
     type: "action.google-sheets",
@@ -192,6 +221,12 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "google-sheets",
     available: true,
     defaultConfig: { credentialId: "", operation: "append", spreadsheetId: "", range: "Sheet1!A1", values: [["", ""]] },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Google credential", providers: ["GOOGLE"] },
+      { kind: "text", key: "spreadsheetId", label: "Spreadsheet ID" },
+      { kind: "text", key: "operation", label: "Operation (read, append, update)" },
+      { kind: "text", key: "range", label: "Range" },
+    ],
   },
   {
     type: "action.http-request",
@@ -202,6 +237,13 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "http",
     available: true,
     defaultConfig: { credentialId: "", method: "GET", url: "", headers: {}, body: "", timeoutMs: 15_000 },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "HTTP credential (optional)", providers: ["HTTP"], optional: true },
+      { kind: "text", key: "method", label: "Method" },
+      { kind: "text", key: "url", label: "URL" },
+      { kind: "textarea", key: "body", label: "Request body" },
+      { kind: "number", key: "timeoutMs", label: "Timeout (ms)", fallbackValue: 15_000 },
+    ],
   },
   {
     type: "approval.request",
@@ -222,6 +264,11 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "email",
     available: false,
     defaultConfig: { to: "", subject: "", body: "" },
+    configurationFields: [
+      { kind: "text", key: "to", label: "To" },
+      { kind: "text", key: "subject", label: "Subject" },
+      { kind: "textarea", key: "body", label: "Body" },
+    ],
   },
   {
     type: "action.google-chat.oauth",
@@ -232,6 +279,11 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "google-chat",
     available: false,
     defaultConfig: { credentialId: "", space: "", message: "" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Google credential", providers: ["GOOGLE"] },
+      { kind: "text", key: "space", label: "Space" },
+      { kind: "textarea", key: "message", label: "Message template" },
+    ],
   },
   {
     type: "action.openai",
@@ -242,6 +294,10 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "openai",
     available: false,
     defaultConfig: { credentialId: "", model: "gpt-4.1-mini", prompt: "" },
+    configurationFields: [
+      { kind: "text", key: "model", label: "Model" },
+      { kind: "textarea", key: "prompt", label: "Prompt" },
+    ],
   },
   {
     type: "action.gemini",
@@ -252,6 +308,10 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "gemini",
     available: false,
     defaultConfig: { credentialId: "", model: "gemini-2.5-flash", prompt: "" },
+    configurationFields: [
+      { kind: "text", key: "model", label: "Model" },
+      { kind: "textarea", key: "prompt", label: "Prompt" },
+    ],
   },
   {
     type: "action.mongodb",
@@ -262,6 +322,11 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "mongodb",
     available: false,
     defaultConfig: { credentialId: "", database: "", collection: "", operation: "find" },
+    configurationFields: [
+      { kind: "text", key: "database", label: "Database" },
+      { kind: "text", key: "collection", label: "Collection" },
+      { kind: "text", key: "operation", label: "Operation" },
+    ],
   },
   {
     type: "action.github",
@@ -272,6 +337,10 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "github",
     available: false,
     defaultConfig: { credentialId: "", repository: "", operation: "createIssue" },
+    configurationFields: [
+      { kind: "text", key: "repository", label: "Repository" },
+      { kind: "text", key: "operation", label: "Operation" },
+    ],
   },
   {
     type: "action.facebook-meta",
