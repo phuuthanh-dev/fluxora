@@ -13,7 +13,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: staging-deploy
@@ -27,6 +26,10 @@ jobs:
   build:
     if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -57,6 +60,8 @@ jobs:
           file: apps/api/Dockerfile
           push: true
           tags: ghcr.io/${{ env.IMAGE_NAMESPACE }}/workflow-automation-api:${{ env.COMMIT_SHA }}
+          cache-from: type=gha,scope=workflow-api
+          cache-to: type=gha,mode=max,scope=workflow-api
       - uses: docker/build-push-action@v6
         with:
           context: .
@@ -64,11 +69,16 @@ jobs:
           push: true
           build-args: NEXT_PUBLIC_API_URL=${{ vars.STAGING_NEXT_PUBLIC_API_URL || 'http://103.140.249.73/api/v1' }}
           tags: ghcr.io/${{ env.IMAGE_NAMESPACE }}/workflow-automation-web:${{ env.COMMIT_SHA }}
+          cache-from: type=gha,scope=workflow-web
+          cache-to: type=gha,mode=max,scope=workflow-web
 
   deploy:
     needs: build
     if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -79,7 +89,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: "infra/docker-compose.production.yml,infra/docker-compose.staging.yml,infra/scripts,infra/nginx"
+          source: "infra/docker-compose.production.yml,infra/docker-compose.staging.yml,infra/scripts"
           target: "/opt/workflow-automation"
       - name: Deploy immutable staging image
         uses: appleboy/ssh-action@v1.2.2

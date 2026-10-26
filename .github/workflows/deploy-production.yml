@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: production-deploy
@@ -22,6 +21,10 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -54,6 +57,8 @@ jobs:
           file: apps/api/Dockerfile
           push: true
           tags: ghcr.io/${{ env.IMAGE_NAMESPACE }}/workflow-automation-api:${{ inputs.commit_sha }}
+          cache-from: type=gha,scope=workflow-api
+          cache-to: type=gha,mode=max,scope=workflow-api
       - uses: docker/build-push-action@v6
         with:
           context: .
@@ -61,11 +66,16 @@ jobs:
           push: true
           build-args: NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
           tags: ghcr.io/${{ env.IMAGE_NAMESPACE }}/workflow-automation-web:${{ inputs.commit_sha }}
+          cache-from: type=gha,scope=workflow-web
+          cache-to: type=gha,mode=max,scope=workflow-web
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
     environment: production
+    timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -76,7 +86,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: "infra/docker-compose.production.yml,infra/scripts,infra/nginx"
+          source: "infra/docker-compose.production.yml,infra/scripts"
           target: "/opt/workflow-automation"
       - name: Deploy immutable image tag
         uses: appleboy/ssh-action@v1.2.2

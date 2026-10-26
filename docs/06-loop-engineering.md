@@ -75,6 +75,7 @@ CI runs the same gate for every pull request and push to `main`.
 | L10.1 | Production deployment foundation | Complete locally | Added API/web Dockerfiles, production Compose for PostgreSQL/Redis/API/worker/web, migration and healthcheck scripts, rollback by immutable image tag, Nginx reverse-proxy template, production env contract, and manual GitHub Actions build/deploy workflow. First VPS rollout remains operator-gated on domains and secrets. |
 | L10.2 | Immutable production image contract | Complete locally | Production deployment accepts only a full lowercase commit SHA, checks out the exact requested commit before building, removes `latest` fallbacks, and has shell/contract regression tests in the quality gate. |
 | L10.3 | Automatic staging CD | Complete locally | A successful `Quality gate` run on `main` triggers CI-built API/web images tagged by commit SHA, deploys the staging Compose overlay through SSH, applies migrations, and runs the existing health check; manual dispatch is also available. |
+| L10.4 | CI/CD workflow hardening | In progress | Quality and deploy jobs have bounded runtimes, Playwright/Docker builds use safe caches, package write permission is limited to image builds, and deployment transfer excludes Nginx files that are only needed during host bootstrap. |
 
 ## External-boundary rule
 

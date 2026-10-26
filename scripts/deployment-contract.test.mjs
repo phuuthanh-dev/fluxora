@@ -16,6 +16,7 @@ const compose = readFileSync(resolve(root, "infra/docker-compose.production.yml"
 const stagingCompose = readFileSync(resolve(root, "infra/docker-compose.staging.yml"), "utf8");
 const workflow = readFileSync(resolve(root, ".github/workflows/deploy-production.yml"), "utf8");
 const stagingWorkflow = readFileSync(resolve(root, ".github/workflows/deploy-staging.yml"), "utf8");
+const qualityWorkflow = readFileSync(resolve(root, ".github/workflows/quality.yml"), "utf8");
 const envExample = readFileSync(resolve(root, "infra/.env.production.example"), "utf8");
 
 const sha = "0123456789abcdef0123456789abcdef01234567";
@@ -56,4 +57,25 @@ test("deployment scripts pass shell syntax validation", () => {
   execFileSync("sh", ["-n", rollback]);
   execFileSync("sh", ["-n", deployStaging]);
   execFileSync("sh", ["-n", healthcheck]);
+});
+
+test("CI/CD workflow keeps bounded jobs, cache, and least-privilege deploy permissions", () => {
+  assert.match(qualityWorkflow, /timeout-minutes:\s*20/);
+  assert.match(qualityWorkflow, /uses: actions\/cache@v4/);
+  assert.match(qualityWorkflow, /path: ~\/\.cache\/ms-playwright/);
+
+  for (const deployWorkflow of [workflow, stagingWorkflow]) {
+    assert.match(deployWorkflow, /timeout-minutes:\s*20/);
+    assert.match(deployWorkflow, /timeout-minutes:\s*15/);
+    assert.match(deployWorkflow, /cache-from: type=gha,scope=workflow-api/);
+    assert.match(deployWorkflow, /cache-to: type=gha,mode=max,scope=workflow-api/);
+    assert.match(deployWorkflow, /cache-from: type=gha,scope=workflow-web/);
+    assert.match(deployWorkflow, /cache-to: type=gha,mode=max,scope=workflow-web/);
+    assert.doesNotMatch(deployWorkflow, /source:.*infra\/nginx/);
+  }
+
+  assert.match(workflow, /build:\n[\s\S]*permissions:\n\s+contents: read\n\s+packages: write/);
+  assert.match(stagingWorkflow, /build:\n[\s\S]*permissions:\n\s+contents: read\n\s+packages: write/);
+  assert.match(workflow, /deploy:\n[\s\S]*permissions:\n\s+contents: read/);
+  assert.match(stagingWorkflow, /deploy:\n[\s\S]*permissions:\n\s+contents: read/);
 });
