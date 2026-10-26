@@ -64,6 +64,19 @@ IMAGE_TAG=<commit-sha> \
 
 The deploy script runs Prisma migrations before starting the API, worker, and web services. It does not enable any workflow or call a real provider.
 
+## Temporary IP staging
+
+Before a domain exists, use `infra/docker-compose.staging.yml` with `infra/nginx/staging-ip.conf`. This keeps application containers on loopback while Nginx exposes one temporary HTTP origin:
+
+```text
+http://103.140.249.73/        → Next.js
+http://103.140.249.73/api/v1/ → NestJS API
+```
+
+The staging environment must use `NODE_ENV=staging`, `WEB_ORIGIN=http://103.140.249.73`, and `NEXT_PUBLIC_API_URL=http://103.140.249.73/api/v1`. It is for UI, authentication, mock execution, and queue smoke tests only. Do not enter provider credentials or enable real workflows over this HTTP endpoint. Replace it with HTTPS domains before any production credential or OAuth callback is configured.
+
+The staging overlay builds on the VPS, so remove old unused images after verifying the running services and retain the source checkout for the next domain-based deployment.
+
 ## Nginx and HTTPS
 
 Render the template with only the two intended variables so Nginx variables such as `$host` are preserved:
