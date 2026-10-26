@@ -27,6 +27,7 @@ The API and worker use the same application image and encryption key. Only the A
 - `infra/docker-compose.production.yml` defines the production services, health checks, volumes, and log rotation.
 - `infra/.env.production.example` is the production variable contract.
 - `infra/scripts/deploy.sh` accepts only a full lowercase commit SHA as the image tag, applies migrations, starts services, and checks health.
+- `infra/scripts/deploy-staging.sh` deploys CI-built staging images by commit SHA, applies migrations, starts services, and checks health.
 - `infra/scripts/rollback.sh` restarts API/worker/web at a known-good full commit SHA.
 - `infra/nginx/workflow-automation.conf.template` is the HTTP reverse-proxy template. TLS is added by the VPS operator with the chosen certificate workflow.
 
@@ -75,7 +76,7 @@ http://103.140.249.73/api/v1/ → NestJS API
 
 The staging environment must use `NODE_ENV=staging`, `WEB_ORIGIN=http://103.140.249.73`, and `NEXT_PUBLIC_API_URL=http://103.140.249.73/api/v1`. It is for UI, authentication, mock execution, and queue smoke tests only. Do not enter provider credentials or enable real workflows over this HTTP endpoint. Replace it with HTTPS domains before any production credential or OAuth callback is configured.
 
-The staging overlay builds on the VPS, so remove old unused images after verifying the running services and retain the source checkout for the next domain-based deployment.
+The staging workflow builds images in GitHub Actions and deploys them to the VPS by commit SHA; it does not build application images on the VPS. Configure `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, and, when GHCR packages are private, `GHCR_PULL_USERNAME` and `GHCR_PULL_TOKEN` as repository/environment secrets. `STAGING_NEXT_PUBLIC_API_URL` may be configured as a repository variable and defaults to the temporary IP origin.
 
 ## Nginx and HTTPS
 
