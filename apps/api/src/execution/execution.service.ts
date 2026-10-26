@@ -18,7 +18,7 @@ type NodeResult = { status: "succeeded" | "failed" | "waiting"; output: Record<s
 const executionLeaseMs = 5 * 60 * 1000;
 
 import { NodeFailure, nodeFailureFromExecutionError, nodeFailureFromOutboundPolicy } from "./node-failure";
-import { defaultNotificationDispatcher, readTelegramDestinationType, validateTelegramDestination, validateDiscordWebhookUrl, sanitizeTelegramFailure, type DiscordAllowedMentions } from "../notifications";
+import { defaultNotificationDispatcher, readTelegramDestinationType, validateTelegramDestination, validateDiscordWebhookUrl, sanitizeTelegramFailure } from "../notifications";
 
 export { NodeFailure, nodeFailureFromOutboundPolicy, validateDiscordWebhookUrl, sanitizeTelegramFailure };
 
@@ -772,8 +772,8 @@ export async function executeDiscordWebhook(config: Record<string, unknown>, mod
   const content = typeof config.content === "string" ? config.content : (typeof config.message === "string" ? config.message : "");
   const username = typeof config.username === "string" && config.username.trim() ? config.username.trim() : undefined;
   const avatarUrl = typeof config.avatarUrl === "string" && config.avatarUrl.trim() ? config.avatarUrl.trim() : undefined;
-  const embeds = config.embeds as unknown[] | undefined;
-  const allowedMentions = config.allowedMentions as DiscordAllowedMentions | undefined;
+  const embeds = config.embeds;
+  const allowedMentions = config.allowedMentions;
 
   if (mode === "live") {
     if (!content.trim() && (!embeds || (Array.isArray(embeds) && embeds.length === 0))) {

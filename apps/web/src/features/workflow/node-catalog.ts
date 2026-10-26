@@ -177,13 +177,14 @@ export const nodeCatalog: NodeDefinition[] = [
     libraryGroup: "communication",
     icon: "discord",
     available: true,
-    defaultConfig: { credentialId: "", content: "", username: "", avatarUrl: "", embeds: "" },
+    defaultConfig: { credentialId: "", content: "", username: "", avatarUrl: "", embeds: "", allowedMentions: "" },
     configurationFields: [
       { kind: "credential", key: "credentialId", label: "Discord credential", providers: ["DISCORD_WEBHOOK"] },
       { kind: "textarea", key: "content", label: "Message content" },
       { kind: "text", key: "username", label: "Username (optional)" },
       { kind: "text", key: "avatarUrl", label: "Avatar URL (optional)" },
       { kind: "textarea", key: "embeds", label: "Embeds JSON (optional)" },
+      { kind: "textarea", key: "allowedMentions", label: "Allowed mentions JSON (optional)" },
     ],
   },
   {

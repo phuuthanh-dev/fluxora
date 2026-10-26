@@ -656,7 +656,7 @@ test("Discord webhook: parses stringified JSON embeds and allows custom allowedM
         credentialId: "discord-cred",
         content: "Stringified embed test",
         embeds: embedsString,
-        allowedMentions: { parse: ["users"] },
+        allowedMentions: JSON.stringify({ parse: ["users"], roles: ["role-1"], replied_user: false }),
       },
       "live",
       "workspace-1",
@@ -664,10 +664,39 @@ test("Discord webhook: parses stringified JSON embeds and allows custom allowedM
     );
 
     assert.deepEqual(sentBody.embeds, [{ title: "Stringified Embed" }]);
-    assert.deepEqual(sentBody.allowed_mentions, { parse: ["users"] });
+    assert.deepEqual(sentBody.allowed_mentions, { parse: ["users"], roles: ["role-1"], replied_user: false });
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("Discord webhook: rejects unsafe allowed mentions before it calls the webhook", async () => {
+  const credentials = createMockCredentials({
+    "discord-cred": {
+      provider: CredentialProvider.DISCORD_WEBHOOK,
+      data: { webhookUrl: "https://discord.com/api/webhooks/777/tok777" },
+    },
+  });
+
+  await assert.rejects(
+    () => executeDiscordWebhook(
+      { credentialId: "discord-cred", content: "Test", allowedMentions: '{"parse":["all"]}' },
+      "live",
+      "workspace-1",
+      credentials,
+    ),
+    { message: "Discord allowed mentions parse must contain only roles, users, or everyone." },
+  );
+
+  await assert.rejects(
+    () => executeDiscordWebhook(
+      { credentialId: "discord-cred", content: "Test", allowedMentions: '{"unexpected":"field"}' },
+      "live",
+      "workspace-1",
+      credentials,
+    ),
+    { message: "Discord allowed mentions contains an unsupported field." },
+  );
 });
 
 test("Discord webhook: rejects invalid embeds JSON", async () => {

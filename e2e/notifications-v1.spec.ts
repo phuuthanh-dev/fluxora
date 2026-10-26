@@ -63,6 +63,7 @@ test("configure Discord and Telegram notification nodes with encrypted credentia
   await page.getByLabel("Discord credential").selectOption({ label: "Discord Alerts" });
   await page.getByLabel("Message content").fill("Deploy completed for {{ steps.trigger.output.service }}");
   await page.getByLabel("Username (optional)").fill("CI-Bot");
+  await page.getByLabel("Allowed mentions JSON (optional)").fill('{"parse":["users"]}');
 
   // Add Telegram message node from palette
   await page.getByRole("button", { name: /Telegram message Send a message via Telegram Bot API/ }).click();

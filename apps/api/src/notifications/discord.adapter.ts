@@ -58,6 +58,60 @@ export function parseDiscordEmbeds(embedsInput: unknown): unknown[] | undefined 
   throw new NodeFailure("INVALID_CONFIGURATION", "Discord embeds must be a JSON array.", false);
 }
 
+/**
+ * Discord defaults to no parsed mentions. Preserve that safe default when the
+ * optional field is empty, and reject malformed/unsupported JSON rather than
+ * forwarding an ambiguous payload to a live webhook.
+ */
+export function parseDiscordAllowedMentions(input: unknown): DiscordAllowedMentions {
+  if (input === undefined || input === null || input === "") return { parse: [] };
+
+  let value: unknown = input;
+  if (typeof input === "string") {
+    const trimmed = input.trim();
+    if (!trimmed) return { parse: [] };
+    try {
+      value = JSON.parse(trimmed) as unknown;
+    } catch {
+      throw new NodeFailure("INVALID_CONFIGURATION", "Discord allowed mentions must be a JSON object.", false);
+    }
+  }
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new NodeFailure("INVALID_CONFIGURATION", "Discord allowed mentions must be a JSON object.", false);
+  }
+
+  const raw = value as Record<string, unknown>;
+  const supportedKeys = new Set(["parse", "roles", "users", "replied_user"]);
+  if (Object.keys(raw).some((key) => !supportedKeys.has(key))) {
+    throw new NodeFailure("INVALID_CONFIGURATION", "Discord allowed mentions contains an unsupported field.", false);
+  }
+
+  const result: DiscordAllowedMentions = {};
+  if (raw.parse !== undefined) {
+    if (!Array.isArray(raw.parse) || !raw.parse.every((item) => item === "roles" || item === "users" || item === "everyone")) {
+      throw new NodeFailure("INVALID_CONFIGURATION", "Discord allowed mentions parse must contain only roles, users, or everyone.", false);
+    }
+    result.parse = [...raw.parse] as DiscordAllowedMentions["parse"];
+  }
+  for (const key of ["roles", "users"] as const) {
+    if (raw[key] !== undefined) {
+      if (!Array.isArray(raw[key]) || !raw[key].every((item) => typeof item === "string" && item.trim())) {
+        throw new NodeFailure("INVALID_CONFIGURATION", `Discord allowed mentions ${key} must be an array of IDs.`, false);
+      }
+      result[key] = [...raw[key]] as string[];
+    }
+  }
+  if (raw.replied_user !== undefined) {
+    if (typeof raw.replied_user !== "boolean") {
+      throw new NodeFailure("INVALID_CONFIGURATION", "Discord allowed mentions replied_user must be true or false.", false);
+    }
+    result.replied_user = raw.replied_user;
+  }
+
+  return result;
+}
+
 export class DiscordNotificationAdapter implements NotificationAdapter {
   readonly provider = "discord" as const;
 
@@ -70,7 +124,7 @@ export class DiscordNotificationAdapter implements NotificationAdapter {
     const username = typeof payload.username === "string" && payload.username.trim() ? payload.username.trim() : undefined;
     const avatarUrl = typeof payload.avatarUrl === "string" && payload.avatarUrl.trim() ? payload.avatarUrl.trim() : undefined;
     const embeds = parseDiscordEmbeds(payload.embeds);
-    const allowedMentions: DiscordAllowedMentions = payload.allowedMentions ?? { parse: [] };
+    const allowedMentions = parseDiscordAllowedMentions(payload.allowedMentions);
 
     if (mode === "mock") {
       return {
