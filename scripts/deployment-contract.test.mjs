@@ -109,6 +109,10 @@ test("CI/CD workflow keeps bounded jobs, cache, and least-privilege deploy permi
     assert.match(deployWorkflow, /uses: [^\n]+@[0-9a-f]{40}/);
     assert.doesNotMatch(deployWorkflow, /uses: [^\n]+@v\d/);
     assert.match(deployWorkflow, /docker\/setup-buildx-action@[0-9a-f]{40}/);
+    assert.match(
+      deployWorkflow,
+      /appleboy\/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634/,
+    );
   }
 });
 
