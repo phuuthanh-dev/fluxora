@@ -29,6 +29,9 @@ COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages packages
 RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+COPY --from=build /app/apps/api/node_modules/@prisma ./apps/api/node_modules/@prisma
+COPY --from=build /app/apps/api/node_modules/prisma ./apps/api/node_modules/prisma
+COPY --from=build /app/apps/api/node_modules/.bin/prisma ./apps/api/node_modules/.bin/prisma
 COPY --from=build /app/apps/api/node_modules/.prisma ./apps/api/node_modules/.prisma
 COPY --from=build /app/apps/api/node_modules/@prisma/client ./apps/api/node_modules/@prisma/client
 COPY --from=build /app/packages/workflow-contracts ./packages/workflow-contracts
