@@ -29,7 +29,7 @@ The web dashboard is the authenticated control plane: it selects a workspace, li
 apps/web: React UI only; never owns secrets or executes provider calls.
 apps/api: REST API, authentication, persistence, scheduler, node registry, worker.
 packages/workflow-contracts: Shared graph DTOs, node metadata, expression types.
-infra: Docker/local service definitions, added after the MVP foundation.
+infra: Docker Compose, deployment scripts, and Nginx templates for the VPS runtime.
 ```
 
 ## Workflow model

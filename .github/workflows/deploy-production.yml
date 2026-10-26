@@ -1,0 +1,93 @@
+name: Deploy production
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: "Full 40-character commit SHA to build and deploy"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAMESPACE: ${{ github.repository_owner }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+      - name: Validate immutable commit
+        env:
+          IMAGE_TAG: ${{ inputs.commit_sha }}
+        run: |
+          case "$IMAGE_TAG" in
+            ''|*[!0-9a-f]*) echo "commit_sha must be a 40-character lowercase commit SHA"; exit 1 ;;
+          esac
+          test "${#IMAGE_TAG}" -eq 40 || { echo "commit_sha must be a 40-character lowercase commit SHA"; exit 1; }
+          test "$(git rev-parse HEAD)" = "$IMAGE_TAG" || { echo "checked out commit does not match commit_sha"; exit 1; }
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Validate public API origin
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+        run: |
+          case "$NEXT_PUBLIC_API_URL" in
+            https://*/api/v1) ;;
+            *) echo "NEXT_PUBLIC_API_URL must be an HTTPS API origin ending in /api/v1"; exit 1 ;;
+          esac
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: ghcr.io/${{ env.IMAGE_NAMESPACE }}/workflow-automation-api:${{ inputs.commit_sha }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          build-args: NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+          tags: ghcr.io/${{ env.IMAGE_NAMESPACE }}/workflow-automation-web:${{ inputs.commit_sha }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+      - name: Copy deployment files
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "infra/docker-compose.production.yml,infra/scripts,infra/nginx"
+          target: "/opt/workflow-automation"
+      - name: Deploy immutable image tag
+        uses: appleboy/ssh-action@v1.2.2
+        env:
+          IMAGE_TAG: ${{ inputs.commit_sha }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: IMAGE_TAG
+          script: |
+            chmod +x /opt/workflow-automation/infra/scripts/*.sh
+            IMAGE_TAG="$IMAGE_TAG" APP_DIR=/opt/workflow-automation /opt/workflow-automation/infra/scripts/deploy.sh
+

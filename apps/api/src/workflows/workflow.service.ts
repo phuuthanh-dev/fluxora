@@ -29,7 +29,13 @@ export class WorkflowService {
   }
 
   listTemplates() {
-    return systemWorkflowTemplates.map((template) => ({ slug: template.slug, name: template.name, description: template.description, graph: template.graph }));
+    return systemWorkflowTemplates.map((template) => ({
+      slug: template.slug,
+      name: template.name,
+      description: template.description,
+      requiredConnections: template.requiredConnections,
+      nodeTypes: template.graph.nodes.map((node) => node.type),
+    }));
   }
 
   async createFromTemplate(workspaceId: string, userId: string, slug: string) {

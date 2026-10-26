@@ -15,8 +15,8 @@ export type NotificationPayload = {
   text?: string;
   username?: string;
   avatarUrl?: string;
-  embeds?: unknown[];
-  allowedMentions?: DiscordAllowedMentions;
+  embeds?: unknown;
+  allowedMentions?: unknown;
   parseMode?: string;
   approvalUrl?: string;
   chatId?: string | number;
