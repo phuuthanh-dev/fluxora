@@ -40,7 +40,7 @@ if [ -n "$web_container_id" ]; then
   esac
 fi
 
-docker compose --env-file "$env_file" -f "$compose_file" pull
+docker compose --env-file "$env_file" -f "$compose_file" pull migrate api worker web
 docker compose --env-file "$env_file" -f "$compose_file" up -d db redis migrate
 docker compose --env-file "$env_file" -f "$compose_file" up -d api worker web
 

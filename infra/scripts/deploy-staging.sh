@@ -45,7 +45,7 @@ fi
 
 API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" \
 docker compose --project-name workflow-automation-staging --env-file "$env_file" \
-  -f "$base_compose" -f "$staging_compose" pull
+  -f "$base_compose" -f "$staging_compose" pull migrate api worker web
 API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" \
 docker compose --project-name workflow-automation-staging --env-file "$env_file" \
   -f "$base_compose" -f "$staging_compose" up -d --remove-orphans db redis migrate

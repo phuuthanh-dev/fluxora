@@ -12,6 +12,8 @@ const deployStaging = resolve(root, "infra/scripts/deploy-staging.sh");
 const healthcheck = resolve(root, "infra/scripts/healthcheck.sh");
 const pruneImages = resolve(root, "infra/scripts/prune-application-images.sh");
 const apiDockerfile = readFileSync(resolve(root, "apps/api/Dockerfile"), "utf8");
+const apiRuntimeDockerfile = apiDockerfile.split("FROM node:22-bookworm-slim AS runtime", 2)[1] ?? "";
+const apiPackage = JSON.parse(readFileSync(resolve(root, "apps/api/package.json"), "utf8"));
 const webDockerfile = readFileSync(resolve(root, "apps/web/Dockerfile"), "utf8");
 const compose = readFileSync(resolve(root, "infra/docker-compose.production.yml"), "utf8");
 const stagingCompose = readFileSync(resolve(root, "infra/docker-compose.staging.yml"), "utf8");
@@ -97,4 +99,22 @@ test("deploy cleanup retains rollback images and never prunes infrastructure", (
   assert.doesNotMatch(pruneImagesScript, /docker system prune/);
   assert.doesNotMatch(pruneImagesScript, /docker volume/);
   assert.doesNotMatch(pruneImagesScript, /postgres|redis/i);
+});
+
+test("API runtime image installs only API and contracts workspaces", () => {
+  assert.equal(apiPackage.dependencies["@workflow/contracts"], "*");
+  assert.match(apiRuntimeDockerfile, /--workspace=@workflow\/api/);
+  assert.match(apiRuntimeDockerfile, /--workspace=@workflow\/contracts/);
+  assert.match(apiRuntimeDockerfile, /--include-workspace-root=false/);
+  assert.match(apiRuntimeDockerfile, /COPY packages\/workflow-contracts\/package\.json/);
+  assert.match(apiRuntimeDockerfile, /COPY --from=build \/app\/packages\/workflow-contracts\/dist/);
+  assert.doesNotMatch(apiRuntimeDockerfile, /COPY packages packages/);
+  assert.doesNotMatch(apiRuntimeDockerfile, /COPY --from=build \/app\/packages\/workflow-contracts \.\/packages\/workflow-contracts/);
+});
+
+test("application deploy does not refresh database or Redis images", () => {
+  assert.match(deployScript, /pull migrate api worker web/);
+  assert.match(deployStagingScript, /pull migrate api worker web/);
+  assert.doesNotMatch(deployScript, /\bpull\s*\n/);
+  assert.doesNotMatch(deployStagingScript, /\bpull\s*\n/);
 });

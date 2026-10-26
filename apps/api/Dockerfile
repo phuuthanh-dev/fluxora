@@ -28,14 +28,18 @@ LABEL org.opencontainers.image.source="https://github.com/phuuthanh-dev/workflow
 COPY package.json package-lock.json ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
-COPY packages packages
-RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+COPY packages/workflow-contracts/package.json packages/workflow-contracts/package.json
+RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund \
+  --workspace=@workflow/api \
+  --workspace=@workflow/contracts \
+  --include-workspace-root=false
 COPY --from=build /app/apps/api/node_modules/@prisma ./apps/api/node_modules/@prisma
 COPY --from=build /app/apps/api/node_modules/prisma ./apps/api/node_modules/prisma
 COPY --from=build /app/apps/api/node_modules/.bin/prisma ./apps/api/node_modules/.bin/prisma
 COPY --from=build /app/apps/api/node_modules/.prisma ./apps/api/node_modules/.prisma
 COPY --from=build /app/apps/api/node_modules/@prisma/client ./apps/api/node_modules/@prisma/client
-COPY --from=build /app/packages/workflow-contracts ./packages/workflow-contracts
+COPY --from=build /app/packages/workflow-contracts/package.json ./packages/workflow-contracts/package.json
+COPY --from=build /app/packages/workflow-contracts/dist ./packages/workflow-contracts/dist
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/apps/api/prisma ./apps/api/prisma
 
