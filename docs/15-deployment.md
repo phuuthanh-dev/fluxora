@@ -6,8 +6,8 @@ This document describes the first self-hosted deployment shape for Workflow Auto
 
 ```text
 Nginx + HTTPS
-  ├── app.example.com  → 127.0.0.1:3000 (Next.js)
-  └── api.example.com  → 127.0.0.1:3001 (NestJS API)
+  ├── fluxora.io.vn      → 127.0.0.1:3000 (Next.js)
+  └── api.fluxora.io.vn  → 127.0.0.1:3001 (NestJS API)
 
 Docker Compose
   ├── web       Next.js UI
@@ -33,7 +33,13 @@ The API and worker use the same application image and encryption key. Only the A
 
 ## One-time VPS setup
 
-Choose the real domains first. The example below uses `app.example.com` and `api.example.com`; do not use these values in production.
+The production deployment uses `fluxora.io.vn` for the web application and
+`api.fluxora.io.vn` for the API. Both `A` records point to `103.140.249.73`:
+
+```text
+@    A    103.140.249.73
+api  A    103.140.249.73
+```
 
 ```bash
 sudo mkdir -p /opt/workflow-automation
@@ -85,10 +91,11 @@ The staging workflow builds images in GitHub Actions and deploys them to the VPS
 
 ## Nginx and HTTPS
 
-Render the template with only the two intended variables so Nginx variables such as `$host` are preserved:
+Render the template with only the two intended variables so Nginx variables
+such as `$host` are preserved:
 
 ```bash
-export APP_DOMAIN=app.example.com API_DOMAIN=api.example.com
+export APP_DOMAIN=fluxora.io.vn API_DOMAIN=api.fluxora.io.vn
 envsubst '${APP_DOMAIN} ${API_DOMAIN}' \
   < infra/nginx/workflow-automation.conf.template \
   | sudo tee /etc/nginx/sites-available/workflow-automation.conf >/dev/null
@@ -96,9 +103,25 @@ sudo ln -sfn /etc/nginx/sites-available/workflow-automation.conf \
   /etc/nginx/sites-enabled/workflow-automation.conf
 sudo nginx -t
 sudo systemctl reload nginx
+
+# Run after both A records resolve to this VPS.
+sudo certbot --nginx --domain fluxora.io.vn --domain api.fluxora.io.vn --redirect
 ```
 
-Issue the certificate only after DNS points to the VPS. The resulting HTTPS origins must match `WEB_ORIGIN`, `GOOGLE_*_REDIRECT_URI`, `GITHUB_AUTH_REDIRECT_URI`, and the Steam OpenID callback values. OAuth providers are configured separately and are not enabled by merely deploying the containers.
+The resulting HTTPS origins must match the web/API and OAuth configuration:
+
+```text
+WEB_ORIGIN=https://fluxora.io.vn
+NEXT_PUBLIC_API_URL=https://api.fluxora.io.vn/api/v1
+GOOGLE_REDIRECT_URI=https://api.fluxora.io.vn/api/v1/oauth/google/callback
+GOOGLE_AUTH_REDIRECT_URI=https://api.fluxora.io.vn/api/v1/auth/google/callback
+GITHUB_AUTH_REDIRECT_URI=https://api.fluxora.io.vn/api/v1/auth/github/callback
+STEAM_OPENID_RETURN_URI=https://api.fluxora.io.vn/api/v1/auth/steam/callback
+STEAM_OPENID_REALM=https://api.fluxora.io.vn
+```
+
+OAuth providers are configured separately and are not enabled by merely
+deploying the containers.
 
 ## Backups and operations
 

@@ -24,6 +24,7 @@ const stagingWorkflow = readFileSync(resolve(root, ".github/workflows/deploy-sta
 const qualityWorkflow = readFileSync(resolve(root, ".github/workflows/quality.yml"), "utf8");
 const retentionWorkflow = readFileSync(resolve(root, ".github/workflows/retain-ghcr.yml"), "utf8");
 const envExample = readFileSync(resolve(root, "infra/.env.production.example"), "utf8");
+const nginxTemplate = readFileSync(resolve(root, "infra/nginx/workflow-automation.conf.template"), "utf8");
 const rootPackage = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
 const deployScript = readFileSync(deploy, "utf8");
 const deployStagingScript = readFileSync(deployStaging, "utf8");
@@ -164,4 +165,15 @@ test("application deploy does not refresh database or Redis images", () => {
   assert.match(deployStagingScript, /pull migrate api worker web/);
   assert.doesNotMatch(deployScript, /\bpull\s*\n/);
   assert.doesNotMatch(deployStagingScript, /\bpull\s*\n/);
+});
+
+test("production reverse proxy uses the two-domain layout", () => {
+  assert.match(nginxTemplate, /server_name \$\{APP_DOMAIN\};/);
+  assert.match(nginxTemplate, /server_name \$\{API_DOMAIN\};/);
+  assert.match(nginxTemplate, /proxy_pass http:\/\/127\.0\.0\.1:3001;/);
+  assert.match(nginxTemplate, /location \/ \{/);
+  assert.match(nginxTemplate, /proxy_pass http:\/\/127\.0\.0\.1:3000;/);
+  assert.match(envExample, /^NEXT_PUBLIC_API_URL=https:\/\/api\.fluxora\.io\.vn\/api\/v1$/m);
+  assert.match(envExample, /^WEB_ORIGIN=https:\/\/fluxora\.io\.vn$/m);
+  assert.match(envExample, /^GOOGLE_AUTH_REDIRECT_URI=https:\/\/api\.fluxora\.io\.vn\/api\/v1\/auth\/google\/callback$/m);
 });

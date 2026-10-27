@@ -78,6 +78,7 @@ CI runs the same gate for every pull request and push to `main`.
 | L10.4 | CI/CD workflow hardening | Complete locally | Quality and deploy jobs have bounded runtimes, Playwright/Docker builds use safe caches, package write permission is limited to image builds, and deployment transfer excludes Nginx files that are only needed during host bootstrap. |
 | L10.5 | Bounded application image retention | Complete locally | Deploy scripts capture the running API/Web commit tags, prune only older SHA-tagged images from those two repositories after healthcheck success, retain the current and previous image without touching infrastructure images or volumes, and pull only application services during releases. |
 | L10.6 | CI/CD efficiency and release hygiene | Complete locally | Playwright browser setup no longer invokes the hanging OS-dependency installer; production/staging pull private GHCR images with scoped credentials; verification builds contracts once; obsolete PR runs are cancelled; deploys enforce disk/readiness smoke checks; actions are SHA-pinned; and weekly GHCR retention preserves five immutable rollback candidates. |
+| L10.7 | Production domain routing | Complete locally | Production configuration uses `fluxora.io.vn` for the web UI and `api.fluxora.io.vn` for NestJS, with separate Nginx server blocks and documented HTTPS/OAuth callback contracts. VPS certificate issuance and production reload remain operator-gated. |
 
 ## External-boundary rule
 

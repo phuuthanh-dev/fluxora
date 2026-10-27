@@ -134,7 +134,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 
 ## Production-preparation follow-up
 
-1. **Completed locally — deployment/runtime hardening:** production CORS/cookie policy, secure environment validation, health/readiness checks, migrations, Redis worker qualification, Docker/VPS manifests, immutable image deployment, rollback retention, and CI/CD release checks are implemented. Live rollout remains operator-gated on the configured domain and secrets.
+1. **Completed locally — deployment/runtime hardening:** production CORS/cookie policy, secure environment validation, health/readiness checks, migrations, Redis worker qualification, Docker/VPS manifests, immutable image deployment, rollback retention, two-domain Nginx routing for `fluxora.io.vn` and `api.fluxora.io.vn`, and CI/CD release checks are implemented. Live rollout remains operator-gated on the VPS certificate, configured domain, and secrets.
 2. **Completed locally — outbound request policy:** generic HTTP, Google Chat webhooks, and approval webhooks now validate protocol, hostname, resolved IP ranges, and redirect targets before requesting external services. The optional `OUTBOUND_ALLOWED_HOSTNAMES` setting is reserved for controlled internal DNS zones; it must never be `*`.
 
 ## Agent-assisted delivery follow-up
