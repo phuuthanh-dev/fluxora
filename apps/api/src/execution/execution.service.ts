@@ -567,6 +567,9 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
   if (node.type === "action.github") {
     return executeGitHubCreateIssue(config, mode, workspaceId, credentials);
   }
+  if (node.type === "action.github.add-label") {
+    return executeGitHubAddLabel(config, mode, workspaceId, credentials);
+  }
   if (node.type === "action.google-drive") {
     if (mode === "mock") return { status: "succeeded", output: mockDrive(config), route: "success" };
     const credential = await credentials.readGoogleForExecution(readCredentialId(config), workspaceId);
@@ -1013,6 +1016,79 @@ export async function executeGitHubCreateIssue(config: Record<string, unknown>, 
   }
 }
 
+export async function executeGitHubAddLabel(config: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService): Promise<NodeResult> {
+  const repository = readGitHubRepository(config.repository);
+  const issueNumber = readGitHubIssueNumber(config.issueNumber);
+  const label = readGitHubLabel(config.label);
+  if (!label) throw new NodeFailure("INVALID_CONFIGURATION", "GitHub issue label is required.", false);
+
+  if (mode === "mock") {
+    return {
+      status: "succeeded",
+      output: {
+        delivered: true,
+        provider: "github",
+        operation: "add_label",
+        repository,
+        issueNumber,
+        addedLabel: label,
+        labels: [label],
+        mode: "mock",
+      },
+      route: "success",
+    };
+  }
+
+  const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.GITHUB);
+  const token = typeof credential.token === "string" ? credential.token.trim() : "";
+  if (!token) throw new NodeFailure("CREDENTIAL_INVALID", "GitHub credential is missing token.", false);
+  const [owner, repo] = readGitHubRepositoryParts(repository);
+  const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/labels`;
+  try {
+    const response = await fetchSafeOutbound(url, {
+      method: "POST",
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "Fluxora",
+      },
+      body: JSON.stringify({ labels: [label] }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    const payload = await response.json().catch(() => ({})) as unknown;
+    if (!response.ok) {
+      const retryable = response.status === 429 || response.status >= 500;
+      throw new NodeFailure("HTTP_ERROR", `GitHub returned ${response.status}.`, retryable, response.status);
+    }
+    if (!Array.isArray(payload) || !payload.every((item) => item && typeof item === "object" && typeof (item as Record<string, unknown>).name === "string")) {
+      throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "GitHub returned an invalid labels response.", false);
+    }
+    const labels = payload.map((item) => (item as { name: string }).name);
+    return {
+      status: "succeeded",
+      output: {
+        delivered: true,
+        provider: "github",
+        operation: "add_label",
+        repository,
+        issueNumber,
+        addedLabel: label,
+        labels,
+        mode: "live",
+        sentAt: new Date().toISOString(),
+      },
+      route: "success",
+    };
+  } catch (reason) {
+    if (reason instanceof NodeFailure) throw reason;
+    if (reason instanceof OutboundRequestPolicyError) throw nodeFailureFromOutboundPolicy(reason);
+    const timeout = reason instanceof Error && reason.name === "TimeoutError";
+    throw new NodeFailure(timeout ? "TIMEOUT" : "NETWORK_ERROR", timeout ? "GitHub request timed out." : "GitHub request failed.", true);
+  }
+}
+
 function readGitHubRepository(value: unknown) {
   const repository = typeof value === "string" ? value.trim() : "";
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) {
@@ -1030,6 +1106,21 @@ function readGitHubLabels(value: unknown) {
   if (value === undefined || value === null || value === "") return [] as string[];
   if (typeof value !== "string") throw new NodeFailure("INVALID_CONFIGURATION", "GitHub labels must be comma-separated text.", false);
   return value.split(",").map((label) => label.trim()).filter(Boolean).slice(0, 20);
+}
+
+function readGitHubIssueNumber(value: unknown) {
+  const text = typeof value === "number" && Number.isSafeInteger(value) ? String(value) : typeof value === "string" ? value.trim() : "";
+  if (!/^[1-9]\d*$/.test(text)) throw new NodeFailure("INVALID_CONFIGURATION", "GitHub issue number must be a positive integer.", false);
+  const issueNumber = Number(text);
+  if (!Number.isSafeInteger(issueNumber)) throw new NodeFailure("INVALID_CONFIGURATION", "GitHub issue number is too large.", false);
+  return issueNumber;
+}
+
+function readGitHubLabel(value: unknown) {
+  if (typeof value !== "string") return "";
+  const label = value.trim();
+  if (label.length > 50 || /[\u0000-\u001f\u007f]/.test(label)) throw new NodeFailure("INVALID_CONFIGURATION", "GitHub issue label must be printable text up to 50 characters.", false);
+  return label;
 }
 
 function readGitHubIdempotencyKey(value: unknown) {
