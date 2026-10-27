@@ -45,8 +45,8 @@ const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
   },
   GITHUB: {
     label: "GitHub connector",
-    data: '{\n  "token": ""\n}',
-    hint: "Enter a GitHub token for workflow actions. This connector credential is separate from GitHub account sign-in.",
+    data: '{\n  "token": "",\n  "webhookSecret": ""\n}',
+    hint: "Enter a GitHub token for workflow actions. Add webhookSecret when using the GitHub Issue opened trigger. This connector credential is separate from GitHub account sign-in.",
   },
 };
 

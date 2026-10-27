@@ -171,6 +171,23 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { path: "steam-daily-report", secretRequired: true },
   },
   {
+    type: "trigger.github.issue-opened",
+    label: "GitHub issue opened",
+    description: "Start when GitHub sends an issues.opened webhook event.",
+    category: "trigger",
+    libraryGroup: "start",
+    appId: "github",
+    operationId: "issue-opened",
+    operationLabel: "Issue opened",
+    operationKind: "trigger",
+    icon: "github",
+    available: true,
+    defaultConfig: { path: "github-issue-opened", credentialId: "", event: "issues", action: "opened" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "GitHub connector credential", providers: ["GITHUB"] },
+    ],
+  },
+  {
     type: "condition.if",
     label: "If / else",
     description: "Route using a condition.",
@@ -600,19 +617,19 @@ export const initialNodes: WorkflowCanvasNode[] = [
     id: "schedule",
     type: "workflowNode",
     position: { x: 70, y: 210 },
-    data: { ...createNodeData(nodeCatalog[1]!), label: "Daily schedule" },
+    data: { ...createNodeData(getNodeDefinition("trigger.cron")!), label: "Daily schedule" },
   },
   {
     id: "steam",
     type: "workflowNode",
     position: { x: 385, y: 210 },
-    data: createNodeData(nodeCatalog[5]!),
+    data: createNodeData(getNodeDefinition("action.steam.account-snapshot")!),
   },
   {
     id: "chat",
     type: "workflowNode",
     position: { x: 700, y: 210 },
-    data: createNodeData(nodeCatalog[6]!),
+    data: createNodeData(getNodeDefinition("action.google-chat.webhook")!),
   },
 ];
 

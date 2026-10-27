@@ -617,6 +617,7 @@
       "boundary": "api",
       "internalImports": [
         "apps/api/src/auth/auth.module.ts",
+        "apps/api/src/credentials/credential.module.ts",
         "apps/api/src/execution/execution.module.ts",
         "apps/api/src/webhooks/webhook.controller.ts",
         "apps/api/src/webhooks/webhook.service.ts"
@@ -629,6 +630,7 @@
       "id": "apps/api/src/webhooks/webhook.service.ts",
       "boundary": "api",
       "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
         "apps/api/src/database/prisma.service.ts",
         "apps/api/src/execution/execution-queue.service.ts",
         "apps/api/src/execution/execution.service.ts",
@@ -636,6 +638,7 @@
       ],
       "externalImports": [
         "@nestjs/common",
+        "@prisma/client",
         "node:crypto"
       ]
     },
@@ -861,7 +864,8 @@
       "internalImports": [],
       "externalImports": [
         "lucide-react",
-        "react"
+        "react",
+        "react-dom"
       ]
     },
     {
@@ -1736,6 +1740,10 @@
     },
     {
       "from": "apps/api/src/webhooks/webhook.module.ts",
+      "to": "apps/api/src/credentials/credential.module.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.module.ts",
       "to": "apps/api/src/execution/execution.module.ts"
     },
     {
@@ -1745,6 +1753,10 @@
     {
       "from": "apps/api/src/webhooks/webhook.module.ts",
       "to": "apps/api/src/webhooks/webhook.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.service.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
     },
     {
       "from": "apps/api/src/webhooks/webhook.service.ts",

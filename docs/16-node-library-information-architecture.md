@@ -23,6 +23,7 @@ Examples:
 
 ```text
 GitHub → Pull request opened
+GitHub → Issue opened
 GitHub → Create issue
 GitHub → Add label
 GitHub → Add comment
@@ -88,7 +89,9 @@ occupies one app card in the top-level library.
 - Runtime connectors, OAuth scopes, credentials, and provider calls remain
   separate vertical slices. The current GitHub slices implement `GitHub → Create
   issue`, `GitHub → Add label`, and `GitHub → Add comment`, with a
-  workspace-owned encrypted connector credential. Create issue also has an
+  workspace-owned encrypted connector credential. The `GitHub → Issue opened`
+  trigger verifies signed webhook payloads with the connector's encrypted
+  `webhookSecret`. Create issue also has an
   optional connector-level idempotency guard. Merge pull request remains an
   explicitly destructive live operation behind the existing run confirmation.
   GitHub account sign-in is an independent identity flow and is not reused by

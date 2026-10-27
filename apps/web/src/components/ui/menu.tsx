@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
+import { flushSync } from "react-dom";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 type MenuProps = {
@@ -49,8 +50,11 @@ export function Menu({ label, children, trigger, className, contentClassName }: 
   const onTriggerKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
-      pendingFocusRef.current = event.key === "ArrowDown" ? "first" : "last";
-      setOpen(true);
+      const edge = event.key === "ArrowDown" ? "first" : "last";
+      pendingFocusRef.current = null;
+      flushSync(() => setOpen(true));
+      const items = menuItems();
+      items[edge === "first" ? 0 : items.length - 1]?.focus();
     } else if (event.key === "Escape" && open) {
       event.preventDefault();
       closeAndRestoreFocus();

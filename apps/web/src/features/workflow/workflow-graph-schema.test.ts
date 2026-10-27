@@ -60,4 +60,8 @@ test("GitHub Create Issue is executable with a separate connector credential", (
   assert.ok(mergePullRequest);
   assert.equal(mergePullRequest.available, true);
   assert.deepEqual(mergePullRequest.defaultConfig, { credentialId: "", repository: "", pullRequestNumber: "", mergeMethod: "merge" });
+  const githubTrigger = getNodeDefinition("trigger.github.issue-opened");
+  assert.ok(githubTrigger);
+  assert.equal(githubTrigger.available, true);
+  assert.deepEqual(githubTrigger.defaultConfig, { path: "github-issue-opened", credentialId: "", event: "issues", action: "opened" });
 });
