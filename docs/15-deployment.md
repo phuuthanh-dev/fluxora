@@ -18,7 +18,7 @@ Docker Compose
   └── redis     Redis 7 with AOF queue persistence
 ```
 
-The API and worker use the same application image and encryption key. Only the API process runs scheduler ingress; the worker runs execution jobs. PostgreSQL and Redis are private Docker-network services. Production exposes only loopback ports 3000 and 3001 to Nginx; staging runs alongside it on loopback ports 3100 and 3101.
+The API and worker use the same application image and encryption key. Only the API process runs scheduler ingress; the worker runs execution jobs. PostgreSQL and Redis are private Docker-network services. Production exposes only loopback ports 3000 and 3001 to Nginx.
 
 ## Files
 
@@ -27,7 +27,6 @@ The API and worker use the same application image and encryption key. Only the A
 - `infra/docker-compose.production.yml` defines the production services, health checks, volumes, and log rotation.
 - `infra/.env.production.example` is the production variable contract.
 - `infra/scripts/deploy.sh` accepts only a full lowercase commit SHA as the image tag, applies migrations, starts services, and checks health.
-- `infra/scripts/deploy-staging.sh` deploys CI-built staging images by commit SHA, applies migrations, starts services, and checks health.
 - `infra/scripts/rollback.sh` restarts API/worker/web at a known-good full commit SHA.
 - `infra/nginx/workflow-automation.conf.template` is the HTTP reverse-proxy template. TLS is added by the VPS operator with the chosen certificate workflow.
 
@@ -62,9 +61,9 @@ The production workflow reads the public frontend API origin from the `NEXT_PUBL
 
 If GHCR packages are private, configure `GHCR_PULL_USERNAME` and `GHCR_PULL_TOKEN` as GitHub Actions secrets. The deploy workflow authenticates Docker on the VPS immediately before pulling the immutable application images. Do not place that token in this repository or in the production env file.
 
-## First deployment
+## Continuous deployment
 
-The workflow is manual by design. It checks out the exact commit SHA supplied to the workflow, builds both images in GitHub Actions, pushes them to GHCR, copies the deployment files, and runs the remote deploy script. Mutable tags such as `latest` and `staging` are rejected by the deployment contract.
+After the `Quality gate` succeeds for a push to `main`, the production workflow checks out that exact commit SHA, builds both images in GitHub Actions, pushes them to GHCR, copies the deployment files, and runs the remote deploy script. The workflow also keeps `workflow_dispatch` for an explicit redeploy or rollback by commit SHA. Mutable tags such as `latest` and `staging` are rejected by the deployment contract.
 
 ```bash
 IMAGE_TAG=<40-character-commit-sha> \
@@ -75,19 +74,6 @@ IMAGE_TAG=<40-character-commit-sha> \
 The deploy script runs Prisma migrations before starting the API, worker, and web services. It does not enable any workflow or call a real provider.
 
 Before pulling a release, the deploy scripts require at least 2 GiB of free space on the application filesystem (`MIN_FREE_KB` can override the threshold). After starting the stack they check liveness, dependency readiness, and the web response. A failed preflight or smoke check stops the deployment before image cleanup.
-
-## Temporary IP staging
-
-Before a domain exists, use `infra/docker-compose.staging.yml` with `infra/nginx/staging-ip.conf`. This keeps application containers on loopback while Nginx exposes one temporary HTTP origin:
-
-```text
-http://103.140.249.73/        → Next.js
-http://103.140.249.73/api/v1/ → NestJS API
-```
-
-The staging environment must use `NODE_ENV=staging`, `WEB_ORIGIN=http://103.140.249.73`, and `NEXT_PUBLIC_API_URL=http://103.140.249.73/api/v1`. It is for UI, authentication, mock execution, and queue smoke tests only. Staging containers bind to loopback ports 3100 (web) and 3101 (API) so they do not interrupt production. Nginx routes the temporary IP origin to those ports. Do not enter provider credentials or enable real workflows over this HTTP endpoint. Replace it with HTTPS domains before any production credential or OAuth callback is configured.
-
-The staging workflow is manual by design: when needed, it builds images in GitHub Actions and deploys them to the VPS by commit SHA; it does not build application images on the VPS and does not run after every merge. Both final images include the OCI source label so GHCR can associate them with this repository. Configure `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, and, when GHCR packages are private, `GHCR_PULL_USERNAME` and `GHCR_PULL_TOKEN` as repository/environment secrets. `STAGING_NEXT_PUBLIC_API_URL` may be configured as a repository variable and defaults to the temporary IP origin.
 
 ## Nginx and HTTPS
 
