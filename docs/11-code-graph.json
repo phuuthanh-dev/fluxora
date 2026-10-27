@@ -800,7 +800,9 @@
     {
       "id": "apps/web/src/components/ui/dialog.tsx",
       "boundary": "web",
-      "internalImports": [],
+      "internalImports": [
+        "apps/web/src/components/ui/use-dialog-focus.ts"
+      ],
       "externalImports": [
         "react"
       ]
@@ -836,7 +838,8 @@
         "apps/web/src/components/ui/select.tsx",
         "apps/web/src/components/ui/skeleton.tsx",
         "apps/web/src/components/ui/status.tsx",
-        "apps/web/src/components/ui/toolbar.tsx"
+        "apps/web/src/components/ui/toolbar.tsx",
+        "apps/web/src/components/ui/use-dialog-focus.ts"
       ],
       "externalImports": []
     },
@@ -897,6 +900,14 @@
     },
     {
       "id": "apps/web/src/components/ui/toolbar.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/components/ui/use-dialog-focus.ts",
       "boundary": "web",
       "internalImports": [],
       "externalImports": [
@@ -1792,6 +1803,10 @@
       "to": "apps/api/src/database/prisma.service.ts"
     },
     {
+      "from": "apps/web/src/components/ui/dialog.tsx",
+      "to": "apps/web/src/components/ui/use-dialog-focus.ts"
+    },
+    {
       "from": "apps/web/src/components/ui/index.ts",
       "to": "apps/web/src/components/ui/button.tsx"
     },
@@ -1838,6 +1853,10 @@
     {
       "from": "apps/web/src/components/ui/index.ts",
       "to": "apps/web/src/components/ui/toolbar.tsx"
+    },
+    {
+      "from": "apps/web/src/components/ui/index.ts",
+      "to": "apps/web/src/components/ui/use-dialog-focus.ts"
     },
     {
       "from": "apps/web/src/features/app-shell/app-shell-header.tsx",

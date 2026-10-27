@@ -461,6 +461,49 @@ test("workflow cards expose rename, duplicate, archive, and guarded delete actio
   await expect(page.getByText("Execution detail", { exact: true })).toBeVisible();
 });
 
+test("dialogs and editor panels manage focus entry, trapping, Escape, and focus return", async ({ page }) => {
+  const email = `regression-focus-lifecycle-${Date.now()}@example.test`;
+  await signUpAndDashboard(page, email);
+
+  await page.getByRole("textbox", { name: "New workflow name" }).fill("Focus lifecycle");
+  await page.getByRole("button", { name: "Blank workflow" }).click();
+  await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+  await page.goto("/dashboard");
+
+  const card = page.locator(".workflow-card", { has: page.getByRole("heading", { name: "Focus lifecycle", exact: true }) });
+  const actionMenu = card.locator("summary.ui-menu__trigger");
+  await actionMenu.click();
+  await card.getByRole("button", { name: "Rename" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Rename workflow" });
+  const nameInput = dialog.getByRole("textbox", { name: "Workflow name" });
+  const saveButton = dialog.getByRole("button", { name: "Save name" });
+  await expect(nameInput).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(saveButton).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(nameInput).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(actionMenu).toBeFocused();
+
+  await actionMenu.click();
+  await expect(card.getByRole("button", { name: "Rename" })).toBeVisible();
+  await page.getByRole("heading", { name: "Your workflow control room." }).click();
+  await expect(actionMenu).toHaveAttribute("aria-expanded", "false");
+
+  await card.getByRole("button", { name: "Open editor" }).click();
+  await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+  const manageMenu = page.getByLabel("Manage actions");
+  await manageMenu.click();
+  await page.getByRole("button", { name: "Version history" }).click();
+  const historyPanel = page.getByRole("dialog", { name: "Workflow version history" });
+  await expect(historyPanel.getByRole("button", { name: "Close workflow history" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(historyPanel).toBeHidden();
+  await expect(manageMenu).toBeFocused();
+});
+
 test("failed template creation shows error with retry button, preserves input, and allows retry", async ({ page }) => {
   const email = `regression-tc-${Date.now()}@example.test`;
   await signUpAndDashboard(page, email);

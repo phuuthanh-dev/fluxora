@@ -28,7 +28,7 @@ export function Menu({ label, children, trigger, className, contentClassName }: 
   };
   const closeAndRestoreFocus = () => {
     setOpen(false);
-    window.requestAnimationFrame(() => triggerRef.current?.focus());
+    triggerRef.current?.focus();
   };
 
   useEffect(() => {

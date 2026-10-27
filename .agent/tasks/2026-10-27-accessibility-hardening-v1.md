@@ -50,12 +50,12 @@ operable under browser zoom, reduced motion, and both product themes.
 
 ### Slice 2 — focus lifecycle
 
-- [ ] Shared modal dialogs focus a meaningful first control, trap Tab/Shift+Tab,
+- [x] Shared modal dialogs focus a meaningful first control, trap Tab/Shift+Tab,
   close on Escape, and restore focus to their trigger.
-- [ ] Non-modal editor panels focus on entry, close on Escape, and restore focus
+- [x] Non-modal editor panels focus on entry, close on Escape, and restore focus
   without trapping the rest of the editor.
-- [ ] The responsive node inspector reuses the same focus contract.
-- [ ] Account, workflow, and editor menus close on outside interaction and return
+- [x] The responsive node inspector reuses the same focus contract.
+- [x] Account, workflow, and editor menus close on outside interaction and return
   focus after keyboard dismissal.
 
 ### Slice 3 — adaptive accessibility

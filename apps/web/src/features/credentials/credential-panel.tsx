@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { LockKeyhole } from "lucide-react";
 import { ApiClientError, apiRequest, apiUrl } from "../api/api-client";
 import type { CredentialProvider, CredentialReferenceDetails, CredentialSummary } from "./credential-types";
-import { Button, Field, IconButton, Select, Status } from "../../components/ui";
+import { Button, Field, IconButton, Select, Status, useDialogFocus } from "../../components/ui";
 
 type CredentialPreset = {
   label: string;
@@ -62,6 +62,11 @@ type CredentialManagerProps = {
 };
 
 export function CredentialManager({ workspaceId, onClose, onSaved, presentation = "panel" }: CredentialManagerProps) {
+  const panelRef = useDialogFocus<HTMLElement>({
+    active: presentation === "panel",
+    trapFocus: false,
+    onClose,
+  });
   const [credentials, setCredentials] = useState<CredentialSummary[]>([]);
   const [provider, setProvider] = useState<CredentialProvider>("GOOGLE");
   const [label, setLabel] = useState(credentialPresets.GOOGLE.label);
@@ -243,7 +248,14 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
     cred.isManaged ?? (cred.provider === "GOOGLE" && cred.label === "Google OAuth");
 
   return (
-    <section className={`credential-panel credential-panel--${presentation}`} aria-label="Credential manager">
+    <section
+      ref={panelRef}
+      className={`credential-panel credential-panel--${presentation}`}
+      aria-label="Credential manager"
+      role={presentation === "panel" ? "dialog" : "region"}
+      aria-modal={presentation === "panel" ? false : undefined}
+      tabIndex={presentation === "panel" ? -1 : undefined}
+    >
       <div className="credential-panel__heading">
         <div>
           <p className="section-label">CREDENTIALS</p>
