@@ -24,6 +24,7 @@ env:
 
 jobs:
   build:
+    name: Build and push staging images
     if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -46,7 +47,8 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      - name: Configure Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
       - name: Validate staging API origin
         env:
           NEXT_PUBLIC_API_URL: ${{ vars.STAGING_NEXT_PUBLIC_API_URL || 'http://103.140.249.73/api/v1' }}
@@ -55,7 +57,8 @@ jobs:
             http://*/api/v1|https://*/api/v1) ;;
             *) echo "STAGING_NEXT_PUBLIC_API_URL must end in /api/v1"; exit 1 ;;
           esac
-      - uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+      - name: Build and push API image
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           context: .
           file: apps/api/Dockerfile
@@ -63,7 +66,8 @@ jobs:
           tags: ghcr.io/${{ env.IMAGE_NAMESPACE }}/workflow-automation-api:${{ env.COMMIT_SHA }}
           cache-from: type=gha,scope=workflow-api
           cache-to: type=gha,mode=max,scope=workflow-api
-      - uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+      - name: Build and push Web image
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           context: .
           file: apps/web/Dockerfile
@@ -74,6 +78,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=workflow-web
 
   deploy:
+    name: Deploy staging
     needs: build
     if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
