@@ -23,6 +23,7 @@ The screenshots and current implementation show two separate `+ / −` control g
 ## In scope
 
 - Remove the default React Flow `Controls` component and unused import from the workflow editor.
+- Remove obsolete `.react-flow__controls` styles after the component is removed.
 - Keep the custom Canvas rail controls for fit, zoom, selected-node centering, and minimap visibility.
 - Add a browser regression assertion that the default React Flow controls are absent.
 - Correct stale UX2 evidence metadata to reference the amended base commit where necessary.

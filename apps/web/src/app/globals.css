@@ -122,9 +122,7 @@ button:focus-visible, summary:focus-visible { outline: 3px solid rgba(214, 255, 
 .canvas-navigation__minimap { border-color: var(--line); color: var(--ink); font-size: 9px; min-height: 30px; padding: 6px 8px; }
 .canvas-navigation__minimap:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--control-selected-border); color: var(--text-accent); }
 .react-flow__background { background: var(--canvas); }
-.react-flow__controls, .react-flow__minimap { box-shadow: 0 3px 13px rgba(30, 40, 75, 0.12); }
-.react-flow__controls-button { background: white; border-bottom-color: var(--line); color: #4c5873; }
-.react-flow__minimap { background: white; }
+.react-flow__minimap { background: white; box-shadow: 0 3px 13px rgba(30, 40, 75, 0.12); }
 .workflow-node { background: white; border: 1px solid #dde1eb; border-radius: 13px; box-shadow: 0 5px 16px rgba(30, 38, 67, 0.08); color: var(--ink); min-width: 218px; padding: 12px 54px 12px 14px; transition: box-shadow 140ms ease, transform 140ms ease, border-color 140ms ease; }
 .workflow-node:hover { box-shadow: 0 10px 25px rgba(42, 42, 93, 0.13); transform: translateY(-1px); }
 .workflow-node--selected { border-color: var(--accent-strong); box-shadow: 0 0 0 3px rgba(214, 255, 50, .24), 0 10px 25px rgba(8, 10, 9, .15); }
@@ -324,14 +322,12 @@ button:focus-visible, summary:focus-visible { outline: 3px solid rgba(214, 255, 
 [data-theme="dark"] .palette-group > header h3 { color: var(--ink); }
 [data-theme="dark"] .palette-empty button,
 [data-theme="dark"] .expression-suggestions button { background: var(--relay-lime-soft); border-color: #607b1d; color: var(--accent-strong); }
-[data-theme="dark"] .react-flow__controls-button,
 [data-theme="dark"] .react-flow__minimap,
 [data-theme="dark"] .workflow-node,
 [data-theme="dark"] .canvas-status,
 [data-theme="dark"] .validation-summary { background: var(--panel); border-color: var(--line); color: var(--ink); }
 [data-theme="dark"] .canvas-navigation { background: color-mix(in srgb, var(--panel) 94%, transparent); border-color: var(--line); }
 [data-theme="dark"] .canvas-navigation__button, [data-theme="dark"] .canvas-navigation__minimap { color: var(--ink); }
-[data-theme="dark"] .react-flow__controls-button { color: var(--muted); }
 [data-theme="dark"] .workflow-node { box-shadow: var(--shadow-soft); }
 [data-theme="dark"] .workflow-node__provider-icon,
 [data-theme="dark"] .workflow-node__badge { background: var(--surface-dark-raised); border-color: var(--surface-dark-border); color: var(--muted-on-dark); }

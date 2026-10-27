@@ -32,6 +32,7 @@
 ## Files changed
 
 - `apps/web/src/features/workflow/workflow-editor.tsx`
+- `apps/web/src/app/globals.css`
 - `e2e/editor-onboarding.spec.ts`
 - `.agent/tasks/2026-10-27-remove-duplicate-canvas-controls.md`
 
