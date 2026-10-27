@@ -165,6 +165,15 @@ test("application deploy does not refresh database or Redis images", () => {
   assert.doesNotMatch(deployScript, /\bpull\s*\n/);
 });
 
+test("production deployment backs up PostgreSQL before migrations", () => {
+  const backupIndex = deployScript.indexOf("backup-postgres.sh");
+  const migrationIndex = deployScript.indexOf("up -d migrate");
+  assert.ok(backupIndex >= 0, "deploy must invoke the guarded PostgreSQL backup");
+  assert.ok(migrationIndex > backupIndex, "backup must precede the migration service");
+  assert.match(deployScript, /up -d db redis/);
+  assert.match(deployScript, /ENV_FILE=/);
+});
+
 test("production reverse proxy uses the two-domain layout", () => {
   assert.match(nginxTemplate, /server_name \$\{APP_DOMAIN\};/);
   assert.match(nginxTemplate, /server_name \$\{API_DOMAIN\};/);

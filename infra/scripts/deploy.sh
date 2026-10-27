@@ -42,7 +42,9 @@ if [ -n "$web_container_id" ]; then
 fi
 
 docker compose --env-file "$env_file" -f "$compose_file" pull migrate api worker web
-docker compose --env-file "$env_file" -f "$compose_file" up -d db redis migrate
+docker compose --env-file "$env_file" -f "$compose_file" up -d db redis
+APP_DIR="$app_dir" ENV_FILE="$env_file" "$app_dir/infra/scripts/backup-postgres.sh"
+docker compose --env-file "$env_file" -f "$compose_file" up -d migrate
 docker compose --env-file "$env_file" -f "$compose_file" up -d api worker web
 
 APP_DIR="$app_dir" "$app_dir/infra/scripts/healthcheck.sh"

@@ -73,7 +73,7 @@ IMAGE_TAG=<40-character-commit-sha> \
   /opt/workflow-automation/infra/scripts/deploy.sh
 ```
 
-The deploy script runs Prisma migrations before starting the API, worker, and web services. It does not enable any workflow or call a real provider.
+The deploy script starts the database/Redis, creates a restricted PostgreSQL backup, then runs Prisma migrations before starting the API, worker, and web services. A failed backup stops the release before migration. It does not enable any workflow or call a real provider.
 
 Before pulling a release, the deploy scripts require at least 2 GiB of free space on the application filesystem (`MIN_FREE_KB` can override the threshold). After starting the stack they check liveness, dependency readiness, and the web response. A failed preflight or smoke check stops the deployment before image cleanup.
 
@@ -146,6 +146,8 @@ deploying the containers.
 ## Production gate before Go Live
 
 Use the complete status/evidence split in [`17-release-go-no-go.md`](./17-release-go-no-go.md). The repository can prove contract integrity, but it cannot prove DNS, TLS, recoverability, provider credentials, or a real external side effect without operator/owner evidence.
+
+Follow [`18-operator-qualification-runbook.md`](./18-operator-qualification-runbook.md) for the ordered operator procedure and evidence fields.
 
 1. HTTPS works for both domains and CORS uses the exact app origin.
 2. `/api/v1/health` returns OK and `/api/v1/health/ready` reports PostgreSQL and Redis ready.

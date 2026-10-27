@@ -44,11 +44,11 @@ calling providers.
 
 ### Slice 2 — operator qualification
 
-- [ ] Runbook explicitly sequences backup before migration, isolated restore,
+- [x] Runbook explicitly sequences backup before migration, isolated restore,
   migration compatibility, immutable rollback, health smoke, and approval.
-- [ ] Evidence fields distinguish automated output from operator/owner input and
+- [x] Evidence fields distinguish automated output from operator/owner input and
   never request secret values in reports.
-- [ ] Deployment protection requires a protected `production` environment with
+- [x] Deployment protection requires a protected `production` environment with
   human approval before deploy job execution.
 
 ### Slice 3 — release candidate handoff

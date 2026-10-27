@@ -90,3 +90,6 @@ Release is blocked when any of these is true:
 **CONDITIONAL GO for repository readiness; NO-GO for production rollout until
 operator evidence and owner input above are complete.** This repository status
 does not authorize deployment or real provider calls.
+
+The ordered operator procedure is documented in
+[`18-operator-qualification-runbook.md`](./18-operator-qualification-runbook.md).
