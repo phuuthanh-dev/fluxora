@@ -19,6 +19,7 @@ const apiPackage = JSON.parse(readFileSync(resolve(root, "apps/api/package.json"
 const webDockerfile = readFileSync(resolve(root, "apps/web/Dockerfile"), "utf8");
 const compose = readFileSync(resolve(root, "infra/docker-compose.production.yml"), "utf8");
 const stagingCompose = readFileSync(resolve(root, "infra/docker-compose.staging.yml"), "utf8");
+const stagingNginx = readFileSync(resolve(root, "infra/nginx/staging-ip.conf"), "utf8");
 const workflow = readFileSync(resolve(root, ".github/workflows/deploy-production.yml"), "utf8");
 const stagingWorkflow = readFileSync(resolve(root, ".github/workflows/deploy-staging.yml"), "utf8");
 const qualityWorkflow = readFileSync(resolve(root, ".github/workflows/quality.yml"), "utf8");
@@ -56,9 +57,11 @@ test("production deployment contract cannot fall back to latest", () => {
   assert.match(compose, /IMAGE_TAG:\?IMAGE_TAG is required/);
   assert.match(stagingCompose, /IMAGE_TAG:\?IMAGE_TAG is required/);
   assert.doesNotMatch(stagingCompose, /build:/);
-  assert.match(stagingWorkflow, /workflow_run:/);
-  assert.match(stagingWorkflow, /workflow_run\.conclusion == 'success'/);
+  assert.match(stagingWorkflow, /workflow_dispatch:/);
+  assert.doesNotMatch(stagingWorkflow, /workflow_run/);
   assert.match(stagingWorkflow, /deploy-staging\.sh/);
+  assert.match(stagingCompose, /127\.0\.0\.1:\$\{STAGING_API_HOST_PORT:-3101\}:3001/);
+  assert.match(stagingCompose, /127\.0\.0\.1:\$\{STAGING_WEB_HOST_PORT:-3100\}:3000/);
   assert.match(apiDockerfile, /org\.opencontainers\.image\.source="https:\/\/github\.com\/phuuthanh-dev\/workflow-automation"/);
   assert.match(webDockerfile, /org\.opencontainers\.image\.source="https:\/\/github\.com\/phuuthanh-dev\/workflow-automation"/);
   assert.match(envExample, /^IMAGE_TAG=$/m);
@@ -127,6 +130,9 @@ test("verification and operational retention contracts avoid redundant work", ()
   assert.match(rootPackage.scripts.verify, /build:apps/);
   assert.match(deployScript, /check-disk-space\.sh/);
   assert.match(deployStagingScript, /check-disk-space\.sh/);
+  assert.match(deployStagingScript, /STAGING_API_HOST_PORT:-3101/);
+  assert.match(deployStagingScript, /STAGING_WEB_HOST_PORT:-3100/);
+  assert.match(deployStagingScript, /STAGING_API_HEALTH_URL/);
   assert.match(healthcheckScript, /health\/ready/);
   assert.match(retentionWorkflow, /packages: write/);
   assert.match(retentionWorkflow, /prune-ghcr-versions\.sh/);
@@ -176,4 +182,11 @@ test("production reverse proxy uses the two-domain layout", () => {
   assert.match(envExample, /^NEXT_PUBLIC_API_URL=https:\/\/api\.fluxora\.io\.vn\/api\/v1$/m);
   assert.match(envExample, /^WEB_ORIGIN=https:\/\/fluxora\.io\.vn$/m);
   assert.match(envExample, /^GOOGLE_AUTH_REDIRECT_URI=https:\/\/api\.fluxora\.io\.vn\/api\/v1\/auth\/google\/callback$/m);
+});
+
+test("staging reverse proxy stays isolated from production host ports", () => {
+  assert.match(stagingNginx, /proxy_pass http:\/\/127\.0\.0\.1:3101;/);
+  assert.match(stagingNginx, /proxy_pass http:\/\/127\.0\.0\.1:3100;/);
+  assert.doesNotMatch(stagingNginx, /proxy_pass http:\/\/127\.0\.0\.1:3001;/);
+  assert.doesNotMatch(stagingNginx, /proxy_pass http:\/\/127\.0\.0\.1:3000;/);
 });
