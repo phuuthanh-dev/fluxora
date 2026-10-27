@@ -90,7 +90,7 @@ occupies one app card in the top-level library.
   separate vertical slices. The current GitHub slices implement `GitHub → Create
   issue`, `GitHub → Add label`, and `GitHub → Add comment`, with a
   workspace-owned encrypted connector credential. The `GitHub → Issue opened`
-  `GitHub → Pull request opened`, and `GitHub → Push` triggers verify signed webhook payloads with the connector's encrypted
+  `GitHub → Pull request opened`, `GitHub → Push`, and `GitHub → Workflow run completed` triggers verify signed webhook payloads with the connector's encrypted
   `webhookSecret`. Create issue also has an
   optional connector-level idempotency guard. Merge pull request remains an
   explicitly destructive live operation behind the existing run confirmation.

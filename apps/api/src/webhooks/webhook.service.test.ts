@@ -144,3 +144,36 @@ test("GitHub push webhook accepts event-only delivery without an action field", 
   assert.deepEqual(result, { executionId: "execution-push-1" });
   assert.equal(dispatchedExecutionId, "execution-push-1");
 });
+
+test("GitHub workflow-run completed webhook verifies its action and dispatches the payload", async () => {
+  const body = Buffer.from('{"action":"completed","workflow_run":{"id":123,"conclusion":"success"}}');
+  const signature = `sha256=${createHmac("sha256", "github-webhook-secret").update(body).digest("hex")}`;
+  let dispatchedExecutionId = "";
+  const service = new WebhookService(
+    {
+      webhookEndpoint: {
+        findUnique: async () => ({
+          id: "endpoint-workflow-1",
+          isActive: true,
+          secretHash: null,
+          workflow: { workspaceId: "workspace-1", isActive: true, archivedAt: null },
+          workflowVersion: { graph: { nodes: [{ id: "github-workflow", type: "trigger.github.workflow-run-completed", position: { x: 0, y: 0 }, config: { credentialId: "github-credential", event: "workflow_run", action: "completed" } }], edges: [] } },
+          workflowVersionId: "version-workflow-1",
+        }),
+      },
+    } as never,
+    { createScheduledExecution: async () => ({ id: "execution-workflow-1" }) } as never,
+    { dispatch: async ({ executionId }: { executionId: string }) => { dispatchedExecutionId = executionId; } } as never,
+    { readForExecution: async () => ({ webhookSecret: "github-webhook-secret" }) } as never,
+  );
+
+  const result = await service.receive(
+    "github-workflow-run",
+    undefined,
+    JSON.parse(body.toString()) as Record<string, unknown>,
+    undefined,
+    { githubEvent: "workflow_run", githubSignature: signature, rawBody: body },
+  );
+  assert.deepEqual(result, { executionId: "execution-workflow-1" });
+  assert.equal(dispatchedExecutionId, "execution-workflow-1");
+});

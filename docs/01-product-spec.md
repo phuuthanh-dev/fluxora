@@ -36,6 +36,7 @@ The Steam profile is public. The Steam node returns every field available throug
 | Trigger | GitHub Issue opened | Receive a signed GitHub `issues` webhook with `action: opened` using a workspace-owned GitHub connector secret. |
 | Trigger | GitHub Pull request opened | Receive a signed GitHub `pull_request` webhook with `action: opened` using a workspace-owned GitHub connector secret. |
 | Trigger | GitHub Push | Receive a signed GitHub `push` webhook using a workspace-owned GitHub connector secret. |
+| Trigger | GitHub Workflow run completed | Receive a signed GitHub `workflow_run` webhook with `action: completed` using a workspace-owned GitHub connector secret. |
 | Condition | If/Else | Comparison operators and true/false paths. |
 | Condition | Switch | Multiple cases and a default path. |
 | Action | Steam Account Snapshot | Profile, current game, owned/recent games, playtime, and optional per-game achievements. |
@@ -128,6 +129,7 @@ Action nodes support timeout, retry with exponential backoff, and an error edge.
 - GitHub `Issue opened` verifies `X-Hub-Signature-256` against the raw request body using `webhookSecret` from the selected workspace GitHub connector credential, filters `issues.opened`, and passes the verified payload into the workflow. GitHub account-login OAuth is never used for webhook verification.
 - GitHub `Pull request opened` uses the same signed raw-body webhook path and workspace-owned `webhookSecret`, filters `pull_request.opened`, and passes the verified payload into the workflow. GitHub account-login OAuth is never used for webhook verification.
 - GitHub `Push` uses the same signed raw-body webhook path and workspace-owned `webhookSecret`, filters the `push` event without requiring an action field, and passes the verified payload into the workflow. GitHub account-login OAuth is never used for webhook verification.
+- GitHub `Workflow run completed` uses the same signed raw-body webhook path and workspace-owned `webhookSecret`, filters `workflow_run.completed`, and passes the verified payload into the workflow. GitHub account-login OAuth is never used for webhook verification.
 - Google Chat MVP: incoming webhook URL credential.
 - Generic HTTP: API key, bearer token, basic auth, or headers.
 - All credential values are encrypted at rest and never returned to the client after save.

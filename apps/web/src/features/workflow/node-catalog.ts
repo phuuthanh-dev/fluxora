@@ -222,6 +222,23 @@ export const nodeCatalog: NodeDefinition[] = [
     ],
   },
   {
+    type: "trigger.github.workflow-run-completed",
+    label: "GitHub workflow run completed",
+    description: "Start when GitHub sends a completed workflow_run webhook event.",
+    category: "trigger",
+    libraryGroup: "start",
+    appId: "github",
+    operationId: "workflow-run-completed",
+    operationLabel: "Workflow run completed",
+    operationKind: "trigger",
+    icon: "github",
+    available: true,
+    defaultConfig: { path: "github-workflow-run-completed", credentialId: "", event: "workflow_run", action: "completed" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "GitHub connector credential", providers: ["GITHUB"] },
+    ],
+  },
+  {
     type: "condition.if",
     label: "If / else",
     description: "Route using a condition.",

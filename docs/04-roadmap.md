@@ -38,6 +38,7 @@ phase here may already have a locally verified foundation.
 - GitHub Issue opened is the first provider-specific trigger; pull-request, push, and workflow-run triggers remain separately qualified slices.
 - GitHub Pull request opened is the second provider-specific trigger; push and workflow-run triggers remain separately qualified slices.
 - GitHub Push is the third provider-specific trigger; workflow-run triggers remain separately qualified slices.
+- GitHub Workflow run completed is the fourth provider-specific trigger; additional GitHub triggers and operations remain separately qualified slices.
 - Full Google Chat OAuth mode.
 - Workspace members, roles, and credential sharing.
 - Drive upload/download enhancements.

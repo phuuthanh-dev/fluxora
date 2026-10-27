@@ -98,7 +98,7 @@ export class WebhookService {
 export type GitHubEventHeaders = { githubEvent?: string; githubSignature?: string; rawBody?: Buffer };
 
 function githubWebhookTrigger(graph: ReturnType<typeof parseWorkflowGraph>) {
-  return graph.nodes.find((node) => node.type === "trigger.github.issue-opened" || node.type === "trigger.github.pull-request-opened" || node.type === "trigger.github.push");
+  return graph.nodes.find((node) => node.type === "trigger.github.issue-opened" || node.type === "trigger.github.pull-request-opened" || node.type === "trigger.github.push" || node.type === "trigger.github.workflow-run-completed");
 }
 
 function readCredentialId(config: Record<string, unknown>) {

@@ -9,6 +9,7 @@ export const workflowNodeTypes = [
   "trigger.github.issue-opened",
   "trigger.github.pull-request-opened",
   "trigger.github.push",
+  "trigger.github.workflow-run-completed",
   "condition.if",
   "condition.switch",
   "action.steam.account-snapshot",

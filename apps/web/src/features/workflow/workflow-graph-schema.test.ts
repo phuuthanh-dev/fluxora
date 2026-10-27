@@ -72,4 +72,8 @@ test("GitHub Create Issue is executable with a separate connector credential", (
   assert.ok(githubPushTrigger);
   assert.equal(githubPushTrigger.available, true);
   assert.deepEqual(githubPushTrigger.defaultConfig, { path: "github-push", credentialId: "", event: "push", action: "" });
+  const githubWorkflowRunTrigger = getNodeDefinition("trigger.github.workflow-run-completed");
+  assert.ok(githubWorkflowRunTrigger);
+  assert.equal(githubWorkflowRunTrigger.available, true);
+  assert.deepEqual(githubWorkflowRunTrigger.defaultConfig, { path: "github-workflow-run-completed", credentialId: "", event: "workflow_run", action: "completed" });
 });

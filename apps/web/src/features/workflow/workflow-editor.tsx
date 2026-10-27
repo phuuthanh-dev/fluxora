@@ -73,7 +73,7 @@ function readConfigText(config: Record<string, unknown>, key: string) {
 }
 
 function isGitHubWebhookTrigger(nodeType: string) {
-  return nodeType === "trigger.github.issue-opened" || nodeType === "trigger.github.pull-request-opened" || nodeType === "trigger.github.push";
+  return nodeType === "trigger.github.issue-opened" || nodeType === "trigger.github.pull-request-opened" || nodeType === "trigger.github.push" || nodeType === "trigger.github.workflow-run-completed";
 }
 
 function providerLabel(provider: CredentialProvider) {
