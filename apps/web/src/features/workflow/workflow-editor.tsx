@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CirclePlay,
+  Crosshair,
   Download,
   FileUp,
   History,
@@ -22,6 +23,8 @@ import {
   LayoutDashboard,
   KeyRound,
   LoaderCircle,
+  Maximize2,
+  Minus,
   Play,
   Plus,
   RotateCcw,
@@ -608,6 +611,7 @@ export function WorkflowEditor() {
   const inspectorTriggerRef = useRef<HTMLButtonElement>(null);
   const [notice, setNotice] = useState("Loading your workflow…");
   const [paletteOpen, setPaletteOpen] = useState(true);
+  const [minimapOpen, setMinimapOpen] = useState(true);
   const [inspectorDrawerOpen, setInspectorDrawerOpen] = useState(false);
   const [workflow, setWorkflow] = useState<ApiWorkflow | null>(null);
   const [execution, setExecution] = useState<ApiExecution | null>(null);
@@ -807,8 +811,29 @@ export function WorkflowEditor() {
 
   const arrangeGraph = () => {
     autoLayout();
-    requestAnimationFrame(() => flowRef.current?.fitView({ duration: 260, padding: 0.18 }));
+    requestAnimationFrame(() => fitCanvas(false));
     setNotice("Workflow arranged from trigger to actions.");
+  };
+
+  const fitCanvas = (announce = true) => {
+    flowRef.current?.fitView({ duration: 260, padding: 0.18 });
+    if (announce) setNotice("Canvas fitted to the workflow.");
+  };
+
+  const zoomCanvas = (direction: "in" | "out") => {
+    if (direction === "in") flowRef.current?.zoomIn({ duration: 180 });
+    else flowRef.current?.zoomOut({ duration: 180 });
+    setNotice(direction === "in" ? "Canvas zoomed in." : "Canvas zoomed out.");
+  };
+
+  const centerSelectedNode = () => {
+    const selectedNode = selectedNodeId ? nodes.find((node) => node.id === selectedNodeId) : null;
+    if (!selectedNode || !flowRef.current) return;
+    const measured = selectedNode.measured;
+    const width = measured?.width ?? 218;
+    const height = measured?.height ?? 110;
+    flowRef.current.setCenter(selectedNode.position.x + width / 2, selectedNode.position.y + height / 2, { duration: 260, zoom: 1 });
+    setNotice(`Centered on ${selectedNode.data.label}.`);
   };
 
   const openHistory = async () => {
@@ -1180,6 +1205,14 @@ export function WorkflowEditor() {
         <section className={`canvas-region${isConnecting ? " canvas-region--connecting" : ""}`} ref={wrapperRef} onDrop={onDrop} onDragOver={(event) => event.preventDefault()}>
           {!paletteOpen && <Button ref={paletteReopenRef} className="palette-reopen" variant="secondary" aria-controls="node-library" aria-expanded="false" onClick={() => { setPaletteOpen(true); requestAnimationFrame(() => nodeLibraryRef.current?.focusSearch()); }}><Plus size={15} aria-hidden="true" />Add node</Button>}
           {isNarrowEditorLayout && <button ref={inspectorTriggerRef} className="inspector-reopen" type="button" aria-controls="node-inspector" aria-expanded={isInspectorDrawerOpen} onClick={() => setInspectorDrawerOpen(true)}><Layers3 size={15} /> Inspector</button>}
+          <div className="canvas-navigation" role="group" aria-label="Canvas navigation">
+            <span className="canvas-navigation__label">Canvas</span>
+            <IconButton className="canvas-navigation__button" label="Fit canvas" onClick={() => fitCanvas()}><Maximize2 size={15} aria-hidden="true" /></IconButton>
+            <IconButton className="canvas-navigation__button" label="Zoom out" onClick={() => zoomCanvas("out")}><Minus size={15} aria-hidden="true" /></IconButton>
+            <IconButton className="canvas-navigation__button" label="Zoom in" onClick={() => zoomCanvas("in")}><Plus size={15} aria-hidden="true" /></IconButton>
+            <IconButton className="canvas-navigation__button" label="Center selected node" onClick={centerSelectedNode} disabled={!selectedNodeId}><Crosshair size={15} aria-hidden="true" /></IconButton>
+            <Button className="canvas-navigation__minimap" variant="ghost" aria-pressed={minimapOpen} onClick={() => setMinimapOpen((open) => !open)}>{minimapOpen ? "Hide minimap" : "Show minimap"}</Button>
+          </div>
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -1199,7 +1232,7 @@ export function WorkflowEditor() {
             defaultEdgeOptions={{ animated: true }}
           >
             <Background gap={18} size={1} />
-            <MiniMap zoomable pannable />
+            {minimapOpen && <MiniMap zoomable pannable />}
             <Controls showInteractive={false} />
           </ReactFlow>
           <div className="canvas-status" role="status" aria-live="polite">

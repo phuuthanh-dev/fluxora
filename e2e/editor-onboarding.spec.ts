@@ -36,6 +36,18 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(page.getByLabel("Manage actions")).toBeVisible();
   await expect(page.getByRole("button", { name: "Run test" })).toBeVisible();
 
+  const canvasNavigation = page.getByRole("group", { name: "Canvas navigation" });
+  await expect(canvasNavigation).toBeVisible();
+  await expect(canvasNavigation.getByRole("button", { name: "Fit canvas" })).toBeVisible();
+  await expect(canvasNavigation.getByRole("button", { name: "Zoom out" })).toBeVisible();
+  await expect(canvasNavigation.getByRole("button", { name: "Zoom in" })).toBeVisible();
+  await expect(canvasNavigation.getByRole("button", { name: "Center selected node" })).toBeDisabled();
+  await expect(page.locator(".react-flow__minimap")).toBeVisible();
+  await canvasNavigation.getByRole("button", { name: "Hide minimap" }).click();
+  await expect(page.locator(".react-flow__minimap")).toHaveCount(0);
+  await canvasNavigation.getByRole("button", { name: "Show minimap" }).click();
+  await expect(page.locator(".react-flow__minimap")).toBeVisible();
+
   const relayTokens = await page.evaluate(() => {
     const styles = getComputedStyle(document.documentElement);
     return {
@@ -82,6 +94,8 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
 
   await expect(page.getByRole("heading", { name: "Add a step" })).toBeVisible();
   await page.locator(".react-flow__node").filter({ hasText: "Get account snapshot" }).click();
+  await expect(canvasNavigation.getByRole("button", { name: "Center selected node" })).toBeEnabled();
+  await canvasNavigation.getByRole("button", { name: "Center selected node" }).click();
   await expect(page.getByRole("region", { name: "Setup" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Configuration" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Test & debug" })).toBeVisible();

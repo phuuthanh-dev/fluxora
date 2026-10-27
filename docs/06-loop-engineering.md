@@ -91,6 +91,7 @@ CI runs the same gate for every pull request and push to `main`.
 | L11.2 | Runtime Qualification v1 | Complete locally | Redis-backed worker qualification, redacted execution timeline/diagnostic export, guarded database recovery scripts, read-only release preflight, fixed-target health smoke, and a factual Go/No-Go contract are covered by focused tests and the full repository gate. Production remains operator- and owner-gated. |
 | L11.3 | Production Release Candidate v1 | Complete locally | Tracked-file secret scanning, non-printing production env validation, high-severity dependency audit, backup-before-migration deployment contract, protected-environment requirement, and the ordered operator qualification runbook are implemented. The branch is review-ready; VPS evidence and owner approval remain outstanding. |
 | L11.4 | Credential dependency clarity | Complete locally | Credential actions now show current draft/published workflow references and active execution references before rename, rotation, or deletion. The owner-scoped API never returns graph or secret data; service, browser, and full quality-gate checks passed. |
+| L11.5 | Dense-canvas navigation and minimap | Complete locally | The editor exposes accessible fit, zoom, selected-node centering, and minimap toggle controls. The graph model, node/edge semantics, and React Flow interaction remain unchanged; focused browser coverage and the full quality gate passed. |
 
 ## External-boundary rule
 
