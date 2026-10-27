@@ -1,6 +1,9 @@
 name: Deploy production
 
 on:
+  workflow_run:
+    workflows: ["Quality gate"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       commit_sha:
@@ -17,10 +20,12 @@ concurrency:
 
 env:
   IMAGE_NAMESPACE: ${{ github.repository_owner }}
+  COMMIT_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.commit_sha || github.event.workflow_run.head_sha }}
 
 jobs:
   build:
     name: Build and push production images
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -29,16 +34,16 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: ${{ inputs.commit_sha }}
+          ref: ${{ env.COMMIT_SHA }}
       - name: Validate immutable commit
         env:
-          IMAGE_TAG: ${{ inputs.commit_sha }}
+          IMAGE_TAG: ${{ env.COMMIT_SHA }}
         run: |
           case "$IMAGE_TAG" in
-            ''|*[!0-9a-f]*) echo "commit_sha must be a 40-character lowercase commit SHA"; exit 1 ;;
+            ''|*[!0-9a-f]*) echo "COMMIT_SHA must be a 40-character lowercase commit SHA"; exit 1 ;;
           esac
-          test "${#IMAGE_TAG}" -eq 40 || { echo "commit_sha must be a 40-character lowercase commit SHA"; exit 1; }
-          test "$(git rev-parse HEAD)" = "$IMAGE_TAG" || { echo "checked out commit does not match commit_sha"; exit 1; }
+          test "${#IMAGE_TAG}" -eq 40 || { echo "COMMIT_SHA must be a 40-character lowercase commit SHA"; exit 1; }
+          test "$(git rev-parse HEAD)" = "$IMAGE_TAG" || { echo "checked out commit does not match COMMIT_SHA"; exit 1; }
       - uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           registry: ghcr.io
@@ -60,7 +65,7 @@ jobs:
           context: .
           file: apps/api/Dockerfile
           push: true
-          tags: ghcr.io/${{ env.IMAGE_NAMESPACE }}/workflow-automation-api:${{ inputs.commit_sha }}
+          tags: ghcr.io/${{ env.IMAGE_NAMESPACE }}/workflow-automation-api:${{ env.COMMIT_SHA }}
           cache-from: type=gha,scope=workflow-api
           cache-to: type=gha,mode=max,scope=workflow-api
       - name: Build and push Web image
@@ -70,13 +75,14 @@ jobs:
           file: apps/web/Dockerfile
           push: true
           build-args: NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || secrets.NEXT_PUBLIC_API_URL }}
-          tags: ghcr.io/${{ env.IMAGE_NAMESPACE }}/workflow-automation-web:${{ inputs.commit_sha }}
+          tags: ghcr.io/${{ env.IMAGE_NAMESPACE }}/workflow-automation-web:${{ env.COMMIT_SHA }}
           cache-from: type=gha,scope=workflow-web
           cache-to: type=gha,mode=max,scope=workflow-web
 
   deploy:
     name: Deploy production
     needs: build
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 15
@@ -85,7 +91,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: ${{ inputs.commit_sha }}
+          ref: ${{ env.COMMIT_SHA }}
       - name: Copy deployment files
         uses: appleboy/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634 # v0.1.7
         with:
@@ -97,7 +103,7 @@ jobs:
       - name: Deploy immutable image tag
         uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
         env:
-          IMAGE_TAG: ${{ inputs.commit_sha }}
+          IMAGE_TAG: ${{ env.COMMIT_SHA }}
           GHCR_PULL_USERNAME: ${{ secrets.GHCR_PULL_USERNAME }}
           GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
         with:
