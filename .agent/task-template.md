@@ -12,6 +12,15 @@
 
 State one user-visible vertical slice. It must be small enough to review in one pull request.
 
+## Target slice IDs
+
+- Use one approved ID from `docs/19-agent-state.md`, such as `UX-1` or `OPS-1`.
+- Use an `Lx` ID only when reopening a completed ledger slice with the justification below.
+
+## Reopen justification
+
+Remove this section when the task targets an unfinished slice. If reopening a completed slice, state the concrete regression, security finding, or changed requirement and link the evidence.
+
 ## In scope
 
 - Describe the allowed implementation surface.

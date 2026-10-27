@@ -33,7 +33,9 @@
     "release:check": "node --test scripts/release-preflight.test.mjs && npm run release:preflight",
     "security:check": "node --test scripts/release-security.test.mjs && node scripts/scan-tracked-secrets.mjs",
     "production:config:check": "node --test scripts/release-security.test.mjs",
-    "harness:check": "npm run codegraph:check && npm run deployment:check && npm run release:check && npm run security:check",
+    "agent:state": "node scripts/agent-state-check.mjs",
+    "agent:task:check": "node scripts/agent-state-check.mjs --task",
+    "harness:check": "npm run agent:state && node --test scripts/agent-state-check.test.mjs && npm run codegraph:check && npm run deployment:check && npm run release:check && npm run security:check",
     "harness:report": "node scripts/verify-agent-report.mjs",
     "verify": "npm run harness:check && npm run db:validate && npm run db:generate && npm run build:contracts && npm run test:workspaces && npm run lint:workspaces && npm run typecheck:workspaces && npm run build:apps && npm run test:e2e"
   },

@@ -17,12 +17,14 @@ The source of truth is, in order: product specification, architecture, code grap
 
 ## Cost-aware delivery loop
 
-1. **Plan once, save it.** The planner creates one `.agent/task-*.md` from the task template and points to existing docs instead of pasting repository context repeatedly.
-2. **Implement one vertical slice.** The implementer works in an isolated branch/worktree and commits only the contract scope.
-3. **Generate factual evidence.** The implementer runs the specified commands, updates the code graph if source imports change, and fills `.agent/report-template.md`.
-4. **Verify mechanically.** Run `npm run harness:check`, then the narrow tests, then `npm run verify` before merge. CI repeats the quality gate.
-5. **Review artifacts, not prose.** The reviewer reads the task contract, `git diff <base>...<commit>`, test receipts, and CI. For high-risk changes, the reviewer reruns the critical checks independently.
-6. **Feed back by contract.** A failed criterion becomes a concise new task or review comment; it does not become an open-ended agent conversation.
+1. **Check state first.** Run `npm run agent:state`; use only a non-closed ID from `docs/19-agent-state.md`. This prevents repeating completed slices from stale chat context.
+2. **Plan once, save it.** The planner creates one `.agent/task-*.md` from the task template, declares target IDs, and points to existing docs instead of pasting repository context repeatedly.
+3. **Validate the contract.** Run `npm run agent:task:check -- path/to/task.md` before implementation. Reopening a completed slice requires concrete evidence.
+4. **Implement one vertical slice.** The implementer works in an isolated branch/worktree and commits only the contract scope.
+5. **Generate factual evidence.** The implementer runs the specified commands, updates the code graph if source imports change, and fills `.agent/report-template.md`.
+6. **Verify mechanically.** Run `npm run harness:check`, then the narrow tests, then `npm run verify` before merge. CI repeats the quality gate.
+7. **Review artifacts, not prose.** The reviewer reads the task contract, `git diff <base>...<commit>`, test receipts, and CI. For high-risk changes, the reviewer reruns the critical checks independently.
+8. **Feed back by contract.** A failed criterion becomes a concise new task or review comment; it does not become an open-ended agent conversation.
 
 ## Model allocation
 

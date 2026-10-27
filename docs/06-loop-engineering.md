@@ -2,6 +2,10 @@
 
 This repository is developed through small, verified delivery loops. A loop is complete only when its acceptance criteria, automated checks, and documentation status agree.
 
+The compact next-slice authority is [`19-agent-state.md`](./19-agent-state.md).
+This file remains the detailed completion ledger; agents must not infer the next
+goal from conversation history alone.
+
 ## Loop sequence
 
 1. **Select one vertical slice.** It must have a user-visible outcome and no hidden dependency on an unfinished later slice.
