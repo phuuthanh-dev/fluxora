@@ -8,7 +8,7 @@
 ## Commit and scope
 
 - Base commit: `54dc235`
-- Implementation commit(s): `583266e`
+- Implementation commit(s): `606000e`
 - Branch: `codex/production-release-candidate-v1`
 - Scope respected: `yes` — only editor navigation UI, browser coverage, and repository loop documentation changed.
 

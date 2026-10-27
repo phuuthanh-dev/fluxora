@@ -31,7 +31,7 @@ security finding, or changed requirement.
 | Audited main commit | `086fc7356ca45c098874deecd587fe3f207d8130` |
 | Release PR | `#27` — merged |
 | Quality gate | Passed on current branch: 127 API, 18 web, 29 Playwright; 0 failed, 0 skipped |
-| Source tree | Current branch contains committed `UX-2` slice `583266e` on top of the audited release candidate |
+| Source tree | Current branch contains committed `UX-2` navigation plus duplicate-control cleanup `6e243b7` on top of the audited release candidate |
 | Uncommitted source changes | None after focused commit |
 
 ## Next approved slices
