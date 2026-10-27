@@ -28,10 +28,10 @@ security finding, or changed requirement.
 
 | Field | Value |
 |---|---|
-| Audited main commit | `4ca71df1e694558bcb3505d2ed18b33cbf91d2d3` |
+| Audited main commit | `e61a07512a12657f9935014545d76d02029f382a` |
 | Release PR | `#27` — merged |
-| Quality gate | Passed on current branch: 145 API, 19 web, 29 Playwright; 0 failed, 0 skipped |
-| Source tree | Current branch contains the GitHub Create Issue/idempotency, Add Label, Add Comment, Merge Pull Request operations, and the signed GitHub Issue opened trigger |
+| Quality gate | Passed on current branch: 146 API, 19 web, 29 Playwright; 0 failed, 0 skipped |
+| Source tree | Current branch contains the GitHub Create Issue/idempotency, Add Label, Add Comment, Merge Pull Request operations, and the signed GitHub Issue opened and Pull request opened triggers |
 | Uncommitted source changes | None after implementation commit; handoff state/report updates are recorded separately |
 
 ## Next approved slices
@@ -44,7 +44,7 @@ one of these IDs or explicitly reopen a completed ledger slice.
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
 | `LIVE-1` | Validate one explicitly approved real Steam → Google Chat run plus configured OAuth callbacks | owner-input-required | Requires user credentials and explicit external-side-effect approval |
 | `OPS-2` | Add saved execution triage views and retention visibility | planned | Must not expose secrets or provider URLs |
-| `P2-1` | Extend the GitHub connector beyond Create Issue with the next approved operation | planned | Create Issue, Add Label, Add Comment, Merge Pull Request, and Issue opened trigger now have separate executable nodes with shared workspace-owned credentials, mock/live transport, readiness, safe error classification, signed raw-body verification, event filtering, and Create Issue idempotency coverage; remaining GitHub triggers and further operations still require an explicit scope choice and owner-approved provider smoke |
+| `P2-1` | Extend the GitHub connector beyond Create Issue with the next approved operation | planned | Create Issue, Add Label, Add Comment, Merge Pull Request, Issue opened trigger, and Pull request opened trigger now have separate executable nodes with shared workspace-owned credentials, mock/live transport, readiness, safe error classification, signed raw-body verification, event filtering, and Create Issue idempotency coverage; remaining GitHub triggers and further operations still require an explicit scope choice and owner-approved provider smoke |
 
 ## Closed boundary
 
