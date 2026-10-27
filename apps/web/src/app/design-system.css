@@ -42,6 +42,13 @@
   --control-selected-text: #f3f6ec;
   --provider-tile: #f7f8fb;
   --provider-tile-border: #d8e0d5;
+  --execution-banner-bg: #efffc4;
+  --execution-banner-border: #b8ed00;
+  --execution-banner-fg: #101410;
+  --execution-banner-meta: #486200;
+  --execution-banner-action-bg: #fffef9;
+  --execution-banner-action-border: #92a86d;
+  --execution-banner-action-fg: #486200;
 
   /* Accessible light-surface variants for single-color provider marks. */
   --provider-manual: #486200;
@@ -139,6 +146,13 @@
   --control-selected-text: #c6f21b;
   --provider-tile: #171e18;
   --provider-tile-border: #334334;
+  --execution-banner-bg: #2c3b0b;
+  --execution-banner-border: #607b1d;
+  --execution-banner-fg: #f3f6ec;
+  --execution-banner-meta: #c6f21b;
+  --execution-banner-action-bg: #111712;
+  --execution-banner-action-border: #c6f21b;
+  --execution-banner-action-fg: #c6f21b;
 
   /* Brand-safe dark variants prevent dark provider marks disappearing. */
   --provider-manual: #c6f21b;

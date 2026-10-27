@@ -129,6 +129,37 @@ test("light and dark themes stay readable across dashboard and editor", async ({
   await expect(page.locator(".canvas-region")).toHaveCSS("background-color", "rgb(245, 247, 241)");
 });
 
+test("editor loading surface follows the selected light and dark theme", async ({ page }) => {
+  const email = `regression-editor-loading-${Date.now()}@example.test`;
+  await signUpAndDashboard(page, email);
+  await page.getByRole("button", { name: "Use Steam template" }).click();
+  await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+
+  const workflowId = new URL(page.url()).searchParams.get("workflow");
+  expect(workflowId).toBeTruthy();
+
+  let releaseLoad!: () => void;
+  const loadGate = new Promise<void>((resolve) => { releaseLoad = resolve; });
+  await page.route("**/workflows/*", async (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    if (route.request().method() === "GET" && /\/workflows\/[^/]+$/.test(pathname)) await loadGate;
+    await route.continue();
+  });
+
+  const navigation = page.goto(`/editor?workflow=${encodeURIComponent(workflowId!)}`);
+  const loadingCard = page.locator(".editor-loading__card");
+  await expect(loadingCard).toBeVisible();
+  await expect(loadingCard).toHaveAttribute("role", "status");
+  await expect(loadingCard).toHaveCSS("background-color", "rgb(255, 254, 249)");
+
+  await page.evaluate(() => { document.documentElement.dataset.theme = "dark"; });
+  await expect(loadingCard).toHaveCSS("background-color", "rgb(17, 23, 18)");
+
+  releaseLoad();
+  await navigation;
+  await expect(page.getByRole("heading", { name: "Steam daily report" })).toBeVisible();
+});
+
 test("editor text, controls, and provider icons meet contrast targets in both themes", async ({ page }) => {
   const email = `regression-contrast-${Date.now()}@example.test`;
   await signUpAndDashboard(page, email);
@@ -263,6 +294,18 @@ test("execution history has a dedicated page and opens immutable execution detai
   await page.getByRole("button", { name: "Inspect run" }).click();
   await expect(page).toHaveURL(/execution=/);
   await expect(page.getByText("Execution detail", { exact: true })).toBeVisible();
+
+  const returnToWorkflow = page.locator(".execution-detail-banner__return");
+  await expect(returnToWorkflow).toBeVisible();
+  await expect(page.locator(".execution-detail-banner")).toHaveCSS("background-color", "rgb(239, 255, 196)");
+  await expect(returnToWorkflow).toHaveCSS("background-color", "rgb(255, 254, 249)");
+  await expectContrast(returnToWorkflow, 4.5);
+
+  await page.getByRole("button", { name: "Switch to dark mode" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator(".execution-detail-banner")).toHaveCSS("background-color", "rgb(44, 59, 11)");
+  await expect(returnToWorkflow).toHaveCSS("background-color", "rgb(17, 23, 18)");
+  await expectContrast(returnToWorkflow, 4.5);
 });
 
 test("execution center loads stable cursor pages without losing existing runs", async ({ page }) => {
