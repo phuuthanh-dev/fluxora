@@ -83,7 +83,10 @@ occupies one app card in the top-level library.
   deferred until multi-device preferences become a demonstrated need.
 - Template tags are returned by the existing read-only system-template API.
 - Runtime connectors, OAuth scopes, credentials, and provider calls remain
-  separate future vertical slices.
+  separate vertical slices. The current GitHub slice implements one operation,
+  `GitHub → Create issue`, with a workspace-owned encrypted connector
+  credential. GitHub account sign-in is an independent identity flow and is not
+  reused by workflow execution.
 
 ## Acceptance criteria
 

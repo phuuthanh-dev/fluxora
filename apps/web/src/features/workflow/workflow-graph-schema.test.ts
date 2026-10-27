@@ -30,7 +30,7 @@ test("rejects an edge whose branch does not match its source node", () => {
 });
 
 test("keeps schema-only connector nodes importable while marking them unavailable", () => {
-  for (const type of ["action.email", "action.google-chat.oauth", "action.openai", "action.gemini", "action.mongodb", "action.github", "action.facebook-meta", "action.instagram"]) {
+  for (const type of ["action.email", "action.google-chat.oauth", "action.openai", "action.gemini", "action.mongodb", "action.facebook-meta", "action.instagram"]) {
     const definition = getNodeDefinition(type);
     assert.ok(definition);
     assert.equal(definition.available, false);
@@ -40,4 +40,12 @@ test("keeps schema-only connector nodes importable while marking them unavailabl
   const graph = parseWorkflowCanvasGraph({ nodes: [{ id: "email", type: "workflowNode" as const, position: { x: 0, y: 0 }, data: createNodeData(email) }], edges: [] });
   assert.equal(graph.nodes[0]?.data.config.subject, "");
   assert.ok(nodeCatalog.length > 10);
+});
+
+test("GitHub Create Issue is executable with a separate connector credential", () => {
+  const definition = getNodeDefinition("action.github");
+  assert.ok(definition);
+  assert.equal(definition.available, true);
+  assert.deepEqual(definition.defaultConfig, { credentialId: "", repository: "", title: "", body: "", labels: "" });
+  assert.deepEqual(definition.configurationFields?.[0], { kind: "credential", key: "credentialId", label: "GitHub credential", providers: ["GITHUB"] });
 });

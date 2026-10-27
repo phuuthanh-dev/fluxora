@@ -564,6 +564,9 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
   if (node.type === "action.telegram.message") {
     return executeTelegramMessage(config, mode, workspaceId, credentials);
   }
+  if (node.type === "action.github") {
+    return executeGitHubCreateIssue(config, mode, workspaceId, credentials);
+  }
   if (node.type === "action.google-drive") {
     if (mode === "mock") return { status: "succeeded", output: mockDrive(config), route: "success" };
     const credential = await credentials.readGoogleForExecution(readCredentialId(config), workspaceId);
@@ -907,4 +910,97 @@ export async function executeTelegramMessage(config: Record<string, unknown>, mo
     messageThreadId,
   }, undefined, mode);
   return { status: "succeeded", output, route: "success" };
+}
+
+export async function executeGitHubCreateIssue(config: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService): Promise<NodeResult> {
+  const repository = readGitHubRepository(config.repository);
+  const title = typeof config.title === "string" ? config.title.trim() : "";
+  const body = typeof config.body === "string" ? config.body : "";
+  const labels = readGitHubLabels(config.labels);
+  if (!title) throw new NodeFailure("INVALID_CONFIGURATION", "GitHub issue title is required.", false);
+
+  if (mode === "mock") {
+    return {
+      status: "succeeded",
+      output: {
+        delivered: true,
+        provider: "github",
+        operation: "create_issue",
+        repository,
+        issueNumber: 1,
+        url: `https://github.com/${repository}/issues/1`,
+        labels,
+        mode: "mock",
+      },
+      route: "success",
+    };
+  }
+
+  const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.GITHUB);
+  const token = typeof credential.token === "string" ? credential.token.trim() : "";
+  if (!token) throw new NodeFailure("CREDENTIAL_INVALID", "GitHub credential is missing token.", false);
+
+  const [owner, repo] = readGitHubRepositoryParts(repository);
+  const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues`;
+  try {
+    const response = await fetchSafeOutbound(url, {
+      method: "POST",
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "Fluxora",
+      },
+      body: JSON.stringify({ title, body, ...(labels.length ? { labels } : {}) }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    const payload = await response.json().catch(() => ({})) as { number?: unknown; html_url?: unknown };
+    if (!response.ok) {
+      const retryable = response.status === 429 || response.status >= 500;
+      throw new NodeFailure("HTTP_ERROR", `GitHub returned ${response.status}.`, retryable, response.status);
+    }
+    if (typeof payload.number !== "number" || typeof payload.html_url !== "string") {
+      throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "GitHub returned an invalid issue response.", false);
+    }
+    return {
+      status: "succeeded",
+      output: {
+        delivered: true,
+        provider: "github",
+        operation: "create_issue",
+        repository,
+        issueNumber: payload.number,
+        url: payload.html_url,
+        labels,
+        mode: "live",
+        sentAt: new Date().toISOString(),
+      },
+      route: "success",
+    };
+  } catch (reason) {
+    if (reason instanceof NodeFailure) throw reason;
+    if (reason instanceof OutboundRequestPolicyError) throw nodeFailureFromOutboundPolicy(reason);
+    const timeout = reason instanceof Error && reason.name === "TimeoutError";
+    throw new NodeFailure(timeout ? "TIMEOUT" : "NETWORK_ERROR", timeout ? "GitHub request timed out." : "GitHub request failed.", true);
+  }
+}
+
+function readGitHubRepository(value: unknown) {
+  const repository = typeof value === "string" ? value.trim() : "";
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) {
+    throw new NodeFailure("INVALID_CONFIGURATION", "GitHub repository must use the owner/repository format.", false);
+  }
+  return repository;
+}
+
+function readGitHubRepositoryParts(repository: string): [string, string] {
+  const parts = repository.split("/");
+  return [parts[0]!, parts[1]!];
+}
+
+function readGitHubLabels(value: unknown) {
+  if (value === undefined || value === null || value === "") return [] as string[];
+  if (typeof value !== "string") throw new NodeFailure("INVALID_CONFIGURATION", "GitHub labels must be comma-separated text.", false);
+  return value.split(",").map((label) => label.trim()).filter(Boolean).slice(0, 20);
 }

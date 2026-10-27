@@ -11,6 +11,7 @@ test("live readiness derives credential requirements from executable node types"
       { id: "chat", type: "action.google-chat.webhook", position: { x: 1, y: 0 }, config: {} },
       { id: "discord", type: "action.discord.webhook", position: { x: 1, y: 1 }, config: { credentialId: "discord-cred" } },
       { id: "telegram", type: "action.telegram.message", position: { x: 1, y: 2 }, config: {} },
+      { id: "github", type: "action.github", position: { x: 1, y: 3 }, config: { credentialId: "github-cred" } },
       { id: "http", type: "action.http-request", position: { x: 2, y: 0 }, config: { credentialId: "http-credential" } },
       { id: "approval", type: "approval.request", position: { x: 3, y: 0 }, config: { notificationProvider: "http_webhook", notificationCredentialId: "approval-webhook" } },
     ],
@@ -21,6 +22,7 @@ test("live readiness derives credential requirements from executable node types"
     { nodeId: "chat", provider: CredentialProvider.GOOGLE_CHAT_WEBHOOK, credentialId: null },
     { nodeId: "discord", provider: CredentialProvider.DISCORD_WEBHOOK, credentialId: "discord-cred" },
     { nodeId: "telegram", provider: CredentialProvider.TELEGRAM_BOT, credentialId: null },
+    { nodeId: "github", provider: CredentialProvider.GITHUB, credentialId: "github-cred" },
     { nodeId: "http", provider: CredentialProvider.HTTP, credentialId: "http-credential" },
     { nodeId: "approval", provider: CredentialProvider.HTTP, credentialId: "approval-webhook" },
   ]);
