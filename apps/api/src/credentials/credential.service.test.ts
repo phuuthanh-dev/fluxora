@@ -731,6 +731,52 @@ test("delete blocks with CREDENTIAL_IN_USE when referenced by active execution",
   );
 });
 
+test("references returns safe current workflow and active execution usage without graph or secret data", async () => {
+  const existing = { id: "cred-refs", workspaceId: "ws-1", provider: "DISCORD_WEBHOOK", label: "Discord Alerts" };
+  const createdAt = new Date("2026-10-27T12:00:00.000Z");
+  const prisma = {
+    credential: { findFirst: async () => existing },
+    workflow: {
+      findMany: async () => [
+        {
+          id: "wf-draft-published",
+          name: "Daily Alerts",
+          draftVersion: { graph: { nodes: [{ id: "draft-node", config: { credentialId: "cred-refs" } }] } },
+          publishedVersion: { graph: { nodes: [{ id: "published-node", config: { credentialId: "cred-refs" } }] } },
+        },
+        {
+          id: "wf-unrelated",
+          name: "Unrelated",
+          draftVersion: { graph: { nodes: [{ id: "other-node", config: { credentialId: "different" } }] } },
+          publishedVersion: null,
+        },
+      ],
+    },
+    execution: {
+      findMany: async () => [
+        {
+          id: "exec-running",
+          status: "RUNNING",
+          mode: "LIVE",
+          createdAt,
+          workflowVersion: {
+            graph: { nodes: [{ id: "execution-node", config: { credentialId: "cred-refs" } }] },
+          },
+        },
+      ],
+    },
+  } as unknown as PrismaService;
+  const workspaces = { requireOwner: async () => {} } as never;
+  const service = new CredentialService(prisma, workspaces, {} as never);
+
+  const references = await service.references("ws-1", "cred-refs", "user-1");
+
+  assert.deepEqual(references.workflows, [{ id: "wf-draft-published", name: "Daily Alerts", locations: ["draft", "published"] }]);
+  assert.deepEqual(references.executions, [{ id: "exec-running", status: "RUNNING", mode: "LIVE", createdAt }]);
+  assert.equal("graph" in references, false);
+  assert.equal(JSON.stringify(references).includes("credentialId"), false);
+});
+
 test("delete allows cleanup when credential is unreferenced or only in historic version with completed executions", async () => {
   const auditLogs: Array<{ action: string; metadata?: Record<string, unknown> }> = [];
   const deletedIds: string[] = [];

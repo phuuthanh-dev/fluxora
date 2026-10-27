@@ -10,6 +10,6 @@ export type CredentialSummary = {
 };
 
 export type CredentialReferenceDetails = {
-  workflows?: Array<{ id: string; name: string }>;
-  executions?: Array<{ id: string }>;
+  workflows?: Array<{ id: string; name: string; locations?: Array<"draft" | "published"> }>;
+  executions?: Array<{ id: string; status?: string; mode?: string; createdAt?: string | Date }>;
 };

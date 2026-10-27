@@ -90,6 +90,7 @@ CI runs the same gate for every pull request and push to `main`.
 | L11.1 | App → Operation Node Library | Complete locally | Stable workflow node types remain compatible while source-owned app/operation metadata powers Core/App discovery, global search, browser-local recent/favorites, clearer canvas wording, use-case template tags, and focused light/dark browser coverage. `npm run verify` passed with 23/23 Playwright tests. |
 | L11.2 | Runtime Qualification v1 | Complete locally | Redis-backed worker qualification, redacted execution timeline/diagnostic export, guarded database recovery scripts, read-only release preflight, fixed-target health smoke, and a factual Go/No-Go contract are covered by focused tests and the full repository gate. Production remains operator- and owner-gated. |
 | L11.3 | Production Release Candidate v1 | Complete locally | Tracked-file secret scanning, non-printing production env validation, high-severity dependency audit, backup-before-migration deployment contract, protected-environment requirement, and the ordered operator qualification runbook are implemented. The branch is review-ready; VPS evidence and owner approval remain outstanding. |
+| L11.4 | Credential dependency clarity | Complete locally | Credential actions now show current draft/published workflow references and active execution references before rename, rotation, or deletion. The owner-scoped API never returns graph or secret data; service, browser, and full quality-gate checks passed. |
 
 ## External-boundary rule
 

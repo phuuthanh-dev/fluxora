@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { LockKeyhole } from "lucide-react";
 import { ApiClientError, apiRequest, apiUrl } from "../api/api-client";
 import type { CredentialProvider, CredentialReferenceDetails, CredentialSummary } from "./credential-types";
@@ -82,7 +82,9 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
   const [actionData, setActionData] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [blockerDetails, setBlockerDetails] = useState<CredentialReferenceDetails | null>(null);
+  const [isLoadingReferences, setIsLoadingReferences] = useState(false);
   const [isActionSubmitting, setIsActionSubmitting] = useState(false);
+  const referenceRequestRef = useRef(0);
 
   const load = async () => {
     try {
@@ -144,11 +146,26 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
   };
 
   const cancelAction = () => {
+    referenceRequestRef.current += 1;
     setActiveAction(null);
     setActionLabel("");
     setActionData("");
     setActionError(null);
     setBlockerDetails(null);
+    setIsLoadingReferences(false);
+  };
+
+  const loadReferences = async (cred: CredentialSummary) => {
+    const requestId = ++referenceRequestRef.current;
+    setIsLoadingReferences(true);
+    try {
+      const response = await apiRequest<{ references: CredentialReferenceDetails }>(`/workspaces/${workspaceId}/credentials/${cred.id}/references`);
+      if (requestId === referenceRequestRef.current) setBlockerDetails(response.references);
+    } catch (reason) {
+      if (requestId === referenceRequestRef.current) setActionError(requestErrorMessage(reason, "Credential usage could not be loaded."));
+    } finally {
+      if (requestId === referenceRequestRef.current) setIsLoadingReferences(false);
+    }
   };
 
   const startRename = (cred: CredentialSummary) => {
@@ -156,6 +173,7 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
     setActionLabel(cred.label);
     setActionError(null);
     setBlockerDetails(null);
+    void loadReferences(cred);
   };
 
   const startRotate = (cred: CredentialSummary) => {
@@ -163,12 +181,14 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
     setActionData(credentialPresets[cred.provider]?.data ?? '{\n  ""\n}');
     setActionError(null);
     setBlockerDetails(null);
+    void loadReferences(cred);
   };
 
   const startDelete = (cred: CredentialSummary) => {
     setActiveAction({ credentialId: cred.id, type: "delete" });
     setActionError(null);
     setBlockerDetails(null);
+    void loadReferences(cred);
   };
 
   const submitRename = async (event: FormEvent, cred: CredentialSummary) => {
@@ -363,6 +383,7 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
 
               {isRenaming && (
                 <form className="credential-card__form" onSubmit={(event) => void submitRename(event, credential)}>
+                  <CredentialReferenceSummary details={blockerDetails} isLoading={isLoadingReferences} />
                   <label>
                     <span>New connection name</span>
                     <input
@@ -386,6 +407,7 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
 
               {isRotating && (
                 <form className="credential-card__form" onSubmit={(event) => void submitRotate(event, credential)}>
+                  <CredentialReferenceSummary details={blockerDetails} isLoading={isLoadingReferences} />
                   <p className="credential-card__warning">
                     {credential.provider === "TELEGRAM_BOT"
                       ? "Updating replaces only the bot token. Any legacy fallback chat ID stored with this credential will be preserved server-side until destinations are migrated to workflow nodes."
@@ -416,22 +438,13 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
 
               {isDeleting && (
                 <div className="credential-card__form">
+                  <CredentialReferenceSummary details={blockerDetails} isLoading={isLoadingReferences} />
                   <p className="credential-card__warning">
                     Are you sure you want to delete <strong>{credential.label}</strong>? This action cannot be undone.
                   </p>
                   {actionError && (
                     <div className="credential-card__error" role="alert">
                       <p>{actionError}</p>
-                      {blockerDetails?.workflows && blockerDetails.workflows.length > 0 && (
-                        <p className="credential-card__blocker-list">
-                          Referenced in workflow: {blockerDetails.workflows.map((wf) => `${wf.name} (${wf.id})`).join(", ")}
-                        </p>
-                      )}
-                      {blockerDetails?.executions && blockerDetails.executions.length > 0 && (
-                        <p className="credential-card__blocker-list">
-                          Referenced in active execution: {blockerDetails.executions.map((e) => e.id).join(", ")}
-                        </p>
-                      )}
                     </div>
                   )}
                   <div className="credential-card__form-actions">
@@ -454,6 +467,51 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
           );
         })}
       </ul>
+    </section>
+  );
+}
+
+function CredentialReferenceSummary({ details, isLoading }: { details: CredentialReferenceDetails | null; isLoading: boolean }) {
+  if (isLoading) {
+    return <div className="credential-card__references" aria-live="polite">Checking where this connection is used…</div>;
+  }
+  if (!details) return null;
+
+  const workflows = details.workflows ?? [];
+  const executions = details.executions ?? [];
+  if (workflows.length === 0 && executions.length === 0) {
+    return <div className="credential-card__references credential-card__references--empty" aria-live="polite">Not used by any current workflow or active execution.</div>;
+  }
+
+  return (
+    <section className="credential-card__references" aria-label="Credential usage">
+      <strong>Used by</strong>
+      {workflows.length > 0 ? (
+        <div>
+          <span className="credential-card__references-label">Current workflows</span>
+          <ul>
+            {workflows.map((workflow) => (
+              <li key={workflow.id}>
+                <span>{workflow.name}</span>
+                <small>{(workflow.locations ?? ["draft"]).join(" + ")}</small>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {executions.length > 0 ? (
+        <div>
+          <span className="credential-card__references-label">Active executions</span>
+          <ul>
+            {executions.map((execution) => (
+              <li key={execution.id}>
+                <span>{execution.status ?? "Active"} · {execution.mode ?? "LIVE"}</span>
+                <small>{execution.id}</small>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </section>
   );
 }

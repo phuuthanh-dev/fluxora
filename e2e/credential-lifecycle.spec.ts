@@ -65,6 +65,7 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
 
   // 3. Rename credential conflict test
   await primaryCard.getByRole("button", { name: "Rename Discord Primary Alerts" }).click();
+  await expect(primaryCard.getByText("Not used by any current workflow or active execution.")).toBeVisible();
   await expect(primaryCard.getByLabel("New connection name")).toHaveValue("Discord Primary Alerts");
   // Attempt to rename to the other credential's name
   await primaryCard.getByLabel("New connection name").fill("Discord Secondary Alerts");
@@ -118,6 +119,8 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
 
   // 6. Safe deletion test: delete must be blocked by the workflow draft reference
   await primaryCard.getByRole("button", { name: "Delete Discord Ops Main" }).click();
+  await expect(primaryCard.getByText("Current workflows")).toBeVisible();
+  await expect(primaryCard.getByText("draft", { exact: true })).toBeVisible();
   await expect(primaryCard.getByText("Are you sure you want to delete Discord Ops Main? This action cannot be undone.")).toBeVisible();
 
   const blockedDeletePromise = page.waitForResponse((res) => res.request().method() === "DELETE" && res.url().includes(discordCred.credential.id));
@@ -127,7 +130,7 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
 
   // Assert inline accessible error blocker
   await expect(primaryCard.locator('[role="alert"]')).toContainText("Credential is in use and cannot be deleted.");
-  await expect(primaryCard.getByText(/Referenced in workflow: Lifecycle Test Workflow/)).toBeVisible();
+  await expect(primaryCard.getByText("Lifecycle Test Workflow", { exact: true })).toBeVisible();
 
   // Cancel deletion view
   await primaryCard.getByRole("button", { name: "Cancel" }).click();

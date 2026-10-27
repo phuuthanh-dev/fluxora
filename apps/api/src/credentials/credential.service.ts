@@ -34,6 +34,13 @@ export class CredentialService {
     await this.workspaces.requireOwner(workspaceId, userId);
   }
 
+  async references(workspaceId: string, credentialId: string, userId: string) {
+    await this.workspaces.requireOwner(workspaceId, userId);
+    const credential = await this.prisma.credential.findFirst({ where: { id: credentialId, workspaceId } });
+    if (!credential) throw new NotFoundException({ code: "CREDENTIAL_NOT_FOUND", message: "A matching credential was not found in this workspace." });
+    return this.findReferences(workspaceId, credentialId);
+  }
+
   async create(workspaceId: string, userId: string, input: { provider: string; label: string; data: unknown }) {
     await this.workspaces.requireOwner(workspaceId, userId);
     if (!providers.has(input.provider as CredentialProvider)) throw new BadRequestException({ code: "CREDENTIAL_PROVIDER_NOT_FOUND", message: "Credential provider is not supported." });
@@ -189,47 +196,9 @@ export class CredentialService {
       });
     }
 
-    const workflows = await this.prisma.workflow.findMany({
-      where: { workspaceId },
-      include: {
-        draftVersion: { select: { id: true, graph: true } },
-        publishedVersion: { select: { id: true, graph: true } },
-      },
-    });
-
-    const blockingWorkflows: Array<{ id: string; name: string }> = [];
-    for (const wf of workflows) {
-      const draftUses = wf.draftVersion && graphUsesCredential(wf.draftVersion.graph, credentialId);
-      const pubUses = wf.publishedVersion && graphUsesCredential(wf.publishedVersion.graph, credentialId);
-      if (draftUses || pubUses) {
-        blockingWorkflows.push({ id: wf.id, name: wf.name });
-      }
-    }
-
-    const activeExecutions = await this.prisma.execution.findMany({
-      where: {
-        status: { in: [ExecutionStatus.QUEUED, ExecutionStatus.RUNNING, ExecutionStatus.WAITING_APPROVAL] },
-        workflowVersion: {
-          workflow: { workspaceId },
-        },
-      },
-      include: {
-        workflowVersion: {
-          select: {
-            id: true,
-            graph: true,
-            workflow: { select: { id: true, name: true } },
-          },
-        },
-      },
-    });
-
-    const blockingExecutions: Array<{ id: string }> = [];
-    for (const exec of activeExecutions) {
-      if (graphUsesCredential(exec.workflowVersion.graph, credentialId)) {
-        blockingExecutions.push({ id: exec.id });
-      }
-    }
+    const references = await this.findReferences(workspaceId, credentialId);
+    const blockingWorkflows = references.workflows.map(({ id, name }) => ({ id, name }));
+    const blockingExecutions = references.executions.map(({ id }) => ({ id }));
 
     if (blockingWorkflows.length > 0 || blockingExecutions.length > 0) {
       throw new ConflictException({
@@ -255,6 +224,45 @@ export class CredentialService {
     });
 
     return { success: true, id: credential.id };
+  }
+
+  private async findReferences(workspaceId: string, credentialId: string) {
+    const workflows = await this.prisma.workflow.findMany({
+      where: { workspaceId },
+      include: {
+        draftVersion: { select: { graph: true } },
+        publishedVersion: { select: { graph: true } },
+      },
+    });
+
+    const workflowReferences = workflows.flatMap((workflow) => {
+      const locations: Array<"draft" | "published"> = [];
+      if (workflow.draftVersion && graphUsesCredential(workflow.draftVersion.graph, credentialId)) locations.push("draft");
+      if (workflow.publishedVersion && graphUsesCredential(workflow.publishedVersion.graph, credentialId)) locations.push("published");
+      return locations.length > 0 ? [{ id: workflow.id, name: workflow.name, locations }] : [];
+    });
+
+    const activeExecutions = await this.prisma.execution.findMany({
+      where: {
+        status: { in: [ExecutionStatus.QUEUED, ExecutionStatus.RUNNING, ExecutionStatus.WAITING_APPROVAL] },
+        workflowVersion: { workflow: { workspaceId } },
+      },
+      select: {
+        id: true,
+        status: true,
+        mode: true,
+        createdAt: true,
+        workflowVersion: { select: { graph: true } },
+      },
+    });
+
+    const executionReferences = activeExecutions.flatMap((execution) =>
+      graphUsesCredential(execution.workflowVersion.graph, credentialId)
+        ? [{ id: execution.id, status: execution.status, mode: execution.mode, createdAt: execution.createdAt }]
+        : [],
+    );
+
+    return { workflows: workflowReferences, executions: executionReferences };
   }
 
   async readForExecution(credentialId: string, workspaceId: string, provider: CredentialProvider) {

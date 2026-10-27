@@ -47,6 +47,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | Add-node action contrast and primitive reuse | Complete locally | The collapsed Node Library trigger now uses the shared secondary `Button`, semantic panel/ink/accent tokens, and a plus icon. Automated contrast coverage checks its label and icon in both themes while editor collapse/reopen behavior remains covered. |
 | Accessibility Hardening v1 | Complete locally | Three bounded slices cover Node Library/command-bar keyboard navigation, shared dialog/drawer/menu focus lifecycle, and zoom/reduced-motion/light-dark regression without changing runtime or provider behavior. Focused checks and the repository-wide quality gate pass. |
 | Production Release Candidate v1 | Merged into `main`; repository checks passed | High-confidence tracked-secret scan, non-printing production environment validation, dependency audit, backup-before-migration deployment contract, isolated restore/rollback/health runbook, and protected-environment release evidence are implemented. VPS/DNS/TLS, real environment validation, restore drill, and provider smoke remain operator/owner-gated. |
+| Credential dependency clarity | Complete locally | The connection center shows safe current workflow and active-execution references before rename, rotation, or deletion; secrets and graph payloads remain server-only. |
 
 ## Milestone 1 — Product foundation
 
@@ -66,9 +67,8 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 
 ## Next UI/UX roadmap
 
-1. **Credential dependency clarity:** expose “used by” references before destructive credential actions while preserving the existing rename/rotate/delete safeguards.
-2. **Canvas scale and discovery:** add minimap/navigation polish and validate dense graphs without weakening current keyboard, zoom, reduced-motion, and theme coverage.
-3. **Operational usability:** build on the completed execution timeline/diagnostic export with saved triage views and retention visibility; do not expose raw secrets or provider URLs.
+1. **Canvas scale and discovery:** add minimap/navigation polish and validate dense graphs without weakening current keyboard, zoom, reduced-motion, and theme coverage.
+2. **Operational usability:** build on the completed execution timeline/diagnostic export with saved triage views and retention visibility; do not expose raw secrets or provider URLs.
 
 **Exit criterion:** a logged-in owner can create a workspace, create a workflow, save a draft graph, publish a frozen version, reload the page, and see the saved workflow.
 

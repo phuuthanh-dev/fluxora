@@ -23,6 +23,15 @@ export class CredentialController {
     }) };
   }
 
+  @Get(":credentialId/references")
+  async references(
+    @Param("workspaceId") workspaceId: string,
+    @Param("credentialId") credentialId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return { references: await this.credentials.references(workspaceId, credentialId, userId(request)) };
+  }
+
   @Patch(":credentialId")
   async update(
     @Param("workspaceId") workspaceId: string,
