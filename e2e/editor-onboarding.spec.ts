@@ -42,6 +42,7 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(canvasNavigation.getByRole("button", { name: "Zoom out" })).toBeVisible();
   await expect(canvasNavigation.getByRole("button", { name: "Zoom in" })).toBeVisible();
   await expect(canvasNavigation.getByRole("button", { name: "Center selected node" })).toBeDisabled();
+  await expect(page.locator(".react-flow__controls")).toHaveCount(0);
   await expect(page.locator(".react-flow__minimap")).toBeVisible();
   await canvasNavigation.getByRole("button", { name: "Hide minimap" }).click();
   await expect(page.locator(".react-flow__minimap")).toHaveCount(0);

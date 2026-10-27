@@ -3,7 +3,6 @@
 import "@xyflow/react/dist/style.css";
 import {
   Background,
-  Controls,
   MiniMap,
   ReactFlow,
   type Connection,
@@ -1233,7 +1232,6 @@ export function WorkflowEditor() {
           >
             <Background gap={18} size={1} />
             {minimapOpen && <MiniMap zoomable pannable />}
-            <Controls showInteractive={false} />
           </ReactFlow>
           <div className="canvas-status" role="status" aria-live="polite">
             <CirclePlay size={16} /> {notice}
