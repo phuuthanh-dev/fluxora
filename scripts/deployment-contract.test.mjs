@@ -170,7 +170,7 @@ test("production deployment backs up PostgreSQL before migrations", () => {
   const migrationIndex = deployScript.indexOf("up -d migrate");
   assert.ok(backupIndex >= 0, "deploy must invoke the guarded PostgreSQL backup");
   assert.ok(migrationIndex > backupIndex, "backup must precede the migration service");
-  assert.match(deployScript, /up -d db redis/);
+  assert.match(deployScript, /up -d --wait db redis/);
   assert.match(deployScript, /ENV_FILE=/);
 });
 

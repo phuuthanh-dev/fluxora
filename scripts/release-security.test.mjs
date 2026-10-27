@@ -53,7 +53,8 @@ test("production environment validator rejects placeholders, incomplete OAuth, a
 test("tracked secret scan reports only safe metadata and detects high-confidence tokens", () => {
   const safe = scanTrackedFiles(["docs/01-product-spec.md"]);
   assert.deepEqual(safe, []);
-  const findings = scanContent("TELEGRAM_BOT_TOKEN=123456789:abcdefghijklmnopqrstuvwxyzABCDEFGHIJ", "fixture.txt");
+  const fakeToken = ["123456789", ":", "abcdefghijklmnopqrstuvwxyz", "ABCDEFGHIJ"].join("");
+  const findings = scanContent(`TELEGRAM_BOT_TOKEN=${fakeToken}`, "fixture.txt");
   assert.equal(findings[0]?.pattern, "Telegram bot token");
   const scannerSource = readFileSync(new URL("./scan-tracked-secrets.mjs", import.meta.url), "utf8");
   assert.match(scannerSource, /Telegram bot token/);

@@ -53,8 +53,8 @@ calling providers.
 
 ### Slice 3 — release candidate handoff
 
-- [ ] Documentation and task/report artifacts reflect the current release
+- [x] Documentation and task/report artifacts reflect the current release
   candidate status and remaining NO-GO conditions.
-- [ ] Focused tests, report validation, code graph check, and `npm run verify`
+- [x] Focused tests, report validation, code graph check, and `npm run verify`
   pass with no Redis integration test skipped.
-- [ ] One focused commit per slice; no deployment or provider side effect.
+- [x] One focused commit per slice; no deployment or provider side effect.
