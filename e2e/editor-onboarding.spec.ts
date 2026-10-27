@@ -87,6 +87,7 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(configCheckbox).toBeVisible();
   await expect(configCheckbox).toHaveCSS("width", "12px");
   await expect(configCheckbox).toHaveCSS("height", "12px");
+  await expect(configCheckbox).toHaveCSS("border-width", "1px");
   const editorShell = page.locator(".editor-shell");
   const canvasRegion = page.locator(".canvas-region");
   const inspector = page.locator(".inspector");

@@ -303,7 +303,7 @@ export function WorkflowDashboard() {
             <div className="dashboard-execution-toolbar__actions">
               <span>{executionsLoading ? "Checking recent runs…" : `${executions.length} recent run${executions.length === 1 ? "" : "s"}`}</span>
               {executionCounts.attention > 0 && <button type="button" className="dashboard-execution-attention" onClick={() => { setExecutionCenterOpen(true); setExecutionFilter("ATTENTION"); }}>{executionCounts.attention} need attention</button>}
-              <IconButton label="Refresh executions" disabled={executionsLoading || !workspaceId} onClick={() => void loadExecutions(workspaceId)}><RefreshCw className={executionsLoading ? "ui-spinner" : undefined} size={15} /></IconButton>
+              <IconButton className="dashboard-execution-refresh" label="Refresh executions" disabled={executionsLoading || !workspaceId} onClick={() => void loadExecutions(workspaceId)}><RefreshCw className={executionsLoading ? "ui-spinner" : undefined} size={15} /></IconButton>
               <Button variant="ghost" className="dashboard-execution-toggle" aria-label={`${executionCenterOpen ? "Collapse" : "Expand"} execution center`} aria-expanded={executionCenterOpen} aria-controls="dashboard-execution-content" onClick={() => setExecutionCenterOpen((current) => !current)}>{executionCenterOpen ? "Collapse" : "Expand"}<ChevronDown size={15} aria-hidden="true" /></Button>
             </div>
           </div>

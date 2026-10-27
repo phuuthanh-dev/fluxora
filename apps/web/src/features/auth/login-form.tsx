@@ -6,6 +6,7 @@ import { apiUrl } from "../api/api-client";
 import { ThemeToggle } from "../theme/theme-toggle";
 import { Button, Field } from "../../components/ui";
 import { FluxoraMark } from "../../components/brand/fluxora-mark";
+import { OAuthProviderIcon } from "../../components/brand/oauth-provider-icon";
 
 type AuthMode = "login" | "register";
 type AuthResponse = { user?: { email: string }; message?: string | { message?: string } };
@@ -83,8 +84,14 @@ export function LoginForm() {
           </form>
           <div className="auth-divider"><span>or continue with</span></div>
           <div className="auth-oauth-actions">
-            <Button variant="secondary" disabled={!googleAvailable} onClick={() => window.location.assign(`${apiUrl}/auth/google/start`)}>Google <small>{googleAvailable ? "Continue securely" : "Configure server"}</small></Button>
-            <Button variant="secondary" disabled={!githubAvailable} onClick={() => window.location.assign(`${apiUrl}/auth/github/start`)}>GitHub <small>{githubAvailable ? "Continue securely" : "Configure server"}</small></Button>
+            <Button variant="secondary" className="auth-oauth-button" disabled={!googleAvailable} onClick={() => window.location.assign(`${apiUrl}/auth/google/start`)}>
+              <span className="auth-oauth-button__brand"><span className="auth-oauth-button__icon auth-oauth-button__icon--google"><OAuthProviderIcon provider="google" /></span><span>Google</span></span>
+              <small>{googleAvailable ? "Continue securely" : "Configure server"}</small>
+            </Button>
+            <Button variant="secondary" className="auth-oauth-button" disabled={!githubAvailable} onClick={() => window.location.assign(`${apiUrl}/auth/github/start`)}>
+              <span className="auth-oauth-button__brand"><span className="auth-oauth-button__icon auth-oauth-button__icon--github"><OAuthProviderIcon provider="github" /></span><span>GitHub</span></span>
+              <small>{githubAvailable ? "Continue securely" : "Configure server"}</small>
+            </Button>
           </div>
           <p className="auth-switch">{mode === "login" ? "New here?" : "Already have an account?"} <button onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); }} type="button">{mode === "login" ? "Create an account" : "Sign in"}</button></p>
         </div>
