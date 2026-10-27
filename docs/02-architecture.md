@@ -57,9 +57,16 @@ MVP graph is a DAG. Control nodes select one downstream path; action nodes selec
 
 Each integration supplies:
 
-- Node manifest: label, category, icon, input/output schema, form fields, and credential requirements.
+- App manifest: stable app identity, label, icon, discovery category, and aliases.
+- Operation manifest: stable node type, trigger/action/search/utility role,
+  input/output schema, form fields, availability, and credential requirements.
 - Backend executor: server-side implementation of the node contract.
 - Optional mock resolver: deterministic output for test runs.
+
+App and operation metadata is source-owned in the MVP. Workflow graphs persist
+only stable node type identifiers and configuration, so discovery taxonomy can
+evolve without migrating immutable workflow versions. See
+`docs/16-node-library-information-architecture.md`.
 
 The generic executor contract is:
 

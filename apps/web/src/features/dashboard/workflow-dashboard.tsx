@@ -17,12 +17,13 @@ type WorkflowSort = "UPDATED" | "NAME" | "STATUS";
 type WorkflowAction = { type: "rename" | "archive" | "delete"; workflow: ApiWorkflow } | { type: "duplicate"; workflow: ApiWorkflow };
 type ExecutionSummary = { id: string; workflowId: string; workflowName: string; workflowVersion: number; status: "QUEUED" | "RUNNING" | "WAITING_APPROVAL" | "SUCCEEDED" | "FAILED" | "CANCELLED"; mode: "mock" | "live"; createdAt: string; startedAt: string | null; completedAt: string | null; error: { code: string; message: string | null } | null };
 type ExecutionFilter = "ALL" | "ATTENTION" | "IN_PROGRESS" | "FAILED" | "SUCCEEDED";
-type WorkflowTemplate = { slug: string; name: string; description: string; requiredConnections: string[]; nodeTypes: string[] };
+type WorkflowTemplate = { slug: string; name: string; description: string; tags: string[]; requiredConnections: string[]; nodeTypes: string[] };
 
 const fallbackTemplates: WorkflowTemplate[] = [{
   slug: "steam-daily-report",
   name: "Steam daily report",
   description: "Send a daily public Steam account snapshot to Google Chat.",
+  tags: ["Personal", "Notifications"],
   requiredConnections: ["Steam", "Google Chat"],
   nodeTypes: ["trigger.cron", "action.steam.account-snapshot", "action.google-chat.webhook"],
 }];
@@ -354,7 +355,7 @@ function FirstWorkflowGuide({ templates, isCreating, workspaceId, onUseTemplate,
       </ol>
       <div className="dashboard-onboarding__templates" aria-label="Workflow templates">
         {templates.map((template, index) => <article className="dashboard-onboarding__template" key={template.slug}>
-          <div><p className="section-label">{index === 0 ? "RECOMMENDED STARTER" : "STARTER TEMPLATE"}</p><strong>{template.name}</strong><span>{template.nodeTypes.map((nodeType) => getNodeDefinition(nodeType as WorkflowNodeType)?.label ?? nodeType).join(" → ")}</span><small>Connections: {template.requiredConnections.join(" · ")}</small></div>
+          <div><p className="section-label">{index === 0 ? "RECOMMENDED STARTER" : "STARTER TEMPLATE"}</p><div className="dashboard-onboarding__template-tags" aria-label="Template categories">{template.tags.map((tag) => <em key={tag}>{tag}</em>)}</div><strong>{template.name}</strong><span>{template.nodeTypes.map((nodeType) => getNodeDefinition(nodeType as WorkflowNodeType)?.label ?? nodeType).join(" → ")}</span><small>Connections: {template.requiredConnections.join(" · ")}</small></div>
           <Button variant={index === 0 ? "primary" : "secondary"} className={index === 0 ? "dashboard-primary-button" : "dashboard-secondary-button"} onClick={() => onUseTemplate(template.slug)} disabled={isCreating || !workspaceId}>{isCreating ? "Creating…" : `Use ${template.name}`}<ArrowRight size={15} /></Button>
         </article>)}
       </div>

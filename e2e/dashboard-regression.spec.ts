@@ -172,12 +172,12 @@ test("editor text, controls, and provider icons meet contrast targets in both th
     await expectContrast(page.locator(".workflow-node p:not(.workflow-node__category)").first(), 4.5);
     await expect(page.getByRole("button", { name: "Go live" })).toHaveCSS("color", "rgb(52, 32, 0)");
     await expectContrast(
-      page.locator(".react-flow__node").filter({ hasText: "Steam account snapshot" }).locator(".workflow-node__provider-icon svg"),
+      page.locator(".react-flow__node").filter({ hasText: "Get account snapshot" }).locator(".workflow-node__provider-icon svg"),
       3,
     );
     await page.getByRole("button", { name: "Roadmap" }).click();
-    await expectContrast(page.locator(".palette-node").filter({ hasText: "OpenAI" }).locator("svg"), 3);
-    await expectContrast(page.locator(".palette-node").filter({ hasText: "GitHub" }).locator("svg"), 3);
+    await expectContrast(page.locator(".palette-app").filter({ hasText: "OpenAI" }).locator("svg"), 3);
+    await expectContrast(page.locator(".palette-app").filter({ hasText: "GitHub" }).locator("svg"), 3);
   };
 
   await assertEditorContrast();

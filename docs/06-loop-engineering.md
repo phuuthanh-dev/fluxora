@@ -79,6 +79,7 @@ CI runs the same gate for every pull request and push to `main`.
 | L10.5 | Bounded application image retention | Complete locally | Deploy scripts capture the running API/Web commit tags, prune only older SHA-tagged images from those two repositories after healthcheck success, retain the current and previous image without touching infrastructure images or volumes, and pull only application services during releases. |
 | L10.6 | CI/CD efficiency and release hygiene | Complete locally | Playwright browser setup no longer invokes the hanging OS-dependency installer; production pulls private GHCR images with scoped credentials; verification builds contracts once; obsolete PR runs are cancelled; deploys enforce disk/readiness smoke checks; actions are SHA-pinned; and weekly GHCR retention preserves five immutable rollback candidates. |
 | L10.7 | Production domain routing | Complete locally | Production configuration uses `fluxora.io.vn` for the web UI and `api.fluxora.io.vn` for NestJS, with separate Nginx server blocks and documented HTTPS/OAuth callback contracts. VPS certificate issuance and production reload remain operator-gated. |
+| L11.1 | App → Operation Node Library | Complete locally | Stable workflow node types remain compatible while source-owned app/operation metadata powers Core/App discovery, global search, browser-local recent/favorites, clearer canvas wording, use-case template tags, and focused light/dark browser coverage. `npm run verify` passed with 23/23 Playwright tests. |
 
 ## External-boundary rule
 

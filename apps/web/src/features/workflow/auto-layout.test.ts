@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { autoLayoutNodes } from "./auto-layout";
 import {
-  groupNodeLibrary,
+  appCatalog,
+  coreNodeDefinitions,
   initialEdges,
   initialNodes,
   matchesNodeLibraryFilter,
   matchesNodeSearch,
   nodeCatalog,
+  operationsForApp,
 } from "./node-catalog";
 
 test("auto-layout places downstream nodes in later columns", () => {
@@ -33,10 +35,12 @@ test("node library keeps roadmap nodes out of the default view", () => {
   assert.ok(roadmapNodes.every((node) => !node.available));
 });
 
-test("node library groups apps by user-facing purpose", () => {
-  const appGroups = groupNodeLibrary(nodeCatalog.filter((node) => matchesNodeLibraryFilter(node, "apps")));
-  assert.deepEqual(appGroups.map((group) => group.id), ["communication", "google-workspace", "developer-data"]);
-  assert.ok(appGroups.find((group) => group.id === "communication")?.nodes.some((node) => node.type === "action.telegram.message"));
+test("node library separates core nodes from app operations", () => {
+  assert.ok(coreNodeDefinitions().every((node) => !node.appId));
+  assert.ok(appCatalog.some((app) => app.id === "telegram" && app.category === "communication"));
+  assert.deepEqual(operationsForApp("telegram").map((node) => node.operationId), ["send-message"]);
+  assert.ok(nodeCatalog.filter((node) => matchesNodeLibraryFilter(node, "communication")).some((node) => node.type === "action.telegram.message"));
+  assert.ok(nodeCatalog.filter((node) => matchesNodeLibraryFilter(node, "developer-devops")).some((node) => node.type === "action.http-request"));
 });
 
 test("search can discover a planned node without opening the roadmap filter", () => {
@@ -53,4 +57,10 @@ test("provider nodes declare reusable inspector fields in the catalog", () => {
   assert.deepEqual(http?.configurationFields?.map((field) => field.key), ["credentialId", "method", "url", "body", "timeoutMs"]);
   assert.equal(http?.configurationFields?.find((field) => field.key === "credentialId")?.kind, "credential");
   assert.equal(drive?.configurationFields?.find((field) => field.key === "text")?.kind, "textarea");
+});
+
+test("every catalog entry declares stable operation metadata and existing node types remain unchanged", () => {
+  assert.ok(nodeCatalog.every((node) => node.operationId && node.operationLabel && node.operationKind));
+  assert.ok(nodeCatalog.some((node) => node.type === "action.google-chat.webhook" && node.appId === "google-chat"));
+  assert.ok(nodeCatalog.some((node) => node.type === "condition.if" && !node.appId));
 });

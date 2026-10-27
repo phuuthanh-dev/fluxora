@@ -27,7 +27,6 @@ import {
   RotateCcw,
   Save,
   Sparkles,
-  Search,
   Upload,
   X,
 } from "lucide-react";
@@ -38,13 +37,8 @@ import { validateWorkflowGraph } from "./graph-validation";
 import {
   createNodeData,
   getNodeDefinition,
-  groupNodeLibrary,
-  matchesNodeLibraryFilter,
-  nodeCatalog,
-  nodeLibraryFilters,
   type NodeDefinition,
   type NodeConfigurationField,
-  type NodeLibraryFilter,
   type WorkflowCanvasEdge,
   type WorkflowCanvasNode,
 } from "./node-catalog";
@@ -57,6 +51,7 @@ import type { CredentialProvider, CredentialSummary } from "../credentials/crede
 import { buildExpressionSuggestions } from "./expression-suggestions";
 import { manualTriggerTestData } from "./test-data";
 import { NodeIcon } from "./node-icon";
+import { NodeLibrary, type NodeLibraryHandle } from "./node-library";
 import { Button, Dialog, Field, IconButton, Menu, Select, Status } from "../../components/ui";
 import { AppShellHeader } from "../app-shell/app-shell-header";
 
@@ -650,7 +645,7 @@ export function WorkflowEditor() {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const flowRef = useRef<ReactFlowInstance<WorkflowCanvasNode, WorkflowCanvasEdge> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const paletteSearchRef = useRef<HTMLInputElement>(null);
+  const nodeLibraryRef = useRef<NodeLibraryHandle>(null);
   const inspectorTriggerRef = useRef<HTMLButtonElement>(null);
   const [notice, setNotice] = useState("Loading your workflow…");
   const [paletteOpen, setPaletteOpen] = useState(true);
@@ -673,8 +668,6 @@ export function WorkflowEditor() {
   const [versions, setVersions] = useState<WorkflowVersionSummary[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [validationOpen, setValidationOpen] = useState(false);
-  const [paletteSearch, setPaletteSearch] = useState("");
-  const [paletteFilter, setPaletteFilter] = useState<NodeLibraryFilter>("all");
   const [copiedNodeId, setCopiedNodeId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -700,13 +693,6 @@ export function WorkflowEditor() {
   const redo = useWorkflowEditorStore((state) => state.redo);
   const loadGraph = useWorkflowEditorStore((state) => state.loadGraph);
   const issues = useMemo(() => validateWorkflowGraph(nodes, edges), [nodes, edges]);
-  const filteredNodeGroups = useMemo(() => groupNodeLibrary(
-    nodeCatalog.filter((definition) => matchesNodeLibraryFilter(definition, paletteFilter, paletteSearch)),
-  ), [paletteFilter, paletteSearch]);
-  const filteredNodeCount = useMemo(
-    () => filteredNodeGroups.reduce((total, group) => total + group.nodes.length, 0),
-    [filteredNodeGroups],
-  );
   const selectedNode = nodes.find((node) => node.id === selectedNodeId);
   const webhookTrigger = nodes.find((node) => node.data.nodeType === "trigger.webhook");
   const isNarrowEditorLayout = useNarrowEditorLayout();
@@ -732,16 +718,12 @@ export function WorkflowEditor() {
       if (event.key === "/" && !isEditing) {
         event.preventDefault();
         setPaletteOpen(true);
-        requestAnimationFrame(() => paletteSearchRef.current?.focus());
+        requestAnimationFrame(() => nodeLibraryRef.current?.focusSearch());
       }
       if (event.key === "Escape" && isInspectorDrawerOpen) {
         event.preventDefault();
         closeInspectorDrawer();
         return;
-      }
-      if (event.key === "Escape" && document.activeElement === paletteSearchRef.current) {
-        setPaletteSearch("");
-        paletteSearchRef.current?.blur();
       }
     };
     window.addEventListener("keydown", focusNodeSearch);
@@ -1237,52 +1219,7 @@ export function WorkflowEditor() {
 
       <div className={paletteOpen ? "editor-shell" : "editor-shell editor-shell--palette-closed"}>
         {paletteOpen && (
-          <aside className="node-palette" id="node-library">
-            <div className="node-palette__header">
-              <div>
-                <p className="section-label">NODE LIBRARY</p>
-                <h2>Add a step</h2>
-              </div>
-              <button className="icon-button" type="button" aria-label="Collapse node palette" aria-controls="node-library" aria-expanded="true" onClick={() => setPaletteOpen(false)}><ChevronLeft size={17} /></button>
-            </div>
-            <div className="node-palette__summary" aria-label="Node availability">
-              <span><i className="status-dot status-dot--ready" />{nodeCatalog.filter((node) => node.available).length} ready</span>
-              <span><i className="status-dot" />{nodeCatalog.filter((node) => !node.available).length} roadmap</span>
-            </div>
-            <p className="node-palette__hint">Pick a step by purpose, or search by app. Drag it anywhere on the canvas.</p>
-            <label className="palette-search"><Search size={15} /><span className="visually-hidden">Search nodes</span><input ref={paletteSearchRef} value={paletteSearch} onChange={(event) => setPaletteSearch(event.target.value)} placeholder="Search apps and actions" aria-label="Search nodes" /><kbd>/</kbd></label>
-            <div className="palette-filters" role="group" aria-label="Filter node library">
-              {nodeLibraryFilters.map((filter) => <button key={filter.id} type="button" className={paletteFilter === filter.id ? "palette-filter palette-filter--active" : "palette-filter"} aria-pressed={paletteFilter === filter.id} onClick={() => setPaletteFilter(filter.id)}>{filter.label}</button>)}
-            </div>
-            <div className="palette-results" aria-live="polite">
-              <span>{filteredNodeCount} {filteredNodeCount === 1 ? "node" : "nodes"}</span>
-              {(paletteSearch || paletteFilter !== "all") && <button type="button" onClick={() => { setPaletteSearch(""); setPaletteFilter("all"); }}>Clear filters</button>}
-            </div>
-            {filteredNodeGroups.map((group) => (
-              <section key={group.id} className="palette-group" aria-labelledby={`palette-group-${group.id}`}>
-                <header>
-                  <div><h3 id={`palette-group-${group.id}`}>{group.label}</h3><p>{group.description}</p></div>
-                  <span>{group.nodes.length}</span>
-                </header>
-                {group.nodes.map((definition) => (
-                  <button
-                    className={definition.available ? "palette-node" : "palette-node palette-node--planned"}
-                    key={definition.type}
-                    type="button"
-                    draggable={definition.available}
-                    disabled={!definition.available}
-                    onDragStart={(event) => onDragStart(event, definition)}
-                    onClick={() => addDefinition(definition)}
-                    aria-label={`${definition.label} ${definition.description}${definition.available ? "" : " Planned"}`}
-                  >
-                    <span className="palette-node__icon"><NodeIcon name={definition.icon} size={16} /></span>
-                    <span className="palette-node__body"><span className="palette-node__title"><strong>{definition.label}</strong>{!definition.available && <em>Planned</em>}</span><small>{definition.description}</small></span>
-                  </button>
-                ))}
-              </section>
-            ))}
-            {filteredNodeCount === 0 && <div className="palette-empty"><Search size={21} /><strong>No matching nodes</strong><p>Try an app name like “Telegram” or clear the current filters.</p><button type="button" onClick={() => { setPaletteSearch(""); setPaletteFilter("all"); }}>Show all ready nodes</button></div>}
-          </aside>
+          <NodeLibrary ref={nodeLibraryRef} onAdd={addDefinition} onDragStart={onDragStart} onCollapse={() => setPaletteOpen(false)} />
         )}
         <section className={`canvas-region${isConnecting ? " canvas-region--connecting" : ""}`} ref={wrapperRef} onDrop={onDrop} onDragOver={(event) => event.preventDefault()}>
           {!paletteOpen && <button className="palette-reopen" type="button" aria-controls="node-library" aria-expanded="false" onClick={() => setPaletteOpen(true)}>Add node</button>}

@@ -100,7 +100,8 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   await page.getByRole("button", { name: "Close credential manager" }).click();
 
   // 5. Add a Discord webhook node from palette and select this credential
-  await page.getByRole("button", { name: /Discord webhook Post a message to a Discord channel/ }).click();
+  await page.getByLabel("Search apps and operations").fill("Discord");
+  await page.getByRole("button", { name: /Discord: Send webhook message/ }).click();
   await expect(page.getByText("Discord webhook added to the draft.")).toBeVisible();
 
   await expect(page.getByLabel("Discord credential")).toBeVisible();
