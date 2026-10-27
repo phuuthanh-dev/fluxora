@@ -34,6 +34,7 @@ phase here may already have a locally verified foundation.
 - GitHub runtime operations beyond Create Issue; connector credentials remain separate from GitHub account OAuth.
 - GitHub Add Label is the first additional runtime operation; further issue and pull-request operations remain separately qualified slices.
 - GitHub Add Comment is the second additional runtime operation; pull-request operations and triggers remain separately qualified slices.
+- GitHub Merge Pull Request is the first pull-request action; GitHub triggers and other pull-request operations remain separately qualified slices.
 - Full Google Chat OAuth mode.
 - Workspace members, roles, and credential sharing.
 - Drive upload/download enhancements.

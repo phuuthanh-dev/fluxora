@@ -42,6 +42,7 @@ The Steam profile is public. The Steam node returns every field available throug
 | Action | GitHub Create Issue | Create an issue with a workspace-owned GitHub connector credential; an optional idempotency key reuses a previously created issue. |
 | Action | GitHub Add Label | Add one label to an existing issue with the same workspace-owned GitHub connector credential. |
 | Action | GitHub Add Comment | Post a comment to an existing issue with the same workspace-owned GitHub connector credential. |
+| Action | GitHub Merge Pull Request | Merge an existing pull request with an explicit merge method using the same workspace-owned GitHub connector credential. |
 | Action | Google Drive | List/search file metadata and upload/download text assets. |
 | Action | Google Sheets | Read ranges, append rows, update ranges. |
 | Action | HTTP Request | Generic REST request with structured response. |
@@ -120,6 +121,7 @@ Action nodes support timeout, retry with exponential backoff, and an error edge.
 - GitHub connector: a separate workspace-owned token credential for workflow actions. `Create Issue` calls the GitHub REST API from the backend; an optional idempotency key is hashed into an HTML comment marker and searched before creation because GitHub's Issues API does not provide a native idempotency key.
 - GitHub `Add Label` calls the issue-labels endpoint with the same workspace-owned token, returns the provider's normalized label set, and uses the shared timeout/retry/error contract. It is intentionally a separate operation node from `Create Issue`.
 - GitHub `Add Comment` calls the issue-comments endpoint with the same workspace-owned token, returns the normalized comment identity and body, and uses the shared timeout/retry/error contract. It is intentionally a separate operation node from issue creation and labeling.
+- GitHub `Merge Pull Request` calls the pull-request merge endpoint with the same workspace-owned token and an explicit `merge`, `squash`, or `rebase` method. The action remains subject to the existing live-run confirmation boundary and normalizes the provider merge result.
 - Google Chat MVP: incoming webhook URL credential.
 - Generic HTTP: API key, bearer token, basic auth, or headers.
 - All credential values are encrypted at rest and never returned to the client after save.

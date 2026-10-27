@@ -56,4 +56,8 @@ test("GitHub Create Issue is executable with a separate connector credential", (
   assert.ok(addComment);
   assert.equal(addComment.available, true);
   assert.deepEqual(addComment.defaultConfig, { credentialId: "", repository: "", issueNumber: "", body: "" });
+  const mergePullRequest = getNodeDefinition("action.github.merge-pull-request");
+  assert.ok(mergePullRequest);
+  assert.equal(mergePullRequest.available, true);
+  assert.deepEqual(mergePullRequest.defaultConfig, { credentialId: "", repository: "", pullRequestNumber: "", mergeMethod: "merge" });
 });

@@ -26,6 +26,7 @@ GitHub → Pull request opened
 GitHub → Create issue
 GitHub → Add label
 GitHub → Add comment
+GitHub → Merge pull request
 Telegram → Send message
 Google Sheets → Read or write rows
 ```
@@ -88,8 +89,10 @@ occupies one app card in the top-level library.
   separate vertical slices. The current GitHub slices implement `GitHub → Create
   issue`, `GitHub → Add label`, and `GitHub → Add comment`, with a
   workspace-owned encrypted connector credential. Create issue also has an
-  optional connector-level idempotency guard. GitHub account sign-in is an
-  independent identity flow and is not reused by workflow execution.
+  optional connector-level idempotency guard. Merge pull request remains an
+  explicitly destructive live operation behind the existing run confirmation.
+  GitHub account sign-in is an independent identity flow and is not reused by
+  workflow execution.
 
 ## Acceptance criteria
 

@@ -14,6 +14,7 @@ test("live readiness derives credential requirements from executable node types"
       { id: "github", type: "action.github", position: { x: 1, y: 3 }, config: { credentialId: "github-cred" } },
       { id: "github-label", type: "action.github.add-label", position: { x: 1, y: 4 }, config: {} },
       { id: "github-comment", type: "action.github.add-comment", position: { x: 1, y: 5 }, config: {} },
+      { id: "github-merge", type: "action.github.merge-pull-request", position: { x: 1, y: 6 }, config: {} },
       { id: "http", type: "action.http-request", position: { x: 2, y: 0 }, config: { credentialId: "http-credential" } },
       { id: "approval", type: "approval.request", position: { x: 3, y: 0 }, config: { notificationProvider: "http_webhook", notificationCredentialId: "approval-webhook" } },
     ],
@@ -27,6 +28,7 @@ test("live readiness derives credential requirements from executable node types"
     { nodeId: "github", provider: CredentialProvider.GITHUB, credentialId: "github-cred" },
     { nodeId: "github-label", provider: CredentialProvider.GITHUB, credentialId: null },
     { nodeId: "github-comment", provider: CredentialProvider.GITHUB, credentialId: null },
+    { nodeId: "github-merge", provider: CredentialProvider.GITHUB, credentialId: null },
     { nodeId: "http", provider: CredentialProvider.HTTP, credentialId: "http-credential" },
     { nodeId: "approval", provider: CredentialProvider.HTTP, credentialId: "approval-webhook" },
   ]);

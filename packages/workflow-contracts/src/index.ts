@@ -24,6 +24,7 @@ export const workflowNodeTypes = [
   "action.github",
   "action.github.add-label",
   "action.github.add-comment",
+  "action.github.merge-pull-request",
   "action.facebook-meta",
   "action.instagram",
 ] as const;

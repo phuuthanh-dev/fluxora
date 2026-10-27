@@ -10,7 +10,7 @@ export function liveCredentialRequirements(graph: WorkflowGraph): LiveCredential
     if (node.type === "action.google-chat.webhook") return [{ nodeId: node.id, provider: CredentialProvider.GOOGLE_CHAT_WEBHOOK, credentialId }];
     if (node.type === "action.discord.webhook") return [{ nodeId: node.id, provider: CredentialProvider.DISCORD_WEBHOOK, credentialId }];
     if (node.type === "action.telegram.message") return [{ nodeId: node.id, provider: CredentialProvider.TELEGRAM_BOT, credentialId }];
-    if (node.type === "action.github" || node.type === "action.github.add-label" || node.type === "action.github.add-comment") return [{ nodeId: node.id, provider: CredentialProvider.GITHUB, credentialId }];
+    if (node.type === "action.github" || node.type === "action.github.add-label" || node.type === "action.github.add-comment" || node.type === "action.github.merge-pull-request") return [{ nodeId: node.id, provider: CredentialProvider.GITHUB, credentialId }];
     if (node.type === "action.google-drive" || node.type === "action.google-sheets") return [{ nodeId: node.id, provider: CredentialProvider.GOOGLE, credentialId }];
     if (node.type === "action.http-request" && credentialId) return [{ nodeId: node.id, provider: CredentialProvider.HTTP, credentialId }];
     if (node.type === "approval.request") {

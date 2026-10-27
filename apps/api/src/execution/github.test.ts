@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { CredentialProvider } from "@prisma/client";
 import type { CredentialService } from "../credentials/credential.service";
-import { executeGitHubAddComment, executeGitHubAddLabel, executeGitHubCreateIssue } from "./execution.service";
+import { executeGitHubAddComment, executeGitHubAddLabel, executeGitHubCreateIssue, executeGitHubMergePullRequest } from "./execution.service";
 
 process.env.OUTBOUND_ALLOWED_HOSTNAMES = "api.github.com";
 
@@ -364,6 +364,97 @@ test("GitHub Add Comment validates body and retry classification", async () => {
     globalThis.fetch = (async () => Response.json({ message: "Server unavailable" }, { status: 503 })) as typeof fetch;
     await assert.rejects(
       () => executeGitHubAddComment({ credentialId: "github-credential", repository: "acme/automation", issueNumber: 42, body: "Comment" }, "live", "workspace-1", credentials),
+      (error: any) => error.code === "HTTP_ERROR" && error.statusCode === 503 && error.retryable === true,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("GitHub Merge Pull Request mock mode is deterministic and does not call the provider", async () => {
+  const originalFetch = globalThis.fetch;
+  let called = false;
+  globalThis.fetch = (async () => {
+    called = true;
+    throw new Error("mock mode must not call fetch");
+  }) as typeof fetch;
+  try {
+    const result = await executeGitHubMergePullRequest(
+      { repository: "acme/automation", pullRequestNumber: "12", mergeMethod: "squash" },
+      "mock",
+      "workspace-1",
+      createMockCredentials({}),
+    );
+    assert.deepEqual(result.output, {
+      delivered: true,
+      provider: "github",
+      operation: "merge_pull_request",
+      repository: "acme/automation",
+      pullRequestNumber: 12,
+      merged: true,
+      sha: "mock-merge-sha",
+      message: "Pull Request successfully merged",
+      mergeMethod: "squash",
+      url: "https://github.com/acme/automation/pull/12",
+      mode: "mock",
+    });
+    assert.equal(called, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("GitHub Merge Pull Request live mode uses the connector credential and safe fixed API route", async () => {
+  const credentials = createMockCredentials({
+    "github-credential": { provider: CredentialProvider.GITHUB, data: { token: "ghs_test_secret" } },
+  });
+  const originalFetch = globalThis.fetch;
+  let requestUrl = "";
+  let requestInit: RequestInit | undefined;
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    requestUrl = String(input);
+    requestInit = init;
+    return Response.json({ merged: true, sha: "abc123", message: "Pull Request successfully merged" }, { status: 200 });
+  }) as typeof fetch;
+  try {
+    const result = await executeGitHubMergePullRequest(
+      { credentialId: "github-credential", repository: "acme/automation", pullRequestNumber: 12, mergeMethod: "squash" },
+      "live",
+      "workspace-1",
+      credentials,
+    );
+    assert.equal(result.status, "succeeded");
+    assert.equal(requestUrl, "https://api.github.com/repos/acme/automation/pulls/12/merge");
+    assert.equal(requestInit?.method, "PUT");
+    assert.equal(new Headers(requestInit?.headers).get("authorization"), "Bearer ghs_test_secret");
+    assert.deepEqual(JSON.parse(String(requestInit?.body)), { merge_method: "squash" });
+    assert.equal(result.output.merged, true);
+    assert.equal(result.output.sha, "abc123");
+    assert.equal(result.output.mergeMethod, "squash");
+    assert.equal(result.output.mode, "live");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("GitHub Merge Pull Request validates merge method and retry classification", async () => {
+  const credentials = createMockCredentials({
+    "github-credential": { provider: CredentialProvider.GITHUB, data: { token: "ghs_test_secret" } },
+  });
+  await assert.rejects(
+    () => executeGitHubMergePullRequest({ repository: "acme/automation", pullRequestNumber: 12, mergeMethod: "fast-forward" }, "mock", "workspace-1", credentials),
+    (error: any) => error.code === "INVALID_CONFIGURATION" && error.retryable === false,
+  );
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = (async () => Response.json({ message: "Pull Request is not mergeable" }, { status: 405 })) as typeof fetch;
+    await assert.rejects(
+      () => executeGitHubMergePullRequest({ credentialId: "github-credential", repository: "acme/automation", pullRequestNumber: 12 }, "live", "workspace-1", credentials),
+      (error: any) => error.code === "HTTP_ERROR" && error.statusCode === 405 && error.retryable === false,
+    );
+    globalThis.fetch = (async () => Response.json({ message: "Server unavailable" }, { status: 503 })) as typeof fetch;
+    await assert.rejects(
+      () => executeGitHubMergePullRequest({ credentialId: "github-credential", repository: "acme/automation", pullRequestNumber: 12 }, "live", "workspace-1", credentials),
       (error: any) => error.code === "HTTP_ERROR" && error.statusCode === 503 && error.retryable === true,
     );
   } finally {
