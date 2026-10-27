@@ -261,9 +261,12 @@
     {
       "id": "apps/api/src/execution/execution-events.service.ts",
       "boundary": "api",
-      "internalImports": [],
+      "internalImports": [
+        "apps/api/src/execution/execution-queue.config.ts"
+      ],
       "externalImports": [
         "@nestjs/common",
+        "ioredis",
         "rxjs"
       ]
     },
@@ -280,9 +283,16 @@
       ]
     },
     {
+      "id": "apps/api/src/execution/execution-queue.config.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
       "id": "apps/api/src/execution/execution-queue.service.ts",
       "boundary": "api",
       "internalImports": [
+        "apps/api/src/execution/execution-queue.config.ts",
         "apps/api/src/execution/execution.service.ts",
         "apps/api/src/execution/worker-concurrency.ts"
       ],
@@ -411,6 +421,7 @@
       "boundary": "api",
       "internalImports": [
         "apps/api/src/app.module.ts",
+        "apps/api/src/execution/execution-queue.config.ts",
         "apps/api/src/execution/execution-queue.service.ts",
         "apps/api/src/execution/execution.service.ts",
         "apps/api/src/execution/worker-concurrency.ts",
@@ -545,6 +556,7 @@
       "id": "apps/api/src/platform/environment.ts",
       "boundary": "api",
       "internalImports": [
+        "apps/api/src/execution/execution-queue.config.ts",
         "apps/api/src/execution/worker-concurrency.ts"
       ],
       "externalImports": [
@@ -1387,12 +1399,20 @@
       "to": "apps/api/src/database/prisma.service.ts"
     },
     {
+      "from": "apps/api/src/execution/execution-events.service.ts",
+      "to": "apps/api/src/execution/execution-queue.config.ts"
+    },
+    {
       "from": "apps/api/src/execution/execution-maintenance.service.ts",
       "to": "apps/api/src/database/prisma.service.ts"
     },
     {
       "from": "apps/api/src/execution/execution-maintenance.service.ts",
       "to": "apps/api/src/execution/execution.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution-queue.service.ts",
+      "to": "apps/api/src/execution/execution-queue.config.ts"
     },
     {
       "from": "apps/api/src/execution/execution-queue.service.ts",
@@ -1501,6 +1521,10 @@
     {
       "from": "apps/api/src/execution/worker.ts",
       "to": "apps/api/src/app.module.ts"
+    },
+    {
+      "from": "apps/api/src/execution/worker.ts",
+      "to": "apps/api/src/execution/execution-queue.config.ts"
     },
     {
       "from": "apps/api/src/execution/worker.ts",
@@ -1641,6 +1665,10 @@
     {
       "from": "apps/api/src/notifications/telegram.adapter.ts",
       "to": "apps/api/src/notifications/notification-contracts.ts"
+    },
+    {
+      "from": "apps/api/src/platform/environment.ts",
+      "to": "apps/api/src/execution/execution-queue.config.ts"
     },
     {
       "from": "apps/api/src/platform/environment.ts",

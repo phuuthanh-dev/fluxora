@@ -2,18 +2,11 @@ import { Inject, Injectable, OnModuleDestroy } from "@nestjs/common";
 import { Queue } from "bullmq";
 import IORedis from "ioredis";
 import { ExecutionService } from "./execution.service";
+import { resolveExecutionQueueName, resolveQueueMode, type QueueMode } from "./execution-queue.config";
 import { resolveWorkerConcurrency } from "./worker-concurrency";
 
-type QueueMode = "inline" | "redis";
 export type ExecutionJob = { executionId: string; mode: "mock" | "live"; startNodeIds?: string[]; debugNodeId?: string };
 export type QueueHealth = { status: "ready" | "unavailable"; mode: QueueMode; configuredWorkerConcurrency: number; waiting: number; active: number; delayed: number; failed: number };
-export const executionQueueName = "workflow-executions";
-
-export function resolveQueueMode(value = process.env.EXECUTION_QUEUE_MODE): QueueMode {
-  if (!value || value === "inline") return "inline";
-  if (value === "redis") return "redis";
-  throw new Error("EXECUTION_QUEUE_MODE must be inline or redis.");
-}
 
 @Injectable()
 export class ExecutionQueueService implements OnModuleDestroy {
@@ -26,7 +19,7 @@ export class ExecutionQueueService implements OnModuleDestroy {
   async dispatch(job: ExecutionJob) {
     if (this.mode === "inline") return this.executions.run(job.executionId, job.mode, job.startNodeIds, job.debugNodeId);
     const queue = this.getQueue();
-    await queue.add("execute", job, { jobId: job.executionId, removeOnComplete: 100, removeOnFail: 100 });
+    await queue.add("execute", job, { attempts: 1, jobId: job.executionId, removeOnComplete: 100, removeOnFail: 100 });
   }
 
   async health(): Promise<QueueHealth> {
@@ -50,7 +43,7 @@ export class ExecutionQueueService implements OnModuleDestroy {
   private getQueue() {
     if (!this.queue) {
       this.connection = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", { connectTimeout: 2_000, maxRetriesPerRequest: null });
-      this.queue = new Queue<ExecutionJob>(executionQueueName, { connection: this.connection });
+      this.queue = new Queue<ExecutionJob>(resolveExecutionQueueName(), { connection: this.connection });
     }
     return this.queue;
   }

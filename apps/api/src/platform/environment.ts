@@ -1,9 +1,10 @@
 import { createSecretKey } from "node:crypto";
+import { resolveExecutionQueueName, resolveQueueMode } from "../execution/execution-queue.config";
 import { resolveWorkerConcurrency } from "../execution/worker-concurrency";
 
 export function validateEnvironment(environment: NodeJS.ProcessEnv = process.env) {
-  const queueMode = environment.EXECUTION_QUEUE_MODE ?? "inline";
-  if (queueMode !== "inline" && queueMode !== "redis") throw new Error("EXECUTION_QUEUE_MODE must be inline or redis.");
+  const queueMode = resolveQueueMode(environment.EXECUTION_QUEUE_MODE);
+  resolveExecutionQueueName(environment.EXECUTION_QUEUE_NAME);
   resolveWorkerConcurrency(environment.EXECUTION_WORKER_CONCURRENCY);
   if (environment.NODE_ENV !== "production") return;
   requireHttpsUrl(environment.WEB_ORIGIN, "WEB_ORIGIN");

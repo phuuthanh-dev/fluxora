@@ -5,11 +5,19 @@ import IORedis from "ioredis";
 import { AppModule } from "../app.module";
 import { ExecutionService } from "./execution.service";
 import { validateEnvironment } from "../platform/environment";
-import { executionQueueName, type ExecutionJob } from "./execution-queue.service";
+import { resolveExecutionQueueName } from "./execution-queue.config";
+import { type ExecutionJob } from "./execution-queue.service";
 import { resolveWorkerConcurrency } from "./worker-concurrency";
 
-export function createExecutionWorker(connection: IORedis, execute: (job: ExecutionJob) => Promise<void>, queueName = executionQueueName, concurrency = resolveWorkerConcurrency()) {
-  return new Worker<ExecutionJob>(queueName, async (job: Job<ExecutionJob>) => execute(job.data), { connection, concurrency });
+export function createExecutionWorker(connection: IORedis, execute: (job: ExecutionJob) => Promise<void>, queueName = resolveExecutionQueueName(), concurrency = resolveWorkerConcurrency(), workerOptions: { lockDuration?: number; stalledInterval?: number } = {}) {
+  return new Worker<ExecutionJob>(queueName, async (job: Job<ExecutionJob>) => execute(job.data), {
+    connection,
+    concurrency,
+    // A stalled live execution may already have changed an external provider.
+    // Never replay it automatically; lease maintenance records a terminal failure.
+    maxStalledCount: 0,
+    ...workerOptions,
+  });
 }
 
 export async function bootstrapExecutionWorker() {
