@@ -113,6 +113,8 @@ test("CI/CD workflow keeps bounded jobs, cache, and least-privilege deploy permi
       deployWorkflow,
       /appleboy\/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634/,
     );
+    assert.match(deployWorkflow, /name: Build and push API image/);
+    assert.match(deployWorkflow, /name: Build and push Web image/);
   }
 });
 
