@@ -647,6 +647,7 @@ export function WorkflowEditor() {
   const flowRef = useRef<ReactFlowInstance<WorkflowCanvasNode, WorkflowCanvasEdge> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const nodeLibraryRef = useRef<NodeLibraryHandle>(null);
+  const paletteReopenRef = useRef<HTMLButtonElement>(null);
   const inspectorTriggerRef = useRef<HTMLButtonElement>(null);
   const [notice, setNotice] = useState("Loading your workflow…");
   const [paletteOpen, setPaletteOpen] = useState(true);
@@ -1220,10 +1221,10 @@ export function WorkflowEditor() {
 
       <div className={paletteOpen ? "editor-shell" : "editor-shell editor-shell--palette-closed"}>
         {paletteOpen && (
-          <NodeLibrary ref={nodeLibraryRef} onAdd={addDefinition} onDragStart={onDragStart} onCollapse={() => setPaletteOpen(false)} />
+          <NodeLibrary ref={nodeLibraryRef} onAdd={addDefinition} onDragStart={onDragStart} onCollapse={() => { setPaletteOpen(false); requestAnimationFrame(() => paletteReopenRef.current?.focus()); }} />
         )}
         <section className={`canvas-region${isConnecting ? " canvas-region--connecting" : ""}`} ref={wrapperRef} onDrop={onDrop} onDragOver={(event) => event.preventDefault()}>
-          {!paletteOpen && <Button className="palette-reopen" variant="secondary" aria-controls="node-library" aria-expanded="false" onClick={() => setPaletteOpen(true)}><Plus size={15} aria-hidden="true" />Add node</Button>}
+          {!paletteOpen && <Button ref={paletteReopenRef} className="palette-reopen" variant="secondary" aria-controls="node-library" aria-expanded="false" onClick={() => { setPaletteOpen(true); requestAnimationFrame(() => nodeLibraryRef.current?.focusSearch()); }}><Plus size={15} aria-hidden="true" />Add node</Button>}
           {isNarrowEditorLayout && <button ref={inspectorTriggerRef} className="inspector-reopen" type="button" aria-controls="node-inspector" aria-expanded={isInspectorDrawerOpen} onClick={() => setInspectorDrawerOpen(true)}><Layers3 size={15} /> Inspector</button>}
           <ReactFlow
             nodes={nodes}

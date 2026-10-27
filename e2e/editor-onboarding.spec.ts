@@ -115,7 +115,7 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(page.getByRole("heading", { name: "Apps & services" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Manual trigger/ })).toHaveCount(0);
   await page.getByLabel("Search apps and operations").fill("OpenAI");
-  await expect(page.getByRole("button", { name: /OpenAI.*Planned/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /OpenAI.*Planned/ })).toHaveAttribute("aria-disabled", "true");
   await page.getByRole("button", { name: "Clear filters" }).click();
 
   await page.getByRole("button", { name: /Open Telegram/ }).click();
@@ -229,4 +229,65 @@ test("narrow desktop opens the node inspector as a focus-managed drawer", async 
   await page.keyboard.press("Escape");
   await expect(drawer).toBeHidden();
   await expect(inspectorTrigger).toBeFocused();
+});
+
+test("node library and editor menus support keyboard-only navigation", async ({ page }) => {
+  const email = `e2e-keyboard-${Date.now()}@example.test`;
+  await page.goto("/");
+  await page.getByRole("button", { name: "Create an account" }).click();
+  await page.locator('input[autocomplete="name"]').fill("Keyboard Owner");
+  await page.locator('input[autocomplete="email"]').fill(email);
+  await page.locator('input[autocomplete="new-password"]').fill("e2e-password-123");
+  await page.getByRole("button", { name: "Create account" }).click();
+  await page.getByRole("button", { name: "Use Steam template" }).click();
+  await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+
+  const search = page.getByLabel("Search apps and operations");
+  await expect(search).toHaveAttribute("aria-keyshortcuts", "/");
+  await page.locator(".canvas-region").click({ position: { x: 400, y: 180 } });
+  await page.keyboard.press("/");
+  await expect(search).toBeFocused();
+  await search.fill("OpenAI");
+  const plannedOpenAi = page.getByRole("button", { name: /OpenAI.*Planned, unavailable/ });
+  await expect(plannedOpenAi).toHaveAttribute("aria-disabled", "true");
+  await plannedOpenAi.focus();
+  await expect(plannedOpenAi).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(search).toHaveValue("");
+  await expect(search).toBeFocused();
+
+  const allFilter = page.getByRole("button", { name: "All", exact: true });
+  await allFilter.focus();
+  await page.keyboard.press("ArrowRight");
+  const coreFilter = page.getByRole("button", { name: "Core", exact: true });
+  await expect(coreFilter).toBeFocused();
+  await expect(coreFilter).toHaveAttribute("aria-pressed", "true");
+  await allFilter.click();
+
+  const googleChatApp = page.getByRole("button", { name: /Open Google Chat/ });
+  await googleChatApp.focus();
+  await page.keyboard.press("ArrowDown");
+  const discordApp = page.getByRole("button", { name: /Open Discord/ });
+  await expect(discordApp).toBeFocused();
+  await page.keyboard.press("Enter");
+  const discordOperation = page.getByRole("button", { name: /Discord: Send webhook message/ });
+  await expect(discordOperation).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(discordApp).toBeFocused();
+  await page.keyboard.press("Escape");
+  const addNode = page.getByRole("button", { name: "Add node" });
+  await expect(addNode).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(search).toBeFocused();
+
+  await page.locator(".react-flow__node").filter({ hasText: "Get account snapshot" }).click();
+  const editMenu = page.getByLabel("Edit actions");
+  await editMenu.focus();
+  await page.keyboard.press("ArrowDown");
+  expect(await page.locator(".action-menu__content:visible").evaluate((menu) => menu.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press("End");
+  await expect(page.getByRole("button", { name: "Copy selected node" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(editMenu).toBeFocused();
+  await expect(editMenu).toHaveAttribute("aria-expanded", "false");
 });
