@@ -78,3 +78,36 @@ test("GitHub issue-opened webhook rejects a different action before dispatch", a
   );
   assert.equal(dispatched, false);
 });
+
+test("GitHub pull-request-opened webhook verifies its event and dispatches the payload", async () => {
+  const body = Buffer.from('{"action":"opened","pull_request":{"number":7}}');
+  const signature = `sha256=${createHmac("sha256", "github-webhook-secret").update(body).digest("hex")}`;
+  let dispatchedExecutionId = "";
+  const service = new WebhookService(
+    {
+      webhookEndpoint: {
+        findUnique: async () => ({
+          id: "endpoint-pr-1",
+          isActive: true,
+          secretHash: null,
+          workflow: { workspaceId: "workspace-1", isActive: true, archivedAt: null },
+          workflowVersion: { graph: { nodes: [{ id: "github-pr", type: "trigger.github.pull-request-opened", position: { x: 0, y: 0 }, config: { credentialId: "github-credential", event: "pull_request", action: "opened" } }], edges: [] } },
+          workflowVersionId: "version-pr-1",
+        }),
+      },
+    } as never,
+    { createScheduledExecution: async () => ({ id: "execution-pr-1" }) } as never,
+    { dispatch: async ({ executionId }: { executionId: string }) => { dispatchedExecutionId = executionId; } } as never,
+    { readForExecution: async () => ({ webhookSecret: "github-webhook-secret" }) } as never,
+  );
+
+  const result = await service.receive(
+    "github-pull-requests",
+    undefined,
+    JSON.parse(body.toString()) as Record<string, unknown>,
+    undefined,
+    { githubEvent: "pull_request", githubSignature: signature, rawBody: body },
+  );
+  assert.deepEqual(result, { executionId: "execution-pr-1" });
+  assert.equal(dispatchedExecutionId, "execution-pr-1");
+});

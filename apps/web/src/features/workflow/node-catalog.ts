@@ -188,6 +188,23 @@ export const nodeCatalog: NodeDefinition[] = [
     ],
   },
   {
+    type: "trigger.github.pull-request-opened",
+    label: "GitHub pull request opened",
+    description: "Start when GitHub sends a pull_request.opened webhook event.",
+    category: "trigger",
+    libraryGroup: "start",
+    appId: "github",
+    operationId: "pull-request-opened",
+    operationLabel: "Pull request opened",
+    operationKind: "trigger",
+    icon: "github",
+    available: true,
+    defaultConfig: { path: "github-pull-request-opened", credentialId: "", event: "pull_request", action: "opened" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "GitHub connector credential", providers: ["GITHUB"] },
+    ],
+  },
+  {
     type: "condition.if",
     label: "If / else",
     description: "Route using a condition.",

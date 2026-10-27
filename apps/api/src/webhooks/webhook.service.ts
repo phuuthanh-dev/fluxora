@@ -26,9 +26,9 @@ export class WebhookService {
     const workflow = await this.findOwned(workflowId, userId);
     if (!workflow.publishedVersion) throw new NotFoundException({ code: "PUBLISHED_VERSION_REQUIRED", message: "Publish this workflow before creating a webhook endpoint." });
     const graph = parseWorkflowGraph(workflow.publishedVersion.graph);
-    const githubTrigger = githubIssueOpenedTrigger(graph);
+    const githubTrigger = githubWebhookTrigger(graph);
     if (!graph.nodes.some((node) => node.type === "trigger.webhook") && !githubTrigger) {
-      throw new BadRequestException({ code: "WEBHOOK_TRIGGER_REQUIRED", message: "Publish a workflow version containing a Webhook or GitHub Issue opened trigger before creating an endpoint." });
+      throw new BadRequestException({ code: "WEBHOOK_TRIGGER_REQUIRED", message: "Publish a workflow version containing a Webhook or GitHub event trigger before creating an endpoint." });
     }
     const conflictingEndpoint = await this.prisma.webhookEndpoint.findFirst({ where: { path, NOT: { workflowId } } });
     if (conflictingEndpoint) throw new ConflictException({ code: "WEBHOOK_PATH_IN_USE", message: "This webhook path is already in use by another workflow." });
@@ -55,9 +55,9 @@ export class WebhookService {
     const endpoint = await this.prisma.webhookEndpoint.findUnique({ where: { path }, include: { workflow: true, workflowVersion: true } });
     if (!endpoint || !endpoint.isActive || !endpoint.workflow.isActive || endpoint.workflow.archivedAt) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
     const graph = parseWorkflowGraph(endpoint.workflowVersion.graph);
-    const githubTrigger = githubIssueOpenedTrigger(graph);
+    const githubTrigger = githubWebhookTrigger(graph);
     if (githubTrigger) {
-      await this.verifyGitHubIssueOpened(endpoint.workflow.workspaceId, githubTrigger.config, payload, githubEventHeaders);
+      await this.verifyGitHubWebhook(endpoint.workflow.workspaceId, githubTrigger.config, payload, githubEventHeaders);
     } else if (endpoint.secretHash && (!secret || !matchesWebhookSecret(secret, endpoint.secretHash))) {
       throw new ForbiddenException({ code: "WEBHOOK_SECRET_INVALID", message: "Webhook secret is invalid." });
     }
@@ -77,7 +77,7 @@ export class WebhookService {
     if (!readSecret(credential.webhookSecret)) throw new BadRequestException({ code: "GITHUB_WEBHOOK_SECRET_REQUIRED", message: "Add webhookSecret to the selected GitHub connector credential before creating the endpoint." });
   }
 
-  private async verifyGitHubIssueOpened(workspaceId: string, config: Record<string, unknown>, payload: unknown, headers: GitHubEventHeaders) {
+  private async verifyGitHubWebhook(workspaceId: string, config: Record<string, unknown>, payload: unknown, headers: GitHubEventHeaders) {
     const credentialId = readCredentialId(config);
     const eventName = readString(config.event) ?? "issues";
     const action = readString(config.action) ?? "opened";
@@ -97,8 +97,8 @@ export class WebhookService {
 
 export type GitHubEventHeaders = { githubEvent?: string; githubSignature?: string; rawBody?: Buffer };
 
-function githubIssueOpenedTrigger(graph: ReturnType<typeof parseWorkflowGraph>) {
-  return graph.nodes.find((node) => node.type === "trigger.github.issue-opened");
+function githubWebhookTrigger(graph: ReturnType<typeof parseWorkflowGraph>) {
+  return graph.nodes.find((node) => node.type === "trigger.github.issue-opened" || node.type === "trigger.github.pull-request-opened");
 }
 
 function readCredentialId(config: Record<string, unknown>) {

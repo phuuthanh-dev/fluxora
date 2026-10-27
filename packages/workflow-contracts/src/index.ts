@@ -7,6 +7,7 @@ export const workflowNodeTypes = [
   "trigger.cron",
   "trigger.webhook",
   "trigger.github.issue-opened",
+  "trigger.github.pull-request-opened",
   "condition.if",
   "condition.switch",
   "action.steam.account-snapshot",

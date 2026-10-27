@@ -34,6 +34,7 @@ The Steam profile is public. The Steam node returns every field available throug
 | Trigger | Cron | Run published workflow by cron expression in `Asia/Ho_Chi_Minh`. |
 | Trigger | Webhook | Receive JSON with optional secret header. |
 | Trigger | GitHub Issue opened | Receive a signed GitHub `issues` webhook with `action: opened` using a workspace-owned GitHub connector secret. |
+| Trigger | GitHub Pull request opened | Receive a signed GitHub `pull_request` webhook with `action: opened` using a workspace-owned GitHub connector secret. |
 | Condition | If/Else | Comparison operators and true/false paths. |
 | Condition | Switch | Multiple cases and a default path. |
 | Action | Steam Account Snapshot | Profile, current game, owned/recent games, playtime, and optional per-game achievements. |
@@ -124,6 +125,7 @@ Action nodes support timeout, retry with exponential backoff, and an error edge.
 - GitHub `Add Comment` calls the issue-comments endpoint with the same workspace-owned token, returns the normalized comment identity and body, and uses the shared timeout/retry/error contract. It is intentionally a separate operation node from issue creation and labeling.
 - GitHub `Merge Pull Request` calls the pull-request merge endpoint with the same workspace-owned token and an explicit `merge`, `squash`, or `rebase` method. The action remains subject to the existing live-run confirmation boundary and normalizes the provider merge result.
 - GitHub `Issue opened` verifies `X-Hub-Signature-256` against the raw request body using `webhookSecret` from the selected workspace GitHub connector credential, filters `issues.opened`, and passes the verified payload into the workflow. GitHub account-login OAuth is never used for webhook verification.
+- GitHub `Pull request opened` uses the same signed raw-body webhook path and workspace-owned `webhookSecret`, filters `pull_request.opened`, and passes the verified payload into the workflow. GitHub account-login OAuth is never used for webhook verification.
 - Google Chat MVP: incoming webhook URL credential.
 - Generic HTTP: API key, bearer token, basic auth, or headers.
 - All credential values are encrypted at rest and never returned to the client after save.

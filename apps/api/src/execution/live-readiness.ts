@@ -6,7 +6,7 @@ export type LiveCredentialRequirement = { nodeId: string; provider: CredentialPr
 export function liveCredentialRequirements(graph: WorkflowGraph): LiveCredentialRequirement[] {
   return graph.nodes.flatMap<LiveCredentialRequirement>((node) => {
     const credentialId = readCredentialId(node.config);
-    if (node.type === "trigger.github.issue-opened") return [{ nodeId: node.id, provider: CredentialProvider.GITHUB, credentialId }];
+    if (node.type === "trigger.github.issue-opened" || node.type === "trigger.github.pull-request-opened") return [{ nodeId: node.id, provider: CredentialProvider.GITHUB, credentialId }];
     if (node.type === "action.steam.account-snapshot") return [{ nodeId: node.id, provider: CredentialProvider.STEAM, credentialId }];
     if (node.type === "action.google-chat.webhook") return [{ nodeId: node.id, provider: CredentialProvider.GOOGLE_CHAT_WEBHOOK, credentialId }];
     if (node.type === "action.discord.webhook") return [{ nodeId: node.id, provider: CredentialProvider.DISCORD_WEBHOOK, credentialId }];
