@@ -45,7 +45,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | Shared section and toolbar primitives | Complete locally | Reusable `SectionHeader` and `Toolbar` now power workflow controls and execution filters, reducing page-specific hierarchy/action markup while preserving existing browser behavior. |
 | App → Operation Node Library | Complete locally | The information architecture is defined in `docs/16-node-library-information-architecture.md`; the editor now preserves existing node type IDs while adding Core/App discovery, explicit operations, browser-local recent/favorites, use-case template tags, and light/dark browser regression coverage. The full repository quality gate passed. |
 | Add-node action contrast and primitive reuse | Complete locally | The collapsed Node Library trigger now uses the shared secondary `Button`, semantic panel/ink/accent tokens, and a plus icon. Automated contrast coverage checks its label and icon in both themes while editor collapse/reopen behavior remains covered. |
-| Accessibility Hardening v1 | Active | Three bounded slices cover Node Library/command-bar keyboard navigation, shared dialog/drawer/menu focus lifecycle, and zoom/reduced-motion/light-dark regression without changing runtime or provider behavior. |
+| Accessibility Hardening v1 | Complete locally | Three bounded slices cover Node Library/command-bar keyboard navigation, shared dialog/drawer/menu focus lifecycle, and zoom/reduced-motion/light-dark regression without changing runtime or provider behavior. Focused checks and the repository-wide quality gate pass. |
 
 ## Milestone 1 — Product foundation
 

@@ -160,6 +160,26 @@ All shared action and form primitives expose the same lime `:focus-visible`
 outline. The outline is intentionally distinct from hover and selected states
 so keyboard users can track focus in either theme.
 
+### Keyboard and adaptive accessibility contract
+
+- The Node Library treats search, category filters, app cards, and operation
+  cards as one keyboard workflow. `/` enters search; Escape unwinds search,
+  app detail, and the library in that order; arrow/Home/End navigation stays
+  within the active collection.
+- Shared `Menu` instances close on outside interaction, support arrow/Home/End
+  navigation, and return focus to their summary trigger after keyboard
+  dismissal.
+- Shared `Dialog` instances own initial focus, Escape dismissal, and focus
+  return. Modal dialogs and the responsive Inspector trap Tab/Shift+Tab;
+  non-modal editor panels deliberately do not trap the rest of the editor.
+- A 1440px desktop at 125% and 150% browser zoom is represented by 1152px and
+  960px layout widths in Playwright. Save, Publish, Run test, and Go live must
+  remain visible inside the command bar at both widths and in both themes.
+- Under `prefers-reduced-motion: reduce`, non-essential pulsing, edge motion,
+  drawer entry, hover transforms, and long transitions stop. Loading and
+  operation state remain understandable through adjacent text and ARIA live
+  regions; motion is never the only status signal.
+
 Legacy class names such as `.run-button`, `.ghost-button`, and
 `.dashboard-primary-button` are compatibility hooks during migration. They
 must not become a second design system: the typed primitive owns semantics,

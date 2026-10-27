@@ -60,11 +60,11 @@ operable under browser zoom, reduced motion, and both product themes.
 
 ### Slice 3 — adaptive accessibility
 
-- [ ] Core editor actions remain visible and usable at 125% and 150%
+- [x] Core editor actions remain visible and usable at 125% and 150%
   zoom-equivalent desktop layouts.
-- [ ] Reduced-motion mode removes non-essential animation and transitions.
-- [ ] Keyboard focus and readable contrast are covered in light and dark themes.
-- [ ] Focused tests, code-graph check, and `npm run verify` pass.
+- [x] Reduced-motion mode removes non-essential animation and transitions.
+- [x] Keyboard focus and readable contrast are covered in light and dark themes.
+- [x] Focused tests, code-graph check, and `npm run verify` pass.
 
 ## Required evidence
 
