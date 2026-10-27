@@ -17,6 +17,7 @@ test("live readiness derives credential requirements from executable node types"
       { id: "github-merge", type: "action.github.merge-pull-request", position: { x: 1, y: 6 }, config: {} },
       { id: "github-trigger", type: "trigger.github.issue-opened", position: { x: 1, y: 7 }, config: { credentialId: "github-trigger-cred" } },
       { id: "github-pr-trigger", type: "trigger.github.pull-request-opened", position: { x: 1, y: 8 }, config: { credentialId: "github-pr-trigger-cred" } },
+      { id: "github-push-trigger", type: "trigger.github.push", position: { x: 1, y: 9 }, config: { credentialId: "github-push-trigger-cred" } },
       { id: "http", type: "action.http-request", position: { x: 2, y: 0 }, config: { credentialId: "http-credential" } },
       { id: "approval", type: "approval.request", position: { x: 3, y: 0 }, config: { notificationProvider: "http_webhook", notificationCredentialId: "approval-webhook" } },
     ],
@@ -33,6 +34,7 @@ test("live readiness derives credential requirements from executable node types"
     { nodeId: "github-merge", provider: CredentialProvider.GITHUB, credentialId: null },
     { nodeId: "github-trigger", provider: CredentialProvider.GITHUB, credentialId: "github-trigger-cred" },
     { nodeId: "github-pr-trigger", provider: CredentialProvider.GITHUB, credentialId: "github-pr-trigger-cred" },
+    { nodeId: "github-push-trigger", provider: CredentialProvider.GITHUB, credentialId: "github-push-trigger-cred" },
     { nodeId: "http", provider: CredentialProvider.HTTP, credentialId: "http-credential" },
     { nodeId: "approval", provider: CredentialProvider.HTTP, credentialId: "approval-webhook" },
   ]);

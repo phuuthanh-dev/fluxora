@@ -205,6 +205,23 @@ export const nodeCatalog: NodeDefinition[] = [
     ],
   },
   {
+    type: "trigger.github.push",
+    label: "GitHub push",
+    description: "Start when GitHub sends a push webhook event.",
+    category: "trigger",
+    libraryGroup: "start",
+    appId: "github",
+    operationId: "push",
+    operationLabel: "Push",
+    operationKind: "trigger",
+    icon: "github",
+    available: true,
+    defaultConfig: { path: "github-push", credentialId: "", event: "push", action: "" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "GitHub connector credential", providers: ["GITHUB"] },
+    ],
+  },
+  {
     type: "condition.if",
     label: "If / else",
     description: "Route using a condition.",

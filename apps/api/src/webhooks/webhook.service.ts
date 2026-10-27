@@ -80,8 +80,8 @@ export class WebhookService {
   private async verifyGitHubWebhook(workspaceId: string, config: Record<string, unknown>, payload: unknown, headers: GitHubEventHeaders) {
     const credentialId = readCredentialId(config);
     const eventName = readString(config.event) ?? "issues";
-    const action = readString(config.action) ?? "opened";
-    if (headers.githubEvent !== eventName || !isRecord(payload) || payload.action !== action) {
+    const action = readString(config.action) ?? (eventName === "issues" || eventName === "pull_request" ? "opened" : null);
+    if (headers.githubEvent !== eventName || !isRecord(payload) || (action && payload.action !== action)) {
       throw new ForbiddenException({ code: "GITHUB_EVENT_NOT_MATCHED", message: "The GitHub webhook event does not match this trigger." });
     }
     if (!credentialId || !headers.rawBody || !headers.githubSignature) {
@@ -98,7 +98,7 @@ export class WebhookService {
 export type GitHubEventHeaders = { githubEvent?: string; githubSignature?: string; rawBody?: Buffer };
 
 function githubWebhookTrigger(graph: ReturnType<typeof parseWorkflowGraph>) {
-  return graph.nodes.find((node) => node.type === "trigger.github.issue-opened" || node.type === "trigger.github.pull-request-opened");
+  return graph.nodes.find((node) => node.type === "trigger.github.issue-opened" || node.type === "trigger.github.pull-request-opened" || node.type === "trigger.github.push");
 }
 
 function readCredentialId(config: Record<string, unknown>) {

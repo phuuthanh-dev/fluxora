@@ -73,7 +73,7 @@ function readConfigText(config: Record<string, unknown>, key: string) {
 }
 
 function isGitHubWebhookTrigger(nodeType: string) {
-  return nodeType === "trigger.github.issue-opened" || nodeType === "trigger.github.pull-request-opened";
+  return nodeType === "trigger.github.issue-opened" || nodeType === "trigger.github.pull-request-opened" || nodeType === "trigger.github.push";
 }
 
 function providerLabel(provider: CredentialProvider) {
@@ -317,6 +317,8 @@ function WebhookEndpointPanel({ workflow, config, isGitHub, onClose }: { workflo
   const [isSaving, setIsSaving] = useState(false);
   const endpointUrl = `${apiUrl}/webhooks/${endpoint?.path ?? path}`;
   const githubEvent = readConfigText(config, "event") || "issues";
+  const githubAction = readConfigText(config, "action");
+  const githubEventLabel = githubAction ? `${githubEvent}.${githubAction}` : githubEvent;
 
   useEffect(() => {
     let isCurrent = true;
@@ -343,7 +345,7 @@ function WebhookEndpointPanel({ workflow, config, isGitHub, onClose }: { workflo
     }
   };
 
-  return <Dialog label="Webhook endpoint" className="webhook-endpoint-panel" modal={false} onClose={onClose}><div className="credential-panel__heading"><div><p className="section-label">INBOUND WEBHOOK</p><h2>{isGitHub ? "GitHub webhook endpoint" : "Webhook endpoint"}</h2></div><IconButton label="Close webhook endpoint" className="icon-button" onClick={onClose}>×</IconButton></div><p>Endpoints are pinned to a published workflow version. Publishing again does not change an existing endpoint until you rotate it here.</p><ConfigField label="Public path" value={path} onChange={setPath} />{isGitHub ? <Status tone="info">GitHub signature verification uses the <code>webhookSecret</code> in the selected connector credential. Configure this URL for the <code>{githubEvent}</code> webhook.</Status> : <label className="checkbox-field"><input type="checkbox" checked={secretRequired} onChange={(event) => setSecretRequired(event.target.checked)} /> Require <code>x-workflow-secret</code> header</label>}<div className="webhook-endpoint-panel__url"><span>POST URL</span><code>{endpointUrl}</code></div>{createdSecret && <div className="webhook-endpoint-panel__secret"><strong>Copy this secret now</strong><code>{createdSecret}</code><small>It is displayed only after this creation or rotation.</small></div>}<Status tone="info" className="webhook-endpoint-panel__notice">{notice}</Status><Button variant="primary" className="run-button" onClick={() => void createEndpoint()} disabled={!workflow.published || isSaving || !path.trim()}>{isSaving ? "Creating…" : endpoint ? "Rotate endpoint" : "Create endpoint"}</Button>{!workflow.published && <small className="webhook-endpoint-panel__warning">Publish a version containing this webhook trigger before creating its endpoint.</small>}</Dialog>;
+  return <Dialog label="Webhook endpoint" className="webhook-endpoint-panel" modal={false} onClose={onClose}><div className="credential-panel__heading"><div><p className="section-label">INBOUND WEBHOOK</p><h2>{isGitHub ? "GitHub webhook endpoint" : "Webhook endpoint"}</h2></div><IconButton label="Close webhook endpoint" className="icon-button" onClick={onClose}>×</IconButton></div><p>Endpoints are pinned to a published workflow version. Publishing again does not change an existing endpoint until you rotate it here.</p><ConfigField label="Public path" value={path} onChange={setPath} />{isGitHub ? <Status tone="info">GitHub signature verification uses the <code>webhookSecret</code> in the selected connector credential. Configure this URL for the <code>{githubEventLabel}</code> webhook.</Status> : <label className="checkbox-field"><input type="checkbox" checked={secretRequired} onChange={(event) => setSecretRequired(event.target.checked)} /> Require <code>x-workflow-secret</code> header</label>}<div className="webhook-endpoint-panel__url"><span>POST URL</span><code>{endpointUrl}</code></div>{createdSecret && <div className="webhook-endpoint-panel__secret"><strong>Copy this secret now</strong><code>{createdSecret}</code><small>It is displayed only after this creation or rotation.</small></div>}<Status tone="info" className="webhook-endpoint-panel__notice">{notice}</Status><Button variant="primary" className="run-button" onClick={() => void createEndpoint()} disabled={!workflow.published || isSaving || !path.trim()}>{isSaving ? "Creating…" : endpoint ? "Rotate endpoint" : "Create endpoint"}</Button>{!workflow.published && <small className="webhook-endpoint-panel__warning">Publish a version containing this webhook trigger before creating its endpoint.</small>}</Dialog>;
 }
 
 function WorkflowLibraryPanel({ initialWorkspaces, activeWorkflowId, activeWorkspaceId, onOpen, onWorkspaceCreated, onClose }: { initialWorkspaces: WorkspaceSummary[]; activeWorkflowId: string | undefined; activeWorkspaceId: string | undefined; onOpen: (workflow: ApiWorkflow) => void; onWorkspaceCreated: (workspace: WorkspaceSummary) => void; onClose: () => void }) {
@@ -499,7 +501,7 @@ function NodeInspector({ node, execution, credentials, onResolveApproval, onDebu
           <label className="checkbox-field"><input type="checkbox" checked={node.data.config.secretRequired !== false} onChange={(event) => updateConfig("secretRequired", event.target.checked)} /> Require <code>x-workflow-secret</code> header</label>
         </>
       )}
-      {isGitHubWebhookTrigger(node.data.nodeType) && <Status tone="info">GitHub sends <code>{readConfigText(node.data.config, "event") || "issues"}.{readConfigText(node.data.config, "action") || "opened"}</code> events to the endpoint. The selected GitHub credential must include <code>webhookSecret</code>; the secret is never shown after saving.</Status>}
+      {isGitHubWebhookTrigger(node.data.nodeType) && <Status tone="info">GitHub sends <code>{readConfigText(node.data.config, "event") || "issues"}{readConfigText(node.data.config, "action") ? `.${readConfigText(node.data.config, "action")}` : ""}</code> events to the endpoint. The selected GitHub credential must include <code>webhookSecret</code>; the secret is never shown after saving.</Status>}
       {node.data.nodeType === "action.steam.account-snapshot" && (
         <>
           <CredentialField label="Steam credential" value={readConfigText(node.data.config, "credentialId")} providers={["STEAM"]} credentials={credentials} onChange={(value) => updateConfig("credentialId", value)} />
