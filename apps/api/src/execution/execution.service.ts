@@ -570,6 +570,9 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
   if (node.type === "action.github.add-label") {
     return executeGitHubAddLabel(config, mode, workspaceId, credentials);
   }
+  if (node.type === "action.github.add-comment") {
+    return executeGitHubAddComment(config, mode, workspaceId, credentials);
+  }
   if (node.type === "action.google-drive") {
     if (mode === "mock") return { status: "succeeded", output: mockDrive(config), route: "success" };
     const credential = await credentials.readGoogleForExecution(readCredentialId(config), workspaceId);
@@ -1089,6 +1092,79 @@ export async function executeGitHubAddLabel(config: Record<string, unknown>, mod
   }
 }
 
+export async function executeGitHubAddComment(config: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService): Promise<NodeResult> {
+  const repository = readGitHubRepository(config.repository);
+  const issueNumber = readGitHubIssueNumber(config.issueNumber);
+  const body = readGitHubCommentBody(config.body);
+
+  if (mode === "mock") {
+    return {
+      status: "succeeded",
+      output: {
+        delivered: true,
+        provider: "github",
+        operation: "add_comment",
+        repository,
+        issueNumber,
+        commentId: 1,
+        url: `https://github.com/${repository}/issues/${issueNumber}#issuecomment-1`,
+        body,
+        mode: "mock",
+      },
+      route: "success",
+    };
+  }
+
+  const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.GITHUB);
+  const token = typeof credential.token === "string" ? credential.token.trim() : "";
+  if (!token) throw new NodeFailure("CREDENTIAL_INVALID", "GitHub credential is missing token.", false);
+  const [owner, repo] = readGitHubRepositoryParts(repository);
+  const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/comments`;
+  try {
+    const response = await fetchSafeOutbound(url, {
+      method: "POST",
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "Fluxora",
+      },
+      body: JSON.stringify({ body }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    const payload = await response.json().catch(() => ({})) as { id?: unknown; html_url?: unknown; body?: unknown };
+    if (!response.ok) {
+      const retryable = response.status === 429 || response.status >= 500;
+      throw new NodeFailure("HTTP_ERROR", `GitHub returned ${response.status}.`, retryable, response.status);
+    }
+    if (typeof payload.id !== "number" || !Number.isSafeInteger(payload.id) || typeof payload.html_url !== "string") {
+      throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "GitHub returned an invalid comment response.", false);
+    }
+    return {
+      status: "succeeded",
+      output: {
+        delivered: true,
+        provider: "github",
+        operation: "add_comment",
+        repository,
+        issueNumber,
+        commentId: payload.id,
+        url: payload.html_url,
+        body: typeof payload.body === "string" ? payload.body : body,
+        mode: "live",
+        sentAt: new Date().toISOString(),
+      },
+      route: "success",
+    };
+  } catch (reason) {
+    if (reason instanceof NodeFailure) throw reason;
+    if (reason instanceof OutboundRequestPolicyError) throw nodeFailureFromOutboundPolicy(reason);
+    const timeout = reason instanceof Error && reason.name === "TimeoutError";
+    throw new NodeFailure(timeout ? "TIMEOUT" : "NETWORK_ERROR", timeout ? "GitHub request timed out." : "GitHub request failed.", true);
+  }
+}
+
 function readGitHubRepository(value: unknown) {
   const repository = typeof value === "string" ? value.trim() : "";
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) {
@@ -1121,6 +1197,13 @@ function readGitHubLabel(value: unknown) {
   const label = value.trim();
   if (label.length > 50 || /[\u0000-\u001f\u007f]/.test(label)) throw new NodeFailure("INVALID_CONFIGURATION", "GitHub issue label must be printable text up to 50 characters.", false);
   return label;
+}
+
+function readGitHubCommentBody(value: unknown) {
+  if (typeof value !== "string") throw new NodeFailure("INVALID_CONFIGURATION", "GitHub comment body is required.", false);
+  if (!value.trim()) throw new NodeFailure("INVALID_CONFIGURATION", "GitHub comment body is required.", false);
+  if (value.length > 65_536 || /\u0000/.test(value)) throw new NodeFailure("INVALID_CONFIGURATION", "GitHub comment body must be printable text up to 65,536 characters.", false);
+  return value;
 }
 
 function readGitHubIdempotencyKey(value: unknown) {

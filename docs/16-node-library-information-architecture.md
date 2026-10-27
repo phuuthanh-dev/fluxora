@@ -25,6 +25,7 @@ Examples:
 GitHub → Pull request opened
 GitHub → Create issue
 GitHub → Add label
+GitHub → Add comment
 Telegram → Send message
 Google Sheets → Read or write rows
 ```
@@ -85,10 +86,10 @@ occupies one app card in the top-level library.
 - Template tags are returned by the existing read-only system-template API.
 - Runtime connectors, OAuth scopes, credentials, and provider calls remain
   separate vertical slices. The current GitHub slices implement `GitHub → Create
-  issue` and `GitHub → Add label`, with a workspace-owned encrypted connector
-  credential. Create issue also has an optional connector-level idempotency
-  guard. GitHub account sign-in is an independent identity flow and is not
-  reused by workflow execution.
+  issue`, `GitHub → Add label`, and `GitHub → Add comment`, with a
+  workspace-owned encrypted connector credential. Create issue also has an
+  optional connector-level idempotency guard. GitHub account sign-in is an
+  independent identity flow and is not reused by workflow execution.
 
 ## Acceptance criteria
 

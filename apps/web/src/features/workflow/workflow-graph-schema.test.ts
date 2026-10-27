@@ -52,4 +52,8 @@ test("GitHub Create Issue is executable with a separate connector credential", (
   assert.ok(addLabel);
   assert.equal(addLabel.available, true);
   assert.deepEqual(addLabel.defaultConfig, { credentialId: "", repository: "", issueNumber: "", label: "" });
+  const addComment = getNodeDefinition("action.github.add-comment");
+  assert.ok(addComment);
+  assert.equal(addComment.available, true);
+  assert.deepEqual(addComment.defaultConfig, { credentialId: "", repository: "", issueNumber: "", body: "" });
 });

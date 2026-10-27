@@ -23,6 +23,7 @@ export const workflowNodeTypes = [
   "action.mongodb",
   "action.github",
   "action.github.add-label",
+  "action.github.add-comment",
   "action.facebook-meta",
   "action.instagram",
 ] as const;
