@@ -8,7 +8,7 @@
 ## Commit and scope
 
 - Base commit: `606000eb79ba3504c84c0c1d03bc1c864414d524`
-- Implementation commit(s): `6e243b7f1a90bb6b9607899962beea107b069698`
+- Implementation commit(s): `6e243b7f1a90bb6b9607899962beea107b069698`, `53f13fda81b6923ebbef08ac402f3decab35fc7a`
 - Branch: `codex/production-release-candidate-v1`
 - Scope respected: `yes` — only the duplicate editor controls, regression coverage, and task contract changed.
 
@@ -26,7 +26,7 @@
 |---|---|---|
 | `npm run agent:task:check -- .agent/tasks/2026-10-27-remove-duplicate-canvas-controls.md` | pass | Reopen justification accepted for `L11.5` |
 | `npx playwright test e2e/editor-onboarding.spec.ts` | pass after isolated retry | 3 editor tests passed; one unrelated keyboard timing retry passed in isolation |
-| `npm run verify` | pass | 127 API, 18 web, 29 Playwright; 0 failed, 0 skipped |
+| `npm run verify` | pass | 127 API, 18 web, 29 Playwright; 0 failed, 0 skipped, including stale-control-style cleanup |
 | `git diff --check` | pass | No whitespace errors |
 
 ## Files changed
