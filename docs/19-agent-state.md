@@ -28,10 +28,10 @@ security finding, or changed requirement.
 
 | Field | Value |
 |---|---|
-| Audited main commit | `ad497dbe11bbd801483053ae5064e41e6a02d29f` |
+| Audited main commit | `67fce1fd412bfc9c121c87f24f6518eb46ab3685` |
 | Release PR | `#27` — merged |
-| Quality gate | Passed on current branch: 136 API, 19 web, 29 Playwright; 0 failed, 0 skipped |
-| Source tree | Current branch contains the GitHub Create Issue/idempotency slices plus committed GitHub Add Label operation `ad497db` |
+| Quality gate | Passed on current branch: 139 API, 19 web, 29 Playwright; 0 failed, 0 skipped |
+| Source tree | Current branch contains the GitHub Create Issue/idempotency, Add Label, and Add Comment operations |
 | Uncommitted source changes | None after focused commit |
 
 ## Next approved slices
@@ -44,7 +44,7 @@ one of these IDs or explicitly reopen a completed ledger slice.
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
 | `LIVE-1` | Validate one explicitly approved real Steam → Google Chat run plus configured OAuth callbacks | owner-input-required | Requires user credentials and explicit external-side-effect approval |
 | `OPS-2` | Add saved execution triage views and retention visibility | planned | Must not expose secrets or provider URLs |
-| `P2-1` | Extend the GitHub connector beyond Create Issue with the next approved operation | planned | Create Issue and Add Label now have separate executable nodes with shared workspace-owned credentials, mock/live transport, readiness, safe error classification, and Create Issue idempotency coverage; further operations still require an explicit scope choice and owner-approved provider smoke |
+| `P2-1` | Extend the GitHub connector beyond Create Issue with the next approved operation | planned | Create Issue, Add Label, and Add Comment now have separate executable nodes with shared workspace-owned credentials, mock/live transport, readiness, safe error classification, and Create Issue idempotency coverage; further operations still require an explicit scope choice and owner-approved provider smoke |
 
 ## Closed boundary
 
