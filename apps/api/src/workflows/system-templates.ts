@@ -4,6 +4,7 @@ export type SystemWorkflowTemplate = {
   slug: string;
   name: string;
   description: string;
+  tags: string[];
   requiredConnections: string[];
   graph: WorkflowGraph;
 };
@@ -13,6 +14,7 @@ export const systemWorkflowTemplates: SystemWorkflowTemplate[] = [
     slug: "steam-daily-report",
     name: "Steam daily report",
     description: "Send a daily public Steam account snapshot to Google Chat.",
+    tags: ["Personal", "Notifications"],
     requiredConnections: ["Steam", "Google Chat"],
     graph: {
       nodes: [
@@ -30,6 +32,7 @@ export const systemWorkflowTemplates: SystemWorkflowTemplate[] = [
     slug: "steam-discord-daily-report",
     name: "Steam report to Discord",
     description: "Send a daily public Steam account snapshot to a Discord channel.",
+    tags: ["Personal", "Notifications"],
     requiredConnections: ["Steam", "Discord"],
     graph: {
       nodes: [
@@ -47,6 +50,7 @@ export const systemWorkflowTemplates: SystemWorkflowTemplate[] = [
     slug: "steam-telegram-daily-report",
     name: "Steam report to Telegram",
     description: "Send a daily public Steam account snapshot to a Telegram chat.",
+    tags: ["Personal", "Notifications"],
     requiredConnections: ["Steam", "Telegram"],
     graph: {
       nodes: [

@@ -33,6 +33,7 @@ export class WorkflowService {
       slug: template.slug,
       name: template.name,
       description: template.description,
+      tags: template.tags,
       requiredConnections: template.requiredConnections,
       nodeTypes: template.graph.nodes.map((node) => node.type),
     }));

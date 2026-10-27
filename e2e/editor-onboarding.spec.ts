@@ -21,6 +21,9 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   const firstWorkflowGuide = page.getByRole("region", { name: "First workflow guide" });
   await expect(firstWorkflowGuide).toBeVisible();
   await expect(firstWorkflowGuide.getByText("Steam daily report", { exact: true })).toBeVisible();
+  const recommendedTemplate = firstWorkflowGuide.locator(".dashboard-onboarding__template").filter({ hasText: "Steam daily report" });
+  await expect(recommendedTemplate.getByText("Personal", { exact: true })).toBeVisible();
+  await expect(recommendedTemplate.getByText("Notifications", { exact: true })).toBeVisible();
   await expect(firstWorkflowGuide.getByRole("button", { name: "Use Steam report to Discord" })).toBeVisible();
   await expect(firstWorkflowGuide.getByRole("button", { name: "Use Steam report to Telegram" })).toBeVisible();
   await expect(firstWorkflowGuide.getByRole("button", { name: "Start from scratch" })).toBeVisible();
@@ -78,7 +81,7 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 
   await expect(page.getByRole("heading", { name: "Add a step" })).toBeVisible();
-  await page.locator(".react-flow__node").filter({ hasText: "Steam account snapshot" }).click();
+  await page.locator(".react-flow__node").filter({ hasText: "Get account snapshot" }).click();
   await expect(page.getByRole("region", { name: "Setup" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Configuration" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Test & debug" })).toBeVisible();
@@ -108,12 +111,24 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(editorShell).not.toHaveClass(/editor-shell--palette-closed/);
   await expect(page.getByRole("heading", { name: "Add a step" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Apps", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Communication" })).toBeVisible();
+  await page.getByRole("button", { name: "Communication", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Apps & services" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Manual trigger/ })).toHaveCount(0);
-  await page.getByLabel("Search nodes").fill("OpenAI");
-  await expect(page.getByRole("button", { name: /OpenAI.*Planned/ })).toBeDisabled();
+  await page.getByLabel("Search apps and operations").fill("OpenAI");
+  await expect(page.getByRole("button", { name: /OpenAI.*Planned/ })).toHaveAttribute("aria-disabled", "true");
   await page.getByRole("button", { name: "Clear filters" }).click();
+
+  await page.getByRole("button", { name: /Open Telegram/ }).click();
+  await expect(page.getByRole("heading", { name: "Telegram" })).toBeVisible();
+  await page.getByRole("button", { name: "Add Send message to favorites" }).click();
+  await page.getByRole("button", { name: /Telegram: Send message/ }).click();
+  await page.getByRole("button", { name: "Clear filters" }).click();
+  await expect(page.getByRole("heading", { name: "Favorites" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Recently used" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Steam daily report" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Favorites" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Recently used" })).toBeVisible();
 
   await page.getByRole("button", { name: /Switch Route to multiple cases/ }).click();
   await expect(page.getByText("SWITCH CASES")).toBeVisible();
@@ -135,14 +150,14 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(page.getByText("Credential encrypted and saved. Select it from a compatible node in the editor.")).toBeVisible();
   await page.getByRole("button", { name: "Close credential manager" }).click();
 
-  await page.locator(".react-flow__node").filter({ hasText: "Steam account snapshot" }).first().click();
+  await page.locator(".react-flow__node").filter({ hasText: "Get account snapshot" }).first().click();
   await expect(page.getByLabel("Steam credential")).toContainText("E2E Steam connection");
   await page.getByLabel("Steam credential").selectOption({ label: "E2E Steam connection" });
 
   await page.getByRole("button", { name: "Run node" }).click();
   await expect(page.getByText("Mock node debug succeeded — only Steam account snapshot ran.")).toBeVisible();
   await expect(page.getByRole("region", { name: "Last execution" }).getByText(/SUCCEEDED · ATTEMPT/)).toBeVisible();
-  await page.locator(".react-flow__node").filter({ hasText: "Google Chat message" }).first().click();
+  await page.locator(".react-flow__node").filter({ hasText: "Google Chat · Action" }).first().click();
   await expect(page.getByRole("region", { name: "Last execution" }).getByText(/SKIPPED · ATTEMPT/)).toBeVisible();
 
   const goLiveButton = page.getByRole("button", { name: "Go live" });
@@ -156,7 +171,7 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await page.getByRole("button", { name: "Go live" }).click();
   await expect(page.getByRole("heading", { name: "Activate this workflow?" })).toBeVisible();
   await expect(page.getByText("Activation is blocked until these integrations are configured.")).toBeVisible();
-  await expect(page.getByText("Google Chat", { exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Activate workflow" }).getByText("Google Chat", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Activate workflow" })).toBeDisabled();
   await expect(page.getByText("Activation enables published Cron and Webhook triggers.")).toBeVisible();
   await page.getByRole("button", { name: "Cancel" }).click();
@@ -167,7 +182,7 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(page.getByText(/v1 · published/)).toBeVisible();
   await page.getByRole("button", { name: "Close workflow history" }).click();
 
-  await page.locator(".react-flow__node").filter({ hasText: "Google Chat message" }).first().click();
+  await page.locator(".react-flow__node").filter({ hasText: "Google Chat · Action" }).first().click();
   await page.getByRole("textbox", { name: "Message template" }).fill("{{ process.exit() }}");
   await page.getByRole("button", { name: "Run test" }).click();
   await expect(page.getByText(/Mock execution failed/)).toBeVisible({ timeout: 15_000 });
@@ -192,7 +207,7 @@ test("narrow desktop opens the node inspector as a focus-managed drawer", async 
 
   const inspectorTrigger = page.getByRole("button", { name: "Inspector" });
   await expect(inspectorTrigger).toBeVisible();
-  await page.locator(".react-flow__node").filter({ hasText: "Steam account snapshot" }).first().click();
+  await page.locator(".react-flow__node").filter({ hasText: "Get account snapshot" }).first().click();
 
   const drawer = page.getByRole("dialog", { name: "Node inspector" });
   await expect(drawer).toBeVisible();
@@ -214,4 +229,65 @@ test("narrow desktop opens the node inspector as a focus-managed drawer", async 
   await page.keyboard.press("Escape");
   await expect(drawer).toBeHidden();
   await expect(inspectorTrigger).toBeFocused();
+});
+
+test("node library and editor menus support keyboard-only navigation", async ({ page }) => {
+  const email = `e2e-keyboard-${Date.now()}@example.test`;
+  await page.goto("/");
+  await page.getByRole("button", { name: "Create an account" }).click();
+  await page.locator('input[autocomplete="name"]').fill("Keyboard Owner");
+  await page.locator('input[autocomplete="email"]').fill(email);
+  await page.locator('input[autocomplete="new-password"]').fill("e2e-password-123");
+  await page.getByRole("button", { name: "Create account" }).click();
+  await page.getByRole("button", { name: "Use Steam template" }).click();
+  await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+
+  const search = page.getByLabel("Search apps and operations");
+  await expect(search).toHaveAttribute("aria-keyshortcuts", "/");
+  await page.locator(".canvas-region").click({ position: { x: 400, y: 180 } });
+  await page.keyboard.press("/");
+  await expect(search).toBeFocused();
+  await search.fill("OpenAI");
+  const plannedOpenAi = page.getByRole("button", { name: /OpenAI.*Planned, unavailable/ });
+  await expect(plannedOpenAi).toHaveAttribute("aria-disabled", "true");
+  await plannedOpenAi.focus();
+  await expect(plannedOpenAi).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(search).toHaveValue("");
+  await expect(search).toBeFocused();
+
+  const allFilter = page.getByRole("button", { name: "All", exact: true });
+  await allFilter.focus();
+  await page.keyboard.press("ArrowRight");
+  const coreFilter = page.getByRole("button", { name: "Core", exact: true });
+  await expect(coreFilter).toBeFocused();
+  await expect(coreFilter).toHaveAttribute("aria-pressed", "true");
+  await allFilter.click();
+
+  const googleChatApp = page.getByRole("button", { name: /Open Google Chat/ });
+  await googleChatApp.focus();
+  await page.keyboard.press("ArrowDown");
+  const discordApp = page.getByRole("button", { name: /Open Discord/ });
+  await expect(discordApp).toBeFocused();
+  await page.keyboard.press("Enter");
+  const discordOperation = page.getByRole("button", { name: /Discord: Send webhook message/ });
+  await expect(discordOperation).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(discordApp).toBeFocused();
+  await page.keyboard.press("Escape");
+  const addNode = page.getByRole("button", { name: "Add node" });
+  await expect(addNode).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(search).toBeFocused();
+
+  await page.locator(".react-flow__node").filter({ hasText: "Get account snapshot" }).click();
+  const editMenu = page.getByLabel("Edit actions");
+  await editMenu.focus();
+  await page.keyboard.press("ArrowDown");
+  expect(await page.locator(".action-menu__content:visible").evaluate((menu) => menu.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press("End");
+  await expect(page.getByRole("button", { name: "Copy selected node" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(editMenu).toBeFocused();
+  await expect(editMenu).toHaveAttribute("aria-expanded", "false");
 });

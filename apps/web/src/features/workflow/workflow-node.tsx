@@ -1,5 +1,5 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
-import { getNodeDefinition, outputKindsForNodeType, type WorkflowCanvasNode } from "./node-catalog";
+import { getAppDefinition, getNodeDefinition, outputKindsForNodeType, type WorkflowCanvasNode } from "./node-catalog";
 import { NodeIcon } from "./node-icon";
 
 const categoryName = {
@@ -12,6 +12,8 @@ const categoryName = {
 export function WorkflowNode({ data, selected }: NodeProps<WorkflowCanvasNode>) {
   const outputKinds = outputKindsForNodeType(data.nodeType);
   const definition = getNodeDefinition(data.nodeType);
+  const app = definition?.appId ? getAppDefinition(definition.appId) : undefined;
+  const displayLabel = definition && data.label === definition.label ? definition.operationLabel : data.label;
 
   return (
     <article className={`workflow-node workflow-node--${data.category} ${selected ? "workflow-node--selected" : ""}`}>
@@ -22,10 +24,10 @@ export function WorkflowNode({ data, selected }: NodeProps<WorkflowCanvasNode>) 
         aria-label={`Connect input to ${data.label}`}
         title="Drag to connect"
       />
-      <p className="workflow-node__category">{categoryName[data.category]}</p>
+      <p className="workflow-node__category">{app ? `${app.label} · ${categoryName[data.category]}` : categoryName[data.category]}</p>
       <div className="workflow-node__heading">
         {definition && <span className="workflow-node__provider-icon"><NodeIcon name={definition.icon} size={16} /></span>}
-        <h3>{data.label}</h3>
+        <h3>{displayLabel}</h3>
       </div>
       <p>{data.description}</p>
       {!data.available && <span className="workflow-node__badge">Planned</span>}

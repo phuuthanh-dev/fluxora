@@ -28,7 +28,18 @@ export type NodeLibraryGroup =
   | "social"
   | "approval";
 
-export type NodeLibraryFilter = "all" | "trigger" | "logic" | "apps" | "approval" | "roadmap";
+export type AppCategory = "communication" | "productivity" | "developer-devops" | "data" | "ai" | "social";
+export type OperationKind = "trigger" | "action" | "search" | "utility";
+export type NodeLibraryFilter = "all" | "core" | AppCategory | "roadmap";
+
+export type AppDefinition = {
+  id: string;
+  label: string;
+  description: string;
+  icon: NodeIconName;
+  category: AppCategory;
+  aliases?: string[];
+};
 
 export type NodeDefinition = {
   type: WorkflowNodeType;
@@ -36,6 +47,11 @@ export type NodeDefinition = {
   description: string;
   category: WorkflowNodeCategory;
   libraryGroup: NodeLibraryGroup;
+  appId?: string;
+  operationId: string;
+  operationLabel: string;
+  operationKind: OperationKind;
+  aliases?: string[];
   icon: NodeIconName;
   available: boolean;
   defaultConfig: Record<string, unknown>;
@@ -63,11 +79,31 @@ export const categoryLabels: Record<WorkflowNodeCategory, string> = {
 
 export const nodeLibraryFilters: Array<{ id: NodeLibraryFilter; label: string }> = [
   { id: "all", label: "All" },
-  { id: "trigger", label: "Triggers" },
-  { id: "logic", label: "Logic" },
-  { id: "apps", label: "Apps" },
-  { id: "approval", label: "Approval" },
+  { id: "core", label: "Core" },
+  { id: "communication", label: "Communication" },
+  { id: "productivity", label: "Productivity" },
+  { id: "developer-devops", label: "DevOps" },
+  { id: "data", label: "Data" },
+  { id: "ai", label: "AI" },
+  { id: "social", label: "Social" },
   { id: "roadmap", label: "Roadmap" },
+];
+
+export const appCatalog: AppDefinition[] = [
+  { id: "steam", label: "Steam", description: "Read public gaming profile and library data.", icon: "steam", category: "data", aliases: ["gaming", "games"] },
+  { id: "google-chat", label: "Google Chat", description: "Send messages to Google Chat spaces.", icon: "google-chat", category: "communication", aliases: ["chat", "notification"] },
+  { id: "discord", label: "Discord", description: "Send messages through Discord webhooks.", icon: "discord", category: "communication", aliases: ["notification", "webhook"] },
+  { id: "telegram", label: "Telegram", description: "Send messages with the Telegram Bot API.", icon: "telegram", category: "communication", aliases: ["bot", "notification"] },
+  { id: "google-drive", label: "Google Drive", description: "Search, read, upload, and download files.", icon: "google-drive", category: "productivity", aliases: ["files", "workspace"] },
+  { id: "google-sheets", label: "Google Sheets", description: "Read and write spreadsheet data.", icon: "google-sheets", category: "productivity", aliases: ["spreadsheet", "rows", "workspace"] },
+  { id: "http", label: "HTTP", description: "Call REST APIs with optional authentication.", icon: "http", category: "developer-devops", aliases: ["api", "request", "webhook"] },
+  { id: "email", label: "Email", description: "Send email notifications.", icon: "email", category: "communication", aliases: ["mail", "smtp"] },
+  { id: "openai", label: "OpenAI", description: "Generate and transform content with AI.", icon: "openai", category: "ai", aliases: ["gpt", "llm"] },
+  { id: "gemini", label: "Gemini", description: "Generate content with Google Gemini.", icon: "gemini", category: "ai", aliases: ["google ai", "llm"] },
+  { id: "mongodb", label: "MongoDB", description: "Read and write document data.", icon: "mongodb", category: "data", aliases: ["database", "documents"] },
+  { id: "github", label: "GitHub", description: "Automate repositories, issues, and pull requests.", icon: "github", category: "developer-devops", aliases: ["git", "pull request", "issues"] },
+  { id: "facebook-meta", label: "Facebook Meta", description: "Publish and manage Facebook content.", icon: "facebook", category: "social", aliases: ["meta"] },
+  { id: "instagram", label: "Instagram", description: "Publish and manage Instagram content.", icon: "instagram", category: "social", aliases: ["meta"] },
 ];
 
 export const nodeLibraryGroups: Array<{ id: NodeLibraryGroup; label: string; description: string }> = [
@@ -101,6 +137,9 @@ export const nodeCatalog: NodeDefinition[] = [
     description: "Start a test run from the editor.",
     category: "trigger",
     libraryGroup: "start",
+    operationId: "manual-trigger",
+    operationLabel: "Manual trigger",
+    operationKind: "trigger",
     icon: "manual",
     available: true,
     defaultConfig: { testData: {} },
@@ -111,6 +150,9 @@ export const nodeCatalog: NodeDefinition[] = [
     description: "Start on a cron schedule.",
     category: "trigger",
     libraryGroup: "start",
+    operationId: "schedule",
+    operationLabel: "Schedule",
+    operationKind: "trigger",
     icon: "schedule",
     available: true,
     defaultConfig: { expression: "0 8 * * *", timezone: "Asia/Ho_Chi_Minh" },
@@ -121,6 +163,9 @@ export const nodeCatalog: NodeDefinition[] = [
     description: "Receive an inbound HTTP event.",
     category: "trigger",
     libraryGroup: "start",
+    operationId: "webhook",
+    operationLabel: "Webhook",
+    operationKind: "trigger",
     icon: "webhook",
     available: true,
     defaultConfig: { path: "steam-daily-report", secretRequired: true },
@@ -131,6 +176,9 @@ export const nodeCatalog: NodeDefinition[] = [
     description: "Route using a condition.",
     category: "condition",
     libraryGroup: "logic",
+    operationId: "if-else",
+    operationLabel: "If / else",
+    operationKind: "utility",
     icon: "if",
     available: true,
     defaultConfig: { left: "", operator: "equals", right: "" },
@@ -141,6 +189,9 @@ export const nodeCatalog: NodeDefinition[] = [
     description: "Route to multiple cases.",
     category: "condition",
     libraryGroup: "logic",
+    operationId: "switch",
+    operationLabel: "Switch",
+    operationKind: "utility",
     icon: "switch",
     available: true,
     defaultConfig: { value: "", cases: [{ value: "case-a" }] },
@@ -151,6 +202,10 @@ export const nodeCatalog: NodeDefinition[] = [
     description: "Read public Steam account data.",
     category: "action",
     libraryGroup: "developer-data",
+    appId: "steam",
+    operationId: "account-snapshot",
+    operationLabel: "Get account snapshot",
+    operationKind: "action",
     icon: "steam",
     available: true,
     defaultConfig: { credentialId: "", steamId: "", includeOwnedGames: true, includeRecentGames: true, achievementAppId: "" },
@@ -161,6 +216,10 @@ export const nodeCatalog: NodeDefinition[] = [
     description: "Send a message through an incoming webhook.",
     category: "action",
     libraryGroup: "communication",
+    appId: "google-chat",
+    operationId: "send-webhook-message",
+    operationLabel: "Send webhook message",
+    operationKind: "action",
     icon: "google-chat",
     available: true,
     defaultConfig: { credentialId: "", message: "" },
@@ -175,6 +234,10 @@ export const nodeCatalog: NodeDefinition[] = [
     description: "Post a message to a Discord channel via incoming webhook.",
     category: "action",
     libraryGroup: "communication",
+    appId: "discord",
+    operationId: "send-webhook-message",
+    operationLabel: "Send webhook message",
+    operationKind: "action",
     icon: "discord",
     available: true,
     defaultConfig: { credentialId: "", content: "", username: "", avatarUrl: "", embeds: "", allowedMentions: "" },
@@ -193,6 +256,10 @@ export const nodeCatalog: NodeDefinition[] = [
     description: "Send a message via Telegram Bot API.",
     category: "action",
     libraryGroup: "communication",
+    appId: "telegram",
+    operationId: "send-message",
+    operationLabel: "Send message",
+    operationKind: "action",
     icon: "telegram",
     available: true,
     defaultConfig: { credentialId: "", destinationType: "dm", chatId: "", messageThreadId: "", text: "", parseMode: "Markdown" },
@@ -203,6 +270,10 @@ export const nodeCatalog: NodeDefinition[] = [
     description: "Search, read, or upload a file.",
     category: "action",
     libraryGroup: "google-workspace",
+    appId: "google-drive",
+    operationId: "manage-files",
+    operationLabel: "Manage files",
+    operationKind: "action",
     icon: "google-drive",
     available: true,
     defaultConfig: { credentialId: "", operation: "search", query: "", fileId: "", name: "daily-report.txt", text: "" },
@@ -219,6 +290,10 @@ export const nodeCatalog: NodeDefinition[] = [
     description: "Read or write spreadsheet data.",
     category: "action",
     libraryGroup: "google-workspace",
+    appId: "google-sheets",
+    operationId: "read-write-rows",
+    operationLabel: "Read or write rows",
+    operationKind: "action",
     icon: "google-sheets",
     available: true,
     defaultConfig: { credentialId: "", operation: "append", spreadsheetId: "", range: "Sheet1!A1", values: [["", ""]] },
@@ -235,6 +310,10 @@ export const nodeCatalog: NodeDefinition[] = [
     description: "Call any REST API.",
     category: "action",
     libraryGroup: "developer-data",
+    appId: "http",
+    operationId: "request",
+    operationLabel: "Make API request",
+    operationKind: "action",
     icon: "http",
     available: true,
     defaultConfig: { credentialId: "", method: "GET", url: "", headers: {}, body: "", timeoutMs: 15_000 },
@@ -252,6 +331,9 @@ export const nodeCatalog: NodeDefinition[] = [
     description: "Pause until a person approves or rejects.",
     category: "approval",
     libraryGroup: "approval",
+    operationId: "approval",
+    operationLabel: "Approval",
+    operationKind: "utility",
     icon: "approval",
     available: true,
     defaultConfig: { message: "", expiresInHours: 24, notificationProvider: "google_chat", notificationCredentialId: "" },
@@ -262,6 +344,10 @@ export const nodeCatalog: NodeDefinition[] = [
     description: "Send an email notification.",
     category: "action",
     libraryGroup: "communication",
+    appId: "email",
+    operationId: "send-email",
+    operationLabel: "Send email",
+    operationKind: "action",
     icon: "email",
     available: false,
     defaultConfig: { to: "", subject: "", body: "" },
@@ -277,6 +363,10 @@ export const nodeCatalog: NodeDefinition[] = [
     description: "Send a Google Chat message with OAuth.",
     category: "action",
     libraryGroup: "google-workspace",
+    appId: "google-chat",
+    operationId: "send-oauth-message",
+    operationLabel: "Send OAuth message",
+    operationKind: "action",
     icon: "google-chat",
     available: false,
     defaultConfig: { credentialId: "", space: "", message: "" },
@@ -292,6 +382,10 @@ export const nodeCatalog: NodeDefinition[] = [
     description: "Generate text with an OpenAI model.",
     category: "action",
     libraryGroup: "ai",
+    appId: "openai",
+    operationId: "generate-text",
+    operationLabel: "Generate text",
+    operationKind: "action",
     icon: "openai",
     available: false,
     defaultConfig: { credentialId: "", model: "gpt-4.1-mini", prompt: "" },
@@ -306,6 +400,10 @@ export const nodeCatalog: NodeDefinition[] = [
     description: "Generate text with a Gemini model.",
     category: "action",
     libraryGroup: "ai",
+    appId: "gemini",
+    operationId: "generate-text",
+    operationLabel: "Generate text",
+    operationKind: "action",
     icon: "gemini",
     available: false,
     defaultConfig: { credentialId: "", model: "gemini-2.5-flash", prompt: "" },
@@ -320,6 +418,10 @@ export const nodeCatalog: NodeDefinition[] = [
     description: "Read or write MongoDB documents.",
     category: "action",
     libraryGroup: "developer-data",
+    appId: "mongodb",
+    operationId: "query-documents",
+    operationLabel: "Query documents",
+    operationKind: "action",
     icon: "mongodb",
     available: false,
     defaultConfig: { credentialId: "", database: "", collection: "", operation: "find" },
@@ -335,6 +437,10 @@ export const nodeCatalog: NodeDefinition[] = [
     description: "Automate repositories, issues, and pull requests.",
     category: "action",
     libraryGroup: "developer-data",
+    appId: "github",
+    operationId: "repository-automation",
+    operationLabel: "Repository automation",
+    operationKind: "action",
     icon: "github",
     available: false,
     defaultConfig: { credentialId: "", repository: "", operation: "createIssue" },
@@ -349,6 +455,10 @@ export const nodeCatalog: NodeDefinition[] = [
     description: "Publish and manage Facebook content.",
     category: "action",
     libraryGroup: "social",
+    appId: "facebook-meta",
+    operationId: "manage-content",
+    operationLabel: "Manage content",
+    operationKind: "action",
     icon: "facebook",
     available: false,
     defaultConfig: { credentialId: "", operation: "" },
@@ -359,6 +469,10 @@ export const nodeCatalog: NodeDefinition[] = [
     description: "Publish and manage Instagram content.",
     category: "action",
     libraryGroup: "social",
+    appId: "instagram",
+    operationId: "manage-content",
+    operationLabel: "Manage content",
+    operationKind: "action",
     icon: "instagram",
     available: false,
     defaultConfig: { credentialId: "", operation: "" },
@@ -368,7 +482,8 @@ export const nodeCatalog: NodeDefinition[] = [
 export function matchesNodeSearch(node: NodeDefinition, query: string) {
   const normalized = query.trim().toLowerCase();
   const group = nodeLibraryGroups.find((candidate) => candidate.id === node.libraryGroup);
-  return !normalized || [node.label, node.description, node.category, node.type, group?.label ?? "", group?.description ?? ""]
+  const app = node.appId ? getAppDefinition(node.appId) : undefined;
+  return !normalized || [node.label, node.operationLabel, node.description, node.category, node.type, ...(node.aliases ?? []), app?.label ?? "", app?.description ?? "", app?.category ?? "", ...(app?.aliases ?? []), group?.label ?? "", group?.description ?? ""]
     .some((value) => value.toLowerCase().includes(normalized));
 }
 
@@ -377,10 +492,21 @@ export function matchesNodeLibraryFilter(node: NodeDefinition, filter: NodeLibra
   if (filter === "roadmap") return !node.available;
   if (!query.trim() && !node.available) return false;
   if (filter === "all") return true;
-  if (filter === "trigger") return node.category === "trigger";
-  if (filter === "logic") return node.category === "condition";
-  if (filter === "apps") return node.category === "action";
-  return node.category === "approval";
+  if (filter === "core") return !node.appId;
+  const app = node.appId ? getAppDefinition(node.appId) : undefined;
+  return app?.category === filter;
+}
+
+export function getAppDefinition(appId: string) {
+  return appCatalog.find((app) => app.id === appId);
+}
+
+export function operationsForApp(appId: string) {
+  return nodeCatalog.filter((definition) => definition.appId === appId);
+}
+
+export function coreNodeDefinitions() {
+  return nodeCatalog.filter((definition) => !definition.appId);
 }
 
 export function groupNodeLibrary(nodes: NodeDefinition[]) {

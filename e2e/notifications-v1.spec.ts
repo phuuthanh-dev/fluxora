@@ -55,7 +55,8 @@ test("configure Discord and Telegram notification nodes with encrypted credentia
   await page.getByRole("button", { name: "Close credential manager" }).click();
 
   // Add Discord webhook node from palette
-  await page.getByRole("button", { name: /Discord webhook Post a message to a Discord channel/ }).click();
+  await page.getByLabel("Search apps and operations").fill("Discord");
+  await page.getByRole("button", { name: /Discord: Send webhook message/ }).click();
   await expect(page.getByText("Discord webhook added to the draft.")).toBeVisible();
 
   // Configure Discord node in inspector
@@ -66,7 +67,8 @@ test("configure Discord and Telegram notification nodes with encrypted credentia
   await page.getByLabel("Allowed mentions JSON (optional)").fill('{"parse":["users"]}');
 
   // Add Telegram message node from palette
-  await page.getByRole("button", { name: /Telegram message Send a message via Telegram Bot API/ }).click();
+  await page.getByLabel("Search apps and operations").fill("Telegram");
+  await page.getByRole("button", { name: /Telegram: Send message/ }).click();
   await expect(page.getByText("Telegram message added to the draft.")).toBeVisible();
 
   // Configure Telegram node in inspector
@@ -159,14 +161,14 @@ test("configure Discord and Telegram notification nodes with encrypted credentia
   await expect(page.getByText(/Mock execution succeeded/i)).toBeVisible({ timeout: 15_000 });
 
   // Inspect Discord node output in execution result
-  await page.locator(".react-flow__node").filter({ hasText: "Discord webhook" }).first().click();
+  await page.locator(".react-flow__node").filter({ hasText: "Discord · Action" }).first().click();
   await expect(page.getByRole("region", { name: "Last execution" }).getByText(/SUCCEEDED · ATTEMPT/i)).toBeVisible();
   await expect(page.locator(".result-view").getByText("delivered", { exact: true })).toBeVisible();
   await expect(page.locator(".result-view").getByText(": mock", { exact: true })).toBeVisible();
   await expect(page.locator(".result-view").getByText("destination", { exact: true })).toBeVisible();
 
   // Inspect Telegram node output in execution result
-  await page.locator(".react-flow__node").filter({ hasText: "Telegram message" }).first().click();
+  await page.locator(".react-flow__node").filter({ hasText: "Telegram · Action" }).first().click();
   await expect(page.getByRole("region", { name: "Last execution" }).getByText(/SUCCEEDED · ATTEMPT/i)).toBeVisible();
   await expect(page.locator(".result-view").getByText("delivered", { exact: true })).toBeVisible();
   await expect(page.locator(".result-view").getByText(": mock", { exact: true })).toBeVisible();

@@ -20,6 +20,8 @@
 
 ## Phase 2
 
+- Scalable Node Library: Core nodes plus App → Operation discovery, search,
+  browser-local recent/favorites, and template use-case tags.
 - Notifications v1: Discord Incoming Webhook and Telegram Bot API action nodes with encrypted credentials and safe expression interpolation.
 - Notification adapters: provider-neutral dispatcher and adapters for Google Chat, Discord, Telegram, and approval webhooks with normalized safe delivery results, Discord embeds/mention-policy, and vault-only Telegram bot tokens.
 - Actual Email sending.

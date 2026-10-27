@@ -62,7 +62,10 @@ The Steam profile is public. The Steam node returns every field available throug
 ## 5. Workflow editor requirements
 
 - Desktop-first drag-and-drop graph editor.
-- Node palette grouped into Trigger, Condition, Action, Approval.
+- Add Node library separates core workflow primitives from apps. Apps are selected
+  before their trigger/action/search/utility operation; search spans both levels,
+  and purpose categories are discovery metadata rather than persisted workflow
+  semantics. See `docs/16-node-library-information-architecture.md`.
 - Zoom, pan, minimap, auto-layout, search, context menu, copy/paste, multi-select, undo/redo.
 - Inspector panel for node configuration, validation, test data, and node result.
 - A workflow has Draft and Published versions. Published versions are immutable.
