@@ -110,3 +110,15 @@ test("execution SSE never opens a stream when owner authorization fails", async 
   await assert.rejects(() => new Promise<void>((resolve, reject) => observable.subscribe({ next: () => resolve(), error: reject })), /not found/);
   assert.equal(streamOpened, false);
 });
+
+test("diagnostic download remains owner-scoped", async () => {
+  const calls: unknown[] = [];
+  const controller = new ExecutionController(
+    { getDiagnostic: async (...args: unknown[]) => { calls.push(args); return { schemaVersion: "fluxora.execution-diagnostic.v1" }; } } as never,
+    {} as never,
+    {} as never,
+  );
+  const result = await controller.diagnostic("execution-1", { currentUser: { id: "owner-1" } } as never);
+  assert.deepEqual(calls, [["execution-1", "owner-1"]]);
+  assert.deepEqual(result, { diagnostic: { schemaVersion: "fluxora.execution-diagnostic.v1" } });
+});

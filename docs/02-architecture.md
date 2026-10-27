@@ -53,6 +53,8 @@ Node configuration must be validated twice: once in the web editor for feedback 
 
 MVP graph is a DAG. Control nodes select one downstream path; action nodes select success or error path.
 
+Execution detail is owner-scoped and derived from the immutable workflow version plus persisted execution/node records. It exposes timestamps, duration, attempt count, retryability, error-branch routing, and conservative skip reasons. The downloadable `fluxora.execution-diagnostic.v1` snapshot intentionally excludes graph configuration, trigger data, node input/output, credentials, headers, and provider URLs; it is support metadata, not a secret-bearing execution export.
+
 ## Connector architecture
 
 Each integration supplies:

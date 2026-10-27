@@ -43,13 +43,14 @@ export function useDialogFocus<T extends HTMLElement>({
         : scope.querySelector<HTMLElement>("[autofocus]");
       (preferred ?? focusableElements()[0] ?? scope).focus();
     });
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape" && closeRef.current) {
         event.preventDefault();
         event.stopPropagation();
         closeRef.current();
-        return;
       }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Tab" || !trapFocus) return;
       const focusable = focusableElements();
       if (focusable.length === 0) {
@@ -71,9 +72,11 @@ export function useDialogFocus<T extends HTMLElement>({
         first.focus();
       }
     };
+    document.addEventListener("keydown", handleEscape);
     scope.addEventListener("keydown", handleKeyDown);
     return () => {
       window.cancelAnimationFrame(frame);
+      document.removeEventListener("keydown", handleEscape);
       scope.removeEventListener("keydown", handleKeyDown);
       if (restoreFocus && returnTarget?.isConnected) {
         window.requestAnimationFrame(() => returnTarget.focus());

@@ -60,13 +60,13 @@ release-preflight contract without deploying or calling a real provider.
 
 ### Slice 2 — execution observability
 
-- [ ] An owner can inspect a chronological execution timeline with execution and
+- [x] An owner can inspect a chronological execution timeline with execution and
   node state, attempts, duration, and normalized redacted errors.
-- [ ] Failure UI explains retryability, error-branch routing, and why downstream
+- [x] Failure UI explains retryability, error-branch routing, and why downstream
   nodes were skipped without guessing from color alone.
-- [ ] A downloadable diagnostic snapshot is schema-versioned, deterministic,
+- [x] A downloadable diagnostic snapshot is schema-versioned, deterministic,
   redacted, and excludes credentials, secrets, raw headers, and webhook URLs.
-- [ ] Loading, empty, API-error/retry, light/dark, keyboard, reduced-motion, and
+- [x] Loading, empty, API-error/retry, light/dark, keyboard, reduced-motion, and
   125%/150% zoom-equivalent behavior have focused browser coverage.
 
 ### Slice 3 — release preflight

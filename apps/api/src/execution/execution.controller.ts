@@ -30,6 +30,11 @@ export class ExecutionController {
     return { execution: await this.executions.get(executionId, requireUserId(request)) };
   }
 
+  @Get("executions/:executionId/diagnostic")
+  async diagnostic(@Param("executionId") executionId: string, @Req() request: AuthenticatedRequest) {
+    return { diagnostic: await this.executions.getDiagnostic(executionId, requireUserId(request)) };
+  }
+
   @Post("executions/:executionId/retry")
   async retry(@Param("executionId") executionId: string, @Req() request: AuthenticatedRequest) {
     const userId = requireUserId(request);

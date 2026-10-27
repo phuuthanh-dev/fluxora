@@ -190,6 +190,7 @@ model Execution {
   triggerData       Json?
   errorCode         String?
   errorMessage      String?
+  errorRetryable    Boolean?
   startedAt         DateTime?
   completedAt       DateTime?
   leaseExpiresAt    DateTime?
@@ -214,6 +215,7 @@ model NodeExecution {
   output       Json?
   errorCode    String?
   errorMessage String?
+  errorRetryable Boolean?
   startedAt    DateTime?
   completedAt  DateTime?
   execution    Execution           @relation(fields: [executionId], references: [id], onDelete: Cascade)
