@@ -44,6 +44,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | Persisted user avatar identity | Complete locally | A database-backed avatar palette and initials trigger replace the generic Account text; file/image upload remains deliberately out of scope until asset storage and profile settings are introduced. |
 | Shared section and toolbar primitives | Complete locally | Reusable `SectionHeader` and `Toolbar` now power workflow controls and execution filters, reducing page-specific hierarchy/action markup while preserving existing browser behavior. |
 | App → Operation Node Library | Complete locally | The information architecture is defined in `docs/16-node-library-information-architecture.md`; the editor now preserves existing node type IDs while adding Core/App discovery, explicit operations, browser-local recent/favorites, use-case template tags, and light/dark browser regression coverage. The full repository quality gate passed. |
+| Add-node action contrast and primitive reuse | Complete locally | The collapsed Node Library trigger now uses the shared secondary `Button`, semantic panel/ink/accent tokens, and a plus icon. Automated contrast coverage checks its label and icon in both themes while editor collapse/reopen behavior remains covered. |
 
 ## Milestone 1 — Product foundation
 

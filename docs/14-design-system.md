@@ -119,6 +119,11 @@ migrated incrementally without changing component APIs.
     `--text-accent` for text/icons on light surfaces, `--text-on-accent` on
     lime fills, and `--control-selected-*` for active chips. Do not pair
     `--accent-strong` with `--relay-lime-soft` as foreground/background.
+13. **Floating secondary actions:** use the shared secondary `Button` on
+    `--panel`, keep its label on `--ink`, and reserve `--text-accent` for an
+    icon or small emphasis. Never render lime text on a white or light panel;
+    the same component must resolve to a dark panel with light text in dark
+    mode.
 
 ## Reusable recipes
 

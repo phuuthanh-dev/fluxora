@@ -178,6 +178,12 @@ test("editor text, controls, and provider icons meet contrast targets in both th
     await page.getByRole("button", { name: "Roadmap" }).click();
     await expectContrast(page.locator(".palette-app").filter({ hasText: "OpenAI" }).locator("svg"), 3);
     await expectContrast(page.locator(".palette-app").filter({ hasText: "GitHub" }).locator("svg"), 3);
+    await page.getByRole("button", { name: "Collapse node palette" }).click();
+    const addNode = page.getByRole("button", { name: "Add node" });
+    await expect(addNode).toBeVisible();
+    await expectContrast(addNode, 4.5);
+    await expectContrast(addNode.locator("svg"), 3);
+    await addNode.click();
   };
 
   await assertEditorContrast();

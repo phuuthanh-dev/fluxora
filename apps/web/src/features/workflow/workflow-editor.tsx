@@ -24,6 +24,7 @@ import {
   KeyRound,
   LoaderCircle,
   Play,
+  Plus,
   RotateCcw,
   Save,
   Sparkles,
@@ -1222,7 +1223,7 @@ export function WorkflowEditor() {
           <NodeLibrary ref={nodeLibraryRef} onAdd={addDefinition} onDragStart={onDragStart} onCollapse={() => setPaletteOpen(false)} />
         )}
         <section className={`canvas-region${isConnecting ? " canvas-region--connecting" : ""}`} ref={wrapperRef} onDrop={onDrop} onDragOver={(event) => event.preventDefault()}>
-          {!paletteOpen && <button className="palette-reopen" type="button" aria-controls="node-library" aria-expanded="false" onClick={() => setPaletteOpen(true)}>Add node</button>}
+          {!paletteOpen && <Button className="palette-reopen" variant="secondary" aria-controls="node-library" aria-expanded="false" onClick={() => setPaletteOpen(true)}><Plus size={15} aria-hidden="true" />Add node</Button>}
           {isNarrowEditorLayout && <button ref={inspectorTriggerRef} className="inspector-reopen" type="button" aria-controls="node-inspector" aria-expanded={isInspectorDrawerOpen} onClick={() => setInspectorDrawerOpen(true)}><Layers3 size={15} /> Inspector</button>}
           <ReactFlow
             nodes={nodes}
