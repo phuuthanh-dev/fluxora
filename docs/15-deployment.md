@@ -114,6 +114,13 @@ deploying the containers.
 ## Backups and operations
 
 - Run `npm run release:preflight` from the checked-out release before rollout. It reads repository contracts only, never the real production environment or secret values.
+- Run `npm run security:check` and `npm audit --omit=dev --audit-level=high` in CI/release review. The tracked-file scan reports file/line metadata only and is intentionally a high-confidence guard, not a substitute for GitHub secret scanning.
+- On the target host, validate the production env contract by name and shape without printing values:
+
+  ```bash
+  node scripts/validate-production-env.mjs --env-file /opt/workflow-automation/.env.production
+  ```
+
 - Back up PostgreSQL before migrations and on a schedule, then copy encrypted backups off the VPS:
 
   ```bash

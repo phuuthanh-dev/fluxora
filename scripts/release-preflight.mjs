@@ -30,6 +30,9 @@ export function runReleasePreflight() {
   const deployWorkflow = read(".github/workflows/deploy-production.yml");
   const qualityWorkflow = read(".github/workflows/quality.yml");
   const redaction = read("apps/api/src/execution/redaction.ts");
+  const packageJson = read("package.json");
+  const secretScanner = read("scripts/scan-tracked-secrets.mjs");
+  const envValidator = read("scripts/validate-production-env.mjs");
   const migrationRoot = resolve(root, "apps/api/prisma/migrations");
   const migrations = readdirSync(migrationRoot, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && existsSync(resolve(migrationRoot, entry.name, "migration.sql")));
@@ -84,6 +87,12 @@ export function runReleasePreflight() {
       { label: "rotated JSON logs", pattern: /max-size:\s*10m[\s\S]+max-file:\s*"3"/ },
       { label: "sensitive-key redaction", pattern: /sensitiveKey/ },
       { label: "provider URL redaction", pattern: /redactTelegramTokenInUrl/ },
+    ]),
+    requirePatterns("security", "Release security gate", `${packageJson}\n${qualityWorkflow}\n${secretScanner}\n${envValidator}`, [
+      { label: "tracked secret scan", pattern: /scan-tracked-secrets\.mjs/ },
+      { label: "production env validator", pattern: /validate-production-env\.mjs/ },
+      { label: "npm high-severity audit", pattern: /npm audit --omit=dev --audit-level=high/ },
+      { label: "non-printing validation", pattern: /secret values were not printed|secretValuesRead/ },
     ]),
     requirePatterns("automation", "GitHub Actions release contract", `${deployWorkflow}\n${qualityWorkflow}`, [
       { label: "VPS_HOST secret", pattern: /secrets\.VPS_HOST/ },

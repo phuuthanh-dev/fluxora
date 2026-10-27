@@ -11,6 +11,12 @@ that a provider integration works with real credentials.
 # Repository contracts only; reads no production .env and makes no requests.
 npm run release:preflight
 
+# Local deterministic tracked-file and production-config contract checks.
+npm run security:check
+
+# Validate a supplied production env file without printing any value.
+node scripts/validate-production-env.mjs --env-file /path/to/.env.production
+
 # GET requests to the three fixed localhost health targets.
 npm run release:smoke
 
@@ -36,6 +42,8 @@ The read-only preflight must report no `BLOCKED` item for:
 - bounded Docker logs and execution redaction primitives;
 - expected GitHub Actions secret/variable names, Redis CI service, and pinned
   action revisions.
+- high-confidence tracked-secret scan, dependency audit, and non-printing
+  production environment validation.
 
 `npm run verify` includes these contracts. It never reads the real production
 environment or secret values.

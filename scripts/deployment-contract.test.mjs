@@ -95,6 +95,7 @@ test("CI/CD workflow keeps bounded jobs, cache, and least-privilege deploy permi
   assert.match(qualityWorkflow, /Install Playwright Chromium/);
   assert.match(qualityWorkflow, /npx playwright install chromium/);
   assert.doesNotMatch(qualityWorkflow, /playwright install --with-deps/);
+  assert.match(qualityWorkflow, /npm audit --omit=dev --audit-level=high/);
 
   assert.match(workflow, /timeout-minutes:\s*20/);
   assert.match(workflow, /timeout-minutes:\s*15/);
@@ -131,6 +132,8 @@ test("verification and operational retention contracts avoid redundant work", ()
   assert.match(pruneGhcrScript, /\^\[0-9a-f\]\{40\}\$/);
   assert.match(pruneGhcrScript, /GHCR_KEEP_VERSIONS/);
   assert.doesNotMatch(pruneGhcrScript, /docker system prune/);
+  assert.match(rootPackage.scripts.securityCheck ?? rootPackage.scripts["security:check"], /scan-tracked-secrets\.mjs/);
+  assert.match(rootPackage.scripts["production:config:check"], /release-security\.test\.mjs/);
 });
 
 test("deploy cleanup retains rollback images and never prunes infrastructure", () => {
