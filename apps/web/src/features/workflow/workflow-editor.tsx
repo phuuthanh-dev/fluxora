@@ -1187,7 +1187,7 @@ export function WorkflowEditor() {
   };
 
   if (isLoading) {
-    return <main className="editor-page editor-loading" aria-busy="true"><div className="editor-loading__card"><LoaderCircle className="ui-spinner" size={20} aria-hidden="true" /><strong>Preparing your workspace</strong><span>Loading workflow, credentials, and the editor canvas…</span><div className="editor-loading__progress" /></div></main>;
+    return <main className="editor-page editor-loading" aria-busy="true"><div className="editor-loading__card" role="status" aria-live="polite"><LoaderCircle className="ui-spinner" size={20} aria-hidden="true" /><strong>Preparing your workspace</strong><span>Loading workflow, credentials, and the editor canvas…</span><div className="editor-loading__progress" /></div></main>;
   }
 
   const progressLabel = activeOperation === "saving" ? "Saving draft" : activeOperation === "publishing" ? "Publishing workflow" : activeOperation === "running" ? "Starting test run" : activeOperation === "debugging" ? "Running node debug" : activeOperation === "retrying" ? "Retrying execution" : activeOperation === "activating" ? "Activating workflow" : activeOperation === "deactivating" ? "Deactivating workflow" : activeOperation === "live" ? "Starting live execution" : activeOperation === "cloning" ? "Creating workflow copy" : null;
@@ -1233,7 +1233,7 @@ export function WorkflowEditor() {
         </div>
       </header>
       {progressLabel && <div className="editor-progress" role="status" aria-live="polite"><LoaderCircle className="ui-spinner" size={14} /> <span>{progressLabel}…</span><i /></div>}
-      {executionLinkId && execution && <section className="execution-detail-banner" aria-label="Execution detail"><div><p className="section-label">EXECUTION DETAIL</p><strong>Execution detail</strong><span>{execution.mode === "live" ? "Live run" : "Test run"} · Version {execution.workflowVersion} · {execution.status.toLowerCase()}</span></div><Button variant="ghost" onClick={() => { setExecution(null); router.replace(`/editor?workflow=${encodeURIComponent(execution.workflowId)}`); }}>Return to workflow</Button></section>}
+      {executionLinkId && execution && <section className="execution-detail-banner" aria-label="Execution detail"><div><p className="section-label">EXECUTION DETAIL</p><strong>Execution detail</strong><span>{execution.mode === "live" ? "Live run" : "Test run"} · Version {execution.workflowVersion} · {execution.status.toLowerCase()}</span></div><Button variant="secondary" className="execution-detail-banner__return" onClick={() => { setExecution(null); router.replace(`/editor?workflow=${encodeURIComponent(execution.workflowId)}`); }}>Return to workflow</Button></section>}
 
       <div className={paletteOpen ? "editor-shell" : "editor-shell editor-shell--palette-closed"}>
         {paletteOpen && (
