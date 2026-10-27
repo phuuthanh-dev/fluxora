@@ -71,16 +71,16 @@ release-preflight contract without deploying or calling a real provider.
 
 ### Slice 3 — release preflight
 
-- [ ] Documentation no longer contradicts current accessibility, Redis, or
+- [x] Documentation no longer contradicts current accessibility, Redis, or
   deployment status.
-- [ ] A read-only preflight command checks required names/contracts for runtime
+- [x] A read-only preflight command checks required names/contracts for runtime
   environment, migrations, readiness, backup/restore, rollback, domains/TLS,
   OAuth callbacks, logging/redaction, and GitHub Actions configuration.
-- [ ] A safe smoke-test script checks only local/configured health endpoints by
+- [x] A safe smoke-test script checks only local/configured health endpoints by
   default and cannot deploy or invoke providers.
-- [ ] A Go/No-Go checklist distinguishes automated pass, operator evidence,
+- [x] A Go/No-Go checklist distinguishes automated pass, operator evidence,
   user credential input, and explicitly blocked release conditions.
-- [ ] Focused tests, report validation, code-graph check, and `npm run verify`
+- [x] Focused tests, report validation, code-graph check, and `npm run verify`
   pass with no Redis integration test skipped.
 
 ## Required evidence

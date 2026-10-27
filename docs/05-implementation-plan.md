@@ -13,7 +13,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | Email/password authentication | Complete | Register/login/me/logout endpoints, Argon2id, hashed opaque sessions, login UI, PostgreSQL E2E |
 | Workspace/workflow API CRUD, draft persistence, and immutable publish | Complete | Owner-only API routes; browser save/reload and publish verification |
 | Inline mock execution engine | Complete | Persisted execution/node I/O, safe expressions, redaction, retry classification, and editor mock run |
-| Redis/BullMQ process separation, inline development fallback, and cron scheduler | Complete locally | Inline queue, worker code, scheduler, and authenticated SSE delivery are locally verified; Redis-backed worker qualification is deferred until a Redis runtime is available |
+| Redis/BullMQ process separation, inline development fallback, and cron scheduler | Complete locally and in CI | A pinned isolated local Redis runtime and CI Redis service verify API/worker handoff, bounded concurrency, delayed retry primitives, persisted runs, owner-scoped SSE, shutdown/restart, and single-attempt dispatch without test-level skips. |
 | Encrypted credential vault and live-capable Steam/Google Chat adapters | Complete locally | AES-256-GCM vault, provider-aware credential UX, mock flows, and backend adapters are verified; live activation needs user credentials |
 | Workspace dashboard and guarded live-run entry point | Complete locally | Dashboard is the authenticated landing page; workspace/workflow selection, blank/template creation, and publish-confirmed Go Live are browser-tested without invoking providers |
 | Google account sign-in readiness | Complete locally | `AuthIdentity` migration, Google OIDC account callback, provider-configured UI state, identity/session tests, and local migration deployment; activation needs a Google web-client configuration |
@@ -65,9 +65,9 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 
 ## Next UI/UX roadmap
 
-1. **Accessibility coverage:** complete keyboard/zoom/reduced-motion regression across the command bar, canvas, dialogs, and Node Library; keep focus behavior explicit whenever an overlay is added.
-2. **Credential lifecycle clarity:** add provider compatibility labels, a safe rename/rotate/delete flow to the full Connections surface, and clear “used by” references before a destructive action.
-3. **Execution detail evolution:** extend the immutable execution view with an event timeline, node-level retry/error-branch explanation, and shareable/redacted diagnostic snapshots.
+1. **Credential dependency clarity:** expose “used by” references before destructive credential actions while preserving the existing rename/rotate/delete safeguards.
+2. **Canvas scale and discovery:** add minimap/navigation polish and validate dense graphs without weakening current keyboard, zoom, reduced-motion, and theme coverage.
+3. **Operational usability:** build on the completed execution timeline/diagnostic export with saved triage views and retention visibility; do not expose raw secrets or provider URLs.
 
 **Exit criterion:** a logged-in owner can create a workspace, create a workflow, save a draft graph, publish a frozen version, reload the page, and see the saved workflow.
 

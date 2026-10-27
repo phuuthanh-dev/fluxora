@@ -16,15 +16,15 @@ This document is the current, evidence-based audit for the local MVP. It intenti
 | Approval pause/resume and cancellation | Verified locally | Approval E2E pause/resume/reject; authenticated approval links resolve the owning workflow/execution and select the waiting node; an encrypted HTTP-webhook notification E2E verifies its headers and app link on a live run; cancellation E2E turns a waiting run into `CANCELLED` and skips pending/waiting node work. |
 | Export/import, clone, version history, sample-data test run | Verified locally | Editor import/export and clone actions, version-history panel/API, system Steam template, and Manual Trigger JSON test data. |
 | No credential values in normal API/UI persistence paths | Verified by implementation and focused tests | AES-256-GCM vault, credential summaries only, provider-aware connection selection, redaction test, and backend-only provider calls. Login, credential, workflow publish, manual execution, and cancellation actions are written to audit logs. This is not a replacement for an independent security audit. |
-| Quality gate | Verified | `npm run verify`: Prisma validation, unit tests, lint, TypeScript checks, production build, and Playwright browser E2E. CI provisions PostgreSQL and Chromium before running the same gate. |
+| Quality gate | Verified | `npm run verify`: repository/release contracts, Prisma validation, unit and Redis integration tests, lint, TypeScript checks, production build, and Playwright browser E2E. CI provisions PostgreSQL, Redis, and Chromium before running the same gate. |
 
-## Deferred external validation
+## External/operator validation still required
 
-- **Redis/BullMQ process E2E:** queue and worker code are present, but this machine has neither `redis-server` nor Docker. Inline mode is the verified local default.
+- **Redis/BullMQ:** qualified locally through an isolated pinned Redis runtime and in CI against its Redis service. Handoff, bounded concurrency, delayed retry primitives, persisted execution, owner-scoped SSE delivery, shutdown/restart, and single-attempt production dispatch have automated coverage with no test-level skip.
 - **Real providers:** Google and GitHub account sign-in plus Steam identity linking have been verified locally with user-owned accounts. Steam Web API, Google Chat, Google connector OAuth, Drive, and Sheets still require their own user-owned credentials and live smoke checks. No secret is stored in source or test fixtures.
-- **Deployment/VPS:** the production foundation is now present in `infra/`; first rollout remains operator-gated on the real HTTPS domains, GitHub/VPS secrets, and a separate production credential decision.
+- **Deployment/VPS:** repository preflight, health smoke, backup/restore, rollback, and deployment contracts are present. Rollout remains operator-gated on DNS/TLS, a recovery drill, target-host readiness, GitHub/VPS secrets, and explicit owner approval. See [`17-release-go-no-go.md`](./17-release-go-no-go.md).
 
 ## Remaining local hardening candidates
 
-1. Add a container or local Redis runtime, then validate the separate API/worker path.
+1. Capture the operator and owner evidence in the Go/No-Go contract without copying secret values.
 2. Perform a dedicated security review before any external deployment.

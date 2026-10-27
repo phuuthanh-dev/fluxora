@@ -28,7 +28,10 @@
     "codegraph:generate": "node scripts/generate-code-graph.mjs",
     "codegraph:check": "node scripts/generate-code-graph.mjs --check",
     "deployment:check": "node --test scripts/deployment-contract.test.mjs",
-    "harness:check": "npm run codegraph:check && npm run deployment:check",
+    "release:preflight": "node scripts/release-preflight.mjs",
+    "release:smoke": "node scripts/smoke-health.mjs",
+    "release:check": "node --test scripts/release-preflight.test.mjs && npm run release:preflight",
+    "harness:check": "npm run codegraph:check && npm run deployment:check && npm run release:check",
     "harness:report": "node scripts/verify-agent-report.mjs",
     "verify": "npm run harness:check && npm run db:validate && npm run db:generate && npm run build:contracts && npm run test:workspaces && npm run lint:workspaces && npm run typecheck:workspaces && npm run build:apps && npm run test:e2e"
   },

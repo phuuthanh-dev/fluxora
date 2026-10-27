@@ -11,6 +11,8 @@ const rollback = resolve(root, "infra/scripts/rollback.sh");
 const healthcheck = resolve(root, "infra/scripts/healthcheck.sh");
 const pruneImages = resolve(root, "infra/scripts/prune-application-images.sh");
 const checkDiskSpace = resolve(root, "infra/scripts/check-disk-space.sh");
+const backupPostgres = resolve(root, "infra/scripts/backup-postgres.sh");
+const restorePostgres = resolve(root, "infra/scripts/restore-postgres.sh");
 const pruneGhcrVersions = resolve(root, "infra/scripts/prune-ghcr-versions.sh");
 const apiDockerfile = readFileSync(resolve(root, "apps/api/Dockerfile"), "utf8");
 const apiRuntimeDockerfile = apiDockerfile.split("FROM node:22-bookworm-slim AS runtime", 2)[1] ?? "";
@@ -67,6 +69,20 @@ test("deployment scripts pass shell syntax validation", () => {
   execFileSync("sh", ["-n", pruneImages]);
   execFileSync("sh", ["-n", checkDiskSpace]);
   execFileSync("sh", ["-n", pruneGhcrVersions]);
+  execFileSync("sh", ["-n", backupPostgres]);
+  execFileSync("sh", ["-n", restorePostgres]);
+});
+
+test("database recovery scripts require an explicit guarded workflow", () => {
+  const backupScript = readFileSync(backupPostgres, "utf8");
+  const restoreScript = readFileSync(restorePostgres, "utf8");
+  assert.match(backupScript, /pg_dump/);
+  assert.match(backupScript, /--format=custom/);
+  assert.match(backupScript, /chmod 600/);
+  assert.match(restoreScript, /CONFIRM_RESTORE/);
+  assert.match(restoreScript, /pg_restore/);
+  assert.match(restoreScript, /--exit-on-error/);
+  assert.doesNotMatch(restoreScript, /docker compose down/);
 });
 
 test("CI/CD workflow keeps bounded jobs, cache, and least-privilege deploy permissions", () => {
