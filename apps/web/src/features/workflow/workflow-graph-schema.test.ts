@@ -46,6 +46,6 @@ test("GitHub Create Issue is executable with a separate connector credential", (
   const definition = getNodeDefinition("action.github");
   assert.ok(definition);
   assert.equal(definition.available, true);
-  assert.deepEqual(definition.defaultConfig, { credentialId: "", repository: "", title: "", body: "", labels: "" });
+  assert.deepEqual(definition.defaultConfig, { credentialId: "", repository: "", title: "", body: "", labels: "", idempotencyKey: "" });
   assert.deepEqual(definition.configurationFields?.[0], { kind: "credential", key: "credentialId", label: "GitHub credential", providers: ["GITHUB"] });
 });

@@ -85,8 +85,9 @@ occupies one app card in the top-level library.
 - Runtime connectors, OAuth scopes, credentials, and provider calls remain
   separate vertical slices. The current GitHub slice implements one operation,
   `GitHub → Create issue`, with a workspace-owned encrypted connector
-  credential. GitHub account sign-in is an independent identity flow and is not
-  reused by workflow execution.
+  credential and an optional connector-level idempotency guard. GitHub account
+  sign-in is an independent identity flow and is not reused by workflow
+  execution.
 
 ## Acceptance criteria
 

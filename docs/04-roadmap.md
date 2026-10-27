@@ -30,8 +30,8 @@ phase here may already have a locally verified foundation.
 - Notifications v1: Discord Incoming Webhook and Telegram Bot API action nodes with encrypted credentials and safe expression interpolation.
 - Notification adapters: provider-neutral dispatcher and adapters for Google Chat, Discord, Telegram, and approval webhooks with normalized safe delivery results, Discord embeds/mention-policy, and vault-only Telegram bot tokens.
 - Actual Email sending.
-- OpenAI, Gemini, MongoDB, GitHub nodes.
-- GitHub runtime node and OAuth credential mode.
+- OpenAI, Gemini, MongoDB, and additional GitHub operations.
+- GitHub runtime operations beyond Create Issue; connector credentials remain separate from GitHub account OAuth.
 - Full Google Chat OAuth mode.
 - Workspace members, roles, and credential sharing.
 - Drive upload/download enhancements.

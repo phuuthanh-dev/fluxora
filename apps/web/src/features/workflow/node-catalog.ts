@@ -434,7 +434,7 @@ export const nodeCatalog: NodeDefinition[] = [
   {
     type: "action.github",
     label: "GitHub issue",
-    description: "Create an issue in a GitHub repository.",
+    description: "Create an issue once per idempotency key in a GitHub repository.",
     category: "action",
     libraryGroup: "developer-data",
     appId: "github",
@@ -443,13 +443,14 @@ export const nodeCatalog: NodeDefinition[] = [
     operationKind: "action",
     icon: "github",
     available: true,
-    defaultConfig: { credentialId: "", repository: "", title: "", body: "", labels: "" },
+    defaultConfig: { credentialId: "", repository: "", title: "", body: "", labels: "", idempotencyKey: "" },
     configurationFields: [
       { kind: "credential", key: "credentialId", label: "GitHub credential", providers: ["GITHUB"] },
       { kind: "text", key: "repository", label: "Repository" },
       { kind: "text", key: "title", label: "Issue title" },
       { kind: "textarea", key: "body", label: "Issue body" },
       { kind: "text", key: "labels", label: "Labels (comma-separated, optional)" },
+      { kind: "text", key: "idempotencyKey", label: "Idempotency key (optional)" },
     ],
   },
   {

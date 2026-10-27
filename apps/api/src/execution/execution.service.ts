@@ -917,6 +917,7 @@ export async function executeGitHubCreateIssue(config: Record<string, unknown>, 
   const title = typeof config.title === "string" ? config.title.trim() : "";
   const body = typeof config.body === "string" ? config.body : "";
   const labels = readGitHubLabels(config.labels);
+  const idempotencyKey = readGitHubIdempotencyKey(config.idempotencyKey);
   if (!title) throw new NodeFailure("INVALID_CONFIGURATION", "GitHub issue title is required.", false);
 
   if (mode === "mock") {
@@ -930,6 +931,7 @@ export async function executeGitHubCreateIssue(config: Record<string, unknown>, 
         issueNumber: 1,
         url: `https://github.com/${repository}/issues/1`,
         labels,
+        deduplicated: false,
         mode: "mock",
       },
       route: "success",
@@ -942,17 +944,41 @@ export async function executeGitHubCreateIssue(config: Record<string, unknown>, 
 
   const [owner, repo] = readGitHubRepositoryParts(repository);
   const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues`;
+  const headers = {
+    Accept: "application/vnd.github+json",
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "Fluxora",
+  };
   try {
+    const marker = idempotencyKey ? githubIdempotencyMarker(idempotencyKey) : undefined;
+    if (marker) {
+      const existing = await findGitHubIssueByMarker(owner, repo, marker, headers);
+      if (existing) {
+        return {
+          status: "succeeded",
+          output: {
+            delivered: true,
+            provider: "github",
+            operation: "create_issue",
+            repository,
+            issueNumber: existing.number,
+            url: existing.url,
+            labels,
+            deduplicated: true,
+            mode: "live",
+            sentAt: new Date().toISOString(),
+          },
+          route: "success",
+        };
+      }
+    }
+    const issueBody = marker ? appendGitHubIdempotencyMarker(body, marker) : body;
     const response = await fetchSafeOutbound(url, {
       method: "POST",
-      headers: {
-        Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        "User-Agent": "Fluxora",
-      },
-      body: JSON.stringify({ title, body, ...(labels.length ? { labels } : {}) }),
+      headers,
+      body: JSON.stringify({ title, body: issueBody, ...(labels.length ? { labels } : {}) }),
       signal: AbortSignal.timeout(15_000),
     });
     const payload = await response.json().catch(() => ({})) as { number?: unknown; html_url?: unknown };
@@ -973,6 +999,7 @@ export async function executeGitHubCreateIssue(config: Record<string, unknown>, 
         issueNumber: payload.number,
         url: payload.html_url,
         labels,
+        deduplicated: false,
         mode: "live",
         sentAt: new Date().toISOString(),
       },
@@ -1003,4 +1030,42 @@ function readGitHubLabels(value: unknown) {
   if (value === undefined || value === null || value === "") return [] as string[];
   if (typeof value !== "string") throw new NodeFailure("INVALID_CONFIGURATION", "GitHub labels must be comma-separated text.", false);
   return value.split(",").map((label) => label.trim()).filter(Boolean).slice(0, 20);
+}
+
+function readGitHubIdempotencyKey(value: unknown) {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value !== "string") throw new NodeFailure("INVALID_CONFIGURATION", "GitHub idempotency key must be visible ASCII text.", false);
+  const key = value.trim();
+  if (!/^[\x21-\x7e]{1,160}$/.test(key)) throw new NodeFailure("INVALID_CONFIGURATION", "GitHub idempotency key must be visible ASCII text up to 160 characters.", false);
+  return key;
+}
+
+function githubIdempotencyMarker(key: string) {
+  const digest = createHash("sha256").update(key).digest("hex");
+  return `<!-- fluxora:github:create-issue:${digest} -->`;
+}
+
+function appendGitHubIdempotencyMarker(body: string, marker: string) {
+  return body.includes(marker) ? body : `${body}${body ? "\n\n" : ""}${marker}`;
+}
+
+async function findGitHubIssueByMarker(owner: string, repo: string, marker: string, headers: Record<string, string>) {
+  const query = encodeURIComponent(`repo:${owner}/${repo} ${marker}`);
+  const url = `https://api.github.com/search/issues?q=${query}&per_page=10`;
+  const response = await fetchSafeOutbound(url, { method: "GET", headers, signal: AbortSignal.timeout(15_000) });
+  const payload = await response.json().catch(() => ({})) as { items?: unknown };
+  if (!response.ok) {
+    const retryable = response.status === 429 || response.status >= 500;
+    throw new NodeFailure("HTTP_ERROR", `GitHub returned ${response.status}.`, retryable, response.status);
+  }
+  if (!Array.isArray(payload.items)) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "GitHub returned an invalid search response.", false);
+  const match = payload.items.find((item): item is { number: number; html_url: string; body: string } => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+    const record = item as Record<string, unknown>;
+    return typeof record.number === "number"
+      && typeof record.html_url === "string"
+      && typeof record.body === "string"
+      && record.body.includes(marker);
+  });
+  return match ? { number: match.number, url: match.html_url } : null;
 }
