@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { apiRequest, apiUrl } from "../api/api-client";
 import { ThemeToggle } from "../theme/theme-toggle";
 import { Button, Menu, Select } from "../../components/ui";
+import { FluxoraMark } from "../../components/brand/fluxora-mark";
 
 export type AppShellWorkspace = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
 type Identity = { provider: "GOOGLE" | "GITHUB" | "STEAM"; providerAccountId: string };
@@ -68,7 +69,7 @@ export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, act
 
   return (
     <header className="app-shell-header">
-      <button className="app-shell-brand" type="button" onClick={() => router.push(navPath("dashboard"))}><span><PlugZap size={17} /></span><strong>Workflow Automation</strong></button>
+      <button className="app-shell-brand" type="button" onClick={() => router.push(navPath("dashboard"))}><span><FluxoraMark size={31} /></span><strong>Fluxora</strong></button>
       <div className="app-shell-navigation">
         <label className="app-shell-workspace" htmlFor="app-shell-workspace"><span>Workspace</span><Select id="app-shell-workspace" value={workspaceId} disabled={workspaces.length === 0} onChange={(event) => onWorkspaceChange(event.target.value)}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</Select></label>
         <nav aria-label="Workspace navigation">

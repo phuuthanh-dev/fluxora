@@ -144,6 +144,10 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await page.locator(".react-flow__node").filter({ hasText: "Google Chat message" }).first().click();
   await expect(page.getByRole("region", { name: "Last execution" }).getByText(/SKIPPED · ATTEMPT/)).toBeVisible();
 
+  const goLiveButton = page.getByRole("button", { name: "Go live" });
+  await expect(goLiveButton).toBeDisabled();
+  await expect(goLiveButton).toHaveAttribute("title", "Publish this workflow before going live");
+
   await page.getByRole("button", { name: "Save draft" }).click();
   await expect(page.getByText("Draft saved to your workspace.")).toBeVisible();
   await page.getByRole("button", { name: "Publish" }).click();

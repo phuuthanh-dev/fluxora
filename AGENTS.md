@@ -1,6 +1,6 @@
 # Agent Operating Guide
 
-This repository builds an open-source workflow-automation platform for personal use first, with an architecture that can grow to small teams.
+This repository builds Fluxora, an open-source workflow-automation platform for personal use first, with an architecture that can grow to small teams.
 
 ## Mandatory reading order
 

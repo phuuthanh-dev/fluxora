@@ -1,8 +1,8 @@
-# Product Specification — Workflow Automation MVP
+# Product Specification — Fluxora MVP
 
 ## 1. Product intent
 
-Build an open-source workflow automation web application for personal use first. The MVP must be real, attractive enough for a portfolio, and structured to expand to small workspaces later.
+Build Fluxora, an open-source workflow automation web application for personal use first. The MVP must be real, attractive enough for a portfolio, and structured to expand to small workspaces later.
 
 Target usage is approximately five users and 5–10 executions per day. The MVP implementation window is three days. Therefore every feature below is categorized as **runtime**, **UI/schema only**, or **later**.
 

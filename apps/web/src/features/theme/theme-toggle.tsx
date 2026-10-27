@@ -6,7 +6,8 @@ import { Button } from "../../components/ui";
 
 export type ThemeMode = "light" | "dark";
 
-const themeStorageKey = "workflow-automation-theme";
+const themeStorageKey = "fluxora-theme";
+const legacyThemeStorageKey = "workflow-automation-theme";
 
 function applyTheme(theme: ThemeMode) {
   document.documentElement.dataset.theme = theme;
@@ -17,7 +18,7 @@ export function ThemeToggle() {
 
   useEffect(() => {
     const current = document.documentElement.dataset.theme;
-    const stored = window.localStorage.getItem(themeStorageKey);
+    const stored = window.localStorage.getItem(themeStorageKey) ?? window.localStorage.getItem(legacyThemeStorageKey);
     const initial: ThemeMode = stored === "dark" || stored === "light"
       ? stored
       : current === "dark"
@@ -25,9 +26,11 @@ export function ThemeToggle() {
         : "light";
     applyTheme(initial);
     setTheme(initial);
+    if (!window.localStorage.getItem(themeStorageKey) && stored) window.localStorage.setItem(themeStorageKey, initial);
 
     const onStorage = (event: StorageEvent) => {
-      if (event.key !== themeStorageKey || (event.newValue !== "dark" && event.newValue !== "light")) return;
+      if (event.key !== themeStorageKey && event.key !== legacyThemeStorageKey) return;
+      if (event.newValue !== "dark" && event.newValue !== "light") return;
       applyTheme(event.newValue);
       setTheme(event.newValue);
     };

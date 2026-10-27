@@ -12,13 +12,13 @@ const gilroy = localFont({
     { path: "./fonts/gilroy-bold.otf", weight: "700", style: "normal" },
     { path: "./fonts/gilroy-bold-italic.otf", weight: "700", style: "italic" },
   ],
-  variable: "--font-vietauction-gilroy",
+  variable: "--font-fluxora-gilroy",
   display: "swap",
   fallback: ["Arial", "sans-serif"],
 });
 
 export const metadata: Metadata = {
-  title: "Workflow Automation",
+  title: "Fluxora — Visual workflow automation",
   description: "Build dependable automations from visual workflows.",
 };
 

@@ -1,6 +1,6 @@
 # Production deployment
 
-This document describes the first self-hosted deployment shape for Workflow Automation. It is deliberately conservative for the current 14 GB VPS and the target of approximately five users.
+This document describes the first self-hosted deployment shape for Fluxora. It is deliberately conservative for the current 14 GB VPS and the target of approximately five users.
 
 ## Runtime shape
 

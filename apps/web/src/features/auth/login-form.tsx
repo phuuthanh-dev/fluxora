@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { apiUrl } from "../api/api-client";
 import { ThemeToggle } from "../theme/theme-toggle";
 import { Button, Field } from "../../components/ui";
+import { FluxoraMark } from "../../components/brand/fluxora-mark";
 
 type AuthMode = "login" | "register";
 type AuthResponse = { user?: { email: string }; message?: string | { message?: string } };
@@ -58,8 +59,8 @@ export function LoginForm() {
   return (
     <main className="auth-page">
       <section className="auth-showcase" aria-label="Product introduction">
-        <span className="auth-brand-mark">✦</span>
-        <p className="auth-eyebrow">WORKFLOW AUTOMATION</p>
+        <span className="auth-brand-mark"><FluxoraMark size={44} /></span>
+        <p className="auth-eyebrow">FLUXORA</p>
         <h1>Build dependable work, visually.</h1>
         <p>Connect the tasks you repeat every day, keep every execution visible, and stay in control of your data.</p>
         <div className="auth-flow-preview" aria-hidden="true">
