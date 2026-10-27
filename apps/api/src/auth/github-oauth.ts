@@ -45,7 +45,7 @@ export async function fetchGitHubIdentity(code: string, config: GitHubAuthConfig
     throw new BadRequestException({ code: "GITHUB_AUTH_TOKEN_FAILED", message: "GitHub did not return an access token." });
   }
 
-  const headers = { Accept: "application/vnd.github+json", Authorization: `Bearer ${token.access_token}`, "User-Agent": "workflow-automation" };
+  const headers = { Accept: "application/vnd.github+json", Authorization: `Bearer ${token.access_token}`, "User-Agent": "Fluxora" };
   const [profileResponse, emailsResponse] = await Promise.all([
     fetch("https://api.github.com/user", { headers, signal: AbortSignal.timeout(20_000) }),
     fetch("https://api.github.com/user/emails", { headers, signal: AbortSignal.timeout(20_000) }),

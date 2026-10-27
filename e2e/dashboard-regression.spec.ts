@@ -243,7 +243,7 @@ test("product navigation stays consistent while the editor keeps workflow tools 
   await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
   await expect(page.locator(".app-shell-header").getByRole("button", { name: "Connections" })).toBeVisible();
   await expect(page.locator(".editor-toolbar").getByRole("button", { name: "Run test" })).toBeVisible();
-  await expect(page.getByText("Workflow Automation", { exact: true })).toHaveCount(1);
+  await expect(page.getByText("Fluxora", { exact: true })).toHaveCount(1);
 });
 
 test("execution history has a dedicated page and opens immutable execution detail", async ({ page }) => {

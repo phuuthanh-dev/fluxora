@@ -774,6 +774,12 @@
       ]
     },
     {
+      "id": "apps/web/src/components/brand/fluxora-mark.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
       "id": "apps/web/src/components/ui/button.tsx",
       "boundary": "web",
       "internalImports": [],
@@ -897,6 +903,7 @@
       "id": "apps/web/src/features/app-shell/app-shell-header.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/brand/fluxora-mark.tsx",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/theme/theme-toggle.tsx"
       ],
@@ -910,6 +917,7 @@
       "id": "apps/web/src/features/auth/login-form.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/brand/fluxora-mark.tsx",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/theme/theme-toggle.tsx"
       ],
@@ -1807,11 +1815,19 @@
     },
     {
       "from": "apps/web/src/features/app-shell/app-shell-header.tsx",
+      "to": "apps/web/src/components/brand/fluxora-mark.tsx"
+    },
+    {
+      "from": "apps/web/src/features/app-shell/app-shell-header.tsx",
       "to": "apps/web/src/features/api/api-client.ts"
     },
     {
       "from": "apps/web/src/features/app-shell/app-shell-header.tsx",
       "to": "apps/web/src/features/theme/theme-toggle.tsx"
+    },
+    {
+      "from": "apps/web/src/features/auth/login-form.tsx",
+      "to": "apps/web/src/components/brand/fluxora-mark.tsx"
     },
     {
       "from": "apps/web/src/features/auth/login-form.tsx",

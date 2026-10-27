@@ -2,7 +2,7 @@
 
 **Status:** v1 active, Relay-inspired
 **Decision date:** 2026-10-25
-**Owner:** Workflow Automation product
+**Owner:** Fluxora product
 
 This document is the source of truth for the visual foundation shared by the
 dashboard, editor, authentication screens, credential surfaces, execution
@@ -24,7 +24,7 @@ the near-black foundation.
 Light mode is the default product presentation. Dark mode keeps the same
 Relay-inspired shell and lime hierarchy but moves the dashboard, canvas,
 inspector, forms, cards, and graph controls onto dark reading surfaces. The
-choice is stored under `workflow-automation-theme` and is applied by the
+choice is stored under `fluxora-theme` and is applied by the
 shared client toggle on mount. The default light presentation keeps the first
 render stable, while subsequent visits restore the saved choice. The toggle is
 available on auth, dashboard, and editor surfaces.
@@ -70,7 +70,7 @@ only when it is a provider brand color or a clearly documented semantic state.
 | Spacing | `--space-1` … `--space-7` | 4px–32px rhythm |
 | Type scale | `--text-xs` … `--text-xl` | 10px–24px product scale |
 | Type weight | `--weight-medium` … `--weight-extrabold` | 600–800 |
-| UI font | `--font-ui` | VietAuction Gilroy, Arial fallback |
+| UI font | `--font-ui` | Fluxora Gilroy, Arial fallback |
 
 Compatibility aliases such as `--accent`, `--nav`, `--soft-purple`, and
 `--surface-dark` remain intentionally available so existing feature CSS can be

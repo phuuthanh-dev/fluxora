@@ -24,6 +24,8 @@ test("password sign-in works while social providers expose their configured stat
   await page.getByLabel("Account actions").click();
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("heading", { name: "Sign in to your workspace" })).toBeVisible();
+  await expect(page.locator('input[autocomplete="current-password"]')).toBeVisible();
   await page.locator('input[autocomplete="email"]').fill(email);
   await page.locator('input[autocomplete="current-password"]').fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();

@@ -4,7 +4,7 @@
 
 ## Brief
 
-Redesign Workflow Automation into a coherent desktop-first control plane that feels clear on first use, credible in a portfolio demo, and efficient during repeated workflow operations. The redesign must improve hierarchy and interaction feedback without changing workflow semantics, credential boundaries, or execution safety.
+Redesign Fluxora into a coherent desktop-first control plane that feels clear on first use, credible in a portfolio demo, and efficient during repeated workflow operations. The redesign must improve hierarchy and interaction feedback without changing workflow semantics, credential boundaries, or execution safety.
 
 The visual direction is **operational calm with Relay-inspired character** and
 is now concretized in `apps/web/src/app/design-system.css` plus the migration
