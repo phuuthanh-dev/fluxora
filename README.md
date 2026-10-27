@@ -118,6 +118,9 @@ npm run verify
 
 The gate covers:
 
+- a real Redis integration runtime (the configured Redis service in CI, or an isolated pinned Redis process for local API tests)
+- API/worker handoff, bounded concurrency, delayed retry primitives, safe restart, persisted execution, and cross-process SSE invalidation
+
 - code-graph freshness and deployment contract checks
 - Prisma schema validation and client generation
 - unit tests

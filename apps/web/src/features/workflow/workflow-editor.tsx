@@ -1,7 +1,6 @@
 "use client";
 
 import "@xyflow/react/dist/style.css";
-import type { WorkflowGraph } from "@workflow/contracts";
 import {
   Background,
   Controls,
@@ -55,18 +54,9 @@ import { NodeIcon } from "./node-icon";
 import { NodeLibrary, type NodeLibraryHandle } from "./node-library";
 import { Button, Dialog, Field, IconButton, Menu, Select, Status, useDialogFocus } from "../../components/ui";
 import { AppShellHeader } from "../app-shell/app-shell-header";
+import { ExecutionDetailsPanel, type ApiExecution } from "./execution-observability";
 
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNode };
-
-type ApiExecution = {
-  id: string;
-  status: string;
-  mode: "mock" | "live";
-  workflowId: string;
-  workflowVersion: number;
-  graph: WorkflowGraph;
-  nodeExecutions: Array<{ nodeId: string; status: string; attempt: number; input: unknown; output: unknown; error: { code: string; message: string } | null; durationMs: number | null }>;
-};
 
 type WorkflowVersionSummary = { id: string; version: number; status: "DRAFT" | "PUBLISHED"; createdAt: string; publishedAt: string | null; nodeCount: number };
 type WebhookEndpoint = { id: string; path: string; secretRequired: boolean; workflowVersionId: string; createdAt: string; updatedAt: string };
@@ -630,6 +620,7 @@ export function WorkflowEditor() {
   const [webhookOpen, setWebhookOpen] = useState(false);
   const [liveConfirmOpen, setLiveConfirmOpen] = useState(false);
   const [retryConfirmOpen, setRetryConfirmOpen] = useState(false);
+  const [executionDetailsOpen, setExecutionDetailsOpen] = useState(false);
   const [activationOpen, setActivationOpen] = useState(false);
   const [liveReadiness, setLiveReadiness] = useState<LiveReadiness | null>(null);
   const [liveReadinessLoading, setLiveReadinessLoading] = useState(false);
@@ -1176,10 +1167,11 @@ export function WorkflowEditor() {
           <Button variant="secondary" className="go-live-button" onClick={openLivePanel} disabled={!workflow?.published || isSaving} title={!workflow?.published ? "Publish this workflow before going live" : isSaving ? "Wait for the current operation to finish" : undefined}>{activeOperation === "live" || activeOperation === "activating" ? <LoaderCircle className="ui-spinner" size={16} /> : null} {workflow?.isActive ? "Run live" : "Go live"}</Button>
           {execution && ["QUEUED", "RUNNING", "WAITING_APPROVAL"].includes(execution.status) && <button className="ghost-button" type="button" onClick={() => void cancelExecution()}>Cancel run</button>}
           {execution?.status === "FAILED" && <Button variant="ghost" className="ghost-button" disabled={isSaving} onClick={() => setRetryConfirmOpen(true)}><RotateCcw size={15} /> Retry {execution.mode === "live" ? "live" : "test"}</Button>}
+          {execution && <Button variant="ghost" className="ghost-button" onClick={() => setExecutionDetailsOpen(true)}><History size={15} /> Run details</Button>}
         </div>
       </header>
       {progressLabel && <div className="editor-progress" role="status" aria-live="polite"><LoaderCircle className="ui-spinner" size={14} /> <span>{progressLabel}…</span><i /></div>}
-      {executionLinkId && execution && <section className="execution-detail-banner" aria-label="Execution detail"><div><p className="section-label">EXECUTION DETAIL</p><strong>Execution detail</strong><span>{execution.mode === "live" ? "Live run" : "Test run"} · Version {execution.workflowVersion} · {execution.status.toLowerCase()}</span></div><Button variant="secondary" className="execution-detail-banner__return" onClick={() => { setExecution(null); router.replace(`/editor?workflow=${encodeURIComponent(execution.workflowId)}`); }}>Return to workflow</Button></section>}
+      {executionLinkId && execution && <section className="execution-detail-banner" aria-label="Execution detail"><div><p className="section-label">EXECUTION DETAIL</p><strong>Execution detail</strong><span>{execution.mode === "live" ? "Live run" : "Test run"} · Version {execution.workflowVersion} · {execution.status.toLowerCase()}</span></div><div className="execution-detail-banner__actions"><Button variant="secondary" onClick={() => setExecutionDetailsOpen(true)}><History size={14} /> Timeline</Button><Button variant="secondary" className="execution-detail-banner__return" onClick={() => { setExecution(null); router.replace(`/editor?workflow=${encodeURIComponent(execution.workflowId)}`); }}>Return to workflow</Button></div></section>}
 
       <div className={paletteOpen ? "editor-shell" : "editor-shell editor-shell--palette-closed"}>
         {paletteOpen && (
@@ -1232,6 +1224,7 @@ export function WorkflowEditor() {
       {activationOpen && workflow && <WorkflowActivationPanel workflow={workflow} isSaving={activeOperation === "activating" || activeOperation === "deactivating"} readiness={liveReadiness} loading={liveReadinessLoading} error={liveReadinessError} onConfirm={() => void updateActivation()} onRefresh={() => void checkLiveReadiness()} onOpenCredentials={() => { setActivationOpen(false); setCredentialsOpen(true); }} onClose={() => setActivationOpen(false)} />}
       {liveConfirmOpen && workflow && <GoLivePanel workflow={workflow} isRunning={activeOperation === "live"} readiness={liveReadiness} loading={liveReadinessLoading} error={liveReadinessError} onConfirm={() => void runLive()} onRefresh={() => void checkLiveReadiness()} onOpenCredentials={() => { setLiveConfirmOpen(false); setCredentialsOpen(true); }} onClose={() => setLiveConfirmOpen(false)} />}
       {retryConfirmOpen && execution && <RetryExecutionPanel execution={execution} isRetrying={activeOperation === "retrying"} onConfirm={() => void retryExecution()} onClose={() => setRetryConfirmOpen(false)} />}
+      {executionDetailsOpen && execution && <ExecutionDetailsPanel executionId={execution.id} onSelectNode={(nodeId) => { selectNode(nodeId); setExecutionDetailsOpen(false); if (isNarrowEditorLayout) setInspectorDrawerOpen(true); }} onClose={() => setExecutionDetailsOpen(false)} />}
       {libraryOpen && <WorkflowLibraryPanel initialWorkspaces={workspaces} activeWorkflowId={workflow?.id} activeWorkspaceId={workflow?.workspaceId} onOpen={openWorkflow} onWorkspaceCreated={(workspace) => setWorkspaces((current) => [workspace, ...current])} onClose={() => setLibraryOpen(false)} />}
       {credentialsOpen && workflow && <CredentialPanel workspaceId={workflow.workspaceId} onClose={() => setCredentialsOpen(false)} onSaved={setCredentials} />}
     </main>

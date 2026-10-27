@@ -261,9 +261,12 @@
     {
       "id": "apps/api/src/execution/execution-events.service.ts",
       "boundary": "api",
-      "internalImports": [],
+      "internalImports": [
+        "apps/api/src/execution/execution-queue.config.ts"
+      ],
       "externalImports": [
         "@nestjs/common",
+        "ioredis",
         "rxjs"
       ]
     },
@@ -280,9 +283,16 @@
       ]
     },
     {
+      "id": "apps/api/src/execution/execution-queue.config.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
       "id": "apps/api/src/execution/execution-queue.service.ts",
       "boundary": "api",
       "internalImports": [
+        "apps/api/src/execution/execution-queue.config.ts",
         "apps/api/src/execution/execution.service.ts",
         "apps/api/src/execution/worker-concurrency.ts"
       ],
@@ -411,6 +421,7 @@
       "boundary": "api",
       "internalImports": [
         "apps/api/src/app.module.ts",
+        "apps/api/src/execution/execution-queue.config.ts",
         "apps/api/src/execution/execution-queue.service.ts",
         "apps/api/src/execution/execution.service.ts",
         "apps/api/src/execution/worker-concurrency.ts",
@@ -545,6 +556,7 @@
       "id": "apps/api/src/platform/environment.ts",
       "boundary": "api",
       "internalImports": [
+        "apps/api/src/execution/execution-queue.config.ts",
         "apps/api/src/execution/worker-concurrency.ts"
       ],
       "externalImports": [
@@ -1040,6 +1052,18 @@
       ]
     },
     {
+      "id": "apps/web/src/features/workflow/execution-observability.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/api/api-client.ts"
+      ],
+      "externalImports": [
+        "@workflow/contracts",
+        "lucide-react",
+        "react"
+      ]
+    },
+    {
       "id": "apps/web/src/features/workflow/expression-suggestions.ts",
       "boundary": "web",
       "internalImports": [],
@@ -1129,6 +1153,7 @@
         "apps/web/src/features/credentials/credential-panel.tsx",
         "apps/web/src/features/credentials/credential-types.ts",
         "apps/web/src/features/workflow/editor-store.ts",
+        "apps/web/src/features/workflow/execution-observability.tsx",
         "apps/web/src/features/workflow/expression-suggestions.ts",
         "apps/web/src/features/workflow/graph-validation.ts",
         "apps/web/src/features/workflow/node-catalog.ts",
@@ -1140,7 +1165,6 @@
         "apps/web/src/features/workflow/workflow-node.tsx"
       ],
       "externalImports": [
-        "@workflow/contracts",
         "@xyflow/react",
         "@xyflow/react/dist/style.css",
         "lucide-react",
@@ -1387,12 +1411,20 @@
       "to": "apps/api/src/database/prisma.service.ts"
     },
     {
+      "from": "apps/api/src/execution/execution-events.service.ts",
+      "to": "apps/api/src/execution/execution-queue.config.ts"
+    },
+    {
       "from": "apps/api/src/execution/execution-maintenance.service.ts",
       "to": "apps/api/src/database/prisma.service.ts"
     },
     {
       "from": "apps/api/src/execution/execution-maintenance.service.ts",
       "to": "apps/api/src/execution/execution.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution-queue.service.ts",
+      "to": "apps/api/src/execution/execution-queue.config.ts"
     },
     {
       "from": "apps/api/src/execution/execution-queue.service.ts",
@@ -1501,6 +1533,10 @@
     {
       "from": "apps/api/src/execution/worker.ts",
       "to": "apps/api/src/app.module.ts"
+    },
+    {
+      "from": "apps/api/src/execution/worker.ts",
+      "to": "apps/api/src/execution/execution-queue.config.ts"
     },
     {
       "from": "apps/api/src/execution/worker.ts",
@@ -1641,6 +1677,10 @@
     {
       "from": "apps/api/src/notifications/telegram.adapter.ts",
       "to": "apps/api/src/notifications/notification-contracts.ts"
+    },
+    {
+      "from": "apps/api/src/platform/environment.ts",
+      "to": "apps/api/src/execution/execution-queue.config.ts"
     },
     {
       "from": "apps/api/src/platform/environment.ts",
@@ -1947,6 +1987,10 @@
       "to": "apps/web/src/features/workflow/node-operations.ts"
     },
     {
+      "from": "apps/web/src/features/workflow/execution-observability.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
       "from": "apps/web/src/features/workflow/graph-validation.ts",
       "to": "apps/web/src/features/workflow/node-catalog.ts"
     },
@@ -2001,6 +2045,10 @@
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",
       "to": "apps/web/src/features/workflow/editor-store.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/execution-observability.tsx"
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",

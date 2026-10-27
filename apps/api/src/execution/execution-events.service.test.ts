@@ -13,4 +13,5 @@ test("execution event streams only deliver events for their execution", async ()
     events.publish("execution-2", "node.updated");
     events.publish("execution-1", "node.updated");
   });
+  await events.onModuleDestroy();
 });

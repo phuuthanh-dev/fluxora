@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveQueueMode } from "./execution-queue.service";
+import { resolveQueueMode } from "./execution-queue.config";
 
 test("execution queue mode is explicit and never silently falls back", () => {
   assert.equal(resolveQueueMode(undefined), "inline");

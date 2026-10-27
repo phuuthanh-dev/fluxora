@@ -11,6 +11,8 @@ const rollback = resolve(root, "infra/scripts/rollback.sh");
 const healthcheck = resolve(root, "infra/scripts/healthcheck.sh");
 const pruneImages = resolve(root, "infra/scripts/prune-application-images.sh");
 const checkDiskSpace = resolve(root, "infra/scripts/check-disk-space.sh");
+const backupPostgres = resolve(root, "infra/scripts/backup-postgres.sh");
+const restorePostgres = resolve(root, "infra/scripts/restore-postgres.sh");
 const pruneGhcrVersions = resolve(root, "infra/scripts/prune-ghcr-versions.sh");
 const apiDockerfile = readFileSync(resolve(root, "apps/api/Dockerfile"), "utf8");
 const apiRuntimeDockerfile = apiDockerfile.split("FROM node:22-bookworm-slim AS runtime", 2)[1] ?? "";
@@ -67,6 +69,20 @@ test("deployment scripts pass shell syntax validation", () => {
   execFileSync("sh", ["-n", pruneImages]);
   execFileSync("sh", ["-n", checkDiskSpace]);
   execFileSync("sh", ["-n", pruneGhcrVersions]);
+  execFileSync("sh", ["-n", backupPostgres]);
+  execFileSync("sh", ["-n", restorePostgres]);
+});
+
+test("database recovery scripts require an explicit guarded workflow", () => {
+  const backupScript = readFileSync(backupPostgres, "utf8");
+  const restoreScript = readFileSync(restorePostgres, "utf8");
+  assert.match(backupScript, /pg_dump/);
+  assert.match(backupScript, /--format=custom/);
+  assert.match(backupScript, /chmod 600/);
+  assert.match(restoreScript, /CONFIRM_RESTORE/);
+  assert.match(restoreScript, /pg_restore/);
+  assert.match(restoreScript, /--exit-on-error/);
+  assert.doesNotMatch(restoreScript, /docker compose down/);
 });
 
 test("CI/CD workflow keeps bounded jobs, cache, and least-privilege deploy permissions", () => {
@@ -79,6 +95,7 @@ test("CI/CD workflow keeps bounded jobs, cache, and least-privilege deploy permi
   assert.match(qualityWorkflow, /Install Playwright Chromium/);
   assert.match(qualityWorkflow, /npx playwright install chromium/);
   assert.doesNotMatch(qualityWorkflow, /playwright install --with-deps/);
+  assert.match(qualityWorkflow, /npm audit --omit=dev --audit-level=high/);
 
   assert.match(workflow, /timeout-minutes:\s*20/);
   assert.match(workflow, /timeout-minutes:\s*15/);
@@ -115,6 +132,8 @@ test("verification and operational retention contracts avoid redundant work", ()
   assert.match(pruneGhcrScript, /\^\[0-9a-f\]\{40\}\$/);
   assert.match(pruneGhcrScript, /GHCR_KEEP_VERSIONS/);
   assert.doesNotMatch(pruneGhcrScript, /docker system prune/);
+  assert.match(rootPackage.scripts.securityCheck ?? rootPackage.scripts["security:check"], /scan-tracked-secrets\.mjs/);
+  assert.match(rootPackage.scripts["production:config:check"], /release-security\.test\.mjs/);
 });
 
 test("deploy cleanup retains rollback images and never prunes infrastructure", () => {
@@ -144,6 +163,15 @@ test("API runtime image installs only API and contracts workspaces", () => {
 test("application deploy does not refresh database or Redis images", () => {
   assert.match(deployScript, /pull migrate api worker web/);
   assert.doesNotMatch(deployScript, /\bpull\s*\n/);
+});
+
+test("production deployment backs up PostgreSQL before migrations", () => {
+  const backupIndex = deployScript.indexOf("backup-postgres.sh");
+  const migrationIndex = deployScript.indexOf("up -d migrate");
+  assert.ok(backupIndex >= 0, "deploy must invoke the guarded PostgreSQL backup");
+  assert.ok(migrationIndex > backupIndex, "backup must precede the migration service");
+  assert.match(deployScript, /up -d --wait db redis/);
+  assert.match(deployScript, /ENV_FILE=/);
 });
 
 test("production reverse proxy uses the two-domain layout", () => {

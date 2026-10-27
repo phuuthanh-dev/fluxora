@@ -204,6 +204,98 @@ test("execution history uses an owner-scoped stable cursor page", async () => {
   });
 });
 
+test("diagnostic snapshot is deterministic, owner-scoped, and excludes execution payload secrets", async () => {
+  const queries: unknown[] = [];
+  const execution = {
+    id: "execution-diagnostic",
+    status: ExecutionStatus.SUCCEEDED,
+    mode: "LIVE",
+    triggerData: { authorization: "Bearer must-not-leak" },
+    errorCode: null,
+    errorMessage: null,
+    createdAt: new Date("2026-10-27T10:00:00.000Z"),
+    startedAt: new Date("2026-10-27T10:00:01.000Z"),
+    completedAt: new Date("2026-10-27T10:00:03.000Z"),
+    recoveryCount: 0,
+    workflowVersion: {
+      workflowId: "workflow-1",
+      version: 4,
+      workflow: { id: "workflow-1" },
+      graph: {
+        nodes: [{ id: "notify", type: "action.discord.webhook", position: { x: 0, y: 0 }, config: { webhookUrl: "https://discord.com/api/webhooks/secret" } }],
+        edges: [],
+      },
+    },
+    nodeExecutions: [{
+      nodeId: "notify",
+      status: "SUCCEEDED",
+      attempt: 1,
+      input: { headers: { authorization: "Bearer must-not-leak" }, webhookUrl: "https://discord.com/api/webhooks/secret" },
+      output: { delivered: true },
+      errorCode: null,
+      errorMessage: null,
+      startedAt: new Date("2026-10-27T10:00:01.000Z"),
+      completedAt: new Date("2026-10-27T10:00:03.000Z"),
+    }],
+  };
+  const prisma = { execution: { findFirst: async (query: unknown) => { queries.push(query); return execution; } } };
+  const service = new ExecutionService(prisma as never, {} as never, {} as never);
+
+  const first = await service.getDiagnostic(execution.id, "owner-1");
+  const second = await service.getDiagnostic(execution.id, "owner-1");
+
+  assert.deepEqual(first, second);
+  assert.equal(first.schemaVersion, "fluxora.execution-diagnostic.v1");
+  assert.equal(first.nodes[0]?.nodeType, "action.discord.webhook");
+  assert.equal(first.nodes[0]?.durationMs, 2_000);
+  assert.match(JSON.stringify(queries[0]), /owner-1/);
+  const serialized = JSON.stringify(first);
+  assert.doesNotMatch(serialized, /must-not-leak|discord\.com|webhookUrl|headers|triggerData|input|output/);
+});
+
+test("execution detail explains error-branch handling and conservative skipped reasons", async () => {
+  const execution = {
+    id: "execution-error-branch",
+    status: ExecutionStatus.SUCCEEDED,
+    mode: "MOCK",
+    triggerData: {},
+    errorCode: null,
+    errorMessage: null,
+    createdAt: new Date("2026-10-27T10:00:00.000Z"),
+    startedAt: new Date("2026-10-27T10:00:00.000Z"),
+    completedAt: new Date("2026-10-27T10:00:02.000Z"),
+    recoveryCount: 0,
+    workflowVersion: {
+      workflowId: "workflow-1",
+      version: 1,
+      workflow: { id: "workflow-1" },
+      graph: {
+        nodes: [
+          { id: "request", type: "action.http-request", position: { x: 0, y: 0 }, config: {} },
+          { id: "recover", type: "action.telegram.message", position: { x: 200, y: 0 }, config: {} },
+          { id: "success-only", type: "action.google-chat.webhook", position: { x: 200, y: 100 }, config: {} },
+        ],
+        edges: [
+          { id: "error", source: "request", target: "recover", kind: "error" },
+          { id: "success", source: "request", target: "success-only", kind: "success" },
+        ],
+      },
+    },
+    nodeExecutions: [
+      { nodeId: "request", status: "FAILED", attempt: 2, input: {}, output: null, errorCode: "NETWORK_ERROR", errorMessage: "Network unavailable", startedAt: new Date("2026-10-27T10:00:00.000Z"), completedAt: new Date("2026-10-27T10:00:01.000Z") },
+      { nodeId: "recover", status: "SUCCEEDED", attempt: 1, input: {}, output: {}, errorCode: null, errorMessage: null, startedAt: new Date("2026-10-27T10:00:01.000Z"), completedAt: new Date("2026-10-27T10:00:02.000Z") },
+      { nodeId: "success-only", status: "SKIPPED", attempt: 0, input: null, output: null, errorCode: null, errorMessage: null, startedAt: null, completedAt: new Date("2026-10-27T10:00:02.000Z") },
+    ],
+  };
+  const service = new ExecutionService({ execution: { findFirst: async () => execution } } as never, {} as never, {} as never);
+
+  const detail = await service.get(execution.id, "owner-1");
+
+  assert.deepEqual(detail.nodeExecutions[0]?.failureHandling, { kind: "error_branch", targetNodeIds: ["recover"] });
+  assert.equal(detail.nodeExecutions[0]?.error?.retryable, true);
+  assert.equal(detail.nodeExecutions[2]?.skipReason, "branch_not_selected");
+});
+
 test("retries only transient failures with capped exponential backoff", () => {
   assert.equal(isRetryableFailure({ code: "NETWORK_ERROR" }), true);
   assert.equal(isRetryableFailure({ code: "HTTP_ERROR", statusCode: 503 }), true);

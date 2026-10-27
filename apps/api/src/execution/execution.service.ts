@@ -84,6 +84,14 @@ export class ExecutionService {
       include: { workflowVersion: { include: { workflow: true } }, nodeExecutions: { orderBy: { startedAt: "asc" } } },
     });
     if (!execution) throw new NotFoundException({ code: "EXECUTION_NOT_FOUND", message: "Execution was not found." });
+    const graph = parseWorkflowGraph(execution.workflowVersion.graph);
+    const graphOrder = new Map(graph.nodes.map((node, index) => [node.id, index]));
+    const nodeType = new Map(graph.nodes.map((node) => [node.id, node.type]));
+    const orderedNodes = [...execution.nodeExecutions].sort((left, right) => {
+      const leftTime = left.startedAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const rightTime = right.startedAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      return leftTime - rightTime || (graphOrder.get(left.nodeId) ?? Number.MAX_SAFE_INTEGER) - (graphOrder.get(right.nodeId) ?? Number.MAX_SAFE_INTEGER);
+    });
     return {
       id: execution.id,
       status: execution.status,
@@ -92,18 +100,57 @@ export class ExecutionService {
       workflowVersion: execution.workflowVersion.version,
       graph: execution.workflowVersion.graph,
       triggerData: execution.triggerData,
-      error: execution.errorCode ? { code: execution.errorCode, message: execution.errorMessage } : null,
+      error: execution.errorCode ? { code: execution.errorCode, message: execution.errorMessage, retryable: execution.errorRetryable ?? isRetryableFailure({ code: execution.errorCode }) } : null,
+      createdAt: execution.createdAt,
       startedAt: execution.startedAt,
       completedAt: execution.completedAt,
+      durationMs: execution.startedAt && execution.completedAt ? execution.completedAt.getTime() - execution.startedAt.getTime() : null,
       recoveryCount: execution.recoveryCount,
-      nodeExecutions: execution.nodeExecutions.map((node) => ({
+      nodeExecutions: orderedNodes.map((node) => ({
         nodeId: node.nodeId,
+        nodeType: nodeType.get(node.nodeId) ?? "unknown",
         status: node.status,
         attempt: node.attempt,
         input: node.input,
         output: node.output,
-        error: node.errorCode ? { code: node.errorCode, message: node.errorMessage, retryable: isRetryableFailure({ code: node.errorCode }) } : null,
+        error: node.errorCode ? { code: node.errorCode, message: node.errorMessage, retryable: node.errorRetryable ?? isRetryableFailure({ code: node.errorCode }) } : null,
+        startedAt: node.startedAt,
+        completedAt: node.completedAt,
         durationMs: node.startedAt && node.completedAt ? node.completedAt.getTime() - node.startedAt.getTime() : null,
+        failureHandling: node.status === NodeExecutionStatus.FAILED ? failureHandling(graph, node.nodeId) : null,
+        skipReason: node.status === NodeExecutionStatus.SKIPPED ? skippedReason(execution.status) : null,
+      })),
+    };
+  }
+
+  async getDiagnostic(executionId: string, userId: string) {
+    const execution = await this.get(executionId, userId);
+    return {
+      schemaVersion: "fluxora.execution-diagnostic.v1" as const,
+      execution: {
+        id: execution.id,
+        workflowId: execution.workflowId,
+        workflowVersion: execution.workflowVersion,
+        status: execution.status,
+        mode: execution.mode,
+        createdAt: execution.createdAt,
+        startedAt: execution.startedAt,
+        completedAt: execution.completedAt,
+        durationMs: execution.durationMs,
+        recoveryCount: execution.recoveryCount,
+        error: sanitizeDiagnosticError(execution.error),
+      },
+      nodes: execution.nodeExecutions.map((node) => ({
+        nodeId: node.nodeId,
+        nodeType: node.nodeType,
+        status: node.status,
+        attempt: node.attempt,
+        startedAt: node.startedAt,
+        completedAt: node.completedAt,
+        durationMs: node.durationMs,
+        error: sanitizeDiagnosticError(node.error),
+        failureHandling: node.failureHandling,
+        skipReason: node.skipReason,
       })),
     };
   }
@@ -199,7 +246,7 @@ export class ExecutionService {
     const now = new Date();
     const claimed = await this.prisma.execution.updateMany({
       where: { id: executionId, status: ExecutionStatus.QUEUED },
-      data: { status: ExecutionStatus.RUNNING, startedAt: execution.startedAt ?? now, completedAt: null, errorCode: null, errorMessage: null, leaseExpiresAt: leaseExpiry(now) },
+      data: { status: ExecutionStatus.RUNNING, startedAt: execution.startedAt ?? now, completedAt: null, errorCode: null, errorMessage: null, errorRetryable: null, leaseExpiresAt: leaseExpiry(now) },
     });
     if (!claimed.count) return execution;
     await this.prisma.$transaction([
@@ -234,7 +281,7 @@ export class ExecutionService {
         await this.markUnvisitedSkipped(executionId, graph, visited);
         const completedAt = new Date();
         if (result.status === "failed") {
-          const failed = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.FAILED, completedAt, leaseExpiresAt: null, errorCode: result.error?.code ?? "NODE_FAILED", errorMessage: result.error?.message ?? "Workflow node failed." } });
+          const failed = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.FAILED, completedAt, leaseExpiresAt: null, errorCode: result.error?.code ?? "NODE_FAILED", errorMessage: result.error?.message ?? "Workflow node failed.", errorRetryable: result.error?.retryable ?? false } });
           this.events.publish(executionId, "execution.failed");
           return failed;
         }
@@ -264,7 +311,7 @@ export class ExecutionService {
         const errorTargets = graph.edges.filter((edge) => edge.source === node.id && edge.kind === "error");
         if (!errorTargets.length) {
           await this.markUnvisitedSkipped(executionId, graph, visited);
-          const failed = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.FAILED, completedAt: new Date(), leaseExpiresAt: null, errorCode: result.error?.code ?? "NODE_FAILED", errorMessage: result.error?.message ?? "Workflow node failed." } });
+          const failed = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.FAILED, completedAt: new Date(), leaseExpiresAt: null, errorCode: result.error?.code ?? "NODE_FAILED", errorMessage: result.error?.message ?? "Workflow node failed.", errorRetryable: result.error?.retryable ?? false } });
           this.events.publish(executionId, "execution.failed");
           return failed;
         }
@@ -300,8 +347,8 @@ export class ExecutionService {
     if (decision === "rejected") {
       await this.prisma.$transaction([
         this.prisma.approvalRequest.update({ where: { id: approval.id }, data: { status: ApprovalRequestStatus.REJECTED, resolvedAt } }),
-        this.prisma.nodeExecution.update({ where: { id: waitingNode.id }, data: { status: NodeExecutionStatus.FAILED, errorCode: "APPROVAL_REJECTED", errorMessage: "Approval was rejected.", completedAt: resolvedAt } }),
-        this.prisma.execution.update({ where: { id: approval.executionId }, data: { status: ExecutionStatus.FAILED, completedAt: resolvedAt, leaseExpiresAt: null, errorCode: "APPROVAL_REJECTED", errorMessage: "Approval was rejected." } }),
+        this.prisma.nodeExecution.update({ where: { id: waitingNode.id }, data: { status: NodeExecutionStatus.FAILED, errorCode: "APPROVAL_REJECTED", errorMessage: "Approval was rejected.", errorRetryable: false, completedAt: resolvedAt } }),
+        this.prisma.execution.update({ where: { id: approval.executionId }, data: { status: ExecutionStatus.FAILED, completedAt: resolvedAt, leaseExpiresAt: null, errorCode: "APPROVAL_REJECTED", errorMessage: "Approval was rejected.", errorRetryable: false } }),
       ]);
       this.events.publish(approval.executionId, "execution.failed");
       return { executionId: approval.executionId, resumed: false, startNodeIds: [], mode: approval.execution.mode === "MOCK" ? "mock" as const : "live" as const };
@@ -311,7 +358,7 @@ export class ExecutionService {
     await this.prisma.$transaction([
       this.prisma.approvalRequest.update({ where: { id: approval.id }, data: { status: ApprovalRequestStatus.APPROVED, resolvedAt } }),
       this.prisma.nodeExecution.update({ where: { id: waitingNode.id }, data: { status: NodeExecutionStatus.SUCCEEDED, completedAt: resolvedAt } }),
-      this.prisma.execution.update({ where: { id: approval.executionId }, data: { status: ExecutionStatus.QUEUED, completedAt: null, leaseExpiresAt: null, errorCode: null, errorMessage: null } }),
+      this.prisma.execution.update({ where: { id: approval.executionId }, data: { status: ExecutionStatus.QUEUED, completedAt: null, leaseExpiresAt: null, errorCode: null, errorMessage: null, errorRetryable: null } }),
     ]);
     this.events.publish(approval.executionId, "execution.queued");
     return { executionId: approval.executionId, resumed: nextNodeIds.length > 0, startNodeIds: nextNodeIds, mode: approval.execution.mode === "MOCK" ? "mock" as const : "live" as const };
@@ -321,11 +368,11 @@ export class ExecutionService {
     const completedAt = new Date();
     const failed = await this.prisma.execution.updateMany({
       where: { id: executionId, status: ExecutionStatus.RUNNING, leaseExpiresAt: { lte: expiredBefore } },
-      data: { status: ExecutionStatus.FAILED, completedAt, leaseExpiresAt: null, errorCode: code, errorMessage: message, recoveryCount: { increment: 1 } },
+      data: { status: ExecutionStatus.FAILED, completedAt, leaseExpiresAt: null, errorCode: code, errorMessage: message, errorRetryable: false, recoveryCount: { increment: 1 } },
     });
     if (!failed.count) return false;
     await this.prisma.$transaction([
-      this.prisma.nodeExecution.updateMany({ where: { executionId, status: NodeExecutionStatus.RUNNING }, data: { status: NodeExecutionStatus.FAILED, completedAt, errorCode: code, errorMessage: message } }),
+      this.prisma.nodeExecution.updateMany({ where: { executionId, status: NodeExecutionStatus.RUNNING }, data: { status: NodeExecutionStatus.FAILED, completedAt, errorCode: code, errorMessage: message, errorRetryable: false } }),
       this.prisma.nodeExecution.updateMany({ where: { executionId, status: NodeExecutionStatus.PENDING }, data: { status: NodeExecutionStatus.SKIPPED, completedAt } }),
     ]);
     this.events.publish(executionId, "execution.failed");
@@ -336,10 +383,10 @@ export class ExecutionService {
     const completedAt = new Date();
     const failed = await this.prisma.execution.updateMany({
       where: { id: executionId, status: { in: [ExecutionStatus.QUEUED, ExecutionStatus.RUNNING] } },
-      data: { status: ExecutionStatus.FAILED, completedAt, leaseExpiresAt: null, errorCode: "WORKER_EXECUTION_ERROR", errorMessage: "Execution worker stopped unexpectedly." },
+      data: { status: ExecutionStatus.FAILED, completedAt, leaseExpiresAt: null, errorCode: "WORKER_EXECUTION_ERROR", errorMessage: "Execution worker stopped unexpectedly.", errorRetryable: false },
     });
     if (!failed.count) return;
-    await this.prisma.nodeExecution.updateMany({ where: { executionId, status: { in: [NodeExecutionStatus.PENDING, NodeExecutionStatus.RUNNING] } }, data: { status: NodeExecutionStatus.FAILED, completedAt, errorCode: "WORKER_EXECUTION_ERROR", errorMessage: "Execution worker stopped unexpectedly." } });
+    await this.prisma.nodeExecution.updateMany({ where: { executionId, status: { in: [NodeExecutionStatus.PENDING, NodeExecutionStatus.RUNNING] } }, data: { status: NodeExecutionStatus.FAILED, completedAt, errorCode: "WORKER_EXECUTION_ERROR", errorMessage: "Execution worker stopped unexpectedly.", errorRetryable: false } });
     this.events.publish(executionId, "execution.failed");
   }
 
@@ -352,7 +399,7 @@ export class ExecutionService {
       const startedAt = new Date();
       await this.prisma.nodeExecution.update({
         where: { executionId_nodeId: { executionId, nodeId: node.id } },
-        data: { status: NodeExecutionStatus.RUNNING, attempt, input: redactValue({ config: rawConfig, trigger: context.trigger }) as Prisma.InputJsonValue, startedAt, completedAt: null, errorCode: null, errorMessage: null },
+        data: { status: NodeExecutionStatus.RUNNING, attempt, input: redactValue({ config: rawConfig, trigger: context.trigger }) as Prisma.InputJsonValue, startedAt, completedAt: null, errorCode: null, errorMessage: null, errorRetryable: null },
       });
       try {
         const config = resolveExpressions(rawConfig, context) as Record<string, unknown>;
@@ -373,7 +420,7 @@ export class ExecutionService {
         const retryable = failure.retryable || isRetryableFailure(failure);
         await this.prisma.nodeExecution.update({
           where: { executionId_nodeId: { executionId, nodeId: node.id } },
-          data: { status: NodeExecutionStatus.FAILED, errorCode: failure.code, errorMessage: failure.message, completedAt: new Date() },
+          data: { status: NodeExecutionStatus.FAILED, errorCode: failure.code, errorMessage: failure.message, errorRetryable: retryable, completedAt: new Date() },
         });
         this.events.publish(executionId, "node.updated");
         if (!retryable || attempt >= retries) return { status: "failed", output: {}, error: failure };
@@ -459,6 +506,29 @@ export class ExecutionService {
 
 function isUniqueConstraintError(reason: unknown) {
   return Boolean(reason && typeof reason === "object" && "code" in reason && (reason as { code?: unknown }).code === "P2002");
+}
+
+function failureHandling(graph: WorkflowGraph, nodeId: string) {
+  const targets = graph.edges.filter((edge) => edge.source === nodeId && edge.kind === "error").map((edge) => edge.target);
+  return targets.length
+    ? { kind: "error_branch" as const, targetNodeIds: targets }
+    : { kind: "execution_failed" as const, targetNodeIds: [] };
+}
+
+function skippedReason(status: ExecutionStatus) {
+  if (status === ExecutionStatus.CANCELLED) return "execution_cancelled" as const;
+  if (status === ExecutionStatus.WAITING_APPROVAL) return "waiting_for_approval" as const;
+  if (status === ExecutionStatus.FAILED) return "not_reached_after_failure" as const;
+  return "branch_not_selected" as const;
+}
+
+function sanitizeDiagnosticError(error: { code: string; message: string | null; retryable: boolean } | null) {
+  if (!error) return null;
+  const message = (error.message ?? "Execution failed.")
+    .replace(/https?:\/\/[^\s"']+/gi, "[REDACTED_URL]")
+    .replace(/\bBearer\s+[^\s"']+/gi, "Bearer [REDACTED]")
+    .replace(/\b\d{6,}:[A-Za-z0-9_-]{20,}\b/g, "[REDACTED_TOKEN]");
+  return { code: error.code, message, retryable: error.retryable };
 }
 
 function leaseExpiry(now: Date) {

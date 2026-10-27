@@ -1,5 +1,10 @@
 # Roadmap
 
+This file preserves the original phase order. Current completion evidence lives
+in [`05-implementation-plan.md`](./05-implementation-plan.md) and
+[`06-loop-engineering.md`](./06-loop-engineering.md); an item listed in a later
+phase here may already have a locally verified foundation.
+
 ## Three-day MVP
 
 ### Day 1 — foundation and editor

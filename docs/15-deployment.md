@@ -28,6 +28,8 @@ The API and worker use the same application image and encryption key. Only the A
 - `infra/.env.production.example` is the production variable contract.
 - `infra/scripts/deploy.sh` accepts only a full lowercase commit SHA as the image tag, applies migrations, starts services, and checks health.
 - `infra/scripts/rollback.sh` restarts API/worker/web at a known-good full commit SHA.
+- `infra/scripts/backup-postgres.sh` creates a permission-restricted custom-format PostgreSQL backup.
+- `infra/scripts/restore-postgres.sh` restores a named backup only with an explicit destructive-operation confirmation.
 - `infra/nginx/workflow-automation.conf.template` is the HTTP reverse-proxy template. TLS is added by the VPS operator with the chosen certificate workflow.
 
 ## One-time VPS setup
@@ -71,7 +73,7 @@ IMAGE_TAG=<40-character-commit-sha> \
   /opt/workflow-automation/infra/scripts/deploy.sh
 ```
 
-The deploy script runs Prisma migrations before starting the API, worker, and web services. It does not enable any workflow or call a real provider.
+The deploy script starts the database/Redis, creates a restricted PostgreSQL backup, then runs Prisma migrations before starting the API, worker, and web services. A failed backup stops the release before migration. It does not enable any workflow or call a real provider.
 
 Before pulling a release, the deploy scripts require at least 2 GiB of free space on the application filesystem (`MIN_FREE_KB` can override the threshold). After starting the stack they check liveness, dependency readiness, and the web response. A failed preflight or smoke check stops the deployment before image cleanup.
 
@@ -111,7 +113,27 @@ deploying the containers.
 
 ## Backups and operations
 
-- Back up PostgreSQL before migrations and on a schedule; copy backups off the VPS.
+- Run `npm run release:preflight` from the checked-out release before rollout. It reads repository contracts only, never the real production environment or secret values.
+- Run `npm run security:check` and `npm audit --omit=dev --audit-level=high` in CI/release review. The tracked-file scan reports file/line metadata only and is intentionally a high-confidence guard, not a substitute for GitHub secret scanning.
+- On the target host, validate the production env contract by name and shape without printing values:
+
+  ```bash
+  node scripts/validate-production-env.mjs --env-file /opt/workflow-automation/.env.production
+  ```
+
+- Back up PostgreSQL before migrations and on a schedule, then copy encrypted backups off the VPS:
+
+  ```bash
+  APP_DIR=/opt/workflow-automation infra/scripts/backup-postgres.sh
+  ```
+
+- Test restoration only into an isolated database/stack. The restore command is destructive and deliberately requires `CONFIRM_RESTORE=RESTORE`:
+
+  ```bash
+  CONFIRM_RESTORE=RESTORE APP_DIR=/opt/workflow-automation \
+    infra/scripts/restore-postgres.sh /path/to/postgres-YYYYMMDDTHHMMSSZ.dump
+  ```
+
 - Preserve the `postgres_data` volume and never use `docker compose down -v` in production.
 - After a successful health check, deploy scripts retain the current and previous API/Web commit-SHA images and remove only older SHA-tagged images from those two application repositories. PostgreSQL/Redis images and volumes are never part of this cleanup. Rollback can still pull any older known-good SHA from GHCR when needed.
 - `.github/workflows/retain-ghcr.yml` runs weekly and keeps the five newest immutable SHA-tagged versions for each application package. It never deletes mutable/non-SHA tags; manual runs default to dry-run so retention can be inspected before deletion.
@@ -122,6 +144,10 @@ deploying the containers.
 - The current VPS has limited disk; do not build images on-host and prune only unused images after verifying the retained rollback tag.
 
 ## Production gate before Go Live
+
+Use the complete status/evidence split in [`17-release-go-no-go.md`](./17-release-go-no-go.md). The repository can prove contract integrity, but it cannot prove DNS, TLS, recoverability, provider credentials, or a real external side effect without operator/owner evidence.
+
+Follow [`18-operator-qualification-runbook.md`](./18-operator-qualification-runbook.md) for the ordered operator procedure and evidence fields.
 
 1. HTTPS works for both domains and CORS uses the exact app origin.
 2. `/api/v1/health` returns OK and `/api/v1/health/ready` reports PostgreSQL and Redis ready.
