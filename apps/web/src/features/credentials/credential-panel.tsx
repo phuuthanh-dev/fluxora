@@ -1,9 +1,10 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { LockKeyhole } from "lucide-react";
 import { ApiClientError, apiRequest, apiUrl } from "../api/api-client";
 import type { CredentialProvider, CredentialReferenceDetails, CredentialSummary } from "./credential-types";
-import { Button, Field, IconButton, Select } from "../../components/ui";
+import { Button, Field, IconButton, Select, Status } from "../../components/ui";
 
 type CredentialPreset = {
   label: string;
@@ -65,7 +66,7 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
   const [provider, setProvider] = useState<CredentialProvider>("GOOGLE");
   const [label, setLabel] = useState(credentialPresets.GOOGLE.label);
   const [data, setData] = useState(credentialPresets.GOOGLE.data);
-  const [notice, setNotice] = useState("Load credentials to configure nodes without exposing values.");
+  const [notice, setNotice] = useState("Encrypted server-side. Node runs never expose your secret values.");
   const [createError, setCreateError] = useState<string | null>(null);
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -283,7 +284,10 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
         {createError && <p className="credential-form__error" role="alert">{createError}</p>}
         <Button variant="primary" className="run-button" type="submit" disabled={isSaving}>{isSaving ? "Encrypting…" : "Encrypt & save"}</Button>
       </form>
-      <p className="credential-panel__notice">{notice}</p>
+      <Status tone="info" className="credential-panel__notice" aria-live="polite">
+        <span className="credential-panel__notice-icon"><LockKeyhole size={15} aria-hidden="true" /></span>
+        <span className="credential-panel__notice-copy">{notice}</span>
+      </Status>
       <ul className="credential-list">
         {credentials.map((credential) => {
           const isRenaming = activeAction?.credentialId === credential.id && activeAction.type === "rename";

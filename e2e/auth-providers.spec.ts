@@ -9,11 +9,14 @@ test("password sign-in works while social providers expose their configured stat
   await page.getByRole("button", { name: "Switch to dark mode" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect(page.locator("body")).toHaveCSS("background-color", "rgb(11, 16, 12)");
+  await expect(page.locator(".auth-oauth-button__icon--github")).toHaveCSS("filter", "invert(1)");
   await page.getByRole("button", { name: "Switch to light mode" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(page.locator(".auth-oauth-button__icon--github")).toHaveCSS("filter", "none");
 
   await expect(page.getByRole("button", { name: /^Google/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /^GitHub/ })).toBeVisible();
+  await expect(page.locator(".auth-oauth-button__icon svg")).toHaveCount(2);
   await page.getByRole("button", { name: "Create an account" }).click();
   await page.locator('input[autocomplete="name"]').fill("Auth Owner");
   await page.locator('input[autocomplete="email"]').fill(email);
