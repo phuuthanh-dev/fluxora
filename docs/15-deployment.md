@@ -18,7 +18,7 @@ Docker Compose
   └── redis     Redis 7 with AOF queue persistence
 ```
 
-The API and worker use the same application image and encryption key. Only the API process runs scheduler ingress; the worker runs execution jobs. PostgreSQL and Redis are private Docker-network services. The host exposes only loopback ports 3000 and 3001 to Nginx.
+The API and worker use the same application image and encryption key. Only the API process runs scheduler ingress; the worker runs execution jobs. PostgreSQL and Redis are private Docker-network services. Production exposes only loopback ports 3000 and 3001 to Nginx; staging runs alongside it on loopback ports 3100 and 3101.
 
 ## Files
 
@@ -85,9 +85,9 @@ http://103.140.249.73/        → Next.js
 http://103.140.249.73/api/v1/ → NestJS API
 ```
 
-The staging environment must use `NODE_ENV=staging`, `WEB_ORIGIN=http://103.140.249.73`, and `NEXT_PUBLIC_API_URL=http://103.140.249.73/api/v1`. It is for UI, authentication, mock execution, and queue smoke tests only. Do not enter provider credentials or enable real workflows over this HTTP endpoint. Replace it with HTTPS domains before any production credential or OAuth callback is configured.
+The staging environment must use `NODE_ENV=staging`, `WEB_ORIGIN=http://103.140.249.73`, and `NEXT_PUBLIC_API_URL=http://103.140.249.73/api/v1`. It is for UI, authentication, mock execution, and queue smoke tests only. Staging containers bind to loopback ports 3100 (web) and 3101 (API) so they do not interrupt production. Nginx routes the temporary IP origin to those ports. Do not enter provider credentials or enable real workflows over this HTTP endpoint. Replace it with HTTPS domains before any production credential or OAuth callback is configured.
 
-The staging workflow builds images in GitHub Actions and deploys them to the VPS by commit SHA; it does not build application images on the VPS. Both final images include the OCI source label so GHCR can associate them with this repository. Configure `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, and, when GHCR packages are private, `GHCR_PULL_USERNAME` and `GHCR_PULL_TOKEN` as repository/environment secrets. `STAGING_NEXT_PUBLIC_API_URL` may be configured as a repository variable and defaults to the temporary IP origin.
+The staging workflow is manual by design: when needed, it builds images in GitHub Actions and deploys them to the VPS by commit SHA; it does not build application images on the VPS and does not run after every merge. Both final images include the OCI source label so GHCR can associate them with this repository. Configure `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, and, when GHCR packages are private, `GHCR_PULL_USERNAME` and `GHCR_PULL_TOKEN` as repository/environment secrets. `STAGING_NEXT_PUBLIC_API_URL` may be configured as a repository variable and defaults to the temporary IP origin.
 
 ## Nginx and HTTPS
 

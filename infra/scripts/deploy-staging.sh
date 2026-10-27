@@ -8,6 +8,11 @@ staging_compose="$app_dir/infra/docker-compose.staging.yml"
 image_tag="${IMAGE_TAG:-}"
 api_image="${API_IMAGE:-ghcr.io/phuuthanh-dev/workflow-automation-api}"
 web_image="${WEB_IMAGE:-ghcr.io/phuuthanh-dev/workflow-automation-web}"
+staging_api_host_port="${STAGING_API_HOST_PORT:-3101}"
+staging_web_host_port="${STAGING_WEB_HOST_PORT:-3100}"
+api_health_url="${STAGING_API_HEALTH_URL:-http://127.0.0.1:${staging_api_host_port}/api/v1/health}"
+api_ready_url="${STAGING_API_READY_URL:-http://127.0.0.1:${staging_api_host_port}/api/v1/health/ready}"
+web_health_url="${STAGING_WEB_HEALTH_URL:-http://127.0.0.1:${staging_web_host_port}/}"
 previous_api_image_tag=""
 previous_web_image_tag=""
 
@@ -23,6 +28,13 @@ fi
 
 "$app_dir/infra/scripts/validate-image-tag.sh" "$image_tag" >/dev/null
 APP_DIR="$app_dir" "$app_dir/infra/scripts/check-disk-space.sh"
+
+compose_staging() {
+  API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" \
+  STAGING_API_HOST_PORT="$staging_api_host_port" STAGING_WEB_HOST_PORT="$staging_web_host_port" \
+  docker compose --project-name workflow-automation-staging --env-file "$env_file" \
+    -f "$base_compose" -f "$staging_compose" "$@"
+}
 
 api_container_id="$(API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" \
   docker compose --project-name workflow-automation-staging --env-file "$env_file" \
@@ -44,17 +56,12 @@ if [ -n "$web_container_id" ]; then
   esac
 fi
 
-API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" \
-docker compose --project-name workflow-automation-staging --env-file "$env_file" \
-  -f "$base_compose" -f "$staging_compose" pull migrate api worker web
-API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" \
-docker compose --project-name workflow-automation-staging --env-file "$env_file" \
-  -f "$base_compose" -f "$staging_compose" up -d --remove-orphans db redis migrate
-API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" \
-docker compose --project-name workflow-automation-staging --env-file "$env_file" \
-  -f "$base_compose" -f "$staging_compose" up -d --remove-orphans api worker web
+compose_staging pull migrate api worker web
+compose_staging up -d --remove-orphans db redis migrate
+compose_staging up -d --remove-orphans api worker web
 
-APP_DIR="$app_dir" "$app_dir/infra/scripts/healthcheck.sh"
+API_HEALTH_URL="$api_health_url" API_READY_URL="$api_ready_url" WEB_HEALTH_URL="$web_health_url" \
+  APP_DIR="$app_dir" "$app_dir/infra/scripts/healthcheck.sh"
 API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" \
 PREVIOUS_API_IMAGE_TAG="$previous_api_image_tag" PREVIOUS_WEB_IMAGE_TAG="$previous_web_image_tag" \
   "$app_dir/infra/scripts/prune-application-images.sh"

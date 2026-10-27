@@ -22,6 +22,8 @@ services:
       EXECUTION_QUEUE_MODE: redis
       PORT: 3001
       TRUST_PROXY: "true"
+    ports:
+      - "127.0.0.1:${STAGING_API_HOST_PORT:-3101}:3001"
 
   worker:
     image: ${API_IMAGE:?API_IMAGE is required}:${IMAGE_TAG:?IMAGE_TAG is required}
@@ -35,4 +37,6 @@ services:
 
   web:
     image: ${WEB_IMAGE:?WEB_IMAGE is required}:${IMAGE_TAG:?IMAGE_TAG is required}
+    ports:
+      - "127.0.0.1:${STAGING_WEB_HOST_PORT:-3100}:3000"
 

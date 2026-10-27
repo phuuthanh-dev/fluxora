@@ -1,9 +1,6 @@
 name: Deploy staging
 
 on:
-  workflow_run:
-    workflows: ["Quality gate"]
-    types: [completed]
   workflow_dispatch:
     inputs:
       commit_sha:
@@ -20,12 +17,11 @@ concurrency:
 
 env:
   IMAGE_NAMESPACE: ${{ github.repository_owner }}
-  COMMIT_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.commit_sha || github.event.workflow_run.head_sha }}
+  COMMIT_SHA: ${{ inputs.commit_sha }}
 
 jobs:
   build:
     name: Build and push staging images
-    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -80,7 +76,6 @@ jobs:
   deploy:
     name: Deploy staging
     needs: build
-    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
