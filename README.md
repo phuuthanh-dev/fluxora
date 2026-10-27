@@ -1,101 +1,221 @@
-# Workflow Automation
+# Fluxora
 
-An open-source, self-host-ready workflow automation platform. It is designed for personal use and a polished portfolio demo first, while keeping the execution engine extensible for small teams.
+> A visual workflow automation platform for connecting everyday services, running dependable jobs, and inspecting every execution.
 
-## MVP demo
+[![Quality gate](https://github.com/phuuthanh-dev/workflow-automation/actions/workflows/quality.yml/badge.svg?branch=main)](https://github.com/phuuthanh-dev/workflow-automation/actions/workflows/quality.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-8b5cf6.svg)](./LICENSE)
+[![Node.js](https://img.shields.io/badge/node.js-22-339933.svg)](https://nodejs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-15-000000.svg)](https://nextjs.org/)
+[![NestJS](https://img.shields.io/badge/NestJS-11-ea2845.svg)](https://nestjs.com/)
 
-`Cron → Steam Account Snapshot → condition → Google Chat daily report`
+Fluxora is an open-source, self-host-ready workflow builder. It is designed as a polished personal and portfolio project first, while keeping the execution engine and connector boundaries ready for small teams later.
 
-## Repository layout
+## The demo in one minute
+
+Build this workflow visually:
 
 ```text
-apps/web                 Next.js workflow editor and dashboard
-apps/api                 NestJS API, scheduler, and workflow worker
-packages/workflow-contracts Shared workflow graph and node contracts
-docs                     Product, architecture, rules, and roadmap
-infra                    Local infrastructure definitions
+Schedule → Steam account snapshot → Google Chat daily report
 ```
 
-## Read first
+The editor lets you connect nodes, configure credentials, run a test, and inspect structured input/output without exposing secrets to the browser.
 
-All contributors and coding agents must read [`AGENTS.md`](./AGENTS.md) before changing code.
+## What is included
 
-## Agent collaboration harness
+| Area | Current capability |
+| --- | --- |
+| Workflow editor | Drag-and-drop graph, connections, auto-layout, node configuration, light/dark UI |
+| Triggers | Manual, schedule, webhook |
+| Logic | If/else and switch routing |
+| Actions | Steam, Google Chat, Google Drive, Google Sheets, HTTP/API |
+| Notifications | Discord webhook, Telegram Bot API, Google Chat, email-shaped adapter boundary |
+| Credentials | Encrypted server-side storage, OAuth 2.0 where supported, manual token/API key support |
+| Authentication | Email/password, Google, GitHub, Steam identity linking |
+| Execution | Mock/live modes, input/output inspection, retries, timeout and error paths |
+| Operations | PostgreSQL persistence, Redis queue mode, worker process, Docker/VPS deployment |
 
-The repository supports a cost-aware planner → implementer → CI → reviewer loop. Start with the task and report templates in [`.agent`](./.agent), read the [harness protocol](./docs/10-agent-harness.md), and use the generated [code graph](./docs/11-code-graph.md) to navigate source boundaries.
+Provider credentials are never returned to the browser and real provider calls are opt-in. The repository test suite uses mock execution by default.
 
-UI implementation decisions for the planned GetLayers Relay purchase are recorded in the [Relay UI research and adoption plan](./docs/12-getlayers-relay-ui-research.md).
-The unified product redesign direction, debrief, and staged delivery sequence are defined in the [UI/UX redesign brief](./docs/13-ui-redesign-brief.md).
+## Architecture at a glance
 
-```bash
-npm run codegraph:generate # after source-import changes
-npm run harness:check      # fails if the committed graph is stale
-npm run harness:report -- path/to/report.md
+```mermaid
+flowchart LR
+  Browser[Next.js web app] --> API[NestJS API]
+  API --> DB[(PostgreSQL)]
+  API --> Queue[(Redis)]
+  Queue --> Worker[Execution worker]
+  Worker --> Contracts[Node executor contracts]
+  Contracts --> Providers[Provider adapters]
+  Providers --> Google[Google]
+  Providers --> Steam[Steam]
+  Providers --> Notifications[Discord / Telegram / Chat]
 ```
 
-`npm run verify` includes `harness:check`, so CI refuses a source change whose code graph was not regenerated. Agent reports are intentionally not trusted as test evidence; reviewers must inspect the commit and CI result.
+The repository is a small npm workspaces monorepo:
 
-## Local setup
+```text
+apps/web                    Next.js dashboard and workflow editor
+apps/api                    NestJS API, auth, scheduler, runner, and worker
+packages/workflow-contracts Shared graph, node, and execution contracts
+infra                       Docker Compose, Nginx, deployment scripts
+docs                        Product spec, architecture, roadmap, and operations
+```
 
-Install PostgreSQL 16 or another supported local PostgreSQL release, create an empty database, then configure the root `.env`:
+The server owns workflow execution. Published workflow versions are immutable, and every execution points to the version it ran.
+
+## Run locally
+
+### Requirements
+
+- Node.js 22+
+- npm 10+
+- PostgreSQL 16+
+- Redis is optional for the default inline queue; use it for the production-shaped worker path
+
+### Setup
 
 ```bash
-# macOS/Homebrew example
-brew install postgresql@16
-brew services start postgresql@16
-createdb workflow
+git clone https://github.com/phuuthanh-dev/workflow-automation.git
+cd workflow-automation
+npm install
 
 cp .env.example .env
-# Set DATABASE_URL in .env to the local connection, for example:
-# postgresql://your-macos-user@localhost:5432/workflow?schema=public
+# Set DATABASE_URL and the other local values in .env.
 
-npm install
 npm run db:deploy
 npm run dev
 ```
 
-The frontend runs at `http://localhost:3000` and the API health endpoint is `http://localhost:3001/api/v1/health`.
+Open:
 
-Run browser acceptance coverage against the local PostgreSQL-backed app with `npm run test:e2e`. It starts (or reuses) the API and web development servers, registers an isolated test owner, and checks the editor onboarding flow.
+- Web app: http://localhost:3000
+- API health: http://localhost:3001/api/v1/health
+- API readiness: http://localhost:3001/api/v1/health/ready
 
-The root route is the sign-in page. Registering creates a personal owner workspace; successful sign-in opens the dashboard at `/dashboard`, where workflows are created and opened in the editor.
+The root page is the sign-in screen. Registering creates a personal workspace and opens the dashboard. Local execution defaults to `EXECUTION_QUEUE_MODE=inline`, so the demo works without Redis or live provider credentials.
 
-Local development defaults to `EXECUTION_QUEUE_MODE=inline`, which runs mock work immediately and keeps the demo self-contained. To exercise the production-shaped queue path, run Redis, set `EXECUTION_QUEUE_MODE=redis`, start the API, and run `npm run dev:worker` in a second terminal.
-
-If port `3001` is already occupied, run the API with `PORT=3002 npm run dev:api`.
-
-To enable encrypted provider credentials, create a 32-byte base64 key and place it only in your local `.env`:
+To run the Redis-backed worker path:
 
 ```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+npm run dev:api
+npm run dev:worker
+npm run dev:web
 ```
 
-Set that output as `APP_ENCRYPTION_KEY`. Credentials are encrypted before storage and are never returned by the API. The production-shaped Docker and VPS setup is documented in [`docs/15-deployment.md`](./docs/15-deployment.md); it requires a real HTTPS domain and operator-supplied secrets before activation.
+If port `3001` is occupied:
 
-### Google Drive and Sheets
+```bash
+PORT=3002 npm run dev:api
+```
 
-The editor's **Credentials** panel can store a manually supplied Google access token or begin the Google OAuth connection. For OAuth, create a Google OAuth web client with the redirect URI from `.env.example`, then set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` locally. The current scopes are Drive file access and Google Sheets access. Drive list/search/text upload/download and Sheets read/append/update work in mock mode without credentials; live mode requires a connected Google credential. A real Google account is deliberately not part of repository tests.
+## Quality checks
 
-For a generic HTTP credential, save JSON with one of these shapes: `{ "authType": "bearer", "token": "…" }`, `{ "authType": "apiKey", "name": "X-API-Key", "value": "…", "location": "header" }`, `{ "authType": "basic", "username": "…", "password": "…" }`, or `{ "authType": "headers", "headers": { "X-Client": "…" } }`. Select the saved connection by name in a live HTTP Request node; its secret value is never returned to the browser.
+Run the complete repository gate before opening a pull request:
 
-### Google account sign-in
+```bash
+npm run verify
+```
 
-Google account sign-in is separate from the Google Drive/Sheets connector credential. Use the same Google OAuth web client, but register **both** redirect URIs from `.env.example`: `GOOGLE_REDIRECT_URI` for connector credentials and `GOOGLE_AUTH_REDIRECT_URI` for account sign-in. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_AUTH_REDIRECT_URI`. Once all three are present, the Google button changes from **Configure server** to **Continue securely**. The callback validates the OAuth state cookie, a Google-issued ID token, its issuer, verified email, and audience before it creates or links an account identity. Do not place these values in the browser environment.
+The gate covers:
 
-### GitHub account sign-in
+- code-graph freshness and deployment contract checks
+- Prisma schema validation and client generation
+- unit tests
+- lint and TypeScript checks
+- production builds
+- Playwright browser tests
 
-Create a GitHub OAuth App and register `GITHUB_AUTH_REDIRECT_URI` from `.env.example` as its authorization callback URL. Set `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, and `GITHUB_AUTH_REDIRECT_URI` only on the API server. GitHub sign-in requests only `read:user` and `user:email`; the backend requires a verified GitHub email, creates or links an external identity, then discards the provider token. The Dashboard **Connections** menu can unlink an identity, but blocks removal of the last available Google/GitHub sign-in method when no password exists.
+Useful focused commands:
 
-Steam OpenID is intentionally not used for Steam Account Snapshot data: it proves ownership of a Steam identity but does not issue the Web API key required by the Steam API. The Steam node continues to require a separately saved API key and 64-bit Steam ID.
+```bash
+npm run test:workspaces
+npm run typecheck:workspaces
+npm run build:apps
+npm run test:e2e
+npm run deployment:check
+```
 
-### Steam identity link (OpenID)
+## Credentials and OAuth
 
-Steam uses OpenID 2.0, not OAuth 2.0, for identity proof. After sign-in, the dashboard exposes **Link Steam** when `STEAM_OPENID_RETURN_URI` and `STEAM_OPENID_REALM` are configured. Register the callback with a realm that shares the API origin (for example `https://api.example.com` and `https://api.example.com/api/v1/auth/steam/callback`). The API sends a state-bound request, validates Steam's `check_authentication` response, and stores only the 64-bit Steam identity association. It does not store a Steam password, OAuth token, or Web API key.
+Never commit `.env`, provider secrets, API keys, or encrypted production values. `.env` is ignored by Git and should stay local.
 
-An Approval node may notify either `google_chat` or `http_webhook`. For an outgoing webhook, create an HTTP credential whose encrypted JSON includes a `webhookUrl` plus any normal HTTP auth shape, for example `{ "webhookUrl": "https://example.test/approvals", "authType": "headers", "headers": { "X-Signature": "…" } }`. The callback receives `{ type, message, approvalUrl }`; the approval remains owner-authenticated inside the app.
+### Google connectors
 
-See [`docs/09-demo-walkthrough.md`](./docs/09-demo-walkthrough.md) for the safe local demo flow and the separate optional live-provider checklist.
+Google Drive and Sheets use a manually supplied access token or Google OAuth connector credentials. Configure the connector callback from `.env.example` using `GOOGLE_REDIRECT_URI`.
+
+### Account sign-in
+
+Account sign-in uses separate OAuth callbacks:
+
+```text
+Google account sign-in:
+GOOGLE_AUTH_REDIRECT_URI
+
+GitHub account sign-in:
+GITHUB_AUTH_REDIRECT_URI
+```
+
+Set the corresponding client ID, client secret, and callback only on the API server. Never place these values in `NEXT_PUBLIC_*` variables.
+
+### Steam
+
+Steam account linking uses OpenID 2.0 to prove identity. It is separate from the Steam Account Snapshot node, which requires a Steam Web API key and a 64-bit Steam ID. Steam does not provide an OAuth access token for this flow.
+
+For the production domain used by this project, the callbacks are:
+
+```text
+https://api.fluxora.io.vn/api/v1/auth/google/callback
+https://api.fluxora.io.vn/api/v1/oauth/google/callback
+https://api.fluxora.io.vn/api/v1/auth/github/callback
+https://api.fluxora.io.vn/api/v1/auth/steam/callback
+```
+
+See [`docs/09-demo-walkthrough.md`](./docs/09-demo-walkthrough.md) for the safe demo flow and [`docs/15-deployment.md`](./docs/15-deployment.md) for production configuration.
+
+## Deployment
+
+The production-shaped deployment runs five services:
+
+```text
+Nginx + HTTPS
+├── fluxora.io.vn       → web:3000
+└── api.fluxora.io.vn   → api:3001
+
+PostgreSQL + Redis + API worker
+```
+
+The repository includes Docker Compose and VPS deployment scripts. The recommended flow is:
+
+1. Let the quality workflow pass on `main`.
+2. Build and publish immutable application images to GHCR.
+3. Deploy the image tag to the VPS.
+4. Run migrations and health checks.
+5. Keep a database backup before a production change.
+
+Read the complete operator checklist in [`docs/15-deployment.md`](./docs/15-deployment.md). Do not copy a local `.env` wholesale to production; production database, domain, OAuth, and encryption settings must be reviewed separately.
+
+## Documentation map
+
+| Document | Purpose |
+| --- | --- |
+| [`AGENTS.md`](./AGENTS.md) | Rules for coding agents and contributors |
+| [`docs/01-product-spec.md`](./docs/01-product-spec.md) | Product scope and acceptance criteria |
+| [`docs/02-architecture.md`](./docs/02-architecture.md) | System boundaries and execution model |
+| [`docs/04-roadmap.md`](./docs/04-roadmap.md) | Delivery phases |
+| [`docs/06-loop-engineering.md`](./docs/06-loop-engineering.md) | Vertical-slice working loop |
+| [`docs/10-agent-harness.md`](./docs/10-agent-harness.md) | Planner, implementer, CI, and review handoff |
+| [`docs/11-code-graph.md`](./docs/11-code-graph.md) | Source dependency map |
+| [`docs/13-ui-redesign-brief.md`](./docs/13-ui-redesign-brief.md) | UI/UX direction and design decisions |
+| [`docs/15-deployment.md`](./docs/15-deployment.md) | Docker, VPS, Nginx, HTTPS, and rollback notes |
+
+## Contributing
+
+1. Read [`AGENTS.md`](./AGENTS.md) and the relevant docs.
+2. Keep the change inside the current product scope.
+3. Add tests for runner, credential, or connector behavior.
+4. Regenerate the code graph after source-import changes.
+5. Run `npm run verify` before opening a pull request.
 
 ## License
 
-MIT is the intended license for the first public release.
+MIT. See [`LICENSE`](./LICENSE).
