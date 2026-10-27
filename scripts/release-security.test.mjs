@@ -50,6 +50,14 @@ test("production environment validator rejects placeholders, incomplete OAuth, a
   assert.doesNotMatch(result.errors.join("\n"), /base64-encoded-32-byte-key/);
 });
 
+test("production environment validator rejects non-canonical encryption-key encoding", () => {
+  const validKey = randomBytes(32).toString("base64");
+  const invalidKey = `${validKey.slice(0, -1)}!`;
+  const result = validateProductionEnv(validEnv({ APP_ENCRYPTION_KEY: invalidKey }));
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((error) => error.includes("canonical base64")));
+});
+
 test("tracked secret scan reports only safe metadata and detects high-confidence tokens", () => {
   const safe = scanTrackedFiles(["docs/01-product-spec.md"]);
   assert.deepEqual(safe, []);

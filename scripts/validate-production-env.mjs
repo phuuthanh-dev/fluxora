@@ -75,7 +75,11 @@ export function validateProductionEnv(text) {
   if (values.get("EXECUTION_WORKER_CONCURRENCY") && !/^(?:[1-9]|1[0-9]|20)$/.test(values.get("EXECUTION_WORKER_CONCURRENCY"))) errors.push("EXECUTION_WORKER_CONCURRENCY: must be 1–20");
   if (values.get("APP_ENCRYPTION_KEY")) {
     try {
-      if (Buffer.from(values.get("APP_ENCRYPTION_KEY"), "base64").length !== 32) errors.push("APP_ENCRYPTION_KEY: must decode to 32 bytes");
+      const encoded = values.get("APP_ENCRYPTION_KEY");
+      const decoded = Buffer.from(encoded, "base64");
+      if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded) || decoded.toString("base64") !== encoded || decoded.length !== 32) {
+        errors.push("APP_ENCRYPTION_KEY: must be canonical base64 encoding of 32 bytes");
+      }
     } catch {
       errors.push("APP_ENCRYPTION_KEY: invalid base64");
     }
