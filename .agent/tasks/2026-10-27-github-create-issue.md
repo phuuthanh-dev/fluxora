@@ -34,12 +34,12 @@ Deliver the first production-backed GitHub connector slice: a separate encrypted
 
 ## Acceptance criteria
 
-- [ ] A `GITHUB` credential can be created and selected without exposing its token.
-- [ ] `GitHub → Create issue` is available in the editor and declares its GitHub credential requirement.
-- [ ] Mock mode returns a deterministic issue result without invoking `fetch`.
-- [ ] Live mode calls only the GitHub API host, sends the token server-side, returns a normalized issue result, and never persists the token.
-- [ ] Invalid repository/configuration, authentication/permission errors, rate limits, server errors, timeout, and network failures map to safe execution errors.
-- [ ] Focused tests and `npm run verify` pass with no provider calls.
+- [x] A `GITHUB` credential can be created and selected without exposing its token.
+- [x] `GitHub → Create issue` is available in the editor and declares its GitHub credential requirement.
+- [x] Mock mode returns a deterministic issue result without invoking `fetch`.
+- [x] Live mode calls only the GitHub API host, sends the token server-side, returns a normalized issue result, and never persists the token.
+- [x] Invalid repository/configuration, authentication/permission errors, rate limits, server errors, timeout, and network failures map to safe execution errors.
+- [x] Focused tests and `npm run verify` pass with no provider calls.
 
 ## Required evidence
 
