@@ -14,7 +14,8 @@ Before planning, coding, reviewing, or changing dependencies, read these files i
 6. `docs/06-loop-engineering.md`
 7. `docs/10-agent-harness.md`
 8. `docs/11-code-graph.md`
-9. This file
+9. `docs/19-agent-state.md`
+10. This file
 
 If a request conflicts with the specification, call out the conflict and propose an explicit spec update before implementing a materially different behavior.
 
@@ -36,6 +37,7 @@ If a request conflicts with the specification, call out the conflict and propose
 - Add or update tests for runner semantics, credentials, and connector behavior.
 - For source-import changes, run `npm run codegraph:generate`; `npm run verify` rejects a stale graph.
 - Use `.agent/task-template.md` and `.agent/report-template.md` for an agent-to-agent handoff. Treat reports as pointers to evidence, never as evidence itself.
+- Run `npm run agent:state` before proposing a goal. New task contracts must declare target IDs from `docs/19-agent-state.md`; run `npm run agent:task:check -- <task-file>` before implementation. Never repeat a completed L-slice without a concrete reopen justification.
 - Before handing work off, run the narrowest useful validation, then `npm run typecheck` when feasible.
 
 ## Source of truth and documentation
