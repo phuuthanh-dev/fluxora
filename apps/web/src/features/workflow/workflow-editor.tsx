@@ -577,9 +577,9 @@ function NodeInspector({ node, execution, credentials, workspaceId, onResolveApp
           <Field label="Parse mode" className="config-field"><Select aria-label="Telegram parse mode" value={readConfigText(node.data.config, "parseMode")} onChange={(event) => updateConfig("parseMode", event.target.value)}><option value="">Plain text</option><option value="Markdown">Markdown</option><option value="HTML">HTML</option><option value="MarkdownV2">MarkdownV2</option></Select></Field>
         </>
       )}
-      {node.data.nodeType === "action.google-drive" && (
-        <ConfigField label="Search query / file ID" value={readConfigText(node.data.config, "query") || readConfigText(node.data.config, "fileId")} onChange={(value) => updateConfig(readConfigText(node.data.config, "operation") === "downloadText" ? "fileId" : "query", value)} />
-      )}
+      {node.data.nodeType === "action.google-drive" && (readConfigText(node.data.config, "operation") === "downloadText" ?
+        <ResourcePicker workspaceId={workspaceId} resource="google-file" credentialId={readConfigText(node.data.config, "credentialId")} label="Text file" value={readConfigText(node.data.config, "fileId")} placeholder="Search loaded text files" allowExpression onChange={(value) => updateConfig("fileId", value)} /> :
+        <ConfigField label="Search query" value={readConfigText(node.data.config, "query")} onChange={(value) => updateConfig("query", value)} />)}
       {node.data.nodeType === "action.google-sheets" && (
         <ConfigField label="Values (one row, comma-separated)" value={readFirstRow(node.data.config)} onChange={(value) => updateConfig("values", [value.split(",").map((cell) => cell.trim())])} />
       )}

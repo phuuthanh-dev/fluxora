@@ -208,6 +208,8 @@
         "apps/api/src/credentials/github-resource.controller.ts",
         "apps/api/src/credentials/github-resource.service.ts",
         "apps/api/src/credentials/google-oauth.controller.ts",
+        "apps/api/src/credentials/google-resource.controller.ts",
+        "apps/api/src/credentials/google-resource.service.ts",
         "apps/api/src/workspaces/workspace.module.ts"
       ],
       "externalImports": [
@@ -262,6 +264,28 @@
         "@nestjs/common",
         "express",
         "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/google-resource.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/credentials/google-resource.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/google-resource.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
       ]
     },
     {
@@ -1449,6 +1473,14 @@
     },
     {
       "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/google-resource.controller.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/google-resource.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
       "to": "apps/api/src/workspaces/workspace.module.ts"
     },
     {
@@ -1489,6 +1521,22 @@
     },
     {
       "from": "apps/api/src/credentials/google-oauth.controller.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-resource.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-resource.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-resource.controller.ts",
+      "to": "apps/api/src/credentials/google-resource.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-resource.service.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
     },
     {

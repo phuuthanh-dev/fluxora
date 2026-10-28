@@ -114,6 +114,7 @@ The MVP pins Prisma ORM 6.12.0 because the local Node 23 runtime is outside Pris
 
 - Google OAuth callbacks occur on the API server, not the web app.
 - Google Drive/Sheets use a shared OAuth credential where scopes allow it.
+- Owner-scoped resource discovery proxies paginated Drive text files and Google spreadsheets through the API, returning file IDs and names without credentials. Search operates on loaded pages; users can enter IDs or expressions manually. The existing OAuth connection currently requests broad Drive access; a narrower scope and Google Picker flow require separate compatibility review.
 - Google Chat incoming webhook URLs are treated as secrets and deliver outward notifications via the notification dispatcher.
 - Discord incoming webhook URLs are treated as secrets and deliver channel messages with SSRF validation, default-deny allowed mentions, and optional embeds via the notification dispatcher.
 - Telegram Bot API delivers messages to typed destinations (DM, group, supergroup, or channel) configured at the node level using encrypted bot tokens; supergroups may include a topic/thread ID. Bot tokens are strictly redacted from URLs, logs, persisted execution states, and error messages; legacy credential chat IDs are supported as a deprecated fallback.

@@ -80,3 +80,25 @@ test("GitHub repository picker loads more pages and keeps the chosen value", asy
   await picker.getByRole("button", { name: "Enter value or expression" }).click();
   await expect(picker.getByLabel("Repository value")).toHaveValue("owner/second");
 });
+
+test("Google Sheets picker selects a spreadsheet and supports manual input", async ({ page }) => {
+  const graph = { nodes: [{ id: "sheets", type: "action.google-sheets", position: { x: 100, y: 100 }, config: { credentialId: "google-1", spreadsheetId: "", operation: "read", range: "Sheet1!A1" } }], edges: [] };
+  const workflow = { id: "workflow-3", workspaceId: "workspace-1", name: "Sheets test", description: null, isActive: false, draft: { id: "draft-1", version: 1, graph }, published: null };
+  await page.route("**/api/v1/**", async (route) => {
+    const url = new URL(route.request().url());
+    const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+    if (url.pathname.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
+    if (url.pathname.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
+    if (url.pathname.endsWith("/credentials")) return send({ credentials: [{ id: "google-1", provider: "GOOGLE", label: "Google" }] });
+    if (url.pathname.endsWith("/google/files")) return send(url.searchParams.get("pageToken") === "next" ? { files: [{ id: "sheet-2", name: "Budget" }], nextPageToken: null } : { files: [{ id: "sheet-1", name: "Report" }], nextPageToken: "next" });
+    if (url.pathname.endsWith("/workflows/workflow-3")) return send({ workflow });
+    return route.continue();
+  });
+  await page.goto("/editor?workflow=workflow-3");
+  await page.locator(".react-flow__node").filter({ hasText: "Read or write rows" }).click();
+  const picker = page.getByRole("group", { name: "Spreadsheet", exact: true });
+  await picker.getByRole("button", { name: "Load more spreadsheets" }).click();
+  await picker.getByLabel("Spreadsheet", { exact: true }).selectOption("sheet-2");
+  await picker.getByRole("button", { name: "Enter value or expression" }).click();
+  await expect(picker.getByLabel("Spreadsheet value")).toHaveValue("sheet-2");
+});
