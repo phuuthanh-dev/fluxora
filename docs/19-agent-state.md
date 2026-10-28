@@ -28,11 +28,11 @@ security finding, or changed requirement.
 
 | Field | Value |
 |---|---|
-| Audited main commit | `17a98fc351d6b77b64e934b3a8e46ebd3b58a3f4` |
+| Local base commit | `6565a3c` (subsequent changes are on `codex/webhook-registration-ux`) |
 | Release PR | `#27` — merged |
-| Quality gate | Passed on current branch: 148 API, 19 web, 29 Playwright; 0 failed, 0 skipped |
+| Quality gate | See individual slice reports; local verification includes pre-existing, uncommitted CI changes |
 | Source tree | Current branch contains the GitHub Create Issue/idempotency, Add Label, Add Comment, Merge Pull Request operations, and the signed GitHub Issue opened, Pull request opened, Push, and Workflow run completed triggers |
-| Uncommitted source changes | None after implementation commit; handoff state/report updates are recorded separately |
+| Uncommitted changes | Existing CI/OPS edits are preserved separately and must be reviewed before release |
 
 ## Closed follow-up slices
 
@@ -41,6 +41,7 @@ security finding, or changed requirement.
 - `GH-UX-2` — Bounded GitHub repository pagination, manual/expression fallback, and recoverable picker states implemented locally; `npm run verify` passed with 31 Playwright tests. Provider calls in tests were mocked.
 - `OPS-2` — Status-based saved views scoped to user/workspace, server-side triage and retention policy visibility implemented locally. Full quality gate passed; both new migrations were applied to an isolated fresh PostgreSQL database. Workflow, date, and mode filters remain future extensions; production migration and live validation are outstanding.
 - `GOOGLE-UX-1` — Google Sheets and Drive text-file pickers implemented locally through an owner-scoped server proxy. Full gate passed with mocked providers; real OAuth resource discovery remains unverified.
+- `GH-HARDEN-1` — Signed GitHub setup pings are acknowledged without running inactive workflows; repeated deliveries use registration-scoped delivery IDs. Full gate passed with mocked providers. Deduplication is bounded by execution retention and is not replay protection: the delivery header is not covered by the body HMAC.
 
 ## Next approved slices
 

@@ -55,18 +55,21 @@ export class WebhookService {
 
   async receive(path: string, secret: string | undefined, payload: unknown, idempotencyKey?: string, githubEventHeaders: GitHubEventHeaders = {}) {
     const endpoint = await this.prisma.webhookEndpoint.findUnique({ where: { path }, include: { workflow: true, workflowVersion: true } });
-    if (!endpoint || !endpoint.isActive || !endpoint.workflow.isActive || endpoint.workflow.archivedAt) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
+    if (!endpoint || !endpoint.isActive || endpoint.workflow.archivedAt) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
     const graph = parseWorkflowGraph(endpoint.workflowVersion.graph);
     const githubTrigger = githubWebhookTrigger(graph);
     if (githubTrigger) {
       await this.verifyGitHubWebhook(endpoint.workflow.workspaceId, githubTrigger.config, payload, githubEventHeaders, endpoint.encryptedSigningSecret);
+      if (githubEventHeaders.githubEvent === "ping") return { acknowledged: true };
     } else if (endpoint.secretHash && (!secret || !matchesWebhookSecret(secret, endpoint.secretHash))) {
       throw new ForbiddenException({ code: "WEBHOOK_SECRET_INVALID", message: "Webhook secret is invalid." });
     }
+    if (!endpoint.workflow.isActive) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
+    const deliveryKey = githubTrigger && githubEventHeaders.githubDelivery ? `github:${githubEventHeaders.githubDelivery}` : idempotencyKey;
     const execution = await this.executions.createScheduledExecution(
       endpoint.workflowVersionId,
       payload && typeof payload === "object" && !Array.isArray(payload) ? payload as Record<string, unknown> : { payload },
-      idempotencyKey ? `webhook:${endpoint.id}:${idempotencyKey}` : undefined,
+      deliveryKey ? `webhook:${endpoint.id}:${deliveryKey}` : undefined,
     );
     await this.queue.dispatch({ executionId: execution.id, mode: "live" });
     return { executionId: execution.id };
@@ -74,16 +77,6 @@ export class WebhookService {
 
   private async verifyGitHubWebhook(workspaceId: string, config: Record<string, unknown>, payload: unknown, headers: GitHubEventHeaders, encryptedSigningSecret: string | null) {
     const credentialId = readCredentialId(config);
-    const eventName = readString(config.event) ?? "issues";
-    const action = readString(config.action) ?? (eventName === "issues" || eventName === "pull_request" ? "opened" : null);
-    if (headers.githubEvent !== eventName || !isRecord(payload) || (action && payload.action !== action)) {
-      throw new ForbiddenException({ code: "GITHUB_EVENT_NOT_MATCHED", message: "The GitHub webhook event does not match this trigger." });
-    }
-    const repositoryFilter = readString(config.repository);
-    const repositoryName = isRecord(payload.repository) ? readString(payload.repository.full_name) : null;
-    if (repositoryFilter && repositoryName !== repositoryFilter) {
-      throw new ForbiddenException({ code: "GITHUB_REPOSITORY_NOT_MATCHED", message: "The GitHub webhook repository does not match this trigger." });
-    }
     if (!headers.rawBody || !headers.githubSignature) {
       throw new ForbiddenException({ code: "GITHUB_WEBHOOK_SIGNATURE_INVALID", message: "The GitHub webhook signature is invalid." });
     }
@@ -92,10 +85,20 @@ export class WebhookService {
     if (!webhookSecret || !verifyGitHubWebhookSignature(headers.rawBody, headers.githubSignature, webhookSecret)) {
       throw new ForbiddenException({ code: "GITHUB_WEBHOOK_SIGNATURE_INVALID", message: "The GitHub webhook signature is invalid." });
     }
+    const eventName = readString(config.event) ?? "issues";
+    const action = readString(config.action) ?? (eventName === "issues" || eventName === "pull_request" ? "opened" : null);
+    if (!isRecord(payload) || (headers.githubEvent !== "ping" && (headers.githubEvent !== eventName || (action && payload.action !== action)))) {
+      throw new ForbiddenException({ code: "GITHUB_EVENT_NOT_MATCHED", message: "The GitHub webhook event does not match this trigger." });
+    }
+    const repositoryFilter = readString(config.repository);
+    const repositoryName = isRecord(payload.repository) ? readString(payload.repository.full_name) : null;
+    if (repositoryFilter && repositoryName !== repositoryFilter) {
+      throw new ForbiddenException({ code: "GITHUB_REPOSITORY_NOT_MATCHED", message: "The GitHub webhook repository does not match this trigger." });
+    }
   }
 }
 
-export type GitHubEventHeaders = { githubEvent?: string; githubSignature?: string; rawBody?: Buffer };
+export type GitHubEventHeaders = { githubEvent?: string; githubSignature?: string; githubDelivery?: string; rawBody?: Buffer };
 
 function githubWebhookTrigger(graph: ReturnType<typeof parseWorkflowGraph>) {
   return graph.nodes.find((node) => node.type === "trigger.github.issue-opened" || node.type === "trigger.github.pull-request-opened" || node.type === "trigger.github.push" || node.type === "trigger.github.workflow-run-completed");

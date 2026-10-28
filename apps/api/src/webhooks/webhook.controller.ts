@@ -23,8 +23,8 @@ export class WebhookController {
   }
 
   @Post("webhooks/:path")
-  async receive(@Param("path") path: string, @Headers("x-workflow-secret") secret: string | undefined, @Headers("x-github-event") githubEvent: string | undefined, @Headers("x-hub-signature-256") githubSignature: string | undefined, @Headers("idempotency-key") idempotencyKey: string | undefined, @RawBody() rawBody: Buffer | undefined, @Req() request: AuthenticatedRequest) {
-    return this.webhooks.receive(path, secret, request.body, readIdempotencyKey(idempotencyKey), { githubEvent, githubSignature, rawBody });
+  async receive(@Param("path") path: string, @Headers("x-workflow-secret") secret: string | undefined, @Headers("x-github-event") githubEvent: string | undefined, @Headers("x-hub-signature-256") githubSignature: string | undefined, @Headers("idempotency-key") idempotencyKey: string | undefined, @RawBody() rawBody: Buffer | undefined, @Req() request: AuthenticatedRequest, @Headers("x-github-delivery") githubDelivery?: string) {
+    return this.webhooks.receive(path, secret, request.body, readIdempotencyKey(idempotencyKey), { githubEvent, githubSignature, githubDelivery: readIdempotencyKey(githubDelivery), rawBody });
   }
 }
 

@@ -2,6 +2,45 @@ import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import test from "node:test";
 import { WebhookService, hashWebhookSecret, matchesWebhookSecret, verifyGitHubWebhookSignature } from "./webhook.service";
+import { WebhookController } from "./webhook.controller";
+
+test("webhook controller forwards and validates the GitHub delivery header", async () => {
+  let received: unknown;
+  const controller = new WebhookController({ receive: async (...args: unknown[]) => { received = args[4]; return {}; } } as never);
+  const request = { body: {} } as never;
+  await controller.receive("path", undefined, "push", "signature", undefined, Buffer.from("{}"), request, "delivery-123");
+  assert.equal((received as { githubDelivery: string }).githubDelivery, "delivery-123");
+  await assert.rejects(() => controller.receive("path", undefined, "push", "signature", undefined, Buffer.from("{}"), request, "invalid delivery"));
+});
+
+test("signed GitHub setup ping is acknowledged before activation without running a workflow", async () => {
+  const body = Buffer.from('{"repository":{"full_name":"acme/project"}}');
+  const signature = `sha256=${createHmac("sha256", "registration-secret").update(body).digest("hex")}`;
+  let dispatched = 0;
+  const service = new WebhookService({ webhookEndpoint: { findUnique: async () => ({ id: "endpoint-1", isActive: true, encryptedSigningSecret: "ciphertext", workflow: { workspaceId: "workspace-1", isActive: false, archivedAt: null }, workflowVersion: { graph: { nodes: [{ id: "github", type: "trigger.github.push", position: { x: 0, y: 0 }, config: { event: "push", repository: "acme/project" } }], edges: [] } }, workflowVersionId: "version-1" }) } } as never,
+    { createScheduledExecution: async () => { throw new Error("ping must not create an execution"); } } as never,
+    { dispatch: async () => { dispatched++; } } as never, {} as never,
+    { decrypt: () => ({ secret: "registration-secret" }) } as never);
+  const payload = JSON.parse(body.toString());
+  assert.deepEqual(await service.receive("github-push", undefined, payload, undefined, { githubEvent: "ping", githubSignature: signature, rawBody: body }), { acknowledged: true });
+  await assert.rejects(() => service.receive("github-push", undefined, payload, undefined, { githubEvent: "ping", githubSignature: "sha256=bad", rawBody: body }));
+  await assert.rejects(() => service.receive("github-push", undefined, payload, undefined, { githubEvent: "push", githubSignature: signature, rawBody: body }));
+  assert.equal(dispatched, 0);
+});
+
+test("GitHub delivery IDs are scoped to the registration for idempotency", async () => {
+  const body = Buffer.from('{"ref":"refs/heads/main"}');
+  const signature = `sha256=${createHmac("sha256", "registration-secret").update(body).digest("hex")}`;
+  const keys: Array<string | undefined> = [];
+  const service = new WebhookService({ webhookEndpoint: { findUnique: async () => ({ id: "endpoint-1", isActive: true, encryptedSigningSecret: "ciphertext", workflow: { workspaceId: "workspace-1", isActive: true, archivedAt: null }, workflowVersion: { graph: { nodes: [{ id: "github", type: "trigger.github.push", position: { x: 0, y: 0 }, config: { event: "push" } }], edges: [] } }, workflowVersionId: "version-1" }) } } as never,
+    { createScheduledExecution: async (_version: string, _payload: unknown, key?: string) => { keys.push(key); return { id: "same-execution" }; } } as never,
+    { dispatch: async () => undefined } as never, {} as never,
+    { decrypt: () => ({ secret: "registration-secret" }) } as never);
+  const headers = { githubEvent: "push", githubSignature: signature, githubDelivery: "delivery-123", rawBody: body };
+  await service.receive("github-push", undefined, JSON.parse(body.toString()), undefined, headers);
+  await service.receive("github-push", undefined, JSON.parse(body.toString()), undefined, headers);
+  assert.deepEqual(keys, ["webhook:endpoint-1:github:delivery-123", "webhook:endpoint-1:github:delivery-123"]);
+});
 
 test("GitHub registration encrypts its own secret and never stores it in the credential", async () => {
   let stored: Record<string, unknown> | undefined;
