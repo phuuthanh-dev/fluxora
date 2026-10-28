@@ -25,7 +25,24 @@ credential, production database, or deployment was used.
 One earlier localhost gate produced a publish 500 because the already-running
 local database did not contain the new provider registration table. That stale
 environment is not final evidence; the isolated migrated gate is the
-authoritative result. The lifecycle is still not production-ready: no public
-route/UI activation flow or live-provider qualification exists yet, and
-uncertain operations still need operator-facing reconciliation before enabling
-the feature.
+authoritative result. The lifecycle is still not production-ready: live-provider
+qualification and operator-facing reconciliation for uncertain operations
+remain open.
+
+## Management surface follow-up
+
+The lifecycle is now composed by `GitHubWebhookManagementService` and exposed
+through owner-scoped `GET`, `POST`, and `DELETE`
+`/workflows/:workflowId/provider-webhook` routes. The editor shows a compact
+connection status and keeps manual endpoint instructions as a fallback. The
+safe response excludes tokens, signing secrets, callback URLs, and remote hook
+IDs. Production startup requires `PUBLIC_API_ORIGIN` when
+`GITHUB_WEBHOOK_AUTOMATION_ENABLED=true`; the flag remains false by default.
+
+This follow-up is not a live-provider qualification: tests use a mocked adapter
+and no real GitHub request or deployment was performed. Uncertain states remain
+blocked until a reconciliation action is designed and qualified.
+
+Follow-up verification passed after applying the pending local migration:
+198 API tests, 19 web tests, 38 Playwright tests, API/web production builds,
+security scan, deployment contract checks, and code-graph freshness checks.

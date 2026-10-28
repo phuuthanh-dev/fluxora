@@ -187,7 +187,8 @@ workflow version and stores its signing secret encrypted. Atomic state updates
 compare operation IDs and previous state; expired in-flight operations become
 uncertain, never automatic retries. Database constraints protect known remote
 identities and prevent deleting referenced endpoint, credential or version.
-This groundwork is not wired to provider calls or the manual endpoint UI.
+The lifecycle is separate from manual endpoint persistence and is composed by
+an owner-scoped management service; manual endpoint UI remains compatible.
 The orchestration must check ownership and version consistency itself; the
 foreign keys alone do not prove that all records belong to the same workspace.
 
@@ -197,31 +198,37 @@ registration creator must acquire the same lock before inserting its record,
 otherwise a concurrent manual rotation can race the check. Removal and secret
 rotation must go through a managed lifecycle once that lifecycle exists.
 
-The unfinished GitHub create dispatcher claims CREATING as
+The GitHub create dispatcher claims CREATING as
 CREATE_DISPATCHING atomically before a provider call. Only the winner sends;
 unexpected failures are uncertain rather than automatically retried. A crash
-or failed result persistence leaves dispatching state requiring recovery. This
-internal function is not exposed to clients and does not complete lifecycle,
-UI, deletion or restart handling.
+or failed result persistence leaves dispatching state requiring recovery. The
+owner-scoped management surface composes this dispatcher without exposing
+provider tokens or signing material.
 
 The unfinished delete dispatcher claims the stored provider identity, checks
 remote URL, event and active status, and never treats an ambiguous DELETE or
 GitHub 404 as confirmed removal. The GitHub inspection and delete are separate
 requests and cannot guarantee the remote hook remains unchanged between them.
-The dispatcher is not exposed until recovery and user-facing status exist.
+The dispatcher is exposed only through the owner-scoped management surface,
+which returns safe status and keeps the manual endpoint compatible.
 
 The recovery service is disabled by default and will run only when
 `GITHUB_WEBHOOK_AUTOMATION_ENABLED=true` after migration and lifecycle release.
 It marks bounded batches of stale create/delete dispatches uncertain, rechecking
 state and timestamp to avoid overwriting a completed operation. It does not call
 GitHub, reconcile unknown results, or resume reservations that never dispatched.
+Production startup also requires `PUBLIC_API_ORIGIN` to be a trusted HTTPS
+origin when the feature flag is enabled.
 
 Workflow draft save and publish acquire the same workflow row lock used by
 provider registration. Save rejects a stale draft pointer; publish rereads the
 current draft after acquiring the lock and rejects any existing
 provider-managed registration. This prevents a managed remote hook from being
 silently left on an obsolete published version while preserving the existing
-manual endpoint flow. The reservation, create, delete, and recovery services
-are still internal: there is no production route or UI activation flow, and
-the feature must remain disabled until reconciliation and live-provider
+manual endpoint flow. The lifecycle now has an owner-scoped management surface:
+`GET/POST/DELETE /workflows/:workflowId/provider-webhook`. The response contains
+only safe state, repository/event metadata and timestamps; it never returns a
+token, signing secret, callback URL or remote hook ID. The editor shows the
+connection state while keeping manual setup available as a fallback. The
+feature remains disabled by default until reconciliation and live-provider
 qualification are complete.

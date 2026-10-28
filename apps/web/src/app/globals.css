@@ -595,6 +595,7 @@ button:focus-visible, summary:focus-visible { outline: 3px solid rgba(214, 255, 
 .webhook-endpoint-panel > .ui-button { align-self: flex-start; }
 .webhook-endpoint-panel__url span, .webhook-endpoint-panel__secret small, .webhook-endpoint-panel__warning { font-size: 12px; }
 .webhook-endpoint-panel__url code, .webhook-endpoint-panel__secret code { font-size: 11px; }
+.webhook-endpoint-panel__provider { align-items: center; background: var(--surface-dark-raised); border: 1px solid var(--surface-dark-border); border-radius: 10px; display: flex; gap: 12px; justify-content: space-between; padding: 12px; }.webhook-endpoint-panel__provider > div { display: grid; gap: 4px; min-width: 0; }.webhook-endpoint-panel__provider strong { color: var(--text-on-dark); font-size: 13px; }.webhook-endpoint-panel__provider small { color: var(--muted-on-dark); font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }.webhook-endpoint-panel__provider-label { color: var(--text-accent); font-size: 9px; font-weight: 800; letter-spacing: .12em; }
 .connections-loading__mark { border-radius: 999px; height: 32px; min-width: 32px; width: 32px; }
 .credential-panel--page { background: var(--surface-dark); border: 1px solid var(--surface-dark-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-dark); color: var(--text-on-dark); max-height: none; overflow: visible; padding: clamp(18px, 3vw, 30px); position: static; width: auto; }
 .credential-panel--page > p { color: var(--muted-on-dark); font-size: 13px; margin: 0; max-width: 680px; }

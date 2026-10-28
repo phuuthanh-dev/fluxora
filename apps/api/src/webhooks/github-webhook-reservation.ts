@@ -37,7 +37,14 @@ export async function reserveGitHubWebhook(prisma: PrismaService, input: { workf
       const credential = await tx.credential.findFirst({ where: { id: credentialId, workspaceId: workflow.workspaceId, provider: CredentialProvider.GITHUB }, select: { id: true } });
       if (!credential) throw new BadRequestException({ code: "GITHUB_CREDENTIAL_REQUIRED", message: "Select a GitHub credential from this workspace." });
       const callbackUrl = new URL(`/webhooks/${encodeURIComponent(endpoint.path)}`, origin).toString();
-      return await tx.providerWebhookRegistration.create({ data: { endpointId: endpoint.id, provider: "GITHUB", repository, event, callbackUrl, credentialId, workflowVersionId: input.versionId, encryptedSigningSecret: endpoint.encryptedSigningSecret, state: "CREATING", operationId: randomUUID() }, select: { id: true, operationId: true } });
+      const existing = await tx.providerWebhookRegistration.findUnique({ where: { endpointId: endpoint.id }, select: { id: true, state: true } });
+      if (existing && existing.state !== "REMOVED" && existing.state !== "CREATE_REJECTED") {
+        throw new ConflictException({ code: "PROVIDER_WEBHOOK_EXISTS", message: "A provider registration already exists for this endpoint." });
+      }
+      const data = { provider: "GITHUB", repository, event, callbackUrl, credentialId, workflowVersionId: input.versionId, encryptedSigningSecret: endpoint.encryptedSigningSecret, state: "CREATING" as const, operationId: randomUUID(), remoteHookId: null };
+      return existing
+        ? await tx.providerWebhookRegistration.update({ where: { id: existing.id }, data, select: { id: true, operationId: true } })
+        : await tx.providerWebhookRegistration.create({ data: { endpointId: endpoint.id, ...data }, select: { id: true, operationId: true } });
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") throw new ConflictException({ code: "PROVIDER_WEBHOOK_EXISTS", message: "A provider registration already exists for this endpoint." });

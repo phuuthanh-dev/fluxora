@@ -9,7 +9,7 @@ function fixture() {
     workflow: { findFirst: async () => ({ id: "flow", workspaceId: "space", publishedVersion: { id: "version", graph: { nodes: [{ id: "trigger", type: "trigger.github.push", position: { x: 0, y: 0 }, config: { repository: "Owner/Repo", credentialId: "cred" } }], edges: [] } } }) },
     webhookEndpoint: { findFirst: async () => ({ id: "endpoint", path: "hook-path", workflowVersionId: "version", updatedAt: new Date("2026-01-01"), isActive: true, encryptedSigningSecret: "ciphertext" }) },
     credential: { findFirst: async () => ({ id: "cred" }) },
-    providerWebhookRegistration: { create: async ({ data }: { data: Record<string, unknown> }) => { saved = data; return { id: "reservation", operationId: data.operationId }; } },
+    providerWebhookRegistration: { findUnique: async () => null, create: async ({ data }: { data: Record<string, unknown> }) => { saved = data; return { id: "reservation", operationId: data.operationId }; } },
   };
   const prisma = { $transaction: async (fn: (value: typeof tx) => Promise<unknown>) => fn(tx) };
   const input = { workflowId: "flow", userId: "owner", versionId: "version", endpointId: "endpoint", endpointUpdatedAt: new Date("2026-01-01"), apiOrigin: "https://api.example.invalid" };

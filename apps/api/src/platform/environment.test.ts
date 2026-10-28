@@ -18,6 +18,12 @@ test("production requires an explicit Redis execution queue", () => {
   assert.throws(() => validateEnvironment({ ...base, EXECUTION_QUEUE_MODE: "redis", REDIS_URL: "https://queue.example.com" }), /REDIS_URL must use redis/);
 });
 
+test("managed GitHub webhooks require a public HTTPS API origin when enabled", () => {
+  const base = { NODE_ENV: "production", WEB_ORIGIN: "https://example.com", APP_ENCRYPTION_KEY: Buffer.alloc(32).toString("base64"), EXECUTION_QUEUE_MODE: "redis", REDIS_URL: "redis://queue.example.com", GITHUB_WEBHOOK_AUTOMATION_ENABLED: "true" };
+  assert.throws(() => validateEnvironment(base), /PUBLIC_API_ORIGIN/);
+  assert.doesNotThrow(() => validateEnvironment({ ...base, PUBLIC_API_ORIGIN: "https://api.example.com" }));
+});
+
 test("queue mode rejects unknown configuration in every environment", () => {
   assert.throws(() => validateEnvironment({ NODE_ENV: "development", EXECUTION_QUEUE_MODE: "fallback" }), /EXECUTION_QUEUE_MODE must be inline or redis/);
   assert.throws(() => validateEnvironment({ NODE_ENV: "development", EXECUTION_WORKER_CONCURRENCY: "0" }), /EXECUTION_WORKER_CONCURRENCY/);

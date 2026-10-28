@@ -47,6 +47,7 @@ security finding, or changed requirement.
 - `WEBHOOK-UNCERTAIN-UX-1` — An unsuccessful registration request clears the previously displayed secret, reloads endpoint status, and warns of an uncertain outcome. Playwright simulates a lost response; the full gate passed. This does not recover a lost secret or prove a still-running request has finished.
 - `WEBHOOK-CONCURRENCY-1` — Workflow-row locking and observed version checks prevent concurrent app requests from silently creating duplicate registrations or replacing another rotation. Synthetic PostgreSQL and full-gate tests passed. Older clients must reload; the application lock does not constrain direct database writes.
 - `WEBHOOK-SECRET-CONTRACT-1` — Owner approved a one-time GitHub signing-secret display; generic webhooks retain the same one-time model after provider comparison. The response is non-cacheable, guidance is aligned, and focused and full-gate tests passed. Existing secrets remain unavailable on later reads.
+- `GH-HOOK-AUTO-1` progress — Provider-managed GitHub webhook status/create/delete are now exposed through an owner-scoped API and the editor panel. Mutations are feature-flagged, require `PUBLIC_API_ORIGIN` in production, use only the workspace GitHub credential, and return no token, signing secret, callback URL or remote hook ID. Automatic re-registration is allowed only after a definitive rejected/removed result; uncertain outcomes remain blocked. Full live-provider qualification and reconciliation UX are still open.
 
 ## Next approved slices
 

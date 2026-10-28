@@ -63,6 +63,8 @@ const nodeTypes: NodeTypes = { workflowNode: WorkflowNode };
 
 type WorkflowVersionSummary = { id: string; version: number; status: "DRAFT" | "PUBLISHED"; createdAt: string; publishedAt: string | null; nodeCount: number };
 type WebhookEndpoint = { id: string; path: string; secretRequired: boolean; signingMode?: "registration" | "legacy"; workflowVersionId: string; createdAt: string; updatedAt: string };
+type ProviderWebhookState = "CREATING" | "CREATE_DISPATCHING" | "CREATE_UNCERTAIN" | "CREATE_REJECTED" | "ACTIVE" | "DELETING" | "DELETE_UNCERTAIN" | "REMOVED";
+type ProviderWebhookStatus = { enabled: boolean; endpoint: { id: string; path: string; workflowVersionId: string; updatedAt: string } | null; registration: { provider: string; repository: string; event: string; workflowVersionId: string; state: ProviderWebhookState; createdAt: string; updatedAt: string } | null };
 type ApiApproval = { id: string; status: string; expiresAt: string; executionId: string; workflowId: string };
 type WorkspaceSummary = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
 type LiveReadinessRequirement = { nodeId: string; provider: CredentialProvider; credentialId: string | null; ready: boolean; reason: "MISSING_CREDENTIAL" | "CREDENTIAL_NOT_FOUND" | "CREDENTIAL_PROVIDER_MISMATCH" | null };
@@ -83,6 +85,10 @@ function providerLabel(provider: CredentialProvider) {
 
 function reasonLabel(reason: LiveReadinessRequirement["reason"]) {
   return reason === "MISSING_CREDENTIAL" ? "Select a credential in the node inspector." : reason === "CREDENTIAL_NOT_FOUND" ? "The selected credential no longer exists." : "The selected credential belongs to another provider.";
+}
+
+function providerWebhookStateLabel(state: ProviderWebhookState) {
+  return state === "ACTIVE" ? "Connected" : state === "CREATING" || state === "CREATE_DISPATCHING" ? "Connecting…" : state === "DELETING" ? "Disconnecting…" : state === "CREATE_UNCERTAIN" || state === "DELETE_UNCERTAIN" ? "Needs reconciliation" : state === "CREATE_REJECTED" ? "Connection rejected" : "Disconnected";
 }
 
 function useNarrowEditorLayout() {
@@ -327,6 +333,10 @@ function WebhookEndpointPanel({ workflow, config, isGitHub, canRegister, onClose
   const [endpointLoading, setEndpointLoading] = useState(true);
   const [endpointError, setEndpointError] = useState<string | null>(null);
   const [endpointRetry, setEndpointRetry] = useState(0);
+  const [providerWebhook, setProviderWebhook] = useState<ProviderWebhookStatus | null>(null);
+  const [providerWebhookError, setProviderWebhookError] = useState<string | null>(null);
+  const [providerWebhookAction, setProviderWebhookAction] = useState<"connect" | "disconnect" | null>(null);
+  const [confirmProviderDisconnect, setConfirmProviderDisconnect] = useState(false);
   const [confirmRotation, setConfirmRotation] = useState(false);
   const [writeUncertain, setWriteUncertain] = useState(false);
   const [writeError, setWriteError] = useState<string | null>(null);
@@ -339,8 +349,9 @@ function WebhookEndpointPanel({ workflow, config, isGitHub, canRegister, onClose
     let isCurrent = true;
     setEndpointLoading(true);
     setEndpointError(null);
-    void apiRequest<{ endpoint: WebhookEndpoint | null }>(`/workflows/${workflow.id}/webhook-endpoint`)
-      .then((response) => { if (isCurrent) { setEndpoint(response.endpoint); if (response.endpoint) setPath(response.endpoint.path); setNotice(response.endpoint ? isGitHub && response.endpoint.signingMode === "legacy" ? "Existing registration uses the connection’s legacy secret. It will keep working until you rotate it." : "An active endpoint is pinned to a published version." : "No endpoint has been created yet."); } })
+    const providerRequest = isGitHub ? apiRequest<{ providerWebhook: ProviderWebhookStatus }>(`/workflows/${workflow.id}/provider-webhook`) : Promise.resolve(null);
+    void Promise.all([apiRequest<{ endpoint: WebhookEndpoint | null }>(`/workflows/${workflow.id}/webhook-endpoint`), providerRequest])
+      .then(([response, providerResponse]) => { if (isCurrent) { setEndpoint(response.endpoint); if (response.endpoint) setPath(response.endpoint.path); setProviderWebhook(providerResponse?.providerWebhook ?? null); setProviderWebhookError(null); setNotice(response.endpoint ? isGitHub && response.endpoint.signingMode === "legacy" ? "Existing registration uses the connection’s legacy secret. It will keep working until you rotate it." : "An active endpoint is pinned to a published version." : "No endpoint has been created yet."); } })
       .catch((reason) => { if (isCurrent) setEndpointError(reason instanceof Error ? reason.message : "Unable to load webhook status."); })
       .finally(() => { if (isCurrent) setEndpointLoading(false); });
     return () => { isCurrent = false; };
@@ -369,19 +380,51 @@ function WebhookEndpointPanel({ workflow, config, isGitHub, canRegister, onClose
     }
   };
 
+  const connectProviderWebhook = async () => {
+    setProviderWebhookAction("connect");
+    setProviderWebhookError(null);
+    try {
+      const response = await apiRequest<{ providerWebhook: ProviderWebhookStatus }>(`/workflows/${workflow.id}/provider-webhook`, { method: "POST" });
+      setProviderWebhook(response.providerWebhook);
+      setNotice(response.providerWebhook.registration?.state === "ACTIVE" ? "GitHub webhook connected. Delivery is managed by Fluxora." : "GitHub webhook operation recorded.");
+    } catch (reason) {
+      setProviderWebhookError(reason instanceof Error ? reason.message : "Unable to connect the GitHub webhook.");
+    } finally {
+      setProviderWebhookAction(null);
+    }
+  };
+
+  const disconnectProviderWebhook = async () => {
+    setProviderWebhookAction("disconnect");
+    setProviderWebhookError(null);
+    try {
+      const response = await apiRequest<{ providerWebhook: ProviderWebhookStatus }>(`/workflows/${workflow.id}/provider-webhook`, { method: "DELETE" });
+      setProviderWebhook(response.providerWebhook);
+      setConfirmProviderDisconnect(false);
+      setNotice("GitHub webhook disconnected. The manual endpoint remains available.");
+    } catch (reason) {
+      setProviderWebhookError(reason instanceof Error ? reason.message : "Unable to disconnect the GitHub webhook.");
+    } finally {
+      setProviderWebhookAction(null);
+    }
+  };
+
   return <Dialog label="Webhook endpoint" className="webhook-endpoint-panel" modal={false} onClose={onClose}>
     <div className="credential-panel__heading"><div><p className="section-label">INBOUND WEBHOOK</p><h2>{isGitHub ? "GitHub webhook registration" : "Webhook endpoint"}</h2></div><IconButton label="Close webhook endpoint" className="icon-button" onClick={onClose}><X size={16} aria-hidden="true" /></IconButton></div>
     <p>Setup uses the published workflow, not unsaved changes. Each registration is pinned to a published version.</p>
     {endpoint && workflow.published && endpoint.workflowVersionId !== workflow.published.id && <Status tone="warning">This endpoint still uses an older published version. Rotate it to apply the setup shown here to the current published version.</Status>}
     <ConfigField label="Public path" value={path} onChange={setPath} />
-    {isGitHub ? <Status tone="info" className="webhook-endpoint-panel__help">Add this URL and signing secret in your repository’s GitHub webhook settings for <code>{githubEventLabel}</code>. The secret belongs to this registration.</Status> : <label className="checkbox-field"><input type="checkbox" checked={secretRequired} onChange={(event) => setSecretRequired(event.target.checked)} /> Require <code>x-workflow-secret</code> header</label>}
+    {isGitHub ? <Status tone={providerWebhook?.registration?.state === "ACTIVE" ? "success" : "info"} className="webhook-endpoint-panel__help">{providerWebhook?.registration?.state === "ACTIVE" ? <>GitHub manages <code>{providerWebhook.registration.repository}</code> automatically for <code>{githubEventLabel}</code>. The manual endpoint stays available as a compatibility path.</> : <>Add this URL and signing secret in your repository’s GitHub webhook settings for <code>{githubEventLabel}</code>. You can connect it automatically when provider registration is enabled.</>}</Status> : <label className="checkbox-field"><input type="checkbox" checked={secretRequired} onChange={(event) => setSecretRequired(event.target.checked)} /> Require <code>x-workflow-secret</code> header</label>}
+    {isGitHub && <div className="webhook-endpoint-panel__provider"><div><span className="webhook-endpoint-panel__provider-label">GITHUB CONNECTION</span><strong>{providerWebhook?.registration ? providerWebhookStateLabel(providerWebhook.registration.state) : providerWebhook?.enabled ? "Not connected" : "Manual setup"}</strong><small>{providerWebhook?.registration ? `${providerWebhook.registration.repository} · ${providerWebhook.registration.event}` : providerWebhook?.enabled ? "Use the connector credential to register this repository webhook." : "Automatic registration is disabled until the public HTTPS origin is configured."}</small></div>{providerWebhook?.enabled && providerWebhook?.registration?.state === "ACTIVE" ? <Button variant="ghost" disabled={providerWebhookAction !== null} onClick={() => setConfirmProviderDisconnect(true)}>{providerWebhookAction === "disconnect" ? "Disconnecting…" : "Disconnect"}</Button> : providerWebhook?.enabled && (!providerWebhook?.registration || providerWebhook.registration.state === "CREATE_REJECTED" || providerWebhook.registration.state === "REMOVED") ? <Button variant="secondary" disabled={!canRegister || providerWebhookAction !== null || endpointLoading || Boolean(endpointError)} onClick={() => void connectProviderWebhook()}>{providerWebhookAction === "connect" ? "Connecting…" : providerWebhook?.registration ? "Retry connection" : "Connect GitHub"}</Button> : null}</div>}
     <div className="webhook-endpoint-panel__url"><span>POST URL</span><code>{endpointUrl}</code><Button variant="ghost" onClick={() => void navigator.clipboard.writeText(endpointUrl)}>Copy URL</Button></div>
     {createdSecret && <div className="webhook-endpoint-panel__secret"><strong>Copy this secret now</strong><code>{createdSecret}</code><Button variant="ghost" onClick={() => void navigator.clipboard.writeText(createdSecret)}>Copy secret</Button><small>{isGitHub ? "It is displayed only once. Store it securely and paste it into GitHub." : "It is displayed only once. Store it securely and send it in the x-workflow-secret header."}</small></div>}
     {writeError && <Status tone="error">{writeError}</Status>}
+    {providerWebhookError && <Status tone="error">{providerWebhookError}</Status>}
     {writeUncertain && <Status tone="warning">The request did not complete. The endpoint may have changed even if no secret was displayed. Check its status; if you do not have the current secret, rotate it again and update the external webhook.</Status>}
     <Status tone={endpointError ? "error" : "info"} className="webhook-endpoint-panel__notice">{endpointError ?? notice}</Status>
     {endpointError && <Button variant="ghost" onClick={() => setEndpointRetry((value) => value + 1)}>Retry status check</Button>}
     {confirmRotation && <div className="webhook-endpoint-panel__confirmation"><Status tone="warning">Rotating immediately replaces the secret. Update the external webhook with the new secret to resume delivery.</Status><Button variant="ghost" onClick={() => setConfirmRotation(false)}>Cancel</Button><Button variant="primary" disabled={isSaving} onClick={() => { setConfirmRotation(false); void createEndpoint(); }}>Confirm rotation</Button></div>}
+    {confirmProviderDisconnect && <div className="webhook-endpoint-panel__confirmation"><Status tone="warning">This removes only the GitHub-managed remote webhook. The Fluxora endpoint and manual setup remain available.</Status><Button variant="ghost" disabled={providerWebhookAction !== null} onClick={() => setConfirmProviderDisconnect(false)}>Cancel</Button><Button variant="primary" disabled={providerWebhookAction !== null} onClick={() => void disconnectProviderWebhook()}>{providerWebhookAction === "disconnect" ? "Disconnecting…" : "Confirm disconnect"}</Button></div>}
     <Button variant="primary" className="run-button" onClick={() => endpoint ? setConfirmRotation(true) : void createEndpoint()} disabled={!canRegister || isSaving || endpointLoading || Boolean(endpointError) || !path.trim() || confirmRotation}>{endpointLoading ? "Checking registration…" : isSaving ? "Creating…" : endpoint ? "Rotate registration" : "Create registration"}</Button>
     {!canRegister && <small className="webhook-endpoint-panel__warning">Publish a version containing this webhook trigger before creating its endpoint.</small>}
   </Dialog>;

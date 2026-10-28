@@ -1,8 +1,10 @@
+import { Injectable } from "@nestjs/common";
 import { ProviderWebhookAdapter, ProviderWebhookError, ProviderWebhookIdentity, ProviderWebhookInspection, ProviderWebhookSpec } from "./provider-webhook-adapter";
 
 const events = new Set(["push", "issues", "pull_request", "workflow_run"]);
 
 /** Talks only to GitHub's fixed API host. It never logs credentials or remote response bodies. */
+@Injectable()
 export class GitHubWebhookAdapter implements ProviderWebhookAdapter {
   constructor(private readonly request: typeof fetch = fetch) {}
 

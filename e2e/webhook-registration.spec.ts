@@ -9,6 +9,7 @@ test("generic webhook explains the one-time header secret without GitHub-specifi
     if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
     if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
     if (path.endsWith("/credentials")) return send({ credentials: [] });
+    if (path.endsWith("/provider-webhook")) return send({ providerWebhook: { enabled: false, endpoint: null, registration: null } });
     if (path.endsWith("/workflows/workflow-generic")) return send({ workflow });
     if (path.endsWith("/webhook-endpoint")) return send(route.request().method() === "GET" ? { endpoint: null } : { endpoint: { id: "endpoint", path: "generic-hook", secret: "synthetic-header-secret", workflowVersionId: "published", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" } });
     return route.continue();
@@ -34,6 +35,7 @@ test("webhook setup follows published trigger even when the draft differs", asyn
     if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
     if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
     if (path.endsWith("/credentials")) return send({ credentials: [] });
+    if (path.endsWith("/provider-webhook")) return send({ providerWebhook: { enabled: false, endpoint: null, registration: null } });
     if (path.endsWith("/webhook-endpoint")) return send({ endpoint: { id: "endpoint-1", path: "old-path", signingMode: "registration", workflowVersionId: "published-1", secretRequired: true, createdAt: "2026-01-01", updatedAt: "2026-01-01" } });
     if (path.endsWith("/workflows/workflow-versions")) return send({ workflow });
     return route.continue();
@@ -58,6 +60,7 @@ test("webhook registration stays disabled when the trigger exists only in the dr
     if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
     if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
     if (path.endsWith("/credentials")) return send({ credentials: [] });
+    if (path.endsWith("/provider-webhook")) return send({ providerWebhook: { enabled: false, endpoint: null, registration: null } });
     if (path.endsWith("/webhook-endpoint")) return send({ endpoint: null });
     if (path.endsWith("/workflows/workflow-draft")) return send({ workflow });
     return route.continue();
@@ -82,6 +85,7 @@ test("a second draft webhook does not open the first trigger's setup", async ({ 
     if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
     if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
     if (path.endsWith("/credentials")) return send({ credentials: [] });
+    if (path.endsWith("/provider-webhook")) return send({ providerWebhook: { enabled: false, endpoint: null, registration: null } });
     if (path.endsWith("/workflows/workflow-multiple")) return send({ workflow });
     return route.continue();
   });
@@ -105,6 +109,7 @@ test("GitHub registration is readable and protects existing secrets while loadin
     if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
     if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
     if (path.endsWith("/credentials")) return send({ credentials: [] });
+    if (path.endsWith("/provider-webhook")) return send({ providerWebhook: { enabled: false, endpoint: null, registration: null } });
     if (path.endsWith("/webhook-endpoint")) {
       if (route.request().method() === "GET") {
         if (statusUnavailable) return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ message: "Status unavailable" }) });
@@ -162,6 +167,7 @@ test("a lost rotation response clears the old secret and reloads endpoint status
     if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
     if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
     if (path.endsWith("/credentials")) return send({ credentials: [] });
+    if (path.endsWith("/provider-webhook")) return send({ providerWebhook: { enabled: false, endpoint: null, registration: null } });
     if (path.endsWith("/workflows/workflow-error")) return send({ workflow });
     if (path.endsWith("/webhook-endpoint")) {
       if (route.request().method() === "GET") {
