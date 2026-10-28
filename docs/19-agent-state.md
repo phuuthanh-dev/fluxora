@@ -54,6 +54,7 @@ GitHub and deployment state before making release decisions.
 - `WEBHOOK-SECRET-CONTRACT-1` — Owner approved a one-time GitHub signing-secret display; generic webhooks retain the same one-time model after provider comparison. The response is non-cacheable, guidance is aligned, and focused and full-gate tests passed. Existing secrets remain unavailable on later reads.
 - `WEBHOOK-UI-POLISH-1` — PR #31 merged and deployed; a GitHub Push trigger-only live test succeeded, without proving action coverage or long-term stability.
 - `CONNECTOR-CONFIG-2` — Simple Steam fields now use the shared inspector field contract; connector shape/field rules were recorded against n8n's resource/operation pattern. Full gate passed with 168 API, 20 web, and 39 Playwright tests. No provider calls were made.
+- `GH-PICKER-OWNER-1` — GitHub repository discovery now returns safe visible-owner metadata, validates and applies a case-insensitive owner filter, and explains classic-token visibility in the picker. Full gate passed with 172 API, 20 web, and 39 Playwright tests. No provider calls were made.
 
 ## Next approved slices
 
@@ -64,7 +65,6 @@ one of these IDs or explicitly reopen a completed ledger slice.
 |---|---|---|---|
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
 | `LIVE-1` | Validate one explicitly approved real Steam → Google Chat run plus configured OAuth callbacks | owner-input-required | Requires user credentials and explicit external-side-effect approval |
-| `GH-PICKER-OWNER-1` | Clarify GitHub repository owner filtering | pending | PR #32 is open; not included on main |
 | `GH-HOOK-AUTO-1` | Automatically manage GitHub repository webhooks using owner credentials | pending | Adapter on separate branch; lifecycle, persistence and UI remain |
 | `CONNECTOR-CONFIG-1` | Audit connectors and make Google Drive and Sheets fields operation-aware | pending | Preserve existing graphs and multi-row values; PR #33 in progress |
 

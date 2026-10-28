@@ -166,6 +166,8 @@ button:focus-visible, summary:focus-visible { outline: 3px solid rgba(214, 255, 
 .inspector-note { background: color-mix(in srgb, var(--text-accent) 7%, var(--panel)); border: 1px solid var(--line); border-radius: 8px; color: var(--text-secondary); display: grid; font-size: 12px; gap: 4px; line-height: 1.5; margin-top: 14px; padding: 11px 12px; }
 .inspector-note strong { color: var(--ink); font-size: 12px; font-weight: 700; }
 .resource-picker { display: grid; gap: 8px; min-width: 0; }
+.resource-picker__owner { display: grid; gap: 6px; }
+.resource-picker__owner small { margin: 0; }
 .resource-picker > .ui-field__label { margin: 0 0 2px; }
 .resource-picker input, .resource-picker select { min-width: 0; text-overflow: ellipsis; }
 .resource-picker small { font-size: 12px; margin: 0; }

@@ -4,7 +4,7 @@ Snapshot: main `16d53a5`; PR #32 and `codex/github-webhook-automation` are separ
 
 | App | Current capability and classification | Configuration and evidence | Gap / next step |
 |---|---|---|---|
-| GitHub | Four event triggers and four action operations; manual signed webhook registration | Repository resource picker and credential; tests; one live Push trigger-only execution succeeded | PR #32 owner clarity pending; automatic provider lifecycle is incomplete on a separate branch. Actions not live-qualified. |
+| GitHub | Four event triggers and four action operations; manual signed webhook registration | Workspace-scoped credential, repository resource picker, visible-owner filter, tests; one live Push trigger-only execution succeeded | A classic token can expose repositories across personal and organization owners; the picker now makes that visibility explicit instead of hard-coding `ithelpdesk`. Automatic provider lifecycle is incomplete on a separate branch. Actions not live-qualified. |
 | Steam | Account snapshot action, not a trigger | API key/Steam ID credential, identity override, owned/recent games, achievement app ID; simple fields use the shared inspector contract; live Steam→Chat execution reported | No claim that Steam OpenID is an API credential; no automatic event subscription. Verify other options and provider limits as needed. |
 | Google Chat | Incoming webhook send action | Separate webhook secret and message; notification adapter | OAuth action marked unavailable; no Chat trigger. Live Steam→Chat execution reported. |
 | Discord | Incoming webhook send action | Webhook credential, content, username, avatar, embeds and mention-policy JSON; adapter tests | Rich field editors and live delivery qualification need separate scope; webhook URL is a secret. |
@@ -49,6 +49,15 @@ enums rendered as selects; and boolean Steam options rendered through the
 shared inspector field contract. Telegram chat IDs and HTTP URLs remain manual
 by design, with provider-specific guidance or generic-target semantics rather
 than invented discovery APIs.
+
+For GitHub, the connector credential is an authentication boundary, not an
+organization allowlist. The repository proxy returns only safe metadata and
+the picker exposes the owners visible in the loaded page; selecting an owner
+filters the proxy results case-insensitively. This explains why a classic token
+may show repositories outside the account name the owner expected. It does not
+expand the token's permissions or claim that a selected owner is trusted for
+webhook management; provider-managed webhook scope remains a separate
+lifecycle concern.
 
 This audit is an interaction/contract check, not a production qualification.
 Mock tests do not prove OAuth refresh, provider permissions, remote webhook

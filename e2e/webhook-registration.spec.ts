@@ -193,6 +193,7 @@ test("a lost rotation response clears the old secret and reloads endpoint status
 test("GitHub repository picker loads more pages and keeps the chosen value", async ({ page }) => {
   const graph = { nodes: [{ id: "github", type: "action.github", position: { x: 100, y: 100 }, config: { credentialId: "credential-1", repository: "", title: "Test" } }], edges: [] };
   const workflow = { id: "workflow-2", workspaceId: "workspace-1", name: "Picker test", description: null, isActive: false, draft: { id: "draft-1", version: 1, graph }, published: null };
+  let ownerRequest = "";
   await page.route("**/api/v1/**", async (route) => {
     const url = new URL(route.request().url());
     const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
@@ -200,7 +201,8 @@ test("GitHub repository picker loads more pages and keeps the chosen value", asy
     if (url.pathname.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
     if (url.pathname.endsWith("/credentials")) return send({ credentials: [{ id: "credential-1", provider: "GITHUB", label: "GitHub" }] });
     if (url.pathname.endsWith("/github/repositories")) {
-      return url.searchParams.get("page") === "2" ? send({ repositories: [{ id: 2, fullName: "owner/second", private: false }], nextPage: null }) : send({ repositories: [{ id: 1, fullName: "owner/first", private: false }], nextPage: 2 });
+      if (url.searchParams.get("owner") === "ithelpdesk") { ownerRequest = url.toString(); return send({ repositories: [{ id: 3, fullName: "ithelpdesk/owned", private: true }], repositoryOwners: ["ithelpdesk", "owner"], nextPage: null }); }
+      return url.searchParams.get("page") === "2" ? send({ repositories: [{ id: 2, fullName: "owner/second", private: false }], repositoryOwners: ["owner", "ithelpdesk"], nextPage: null }) : send({ repositories: [{ id: 1, fullName: "owner/first", private: false }], repositoryOwners: ["owner", "ithelpdesk"], nextPage: 2 });
     }
     if (url.pathname.endsWith("/workflows/workflow-2")) return send({ workflow });
     return route.continue();
@@ -213,6 +215,12 @@ test("GitHub repository picker loads more pages and keeps the chosen value", asy
   expect(searchBox).not.toBeNull();
   expect(selectBox).not.toBeNull();
   expect(selectBox!.y - (searchBox!.y + searchBox!.height)).toBeGreaterThanOrEqual(6);
+  await expect(picker.getByLabel("Repository owner")).toHaveValue("");
+  await picker.getByLabel("Repository owner").selectOption("ithelpdesk");
+  await expect(picker.getByLabel("Repository", { exact: true })).toContainText("ithelpdesk/owned");
+  await picker.getByLabel("Repository", { exact: true }).selectOption("ithelpdesk/owned");
+  expect(ownerRequest).toContain("owner=ithelpdesk");
+  await picker.getByLabel("Repository owner").selectOption("");
   await expect(picker.getByRole("button", { name: "Load more repositories" })).toBeVisible();
   await picker.getByRole("button", { name: "Load more repositories" }).click();
   await picker.getByLabel("Repository", { exact: true }).selectOption("owner/second");
