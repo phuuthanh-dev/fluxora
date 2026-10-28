@@ -3,6 +3,7 @@ import { BadRequestException, ConflictException, Inject, Injectable, NotFoundExc
 import { PrismaService } from "../database/prisma.service";
 import { WorkspaceService } from "../workspaces/workspace.service";
 import { CredentialVaultService } from "./credential-vault.service";
+import { validateSmtpCredentialData } from "../execution/smtp-email";
 
 const providers = new Set(Object.values(CredentialProvider));
 const googleRefreshSkewMs = 60_000;
@@ -45,6 +46,7 @@ export class CredentialService {
     await this.workspaces.requireOwner(workspaceId, userId);
     if (!providers.has(input.provider as CredentialProvider)) throw new BadRequestException({ code: "CREDENTIAL_PROVIDER_NOT_FOUND", message: "Credential provider is not supported." });
     if (!input.data || typeof input.data !== "object" || Array.isArray(input.data)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Credential data must be a JSON object." });
+    validateCredentialPayload(input.provider as CredentialProvider, input.data as Record<string, unknown>);
 
     const trimmedLabel = input.label.trim();
     if (isCanonicalGoogleOAuth({ provider: input.provider as CredentialProvider, label: trimmedLabel })) {
@@ -128,6 +130,7 @@ export class CredentialService {
         throw new BadRequestException({ code: "INVALID_INPUT", message: "Credential data must be a JSON object." });
       }
       let replacementData = input.data as Record<string, unknown>;
+      validateCredentialPayload(credential.provider, replacementData);
       if (credential.provider === CredentialProvider.GITHUB && replacementData.webhookSecret === undefined) {
         const existingData = this.vault.decrypt(credential.encryptedData);
         if (typeof existingData.webhookSecret === "string") replacementData = { ...replacementData, webhookSecret: existingData.webhookSecret };
@@ -343,6 +346,18 @@ function requiredEnv(name: "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET") {
   const value = process.env[name];
   if (!value) throw new BadRequestException({ code: "GOOGLE_OAUTH_NOT_CONFIGURED", message: `${name} is not configured.` });
   return value;
+}
+
+function validateCredentialPayload(provider: CredentialProvider, data: Record<string, unknown>) {
+  if (provider !== CredentialProvider.SMTP) return;
+  try {
+    validateSmtpCredentialData(data);
+  } catch (reason) {
+    throw new BadRequestException({
+      code: "INVALID_INPUT",
+      message: reason instanceof Error ? reason.message : "SMTP credential is invalid.",
+    });
+  }
 }
 
 function graphUsesCredential(graphValue: unknown, credentialId: string): boolean {

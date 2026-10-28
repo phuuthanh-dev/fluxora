@@ -32,11 +32,9 @@ production migrations noted in the earlier slices were applied. A GitHub Push
 trigger-only live qualification succeeded on 2026-10-28. Consult the latest
 slice report and verify the current Git/GitHub state before planning work.
 
-Current production incident: deploy run `40696163966` for merged PR #34 passed
-the database migration but left API/worker unhealthy because Nest could not
-construct `GitHubWebhookAdapter`. Do not treat that release as healthy or
-attempt provider qualification until the application-bootstrap repair is
-verified, reviewed, and deployed.
+The application-bootstrap repair merged as PR #35 and production deploy run
+`40703958116` completed with healthy API and web readiness. This is deployment
+evidence only; it does not substitute for future provider-specific smoke tests.
 
 | Field | Value |
 |---|---|
@@ -66,6 +64,7 @@ verified, reviewed, and deployed.
 - `WEBHOOK-UI-POLISH-1` — Resource pickers separate search/select/manual entry and webhook setup is reachable from the selected trigger with published-version and multiple-draft safeguards. The owner-approved GitHub Push qualification for `phuuthanh-dev/math-util` returned HTTP 201 for the signed ping and branch push, and the pinned live trigger execution succeeded; action nodes and sustained stability remain unverified. See `.agent/reports/2026-10-28-webhook-ui-polish.md`.
 - `GH-PICKER-OWNER-1` — GitHub repository picker filters loaded results by owner, preserves filtered/unloaded values, and explicitly avoids implying permissions. The provider query and credential scope were not changed; focused and full-gate evidence is recorded in `.agent/reports/2026-10-28-github-picker-owner.md`.
 - `LIVE-1` — The owner-approved live smoke was rerun after rotating the Steam credential. Published workflow v13 succeeded for the connected Steam, Google Chat, Discord, and Telegram nodes; Google Drive remains unqualified because it is disconnected from the graph. Evidence is recorded in `.agent/reports/2026-10-28-live-provider-smoke.md`.
+- `EMAIL-SMTP-1` — Dedicated SMTP Email action is implemented locally with encrypted `SMTP` credentials, TLS-only submission policy, mock/live contract, redaction and provider-failure classification. It has no owner-approved SMTP provider smoke yet; attachments, Gmail OAuth, bulk sending and inbound email are intentionally out of scope.
 
 ## Next approved slices
 

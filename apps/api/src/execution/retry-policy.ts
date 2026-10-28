@@ -4,7 +4,8 @@ export type RetryableFailure = {
 };
 
 export function isRetryableFailure(failure: RetryableFailure) {
-  return failure.code === "NETWORK_ERROR" || failure.code === "TIMEOUT" || failure.statusCode === 429 || (failure.statusCode !== undefined && failure.statusCode >= 500 && failure.statusCode <= 599);
+  if (failure.code === "SMTP_AUTH_FAILED" || failure.code === "SMTP_REJECTED") return false;
+  return failure.code === "NETWORK_ERROR" || failure.code === "TIMEOUT" || failure.code === "SMTP_TEMPORARY" || failure.statusCode === 429 || (failure.statusCode !== undefined && failure.statusCode >= 500 && failure.statusCode <= 599);
 }
 
 export function retryDelayMs(attempt: number) {

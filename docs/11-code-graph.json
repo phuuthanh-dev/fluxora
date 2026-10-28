@@ -222,6 +222,7 @@
       "internalImports": [
         "apps/api/src/credentials/credential-vault.service.ts",
         "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/smtp-email.ts",
         "apps/api/src/workspaces/workspace.service.ts"
       ],
       "externalImports": [
@@ -398,6 +399,7 @@
         "apps/api/src/execution/redaction.ts",
         "apps/api/src/execution/retention-policy.ts",
         "apps/api/src/execution/retry-policy.ts",
+        "apps/api/src/execution/smtp-email.ts",
         "apps/api/src/workflows/workflow-graph.ts"
       ],
       "externalImports": [
@@ -466,6 +468,21 @@
       "boundary": "api",
       "internalImports": [],
       "externalImports": []
+    },
+    {
+      "id": "apps/api/src/execution/smtp-email.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts"
+      ],
+      "externalImports": [
+        "), ",
+        "@prisma/client",
+        "node:net",
+        "nodemailer"
+      ]
     },
     {
       "id": "apps/api/src/execution/worker-concurrency.ts",
@@ -1158,6 +1175,7 @@
         "apps/web/src/features/credentials/credential-types.ts"
       ],
       "externalImports": [
+        ": ",
         "lucide-react",
         "react"
       ]
@@ -1607,6 +1625,10 @@
     },
     {
       "from": "apps/api/src/credentials/credential.service.ts",
+      "to": "apps/api/src/execution/smtp-email.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.service.ts",
       "to": "apps/api/src/workspaces/workspace.service.ts"
     },
     {
@@ -1779,10 +1801,26 @@
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/smtp-email.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/workflows/workflow-graph.ts"
     },
     {
       "from": "apps/api/src/execution/node-failure.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/smtp-email.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/smtp-email.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/smtp-email.ts",
       "to": "apps/api/src/execution/outbound-url-policy.ts"
     },
     {

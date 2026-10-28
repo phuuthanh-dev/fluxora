@@ -56,15 +56,17 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   await page.getByRole("button", { name: "Encrypt & save" }).click();
   await expect(page.getByText("Credential encrypted and saved. Select it from a compatible node in the editor.")).toBeVisible();
 
-  // Verify credential card actions exist
+  // Credential actions are grouped in a compact, accessible menu.
   const primaryCard = page.locator(`li[data-credential-id="${discordCred.credential.id}"]`);
   await expect(primaryCard).toBeVisible();
-  await expect(primaryCard.getByRole("button", { name: "Rename Discord Primary Alerts" })).toBeVisible();
-  await expect(primaryCard.getByRole("button", { name: "Rotate secret for Discord Primary Alerts" })).toBeVisible();
-  await expect(primaryCard.getByRole("button", { name: "Delete Discord Primary Alerts" })).toBeVisible();
+  const openActions = async (name: string) => {
+    await primaryCard.getByLabel("Actions for Discord Primary Alerts actions").click();
+    await expect(primaryCard.getByRole("menu")).toBeVisible();
+    await primaryCard.getByRole("button", { name }).click();
+  };
 
   // 3. Rename credential conflict test
-  await primaryCard.getByRole("button", { name: "Rename Discord Primary Alerts" }).click();
+  await openActions("Rename Discord Primary Alerts");
   await expect(primaryCard.getByText("Not used by any current workflow or active execution.")).toBeVisible();
   await expect(primaryCard.getByLabel("New connection name")).toHaveValue("Discord Primary Alerts");
   // Attempt to rename to the other credential's name
@@ -82,6 +84,7 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   await expect(primaryCard.locator("strong")).toHaveText("Discord Ops Main");
 
   // 4. Secret rotation test
+  await primaryCard.getByLabel("Actions for Discord Ops Main actions").click();
   await primaryCard.getByRole("button", { name: "Rotate secret for Discord Ops Main" }).click();
   await expect(primaryCard.getByText("Existing secret values cannot be displayed for security. Enter a complete replacement JSON payload.")).toBeVisible();
 
@@ -118,6 +121,7 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   await page.getByRole("button", { name: "Credentials" }).click();
 
   // 6. Safe deletion test: delete must be blocked by the workflow draft reference
+  await primaryCard.getByLabel("Actions for Discord Ops Main actions").click();
   await primaryCard.getByRole("button", { name: "Delete Discord Ops Main" }).click();
   await expect(primaryCard.getByText("Current workflows")).toBeVisible();
   await expect(primaryCard.getByText("draft", { exact: true })).toBeVisible();
@@ -138,6 +142,7 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   // 7. Delete unreferenced credential succeeds
   // "Discord Secondary Alerts" is not referenced anywhere in any workflow
   const secondaryCard = page.locator("li.credential-card").filter({ hasText: "Discord Secondary Alerts" });
+  await secondaryCard.getByLabel("Actions for Discord Secondary Alerts actions").click();
   await secondaryCard.getByRole("button", { name: "Delete Discord Secondary Alerts" }).click();
   const successfulDeletePromise = page.waitForResponse((res) => res.request().method() === "DELETE");
   await secondaryCard.getByRole("button", { name: "Confirm delete", exact: true }).click();
@@ -156,6 +161,7 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   await page.getByLabel("Manage actions").click();
   await page.getByRole("button", { name: "Credentials" }).click();
 
+  await primaryCard.getByLabel("Actions for Discord Ops Main actions").click();
   await primaryCard.getByRole("button", { name: "Delete Discord Ops Main" }).click();
   const primaryDeletePromise = page.waitForResponse((res) => res.request().method() === "DELETE" && res.url().includes(discordCred.credential.id));
   await primaryCard.getByRole("button", { name: "Confirm delete", exact: true }).click();
@@ -206,10 +212,11 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   await page.getByLabel("Manage actions").click();
   await page.getByRole("button", { name: "Credentials" }).click();
 
-  // Verify the manual "OAuth backup" card displays Rename, Rotate secret, and Delete actions
+  // Verify the manual "OAuth backup" card keeps its actions in the compact menu.
   const oauthBackupCard = page.locator(`li[data-credential-id="${oauthBackupCred.credential.id}"]`);
   await expect(oauthBackupCard).toBeVisible();
-  await expect(oauthBackupCard.getByText("Managed by Google OAuth")).toHaveCount(0);
+  await expect(oauthBackupCard.getByText("Managed OAuth")).toHaveCount(0);
+  await oauthBackupCard.getByLabel("Actions for OAuth backup actions").click();
   await expect(oauthBackupCard.getByRole("button", { name: "Rename OAuth backup" })).toBeVisible();
   await expect(oauthBackupCard.getByRole("button", { name: "Rotate secret for OAuth backup" })).toBeVisible();
   await expect(oauthBackupCard.getByRole("button", { name: "Delete OAuth backup" })).toBeVisible();
@@ -217,8 +224,8 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   // Verify the canonical "Google OAuth" card displays managed state and no Rename/Rotate/Delete buttons
   const googleOAuthCard = page.locator(`li[data-credential-id="${googleOAuthCred.id}"]`);
   await expect(googleOAuthCard).toBeVisible();
-  await expect(googleOAuthCard.getByText("Managed by Google OAuth")).toBeVisible();
-  await expect(googleOAuthCard.getByRole("button", { name: "Reconnect Google OAuth" })).toBeVisible();
+  await expect(googleOAuthCard.getByText("Managed OAuth")).toBeVisible();
+  await expect(googleOAuthCard.getByRole("button", { name: "Reconnect Google" })).toBeVisible();
   await expect(googleOAuthCard.getByRole("button", { name: /Rename/ })).toHaveCount(0);
   await expect(googleOAuthCard.getByRole("button", { name: /Rotate/ })).toHaveCount(0);
   await expect(googleOAuthCard.getByRole("button", { name: /Delete/ })).toHaveCount(0);
@@ -256,6 +263,7 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
 
   const legacyTgCard = page.locator(`li[data-credential-id="${legacyTgCred.credential.id}"]`);
   await expect(legacyTgCard).toBeVisible();
+  await legacyTgCard.getByLabel("Actions for Legacy Telegram Ops actions").click();
   await legacyTgCard.getByRole("button", { name: "Rotate secret for Legacy Telegram Ops" }).click();
 
   // Verify UI explainer for Telegram bot token rotation preserving legacy fallback
