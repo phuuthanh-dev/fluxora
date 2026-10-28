@@ -127,3 +127,13 @@ system production-ready, the release checklist still needs:
 
 These are external-boundary checks and must not be simulated by changing the
 catalog's `available` flags.
+
+## Current runtime evidence
+
+The read-only follow-up in
+[`2026-10-28-current-runtime-audit.md`](../.agent/reports/2026-10-28-current-runtime-audit.md)
+confirmed public liveness/readiness and healthy production containers, but also
+confirmed that the VPS image SHA differs from the current connector branch and
+that the VPS checkout contains deployment/backup drift plus a running staging
+stack. This is operational evidence only; it does not upgrade mocked connector
+tests into live-provider proof or justify a final production Go decision.
