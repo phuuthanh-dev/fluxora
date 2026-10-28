@@ -223,7 +223,7 @@ test("GitHub repository picker loads more pages and keeps the chosen value", asy
 });
 
 test("Google Sheets picker selects a spreadsheet and supports manual input", async ({ page }) => {
-  const graph = { nodes: [{ id: "sheets", type: "action.google-sheets", position: { x: 100, y: 100 }, config: { credentialId: "google-1", spreadsheetId: "", operation: "read", range: "Sheet1!A1", values: [["retained", "row"]] } }], edges: [] };
+  const graph = { nodes: [{ id: "sheets", type: "action.google-sheets", position: { x: 100, y: 100 }, config: { credentialId: "google-1", spreadsheetId: "", operation: "read", range: "Sheet1!A1", values: [["retained, comma", 42], ["second row", true]] } }], edges: [] };
   const workflow = { id: "workflow-3", workspaceId: "workspace-1", name: "Sheets test", description: null, isActive: false, draft: { id: "draft-1", version: 1, graph }, published: null };
   await page.route("**/api/v1/**", async (route) => {
     const url = new URL(route.request().url());
@@ -237,13 +237,20 @@ test("Google Sheets picker selects a spreadsheet and supports manual input", asy
   });
   await page.goto("/editor?workflow=workflow-3");
   await page.locator(".react-flow__node").filter({ hasText: "Read or write rows" }).click();
-  await expect(page.getByLabel("Values (one row, comma-separated)")).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "Sheet values" })).toHaveCount(0);
   await page.getByLabel("Operation", { exact: true }).selectOption("append");
-  await expect(page.getByLabel("Values (one row, comma-separated)")).toHaveValue("retained, row");
+  await expect(page.getByLabel("Row 1, column 1")).toHaveValue("retained, comma");
+  await expect(page.getByLabel("Row 2, column 1")).toHaveValue("second row");
+  await page.getByLabel("Row 1, column 1").fill("hello, world");
+  const changedValues = JSON.parse(await page.getByLabel("Node JSON configuration").inputValue()).values;
+  expect(changedValues).toEqual([["hello, world", 42], ["second row", true]]);
   await page.getByLabel("Operation", { exact: true }).selectOption("read");
-  await expect(page.getByLabel("Values (one row, comma-separated)")).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "Sheet values" })).toHaveCount(0);
   await page.getByLabel("Operation", { exact: true }).selectOption("update");
-  await expect(page.getByLabel("Values (one row, comma-separated)")).toHaveValue("retained, row");
+  await expect(page.getByLabel("Row 1, column 1")).toHaveValue("hello, world");
+  await page.getByRole("button", { name: "Add row" }).click();
+  await page.getByRole("button", { name: "Add column" }).click();
+  await expect(page.getByLabel("Row 3, column 3")).toBeVisible();
   const picker = page.getByRole("group", { name: "Spreadsheet", exact: true });
   await picker.getByRole("button", { name: "Load more spreadsheets" }).click();
   await picker.getByLabel("Spreadsheet", { exact: true }).selectOption("sheet-2");

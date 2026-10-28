@@ -170,6 +170,13 @@ button:focus-visible, summary:focus-visible { outline: 3px solid rgba(214, 255, 
 .resource-picker input, .resource-picker select { min-width: 0; text-overflow: ellipsis; }
 .resource-picker small { font-size: 12px; margin: 0; }
 .resource-picker .resource-picker__mode, .inspector-webhook-setup__action { border-color: transparent; color: var(--text-accent); font-size: 12px; justify-self: start; min-height: 32px; padding: 4px 2px; }
+.sheets-values-editor { display: grid; gap: 8px; min-width: 0; }
+.sheets-values-editor small { color: var(--muted); font-size: 12px; line-height: 1.4; }
+.sheets-values-editor__grid { display: grid; gap: 6px; overflow-x: auto; }
+.sheets-values-editor__row { display: flex; gap: 6px; }
+.sheets-values-editor__row input { flex: 0 0 120px; min-width: 0; }
+.sheets-values-editor__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.sheets-values-editor__actions .ui-button { color: var(--ink); }
 .inspector-webhook-setup { display: grid; gap: 6px; }
 .inspector-webhook-setup__action { justify-self: start; }
 .webhook-endpoint-panel__help, .webhook-endpoint-panel__notice, .webhook-endpoint-panel__confirmation { font-size: 12px; line-height: 1.5; }

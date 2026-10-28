@@ -4,4 +4,6 @@
 
 The focused suite passed 9 Playwright tests, including operation switching and preservation. The first full `npm run verify` had 38 passes and one editor navigation timeout unrelated to the modified fields; a second complete run passed all 39 Playwright tests and the preceding quality checks. No real provider requests or production writes were performed for this change.
 
-This is one slice of the broader connector goal. Automatic GitHub webhook lifecycle remains on a separate unfinished branch; PR #32 is separate and unmerged. Multi-row Sheets editing, other connector UX and provider-specific production qualification remain open.
+This is one slice of the broader connector goal. Automatic GitHub webhook lifecycle remains on a separate unfinished branch; PR #32 is separate and unmerged. Other connector UX and provider-specific production qualification remain open.
+
+Follow-up on the same branch replaces comma-splitting with a cell-based editor that supports multiple rows and columns, preserving untouched values and their types. Focused browser tests include commas and multiple rows; 39 Playwright tests passed in a fresh `npm run verify` after visual inspection and a light-mode button contrast fix. Row/column removal currently requires Advanced JSON; live Sheets write semantics have not been qualified.

@@ -14,6 +14,7 @@ Audit existing app connectors and make Google Drive and Sheets inspector fields 
 ## Scope
 - Record evidence and production gaps per connector in docs.
 - Show Drive and Sheets configuration fields only for their relevant operation; preserve all stored values.
+- Replace the lossy comma-split Sheets input with an accessible multi-row, multi-column editor that preserves untouched cells and existing graphs.
 - Add browser regression coverage; do not change provider transport, credentials, or live data.
 
 ## Required evidence

@@ -65,7 +65,7 @@ one of these IDs or explicitly reopen a completed ledger slice.
 | `LIVE-1` | Validate one explicitly approved real Steam → Google Chat run plus configured OAuth callbacks | owner-input-required | Requires user credentials and explicit external-side-effect approval |
 | `GH-PICKER-OWNER-1` | Clarify GitHub repository owner filtering | pending | PR #32 is open; not included on main |
 | `GH-HOOK-AUTO-1` | Automatically manage GitHub repository webhooks using owner credentials | pending | Adapter on separate branch; lifecycle, persistence and UI remain |
-| `CONNECTOR-CONFIG-1` | Audit connectors and make Google Drive and Sheets fields operation-aware | pending | Preserve existing saved graphs and production behavior |
+| `CONNECTOR-CONFIG-1` | Audit connectors and make Google Drive and Sheets fields operation-aware | pending | Preserve existing graphs and multi-row values; PR #33 in progress |
 
 ## Closed boundary
 

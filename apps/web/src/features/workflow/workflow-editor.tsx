@@ -99,10 +99,26 @@ function useNarrowEditorLayout() {
   return isNarrow;
 }
 
-function readFirstRow(config: Record<string, unknown>) {
-  const values = config.values;
-  if (!Array.isArray(values) || !Array.isArray(values[0])) return "";
-  return values[0].map((value) => String(value ?? "")).join(", ");
+function SheetsValuesEditor({ value, onChange }: { value: unknown; onChange: (value: unknown[][]) => void }) {
+  if (value !== undefined && (!Array.isArray(value) || !value.every(Array.isArray))) {
+    return <Status tone="warning">Values must be a table of rows. Correct the existing value in Advanced JSON before editing here.</Status>;
+  }
+  const rows: unknown[][] = Array.isArray(value) && value.length ? value : [[""]];
+  const columns = Math.max(1, ...rows.map((row) => row.length));
+  const editCell = (rowIndex: number, columnIndex: number, nextValue: string) => {
+    const next = rows.map((row) => [...row]);
+    const row = next[rowIndex];
+    if (!row) return;
+    while (row.length <= columnIndex) row.push("");
+    row[columnIndex] = nextValue;
+    onChange(next);
+  };
+  return <div className="config-field sheets-values-editor" role="group" aria-label="Sheet values">
+    <span className="ui-field__label">Values</span>
+    <small>Each field is one cell. Expressions are supported; existing values stay unchanged until edited.</small>
+    <div className="sheets-values-editor__grid">{rows.map((row, rowIndex) => <div className="sheets-values-editor__row" key={rowIndex}>{Array.from({ length: columns }, (_, columnIndex) => <input key={columnIndex} aria-label={`Row ${rowIndex + 1}, column ${columnIndex + 1}`} value={row[columnIndex] == null ? "" : typeof row[columnIndex] === "object" ? JSON.stringify(row[columnIndex]) : String(row[columnIndex])} onChange={(event) => editCell(rowIndex, columnIndex, event.target.value)} />)}</div>)}</div>
+    <div className="sheets-values-editor__actions"><Button type="button" variant="ghost" onClick={() => onChange([...rows.map((row) => [...row]), Array.from({ length: columns }, () => "")])}>Add row</Button><Button type="button" variant="ghost" onClick={() => onChange(rows.map((row) => [...row, ...Array.from({ length: columns - row.length }, () => ""), ""]))}>Add column</Button></div>
+  </div>;
 }
 
 function ConfigField({ label, value, onChange, multiline = false, inputMode }: {
@@ -593,7 +609,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, onResolveApp
         <ResourcePicker workspaceId={workspaceId} resource="google-file" credentialId={readConfigText(node.data.config, "credentialId")} label="Text file" value={readConfigText(node.data.config, "fileId")} placeholder="Search loaded text files" allowExpression onChange={(value) => updateConfig("fileId", value)} /> :
         readConfigText(node.data.config, "operation") === "search" ? <ConfigField label="Search query" value={readConfigText(node.data.config, "query")} onChange={(value) => updateConfig("query", value)} /> : null)}
       {node.data.nodeType === "action.google-sheets" && ["append", "update"].includes(readConfigText(node.data.config, "operation")) && (
-        <ConfigField label="Values (one row, comma-separated)" value={readFirstRow(node.data.config)} onChange={(value) => updateConfig("values", [value.split(",").map((cell) => cell.trim())])} />
+        <SheetsValuesEditor value={node.data.config.values} onChange={(value) => updateConfig("values", value)} />
       )}
       {node.data.nodeType === "condition.if" && (
         <>
