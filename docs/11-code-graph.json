@@ -1235,6 +1235,15 @@
       ]
     },
     {
+      "id": "apps/web/src/features/marketing/landing-interactions.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "lucide-react",
+        "react"
+      ]
+    },
+    {
       "id": "apps/web/src/features/marketing/landing-motion.tsx",
       "boundary": "web",
       "internalImports": [],
@@ -1248,6 +1257,7 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/components/brand/fluxora-mark.tsx",
+        "apps/web/src/features/marketing/landing-interactions.tsx",
         "apps/web/src/features/marketing/landing-motion.tsx",
         "apps/web/src/features/marketing/landing-scenes.tsx"
       ],
@@ -2453,6 +2463,10 @@
     {
       "from": "apps/web/src/features/marketing/landing-page.tsx",
       "to": "apps/web/src/components/brand/fluxora-mark.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-page.tsx",
+      "to": "apps/web/src/features/marketing/landing-interactions.tsx"
     },
     {
       "from": "apps/web/src/features/marketing/landing-page.tsx",

@@ -101,6 +101,13 @@ resource-picker foundation.
   hidden, reduce-motion and no-WebGL paths stay semantic HTML/CSS, and no
   authenticated product surface imports the animation stack. Focused fallback
   Playwright, desktop/mobile visual review, and the full quality gate passed.
+- `LANDING-V2-1` through `LANDING-V2-4` — Fluxora’s clean-room public landing
+  now includes responsive navigation, hero/product proof, a readable workflow
+  narrative, lifecycle, illustrative usage planning, FAQ disclosure, CTA, and
+  footer. It keeps the bounded landing-only R3F islands and intentionally does
+  not import Relay source/media, add scroll hijacking, or imply commercial
+  pricing. Focused public-landing coverage, desktop/iPhone visual review, and
+  the full quality gate passed.
 
 ## Non-negotiable loop
 

@@ -134,6 +134,11 @@ authentication screens remain HTML/CSS application surfaces.
   video without a measured product need and an updated performance budget.
 - Never use a canvas as the only indicator of a live status, execution result,
   or interaction. Every state remains textual and keyboard-accessible.
+
+The public landing information architecture and its explicit clean-room
+boundaries are recorded in `docs/22-public-landing-v2.md`. Treat that document
+as the route-level contract before expanding the landing; do not import a
+third-party renderer, media asset, font, copy, or claimed pricing model.
 11. **Theme parity:** every new surface must be readable in both
     `data-theme="light"` and `data-theme="dark"`; do not use a hard-coded white
     or black background for product UI.
