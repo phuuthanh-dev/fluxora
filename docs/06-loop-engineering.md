@@ -104,6 +104,7 @@ CI runs the same gate for every pull request and push to `main`.
 | L11.15 | Reusable node resource-picker foundation | Complete locally | Static enum selects, an authenticated provider-resource picker, GitHub repository selection, optional repository-scoped webhook filtering, focused tests, and the full quality gate passed; no real provider calls were made. |
 | L11.16 | GitHub registration secret and inspector UX | Complete locally | Per-endpoint encrypted signing secrets preserve legacy verification until rotation; the inspector has compact theme-aware guidance and endpoint loading/error/rotation states. Unit tests and full quality gate passed; migration and live webhook validation remain outstanding. |
 | L11.17 | GitHub repository picker pagination | Complete locally | Owner-scoped, bounded API pages and picker load-more, retry, selected-value preservation, and manual/expression modes have mocked provider and browser coverage. Full quality gate passed; real provider validation remains outstanding. |
+| L11.18 | Execution triage server filtering | Complete locally | The dedicated Executions page applies status filters before cursor pagination, retains workspace authorization, and reports loaded counts accurately. Focused API/browser tests and the full quality gate passed; saved views and retention visibility remain in OPS-2. |
 
 ## External-boundary rule
 

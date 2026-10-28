@@ -204,6 +204,18 @@ test("execution history uses an owner-scoped stable cursor page", async () => {
   });
 });
 
+test("execution triage applies status filter within the workspace query before pagination", async () => {
+  let query: { where?: unknown; take?: number; cursor?: unknown } | undefined;
+  const service = new ExecutionService({
+    workspaceMember: { findUnique: async () => ({ role: "OWNER" }) },
+    execution: { findMany: async (input: typeof query) => { query = input; return []; } },
+  } as never, {} as never, {} as never);
+  await service.listForWorkspace("workspace-1", "owner-1", 30, "cursor-1", "ATTENTION");
+  assert.deepEqual(query?.where, { workflowVersion: { workflow: { workspaceId: "workspace-1" } }, status: { in: [ExecutionStatus.FAILED, ExecutionStatus.WAITING_APPROVAL] } });
+  assert.equal(query?.take, 31);
+  assert.deepEqual(query?.cursor, { id: "cursor-1" });
+});
+
 test("diagnostic snapshot is deterministic, owner-scoped, and excludes execution payload secrets", async () => {
   const queries: unknown[] = [];
   const execution = {

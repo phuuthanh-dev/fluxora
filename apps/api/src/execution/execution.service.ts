@@ -14,6 +14,7 @@ import { parseWorkflowGraph } from "../workflows/workflow-graph";
 import { liveCredentialRequirements } from "./live-readiness";
 
 type RunMode = "mock" | "live";
+export type ExecutionTriageFilter = "ALL" | "ATTENTION" | "IN_PROGRESS" | "FAILED" | "SUCCEEDED";
 type NodeResult = { status: "succeeded" | "failed" | "waiting"; output: Record<string, unknown>; route?: WorkflowEdgeKind; error?: NodeFailure };
 const executionLeaseMs = 5 * 60 * 1000;
 
@@ -174,12 +175,18 @@ export class ExecutionService {
     return execution;
   }
 
-  async listForWorkspace(workspaceId: string, userId: string, limit = 20, cursor?: string) {
+  async listForWorkspace(workspaceId: string, userId: string, limit = 20, cursor?: string, filter: ExecutionTriageFilter = "ALL") {
     const membership = await this.prisma.workspaceMember.findUnique({ where: { workspaceId_userId: { workspaceId, userId } } });
     if (!membership || membership.role !== "OWNER") throw new NotFoundException({ code: "WORKSPACE_NOT_FOUND", message: "Workspace was not found." });
     const take = Math.min(Math.max(limit, 1), 50);
+    const statuses: Record<Exclude<ExecutionTriageFilter, "ALL">, ExecutionStatus[]> = {
+      ATTENTION: [ExecutionStatus.FAILED, ExecutionStatus.WAITING_APPROVAL],
+      IN_PROGRESS: [ExecutionStatus.QUEUED, ExecutionStatus.RUNNING],
+      FAILED: [ExecutionStatus.FAILED],
+      SUCCEEDED: [ExecutionStatus.SUCCEEDED],
+    };
     const executions = await this.prisma.execution.findMany({
-      where: { workflowVersion: { workflow: { workspaceId } } },
+      where: { workflowVersion: { workflow: { workspaceId } }, ...(filter === "ALL" ? {} : { status: { in: statuses[filter] } }) },
       include: { workflowVersion: { include: { workflow: true } } },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: take + 1,

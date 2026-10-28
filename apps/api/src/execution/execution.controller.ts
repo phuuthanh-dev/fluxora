@@ -2,7 +2,7 @@ import { BadRequestException, Controller, Get, Inject, Param, Post, Query, Req, 
 import { from, switchMap } from "rxjs";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
-import { ExecutionService } from "./execution.service";
+import { ExecutionService, type ExecutionTriageFilter } from "./execution.service";
 import { ExecutionQueueService } from "./execution-queue.service";
 import { ExecutionEventsService } from "./execution-events.service";
 
@@ -47,8 +47,9 @@ export class ExecutionController {
   }
 
   @Get("workspaces/:workspaceId/executions")
-  async listForWorkspace(@Param("workspaceId") workspaceId: string, @Query("cursor") cursor: string | undefined, @Query("limit") limit: string | undefined, @Req() request: AuthenticatedRequest) {
-    const page = await this.executions.listForWorkspace(workspaceId, requireUserId(request), readExecutionLimit(limit), cursor);
+  async listForWorkspace(@Param("workspaceId") workspaceId: string, @Query("cursor") cursor: string | undefined, @Query("limit") limit: string | undefined, @Req() request: AuthenticatedRequest, @Query("filter") filter?: string) {
+    const selectedFilter = readExecutionFilter(filter);
+    const page = selectedFilter === "ALL" ? await this.executions.listForWorkspace(workspaceId, requireUserId(request), readExecutionLimit(limit), cursor) : await this.executions.listForWorkspace(workspaceId, requireUserId(request), readExecutionLimit(limit), cursor, selectedFilter);
     return page;
   }
 
@@ -66,6 +67,12 @@ export class ExecutionController {
   eventsForExecution(@Param("executionId") executionId: string, @Req() request: AuthenticatedRequest) {
     return from(this.executions.get(executionId, requireUserId(request))).pipe(switchMap(() => this.events.stream(executionId)));
   }
+}
+
+function readExecutionFilter(value: string | undefined): ExecutionTriageFilter {
+  if (!value || value === "ALL") return "ALL";
+  if (value === "ATTENTION" || value === "IN_PROGRESS" || value === "FAILED" || value === "SUCCEEDED") return value;
+  throw new BadRequestException({ code: "INVALID_FILTER", message: "Execution filter is not supported." });
 }
 
 function requireUserId(request: AuthenticatedRequest) {
