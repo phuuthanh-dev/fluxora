@@ -16,7 +16,7 @@ export type GitHubRepositoryResource = {
 export class GitHubResourceService {
   constructor(@Inject(CredentialService) private readonly credentials: CredentialService) {}
 
-  async listRepositories(workspaceId: string, credentialId: string, userId: string) {
+  async listRepositories(workspaceId: string, credentialId: string, userId: string, page = 1) {
     await this.credentials.requireOwner(workspaceId, userId);
     const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.GITHUB);
     const token = typeof credential.token === "string" ? credential.token.trim() : "";
@@ -24,7 +24,7 @@ export class GitHubResourceService {
 
     let response: Response;
     try {
-      response = await fetch("https://api.github.com/user/repos?per_page=100&sort=updated", {
+      response = await fetch(`https://api.github.com/user/repos?per_page=100&sort=updated&page=${page}`, {
         headers: {
           Accept: "application/vnd.github+json",
           Authorization: `Bearer ${token}`,
@@ -44,7 +44,8 @@ export class GitHubResourceService {
 
     const payload = await response.json().catch(() => null) as unknown;
     if (!Array.isArray(payload)) throw new BadRequestException({ code: "GITHUB_RESOURCE_INVALID", message: "GitHub returned an invalid repository list." });
-    return { repositories: payload.flatMap((item) => normalizeGitHubRepository(item)) };
+    const hasNext = /(?:^|,)\s*<[^>]+>\s*;\s*rel="next"/i.test(response.headers.get("link") ?? "");
+    return { repositories: payload.flatMap((item) => normalizeGitHubRepository(item)), nextPage: hasNext && page < 1000 ? page + 1 : null };
   }
 }
 

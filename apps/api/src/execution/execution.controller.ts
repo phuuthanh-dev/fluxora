@@ -1,8 +1,8 @@
-import { BadRequestException, Controller, Get, Inject, Param, Post, Query, Req, Sse, UseGuards } from "@nestjs/common";
+import { BadRequestException, Controller, Delete, Get, Inject, Param, Post, Query, Req, Sse, UseGuards } from "@nestjs/common";
 import { from, switchMap } from "rxjs";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
-import { ExecutionService } from "./execution.service";
+import { ExecutionService, type ExecutionTriageFilter } from "./execution.service";
 import { ExecutionQueueService } from "./execution-queue.service";
 import { ExecutionEventsService } from "./execution-events.service";
 
@@ -47,9 +47,33 @@ export class ExecutionController {
   }
 
   @Get("workspaces/:workspaceId/executions")
-  async listForWorkspace(@Param("workspaceId") workspaceId: string, @Query("cursor") cursor: string | undefined, @Query("limit") limit: string | undefined, @Req() request: AuthenticatedRequest) {
-    const page = await this.executions.listForWorkspace(workspaceId, requireUserId(request), readExecutionLimit(limit), cursor);
+  async listForWorkspace(@Param("workspaceId") workspaceId: string, @Query("cursor") cursor: string | undefined, @Query("limit") limit: string | undefined, @Req() request: AuthenticatedRequest, @Query("filter") filter?: string) {
+    const selectedFilter = readExecutionFilter(filter);
+    const page = selectedFilter === "ALL" ? await this.executions.listForWorkspace(workspaceId, requireUserId(request), readExecutionLimit(limit), cursor) : await this.executions.listForWorkspace(workspaceId, requireUserId(request), readExecutionLimit(limit), cursor, selectedFilter);
     return page;
+  }
+
+  @Get("workspaces/:workspaceId/execution-retention")
+  async retention(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest) {
+    return { retention: await this.executions.retentionForWorkspace(workspaceId, requireUserId(request)) };
+  }
+
+  @Get("workspaces/:workspaceId/execution-views")
+  async savedViews(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest) {
+    return { views: await this.executions.savedViews(workspaceId, requireUserId(request)) };
+  }
+
+  @Post("workspaces/:workspaceId/execution-views")
+  async createSavedView(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest) {
+    const body = request.body && typeof request.body === "object" && !Array.isArray(request.body) ? request.body as Record<string, unknown> : {};
+    if (typeof body.name !== "string" || !body.name.trim() || body.name.trim().length > 80) throw new BadRequestException({ code: "INVALID_INPUT", message: "View name must contain 1 to 80 characters." });
+    if (typeof body.filter !== "string") throw new BadRequestException({ code: "INVALID_FILTER", message: "Select an execution filter." });
+    return { view: await this.executions.createSavedView(workspaceId, requireUserId(request), body.name.trim(), readExecutionFilter(body.filter)) };
+  }
+
+  @Delete("workspaces/:workspaceId/execution-views/:viewId")
+  async deleteSavedView(@Param("workspaceId") workspaceId: string, @Param("viewId") viewId: string, @Req() request: AuthenticatedRequest) {
+    return this.executions.deleteSavedView(workspaceId, requireUserId(request), viewId);
   }
 
   @Get("workflows/:workflowId/live-readiness")
@@ -66,6 +90,12 @@ export class ExecutionController {
   eventsForExecution(@Param("executionId") executionId: string, @Req() request: AuthenticatedRequest) {
     return from(this.executions.get(executionId, requireUserId(request))).pipe(switchMap(() => this.events.stream(executionId)));
   }
+}
+
+function readExecutionFilter(value: string | undefined): ExecutionTriageFilter {
+  if (!value || value === "ALL") return "ALL";
+  if (value === "ATTENTION" || value === "IN_PROGRESS" || value === "FAILED" || value === "SUCCEEDED") return value;
+  throw new BadRequestException({ code: "INVALID_FILTER", message: "Execution filter is not supported." });
 }
 
 function requireUserId(request: AuthenticatedRequest) {

@@ -1,5 +1,5 @@
 import type { WorkflowEdge, WorkflowEdgeKind, WorkflowGraph, WorkflowNode } from "@workflow/contracts";
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { ApprovalRequestStatus, CredentialProvider, ExecutionStatus, NodeExecutionStatus, Prisma } from "@prisma/client";
 import { createHash, randomBytes } from "node:crypto";
 import { CredentialService } from "../credentials/credential.service";
@@ -12,8 +12,10 @@ import { redactValue } from "./redaction";
 import { isRetryableFailure, retryDelayMs } from "./retry-policy";
 import { parseWorkflowGraph } from "../workflows/workflow-graph";
 import { liveCredentialRequirements } from "./live-readiness";
+import { executionRetentionPolicy } from "./retention-policy";
 
 type RunMode = "mock" | "live";
+export type ExecutionTriageFilter = "ALL" | "ATTENTION" | "IN_PROGRESS" | "FAILED" | "SUCCEEDED";
 type NodeResult = { status: "succeeded" | "failed" | "waiting"; output: Record<string, unknown>; route?: WorkflowEdgeKind; error?: NodeFailure };
 const executionLeaseMs = 5 * 60 * 1000;
 
@@ -174,12 +176,18 @@ export class ExecutionService {
     return execution;
   }
 
-  async listForWorkspace(workspaceId: string, userId: string, limit = 20, cursor?: string) {
+  async listForWorkspace(workspaceId: string, userId: string, limit = 20, cursor?: string, filter: ExecutionTriageFilter = "ALL") {
     const membership = await this.prisma.workspaceMember.findUnique({ where: { workspaceId_userId: { workspaceId, userId } } });
     if (!membership || membership.role !== "OWNER") throw new NotFoundException({ code: "WORKSPACE_NOT_FOUND", message: "Workspace was not found." });
     const take = Math.min(Math.max(limit, 1), 50);
+    const statuses: Record<Exclude<ExecutionTriageFilter, "ALL">, ExecutionStatus[]> = {
+      ATTENTION: [ExecutionStatus.FAILED, ExecutionStatus.WAITING_APPROVAL],
+      IN_PROGRESS: [ExecutionStatus.QUEUED, ExecutionStatus.RUNNING],
+      FAILED: [ExecutionStatus.FAILED],
+      SUCCEEDED: [ExecutionStatus.SUCCEEDED],
+    };
     const executions = await this.prisma.execution.findMany({
-      where: { workflowVersion: { workflow: { workspaceId } } },
+      where: { workflowVersion: { workflow: { workspaceId } }, ...(filter === "ALL" ? {} : { status: { in: statuses[filter] } }) },
       include: { workflowVersion: { include: { workflow: true } } },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: take + 1,
@@ -201,6 +209,40 @@ export class ExecutionService {
       })),
       nextCursor: executions.length > take ? page.at(-1)?.id ?? null : null,
     };
+  }
+
+  async retentionForWorkspace(workspaceId: string, userId: string) {
+    const membership = await this.prisma.workspaceMember.findUnique({ where: { workspaceId_userId: { workspaceId, userId } } });
+    if (!membership || membership.role !== "OWNER") throw new NotFoundException({ code: "WORKSPACE_NOT_FOUND", message: "Workspace was not found." });
+    return { ...executionRetentionPolicy(), enabled: process.env.EXECUTION_MAINTENANCE_ENABLED !== "false", countScope: "system" as const };
+  }
+
+  async savedViews(workspaceId: string, userId: string) {
+    await this.requireExecutionWorkspaceOwner(workspaceId, userId);
+    return this.prisma.executionSavedView.findMany({ where: { workspaceId, userId }, select: { id: true, name: true, filter: true }, orderBy: { createdAt: "asc" }, take: 50 });
+  }
+
+  async createSavedView(workspaceId: string, userId: string, name: string, filter: ExecutionTriageFilter) {
+    await this.requireExecutionWorkspaceOwner(workspaceId, userId);
+    if (await this.prisma.executionSavedView.count({ where: { workspaceId, userId } }) >= 50) throw new BadRequestException({ code: "VIEW_LIMIT_REACHED", message: "You can save up to 50 views per workspace." });
+    try {
+      return await this.prisma.executionSavedView.create({ data: { workspaceId, userId, name, filter }, select: { id: true, name: true, filter: true } });
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "P2002") throw new ConflictException({ code: "VIEW_NAME_CONFLICT", message: "A saved view with this name already exists." });
+      throw error;
+    }
+  }
+
+  async deleteSavedView(workspaceId: string, userId: string, viewId: string) {
+    await this.requireExecutionWorkspaceOwner(workspaceId, userId);
+    const deleted = await this.prisma.executionSavedView.deleteMany({ where: { id: viewId, workspaceId, userId } });
+    if (!deleted.count) throw new NotFoundException({ code: "VIEW_NOT_FOUND", message: "Saved view was not found." });
+    return { deleted: true };
+  }
+
+  private async requireExecutionWorkspaceOwner(workspaceId: string, userId: string) {
+    const membership = await this.prisma.workspaceMember.findUnique({ where: { workspaceId_userId: { workspaceId, userId } } });
+    if (!membership || membership.role !== "OWNER") throw new NotFoundException({ code: "WORKSPACE_NOT_FOUND", message: "Workspace was not found." });
   }
 
   async getApproval(approvalId: string, userId: string) {

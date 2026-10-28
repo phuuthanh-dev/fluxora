@@ -128,6 +128,10 @@ export class CredentialService {
         throw new BadRequestException({ code: "INVALID_INPUT", message: "Credential data must be a JSON object." });
       }
       let replacementData = input.data as Record<string, unknown>;
+      if (credential.provider === CredentialProvider.GITHUB && replacementData.webhookSecret === undefined) {
+        const existingData = this.vault.decrypt(credential.encryptedData);
+        if (typeof existingData.webhookSecret === "string") replacementData = { ...replacementData, webhookSecret: existingData.webhookSecret };
+      }
       if (credential.provider === CredentialProvider.TELEGRAM_BOT && replacementData.chatId === undefined) {
         try {
           const existingData = this.vault.decrypt(credential.encryptedData);

@@ -73,6 +73,7 @@ model User {
   sessions        Session[]
   identities      AuthIdentity[]
   auditLogs       AuditLog[]
+  executionViews  ExecutionSavedView[]
 }
 
 model AuthIdentity {
@@ -113,6 +114,21 @@ model Workspace {
   workflows   Workflow[]
   credentials Credential[]
   auditLogs   AuditLog[]
+  executionViews ExecutionSavedView[]
+}
+
+model ExecutionSavedView {
+  id          String    @id @default(uuid())
+  workspaceId String
+  userId      String
+  name        String
+  filter      String
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId, name])
+  @@index([workspaceId, userId])
 }
 
 model WorkspaceMember {
@@ -244,6 +260,7 @@ model WebhookEndpoint {
   workflowVersionId String
   path         String   @unique
   secretHash   String?
+  encryptedSigningSecret String?
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

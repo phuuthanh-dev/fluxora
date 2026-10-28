@@ -62,7 +62,7 @@ import { ResourcePicker } from "./resource-picker";
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNode };
 
 type WorkflowVersionSummary = { id: string; version: number; status: "DRAFT" | "PUBLISHED"; createdAt: string; publishedAt: string | null; nodeCount: number };
-type WebhookEndpoint = { id: string; path: string; secretRequired: boolean; workflowVersionId: string; createdAt: string; updatedAt: string };
+type WebhookEndpoint = { id: string; path: string; secretRequired: boolean; signingMode?: "registration" | "legacy"; workflowVersionId: string; createdAt: string; updatedAt: string };
 type ApiApproval = { id: string; status: string; expiresAt: string; executionId: string; workflowId: string };
 type WorkspaceSummary = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
 type LiveReadinessRequirement = { nodeId: string; provider: CredentialProvider; credentialId: string | null; ready: boolean; reason: "MISSING_CREDENTIAL" | "CREDENTIAL_NOT_FOUND" | "CREDENTIAL_PROVIDER_MISMATCH" | null };
@@ -130,11 +130,12 @@ function readConfigurationFieldValue(config: Record<string, unknown>, field: Nod
     : readConfigText(config, field.key);
 }
 
-function NodeConfigurationFields({ fields, config, credentials, workspaceId, onChange }: {
+function NodeConfigurationFields({ fields, config, credentials, workspaceId, allowExpressions, onChange }: {
   fields: NodeConfigurationField[];
   config: Record<string, unknown>;
   credentials: CredentialSummary[];
   workspaceId: string;
+  allowExpressions: boolean;
   onChange: (key: string, value: unknown) => void;
 }) {
   return <>
@@ -144,7 +145,7 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, onC
         return <CredentialField key={field.key} label={field.label} value={value} providers={field.providers} credentials={credentials} onChange={(nextValue) => onChange(field.key, nextValue)} optional={field.optional} />;
       }
       if (field.kind === "resource") {
-        return <ResourcePicker key={field.key} workspaceId={workspaceId} resource={field.resource} credentialId={readConfigText(config, field.credentialKey)} label={field.label} value={value} placeholder={field.placeholder} onChange={(nextValue) => onChange(field.key, nextValue)} />;
+        return <ResourcePicker key={field.key} workspaceId={workspaceId} resource={field.resource} credentialId={readConfigText(config, field.credentialKey)} label={field.label} value={value} placeholder={field.placeholder} allowExpression={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       }
       if (field.kind === "select") {
         return <Field key={field.key} label={field.label} className="config-field"><Select aria-label={field.label} value={value} onChange={(event) => onChange(field.key, event.target.value)}>{field.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></Field>;
@@ -316,13 +317,19 @@ function WorkflowActivationPanel({ workflow, isSaving, readiness, loading, error
   return <Dialog label={isDeactivation ? "Deactivate workflow" : "Activate workflow"} className="go-live-panel" onClose={onClose}><div className="credential-panel__heading"><div><p className="section-label">WORKFLOW ACTIVATION</p><h2>{isDeactivation ? "Deactivate this workflow?" : "Activate this workflow?"}</h2></div><IconButton label="Close workflow activation" className="icon-button" onClick={onClose}>×</IconButton></div>{isDeactivation ? <p>Scheduled and webhook triggers will stop accepting new work. Existing executions are not cancelled.</p> : <p>Activation enables published Cron and Webhook triggers. It does not send a manual run now; use <strong>Run live</strong> when you want an immediate provider call.</p>}{!isDeactivation && !workflow.published && <p className="go-live-panel__warning">Publish this workflow first.</p>}{!isDeactivation && loading && <Status tone="info" className="go-live-panel__readiness" aria-busy="true"><LoaderCircle className="ui-spinner" size={15} /> Checking live credentials…</Status>}{!isDeactivation && error && <Status tone="error" className="go-live-panel__readiness">{error} <Button variant="ghost" onClick={onRefresh}>Retry check</Button></Status>}{!isDeactivation && !loading && !error && readiness?.ready && <Status tone="success" className="go-live-panel__readiness">All live integrations are configured.</Status>}{!isDeactivation && !loading && !error && readiness && !readiness.ready && <div className="go-live-panel__blockers"><Status tone="error" className="go-live-panel__readiness">Activation is blocked until these integrations are configured.</Status><ul>{blockers.map((requirement) => <li key={requirement.nodeId}><strong>{providerLabel(requirement.provider)}</strong><span>{reasonLabel(requirement.reason)}</span></li>)}</ul><Button variant="ghost" onClick={onOpenCredentials}>Open credentials</Button></div>}<div className="go-live-panel__actions"><Button variant="ghost" className="ghost-button" onClick={onClose} disabled={isSaving}>Cancel</Button><Button variant={isDeactivation ? "danger" : "primary"} disabled={!canConfirm} onClick={onConfirm}>{isSaving ? "Working…" : isDeactivation ? "Deactivate workflow" : "Activate workflow"}</Button></div></Dialog>;
 }
 
-function WebhookEndpointPanel({ workflow, config, isGitHub, onClose }: { workflow: ApiWorkflow; config: Record<string, unknown>; isGitHub: boolean; onClose: () => void }) {
+function WebhookEndpointPanel({ workflow, config, isGitHub, canRegister, onClose }: { workflow: ApiWorkflow; config: Record<string, unknown>; isGitHub: boolean; canRegister: boolean; onClose: () => void }) {
   const [path, setPath] = useState(readConfigText(config, "path"));
   const [secretRequired, setSecretRequired] = useState(config.secretRequired !== false);
   const [endpoint, setEndpoint] = useState<WebhookEndpoint | null>(null);
   const [createdSecret, setCreatedSecret] = useState<string | null>(null);
   const [notice, setNotice] = useState("Loading endpoint status…");
   const [isSaving, setIsSaving] = useState(false);
+  const [endpointLoading, setEndpointLoading] = useState(true);
+  const [endpointError, setEndpointError] = useState<string | null>(null);
+  const [endpointRetry, setEndpointRetry] = useState(0);
+  const [confirmRotation, setConfirmRotation] = useState(false);
+  const [writeUncertain, setWriteUncertain] = useState(false);
+  const [writeError, setWriteError] = useState<string | null>(null);
   const endpointUrl = `${apiUrl}/webhooks/${endpoint?.path ?? path}`;
   const githubEvent = readConfigText(config, "event") || "issues";
   const githubAction = readConfigText(config, "action");
@@ -330,30 +337,54 @@ function WebhookEndpointPanel({ workflow, config, isGitHub, onClose }: { workflo
 
   useEffect(() => {
     let isCurrent = true;
+    setEndpointLoading(true);
+    setEndpointError(null);
     void apiRequest<{ endpoint: WebhookEndpoint | null }>(`/workflows/${workflow.id}/webhook-endpoint`)
-      .then((response) => { if (isCurrent) { setEndpoint(response.endpoint); setNotice(response.endpoint ? "An active endpoint is pinned to the published version." : "No endpoint has been created yet."); } })
-      .catch((reason) => { if (isCurrent) setNotice(reason instanceof Error ? reason.message : "Unable to load webhook status."); });
+      .then((response) => { if (isCurrent) { setEndpoint(response.endpoint); if (response.endpoint) setPath(response.endpoint.path); setNotice(response.endpoint ? isGitHub && response.endpoint.signingMode === "legacy" ? "Existing registration uses the connection’s legacy secret. It will keep working until you rotate it." : "An active endpoint is pinned to a published version." : "No endpoint has been created yet."); } })
+      .catch((reason) => { if (isCurrent) setEndpointError(reason instanceof Error ? reason.message : "Unable to load webhook status."); })
+      .finally(() => { if (isCurrent) setEndpointLoading(false); });
     return () => { isCurrent = false; };
-  }, [workflow.id]);
+  }, [workflow.id, isGitHub, endpointRetry]);
 
   const createEndpoint = async () => {
     setIsSaving(true);
+    setCreatedSecret(null);
+    setWriteError(null);
     try {
-      const response = await apiRequest<{ endpoint: { id: string; path: string; secret: string | null } }>(`/workflows/${workflow.id}/webhook-endpoint`, {
+      const response = await apiRequest<{ endpoint: { id: string; path: string; secret: string | null; workflowVersionId: string; createdAt: string; updatedAt: string } }>(`/workflows/${workflow.id}/webhook-endpoint`, {
         method: "POST",
-        body: JSON.stringify({ path, secretRequired }),
+        body: JSON.stringify({ path, secretRequired, publishedVersionId: workflow.published?.id, expectedEndpoint: endpoint ? { id: endpoint.id, updatedAt: endpoint.updatedAt } : null }),
       });
-      setEndpoint({ id: response.endpoint.id, path: response.endpoint.path, secretRequired: response.endpoint.secret !== null, workflowVersionId: workflow.published?.id ?? "", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+      setEndpoint({ id: response.endpoint.id, path: response.endpoint.path, secretRequired: response.endpoint.secret !== null, workflowVersionId: response.endpoint.workflowVersionId, createdAt: response.endpoint.createdAt, updatedAt: response.endpoint.updatedAt });
       setCreatedSecret(response.endpoint.secret);
+      setWriteUncertain(false);
       setNotice(response.endpoint.secret ? "Endpoint created. Copy the secret now; it will not be shown again." : "Endpoint created without a secret header.");
     } catch (reason) {
-      setNotice(reason instanceof Error ? reason.message : "Unable to create the webhook endpoint.");
+      setWriteUncertain(true);
+      setWriteError(reason instanceof Error ? reason.message : "Unable to create the webhook endpoint.");
+      setEndpointLoading(true);
+      setEndpointRetry((value) => value + 1);
     } finally {
       setIsSaving(false);
     }
   };
 
-  return <Dialog label="Webhook endpoint" className="webhook-endpoint-panel" modal={false} onClose={onClose}><div className="credential-panel__heading"><div><p className="section-label">INBOUND WEBHOOK</p><h2>{isGitHub ? "GitHub webhook endpoint" : "Webhook endpoint"}</h2></div><IconButton label="Close webhook endpoint" className="icon-button" onClick={onClose}>×</IconButton></div><p>Endpoints are pinned to a published workflow version. Publishing again does not change an existing endpoint until you rotate it here.</p><ConfigField label="Public path" value={path} onChange={setPath} />{isGitHub ? <Status tone="info">GitHub signature verification uses the <code>webhookSecret</code> in the selected connector credential. Configure this URL for the <code>{githubEventLabel}</code> webhook.</Status> : <label className="checkbox-field"><input type="checkbox" checked={secretRequired} onChange={(event) => setSecretRequired(event.target.checked)} /> Require <code>x-workflow-secret</code> header</label>}<div className="webhook-endpoint-panel__url"><span>POST URL</span><code>{endpointUrl}</code></div>{createdSecret && <div className="webhook-endpoint-panel__secret"><strong>Copy this secret now</strong><code>{createdSecret}</code><small>It is displayed only after this creation or rotation.</small></div>}<Status tone="info" className="webhook-endpoint-panel__notice">{notice}</Status><Button variant="primary" className="run-button" onClick={() => void createEndpoint()} disabled={!workflow.published || isSaving || !path.trim()}>{isSaving ? "Creating…" : endpoint ? "Rotate endpoint" : "Create endpoint"}</Button>{!workflow.published && <small className="webhook-endpoint-panel__warning">Publish a version containing this webhook trigger before creating its endpoint.</small>}</Dialog>;
+  return <Dialog label="Webhook endpoint" className="webhook-endpoint-panel" modal={false} onClose={onClose}>
+    <div className="credential-panel__heading"><div><p className="section-label">INBOUND WEBHOOK</p><h2>{isGitHub ? "GitHub webhook registration" : "Webhook endpoint"}</h2></div><IconButton label="Close webhook endpoint" className="icon-button" onClick={onClose}>×</IconButton></div>
+    <p>Setup uses the published workflow, not unsaved changes. Each registration is pinned to a published version.</p>
+    {endpoint && workflow.published && endpoint.workflowVersionId !== workflow.published.id && <Status tone="warning">This endpoint still uses an older published version. Rotate it to apply the setup shown here to the current published version.</Status>}
+    <ConfigField label="Public path" value={path} onChange={setPath} />
+    {isGitHub ? <Status tone="info" className="webhook-endpoint-panel__help">Add this URL and signing secret in your repository’s GitHub webhook settings for <code>{githubEventLabel}</code>. The secret belongs to this registration.</Status> : <label className="checkbox-field"><input type="checkbox" checked={secretRequired} onChange={(event) => setSecretRequired(event.target.checked)} /> Require <code>x-workflow-secret</code> header</label>}
+    <div className="webhook-endpoint-panel__url"><span>POST URL</span><code>{endpointUrl}</code><Button variant="ghost" onClick={() => void navigator.clipboard.writeText(endpointUrl)}>Copy URL</Button></div>
+    {createdSecret && <div className="webhook-endpoint-panel__secret"><strong>Copy this secret now</strong><code>{createdSecret}</code><Button variant="ghost" onClick={() => void navigator.clipboard.writeText(createdSecret)}>Copy secret</Button><small>{isGitHub ? "It is displayed only once. Store it securely and paste it into GitHub." : "It is displayed only once. Store it securely and send it in the x-workflow-secret header."}</small></div>}
+    {writeError && <Status tone="error">{writeError}</Status>}
+    {writeUncertain && <Status tone="warning">The request did not complete. The endpoint may have changed even if no secret was displayed. Check its status; if you do not have the current secret, rotate it again and update the external webhook.</Status>}
+    <Status tone={endpointError ? "error" : "info"} className="webhook-endpoint-panel__notice">{endpointError ?? notice}</Status>
+    {endpointError && <Button variant="ghost" onClick={() => setEndpointRetry((value) => value + 1)}>Retry status check</Button>}
+    {confirmRotation && <div className="webhook-endpoint-panel__confirmation"><Status tone="warning">Rotating immediately replaces the secret. Update the external webhook with the new secret to resume delivery.</Status><Button variant="ghost" onClick={() => setConfirmRotation(false)}>Cancel</Button><Button variant="primary" disabled={isSaving} onClick={() => { setConfirmRotation(false); void createEndpoint(); }}>Confirm rotation</Button></div>}
+    <Button variant="primary" className="run-button" onClick={() => endpoint ? setConfirmRotation(true) : void createEndpoint()} disabled={!canRegister || isSaving || endpointLoading || Boolean(endpointError) || !path.trim() || confirmRotation}>{endpointLoading ? "Checking registration…" : isSaving ? "Creating…" : endpoint ? "Rotate registration" : "Create registration"}</Button>
+    {!canRegister && <small className="webhook-endpoint-panel__warning">Publish a version containing this webhook trigger before creating its endpoint.</small>}
+  </Dialog>;
 }
 
 function WorkflowLibraryPanel({ initialWorkspaces, activeWorkflowId, activeWorkspaceId, onOpen, onWorkspaceCreated, onClose }: { initialWorkspaces: WorkspaceSummary[]; activeWorkflowId: string | undefined; activeWorkspaceId: string | undefined; onOpen: (workflow: ApiWorkflow) => void; onWorkspaceCreated: (workspace: WorkspaceSummary) => void; onClose: () => void }) {
@@ -495,7 +526,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, onResolveApp
         />
       </InspectorSection>
       <InspectorSection title="Configuration">
-      {definition?.configurationFields && <NodeConfigurationFields fields={definition.configurationFields} config={node.data.config} credentials={credentials} workspaceId={workspaceId} onChange={updateConfig} />}
+      {definition?.configurationFields && <NodeConfigurationFields fields={definition.configurationFields} config={node.data.config} credentials={credentials} workspaceId={workspaceId} allowExpressions={!node.data.nodeType.startsWith("trigger.")} onChange={updateConfig} />}
       {node.data.nodeType === "trigger.manual" && <TestDataEditor value={node.data.config.testData} onApply={(testData) => updateConfig("testData", testData)} />}
       {node.data.nodeType === "trigger.cron" && (
         <>
@@ -509,7 +540,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, onResolveApp
           <label className="checkbox-field"><input type="checkbox" checked={node.data.config.secretRequired !== false} onChange={(event) => updateConfig("secretRequired", event.target.checked)} /> Require <code>x-workflow-secret</code> header</label>
         </>
       )}
-      {isGitHubWebhookTrigger(node.data.nodeType) && <Status tone="info">GitHub sends <code>{readConfigText(node.data.config, "event") || "issues"}{readConfigText(node.data.config, "action") ? `.${readConfigText(node.data.config, "action")}` : ""}</code> events to the endpoint. The selected GitHub credential must include <code>webhookSecret</code>; the secret is never shown after saving.</Status>}
+      {isGitHubWebhookTrigger(node.data.nodeType) && <Status tone="info" className="inspector-note"><strong>Webhook setup</strong><span>After publishing, open Manage → Webhook endpoint to connect this event to GitHub.</span></Status>}
       {node.data.nodeType === "action.steam.account-snapshot" && (
         <>
           <CredentialField label="Steam credential" value={readConfigText(node.data.config, "credentialId")} providers={["STEAM"]} credentials={credentials} onChange={(value) => updateConfig("credentialId", value)} />
@@ -557,9 +588,9 @@ function NodeInspector({ node, execution, credentials, workspaceId, onResolveApp
           <Field label="Parse mode" className="config-field"><Select aria-label="Telegram parse mode" value={readConfigText(node.data.config, "parseMode")} onChange={(event) => updateConfig("parseMode", event.target.value)}><option value="">Plain text</option><option value="Markdown">Markdown</option><option value="HTML">HTML</option><option value="MarkdownV2">MarkdownV2</option></Select></Field>
         </>
       )}
-      {node.data.nodeType === "action.google-drive" && (
-        <ConfigField label="Search query / file ID" value={readConfigText(node.data.config, "query") || readConfigText(node.data.config, "fileId")} onChange={(value) => updateConfig(readConfigText(node.data.config, "operation") === "downloadText" ? "fileId" : "query", value)} />
-      )}
+      {node.data.nodeType === "action.google-drive" && (readConfigText(node.data.config, "operation") === "downloadText" ?
+        <ResourcePicker workspaceId={workspaceId} resource="google-file" credentialId={readConfigText(node.data.config, "credentialId")} label="Text file" value={readConfigText(node.data.config, "fileId")} placeholder="Search loaded text files" allowExpression onChange={(value) => updateConfig("fileId", value)} /> :
+        <ConfigField label="Search query" value={readConfigText(node.data.config, "query")} onChange={(value) => updateConfig("query", value)} />)}
       {node.data.nodeType === "action.google-sheets" && (
         <ConfigField label="Values (one row, comma-separated)" value={readFirstRow(node.data.config)} onChange={(value) => updateConfig("values", [value.split(",").map((cell) => cell.trim())])} />
       )}
@@ -673,7 +704,10 @@ export function WorkflowEditor() {
   const loadGraph = useWorkflowEditorStore((state) => state.loadGraph);
   const issues = useMemo(() => validateWorkflowGraph(nodes, edges), [nodes, edges]);
   const selectedNode = nodes.find((node) => node.id === selectedNodeId);
-  const webhookTrigger = nodes.find((node) => node.data.nodeType === "trigger.webhook" || isGitHubWebhookTrigger(node.data.nodeType));
+  const publishedNodes = workflow?.published?.graph.nodes ?? [];
+  const publishedWebhook = publishedNodes.find((node) => isGitHubWebhookTrigger(node.type)) ?? publishedNodes.find((node) => node.type === "trigger.webhook");
+  const draftWebhook = nodes.find((node) => isGitHubWebhookTrigger(node.data.nodeType)) ?? nodes.find((node) => node.data.nodeType === "trigger.webhook");
+  const webhookTrigger = publishedWebhook ? { type: publishedWebhook.type, config: publishedWebhook.config } : draftWebhook ? { type: draftWebhook.data.nodeType, config: draftWebhook.data.config } : null;
   const isNarrowEditorLayout = useNarrowEditorLayout();
   const isInspectorDrawerOpen = isNarrowEditorLayout && inspectorDrawerOpen;
 
@@ -1267,7 +1301,7 @@ export function WorkflowEditor() {
       </div>}
       {historyOpen && <WorkflowHistoryPanel versions={versions} loading={versionsLoading} onClose={() => setHistoryOpen(false)} />}
       {validationOpen && <GraphValidationPanel issues={issues} onClose={() => setValidationOpen(false)} />}
-      {webhookOpen && workflow && webhookTrigger && <WebhookEndpointPanel workflow={workflow} config={webhookTrigger.data.config} isGitHub={isGitHubWebhookTrigger(webhookTrigger.data.nodeType)} onClose={() => setWebhookOpen(false)} />}
+      {webhookOpen && workflow && webhookTrigger && <WebhookEndpointPanel workflow={workflow} config={webhookTrigger.config} isGitHub={isGitHubWebhookTrigger(webhookTrigger.type)} canRegister={Boolean(publishedWebhook)} onClose={() => setWebhookOpen(false)} />}
       {activationOpen && workflow && <WorkflowActivationPanel workflow={workflow} isSaving={activeOperation === "activating" || activeOperation === "deactivating"} readiness={liveReadiness} loading={liveReadinessLoading} error={liveReadinessError} onConfirm={() => void updateActivation()} onRefresh={() => void checkLiveReadiness()} onOpenCredentials={() => { setActivationOpen(false); setCredentialsOpen(true); }} onClose={() => setActivationOpen(false)} />}
       {liveConfirmOpen && workflow && <GoLivePanel workflow={workflow} isRunning={activeOperation === "live"} readiness={liveReadiness} loading={liveReadinessLoading} error={liveReadinessError} onConfirm={() => void runLive()} onRefresh={() => void checkLiveReadiness()} onOpenCredentials={() => { setLiveConfirmOpen(false); setCredentialsOpen(true); }} onClose={() => setLiveConfirmOpen(false)} />}
       {retryConfirmOpen && execution && <RetryExecutionPanel execution={execution} isRetrying={activeOperation === "retrying"} onConfirm={() => void retryExecution()} onClose={() => setRetryConfirmOpen(false)} />}

@@ -2,6 +2,136 @@ import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import test from "node:test";
 import { WebhookService, hashWebhookSecret, matchesWebhookSecret, verifyGitHubWebhookSignature } from "./webhook.service";
+import { WebhookController } from "./webhook.controller";
+import { HEADERS_METADATA } from "@nestjs/common/constants";
+
+test("webhook registration responses prohibit caching the one-time secret", () => {
+  const headers = Reflect.getMetadata(HEADERS_METADATA, WebhookController.prototype.create) as Array<{ name: string; value: string }>;
+  assert.ok(headers.some((header) => header.name.toLowerCase() === "cache-control" && header.value === "no-store"));
+});
+
+test("webhook controller forwards and validates the GitHub delivery header", async () => {
+  let received: unknown;
+  const controller = new WebhookController({ receive: async (...args: unknown[]) => { received = args[4]; return {}; } } as never);
+  const request = { body: {} } as never;
+  await controller.receive("path", undefined, "push", "signature", undefined, Buffer.from("{}"), request, "delivery-123");
+  assert.equal((received as { githubDelivery: string }).githubDelivery, "delivery-123");
+  await assert.rejects(() => controller.receive("path", undefined, "push", "signature", undefined, Buffer.from("{}"), request, "invalid delivery"));
+});
+
+test("registration rejects old clients that do not supply an observed endpoint version", async () => {
+  let writes = 0;
+  const controller = new WebhookController({ createEndpoint: async () => { writes++; return {}; } } as never);
+  await assert.rejects(() => controller.create("workflow-1", { currentUser: { id: "owner" }, body: { path: "github-push", publishedVersionId: "version-1" } } as never));
+  assert.equal(writes, 0);
+});
+
+test("signed GitHub setup ping is acknowledged before activation without running a workflow", async () => {
+  const body = Buffer.from('{"repository":{"full_name":"acme/project"}}');
+  const signature = `sha256=${createHmac("sha256", "registration-secret").update(body).digest("hex")}`;
+  let dispatched = 0;
+  const service = new WebhookService({ webhookEndpoint: { findUnique: async () => ({ id: "endpoint-1", isActive: true, encryptedSigningSecret: "ciphertext", workflow: { workspaceId: "workspace-1", isActive: false, archivedAt: null }, workflowVersion: { graph: { nodes: [{ id: "github", type: "trigger.github.push", position: { x: 0, y: 0 }, config: { event: "push", repository: "acme/project" } }], edges: [] } }, workflowVersionId: "version-1" }) } } as never,
+    { createScheduledExecution: async () => { throw new Error("ping must not create an execution"); } } as never,
+    { dispatch: async () => { dispatched++; } } as never, {} as never,
+    { decrypt: () => ({ secret: "registration-secret" }) } as never);
+  const payload = JSON.parse(body.toString());
+  assert.deepEqual(await service.receive("github-push", undefined, payload, undefined, { githubEvent: "ping", githubSignature: signature, rawBody: body }), { acknowledged: true });
+  await assert.rejects(() => service.receive("github-push", undefined, payload, undefined, { githubEvent: "ping", githubSignature: "sha256=bad", rawBody: body }));
+  await assert.rejects(() => service.receive("github-push", undefined, payload, undefined, { githubEvent: "push", githubSignature: signature, rawBody: body }));
+  assert.equal(dispatched, 0);
+});
+
+test("GitHub delivery IDs are scoped to the registration for idempotency", async () => {
+  const body = Buffer.from('{"ref":"refs/heads/main"}');
+  const signature = `sha256=${createHmac("sha256", "registration-secret").update(body).digest("hex")}`;
+  const keys: Array<string | undefined> = [];
+  const service = new WebhookService({ webhookEndpoint: { findUnique: async () => ({ id: "endpoint-1", isActive: true, encryptedSigningSecret: "ciphertext", workflow: { workspaceId: "workspace-1", isActive: true, archivedAt: null }, workflowVersion: { graph: { nodes: [{ id: "github", type: "trigger.github.push", position: { x: 0, y: 0 }, config: { event: "push" } }], edges: [] } }, workflowVersionId: "version-1" }) } } as never,
+    { createScheduledExecution: async (_version: string, _payload: unknown, key?: string) => { keys.push(key); return { id: "same-execution" }; } } as never,
+    { dispatch: async () => undefined } as never, {} as never,
+    { decrypt: () => ({ secret: "registration-secret" }) } as never);
+  const headers = { githubEvent: "push", githubSignature: signature, githubDelivery: "delivery-123", rawBody: body };
+  await service.receive("github-push", undefined, JSON.parse(body.toString()), undefined, headers);
+  await service.receive("github-push", undefined, JSON.parse(body.toString()), undefined, headers);
+  assert.deepEqual(keys, ["webhook:endpoint-1:github:delivery-123", "webhook:endpoint-1:github:delivery-123"]);
+});
+
+test("GitHub registration encrypts its own secret and never stores it in the credential", async () => {
+  let stored: Record<string, unknown> | undefined;
+  const transaction = {
+    $queryRaw: async () => [{ publishedVersionId: "version-1" }],
+    webhookEndpoint: { findMany: async () => [], create: async ({ data }: { data: Record<string, unknown> }) => { stored = data; return { id: "endpoint-1", path: data.path, workflowVersionId: "version-1", createdAt: new Date(), updatedAt: new Date() }; } },
+    auditLog: { create: async () => ({}) },
+  };
+  const service = new WebhookService({
+    workflow: { findFirst: async () => ({ id: "workflow-1", workspaceId: "workspace-1", publishedVersion: { id: "version-1", graph: { nodes: [{ id: "github", type: "trigger.github.push", position: { x: 0, y: 0 }, config: { event: "push" } }], edges: [] } } }) },
+    webhookEndpoint: { findFirst: async () => null },
+    $transaction: async (callback: (client: typeof transaction) => Promise<unknown>) => callback(transaction),
+  } as never, {} as never, {} as never, {} as never, { encrypt: (data: { secret: string }) => `encrypted:${data.secret}` } as never);
+  const result = await service.createEndpoint("workflow-1", "owner-1", "github-push", true, { publishedVersionId: "version-1", endpoint: null });
+  assert.ok(result.secret);
+  assert.equal(stored?.encryptedSigningSecret, `encrypted:${result.secret}`);
+  assert.equal(stored?.secretHash, null);
+});
+
+test("failed audit rolls back a GitHub secret rotation", async () => {
+  let persisted = "old-secret";
+  const transaction = {
+    $queryRaw: async () => [{ publishedVersionId: "version-1" }],
+    webhookEndpoint: {
+      findMany: async () => [{ id: "endpoint-1", updatedAt: new Date("2026-01-01T00:00:00.000Z") }],
+      update: async ({ data }: { data: { encryptedSigningSecret: string } }) => ({ id: "endpoint-1", path: "github-push", newSecret: data.encryptedSigningSecret }),
+    },
+    auditLog: { create: async () => { throw new Error("audit unavailable"); } },
+  };
+  const service = new WebhookService({
+    workflow: { findFirst: async () => ({ id: "workflow-1", workspaceId: "workspace-1", publishedVersion: { id: "version-1", graph: { nodes: [{ id: "github", type: "trigger.github.push", position: { x: 0, y: 0 }, config: { event: "push" } }], edges: [] } } }) },
+    webhookEndpoint: { findFirst: async () => null },
+    $transaction: async (callback: (client: typeof transaction) => Promise<{ newSecret: string }>) => { const result = await callback(transaction); persisted = result.newSecret; return result; },
+  } as never, {} as never, {} as never, {} as never, { encrypt: (data: { secret: string }) => `encrypted:${data.secret}` } as never);
+  await assert.rejects(() => service.createEndpoint("workflow-1", "owner-1", "github-push", true, { publishedVersionId: "version-1", endpoint: { id: "endpoint-1", updatedAt: "2026-01-01T00:00:00.000Z" } }), /audit unavailable/);
+  assert.equal(persisted, "old-secret");
+});
+
+test("stale registration state cannot overwrite another rotation", async () => {
+  let writes = 0;
+  const transaction = {
+    $queryRaw: async () => [{ publishedVersionId: "version-1" }],
+    webhookEndpoint: { findMany: async () => [{ id: "endpoint-1", updatedAt: new Date("2026-01-02T00:00:00.000Z") }], update: async () => { writes++; return {}; } },
+  };
+  const service = new WebhookService({
+    workflow: { findFirst: async () => ({ id: "workflow-1", workspaceId: "workspace-1", publishedVersion: { id: "version-1", graph: { nodes: [{ id: "github", type: "trigger.github.push", position: { x: 0, y: 0 }, config: { event: "push" } }], edges: [] } } }) },
+    webhookEndpoint: { findFirst: async () => null },
+    $transaction: async (callback: (client: typeof transaction) => Promise<unknown>) => callback(transaction),
+  } as never, {} as never, {} as never, {} as never, { encrypt: () => "synthetic" } as never);
+  await assert.rejects(() => service.createEndpoint("workflow-1", "owner-1", "github-push", true, { publishedVersionId: "version-1", endpoint: { id: "endpoint-1", updatedAt: "2026-01-01T00:00:00.000Z" } }), (error: any) => error.response?.code === "WEBHOOK_REGISTRATION_CHANGED");
+  assert.equal(writes, 0);
+});
+
+test("existing duplicate registrations must be resolved before rotation", async () => {
+  const transaction = { $queryRaw: async () => [{ publishedVersionId: "version-1" }], webhookEndpoint: { findMany: async () => [{ id: "first" }, { id: "second" }] } };
+  const service = new WebhookService({
+    workflow: { findFirst: async () => ({ id: "workflow-1", workspaceId: "workspace-1", publishedVersion: { id: "version-1", graph: { nodes: [{ id: "github", type: "trigger.github.push", position: { x: 0, y: 0 }, config: { event: "push" } }], edges: [] } } }) },
+    webhookEndpoint: { findFirst: async () => null },
+    $transaction: async (callback: (client: typeof transaction) => Promise<unknown>) => callback(transaction),
+  } as never, {} as never, {} as never, {} as never, { encrypt: () => "synthetic" } as never);
+  await assert.rejects(() => service.createEndpoint("workflow-1", "owner-1", "github-push", true, { publishedVersionId: "version-1", endpoint: null }), (error: any) => error.response?.code === "WEBHOOK_REGISTRATION_DUPLICATE");
+});
+
+test("GitHub delivery verifies the registration secret independently from the connector", async () => {
+  const body = Buffer.from('{"ref":"refs/heads/main"}');
+  const signature = `sha256=${createHmac("sha256", "registration-secret").update(body).digest("hex")}`;
+  let credentialReads = 0;
+  const service = new WebhookService({ webhookEndpoint: { findUnique: async () => ({ id: "endpoint-1", isActive: true, encryptedSigningSecret: "ciphertext", workflow: { workspaceId: "workspace-1", isActive: true, archivedAt: null }, workflowVersion: { graph: { nodes: [{ id: "github", type: "trigger.github.push", position: { x: 0, y: 0 }, config: { event: "push" } }], edges: [] } }, workflowVersionId: "version-1" }) } } as never,
+    { createScheduledExecution: async () => ({ id: "execution-1" }) } as never,
+    { dispatch: async () => undefined } as never,
+    { readForExecution: async () => { credentialReads++; return {}; } } as never,
+    { decrypt: () => ({ secret: "registration-secret" }) } as never);
+  assert.deepEqual(await service.receive("github-push", undefined, JSON.parse(body.toString()), undefined, { githubEvent: "push", githubSignature: signature, rawBody: body }), { executionId: "execution-1" });
+  assert.equal(credentialReads, 0);
+  const wrongSignature = `sha256=${createHmac("sha256", "legacy-secret").update(body).digest("hex")}`;
+  await assert.rejects(() => service.receive("github-push", undefined, JSON.parse(body.toString()), undefined, { githubEvent: "push", githubSignature: wrongSignature, rawBody: body }));
+  assert.equal(credentialReads, 0, "an invalid registration signature must not fall back to the legacy credential");
+});
 
 test("webhook secret hashes cannot be used as the original secret and only the correct secret matches", () => {
   const secret = "a-random-webhook-secret";

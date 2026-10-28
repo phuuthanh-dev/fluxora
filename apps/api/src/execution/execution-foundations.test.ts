@@ -204,6 +204,48 @@ test("execution history uses an owner-scoped stable cursor page", async () => {
   });
 });
 
+test("execution triage applies status filter within the workspace query before pagination", async () => {
+  let query: { where?: unknown; take?: number; cursor?: unknown } | undefined;
+  const service = new ExecutionService({
+    workspaceMember: { findUnique: async () => ({ role: "OWNER" }) },
+    execution: { findMany: async (input: typeof query) => { query = input; return []; } },
+  } as never, {} as never, {} as never);
+  await service.listForWorkspace("workspace-1", "owner-1", 30, "cursor-1", "ATTENTION");
+  assert.deepEqual(query?.where, { workflowVersion: { workflow: { workspaceId: "workspace-1" } }, status: { in: [ExecutionStatus.FAILED, ExecutionStatus.WAITING_APPROVAL] } });
+  assert.equal(query?.take, 31);
+  assert.deepEqual(query?.cursor, { id: "cursor-1" });
+});
+
+test("retention policy is available only to the workspace owner", async () => {
+  const service = new ExecutionService({ workspaceMember: { findUnique: async () => null } } as never, {} as never, {} as never);
+  await assert.rejects(() => service.retentionForWorkspace("workspace-1", "other-user"), (error: unknown) => Boolean(error && typeof error === "object" && "response" in error && (error.response as { code?: string }).code === "WORKSPACE_NOT_FOUND"));
+  const ownerService = new ExecutionService({ workspaceMember: { findUnique: async () => ({ role: "OWNER" }) } } as never, {} as never, {} as never);
+  const policy = await ownerService.retentionForWorkspace("workspace-1", "owner-1");
+  assert.equal(policy.countScope, "system");
+  assert.equal(typeof policy.successDays, "number");
+});
+
+test("saved execution views are scoped to the owner and workspace", async () => {
+  const calls: Array<{ operation: string; query: unknown }> = [];
+  const service = new ExecutionService({
+    workspaceMember: { findUnique: async () => ({ role: "OWNER" }) },
+    executionSavedView: {
+      findMany: async (query: unknown) => { calls.push({ operation: "list", query }); return []; },
+      count: async (query: unknown) => { calls.push({ operation: "count", query }); return 0; },
+      create: async (query: unknown) => { calls.push({ operation: "create", query }); return { id: "view-1", name: "Failures", filter: "FAILED" }; },
+      deleteMany: async (query: unknown) => { calls.push({ operation: "delete", query }); return { count: 1 }; },
+    },
+  } as never, {} as never, {} as never);
+  await service.savedViews("workspace-1", "owner-1");
+  await service.createSavedView("workspace-1", "owner-1", "Failures", "FAILED");
+  await service.deleteSavedView("workspace-1", "owner-1", "view-1");
+  assert.deepEqual((calls[0]?.query as { where: unknown }).where, { workspaceId: "workspace-1", userId: "owner-1" });
+  assert.deepEqual((calls[2]?.query as { data: unknown }).data, { workspaceId: "workspace-1", userId: "owner-1", name: "Failures", filter: "FAILED" });
+  assert.deepEqual((calls[3]?.query as { where: unknown }).where, { id: "view-1", workspaceId: "workspace-1", userId: "owner-1" });
+  const outsider = new ExecutionService({ workspaceMember: { findUnique: async () => null } } as never, {} as never, {} as never);
+  await assert.rejects(() => outsider.savedViews("workspace-1", "other-user"));
+});
+
 test("diagnostic snapshot is deterministic, owner-scoped, and excludes execution payload secrets", async () => {
   const queries: unknown[] = [];
   const execution = {

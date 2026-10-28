@@ -208,6 +208,8 @@
         "apps/api/src/credentials/github-resource.controller.ts",
         "apps/api/src/credentials/github-resource.service.ts",
         "apps/api/src/credentials/google-oauth.controller.ts",
+        "apps/api/src/credentials/google-resource.controller.ts",
+        "apps/api/src/credentials/google-resource.service.ts",
         "apps/api/src/workspaces/workspace.module.ts"
       ],
       "externalImports": [
@@ -265,6 +267,28 @@
       ]
     },
     {
+      "id": "apps/api/src/credentials/google-resource.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/credentials/google-resource.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/google-resource.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
       "id": "apps/api/src/database/prisma.module.ts",
       "boundary": "api",
       "internalImports": [
@@ -300,7 +324,8 @@
       "boundary": "api",
       "internalImports": [
         "apps/api/src/database/prisma.service.ts",
-        "apps/api/src/execution/execution.service.ts"
+        "apps/api/src/execution/execution.service.ts",
+        "apps/api/src/execution/retention-policy.ts"
       ],
       "externalImports": [
         "@nestjs/common",
@@ -371,6 +396,7 @@
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
         "apps/api/src/execution/redaction.ts",
+        "apps/api/src/execution/retention-policy.ts",
         "apps/api/src/execution/retry-policy.ts",
         "apps/api/src/workflows/workflow-graph.ts"
       ],
@@ -425,6 +451,12 @@
     },
     {
       "id": "apps/api/src/execution/redaction.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/execution/retention-policy.ts",
       "boundary": "api",
       "internalImports": [],
       "externalImports": []
@@ -655,6 +687,7 @@
       "id": "apps/api/src/webhooks/webhook.service.ts",
       "boundary": "api",
       "internalImports": [
+        "apps/api/src/credentials/credential-vault.service.ts",
         "apps/api/src/credentials/credential.service.ts",
         "apps/api/src/database/prisma.service.ts",
         "apps/api/src/execution/execution-queue.service.ts",
@@ -1026,11 +1059,22 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/features/api/api-client.ts",
-        "apps/web/src/features/app-shell/app-shell-header.tsx"
+        "apps/web/src/features/app-shell/app-shell-header.tsx",
+        "apps/web/src/features/dashboard/saved-execution-views.tsx"
       ],
       "externalImports": [
         "lucide-react",
         "next/navigation",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/dashboard/saved-execution-views.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/api/api-client.ts"
+      ],
+      "externalImports": [
         "react"
       ]
     },
@@ -1429,6 +1473,14 @@
     },
     {
       "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/google-resource.controller.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/google-resource.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
       "to": "apps/api/src/workspaces/workspace.module.ts"
     },
     {
@@ -1472,6 +1524,22 @@
       "to": "apps/api/src/credentials/credential.service.ts"
     },
     {
+      "from": "apps/api/src/credentials/google-resource.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-resource.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-resource.controller.ts",
+      "to": "apps/api/src/credentials/google-resource.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-resource.service.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
       "from": "apps/api/src/database/prisma.module.ts",
       "to": "apps/api/src/database/prisma.service.ts"
     },
@@ -1486,6 +1554,10 @@
     {
       "from": "apps/api/src/execution/execution-maintenance.service.ts",
       "to": "apps/api/src/execution/execution.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution-maintenance.service.ts",
+      "to": "apps/api/src/execution/retention-policy.ts"
     },
     {
       "from": "apps/api/src/execution/execution-queue.service.ts",
@@ -1582,6 +1654,10 @@
     {
       "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/execution/redaction.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/retention-policy.ts"
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
@@ -1817,6 +1893,10 @@
     },
     {
       "from": "apps/api/src/webhooks/webhook.service.ts",
+      "to": "apps/api/src/credentials/credential-vault.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.service.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
     },
     {
@@ -2026,6 +2106,14 @@
     {
       "from": "apps/web/src/features/dashboard/executions-dashboard.tsx",
       "to": "apps/web/src/features/app-shell/app-shell-header.tsx"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/executions-dashboard.tsx",
+      "to": "apps/web/src/features/dashboard/saved-execution-views.tsx"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/saved-execution-views.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
     },
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",

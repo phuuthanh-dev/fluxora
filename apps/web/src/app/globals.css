@@ -163,6 +163,13 @@ button:focus-visible, summary:focus-visible { outline: 3px solid rgba(214, 255, 
 .config-field input, .config-field select, .config-field textarea { background: #fafbfc; border: 1px solid #dfe3ec; border-radius: 8px; color: var(--ink); font-size: 12px; outline: none; padding: 9px 10px; resize: vertical; width: 100%; }
 .config-field input:focus, .config-field select:focus, .config-field textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99, 91, 255, 0.1); }
 .credential-field small, .resource-picker small { color: var(--muted); display: block; font-size: 10px; line-height: 1.4; margin-top: 4px; }
+.inspector-note { background: color-mix(in srgb, var(--text-accent) 7%, var(--panel)); border: 1px solid var(--line); border-radius: 8px; color: var(--text-secondary); display: grid; font-size: 12px; gap: 4px; line-height: 1.5; margin-top: 14px; padding: 11px 12px; }
+.inspector-note strong { color: var(--ink); font-size: 12px; font-weight: 700; }
+.resource-picker input + select { margin-top: 6px; }
+.webhook-endpoint-panel__help, .webhook-endpoint-panel__notice, .webhook-endpoint-panel__confirmation { font-size: 12px; line-height: 1.5; }
+.webhook-endpoint-panel__help { color: var(--muted-on-dark); }
+.webhook-endpoint-panel__confirmation { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.webhook-endpoint-panel__confirmation .ui-status { color: var(--muted-on-dark); flex-basis: 100%; }
 .json-config-editor, .expression-suggestions { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 15px; }.json-config-editor textarea { background: #141929; border: 1px solid #303a50; border-radius: 8px; color: #d9e2ff; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; line-height: 1.5; margin: 8px 0; padding: 9px; resize: vertical; width: 100%; }.json-config-editor .ghost-button { border-color: #d7ddea; color: #45536c; font-size: 11px; padding: 6px 8px; }.json-config-editor p { color: var(--danger); font-size: 11px; margin: 7px 0 0; }.expression-suggestions p { color: var(--muted); font-size: 11px; line-height: 1.4; margin: 7px 0; }.expression-suggestions > div { display: grid; gap: 5px; }.expression-suggestions button { background: #f5f4ff; border: 1px solid #e0dcff; border-radius: 6px; color: #5148bd; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; overflow: hidden; padding: 6px; text-align: left; text-overflow: ellipsis; white-space: nowrap; }.expression-suggestions small { color: var(--green); display: block; font-size: 10px; margin-top: 7px; }
 .switch-case-editor { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 15px; }.switch-case-editor p { color: var(--muted); font-size: 11px; line-height: 1.4; margin: 7px 0 9px; }.switch-case-editor > div { display: flex; gap: 6px; margin: 6px 0; }.switch-case-editor input { background: #fafbfc; border: 1px solid #dfe3ec; border-radius: 7px; color: var(--ink); font-size: 12px; min-width: 0; padding: 8px; width: 100%; }.switch-case-editor > div button, .switch-case-editor > button { background: transparent; border: 1px solid #d7ddea; border-radius: 7px; color: #45536c; font-size: 11px; padding: 6px 8px; }.switch-case-editor > div button { color: var(--danger); }
 .planned-note { background: #fff8eb; border: 1px solid #ffe4aa; border-radius: 8px; color: var(--warning); font-size: 11px; line-height: 1.45; padding: 9px; }
@@ -559,6 +566,15 @@ button:focus-visible, summary:focus-visible { outline: 3px solid rgba(214, 255, 
    behavior, but intentionally remove the fixed overlay constraint. */
 .dashboard-header__user .dashboard-header__link { align-items: center; font-size: 10px; gap: 6px; height: 32px; padding: 0 9px; white-space: nowrap; width: auto; }
 .connections-main, .executions-main { margin: 0 auto; max-width: 1220px; padding: clamp(30px, 5vw, 64px) clamp(22px, 4vw, 48px) 72px; }
+.retention-summary { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-md); color: var(--text-secondary); font-size: 12px; line-height: 1.5; margin-bottom: 18px; padding: 12px 16px; }
+.retention-summary summary { color: var(--ink); cursor: pointer; font-weight: 700; }
+.retention-summary p { margin: 8px 0 0; }
+.saved-execution-views { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-md); color: var(--text-secondary); font-size: 12px; line-height: 1.5; margin-bottom: 18px; padding: 12px 16px; }
+.saved-execution-views summary { color: var(--ink); cursor: pointer; font-weight: 700; }
+.saved-execution-views p { margin: 8px 0; }
+.saved-execution-views ul { display: grid; gap: 6px; list-style: none; margin: 8px 0; padding: 0; }
+.saved-execution-views li, .saved-execution-views form { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; }
+.saved-execution-views input { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; color: var(--ink); min-height: 36px; padding: 7px 10px; }
 .connections-main .ui-page-header, .executions-main .ui-page-header { margin-bottom: 28px; }
 .connections-error, .executions-error { align-items: center; display: flex; gap: 9px; margin-bottom: 18px; padding: 12px 14px; }
 .connections-error .ui-button, .executions-error .ui-button { margin-left: auto; min-height: 29px; padding: 6px 9px; }

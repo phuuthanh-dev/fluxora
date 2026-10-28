@@ -1,5 +1,6 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -48,8 +49,12 @@ test("production deployment contract cannot fall back to latest", () => {
   assert.match(workflow, /commit_sha:/);
   assert.match(workflow, /workflow_run:\n\s+workflows: \["Quality gate"\]/);
   assert.match(workflow, /types: \[completed\]/);
+  assert.match(workflow, /branches: \[main\]/);
   assert.match(workflow, /workflow_run\.conclusion == 'success'/);
   assert.match(workflow, /workflow_run\.head_branch == 'main'/);
+  assert.match(workflow, /group: production-deploy[\s\S]*cancel-in-progress: false/);
+  assert.doesNotMatch(workflow, /needs\.scope\.outputs\.deploy/);
+  assert.match(workflow, /needs: build/);
   assert.match(workflow, /COMMIT_SHA: \$\{\{ github\.event_name == 'workflow_dispatch'/);
   assert.doesNotMatch(workflow, /default:\s*["']latest["']/);
   assert.match(workflow, /ref: \$\{\{ env\.COMMIT_SHA \}\}/);
@@ -90,7 +95,12 @@ test("CI/CD workflow keeps bounded jobs, cache, and least-privilege deploy permi
   assert.match(qualityWorkflow, /uses: actions\/cache@[0-9a-f]{40}/);
   assert.match(qualityWorkflow, /path: ~\/\.cache\/ms-playwright/);
   assert.match(qualityWorkflow, /concurrency:/);
-  assert.match(qualityWorkflow, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/);
+  assert.match(qualityWorkflow, /cancel-in-progress: true/);
+  assert.match(qualityWorkflow, /jobs:\n\s+scope:/);
+  assert.match(qualityWorkflow, /outputs:\n\s+run_verify:/);
+  assert.match(qualityWorkflow, /git diff --no-renames --name-only/);
+  assert.match(qualityWorkflow, /needs: scope/);
+  assert.match(qualityWorkflow, /needs\.scope\.outputs\.run_verify/);
   assert.doesNotMatch(qualityWorkflow, /uses: [^\n]+@v\d/);
   assert.match(qualityWorkflow, /Install Playwright Chromium/);
   assert.match(qualityWorkflow, /npx playwright install chromium/);
@@ -117,6 +127,42 @@ test("CI/CD workflow keeps bounded jobs, cache, and least-privilege deploy permi
   assert.match(workflow, /appleboy\/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634/);
   assert.match(workflow, /name: Build and push API image/);
   assert.match(workflow, /name: Build and push Web image/);
+});
+
+test("scope preserves product verification when a docs commit follows a cancelled main run", () => {
+  const script = qualityWorkflow.match(/- name: Detect product changes[\s\S]*?        run: \|\n([\s\S]*?)\n  verify:/)?.[1].replace(/^          /gm, "");
+  assert.ok(script, "quality scope script must be present");
+  const dir = mkdtempSync(resolve(tmpdir(), "fluxora-ci-scope-"));
+  const git = (...args) => execFileSync("git", args, { cwd: dir, encoding: "utf8" }).trim();
+  try {
+    git("init", "-q");
+    git("config", "user.email", "ci@example.invalid");
+    git("config", "user.name", "CI test");
+    mkdirSync(resolve(dir, "docs"));
+    writeFileSync(resolve(dir, "app.js"), "old\n");
+    git("add", "."); git("commit", "-qm", "baseline");
+    const base = git("rev-parse", "HEAD");
+    writeFileSync(resolve(dir, "app.js"), "new\n");
+    git("add", "."); git("commit", "-qm", "product change");
+    const product = git("rev-parse", "HEAD");
+    writeFileSync(resolve(dir, "docs", "guide.md"), "docs\n");
+    git("add", "."); git("commit", "-qm", "docs change");
+    const docs = git("rev-parse", "HEAD");
+    const run = (event, from, to) => {
+      const output = resolve(dir, "output");
+      writeFileSync(output, "");
+      const result = spawnSync("bash", ["-c", script], { cwd: dir, encoding: "utf8", env: { ...process.env, EVENT_NAME: event, BEFORE_SHA: from, BASE_SHA: from, HEAD_SHA: to, GITHUB_OUTPUT: output } });
+      return { ...result, output: readFileSync(output, "utf8") };
+    };
+    assert.match(run("push", product, docs).output, /run_verify=true/);
+    assert.match(run("pull_request", product, docs).output, /run_verify=false/);
+    assert.match(run("pull_request", base, docs).output, /run_verify=true/);
+    assert.notEqual(run("pull_request", "invalid-ref", docs).status, 0);
+    git("mv", "app.js", "docs/app.js"); git("commit", "-qm", "move product into docs");
+    assert.match(run("pull_request", docs, git("rev-parse", "HEAD")).output, /run_verify=true/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("verification and operational retention contracts avoid redundant work", () => {

@@ -60,7 +60,7 @@ export type NodeDefinition = {
 
 export type NodeSelectOption = { value: string; label: string };
 
-export type NodeResource = "github-repository";
+export type NodeResource = "github-repository" | "google-file" | "google-spreadsheet";
 
 /**
  * Declarative fields that the inspector can render without growing another
@@ -382,7 +382,7 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { credentialId: "", operation: "append", spreadsheetId: "", range: "Sheet1!A1", values: [["", ""]] },
     configurationFields: [
       { kind: "credential", key: "credentialId", label: "Google credential", providers: ["GOOGLE"] },
-      { kind: "text", key: "spreadsheetId", label: "Spreadsheet ID" },
+      { kind: "resource", key: "spreadsheetId", label: "Spreadsheet", resource: "google-spreadsheet", credentialKey: "credentialId", placeholder: "Search loaded spreadsheets" },
       { kind: "select", key: "operation", label: "Operation", options: [
         { value: "read", label: "Read rows" },
         { value: "append", label: "Append rows" },

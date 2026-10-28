@@ -26,7 +26,7 @@ The web dashboard is the authenticated control plane: it selects a workspace, li
 ## Monorepo boundaries
 
 ```text
-apps/web: React UI only; never owns secrets or executes provider calls.
+apps/web: React UI only; never stores provider credentials or executes provider calls. A freshly generated webhook signing or header-auth secret is displayed once to the authenticated owner for manual sender setup and is not retrievable afterward.
 apps/api: REST API, authentication, persistence, scheduler, node registry, worker.
 packages/workflow-contracts: Shared graph DTOs, node metadata, expression types.
 infra: Docker Compose, deployment scripts, and Nginx templates for the VPS runtime.
@@ -114,6 +114,7 @@ The MVP pins Prisma ORM 6.12.0 because the local Node 23 runtime is outside Pris
 
 - Google OAuth callbacks occur on the API server, not the web app.
 - Google Drive/Sheets use a shared OAuth credential where scopes allow it.
+- Owner-scoped resource discovery proxies paginated Drive text files and Google spreadsheets through the API, returning file IDs and names without credentials. Search operates on loaded pages; users can enter IDs or expressions manually. The existing OAuth connection currently requests broad Drive access; a narrower scope and Google Picker flow require separate compatibility review.
 - Google Chat incoming webhook URLs are treated as secrets and deliver outward notifications via the notification dispatcher.
 - Discord incoming webhook URLs are treated as secrets and deliver channel messages with SSRF validation, default-deny allowed mentions, and optional embeds via the notification dispatcher.
 - Telegram Bot API delivers messages to typed destinations (DM, group, supergroup, or channel) configured at the node level using encrypted bot tokens; supergroups may include a topic/thread ID. Bot tokens are strictly redacted from URLs, logs, persisted execution states, and error messages; legacy credential chat IDs are supported as a deprecated fallback.
@@ -122,13 +123,27 @@ The MVP pins Prisma ORM 6.12.0 because the local Node 23 runtime is outside Pris
 - GitHub Add Label is a separate operation node using the same workspace token and fixed `api.github.com/repos/{owner}/{repo}/issues/{number}/labels` route. Its response is normalized to the provider label set and shares the connector timeout, retryability, and safe-error policy.
 - GitHub Add Comment is a separate operation node using the same workspace token and fixed `api.github.com/repos/{owner}/{repo}/issues/{number}/comments` route. Its response is normalized to comment ID, URL, and body and shares the connector timeout, retryability, and safe-error policy.
 - GitHub Merge Pull Request is a separate destructive operation node using the same workspace token and fixed `api.github.com/repos/{owner}/{repo}/pulls/{number}/merge` route. It accepts only `merge`, `squash`, or `rebase`, relies on the existing explicit live-run confirmation boundary, and shares safe timeout, retryability, and error policy.
-- GitHub Issue opened is a webhook trigger pinned to the published workflow version. The API keeps the raw request body, verifies `X-Hub-Signature-256` with the encrypted connector `webhookSecret`, rejects mismatched event/action before queueing, and dispatches only the verified payload. Webhook registration remains operator-configured in GitHub for this slice.
-- GitHub Pull request opened uses the same pinned webhook lifecycle, raw-body HMAC verification, encrypted connector `webhookSecret`, and pre-queue event/action filtering for `pull_request.opened`. Webhook registration remains operator-configured in GitHub.
+- GitHub Issue opened is a webhook trigger pinned to the published workflow version. The API keeps the raw request body, verifies `X-Hub-Signature-256` with the registration signing secret, rejects mismatched event/action before queueing, and dispatches only the verified payload. Webhook registration remains operator-configured in GitHub for this slice.
+- GitHub Pull request opened uses the same pinned webhook lifecycle, raw-body HMAC verification, and pre-queue event/action filtering for `pull_request.opened`. Webhook registration remains operator-configured in GitHub.
 - GitHub Push uses the same pinned webhook lifecycle and raw-body HMAC verification, but filters the event-only `push` header because GitHub push payloads do not use an action field. Webhook registration remains operator-configured in GitHub.
-- GitHub Workflow run completed uses the same pinned webhook lifecycle, raw-body HMAC verification, encrypted connector `webhookSecret`, and pre-queue event/action filtering for `workflow_run.completed`. Webhook registration remains operator-configured in GitHub.
+- GitHub Workflow run completed uses the same pinned webhook lifecycle, raw-body HMAC verification, and pre-queue event/action filtering for `workflow_run.completed`. Webhook registration remains operator-configured in GitHub.
 - GitHub repository resources are listed through an owner-scoped API proxy
   using the encrypted connector token server-side. Actions can persist a
   selected `owner/repository`, and GitHub triggers can optionally filter
   verified webhook payloads by `repository.full_name`; old graphs without the
   filter remain compatible. Webhook registration remains separate from the
   reusable GitHub connection.
+- Each workflow's webhook endpoint is its own registration. New GitHub
+  registrations generate a signing secret encrypted with the credential vault
+  key and return it once at creation or rotation. Existing registrations
+  without an encrypted signing secret continue to use their connector's legacy
+  `webhookSecret` until rotated. Rotation changes the active secret immediately;
+  the operator must update the GitHub webhook. Registration is manual and is
+  pinned to the published workflow version; one endpoint per workflow remains
+  the current product boundary.
+- Registration writes lock the workflow row and require the published version
+  ID plus the endpoint ID and `updatedAt` last observed by the client (or a
+  null endpoint for creation). Stale writes and pre-existing duplicates are
+  rejected. Clients using the older request format must reload and use the new
+  format. The application-level lock cannot prevent direct database writes;
+  the database does not yet enforce a unique workflow ID for endpoints.

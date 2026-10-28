@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Headers, Inject, Param, Post, RawBody, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Controller, Get, Header, Headers, Inject, Param, Post, RawBody, Req, UseGuards } from "@nestjs/common";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
 import { WebhookService } from "./webhook.service";
@@ -14,17 +14,21 @@ export class WebhookController {
   }
 
   @Post("workflows/:workflowId/webhook-endpoint")
+  @Header("Cache-Control", "no-store")
   @UseGuards(AuthenticationGuard)
   async create(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
     const body = readObject(request.body);
     const path = readPath(body.path);
     const secretRequired = body.secretRequired !== false;
-    return { endpoint: await this.webhooks.createEndpoint(workflowId, userId(request), path, secretRequired) };
+    if (typeof body.publishedVersionId !== "string" || !body.publishedVersionId) throw new BadRequestException({ code: "INVALID_INPUT", message: "Reload the workflow before configuring its webhook." });
+    const expected = body.expectedEndpoint;
+    if (expected !== null && (!expected || typeof expected !== "object" || Array.isArray(expected) || typeof (expected as Record<string, unknown>).id !== "string" || typeof (expected as Record<string, unknown>).updatedAt !== "string")) throw new BadRequestException({ code: "INVALID_INPUT", message: "Reload the webhook status before saving." });
+    return { endpoint: await this.webhooks.createEndpoint(workflowId, userId(request), path, secretRequired, { publishedVersionId: body.publishedVersionId, endpoint: expected as { id: string; updatedAt: string } | null }) };
   }
 
   @Post("webhooks/:path")
-  async receive(@Param("path") path: string, @Headers("x-workflow-secret") secret: string | undefined, @Headers("x-github-event") githubEvent: string | undefined, @Headers("x-hub-signature-256") githubSignature: string | undefined, @Headers("idempotency-key") idempotencyKey: string | undefined, @RawBody() rawBody: Buffer | undefined, @Req() request: AuthenticatedRequest) {
-    return this.webhooks.receive(path, secret, request.body, readIdempotencyKey(idempotencyKey), { githubEvent, githubSignature, rawBody });
+  async receive(@Param("path") path: string, @Headers("x-workflow-secret") secret: string | undefined, @Headers("x-github-event") githubEvent: string | undefined, @Headers("x-hub-signature-256") githubSignature: string | undefined, @Headers("idempotency-key") idempotencyKey: string | undefined, @RawBody() rawBody: Buffer | undefined, @Req() request: AuthenticatedRequest, @Headers("x-github-delivery") githubDelivery?: string) {
+    return this.webhooks.receive(path, secret, request.body, readIdempotencyKey(idempotencyKey), { githubEvent, githubSignature, githubDelivery: readIdempotencyKey(githubDelivery), rawBody });
   }
 }
 
