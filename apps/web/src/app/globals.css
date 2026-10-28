@@ -168,8 +168,8 @@ button:focus-visible, summary:focus-visible { outline: 3px solid rgba(214, 255, 
 .resource-picker { display: grid; gap: 8px; min-width: 0; }
 .resource-picker > .ui-field__label { margin: 0 0 2px; }
 .resource-picker input, .resource-picker select { min-width: 0; text-overflow: ellipsis; }
-.resource-picker small { margin: 0; }
-.resource-picker .resource-picker__mode, .inspector-webhook-setup__action { border-color: transparent; color: var(--text-accent); font-size: 11px; justify-self: start; min-height: 28px; padding: 4px 2px; }
+.resource-picker small { font-size: 12px; margin: 0; }
+.resource-picker .resource-picker__mode, .inspector-webhook-setup__action { border-color: transparent; color: var(--text-accent); font-size: 12px; justify-self: start; min-height: 32px; padding: 4px 2px; }
 .inspector-webhook-setup { display: grid; gap: 6px; }
 .inspector-webhook-setup__action { justify-self: start; }
 .webhook-endpoint-panel__help, .webhook-endpoint-panel__notice, .webhook-endpoint-panel__confirmation { font-size: 12px; line-height: 1.5; }
@@ -593,6 +593,8 @@ button:focus-visible, summary:focus-visible { outline: 3px solid rgba(214, 255, 
 .webhook-endpoint-panel__confirmation, .webhook-endpoint-panel__warning { margin: 0; }
 .webhook-endpoint-panel__notice { border-top: 0; padding: 10px 12px; }
 .webhook-endpoint-panel > .ui-button { align-self: flex-start; }
+.webhook-endpoint-panel__url span, .webhook-endpoint-panel__secret small, .webhook-endpoint-panel__warning { font-size: 12px; }
+.webhook-endpoint-panel__url code, .webhook-endpoint-panel__secret code { font-size: 11px; }
 .connections-loading__mark { border-radius: 999px; height: 32px; min-width: 32px; width: 32px; }
 .credential-panel--page { background: var(--surface-dark); border: 1px solid var(--surface-dark-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-dark); color: var(--text-on-dark); max-height: none; overflow: visible; padding: clamp(18px, 3vw, 30px); position: static; width: auto; }
 .credential-panel--page > p { color: var(--muted-on-dark); font-size: 13px; margin: 0; max-width: 680px; }

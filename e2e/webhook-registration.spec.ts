@@ -70,6 +70,27 @@ test("webhook registration stays disabled when the trigger exists only in the dr
   await expect(panel.getByRole("button", { name: "Create registration" })).toBeDisabled();
 });
 
+test("a second draft webhook does not open the first trigger's setup", async ({ page }) => {
+  const graph = { nodes: [
+    { id: "first", type: "trigger.github.push", position: { x: 100, y: 100 }, config: { path: "first", event: "push" } },
+    { id: "second", type: "trigger.github.pull-request-opened", position: { x: 500, y: 100 }, config: { path: "second", event: "pull_request", action: "opened" } },
+  ], edges: [] };
+  const workflow = { id: "workflow-multiple", workspaceId: "workspace-1", name: "Multiple triggers", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+    if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
+    if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
+    if (path.endsWith("/credentials")) return send({ credentials: [] });
+    if (path.endsWith("/workflows/workflow-multiple")) return send({ workflow });
+    return route.continue();
+  });
+  await page.goto("/editor?workflow=workflow-multiple");
+  await page.locator(".react-flow__node").filter({ hasText: "Pull request opened" }).click();
+  await expect(page.locator(".inspector-note")).toContainText("multiple webhook triggers");
+  await expect(page.getByRole("button", { name: "Configure webhook" })).toHaveCount(0);
+});
+
 test("GitHub registration is readable and protects existing secrets while loading and rotating", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 820 });
   const graph = { nodes: [{ id: "github", type: "trigger.github.pull-request-opened", position: { x: 100, y: 100 }, config: { path: "github-pr", credentialId: "", event: "pull_request", action: "opened" } }], edges: [] };
