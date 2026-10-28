@@ -672,6 +672,14 @@
       "externalImports": []
     },
     {
+      "id": "apps/api/src/webhooks/provider-webhook-state.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@prisma/client"
+      ]
+    },
+    {
       "id": "apps/api/src/webhooks/webhook.controller.ts",
       "boundary": "api",
       "internalImports": [

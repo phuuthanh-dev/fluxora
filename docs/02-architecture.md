@@ -181,3 +181,12 @@ ID and compare URL and events without exposing the provider's URL. An active,
 matching response does not prove the signing secret matches: GitHub does not
 return that secret. This primitive is not ownership discovery or a complete
 reconciliation workflow.
+
+The in-progress provider registration table pins an endpoint, credential and
+workflow version and stores its signing secret encrypted. Atomic state updates
+compare operation IDs and previous state; expired in-flight operations become
+uncertain, never automatic retries. Database constraints protect known remote
+identities and prevent deleting referenced endpoint, credential or version.
+This groundwork is not wired to provider calls or the manual endpoint UI.
+The orchestration must check ownership and version consistency itself; the
+foreign keys alone do not prove that all records belong to the same workspace.
