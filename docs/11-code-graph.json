@@ -715,6 +715,17 @@
       "externalImports": []
     },
     {
+      "id": "apps/api/src/webhooks/provider-webhook-recovery.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client"
+      ]
+    },
+    {
       "id": "apps/api/src/webhooks/provider-webhook-state.ts",
       "boundary": "api",
       "internalImports": [],
@@ -741,6 +752,7 @@
         "apps/api/src/auth/auth.module.ts",
         "apps/api/src/credentials/credential.module.ts",
         "apps/api/src/execution/execution.module.ts",
+        "apps/api/src/webhooks/provider-webhook-recovery.service.ts",
         "apps/api/src/webhooks/webhook.controller.ts",
         "apps/api/src/webhooks/webhook.service.ts"
       ],
@@ -1973,6 +1985,10 @@
       "to": "apps/api/src/workflows/workflow-graph.ts"
     },
     {
+      "from": "apps/api/src/webhooks/provider-webhook-recovery.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
       "from": "apps/api/src/webhooks/webhook.controller.ts",
       "to": "apps/api/src/auth/authenticated-request.ts"
     },
@@ -1995,6 +2011,10 @@
     {
       "from": "apps/api/src/webhooks/webhook.module.ts",
       "to": "apps/api/src/execution/execution.module.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.module.ts",
+      "to": "apps/api/src/webhooks/provider-webhook-recovery.service.ts"
     },
     {
       "from": "apps/api/src/webhooks/webhook.module.ts",

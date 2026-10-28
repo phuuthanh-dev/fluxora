@@ -209,3 +209,9 @@ remote URL, event and active status, and never treats an ambiguous DELETE or
 GitHub 404 as confirmed removal. The GitHub inspection and delete are separate
 requests and cannot guarantee the remote hook remains unchanged between them.
 The dispatcher is not exposed until recovery and user-facing status exist.
+
+The in-progress recovery service is disabled by default and will run only when
+`GITHUB_WEBHOOK_AUTOMATION_ENABLED=true` after migration and lifecycle release.
+It marks bounded batches of stale create/delete dispatches uncertain, rechecking
+state and timestamp to avoid overwriting a completed operation. It does not call
+GitHub, reconcile unknown results, or resume reservations that never dispatched.
