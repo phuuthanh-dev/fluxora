@@ -105,12 +105,6 @@ function useNarrowEditorLayout() {
   return isNarrow;
 }
 
-function readFirstRow(config: Record<string, unknown>) {
-  const values = config.values;
-  if (!Array.isArray(values) || !Array.isArray(values[0])) return "";
-  return values[0].map((value) => String(value ?? "")).join(", ");
-}
-
 function ConfigField({ label, value, onChange, multiline = false, inputMode }: {
   label: string;
   value: string;
@@ -178,6 +172,39 @@ function KeyValueField({ label, value, keyPlaceholder = "Key", valuePlaceholder 
   );
 }
 
+function readTableRows(value: unknown) {
+  const rows = Array.isArray(value)
+    ? value.filter((row): row is unknown[] => Array.isArray(row)).map((row) => row.map((cell) => String(cell ?? "")))
+    : [];
+  const columnCount = Math.max(1, ...rows.map((row) => row.length));
+  return (rows.length ? rows : [[]]).map((row) => [...row, ...Array.from({ length: Math.max(0, columnCount - row.length) }, () => "")]);
+}
+
+function TableField({ label, value, onChange }: { label: string; value: unknown; onChange: (value: string[][]) => void }) {
+  const rows = readTableRows(value);
+  const columnCount = rows[0]?.length ?? 1;
+  const updateCell = (rowIndex: number, columnIndex: number, cellValue: string) => {
+    onChange(rows.map((row, currentRow) => currentRow === rowIndex ? row.map((cell, currentColumn) => currentColumn === columnIndex ? cellValue : cell) : row));
+  };
+  const addRow = () => onChange([...rows, Array.from({ length: columnCount }, () => "")]);
+  const removeRow = (rowIndex: number) => onChange(rows.length === 1 ? [Array.from({ length: columnCount }, () => "")] : rows.filter((_, currentRow) => currentRow !== rowIndex));
+  const addColumn = () => onChange(rows.map((row) => [...row, ""]));
+  const removeColumn = () => onChange(columnCount === 1 ? rows : rows.map((row) => row.slice(0, -1)));
+
+  return (
+    <Field label={label} className="config-field table-field">
+      <div className="table-field__scroll">
+        <table className="table-field__table"><tbody>{rows.map((row, rowIndex) => <tr key={`row-${rowIndex}`}>
+          {row.map((cell, columnIndex) => <td key={`cell-${rowIndex}-${columnIndex}`}><input aria-label={`${label} row ${rowIndex + 1} column ${columnIndex + 1}`} value={cell} onChange={(event) => updateCell(rowIndex, columnIndex, event.target.value)} /></td>)}
+          <td><button className="table-field__remove" type="button" aria-label={`Remove ${label} row ${rowIndex + 1}`} onClick={() => removeRow(rowIndex)}>Remove</button></td>
+        </tr>)}</tbody></table>
+      </div>
+      <div className="table-field__actions"><button className="ghost-button" type="button" onClick={addRow}>Add row</button><button className="ghost-button" type="button" onClick={addColumn}>Add column</button><button className="ghost-button" type="button" onClick={removeColumn} disabled={columnCount === 1}>Remove column</button></div>
+      <small>Values are sent as rows and columns. Map dynamic values later through expressions when needed.</small>
+    </Field>
+  );
+}
+
 function NodeConfigurationFields({ fields, config, credentials, workspaceId, allowExpressions, onChange }: {
   fields: NodeConfigurationField[];
   config: Record<string, unknown>;
@@ -188,6 +215,7 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, all
 }) {
   return <>
     {fields.map((field) => {
+      if (field.visibleWhen && config[field.visibleWhen.key] !== field.visibleWhen.equals) return null;
       const value = readConfigurationFieldValue(config, field);
       if (field.kind === "credential") {
         return <CredentialField key={field.key} label={field.label} value={value} providers={field.providers} credentials={credentials} onChange={(nextValue) => onChange(field.key, nextValue)} optional={field.optional} />;
@@ -200,6 +228,9 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, all
       }
       if (field.kind === "key-value") {
         return <KeyValueField key={field.key} label={field.label} value={config[field.key]} keyPlaceholder={field.keyPlaceholder} valuePlaceholder={field.valuePlaceholder} onChange={(nextValue) => onChange(field.key, nextValue)} />;
+      }
+      if (field.kind === "table") {
+        return <TableField key={field.key} label={field.label} value={config[field.key]} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       }
       return <ConfigField
         key={field.key}
@@ -679,9 +710,6 @@ function NodeInspector({ node, execution, credentials, workspaceId, onResolveApp
       {node.data.nodeType === "action.google-drive" && (readConfigText(node.data.config, "operation") === "downloadText" ?
         <ResourcePicker workspaceId={workspaceId} resource="google-file" credentialId={readConfigText(node.data.config, "credentialId")} label="Text file" value={readConfigText(node.data.config, "fileId")} placeholder="Search loaded text files" allowExpression onChange={(value) => updateConfig("fileId", value)} /> :
         <ConfigField label="Search query" value={readConfigText(node.data.config, "query")} onChange={(value) => updateConfig("query", value)} />)}
-      {node.data.nodeType === "action.google-sheets" && (
-        <ConfigField label="Values (one row, comma-separated)" value={readFirstRow(node.data.config)} onChange={(value) => updateConfig("values", [value.split(",").map((cell) => cell.trim())])} />
-      )}
       {node.data.nodeType === "condition.if" && (
         <>
           <ConfigField label="Left value" value={readConfigText(node.data.config, "left")} onChange={(value) => updateConfig("left", value)} />

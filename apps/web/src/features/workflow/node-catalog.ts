@@ -59,6 +59,7 @@ export type NodeDefinition = {
 };
 
 export type NodeSelectOption = { value: string; label: string };
+export type NodeFieldVisibility = { visibleWhen?: { key: string; equals: string | number | boolean } };
 
 export type NodeResource = "github-repository" | "google-file" | "google-spreadsheet";
 
@@ -68,12 +69,13 @@ export type NodeResource = "github-repository" | "google-file" | "google-spreads
  * remain intentionally bespoke in the editor.
  */
 export type NodeConfigurationField =
-  | { kind: "credential"; key: string; label: string; providers: CredentialProvider[]; optional?: boolean }
-  | { kind: "text" | "textarea"; key: string; label: string }
-  | { kind: "number"; key: string; label: string; fallbackValue: number }
-  | { kind: "select"; key: string; label: string; options: NodeSelectOption[] }
-  | { kind: "key-value"; key: string; label: string; keyPlaceholder?: string; valuePlaceholder?: string }
-  | { kind: "resource"; key: string; label: string; resource: NodeResource; credentialKey: string; placeholder?: string };
+  | ({ kind: "credential"; key: string; label: string; providers: CredentialProvider[]; optional?: boolean } & NodeFieldVisibility)
+  | ({ kind: "text" | "textarea"; key: string; label: string } & NodeFieldVisibility)
+  | ({ kind: "number"; key: string; label: string; fallbackValue: number } & NodeFieldVisibility)
+  | ({ kind: "select"; key: string; label: string; options: NodeSelectOption[] } & NodeFieldVisibility)
+  | ({ kind: "key-value"; key: string; label: string; keyPlaceholder?: string; valuePlaceholder?: string } & NodeFieldVisibility)
+  | ({ kind: "table"; key: string; label: string } & NodeFieldVisibility)
+  | ({ kind: "resource"; key: string; label: string; resource: NodeResource; credentialKey: string; placeholder?: string } & NodeFieldVisibility);
 
 export const categoryOrder: WorkflowNodeCategory[] = ["trigger", "condition", "action", "approval"];
 
@@ -364,8 +366,8 @@ export const nodeCatalog: NodeDefinition[] = [
         { value: "uploadText", label: "Upload text file" },
         { value: "downloadText", label: "Download text file" },
       ] },
-      { kind: "text", key: "name", label: "File name" },
-      { kind: "textarea", key: "text", label: "Text content" },
+      { kind: "text", key: "name", label: "File name", visibleWhen: { key: "operation", equals: "uploadText" } },
+      { kind: "textarea", key: "text", label: "Text content", visibleWhen: { key: "operation", equals: "uploadText" } },
     ],
   },
   {
@@ -390,6 +392,7 @@ export const nodeCatalog: NodeDefinition[] = [
         { value: "update", label: "Update rows" },
       ] },
       { kind: "text", key: "range", label: "Range" },
+      { kind: "table", key: "values", label: "Values" },
     ],
   },
   {

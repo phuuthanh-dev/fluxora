@@ -87,3 +87,14 @@ test("HTTP configuration exposes runtime headers through a structured field", ()
   const headers = definition.configurationFields?.find((field) => field.key === "headers");
   assert.deepEqual(headers, { kind: "key-value", key: "headers", label: "Headers (optional)", keyPlaceholder: "Header name", valuePlaceholder: "Header value" });
 });
+
+test("Google connector fields follow operation-specific runtime contracts", () => {
+  const drive = getNodeDefinition("action.google-drive");
+  assert.ok(drive);
+  assert.deepEqual(drive.configurationFields?.find((field) => field.key === "name")?.visibleWhen, { key: "operation", equals: "uploadText" });
+  assert.deepEqual(drive.configurationFields?.find((field) => field.key === "text")?.visibleWhen, { key: "operation", equals: "uploadText" });
+
+  const sheets = getNodeDefinition("action.google-sheets");
+  assert.ok(sheets);
+  assert.equal(sheets.configurationFields?.find((field) => field.key === "values")?.kind, "table");
+});
