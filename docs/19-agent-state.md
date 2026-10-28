@@ -58,7 +58,8 @@ credential lifecycle and dependency references, execution engine and worker qual
 Go Live/activation guards, execution center, notification adapters, theme and
 Relay-inspired design system, accessibility hardening, CI/CD, immutable image
 deployment, release security contracts, production release candidate
-documentation, and dense-canvas navigation/minimap.
+documentation, dense-canvas navigation/minimap, and the reusable provider
+resource-picker foundation.
 
 ## Non-negotiable loop
 

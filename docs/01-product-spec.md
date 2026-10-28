@@ -98,6 +98,13 @@ Expression example:
 
 The expression language must not evaluate arbitrary JavaScript. Support path access, interpolation, and a small approved helper set only. The UI provides autocomplete from sample and previous node outputs.
 
+Provider configuration must not default to manual text when the provider can
+enumerate a safe resource. Use a bounded select for enum values, an
+authenticated searchable resource picker for provider resources such as
+repositories/files/spaces, and a hybrid expression field for values produced
+at runtime. Resource pickers return metadata only and persist stable provider
+identifiers; credentials and provider tokens remain server-side.
+
 ## 7. Executions
 
 Each execution stores its pinned workflow version and has these states:

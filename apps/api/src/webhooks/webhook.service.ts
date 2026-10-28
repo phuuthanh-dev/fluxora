@@ -84,6 +84,11 @@ export class WebhookService {
     if (headers.githubEvent !== eventName || !isRecord(payload) || (action && payload.action !== action)) {
       throw new ForbiddenException({ code: "GITHUB_EVENT_NOT_MATCHED", message: "The GitHub webhook event does not match this trigger." });
     }
+    const repositoryFilter = readString(config.repository);
+    const repositoryName = isRecord(payload.repository) ? readString(payload.repository.full_name) : null;
+    if (repositoryFilter && repositoryName !== repositoryFilter) {
+      throw new ForbiddenException({ code: "GITHUB_REPOSITORY_NOT_MATCHED", message: "The GitHub webhook repository does not match this trigger." });
+    }
     if (!credentialId || !headers.rawBody || !headers.githubSignature) {
       throw new ForbiddenException({ code: "GITHUB_WEBHOOK_SIGNATURE_INVALID", message: "The GitHub webhook signature is invalid." });
     }

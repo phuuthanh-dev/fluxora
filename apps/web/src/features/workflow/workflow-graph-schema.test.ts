@@ -48,6 +48,7 @@ test("GitHub Create Issue is executable with a separate connector credential", (
   assert.equal(definition.available, true);
   assert.deepEqual(definition.defaultConfig, { credentialId: "", repository: "", title: "", body: "", labels: "", idempotencyKey: "" });
   assert.deepEqual(definition.configurationFields?.[0], { kind: "credential", key: "credentialId", label: "GitHub credential", providers: ["GITHUB"] });
+  assert.equal(definition.configurationFields?.find((field) => field.key === "repository")?.kind, "resource");
   const addLabel = getNodeDefinition("action.github.add-label");
   assert.ok(addLabel);
   assert.equal(addLabel.available, true);
@@ -60,10 +61,12 @@ test("GitHub Create Issue is executable with a separate connector credential", (
   assert.ok(mergePullRequest);
   assert.equal(mergePullRequest.available, true);
   assert.deepEqual(mergePullRequest.defaultConfig, { credentialId: "", repository: "", pullRequestNumber: "", mergeMethod: "merge" });
+  assert.equal(mergePullRequest.configurationFields?.find((field) => field.key === "mergeMethod")?.kind, "select");
   const githubTrigger = getNodeDefinition("trigger.github.issue-opened");
   assert.ok(githubTrigger);
   assert.equal(githubTrigger.available, true);
   assert.deepEqual(githubTrigger.defaultConfig, { path: "github-issue-opened", credentialId: "", event: "issues", action: "opened" });
+  assert.equal(githubTrigger.configurationFields?.find((field) => field.key === "repository")?.kind, "resource");
   const githubPullRequestTrigger = getNodeDefinition("trigger.github.pull-request-opened");
   assert.ok(githubPullRequestTrigger);
   assert.equal(githubPullRequestTrigger.available, true);

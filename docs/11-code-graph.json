@@ -205,6 +205,8 @@
         "apps/api/src/credentials/credential-vault.service.ts",
         "apps/api/src/credentials/credential.controller.ts",
         "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/credentials/github-resource.controller.ts",
+        "apps/api/src/credentials/github-resource.service.ts",
         "apps/api/src/credentials/google-oauth.controller.ts",
         "apps/api/src/workspaces/workspace.module.ts"
       ],
@@ -219,6 +221,29 @@
         "apps/api/src/credentials/credential-vault.service.ts",
         "apps/api/src/database/prisma.service.ts",
         "apps/api/src/workspaces/workspace.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/github-resource.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/credentials/github-resource.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/github-resource.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts"
       ],
       "externalImports": [
         "@nestjs/common",
@@ -1130,6 +1155,17 @@
       "externalImports": []
     },
     {
+      "id": "apps/web/src/features/workflow/resource-picker.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/api/api-client.ts",
+        "apps/web/src/features/workflow/node-catalog.ts"
+      ],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
       "id": "apps/web/src/features/workflow/test-data.ts",
       "boundary": "web",
       "internalImports": [
@@ -1163,6 +1199,7 @@
         "apps/web/src/features/workflow/node-catalog.ts",
         "apps/web/src/features/workflow/node-icon.tsx",
         "apps/web/src/features/workflow/node-library.tsx",
+        "apps/web/src/features/workflow/resource-picker.tsx",
         "apps/web/src/features/workflow/test-data.ts",
         "apps/web/src/features/workflow/workflow-api.ts",
         "apps/web/src/features/workflow/workflow-graph-schema.ts",
@@ -1380,6 +1417,14 @@
     },
     {
       "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/github-resource.controller.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/github-resource.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
       "to": "apps/api/src/credentials/google-oauth.controller.ts"
     },
     {
@@ -1397,6 +1442,22 @@
     {
       "from": "apps/api/src/credentials/credential.service.ts",
       "to": "apps/api/src/workspaces/workspace.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/github-resource.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/github-resource.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/github-resource.controller.ts",
+      "to": "apps/api/src/credentials/github-resource.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/github-resource.service.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
     },
     {
       "from": "apps/api/src/credentials/google-oauth.controller.ts",
@@ -2027,6 +2088,14 @@
       "to": "apps/web/src/features/workflow/node-catalog.ts"
     },
     {
+      "from": "apps/web/src/features/workflow/resource-picker.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/resource-picker.tsx",
+      "to": "apps/web/src/features/workflow/node-catalog.ts"
+    },
+    {
       "from": "apps/web/src/features/workflow/test-data.ts",
       "to": "apps/web/src/features/workflow/node-catalog.ts"
     },
@@ -2081,6 +2150,10 @@
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",
       "to": "apps/web/src/features/workflow/node-library.tsx"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/resource-picker.tsx"
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",

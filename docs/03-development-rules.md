@@ -20,6 +20,8 @@
 - Prefer accessible semantic HTML and keyboard-operable controls.
 - Keep graph state separate from server state.
 - Forms must show inline validation and preserve unsaved input where practical.
+- Node configuration must use the strongest appropriate control: static selects for bounded enums, searchable resource pickers for provider-owned resources, and expression-aware hybrid inputs for runtime data. Avoid free-text fields when the provider can safely enumerate the value.
+- Provider resource pickers must load through an authenticated backend endpoint; the browser must never receive connector tokens or call provider APIs directly. Persist stable provider identifiers in workflow config, not display-only labels.
 - Avoid animation that obscures workflow status or makes execution feel slower.
 - Desktop-first does not mean inaccessible: layouts must remain readable at narrower widths.
 
@@ -45,3 +47,4 @@
 - Do not commit `.env`, tokens, database volumes, screenshots containing secrets, or provider exports.
 - Update product spec when behavior changes; update architecture when system boundaries change.
 - New runtime node work must document its credential type, supported operations, output schema, retry policy, and mock fixture.
+- New connector fields must document whether they are static, provider-enumerated, runtime-expression, or intentionally free-form, and must reuse the shared catalog field contract before adding a provider-specific inspector branch.

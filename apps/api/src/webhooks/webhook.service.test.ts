@@ -79,6 +79,23 @@ test("GitHub issue-opened webhook rejects a different action before dispatch", a
   assert.equal(dispatched, false);
 });
 
+test("GitHub webhook repository filters reject events from another repository", async () => {
+  const body = Buffer.from('{"action":"opened","repository":{"full_name":"acme/other"}}');
+  const signature = `sha256=${createHmac("sha256", "github-webhook-secret").update(body).digest("hex")}`;
+  let dispatched = false;
+  const service = new WebhookService(
+    { webhookEndpoint: { findUnique: async () => ({ id: "endpoint-1", isActive: true, secretHash: null, workflow: { workspaceId: "workspace-1", isActive: true, archivedAt: null }, workflowVersion: { graph: { nodes: [{ id: "github", type: "trigger.github.issue-opened", position: { x: 0, y: 0 }, config: { credentialId: "github-credential", repository: "acme/expected", event: "issues", action: "opened" } }], edges: [] } }, workflowVersionId: "version-1" }) } } as never,
+    {} as never,
+    { dispatch: async () => { dispatched = true; } } as never,
+    { readForExecution: async () => ({ webhookSecret: "github-webhook-secret" }) } as never,
+  );
+  await assert.rejects(
+    () => service.receive("github-issues", undefined, JSON.parse(body.toString()), undefined, { githubEvent: "issues", githubSignature: signature, rawBody: body }),
+    (error: unknown) => Boolean(error && typeof error === "object" && "response" in error && (error.response as { code?: unknown } | undefined)?.code === "GITHUB_REPOSITORY_NOT_MATCHED"),
+  );
+  assert.equal(dispatched, false);
+});
+
 test("GitHub pull-request-opened webhook verifies its event and dispatches the payload", async () => {
   const body = Buffer.from('{"action":"opened","pull_request":{"number":7}}');
   const signature = `sha256=${createHmac("sha256", "github-webhook-secret").update(body).digest("hex")}`;

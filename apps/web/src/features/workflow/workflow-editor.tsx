@@ -57,6 +57,7 @@ import { NodeLibrary, type NodeLibraryHandle } from "./node-library";
 import { Button, Dialog, Field, IconButton, Menu, Select, Status, useDialogFocus } from "../../components/ui";
 import { AppShellHeader } from "../app-shell/app-shell-header";
 import { ExecutionDetailsPanel, type ApiExecution } from "./execution-observability";
+import { ResourcePicker } from "./resource-picker";
 
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNode };
 
@@ -129,10 +130,11 @@ function readConfigurationFieldValue(config: Record<string, unknown>, field: Nod
     : readConfigText(config, field.key);
 }
 
-function NodeConfigurationFields({ fields, config, credentials, onChange }: {
+function NodeConfigurationFields({ fields, config, credentials, workspaceId, onChange }: {
   fields: NodeConfigurationField[];
   config: Record<string, unknown>;
   credentials: CredentialSummary[];
+  workspaceId: string;
   onChange: (key: string, value: unknown) => void;
 }) {
   return <>
@@ -140,6 +142,12 @@ function NodeConfigurationFields({ fields, config, credentials, onChange }: {
       const value = readConfigurationFieldValue(config, field);
       if (field.kind === "credential") {
         return <CredentialField key={field.key} label={field.label} value={value} providers={field.providers} credentials={credentials} onChange={(nextValue) => onChange(field.key, nextValue)} optional={field.optional} />;
+      }
+      if (field.kind === "resource") {
+        return <ResourcePicker key={field.key} workspaceId={workspaceId} resource={field.resource} credentialId={readConfigText(config, field.credentialKey)} label={field.label} value={value} placeholder={field.placeholder} onChange={(nextValue) => onChange(field.key, nextValue)} />;
+      }
+      if (field.kind === "select") {
+        return <Field key={field.key} label={field.label} className="config-field"><Select aria-label={field.label} value={value} onChange={(event) => onChange(field.key, event.target.value)}>{field.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></Field>;
       }
       return <ConfigField
         key={field.key}
@@ -444,7 +452,7 @@ function WorkflowLibraryPanel({ initialWorkspaces, activeWorkflowId, activeWorks
   return <Dialog label="Workflow library" className="workflow-library" modal={false} onClose={onClose}><div className="credential-panel__heading"><div><p className="section-label">WORKSPACE LIBRARY</p><h2>Workflows</h2></div><button className="icon-button" type="button" aria-label="Close workflow library" onClick={onClose}>×</button></div><label className="workflow-library__field"><span>Workspace</span><select value={workspaceId} onChange={(event) => switchWorkspace(event.target.value)}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</select></label><div className="workflow-library__create"><input value={newWorkspaceName} onChange={(event) => setNewWorkspaceName(event.target.value)} placeholder="New workspace name" /><button className="ghost-button" type="button" onClick={() => void createWorkspace()} disabled={isSaving || !newWorkspaceName.trim()}>Create workspace</button></div><div className="workflow-library__list">{workflows.map((candidate) => <button key={candidate.id} className={candidate.id === activeWorkflowId ? "workflow-library__item workflow-library__item--active" : "workflow-library__item"} type="button" onClick={() => onOpen(candidate)}><strong>{candidate.name}</strong><span>{candidate.published ? `Published v${candidate.published.version}` : "Draft only"}</span></button>)}</div><div className="workflow-library__new"><p className="section-label">CREATE WORKFLOW</p><input value={newWorkflowName} onChange={(event) => setNewWorkflowName(event.target.value)} aria-label="New workflow name" /><div><button className="run-button" type="button" onClick={() => void createWorkflow()} disabled={isSaving || !workspaceId || !newWorkflowName.trim()}>{isSaving && !lastCreateTemplate ? "Creating…" : "Start blank"}</button><button className="ghost-button" type="button" onClick={() => void createWorkflow("steam-daily-report")} disabled={isSaving || !workspaceId}>{isSaving && lastCreateTemplate ? "Creating…" : "Use Steam template"}</button></div>{createError && <p className="workflow-library__error" role="alert">{createError} <button type="button" className="ghost-button" onClick={() => void createWorkflow(lastCreateTemplate)}>Retry</button></p>}</div>{isLoadingWorkflows && <p className="workflow-library__notice" aria-live="polite">Loading workflows…</p>}{loadError && <p className="workflow-library__notice workflow-library__notice--error" role="alert">{loadError} <button type="button" className="ghost-button" onClick={() => void loadWorkflows(workspaceId)}>Retry</button></p>}{!isLoadingWorkflows && !loadError && <p className="workflow-library__notice">{notice}</p>}</Dialog>;
 }
 
-function NodeInspector({ node, execution, credentials, onResolveApproval, onDebugNode, isDebugging, isDrawerOpen, onCloseDrawer }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null; credentials: CredentialSummary[]; onResolveApproval: (approvalId: string, decision: "approved" | "rejected") => void; onDebugNode: (node: WorkflowCanvasNode) => void; isDebugging: boolean; isDrawerOpen: boolean; onCloseDrawer: () => void }) {
+function NodeInspector({ node, execution, credentials, workspaceId, onResolveApproval, onDebugNode, isDebugging, isDrawerOpen, onCloseDrawer }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null; credentials: CredentialSummary[]; workspaceId: string; onResolveApproval: (approvalId: string, decision: "approved" | "rejected") => void; onDebugNode: (node: WorkflowCanvasNode) => void; isDebugging: boolean; isDrawerOpen: boolean; onCloseDrawer: () => void }) {
   const updateNodeData = useWorkflowEditorStore((state) => state.updateNodeData);
   const inspectorRef = useDialogFocus<HTMLElement>({ active: isDrawerOpen, trapFocus: true, onClose: onCloseDrawer, restoreFocus: false });
 
@@ -487,7 +495,7 @@ function NodeInspector({ node, execution, credentials, onResolveApproval, onDebu
         />
       </InspectorSection>
       <InspectorSection title="Configuration">
-      {definition?.configurationFields && <NodeConfigurationFields fields={definition.configurationFields} config={node.data.config} credentials={credentials} onChange={updateConfig} />}
+      {definition?.configurationFields && <NodeConfigurationFields fields={definition.configurationFields} config={node.data.config} credentials={credentials} workspaceId={workspaceId} onChange={updateConfig} />}
       {node.data.nodeType === "trigger.manual" && <TestDataEditor value={node.data.config.testData} onApply={(testData) => updateConfig("testData", testData)} />}
       {node.data.nodeType === "trigger.cron" && (
         <>
@@ -546,7 +554,7 @@ function NodeInspector({ node, execution, credentials, onResolveApproval, onDebu
             );
           })()}
           <ConfigField label="Message text" value={readConfigText(node.data.config, "text") || readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("text", value)} multiline />
-          <ConfigField label="Parse mode (optional: Markdown, HTML, MarkdownV2)" value={readConfigText(node.data.config, "parseMode")} onChange={(value) => updateConfig("parseMode", value)} />
+          <Field label="Parse mode" className="config-field"><Select aria-label="Telegram parse mode" value={readConfigText(node.data.config, "parseMode")} onChange={(event) => updateConfig("parseMode", event.target.value)}><option value="">Plain text</option><option value="Markdown">Markdown</option><option value="HTML">HTML</option><option value="MarkdownV2">MarkdownV2</option></Select></Field>
         </>
       )}
       {node.data.nodeType === "action.google-drive" && (
@@ -558,7 +566,7 @@ function NodeInspector({ node, execution, credentials, onResolveApproval, onDebu
       {node.data.nodeType === "condition.if" && (
         <>
           <ConfigField label="Left value" value={readConfigText(node.data.config, "left")} onChange={(value) => updateConfig("left", value)} />
-          <ConfigField label="Operator" value={readConfigText(node.data.config, "operator")} onChange={(value) => updateConfig("operator", value)} />
+          <Field label="Operator" className="config-field"><Select aria-label="Condition operator" value={readConfigText(node.data.config, "operator") || "equals"} onChange={(event) => updateConfig("operator", event.target.value)}><option value="equals">Equals</option><option value="not_equals">Does not equal</option><option value="contains">Contains</option><option value="exists">Exists</option></Select></Field>
           <ConfigField label="Right value" value={readConfigText(node.data.config, "right")} onChange={(value) => updateConfig("right", value)} />
         </>
       )}
@@ -570,7 +578,7 @@ function NodeInspector({ node, execution, credentials, onResolveApproval, onDebu
       )}
       {node.data.nodeType === "approval.request" && <>
         <ConfigField label="Approval message" value={readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("message", value)} multiline />
-        <ConfigField label="Notification provider (google_chat or http_webhook)" value={readConfigText(node.data.config, "notificationProvider")} onChange={(value) => updateConfig("notificationProvider", value)} />
+        <Field label="Notification provider" className="config-field"><Select aria-label="Approval notification provider" value={readConfigText(node.data.config, "notificationProvider") || "google_chat"} onChange={(event) => updateConfig("notificationProvider", event.target.value)}><option value="google_chat">Google Chat</option><option value="http_webhook">HTTP webhook</option></Select></Field>
         <CredentialField label="Notification credential (optional)" value={readConfigText(node.data.config, "notificationCredentialId")} providers={readConfigText(node.data.config, "notificationProvider") === "http_webhook" ? ["HTTP"] : ["GOOGLE_CHAT_WEBHOOK"]} credentials={credentials} onChange={(value) => updateConfig("notificationCredentialId", value)} optional />
       </>}
       {definition && !definition.available && <p className="planned-note">This node is visible for roadmap clarity, but cannot run in the MVP.</p>}
@@ -1250,7 +1258,7 @@ export function WorkflowEditor() {
           </button>
         </section>
         {isInspectorDrawerOpen && <button className="inspector-backdrop" type="button" aria-label="Dismiss node inspector" onClick={closeInspectorDrawer} />}
-        <NodeInspector node={selectedNode} execution={execution} credentials={credentials} onResolveApproval={resolveApproval} onDebugNode={(node) => void runNodeDebug(node)} isDebugging={activeOperation === "debugging"} isDrawerOpen={isInspectorDrawerOpen} onCloseDrawer={closeInspectorDrawer} />
+        <NodeInspector node={selectedNode} execution={execution} credentials={credentials} workspaceId={workflow?.workspaceId ?? ""} onResolveApproval={resolveApproval} onDebugNode={(node) => void runNodeDebug(node)} isDebugging={activeOperation === "debugging"} isDrawerOpen={isInspectorDrawerOpen} onCloseDrawer={closeInspectorDrawer} />
       </div>
       {contextMenu && <div className="node-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} role="menu" onMouseLeave={() => setContextMenu(null)}>
         <button type="button" onClick={() => { copyNode(contextMenu.nodeId); setContextMenu(null); }}>Copy node</button>

@@ -58,6 +58,10 @@ export type NodeDefinition = {
   configurationFields?: NodeConfigurationField[];
 };
 
+export type NodeSelectOption = { value: string; label: string };
+
+export type NodeResource = "github-repository";
+
 /**
  * Declarative fields that the inspector can render without growing another
  * provider-specific branch. Complex controls (such as Telegram destinations)
@@ -66,7 +70,9 @@ export type NodeDefinition = {
 export type NodeConfigurationField =
   | { kind: "credential"; key: string; label: string; providers: CredentialProvider[]; optional?: boolean }
   | { kind: "text" | "textarea"; key: string; label: string }
-  | { kind: "number"; key: string; label: string; fallbackValue: number };
+  | { kind: "number"; key: string; label: string; fallbackValue: number }
+  | { kind: "select"; key: string; label: string; options: NodeSelectOption[] }
+  | { kind: "resource"; key: string; label: string; resource: NodeResource; credentialKey: string; placeholder?: string };
 
 export const categoryOrder: WorkflowNodeCategory[] = ["trigger", "condition", "action", "approval"];
 
@@ -185,6 +191,7 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { path: "github-issue-opened", credentialId: "", event: "issues", action: "opened" },
     configurationFields: [
       { kind: "credential", key: "credentialId", label: "GitHub connector credential", providers: ["GITHUB"] },
+      { kind: "resource", key: "repository", label: "Repository filter (optional)", resource: "github-repository", credentialKey: "credentialId", placeholder: "Filter by repository" },
     ],
   },
   {
@@ -202,6 +209,7 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { path: "github-pull-request-opened", credentialId: "", event: "pull_request", action: "opened" },
     configurationFields: [
       { kind: "credential", key: "credentialId", label: "GitHub connector credential", providers: ["GITHUB"] },
+      { kind: "resource", key: "repository", label: "Repository filter (optional)", resource: "github-repository", credentialKey: "credentialId", placeholder: "Filter by repository" },
     ],
   },
   {
@@ -219,6 +227,7 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { path: "github-push", credentialId: "", event: "push", action: "" },
     configurationFields: [
       { kind: "credential", key: "credentialId", label: "GitHub connector credential", providers: ["GITHUB"] },
+      { kind: "resource", key: "repository", label: "Repository filter (optional)", resource: "github-repository", credentialKey: "credentialId", placeholder: "Filter by repository" },
     ],
   },
   {
@@ -236,6 +245,7 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { path: "github-workflow-run-completed", credentialId: "", event: "workflow_run", action: "completed" },
     configurationFields: [
       { kind: "credential", key: "credentialId", label: "GitHub connector credential", providers: ["GITHUB"] },
+      { kind: "resource", key: "repository", label: "Repository filter (optional)", resource: "github-repository", credentialKey: "credentialId", placeholder: "Filter by repository" },
     ],
   },
   {
@@ -347,7 +357,12 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { credentialId: "", operation: "search", query: "", fileId: "", name: "daily-report.txt", text: "" },
     configurationFields: [
       { kind: "credential", key: "credentialId", label: "Google credential", providers: ["GOOGLE"] },
-      { kind: "text", key: "operation", label: "Operation (list, search, uploadText, downloadText)" },
+      { kind: "select", key: "operation", label: "Operation", options: [
+        { value: "list", label: "List files" },
+        { value: "search", label: "Search files" },
+        { value: "uploadText", label: "Upload text file" },
+        { value: "downloadText", label: "Download text file" },
+      ] },
       { kind: "text", key: "name", label: "File name" },
       { kind: "textarea", key: "text", label: "Text content" },
     ],
@@ -368,7 +383,11 @@ export const nodeCatalog: NodeDefinition[] = [
     configurationFields: [
       { kind: "credential", key: "credentialId", label: "Google credential", providers: ["GOOGLE"] },
       { kind: "text", key: "spreadsheetId", label: "Spreadsheet ID" },
-      { kind: "text", key: "operation", label: "Operation (read, append, update)" },
+      { kind: "select", key: "operation", label: "Operation", options: [
+        { value: "read", label: "Read rows" },
+        { value: "append", label: "Append rows" },
+        { value: "update", label: "Update rows" },
+      ] },
       { kind: "text", key: "range", label: "Range" },
     ],
   },
@@ -387,7 +406,13 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { credentialId: "", method: "GET", url: "", headers: {}, body: "", timeoutMs: 15_000 },
     configurationFields: [
       { kind: "credential", key: "credentialId", label: "HTTP credential (optional)", providers: ["HTTP"], optional: true },
-      { kind: "text", key: "method", label: "Method" },
+      { kind: "select", key: "method", label: "Method", options: [
+        { value: "GET", label: "GET" },
+        { value: "POST", label: "POST" },
+        { value: "PUT", label: "PUT" },
+        { value: "PATCH", label: "PATCH" },
+        { value: "DELETE", label: "DELETE" },
+      ] },
       { kind: "text", key: "url", label: "URL" },
       { kind: "textarea", key: "body", label: "Request body" },
       { kind: "number", key: "timeoutMs", label: "Timeout (ms)", fallbackValue: 15_000 },
@@ -514,7 +539,7 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { credentialId: "", repository: "", title: "", body: "", labels: "", idempotencyKey: "" },
     configurationFields: [
       { kind: "credential", key: "credentialId", label: "GitHub credential", providers: ["GITHUB"] },
-      { kind: "text", key: "repository", label: "Repository" },
+      { kind: "resource", key: "repository", label: "Repository", resource: "github-repository", credentialKey: "credentialId", placeholder: "Search repositories" },
       { kind: "text", key: "title", label: "Issue title" },
       { kind: "textarea", key: "body", label: "Issue body" },
       { kind: "text", key: "labels", label: "Labels (comma-separated, optional)" },
@@ -536,7 +561,7 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { credentialId: "", repository: "", issueNumber: "", label: "" },
     configurationFields: [
       { kind: "credential", key: "credentialId", label: "GitHub credential", providers: ["GITHUB"] },
-      { kind: "text", key: "repository", label: "Repository" },
+      { kind: "resource", key: "repository", label: "Repository", resource: "github-repository", credentialKey: "credentialId", placeholder: "Search repositories" },
       { kind: "text", key: "issueNumber", label: "Issue number" },
       { kind: "text", key: "label", label: "Label" },
     ],
@@ -556,7 +581,7 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { credentialId: "", repository: "", issueNumber: "", body: "" },
     configurationFields: [
       { kind: "credential", key: "credentialId", label: "GitHub credential", providers: ["GITHUB"] },
-      { kind: "text", key: "repository", label: "Repository" },
+      { kind: "resource", key: "repository", label: "Repository", resource: "github-repository", credentialKey: "credentialId", placeholder: "Search repositories" },
       { kind: "text", key: "issueNumber", label: "Issue number" },
       { kind: "textarea", key: "body", label: "Comment" },
     ],
@@ -576,9 +601,13 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { credentialId: "", repository: "", pullRequestNumber: "", mergeMethod: "merge" },
     configurationFields: [
       { kind: "credential", key: "credentialId", label: "GitHub credential", providers: ["GITHUB"] },
-      { kind: "text", key: "repository", label: "Repository" },
+      { kind: "resource", key: "repository", label: "Repository", resource: "github-repository", credentialKey: "credentialId", placeholder: "Search repositories" },
       { kind: "text", key: "pullRequestNumber", label: "Pull request number" },
-      { kind: "text", key: "mergeMethod", label: "Merge method (merge, squash, or rebase)" },
+      { kind: "select", key: "mergeMethod", label: "Merge method", options: [
+        { value: "merge", label: "Merge commit" },
+        { value: "squash", label: "Squash and merge" },
+        { value: "rebase", label: "Rebase and merge" },
+      ] },
     ],
   },
   {

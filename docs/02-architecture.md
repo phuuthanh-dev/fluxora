@@ -65,6 +65,15 @@ Each integration supplies:
 - Backend executor: server-side implementation of the node contract.
 - Optional mock resolver: deterministic output for test runs.
 
+Configuration fields are declarative and must choose the strongest safe UI
+control available: static selects for bounded enums, authenticated resource
+pickers for provider-owned resources, and expression-aware hybrid inputs for
+runtime values such as issue numbers. Resource discovery always crosses the
+API boundary; the browser never calls a provider or receives connector
+secrets. Workflow graphs persist stable provider identifiers such as
+`owner/repository`, while credentials remain reusable authentication
+connections rather than per-resource copies.
+
 App and operation metadata is source-owned in the MVP. Workflow graphs persist
 only stable node type identifiers and configuration, so discovery taxonomy can
 evolve without migrating immutable workflow versions. See
@@ -117,3 +126,9 @@ The MVP pins Prisma ORM 6.12.0 because the local Node 23 runtime is outside Pris
 - GitHub Pull request opened uses the same pinned webhook lifecycle, raw-body HMAC verification, encrypted connector `webhookSecret`, and pre-queue event/action filtering for `pull_request.opened`. Webhook registration remains operator-configured in GitHub.
 - GitHub Push uses the same pinned webhook lifecycle and raw-body HMAC verification, but filters the event-only `push` header because GitHub push payloads do not use an action field. Webhook registration remains operator-configured in GitHub.
 - GitHub Workflow run completed uses the same pinned webhook lifecycle, raw-body HMAC verification, encrypted connector `webhookSecret`, and pre-queue event/action filtering for `workflow_run.completed`. Webhook registration remains operator-configured in GitHub.
+- GitHub repository resources are listed through an owner-scoped API proxy
+  using the encrypted connector token server-side. Actions can persist a
+  selected `owner/repository`, and GitHub triggers can optionally filter
+  verified webhook payloads by `repository.full_name`; old graphs without the
+  filter remain compatible. Webhook registration remains separate from the
+  reusable GitHub connection.
