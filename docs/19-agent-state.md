@@ -53,6 +53,7 @@ GitHub and deployment state before making release decisions.
 - `WEBHOOK-CONCURRENCY-1` — Workflow-row locking and observed version checks prevent concurrent app requests from silently creating duplicate registrations or replacing another rotation. Synthetic PostgreSQL and full-gate tests passed. Older clients must reload; the application lock does not constrain direct database writes.
 - `WEBHOOK-SECRET-CONTRACT-1` — Owner approved a one-time GitHub signing-secret display; generic webhooks retain the same one-time model after provider comparison. The response is non-cacheable, guidance is aligned, and focused and full-gate tests passed. Existing secrets remain unavailable on later reads.
 - `WEBHOOK-UI-POLISH-1` — PR #31 merged and deployed; a GitHub Push trigger-only live test succeeded, without proving action coverage or long-term stability.
+- `CONNECTOR-CONFIG-2` — Simple Steam fields now use the shared inspector field contract; connector shape/field rules were recorded against n8n's resource/operation pattern. Full gate passed with 168 API, 20 web, and 39 Playwright tests. No provider calls were made.
 
 ## Next approved slices
 

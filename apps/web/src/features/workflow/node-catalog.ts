@@ -69,6 +69,7 @@ export type NodeResource = "github-repository" | "google-file" | "google-spreads
  */
 export type NodeConfigurationField = (
   | { kind: "credential"; key: string; label: string; providers: CredentialProvider[]; optional?: boolean }
+  | { kind: "boolean"; key: string; label: string }
   | { kind: "text" | "textarea"; key: string; label: string }
   | { kind: "number"; key: string; label: string; fallbackValue: number }
   | { kind: "select"; key: string; label: string; options: NodeSelectOption[] }
@@ -288,6 +289,13 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "steam",
     available: true,
     defaultConfig: { credentialId: "", steamId: "", includeOwnedGames: true, includeRecentGames: true, achievementAppId: "" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Steam credential", providers: ["STEAM"] },
+      { kind: "text", key: "steamId", label: "Steam ID 64" },
+      { kind: "boolean", key: "includeOwnedGames", label: "Include owned games and playtime" },
+      { kind: "boolean", key: "includeRecentGames", label: "Include recently played games" },
+      { kind: "text", key: "achievementAppId", label: "Achievement app ID (optional)" },
+    ],
   },
   {
     type: "action.google-chat.webhook",

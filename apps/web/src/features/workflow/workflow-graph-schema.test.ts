@@ -80,3 +80,18 @@ test("GitHub Create Issue is executable with a separate connector credential", (
   assert.equal(githubWorkflowRunTrigger.available, true);
   assert.deepEqual(githubWorkflowRunTrigger.defaultConfig, { path: "github-workflow-run-completed", credentialId: "", event: "workflow_run", action: "completed" });
 });
+
+test("Steam uses the shared configuration field contract for its simple controls", () => {
+  const definition = getNodeDefinition("action.steam.account-snapshot");
+  assert.ok(definition);
+  assert.equal(definition.available, true);
+  assert.deepEqual(definition.configurationFields?.map((field) => field.key), [
+    "credentialId",
+    "steamId",
+    "includeOwnedGames",
+    "includeRecentGames",
+    "achievementAppId",
+  ]);
+  assert.equal(definition.configurationFields?.find((field) => field.key === "includeOwnedGames")?.kind, "boolean");
+  assert.equal(definition.configurationFields?.find((field) => field.key === "credentialId")?.kind, "credential");
+});
