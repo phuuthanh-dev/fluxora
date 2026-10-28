@@ -223,7 +223,7 @@ test("GitHub repository picker loads more pages and keeps the chosen value", asy
 });
 
 test("Google Sheets picker selects a spreadsheet and supports manual input", async ({ page }) => {
-  const graph = { nodes: [{ id: "sheets", type: "action.google-sheets", position: { x: 100, y: 100 }, config: { credentialId: "google-1", spreadsheetId: "", operation: "read", range: "Sheet1!A1" } }], edges: [] };
+  const graph = { nodes: [{ id: "sheets", type: "action.google-sheets", position: { x: 100, y: 100 }, config: { credentialId: "google-1", spreadsheetId: "", operation: "read", range: "Sheet1!A1", values: [["retained", "row"]] } }], edges: [] };
   const workflow = { id: "workflow-3", workspaceId: "workspace-1", name: "Sheets test", description: null, isActive: false, draft: { id: "draft-1", version: 1, graph }, published: null };
   await page.route("**/api/v1/**", async (route) => {
     const url = new URL(route.request().url());
@@ -237,9 +237,47 @@ test("Google Sheets picker selects a spreadsheet and supports manual input", asy
   });
   await page.goto("/editor?workflow=workflow-3");
   await page.locator(".react-flow__node").filter({ hasText: "Read or write rows" }).click();
+  await expect(page.getByLabel("Values (one row, comma-separated)")).toHaveCount(0);
+  await page.getByLabel("Operation", { exact: true }).selectOption("append");
+  await expect(page.getByLabel("Values (one row, comma-separated)")).toHaveValue("retained, row");
+  await page.getByLabel("Operation", { exact: true }).selectOption("read");
+  await expect(page.getByLabel("Values (one row, comma-separated)")).toHaveCount(0);
+  await page.getByLabel("Operation", { exact: true }).selectOption("update");
+  await expect(page.getByLabel("Values (one row, comma-separated)")).toHaveValue("retained, row");
   const picker = page.getByRole("group", { name: "Spreadsheet", exact: true });
   await picker.getByRole("button", { name: "Load more spreadsheets" }).click();
   await picker.getByLabel("Spreadsheet", { exact: true }).selectOption("sheet-2");
   await picker.getByRole("button", { name: "Enter value or expression" }).click();
   await expect(picker.getByLabel("Spreadsheet value")).toHaveValue("sheet-2");
+});
+
+test("Google Drive fields follow the operation without losing draft values", async ({ page }) => {
+  const graph = { nodes: [{ id: "drive", type: "action.google-drive", position: { x: 100, y: 100 }, config: { credentialId: "google-1", operation: "search", query: "name contains 'report'", name: "report.txt", text: "retained" } }], edges: [] };
+  const workflow = { id: "workflow-drive", workspaceId: "workspace-1", name: "Drive test", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+    if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
+    if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
+    if (path.endsWith("/credentials")) return send({ credentials: [{ id: "google-1", provider: "GOOGLE", label: "Google" }] });
+    if (path.endsWith("/google/files")) return send({ files: [], nextPageToken: null });
+    if (path.endsWith("/workflows/workflow-drive")) return send({ workflow });
+    return route.continue();
+  });
+  await page.goto("/editor?workflow=workflow-drive");
+  await page.locator(".react-flow__node").filter({ hasText: "Manage files" }).click();
+  await expect(page.getByLabel("Search query")).toBeVisible();
+  await expect(page.getByLabel("File name")).toHaveCount(0);
+  await page.getByLabel("Operation", { exact: true }).selectOption("uploadText");
+  await expect(page.getByLabel("Search query")).toHaveCount(0);
+  await expect(page.getByLabel("File name")).toHaveValue("report.txt");
+  await expect(page.getByLabel("Text content")).toHaveValue("retained");
+  await page.getByLabel("Operation", { exact: true }).selectOption("downloadText");
+  await expect(page.getByRole("group", { name: "Text file" })).toBeVisible();
+  await expect(page.getByLabel("Text content")).toHaveCount(0);
+  await page.getByLabel("Operation", { exact: true }).selectOption("list");
+  await expect(page.getByLabel("Search query")).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "Text file" })).toHaveCount(0);
+  await page.getByLabel("Operation", { exact: true }).selectOption("search");
+  await expect(page.getByLabel("Search query")).toHaveValue("name contains 'report'");
 });

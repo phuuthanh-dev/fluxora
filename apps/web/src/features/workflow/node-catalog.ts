@@ -67,12 +67,13 @@ export type NodeResource = "github-repository" | "google-file" | "google-spreads
  * provider-specific branch. Complex controls (such as Telegram destinations)
  * remain intentionally bespoke in the editor.
  */
-export type NodeConfigurationField =
+export type NodeConfigurationField = (
   | { kind: "credential"; key: string; label: string; providers: CredentialProvider[]; optional?: boolean }
   | { kind: "text" | "textarea"; key: string; label: string }
   | { kind: "number"; key: string; label: string; fallbackValue: number }
   | { kind: "select"; key: string; label: string; options: NodeSelectOption[] }
-  | { kind: "resource"; key: string; label: string; resource: NodeResource; credentialKey: string; placeholder?: string };
+  | { kind: "resource"; key: string; label: string; resource: NodeResource; credentialKey: string; placeholder?: string }
+) & { showWhen?: { key: string; values: string[] } };
 
 export const categoryOrder: WorkflowNodeCategory[] = ["trigger", "condition", "action", "approval"];
 
@@ -363,8 +364,8 @@ export const nodeCatalog: NodeDefinition[] = [
         { value: "uploadText", label: "Upload text file" },
         { value: "downloadText", label: "Download text file" },
       ] },
-      { kind: "text", key: "name", label: "File name" },
-      { kind: "textarea", key: "text", label: "Text content" },
+      { kind: "text", key: "name", label: "File name", showWhen: { key: "operation", values: ["uploadText"] } },
+      { kind: "textarea", key: "text", label: "Text content", showWhen: { key: "operation", values: ["uploadText"] } },
     ],
   },
   {

@@ -26,6 +26,11 @@ security finding, or changed requirement.
 
 ## Last audited repository state
 
+The table and older slice notes are historical. PR #31 was merged and deployed
+as `16d53a5`; production migrations were applied; GitHub Push trigger-only and
+Google OAuth read-only resource discovery succeeded live. Recheck current
+GitHub and deployment state before making release decisions.
+
 | Field | Value |
 |---|---|
 | Local base commit | `6565a3c` (subsequent changes are on `codex/webhook-registration-ux`) |
@@ -47,6 +52,7 @@ security finding, or changed requirement.
 - `WEBHOOK-UNCERTAIN-UX-1` — An unsuccessful registration request clears the previously displayed secret, reloads endpoint status, and warns of an uncertain outcome. Playwright simulates a lost response; the full gate passed. This does not recover a lost secret or prove a still-running request has finished.
 - `WEBHOOK-CONCURRENCY-1` — Workflow-row locking and observed version checks prevent concurrent app requests from silently creating duplicate registrations or replacing another rotation. Synthetic PostgreSQL and full-gate tests passed. Older clients must reload; the application lock does not constrain direct database writes.
 - `WEBHOOK-SECRET-CONTRACT-1` — Owner approved a one-time GitHub signing-secret display; generic webhooks retain the same one-time model after provider comparison. The response is non-cacheable, guidance is aligned, and focused and full-gate tests passed. Existing secrets remain unavailable on later reads.
+- `WEBHOOK-UI-POLISH-1` — PR #31 merged and deployed; a GitHub Push trigger-only live test succeeded, without proving action coverage or long-term stability.
 
 ## Next approved slices
 
@@ -57,7 +63,9 @@ one of these IDs or explicitly reopen a completed ledger slice.
 |---|---|---|---|
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
 | `LIVE-1` | Validate one explicitly approved real Steam → Google Chat run plus configured OAuth callbacks | owner-input-required | Requires user credentials and explicit external-side-effect approval |
-| `WEBHOOK-UI-POLISH-1` | Improve resource picker spacing and provide node-context access to webhook setup | pending | Implemented locally; review and CI required before merge; providers mocked |
+| `GH-PICKER-OWNER-1` | Clarify GitHub repository owner filtering | pending | PR #32 is open; not included on main |
+| `GH-HOOK-AUTO-1` | Automatically manage GitHub repository webhooks using owner credentials | pending | Adapter on separate branch; lifecycle, persistence and UI remain |
+| `CONNECTOR-CONFIG-1` | Audit connectors and make Google Drive and Sheets fields operation-aware | pending | Preserve existing saved graphs and production behavior |
 
 ## Closed boundary
 

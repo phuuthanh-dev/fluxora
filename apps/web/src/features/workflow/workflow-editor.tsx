@@ -140,6 +140,7 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, all
 }) {
   return <>
     {fields.map((field) => {
+      if (field.showWhen && !field.showWhen.values.includes(readConfigText(config, field.showWhen.key))) return null;
       const value = readConfigurationFieldValue(config, field);
       if (field.kind === "credential") {
         return <CredentialField key={field.key} label={field.label} value={value} providers={field.providers} credentials={credentials} onChange={(nextValue) => onChange(field.key, nextValue)} optional={field.optional} />;
@@ -590,8 +591,8 @@ function NodeInspector({ node, execution, credentials, workspaceId, onResolveApp
       )}
       {node.data.nodeType === "action.google-drive" && (readConfigText(node.data.config, "operation") === "downloadText" ?
         <ResourcePicker workspaceId={workspaceId} resource="google-file" credentialId={readConfigText(node.data.config, "credentialId")} label="Text file" value={readConfigText(node.data.config, "fileId")} placeholder="Search loaded text files" allowExpression onChange={(value) => updateConfig("fileId", value)} /> :
-        <ConfigField label="Search query" value={readConfigText(node.data.config, "query")} onChange={(value) => updateConfig("query", value)} />)}
-      {node.data.nodeType === "action.google-sheets" && (
+        readConfigText(node.data.config, "operation") === "search" ? <ConfigField label="Search query" value={readConfigText(node.data.config, "query")} onChange={(value) => updateConfig("query", value)} /> : null)}
+      {node.data.nodeType === "action.google-sheets" && ["append", "update"].includes(readConfigText(node.data.config, "operation")) && (
         <ConfigField label="Values (one row, comma-separated)" value={readFirstRow(node.data.config)} onChange={(value) => updateConfig("values", [value.split(",").map((cell) => cell.trim())])} />
       )}
       {node.data.nodeType === "condition.if" && (
