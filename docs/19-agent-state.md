@@ -32,7 +32,7 @@ security finding, or changed requirement.
 | Release PR | `#27` — merged |
 | Quality gate | See individual slice reports; local verification includes pre-existing, uncommitted CI changes |
 | Source tree | Current branch contains the GitHub Create Issue/idempotency, Add Label, Add Comment, Merge Pull Request operations, and the signed GitHub Issue opened, Pull request opened, Push, and Workflow run completed triggers |
-| Uncommitted changes | Existing CI/OPS edits are preserved separately; the CI scope optimization has a documented deployment-gap risk and must not be released without correction |
+| Uncommitted changes | Existing OPS edits are preserved separately; the local CI correction passed verification and still needs GitHub review |
 
 ## Closed follow-up slices
 
