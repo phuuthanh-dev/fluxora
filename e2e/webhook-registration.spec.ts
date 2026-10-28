@@ -1,5 +1,51 @@
 import { expect, test } from "@playwright/test";
 
+test("webhook setup follows published trigger even when the draft differs", async ({ page }) => {
+  const graph = (type: string, config: Record<string, string>) => ({ nodes: [{ id: "trigger", type, position: { x: 100, y: 100 }, config }], edges: [] });
+  const workflow = { id: "workflow-versions", workspaceId: "workspace-1", name: "Versioned webhook", description: null, isActive: false,
+    draft: { id: "draft", version: 3, graph: graph("trigger.github.pull-request-opened", { event: "pull_request", action: "opened", path: "draft-path" }) },
+    published: { id: "published-2", version: 2, graph: graph("trigger.github.push", { event: "push", path: "published-path" }) } };
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+    if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
+    if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
+    if (path.endsWith("/credentials")) return send({ credentials: [] });
+    if (path.endsWith("/webhook-endpoint")) return send({ endpoint: { id: "endpoint-1", path: "old-path", signingMode: "registration", workflowVersionId: "published-1", secretRequired: true, createdAt: "2026-01-01", updatedAt: "2026-01-01" } });
+    if (path.endsWith("/workflows/workflow-versions")) return send({ workflow });
+    return route.continue();
+  });
+  await page.goto("/editor?workflow=workflow-versions");
+  await page.getByLabel("Manage actions").click();
+  await page.getByRole("button", { name: "Webhook endpoint" }).click();
+  const panel = page.getByRole("dialog", { name: "Webhook endpoint" });
+  await expect(panel.getByText(/settings for/)).toContainText("push");
+  await expect(panel.getByText(/settings for/)).not.toContainText("pull_request");
+  await expect(panel.getByText(/still uses an older published version/)).toBeVisible();
+  await expect(panel.getByLabel("Public path")).toHaveValue("old-path");
+});
+
+test("webhook registration stays disabled when the trigger exists only in the draft", async ({ page }) => {
+  const draftGraph = { nodes: [{ id: "github", type: "trigger.github.push", position: { x: 100, y: 100 }, config: { path: "github-push", event: "push" } }], edges: [] };
+  const workflow = { id: "workflow-draft", workspaceId: "workspace-1", name: "Draft webhook", description: null, isActive: false, draft: { id: "draft", version: 2, graph: draftGraph }, published: { id: "published", version: 1, graph: { nodes: [{ id: "manual", type: "trigger.manual", position: { x: 100, y: 100 }, config: {} }], edges: [] } } };
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+    if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
+    if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
+    if (path.endsWith("/credentials")) return send({ credentials: [] });
+    if (path.endsWith("/webhook-endpoint")) return send({ endpoint: null });
+    if (path.endsWith("/workflows/workflow-draft")) return send({ workflow });
+    return route.continue();
+  });
+  await page.goto("/editor?workflow=workflow-draft");
+  await page.getByLabel("Manage actions").click();
+  await page.getByRole("button", { name: "Webhook endpoint" }).click();
+  const panel = page.getByRole("dialog", { name: "Webhook endpoint" });
+  await expect(panel.getByText(/Publish a version containing this webhook trigger/)).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Create registration" })).toBeDisabled();
+});
+
 test("GitHub registration is readable and protects existing secrets while loading and rotating", async ({ page }) => {
   const graph = { nodes: [{ id: "github", type: "trigger.github.pull-request-opened", position: { x: 100, y: 100 }, config: { path: "github-pr", credentialId: "", event: "pull_request", action: "opened" } }], edges: [] };
   const workflow = { id: "workflow-1", workspaceId: "workspace-1", name: "GitHub test", description: null, isActive: false, draft: { id: "draft-1", version: 1, graph }, published: { id: "version-1", version: 1, graph } };
