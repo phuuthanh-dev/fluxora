@@ -648,3 +648,39 @@ button:focus-visible, summary:focus-visible { outline: 3px solid rgba(214, 255, 
   .credential-card__header { flex-direction: column; }
   .credential-panel--page .credential-card__actions { justify-content: flex-start; }
 }
+
+/* Connections: preserve a compact editor panel while the full page keeps each
+   connection scannable. Actions intentionally live in one menu per card. */
+.credential-panel__directory { margin-top: 7px; }
+.credential-panel__directory-link { background: transparent !important; border: 0 !important; color: var(--accent) !important; font-size: 10px !important; font-weight: 800; gap: 5px; justify-content: flex-start !important; margin: 0 !important; min-height: 22px !important; padding: 0 !important; }
+.credential-panel--page .credential-panel__directory { display: none; }
+.credential-form__oauth-helper { align-items: center; border-bottom: 1px solid var(--surface-dark-border); display: flex; gap: 10px; justify-content: space-between; padding: 0 0 10px; }
+.credential-form__oauth-helper span { color: var(--muted-on-dark); font-size: 10px; line-height: 1.4; }
+.credential-form__oauth-link { align-items: center; background: transparent; border: 0; color: var(--accent); cursor: pointer; display: inline-flex; flex: 0 0 auto; font-family: inherit; font-size: 10px; font-weight: 800; gap: 4px; padding: 0; white-space: nowrap; }
+.credential-form__oauth-link:hover { color: var(--accent-strong); text-decoration: underline; text-underline-offset: 3px; }
+.credential-form__oauth-link:focus-visible { border-radius: 3px; outline: 2px solid var(--accent); outline-offset: 3px; }
+.credential-list { gap: 12px; margin-top: 18px; }
+.credential-card { gap: 14px; padding: 15px !important; }
+.credential-card__header { align-items: flex-start; gap: 14px; }
+.credential-card__info { gap: 5px; min-width: 0; }
+.credential-card__info strong { color: var(--text-on-dark); font-size: 14px; letter-spacing: -.02em; line-height: 1.2; }
+.credential-card__provider { color: var(--muted-on-dark) !important; font-size: 9px !important; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.credential-card__menu { flex: 0 0 auto; position: relative; }
+.credential-card__menu > summary { align-items: center; background: transparent; border: 1px solid var(--surface-dark-border); border-radius: 8px; color: var(--muted-on-dark); display: flex; height: 32px; justify-content: center; list-style: none; transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease; width: 32px; }
+.credential-card__menu > summary::-webkit-details-marker { display: none; }
+.credential-card__menu > summary > span { display: none; }
+.credential-card__menu > summary:hover, .credential-card__menu[open] > summary { background: var(--relay-lime-soft); border-color: var(--accent-strong); color: var(--accent-strong); }
+.credential-card__menu-content { background: var(--surface-dark); border: 1px solid var(--surface-dark-border); border-radius: 9px; box-shadow: var(--shadow-dark); display: grid; gap: 3px; min-width: 168px; padding: 5px; position: absolute; right: 0; top: calc(100% + 7px); z-index: 15; }
+.credential-card__menu-content button { background: transparent; border: 0; border-radius: 6px; color: var(--text-on-dark); font-size: 11px; font-weight: 750; padding: 8px 9px; text-align: left; width: 100%; }
+.credential-card__menu-content button:hover { background: var(--surface-dark-raised); }
+.credential-card__menu-content .credential-card__menu-delete { color: #fda4af; }
+.credential-card__managed-badge { background: color-mix(in srgb, var(--accent) 14%, var(--surface-dark-raised)); border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--surface-dark-border)); border-radius: 999px; color: var(--accent); font-size: 9px; font-weight: 800; letter-spacing: .05em; padding: 5px 8px; text-transform: uppercase; white-space: nowrap; }
+.credential-card__oauth-managed { align-items: center; background: color-mix(in srgb, var(--accent) 6%, var(--surface-dark-raised)); border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--surface-dark-border)); border-radius: 10px; display: flex; gap: 12px; justify-content: space-between; padding: 11px 12px; }
+.credential-card__oauth-text { color: var(--muted-on-dark) !important; font-size: 11px !important; line-height: 1.45; margin: 0; max-width: 330px; text-align: left; }
+.credential-card__oauth-managed .credential-panel__oauth { flex: 0 0 auto; margin: 0; min-height: 31px; }
+.credential-panel--page .credential-card { min-height: 0; }
+@media (max-width: 540px) {
+  .credential-form__oauth-helper { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .credential-card__oauth-managed { align-items: flex-start; flex-direction: column; }
+  .credential-card__oauth-managed .credential-panel__oauth { width: 100%; }
+}
