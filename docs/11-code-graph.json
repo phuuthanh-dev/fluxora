@@ -666,6 +666,19 @@
       "externalImports": []
     },
     {
+      "id": "apps/api/src/webhooks/github-webhook-reservation.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/workflows/workflow-graph.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client",
+        "node:crypto"
+      ]
+    },
+    {
       "id": "apps/api/src/webhooks/provider-webhook-adapter.ts",
       "boundary": "api",
       "internalImports": [],
@@ -1884,6 +1897,14 @@
     {
       "from": "apps/api/src/webhooks/github-webhook-adapter.ts",
       "to": "apps/api/src/webhooks/provider-webhook-adapter.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-reservation.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-reservation.ts",
+      "to": "apps/api/src/workflows/workflow-graph.ts"
     },
     {
       "from": "apps/api/src/webhooks/webhook.controller.ts",
