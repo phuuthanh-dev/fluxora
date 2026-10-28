@@ -203,3 +203,9 @@ unexpected failures are uncertain rather than automatically retried. A crash
 or failed result persistence leaves dispatching state requiring recovery. This
 internal function is not exposed to clients and does not complete lifecycle,
 UI, deletion or restart handling.
+
+The unfinished delete dispatcher claims the stored provider identity, checks
+remote URL, event and active status, and never treats an ambiguous DELETE or
+GitHub 404 as confirmed removal. The GitHub inspection and delete are separate
+requests and cannot guarantee the remote hook remains unchanged between them.
+The dispatcher is not exposed until recovery and user-facing status exist.

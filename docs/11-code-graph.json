@@ -681,6 +681,21 @@
       ]
     },
     {
+      "id": "apps/api/src/webhooks/github-webhook-delete.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/webhooks/provider-webhook-adapter.ts",
+        "apps/api/src/webhooks/provider-webhook-state.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client",
+        "node:crypto"
+      ]
+    },
+    {
       "id": "apps/api/src/webhooks/github-webhook-reservation.ts",
       "boundary": "api",
       "internalImports": [
@@ -1931,6 +1946,22 @@
     },
     {
       "from": "apps/api/src/webhooks/github-webhook-create.ts",
+      "to": "apps/api/src/webhooks/provider-webhook-state.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-delete.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-delete.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-delete.ts",
+      "to": "apps/api/src/webhooks/provider-webhook-adapter.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-delete.ts",
       "to": "apps/api/src/webhooks/provider-webhook-state.ts"
     },
     {
