@@ -114,8 +114,11 @@ system production-ready, the release checklist still needs:
 
 - one owner-approved live Steam → Google Chat execution;
 - Google OAuth callback and Drive/Sheets resource discovery with the actual
-  configured client;
-- one owner-approved GitHub connector action and signed webhook delivery;
+  configured client (read-only discovery is recorded; refresh-expiry and
+  write semantics remain open);
+- one owner-approved GitHub connector action and signed webhook delivery (a
+  trigger-only signed Push qualification is recorded; action qualification
+  remains open);
 - Discord and Telegram delivery smoke tests using the workspace's own
   credentials;
 - VPS DNS/TLS/env/readiness/rollback evidence from the operator runbook;

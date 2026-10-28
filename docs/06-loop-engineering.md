@@ -111,6 +111,7 @@ CI runs the same gate for every pull request and push to `main`.
 | L11.22 | Connector contract audit and structured HTTP headers | Complete locally | `docs/20-connector-audit.md` covers every catalog app and separates implemented runtime nodes from roadmap-only nodes; HTTP headers are now a reusable key/value Inspector field. Web catalog tests 20/20, full API/web checks, builds, security checks, and Playwright 38/38 passed. No real provider calls were made. |
 | L11.23 | Connector field UX contract | Complete locally | Google Drive fields are operation-aware and Google Sheets values use a reusable table editor while preserving stable graph/runtime payloads. Web catalog tests 21/21, Playwright 39/39, full API/web checks, builds, and security checks passed. No real provider calls were made. |
 | L11.24 | Connector runtime capability contract | Complete locally | Shared `executableWorkflowNodeTypes` is the runtime capability boundary; UI catalog parity and schema-only import behavior are covered by tests, and the execution boundary rejects unavailable nodes before dispatch. Full `npm run verify` passed; provider calls remain absent. |
+| L11.25 | GitHub repository picker owner clarity | Complete locally | Loaded-result owner filtering, preserved filtered/unloaded values, permission disclaimer, and manual/pagination coverage are implemented. Focused webhook/resource-picker tests 8/8 and full `npm run verify` passed: API 198/198, web 22/22, Playwright 39/39; no provider calls were made by tests. |
 
 ## External-boundary rule
 
