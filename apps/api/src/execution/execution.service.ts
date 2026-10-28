@@ -12,6 +12,7 @@ import { redactValue } from "./redaction";
 import { isRetryableFailure, retryDelayMs } from "./retry-policy";
 import { parseWorkflowGraph } from "../workflows/workflow-graph";
 import { liveCredentialRequirements } from "./live-readiness";
+import { executionRetentionPolicy } from "./retention-policy";
 
 type RunMode = "mock" | "live";
 export type ExecutionTriageFilter = "ALL" | "ATTENTION" | "IN_PROGRESS" | "FAILED" | "SUCCEEDED";
@@ -208,6 +209,12 @@ export class ExecutionService {
       })),
       nextCursor: executions.length > take ? page.at(-1)?.id ?? null : null,
     };
+  }
+
+  async retentionForWorkspace(workspaceId: string, userId: string) {
+    const membership = await this.prisma.workspaceMember.findUnique({ where: { workspaceId_userId: { workspaceId, userId } } });
+    if (!membership || membership.role !== "OWNER") throw new NotFoundException({ code: "WORKSPACE_NOT_FOUND", message: "Workspace was not found." });
+    return { ...executionRetentionPolicy(), enabled: process.env.EXECUTION_MAINTENANCE_ENABLED !== "false", countScope: "system" as const };
   }
 
   async getApproval(approvalId: string, userId: string) {

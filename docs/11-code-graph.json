@@ -300,7 +300,8 @@
       "boundary": "api",
       "internalImports": [
         "apps/api/src/database/prisma.service.ts",
-        "apps/api/src/execution/execution.service.ts"
+        "apps/api/src/execution/execution.service.ts",
+        "apps/api/src/execution/retention-policy.ts"
       ],
       "externalImports": [
         "@nestjs/common",
@@ -371,6 +372,7 @@
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
         "apps/api/src/execution/redaction.ts",
+        "apps/api/src/execution/retention-policy.ts",
         "apps/api/src/execution/retry-policy.ts",
         "apps/api/src/workflows/workflow-graph.ts"
       ],
@@ -425,6 +427,12 @@
     },
     {
       "id": "apps/api/src/execution/redaction.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/execution/retention-policy.ts",
       "boundary": "api",
       "internalImports": [],
       "externalImports": []
@@ -1489,6 +1497,10 @@
       "to": "apps/api/src/execution/execution.service.ts"
     },
     {
+      "from": "apps/api/src/execution/execution-maintenance.service.ts",
+      "to": "apps/api/src/execution/retention-policy.ts"
+    },
+    {
       "from": "apps/api/src/execution/execution-queue.service.ts",
       "to": "apps/api/src/execution/execution-queue.config.ts"
     },
@@ -1583,6 +1595,10 @@
     {
       "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/execution/redaction.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/retention-policy.ts"
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",

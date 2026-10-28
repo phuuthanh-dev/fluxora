@@ -2,16 +2,10 @@ import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/commo
 import { ExecutionStatus } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
 import { ExecutionService } from "./execution.service";
+import { executionRetentionPolicy } from "./retention-policy";
+export { executionRetentionPolicy } from "./retention-policy";
 
 const terminalStatuses = [ExecutionStatus.SUCCEEDED, ExecutionStatus.FAILED, ExecutionStatus.CANCELLED];
-
-export function executionRetentionPolicy(environment: NodeJS.ProcessEnv = process.env) {
-  return {
-    successDays: positiveInteger(environment.EXECUTION_RETENTION_SUCCESS_DAYS, 14),
-    failedDays: positiveInteger(environment.EXECUTION_RETENTION_FAILED_DAYS, 30),
-    maxCount: nonNegativeInteger(environment.EXECUTION_RETENTION_MAX_COUNT, 10_000),
-  };
-}
 
 @Injectable()
 export class ExecutionMaintenanceService implements OnModuleInit, OnModuleDestroy {
@@ -73,14 +67,4 @@ export class ExecutionMaintenanceService implements OnModuleInit, OnModuleDestro
     const byCount = await this.prisma.execution.deleteMany({ where: { id: { in: overflow.map((execution) => execution.id) } } });
     return byAge.count + byCount.count;
   }
-}
-
-function positiveInteger(value: string | undefined, fallback: number) {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-function nonNegativeInteger(value: string | undefined, fallback: number) {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
 }

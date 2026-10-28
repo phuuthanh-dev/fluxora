@@ -566,6 +566,9 @@ button:focus-visible, summary:focus-visible { outline: 3px solid rgba(214, 255, 
    behavior, but intentionally remove the fixed overlay constraint. */
 .dashboard-header__user .dashboard-header__link { align-items: center; font-size: 10px; gap: 6px; height: 32px; padding: 0 9px; white-space: nowrap; width: auto; }
 .connections-main, .executions-main { margin: 0 auto; max-width: 1220px; padding: clamp(30px, 5vw, 64px) clamp(22px, 4vw, 48px) 72px; }
+.retention-summary { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-md); color: var(--text-secondary); font-size: 12px; line-height: 1.5; margin-bottom: 18px; padding: 12px 16px; }
+.retention-summary summary { color: var(--ink); cursor: pointer; font-weight: 700; }
+.retention-summary p { margin: 8px 0 0; }
 .connections-main .ui-page-header, .executions-main .ui-page-header { margin-bottom: 28px; }
 .connections-error, .executions-error { align-items: center; display: flex; gap: 9px; margin-bottom: 18px; padding: 12px 14px; }
 .connections-error .ui-button, .executions-error .ui-button { margin-left: auto; min-height: 29px; padding: 6px 9px; }

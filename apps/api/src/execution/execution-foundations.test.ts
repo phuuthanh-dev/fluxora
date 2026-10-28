@@ -216,6 +216,15 @@ test("execution triage applies status filter within the workspace query before p
   assert.deepEqual(query?.cursor, { id: "cursor-1" });
 });
 
+test("retention policy is available only to the workspace owner", async () => {
+  const service = new ExecutionService({ workspaceMember: { findUnique: async () => null } } as never, {} as never, {} as never);
+  await assert.rejects(() => service.retentionForWorkspace("workspace-1", "other-user"), (error: unknown) => Boolean(error && typeof error === "object" && "response" in error && (error.response as { code?: string }).code === "WORKSPACE_NOT_FOUND"));
+  const ownerService = new ExecutionService({ workspaceMember: { findUnique: async () => ({ role: "OWNER" }) } } as never, {} as never, {} as never);
+  const policy = await ownerService.retentionForWorkspace("workspace-1", "owner-1");
+  assert.equal(policy.countScope, "system");
+  assert.equal(typeof policy.successDays, "number");
+});
+
 test("diagnostic snapshot is deterministic, owner-scoped, and excludes execution payload secrets", async () => {
   const queries: unknown[] = [];
   const execution = {

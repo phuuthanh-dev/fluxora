@@ -53,6 +53,11 @@ export class ExecutionController {
     return page;
   }
 
+  @Get("workspaces/:workspaceId/execution-retention")
+  async retention(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest) {
+    return { retention: await this.executions.retentionForWorkspace(workspaceId, requireUserId(request)) };
+  }
+
   @Get("workflows/:workflowId/live-readiness")
   async liveReadiness(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
     return { readiness: await this.executions.getLiveReadiness(workflowId, requireUserId(request)) };
