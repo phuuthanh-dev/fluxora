@@ -223,7 +223,7 @@ test("GitHub repository picker loads more pages and keeps the chosen value", asy
 });
 
 test("Google Sheets picker selects a spreadsheet and supports manual input", async ({ page }) => {
-  const graph = { nodes: [{ id: "sheets", type: "action.google-sheets", position: { x: 100, y: 100 }, config: { credentialId: "google-1", spreadsheetId: "", operation: "read", range: "Sheet1!A1", values: [["retained, comma", 42], ["second row", true]] } }], edges: [] };
+  const graph = { nodes: [{ id: "sheets", type: "action.google-sheets", position: { x: 100, y: 100 }, config: { credentialId: "google-1", spreadsheetId: "", operation: "read", range: "Sheet1!A1", values: [["retained, comma", 42], ["second row", true]] } }, { id: "other-sheets", type: "action.google-sheets", position: { x: 600, y: 100 }, config: { credentialId: "google-1", spreadsheetId: "", operation: "append", range: "Sheet1!A1", values: [["other"], ["kept"]] } }], edges: [] };
   const workflow = { id: "workflow-3", workspaceId: "workspace-1", name: "Sheets test", description: null, isActive: false, draft: { id: "draft-1", version: 1, graph }, published: null };
   await page.route("**/api/v1/**", async (route) => {
     const url = new URL(route.request().url());
@@ -236,7 +236,7 @@ test("Google Sheets picker selects a spreadsheet and supports manual input", asy
     return route.continue();
   });
   await page.goto("/editor?workflow=workflow-3");
-  await page.locator(".react-flow__node").filter({ hasText: "Read or write rows" }).click();
+  await page.getByTestId("rf__node-sheets").click();
   await expect(page.getByRole("group", { name: "Sheet values" })).toHaveCount(0);
   await page.getByLabel("Operation", { exact: true }).selectOption("append");
   await expect(page.getByLabel("Row 1, column 1")).toHaveValue("retained, comma");
@@ -251,6 +251,21 @@ test("Google Sheets picker selects a spreadsheet and supports manual input", asy
   await page.getByRole("button", { name: "Add row" }).click();
   await page.getByRole("button", { name: "Add column" }).click();
   await expect(page.getByLabel("Row 3, column 3")).toBeVisible();
+  await page.getByRole("button", { name: "Remove last row" }).click();
+  const confirmRemoval = page.getByRole("group", { name: "Confirm value removal" });
+  await confirmRemoval.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByLabel("Row 3, column 3")).toBeVisible();
+  await page.getByRole("button", { name: "Remove last row" }).click();
+  await confirmRemoval.getByRole("button", { name: "Confirm removal" }).click();
+  await expect(page.getByLabel("Row 3, column 3")).toHaveCount(0);
+  await page.getByRole("button", { name: "Remove last column" }).click();
+  await confirmRemoval.getByRole("button", { name: "Confirm removal" }).click();
+  expect(JSON.parse(await page.getByLabel("Node JSON configuration").inputValue()).values).toEqual([["hello, world", 42], ["second row", true]]);
+  await page.getByRole("button", { name: "Remove last row" }).click();
+  await page.getByTestId("rf__node-other-sheets").click();
+  await expect(confirmRemoval).toHaveCount(0);
+  await expect(page.getByLabel("Row 2, column 1")).toHaveValue("kept");
+  await page.getByTestId("rf__node-sheets").click();
   const picker = page.getByRole("group", { name: "Spreadsheet", exact: true });
   await picker.getByRole("button", { name: "Load more spreadsheets" }).click();
   await picker.getByLabel("Spreadsheet", { exact: true }).selectOption("sheet-2");

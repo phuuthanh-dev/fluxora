@@ -19,8 +19,9 @@ Snapshot: main `16d53a5`; PR #32 and `codex/github-webhook-automation` are separ
 
 On the in-progress `codex/connector-config-audit` branch, the Sheets editor has
 been changed from comma splitting to individual cells supporting multiple rows
-and columns. The main-branch limitation in the table remains until reviewed and
-merged. Editing one cell preserves other cells and their stored types; it does
+and columns, with confirmation before removing the final row or column. The
+main-branch limitation in the table remains until reviewed and merged. Editing
+one cell preserves other cells and their stored types; it does
 not make the connector equivalent to all Google Sheets node operations.
 
 The comparison is about interaction patterns, not feature parity: n8n groups Drive operations by resource and operation ([Drive](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.googledrive/)); Sheets likewise distinguishes document and sheet operations ([Sheets](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.googlesheets/)); Telegram has separate action and trigger capabilities ([Telegram](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.telegram/)). Not all providers expose discoverable destinations or need webhook registration. Do not apply GitHub's model indiscriminately.

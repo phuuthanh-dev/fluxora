@@ -100,6 +100,7 @@ function useNarrowEditorLayout() {
 }
 
 function SheetsValuesEditor({ value, onChange }: { value: unknown; onChange: (value: unknown[][]) => void }) {
+  const [pendingRemoval, setPendingRemoval] = useState<"row" | "column" | null>(null);
   if (value !== undefined && (!Array.isArray(value) || !value.every(Array.isArray))) {
     return <Status tone="warning">Values must be a table of rows. Correct the existing value in Advanced JSON before editing here.</Status>;
   }
@@ -117,7 +118,8 @@ function SheetsValuesEditor({ value, onChange }: { value: unknown; onChange: (va
     <span className="ui-field__label">Values</span>
     <small>Each field is one cell. Expressions are supported; existing values stay unchanged until edited.</small>
     <div className="sheets-values-editor__grid">{rows.map((row, rowIndex) => <div className="sheets-values-editor__row" key={rowIndex}>{Array.from({ length: columns }, (_, columnIndex) => <input key={columnIndex} aria-label={`Row ${rowIndex + 1}, column ${columnIndex + 1}`} value={row[columnIndex] == null ? "" : typeof row[columnIndex] === "object" ? JSON.stringify(row[columnIndex]) : String(row[columnIndex])} onChange={(event) => editCell(rowIndex, columnIndex, event.target.value)} />)}</div>)}</div>
-    <div className="sheets-values-editor__actions"><Button type="button" variant="ghost" onClick={() => onChange([...rows.map((row) => [...row]), Array.from({ length: columns }, () => "")])}>Add row</Button><Button type="button" variant="ghost" onClick={() => onChange(rows.map((row) => [...row, ...Array.from({ length: columns - row.length }, () => ""), ""]))}>Add column</Button></div>
+    <div className="sheets-values-editor__actions"><Button type="button" variant="ghost" disabled={Boolean(pendingRemoval)} onClick={() => onChange([...rows.map((row) => [...row]), Array.from({ length: columns }, () => "")])}>Add row</Button><Button type="button" variant="ghost" disabled={Boolean(pendingRemoval)} onClick={() => onChange(rows.map((row) => [...row, ...Array.from({ length: columns - row.length }, () => ""), ""]))}>Add column</Button><Button type="button" variant="ghost" disabled={Boolean(pendingRemoval) || rows.length <= 1} onClick={() => setPendingRemoval("row")}>Remove last row</Button><Button type="button" variant="ghost" disabled={Boolean(pendingRemoval) || columns <= 1} onClick={() => setPendingRemoval("column")}>Remove last column</Button></div>
+    {pendingRemoval && <div role="group" aria-label="Confirm value removal"><Status tone="warning">Remove the last {pendingRemoval} and its values from this draft?</Status><div className="sheets-values-editor__actions"><Button type="button" variant="ghost" onClick={() => setPendingRemoval(null)}>Cancel</Button><Button type="button" variant="ghost" onClick={() => { onChange(pendingRemoval === "row" ? rows.slice(0, -1).map((row) => [...row]) : rows.map((row) => row.slice(0, columns - 1))); setPendingRemoval(null); }}>Confirm removal</Button></div></div>}
   </div>;
 }
 
@@ -609,7 +611,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, onResolveApp
         <ResourcePicker workspaceId={workspaceId} resource="google-file" credentialId={readConfigText(node.data.config, "credentialId")} label="Text file" value={readConfigText(node.data.config, "fileId")} placeholder="Search loaded text files" allowExpression onChange={(value) => updateConfig("fileId", value)} /> :
         readConfigText(node.data.config, "operation") === "search" ? <ConfigField label="Search query" value={readConfigText(node.data.config, "query")} onChange={(value) => updateConfig("query", value)} /> : null)}
       {node.data.nodeType === "action.google-sheets" && ["append", "update"].includes(readConfigText(node.data.config, "operation")) && (
-        <SheetsValuesEditor value={node.data.config.values} onChange={(value) => updateConfig("values", value)} />
+        <SheetsValuesEditor key={node.id} value={node.data.config.values} onChange={(value) => updateConfig("values", value)} />
       )}
       {node.data.nodeType === "condition.if" && (
         <>
