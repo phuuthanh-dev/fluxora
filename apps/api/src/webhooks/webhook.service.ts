@@ -36,11 +36,15 @@ export class WebhookService {
     if (conflictingEndpoint) throw new ConflictException({ code: "WEBHOOK_PATH_IN_USE", message: "This webhook path is already in use by another workflow." });
     const secret = githubTrigger || secretRequired ? randomBytes(24).toString("base64url") : null;
     const encryptedSigningSecret = githubTrigger && secret ? this.vault.encrypt({ secret }) : null;
-    const existing = await this.prisma.webhookEndpoint.findFirst({ where: { workflowId } });
-    const endpoint = existing
-      ? await this.prisma.webhookEndpoint.update({ where: { id: existing.id }, data: { path, secretHash: !githubTrigger && secret ? hashWebhookSecret(secret) : null, encryptedSigningSecret, workflowVersionId: workflow.publishedVersion.id, isActive: true } })
-      : await this.prisma.webhookEndpoint.create({ data: { workflowId, workflowVersionId: workflow.publishedVersion.id, path, secretHash: !githubTrigger && secret ? hashWebhookSecret(secret) : null, encryptedSigningSecret } });
-    await this.prisma.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "webhook.created", targetType: "webhook", targetId: endpoint.id, metadata: { path, secretRequired: Boolean(secretRequired) || Boolean(githubTrigger) } } });
+    const publishedVersionId = workflow.publishedVersion.id;
+    const endpoint = await this.prisma.$transaction(async (transaction) => {
+      const existing = await transaction.webhookEndpoint.findFirst({ where: { workflowId } });
+      const saved = existing
+        ? await transaction.webhookEndpoint.update({ where: { id: existing.id }, data: { path, secretHash: !githubTrigger && secret ? hashWebhookSecret(secret) : null, encryptedSigningSecret, workflowVersionId: publishedVersionId, isActive: true } })
+        : await transaction.webhookEndpoint.create({ data: { workflowId, workflowVersionId: publishedVersionId, path, secretHash: !githubTrigger && secret ? hashWebhookSecret(secret) : null, encryptedSigningSecret } });
+      await transaction.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "webhook.created", targetType: "webhook", targetId: saved.id, metadata: { path, secretRequired: Boolean(secretRequired) || Boolean(githubTrigger) } } });
+      return saved;
+    });
     return { id: endpoint.id, path: endpoint.path, secret };
   }
 

@@ -43,6 +43,7 @@ security finding, or changed requirement.
 - `GOOGLE-UX-1` — Google Sheets and Drive text-file pickers implemented locally through an owner-scoped server proxy. Full gate passed with mocked providers; real OAuth resource discovery remains unverified.
 - `GH-HARDEN-1` — Signed GitHub setup pings are acknowledged without running inactive workflows; repeated deliveries use registration-scoped delivery IDs. Full gate passed with mocked providers. Deduplication is bounded by execution retention and is not replay protection: the delivery header is not covered by the body HMAC.
 - `WEBHOOK-VERSION-UX-1` — Registration UI uses the published trigger, warns about endpoints pinned to older versions, and blocks registration for unpublished triggers. Full gate passed with 35 Playwright tests and mocked providers.
+- `WEBHOOK-ATOMIC-1` — Registration writes and audit writes share a database transaction; a synthetic PostgreSQL test confirms an audit error rolls back secret rotation. The full gate passed. A lost response after a successful commit can still require another rotation.
 
 ## Next approved slices
 
@@ -53,7 +54,6 @@ one of these IDs or explicitly reopen a completed ledger slice.
 |---|---|---|---|
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
 | `LIVE-1` | Validate one explicitly approved real Steam → Google Chat run plus configured OAuth callbacks | owner-input-required | Requires user credentials and explicit external-side-effect approval |
-| `WEBHOOK-ATOMIC-1` | Make webhook registration and audit changes atomic | pending | A failed audit must not leave a secret rotated without being returned |
 
 ## Closed boundary
 
