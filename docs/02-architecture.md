@@ -141,3 +141,9 @@ The MVP pins Prisma ORM 6.12.0 because the local Node 23 runtime is outside Pris
   the operator must update the GitHub webhook. Registration is manual and is
   pinned to the published workflow version; one endpoint per workflow remains
   the current product boundary.
+- Registration writes lock the workflow row and require the published version
+  ID plus the endpoint ID and `updatedAt` last observed by the client (or a
+  null endpoint for creation). Stale writes and pre-existing duplicates are
+  rejected. Clients using the older request format must reload and use the new
+  format. The application-level lock cannot prevent direct database writes;
+  the database does not yet enforce a unique workflow ID for endpoints.

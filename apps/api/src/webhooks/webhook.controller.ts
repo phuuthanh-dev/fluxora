@@ -19,7 +19,10 @@ export class WebhookController {
     const body = readObject(request.body);
     const path = readPath(body.path);
     const secretRequired = body.secretRequired !== false;
-    return { endpoint: await this.webhooks.createEndpoint(workflowId, userId(request), path, secretRequired) };
+    if (typeof body.publishedVersionId !== "string" || !body.publishedVersionId) throw new BadRequestException({ code: "INVALID_INPUT", message: "Reload the workflow before configuring its webhook." });
+    const expected = body.expectedEndpoint;
+    if (expected !== null && (!expected || typeof expected !== "object" || Array.isArray(expected) || typeof (expected as Record<string, unknown>).id !== "string" || typeof (expected as Record<string, unknown>).updatedAt !== "string")) throw new BadRequestException({ code: "INVALID_INPUT", message: "Reload the webhook status before saving." });
+    return { endpoint: await this.webhooks.createEndpoint(workflowId, userId(request), path, secretRequired, { publishedVersionId: body.publishedVersionId, endpoint: expected as { id: string; updatedAt: string } | null }) };
   }
 
   @Post("webhooks/:path")

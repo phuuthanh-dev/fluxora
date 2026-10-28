@@ -66,7 +66,9 @@ test("GitHub registration is readable and protects existing secrets while loadin
         return send({ endpoint: { id: "endpoint-1", path: "existing-path", signingMode: "legacy", workflowVersionId: "version-1", secretRequired: true, createdAt: "2026-01-01", updatedAt: "2026-01-01" } });
       }
       writes++;
-      return send({ endpoint: { id: "endpoint-1", path: "existing-path", secret: "test-registration-secret" } });
+      if (writes === 2) return route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ message: "The webhook registration changed. Reload its status before trying again." }) });
+      expect(route.request().postDataJSON()).toMatchObject({ publishedVersionId: "version-1", expectedEndpoint: { id: "endpoint-1", updatedAt: "2026-01-01" } });
+      return send({ endpoint: { id: "endpoint-1", path: "existing-path", secret: "test-registration-secret", workflowVersionId: "version-1", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-02T00:00:00.000Z" } });
     }
     if (path.endsWith("/workflows/workflow-1")) return send({ workflow });
     return route.continue();
@@ -98,6 +100,9 @@ test("GitHub registration is readable and protects existing secrets while loadin
   await panel.getByRole("button", { name: "Confirm rotation" }).click();
   await expect(panel.getByText("test-registration-secret")).toBeVisible();
   expect(writes).toBe(1);
+  await panel.getByRole("button", { name: "Rotate registration" }).click();
+  await panel.getByRole("button", { name: "Confirm rotation" }).click();
+  await expect(panel.getByText("The webhook registration changed. Reload its status before trying again.")).toBeVisible();
 });
 
 test("a lost rotation response clears the old secret and reloads endpoint status", async ({ page }) => {
@@ -118,7 +123,7 @@ test("a lost rotation response clears the old secret and reloads endpoint status
         return send({ endpoint: writes === 0 ? null : { id: "endpoint-1", path: "github-push", signingMode: "registration", workflowVersionId: "published", secretRequired: true, createdAt: "2026-01-01", updatedAt: "2026-01-01" } });
       }
       writes++;
-      if (writes === 1) return send({ endpoint: { id: "endpoint-1", path: "github-push", secret: "old-test-secret" } });
+      if (writes === 1) return send({ endpoint: { id: "endpoint-1", path: "github-push", secret: "old-test-secret", workflowVersionId: "published", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-02T00:00:00.000Z" } });
       return route.abort("connectionreset");
     }
     return route.continue();

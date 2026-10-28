@@ -13,6 +13,13 @@ test("webhook controller forwards and validates the GitHub delivery header", asy
   await assert.rejects(() => controller.receive("path", undefined, "push", "signature", undefined, Buffer.from("{}"), request, "invalid delivery"));
 });
 
+test("registration rejects old clients that do not supply an observed endpoint version", async () => {
+  let writes = 0;
+  const controller = new WebhookController({ createEndpoint: async () => { writes++; return {}; } } as never);
+  await assert.rejects(() => controller.create("workflow-1", { currentUser: { id: "owner" }, body: { path: "github-push", publishedVersionId: "version-1" } } as never));
+  assert.equal(writes, 0);
+});
+
 test("signed GitHub setup ping is acknowledged before activation without running a workflow", async () => {
   const body = Buffer.from('{"repository":{"full_name":"acme/project"}}');
   const signature = `sha256=${createHmac("sha256", "registration-secret").update(body).digest("hex")}`;
@@ -45,7 +52,8 @@ test("GitHub delivery IDs are scoped to the registration for idempotency", async
 test("GitHub registration encrypts its own secret and never stores it in the credential", async () => {
   let stored: Record<string, unknown> | undefined;
   const transaction = {
-    webhookEndpoint: { findFirst: async () => null, create: async ({ data }: { data: Record<string, unknown> }) => { stored = data; return { id: "endpoint-1", path: data.path }; } },
+    $queryRaw: async () => [{ publishedVersionId: "version-1" }],
+    webhookEndpoint: { findMany: async () => [], create: async ({ data }: { data: Record<string, unknown> }) => { stored = data; return { id: "endpoint-1", path: data.path, workflowVersionId: "version-1", createdAt: new Date(), updatedAt: new Date() }; } },
     auditLog: { create: async () => ({}) },
   };
   const service = new WebhookService({
@@ -53,7 +61,7 @@ test("GitHub registration encrypts its own secret and never stores it in the cre
     webhookEndpoint: { findFirst: async () => null },
     $transaction: async (callback: (client: typeof transaction) => Promise<unknown>) => callback(transaction),
   } as never, {} as never, {} as never, {} as never, { encrypt: (data: { secret: string }) => `encrypted:${data.secret}` } as never);
-  const result = await service.createEndpoint("workflow-1", "owner-1", "github-push", true);
+  const result = await service.createEndpoint("workflow-1", "owner-1", "github-push", true, { publishedVersionId: "version-1", endpoint: null });
   assert.ok(result.secret);
   assert.equal(stored?.encryptedSigningSecret, `encrypted:${result.secret}`);
   assert.equal(stored?.secretHash, null);
@@ -62,8 +70,9 @@ test("GitHub registration encrypts its own secret and never stores it in the cre
 test("failed audit rolls back a GitHub secret rotation", async () => {
   let persisted = "old-secret";
   const transaction = {
+    $queryRaw: async () => [{ publishedVersionId: "version-1" }],
     webhookEndpoint: {
-      findFirst: async () => ({ id: "endpoint-1" }),
+      findMany: async () => [{ id: "endpoint-1", updatedAt: new Date("2026-01-01T00:00:00.000Z") }],
       update: async ({ data }: { data: { encryptedSigningSecret: string } }) => ({ id: "endpoint-1", path: "github-push", newSecret: data.encryptedSigningSecret }),
     },
     auditLog: { create: async () => { throw new Error("audit unavailable"); } },
@@ -73,8 +82,33 @@ test("failed audit rolls back a GitHub secret rotation", async () => {
     webhookEndpoint: { findFirst: async () => null },
     $transaction: async (callback: (client: typeof transaction) => Promise<{ newSecret: string }>) => { const result = await callback(transaction); persisted = result.newSecret; return result; },
   } as never, {} as never, {} as never, {} as never, { encrypt: (data: { secret: string }) => `encrypted:${data.secret}` } as never);
-  await assert.rejects(() => service.createEndpoint("workflow-1", "owner-1", "github-push", true), /audit unavailable/);
+  await assert.rejects(() => service.createEndpoint("workflow-1", "owner-1", "github-push", true, { publishedVersionId: "version-1", endpoint: { id: "endpoint-1", updatedAt: "2026-01-01T00:00:00.000Z" } }), /audit unavailable/);
   assert.equal(persisted, "old-secret");
+});
+
+test("stale registration state cannot overwrite another rotation", async () => {
+  let writes = 0;
+  const transaction = {
+    $queryRaw: async () => [{ publishedVersionId: "version-1" }],
+    webhookEndpoint: { findMany: async () => [{ id: "endpoint-1", updatedAt: new Date("2026-01-02T00:00:00.000Z") }], update: async () => { writes++; return {}; } },
+  };
+  const service = new WebhookService({
+    workflow: { findFirst: async () => ({ id: "workflow-1", workspaceId: "workspace-1", publishedVersion: { id: "version-1", graph: { nodes: [{ id: "github", type: "trigger.github.push", position: { x: 0, y: 0 }, config: { event: "push" } }], edges: [] } } }) },
+    webhookEndpoint: { findFirst: async () => null },
+    $transaction: async (callback: (client: typeof transaction) => Promise<unknown>) => callback(transaction),
+  } as never, {} as never, {} as never, {} as never, { encrypt: () => "synthetic" } as never);
+  await assert.rejects(() => service.createEndpoint("workflow-1", "owner-1", "github-push", true, { publishedVersionId: "version-1", endpoint: { id: "endpoint-1", updatedAt: "2026-01-01T00:00:00.000Z" } }), (error: any) => error.response?.code === "WEBHOOK_REGISTRATION_CHANGED");
+  assert.equal(writes, 0);
+});
+
+test("existing duplicate registrations must be resolved before rotation", async () => {
+  const transaction = { $queryRaw: async () => [{ publishedVersionId: "version-1" }], webhookEndpoint: { findMany: async () => [{ id: "first" }, { id: "second" }] } };
+  const service = new WebhookService({
+    workflow: { findFirst: async () => ({ id: "workflow-1", workspaceId: "workspace-1", publishedVersion: { id: "version-1", graph: { nodes: [{ id: "github", type: "trigger.github.push", position: { x: 0, y: 0 }, config: { event: "push" } }], edges: [] } } }) },
+    webhookEndpoint: { findFirst: async () => null },
+    $transaction: async (callback: (client: typeof transaction) => Promise<unknown>) => callback(transaction),
+  } as never, {} as never, {} as never, {} as never, { encrypt: () => "synthetic" } as never);
+  await assert.rejects(() => service.createEndpoint("workflow-1", "owner-1", "github-push", true, { publishedVersionId: "version-1", endpoint: null }), (error: any) => error.response?.code === "WEBHOOK_REGISTRATION_DUPLICATE");
 });
 
 test("GitHub delivery verifies the registration secret independently from the connector", async () => {

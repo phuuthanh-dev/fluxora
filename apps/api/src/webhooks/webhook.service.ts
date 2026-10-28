@@ -24,7 +24,7 @@ export class WebhookService {
     return endpoint ? { id: endpoint.id, path: endpoint.path, secretRequired: Boolean(endpoint.secretHash || endpoint.encryptedSigningSecret), signingMode: endpoint.encryptedSigningSecret ? "registration" : "legacy", workflowVersionId: endpoint.workflowVersionId, createdAt: endpoint.createdAt, updatedAt: endpoint.updatedAt } : null;
   }
 
-  async createEndpoint(workflowId: string, userId: string, path: string, secretRequired: boolean) {
+  async createEndpoint(workflowId: string, userId: string, path: string, secretRequired: boolean, expected: { publishedVersionId: string; endpoint: { id: string; updatedAt: string } | null }) {
     const workflow = await this.findOwned(workflowId, userId);
     if (!workflow.publishedVersion) throw new NotFoundException({ code: "PUBLISHED_VERSION_REQUIRED", message: "Publish this workflow before creating a webhook endpoint." });
     const graph = parseWorkflowGraph(workflow.publishedVersion.graph);
@@ -38,14 +38,25 @@ export class WebhookService {
     const encryptedSigningSecret = githubTrigger && secret ? this.vault.encrypt({ secret }) : null;
     const publishedVersionId = workflow.publishedVersion.id;
     const endpoint = await this.prisma.$transaction(async (transaction) => {
-      const existing = await transaction.webhookEndpoint.findFirst({ where: { workflowId } });
+      const locked = await transaction.$queryRaw<Array<{ publishedVersionId: string | null }>>`SELECT "publishedVersionId" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
+      if (locked[0]?.publishedVersionId !== publishedVersionId || expected.publishedVersionId !== publishedVersionId) throw new ConflictException({ code: "WEBHOOK_VERSION_CHANGED", message: "The published workflow changed. Reload before configuring the webhook." });
+      const registrations = await transaction.webhookEndpoint.findMany({ where: { workflowId }, take: 2 });
+      if (registrations.length > 1) throw new ConflictException({ code: "WEBHOOK_REGISTRATION_DUPLICATE", message: "Multiple webhook registrations exist for this workflow. Resolve them before making changes." });
+      const existing = registrations[0];
+      if ((existing?.id ?? null) !== (expected.endpoint?.id ?? null) || (existing && existing.updatedAt.toISOString() !== expected.endpoint?.updatedAt)) {
+        throw new ConflictException({ code: "WEBHOOK_REGISTRATION_CHANGED", message: "The webhook registration changed. Reload its status before trying again." });
+      }
+      const updatedAt = existing ? new Date(Math.max(Date.now(), existing.updatedAt.getTime() + 1)) : undefined;
       const saved = existing
-        ? await transaction.webhookEndpoint.update({ where: { id: existing.id }, data: { path, secretHash: !githubTrigger && secret ? hashWebhookSecret(secret) : null, encryptedSigningSecret, workflowVersionId: publishedVersionId, isActive: true } })
+        ? await transaction.webhookEndpoint.update({ where: { id: existing.id }, data: { path, secretHash: !githubTrigger && secret ? hashWebhookSecret(secret) : null, encryptedSigningSecret, workflowVersionId: publishedVersionId, isActive: true, updatedAt } })
         : await transaction.webhookEndpoint.create({ data: { workflowId, workflowVersionId: publishedVersionId, path, secretHash: !githubTrigger && secret ? hashWebhookSecret(secret) : null, encryptedSigningSecret } });
       await transaction.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "webhook.created", targetType: "webhook", targetId: saved.id, metadata: { path, secretRequired: Boolean(secretRequired) || Boolean(githubTrigger) } } });
       return saved;
+    }).catch((error: unknown) => {
+      if (error && typeof error === "object" && "code" in error && error.code === "P2002") throw new ConflictException({ code: "WEBHOOK_PATH_IN_USE", message: "This webhook path is already in use by another workflow." });
+      throw error;
     });
-    return { id: endpoint.id, path: endpoint.path, secret };
+    return { id: endpoint.id, path: endpoint.path, secret, workflowVersionId: endpoint.workflowVersionId, createdAt: endpoint.createdAt, updatedAt: endpoint.updatedAt };
   }
 
   private async findOwned(workflowId: string, userId: string) {
