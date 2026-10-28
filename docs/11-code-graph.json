@@ -658,6 +658,20 @@
       ]
     },
     {
+      "id": "apps/api/src/webhooks/github-webhook-adapter.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/webhooks/provider-webhook-adapter.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/webhooks/provider-webhook-adapter.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
       "id": "apps/api/src/webhooks/webhook.controller.ts",
       "boundary": "api",
       "internalImports": [
@@ -1858,6 +1872,10 @@
     {
       "from": "apps/api/src/scheduler/scheduler.module.ts",
       "to": "apps/api/src/scheduler/cron-scheduler.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-adapter.ts",
+      "to": "apps/api/src/webhooks/provider-webhook-adapter.ts"
     },
     {
       "from": "apps/api/src/webhooks/webhook.controller.ts",

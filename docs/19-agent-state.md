@@ -57,6 +57,8 @@ one of these IDs or explicitly reopen a completed ledger slice.
 |---|---|---|---|
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
 | `LIVE-1` | Validate one explicitly approved real Steam → Google Chat run plus configured OAuth callbacks | owner-input-required | Requires user credentials and explicit external-side-effect approval |
+| `GH-PICKER-OWNER-1` | Clarify GitHub repository ownership and values not present in loaded results | pending | PR #32 is open; it is not included in this branch |
+| `GH-HOOK-AUTO-1` | Automatically manage GitHub repository webhooks using the owner's connector credential | pending | Preserve manual registrations, explicit ownership, version safety and recovery after partial failures |
 | `WEBHOOK-UI-POLISH-1` | Improve resource picker spacing and provide node-context access to webhook setup | pending | Implemented locally; review and CI required before merge; providers mocked |
 
 ## Closed boundary

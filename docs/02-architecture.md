@@ -150,3 +150,28 @@ The MVP pins Prisma ORM 6.12.0 because the local Node 23 runtime is outside Pris
 - Webhook trigger inspectors link directly to the existing endpoint setup
   panel. This improves discoverability but does not automate GitHub webhook
   creation: an owner still configures the repository webhook manually.
+
+### Planned provider-managed GitHub webhooks
+
+The existing endpoint registration and manual webhook flow remain supported.
+GitHub-managed registration will be a separate lifecycle orchestration using
+the workspace-owned GitHub credential and a provider adapter. The adapter only
+speaks to GitHub's fixed API host; it must not log credentials, signing secrets
+or provider response bodies. A remote webhook is mutable or removable only by
+an identity recorded as owned by the corresponding Fluxora registration.
+
+The lifecycle is not a single database transaction: GitHub may accept a write
+while the response is lost. Before a remote create, persist a unique operation
+intent and encrypted signing secret, then track a pending/unknown state and
+reconcile before retrying. Do not claim an unknown webhook by URL alone, or
+delete a webhook without verified ownership. GitHub 404 may mean missing access,
+not necessarily absence. Persist enough state to recover safely after crashes,
+competing requests, version changes, and partial updates. Publish, activation,
+deactivation and rotation must not silently break an existing manual endpoint.
+The UI should show the published version, connection status and actionable
+permission errors. Automatic provider registration has not yet been wired to
+activation; do not imply it is available until lifecycle and UI tests pass.
+Construct callback URLs from an operator-configured public HTTPS API origin,
+never from an untrusted request Host header or client-supplied URL. The adapter
+does not itself establish that an arbitrary URL belongs to this deployment;
+the orchestration must enforce that boundary before any GitHub request.
