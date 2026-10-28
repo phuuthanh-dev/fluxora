@@ -4,6 +4,19 @@ import { CredentialModule } from "../credentials/credential.module";
 import { ExecutionModule } from "../execution/execution.module";
 import { WebhookController } from "./webhook.controller";
 import { WebhookService } from "./webhook.service";
+import { ProviderWebhookRecoveryService } from "./provider-webhook-recovery.service";
+import { GitHubWebhookAdapter, GITHUB_WEBHOOK_FETCH } from "./github-webhook-adapter";
+import { GitHubWebhookManagementService } from "./github-webhook-management.service";
 
-@Module({ imports: [AuthModule, CredentialModule, ExecutionModule], controllers: [WebhookController], providers: [WebhookService] })
+@Module({
+  imports: [AuthModule, CredentialModule, ExecutionModule],
+  controllers: [WebhookController],
+  providers: [
+    WebhookService,
+    ProviderWebhookRecoveryService,
+    { provide: GITHUB_WEBHOOK_FETCH, useValue: globalThis.fetch },
+    GitHubWebhookAdapter,
+    GitHubWebhookManagementService,
+  ],
+})
 export class WebhookModule {}

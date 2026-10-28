@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assertSafeOutboundUrl, fetchSafeOutbound, OutboundRequestPolicyError } from "./outbound-url-policy";
+import { assertSafeOutboundHostname, assertSafeOutboundUrl, fetchSafeOutbound, OutboundRequestPolicyError } from "./outbound-url-policy";
 
 const publicResolver = async () => ["93.184.216.34"];
 
@@ -20,6 +20,18 @@ test("blocks hostnames that resolve to a non-public address", async () => {
 test("allows public HTTPS destinations", async () => {
   const url = await assertSafeOutboundUrl("https://example.com/report", { resolveHost: publicResolver });
   assert.equal(url.toString(), "https://example.com/report");
+});
+
+test("applies the same public-network boundary to non-HTTP connector hostnames", async () => {
+  await assertSafeOutboundHostname("smtp.example.com", { resolveHost: publicResolver });
+  await assert.rejects(
+    () => assertSafeOutboundHostname("localhost", { resolveHost: publicResolver }),
+    (error: unknown) => error instanceof OutboundRequestPolicyError && error.code === "OUTBOUND_URL_BLOCKED",
+  );
+  await assert.rejects(
+    () => assertSafeOutboundHostname("smtp.internal", { resolveHost: async () => ["10.0.0.7"] }),
+    (error: unknown) => error instanceof OutboundRequestPolicyError && error.code === "OUTBOUND_URL_BLOCKED",
+  );
 });
 
 test("rechecks redirect targets before following them", async () => {

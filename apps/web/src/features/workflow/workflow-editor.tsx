@@ -63,6 +63,8 @@ const nodeTypes: NodeTypes = { workflowNode: WorkflowNode };
 
 type WorkflowVersionSummary = { id: string; version: number; status: "DRAFT" | "PUBLISHED"; createdAt: string; publishedAt: string | null; nodeCount: number };
 type WebhookEndpoint = { id: string; path: string; secretRequired: boolean; signingMode?: "registration" | "legacy"; workflowVersionId: string; createdAt: string; updatedAt: string };
+type ProviderWebhookState = "CREATING" | "CREATE_DISPATCHING" | "CREATE_UNCERTAIN" | "CREATE_REJECTED" | "ACTIVE" | "DELETING" | "DELETE_UNCERTAIN" | "REMOVED";
+type ProviderWebhookStatus = { enabled: boolean; endpoint: { id: string; path: string; workflowVersionId: string; updatedAt: string } | null; registration: { provider: string; repository: string; event: string; workflowVersionId: string; state: ProviderWebhookState; createdAt: string; updatedAt: string } | null; reconciliation?: { outcome: "MATCHED" | "DRIFTED" | "UNKNOWN" | "MANUAL_REQUIRED"; message: string } };
 type ApiApproval = { id: string; status: string; expiresAt: string; executionId: string; workflowId: string };
 type WorkspaceSummary = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
 type LiveReadinessRequirement = { nodeId: string; provider: CredentialProvider; credentialId: string | null; ready: boolean; reason: "MISSING_CREDENTIAL" | "CREDENTIAL_NOT_FOUND" | "CREDENTIAL_PROVIDER_MISMATCH" | null };
@@ -85,6 +87,10 @@ function reasonLabel(reason: LiveReadinessRequirement["reason"]) {
   return reason === "MISSING_CREDENTIAL" ? "Select a credential in the node inspector." : reason === "CREDENTIAL_NOT_FOUND" ? "The selected credential no longer exists." : "The selected credential belongs to another provider.";
 }
 
+function providerWebhookStateLabel(state: ProviderWebhookState) {
+  return state === "ACTIVE" ? "Connected" : state === "CREATING" || state === "CREATE_DISPATCHING" ? "Connecting…" : state === "DELETING" ? "Disconnecting…" : state === "CREATE_UNCERTAIN" || state === "DELETE_UNCERTAIN" ? "Needs reconciliation" : state === "CREATE_REJECTED" ? "Connection rejected" : "Disconnected";
+}
+
 function useNarrowEditorLayout() {
   const [isNarrow, setIsNarrow] = useState(false);
 
@@ -97,30 +103,6 @@ function useNarrowEditorLayout() {
   }, []);
 
   return isNarrow;
-}
-
-function SheetsValuesEditor({ value, onChange }: { value: unknown; onChange: (value: unknown[][]) => void }) {
-  const [pendingRemoval, setPendingRemoval] = useState<"row" | "column" | null>(null);
-  if (value !== undefined && (!Array.isArray(value) || !value.every(Array.isArray))) {
-    return <Status tone="warning">Values must be a table of rows. Correct the existing value in Advanced JSON before editing here.</Status>;
-  }
-  const rows: unknown[][] = Array.isArray(value) && value.length ? value : [[""]];
-  const columns = Math.max(1, ...rows.map((row) => row.length));
-  const editCell = (rowIndex: number, columnIndex: number, nextValue: string) => {
-    const next = rows.map((row) => [...row]);
-    const row = next[rowIndex];
-    if (!row) return;
-    while (row.length <= columnIndex) row.push("");
-    row[columnIndex] = nextValue;
-    onChange(next);
-  };
-  return <div className="config-field sheets-values-editor" role="group" aria-label="Sheet values">
-    <span className="ui-field__label">Values</span>
-    <small>Each field is one cell. Expressions are supported; existing values stay unchanged until edited.</small>
-    <div className="sheets-values-editor__grid">{rows.map((row, rowIndex) => <div className="sheets-values-editor__row" key={rowIndex}>{Array.from({ length: columns }, (_, columnIndex) => <input key={columnIndex} aria-label={`Row ${rowIndex + 1}, column ${columnIndex + 1}`} value={row[columnIndex] == null ? "" : typeof row[columnIndex] === "object" ? JSON.stringify(row[columnIndex]) : String(row[columnIndex])} onChange={(event) => editCell(rowIndex, columnIndex, event.target.value)} />)}</div>)}</div>
-    <div className="sheets-values-editor__actions"><Button type="button" variant="ghost" disabled={Boolean(pendingRemoval)} onClick={() => onChange([...rows.map((row) => [...row]), Array.from({ length: columns }, () => "")])}>Add row</Button><Button type="button" variant="ghost" disabled={Boolean(pendingRemoval)} onClick={() => onChange(rows.map((row) => [...row, ...Array.from({ length: columns - row.length }, () => ""), ""]))}>Add column</Button><Button type="button" variant="ghost" disabled={Boolean(pendingRemoval) || rows.length <= 1} onClick={() => setPendingRemoval("row")}>Remove last row</Button><Button type="button" variant="ghost" disabled={Boolean(pendingRemoval) || columns <= 1} onClick={() => setPendingRemoval("column")}>Remove last column</Button></div>
-    {pendingRemoval && <div role="group" aria-label="Confirm value removal"><Status tone="warning">Remove the last {pendingRemoval} and its values from this draft?</Status><div className="sheets-values-editor__actions"><Button type="button" variant="ghost" onClick={() => setPendingRemoval(null)}>Cancel</Button><Button type="button" variant="ghost" onClick={() => { onChange(pendingRemoval === "row" ? rows.slice(0, -1).map((row) => [...row]) : rows.map((row) => row.slice(0, columns - 1))); setPendingRemoval(null); }}>Confirm removal</Button></div></div>}
-  </div>;
 }
 
 function ConfigField({ label, value, onChange, multiline = false, inputMode }: {
@@ -148,6 +130,81 @@ function readConfigurationFieldValue(config: Record<string, unknown>, field: Nod
     : readConfigText(config, field.key);
 }
 
+function readKeyValueRows(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [] as Array<{ key: string; value: string }>;
+  return Object.entries(value as Record<string, unknown>).map(([key, entryValue]) => ({ key, value: String(entryValue ?? "") }));
+}
+
+function KeyValueField({ label, value, keyPlaceholder = "Key", valuePlaceholder = "Value", onChange }: {
+  label: string;
+  value: unknown;
+  keyPlaceholder?: string;
+  valuePlaceholder?: string;
+  onChange: (value: Record<string, string>) => void;
+}) {
+  const rows = readKeyValueRows(value);
+  const updateRow = (index: number, next: Partial<{ key: string; value: string }>) => {
+    const nextRows = rows.map((row, rowIndex) => rowIndex === index ? { ...row, ...next } : row);
+    onChange(Object.fromEntries(nextRows.map((row) => [row.key, row.value])));
+  };
+  const addRow = () => {
+    let nextKey = `header-${rows.length + 1}`;
+    let suffix = rows.length + 1;
+    while (rows.some((row) => row.key === nextKey)) nextKey = `header-${++suffix}`;
+    onChange(Object.fromEntries([...rows, { key: nextKey, value: "" }].map((row) => [row.key, row.value])));
+  };
+  const removeRow = (index: number) => onChange(Object.fromEntries(rows.filter((_, rowIndex) => rowIndex !== index).map((row) => [row.key, row.value])));
+
+  return (
+    <Field label={label} className="config-field key-value-field">
+      <div className="key-value-field__rows">
+        {rows.map((row, index) => (
+          <div className="key-value-field__row" key={`${row.key}-${index}`}>
+            <input aria-label={`${label} ${keyPlaceholder} ${index + 1}`} placeholder={keyPlaceholder} value={row.key} onChange={(event) => updateRow(index, { key: event.target.value })} />
+            <input aria-label={`${label} ${valuePlaceholder} ${index + 1}`} placeholder={valuePlaceholder} value={row.value} onChange={(event) => updateRow(index, { value: event.target.value })} />
+            <button className="key-value-field__remove" type="button" aria-label={`Remove ${label} row ${index + 1}`} onClick={() => removeRow(index)}>Remove</button>
+          </div>
+        ))}
+      </div>
+      <button className="ghost-button key-value-field__add" type="button" onClick={addRow}>Add header</button>
+      <small>Use the connection for authentication when possible. Header values are stored in the workflow configuration.</small>
+    </Field>
+  );
+}
+
+function readTableRows(value: unknown) {
+  const rows = Array.isArray(value)
+    ? value.filter((row): row is unknown[] => Array.isArray(row)).map((row) => [...row])
+    : [];
+  const columnCount = Math.max(1, ...rows.map((row) => row.length));
+  return (rows.length ? rows : [[]]).map((row) => [...row, ...Array.from({ length: Math.max(0, columnCount - row.length) }, () => "")]);
+}
+
+function TableField({ label, value, onChange }: { label: string; value: unknown; onChange: (value: unknown[][]) => void }) {
+  const rows = readTableRows(value);
+  const columnCount = rows[0]?.length ?? 1;
+  const updateCell = (rowIndex: number, columnIndex: number, cellValue: string) => {
+    onChange(rows.map((row, currentRow) => currentRow === rowIndex ? row.map((cell, currentColumn) => currentColumn === columnIndex ? cellValue : cell) : row));
+  };
+  const addRow = () => onChange([...rows, Array.from({ length: columnCount }, () => "")]);
+  const removeRow = (rowIndex: number) => onChange(rows.length === 1 ? [Array.from({ length: columnCount }, () => "")] : rows.filter((_, currentRow) => currentRow !== rowIndex));
+  const addColumn = () => onChange(rows.map((row) => [...row, ""]));
+  const removeColumn = () => onChange(columnCount === 1 ? rows : rows.map((row) => row.slice(0, -1)));
+
+  return (
+    <Field label={label} className="config-field table-field">
+      <div className="table-field__scroll">
+        <table className="table-field__table"><tbody>{rows.map((row, rowIndex) => <tr key={`row-${rowIndex}`}>
+          {row.map((cell, columnIndex) => <td key={`cell-${rowIndex}-${columnIndex}`}><input aria-label={`${label} row ${rowIndex + 1} column ${columnIndex + 1}`} value={cell == null ? "" : typeof cell === "object" ? JSON.stringify(cell) : String(cell)} onChange={(event) => updateCell(rowIndex, columnIndex, event.target.value)} /></td>)}
+          <td><button className="table-field__remove" type="button" aria-label={`Remove ${label} row ${rowIndex + 1}`} onClick={() => removeRow(rowIndex)}>Remove</button></td>
+        </tr>)}</tbody></table>
+      </div>
+      <div className="table-field__actions"><button className="ghost-button" type="button" onClick={addRow}>Add row</button><button className="ghost-button" type="button" onClick={addColumn}>Add column</button><button className="ghost-button" type="button" onClick={removeColumn} disabled={columnCount === 1}>Remove column</button></div>
+      <small>Values are sent as rows and columns. Map dynamic values later through expressions when needed.</small>
+    </Field>
+  );
+}
+
 function NodeConfigurationFields({ fields, config, credentials, workspaceId, allowExpressions, onChange }: {
   fields: NodeConfigurationField[];
   config: Record<string, unknown>;
@@ -158,7 +215,9 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, all
 }) {
   return <>
     {fields.map((field) => {
-      if (field.showWhen && !field.showWhen.values.includes(readConfigText(config, field.showWhen.key))) return null;
+      const expectedValue = field.visibleWhen?.equals;
+      const currentValue = field.visibleWhen ? config[field.visibleWhen.key] : undefined;
+      if (expectedValue !== undefined && !(Array.isArray(expectedValue) ? expectedValue.includes(currentValue as never) : currentValue === expectedValue)) return null;
       const value = readConfigurationFieldValue(config, field);
       if (field.kind === "credential") {
         return <CredentialField key={field.key} label={field.label} value={value} providers={field.providers} credentials={credentials} onChange={(nextValue) => onChange(field.key, nextValue)} optional={field.optional} />;
@@ -171,6 +230,12 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, all
       }
       if (field.kind === "select") {
         return <Field key={field.key} label={field.label} className="config-field"><Select aria-label={field.label} value={value} onChange={(event) => onChange(field.key, event.target.value)}>{field.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></Field>;
+      }
+      if (field.kind === "key-value") {
+        return <KeyValueField key={field.key} label={field.label} value={config[field.key]} keyPlaceholder={field.keyPlaceholder} valuePlaceholder={field.valuePlaceholder} onChange={(nextValue) => onChange(field.key, nextValue)} />;
+      }
+      if (field.kind === "table") {
+        return <TableField key={field.key} label={field.label} value={config[field.key]} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       }
       return <ConfigField
         key={field.key}
@@ -349,6 +414,10 @@ function WebhookEndpointPanel({ workflow, config, isGitHub, canRegister, onClose
   const [endpointLoading, setEndpointLoading] = useState(true);
   const [endpointError, setEndpointError] = useState<string | null>(null);
   const [endpointRetry, setEndpointRetry] = useState(0);
+  const [providerWebhook, setProviderWebhook] = useState<ProviderWebhookStatus | null>(null);
+  const [providerWebhookError, setProviderWebhookError] = useState<string | null>(null);
+  const [providerWebhookAction, setProviderWebhookAction] = useState<"connect" | "disconnect" | "reconcile" | null>(null);
+  const [confirmProviderDisconnect, setConfirmProviderDisconnect] = useState(false);
   const [confirmRotation, setConfirmRotation] = useState(false);
   const [writeUncertain, setWriteUncertain] = useState(false);
   const [writeError, setWriteError] = useState<string | null>(null);
@@ -361,8 +430,9 @@ function WebhookEndpointPanel({ workflow, config, isGitHub, canRegister, onClose
     let isCurrent = true;
     setEndpointLoading(true);
     setEndpointError(null);
-    void apiRequest<{ endpoint: WebhookEndpoint | null }>(`/workflows/${workflow.id}/webhook-endpoint`)
-      .then((response) => { if (isCurrent) { setEndpoint(response.endpoint); if (response.endpoint) setPath(response.endpoint.path); setNotice(response.endpoint ? isGitHub && response.endpoint.signingMode === "legacy" ? "Existing registration uses the connection’s legacy secret. It will keep working until you rotate it." : "An active endpoint is pinned to a published version." : "No endpoint has been created yet."); } })
+    const providerRequest = isGitHub ? apiRequest<{ providerWebhook: ProviderWebhookStatus }>(`/workflows/${workflow.id}/provider-webhook`) : Promise.resolve(null);
+    void Promise.all([apiRequest<{ endpoint: WebhookEndpoint | null }>(`/workflows/${workflow.id}/webhook-endpoint`), providerRequest])
+      .then(([response, providerResponse]) => { if (isCurrent) { setEndpoint(response.endpoint); if (response.endpoint) setPath(response.endpoint.path); setProviderWebhook(providerResponse?.providerWebhook ?? null); setProviderWebhookError(null); setNotice(response.endpoint ? isGitHub && response.endpoint.signingMode === "legacy" ? "Existing registration uses the connection’s legacy secret. It will keep working until you rotate it." : "An active endpoint is pinned to a published version." : "No endpoint has been created yet."); } })
       .catch((reason) => { if (isCurrent) setEndpointError(reason instanceof Error ? reason.message : "Unable to load webhook status."); })
       .finally(() => { if (isCurrent) setEndpointLoading(false); });
     return () => { isCurrent = false; };
@@ -391,19 +461,69 @@ function WebhookEndpointPanel({ workflow, config, isGitHub, canRegister, onClose
     }
   };
 
+  const connectProviderWebhook = async () => {
+    setProviderWebhookAction("connect");
+    setProviderWebhookError(null);
+    try {
+      const response = await apiRequest<{ providerWebhook: ProviderWebhookStatus }>(`/workflows/${workflow.id}/provider-webhook`, { method: "POST" });
+      setProviderWebhook(response.providerWebhook);
+      setNotice(response.providerWebhook.registration?.state === "ACTIVE" ? "GitHub webhook connected. Delivery is managed by Fluxora." : "GitHub webhook operation recorded.");
+    } catch (reason) {
+      setProviderWebhookError(reason instanceof Error ? reason.message : "Unable to connect the GitHub webhook.");
+    } finally {
+      setProviderWebhookAction(null);
+    }
+  };
+
+  const disconnectProviderWebhook = async () => {
+    setProviderWebhookAction("disconnect");
+    setProviderWebhookError(null);
+    try {
+      const response = await apiRequest<{ providerWebhook: ProviderWebhookStatus }>(`/workflows/${workflow.id}/provider-webhook`, { method: "DELETE" });
+      setProviderWebhook(response.providerWebhook);
+      setConfirmProviderDisconnect(false);
+      setNotice("GitHub webhook disconnected. The manual endpoint remains available.");
+    } catch (reason) {
+      setProviderWebhookError(reason instanceof Error ? reason.message : "Unable to disconnect the GitHub webhook.");
+    } finally {
+      setProviderWebhookAction(null);
+    }
+  };
+
+  const reconcileProviderWebhook = async () => {
+    setProviderWebhookAction("reconcile");
+    setProviderWebhookError(null);
+    try {
+      const response = await apiRequest<{ providerWebhook: ProviderWebhookStatus }>(`/workflows/${workflow.id}/provider-webhook/reconcile`, { method: "POST" });
+      setProviderWebhook(response.providerWebhook);
+      setNotice(response.providerWebhook.reconciliation?.message ?? "GitHub webhook status checked.");
+    } catch (reason) {
+      setProviderWebhookError(reason instanceof Error ? reason.message : "Unable to verify the GitHub webhook.");
+    } finally {
+      setProviderWebhookAction(null);
+    }
+  };
+
+  const registrationIsBusy = providerWebhook?.registration?.state === "CREATING" || providerWebhook?.registration?.state === "CREATE_DISPATCHING" || providerWebhook?.registration?.state === "DELETING";
+  const reconciliationTone = providerWebhook?.reconciliation?.outcome === "MATCHED" ? "success" : providerWebhook?.reconciliation ? providerWebhook.reconciliation.outcome === "UNKNOWN" || providerWebhook.reconciliation.outcome === "MANUAL_REQUIRED" ? "warning" : "error" : "info";
+
   return <Dialog label="Webhook endpoint" className="webhook-endpoint-panel" modal={false} onClose={onClose}>
     <div className="credential-panel__heading"><div><p className="section-label">INBOUND WEBHOOK</p><h2>{isGitHub ? "GitHub webhook registration" : "Webhook endpoint"}</h2></div><IconButton label="Close webhook endpoint" className="icon-button" onClick={onClose}><X size={16} aria-hidden="true" /></IconButton></div>
     <p>Setup uses the published workflow, not unsaved changes. Each registration is pinned to a published version.</p>
     {endpoint && workflow.published && endpoint.workflowVersionId !== workflow.published.id && <Status tone="warning">This endpoint still uses an older published version. Rotate it to apply the setup shown here to the current published version.</Status>}
     <ConfigField label="Public path" value={path} onChange={setPath} />
-    {isGitHub ? <Status tone="info" className="webhook-endpoint-panel__help">Add this URL and signing secret in your repository’s GitHub webhook settings for <code>{githubEventLabel}</code>. The secret belongs to this registration.</Status> : <label className="checkbox-field"><input type="checkbox" checked={secretRequired} onChange={(event) => setSecretRequired(event.target.checked)} /> Require <code>x-workflow-secret</code> header</label>}
+    {isGitHub ? <Status tone={providerWebhook?.registration?.state === "ACTIVE" ? "success" : "info"} className="webhook-endpoint-panel__help">{providerWebhook?.registration?.state === "ACTIVE" ? <>GitHub manages <code>{providerWebhook.registration.repository}</code> automatically for <code>{githubEventLabel}</code>. The manual endpoint stays available as a compatibility path.</> : <>Add this URL and signing secret in your repository’s GitHub webhook settings for <code>{githubEventLabel}</code>. You can connect it automatically when provider registration is enabled.</>}</Status> : <label className="checkbox-field"><input type="checkbox" checked={secretRequired} onChange={(event) => setSecretRequired(event.target.checked)} /> Require <code>x-workflow-secret</code> header</label>}
+    {isGitHub && <div className="webhook-endpoint-panel__provider"><div><span className="webhook-endpoint-panel__provider-label">GITHUB CONNECTION</span><strong>{providerWebhook?.registration ? providerWebhookStateLabel(providerWebhook.registration.state) : providerWebhook?.enabled ? "Not connected" : "Manual setup"}</strong><small>{providerWebhook?.registration ? `${providerWebhook.registration.repository} · ${providerWebhook.registration.event}` : providerWebhook?.enabled ? "Use the connector credential to register this repository webhook." : "Automatic registration is disabled until the public HTTPS origin is configured."}</small></div><div className="webhook-endpoint-panel__provider-actions">{providerWebhook?.enabled && providerWebhook?.registration && !registrationIsBusy && <Button variant="ghost" disabled={providerWebhookAction !== null} onClick={() => void reconcileProviderWebhook()}>{providerWebhookAction === "reconcile" ? "Checking…" : providerWebhook.registration.state === "ACTIVE" ? "Verify remote" : "Reconcile"}</Button>}{providerWebhook?.enabled && providerWebhook?.registration?.state === "ACTIVE" ? <Button variant="ghost" disabled={providerWebhookAction !== null} onClick={() => setConfirmProviderDisconnect(true)}>{providerWebhookAction === "disconnect" ? "Disconnecting…" : "Disconnect"}</Button> : providerWebhook?.enabled && (!providerWebhook?.registration || providerWebhook.registration.state === "CREATE_REJECTED" || providerWebhook.registration.state === "REMOVED") ? <Button variant="secondary" disabled={!canRegister || providerWebhookAction !== null || endpointLoading || Boolean(endpointError)} onClick={() => void connectProviderWebhook()}>{providerWebhookAction === "connect" ? "Connecting…" : providerWebhook?.registration ? "Retry connection" : "Connect GitHub"}</Button> : null}</div></div>}
+    {providerWebhook?.reconciliation && <Status tone={reconciliationTone} className="webhook-endpoint-panel__reconciliation">{providerWebhook.reconciliation.message}</Status>}
     <div className="webhook-endpoint-panel__url"><span>POST URL</span><code>{endpointUrl}</code><Button variant="ghost" onClick={() => void navigator.clipboard.writeText(endpointUrl)}>Copy URL</Button></div>
     {createdSecret && <div className="webhook-endpoint-panel__secret"><strong>Copy this secret now</strong><code>{createdSecret}</code><Button variant="ghost" onClick={() => void navigator.clipboard.writeText(createdSecret)}>Copy secret</Button><small>{isGitHub ? "It is displayed only once. Store it securely and paste it into GitHub." : "It is displayed only once. Store it securely and send it in the x-workflow-secret header."}</small></div>}
     {writeError && <Status tone="error">{writeError}</Status>}
+    {providerWebhookError && <Status tone="error">{providerWebhookError}</Status>}
     {writeUncertain && <Status tone="warning">The request did not complete. The endpoint may have changed even if no secret was displayed. Check its status; if you do not have the current secret, rotate it again and update the external webhook.</Status>}
     <Status tone={endpointError ? "error" : "info"} className="webhook-endpoint-panel__notice">{endpointError ?? notice}</Status>
     {endpointError && <Button variant="ghost" onClick={() => setEndpointRetry((value) => value + 1)}>Retry status check</Button>}
     {confirmRotation && <div className="webhook-endpoint-panel__confirmation"><Status tone="warning">Rotating immediately replaces the secret. Update the external webhook with the new secret to resume delivery.</Status><Button variant="ghost" onClick={() => setConfirmRotation(false)}>Cancel</Button><Button variant="primary" disabled={isSaving} onClick={() => { setConfirmRotation(false); void createEndpoint(); }}>Confirm rotation</Button></div>}
+    {confirmProviderDisconnect && <div className="webhook-endpoint-panel__confirmation"><Status tone="warning">This removes only the GitHub-managed remote webhook. The Fluxora endpoint and manual setup remain available.</Status><Button variant="ghost" disabled={providerWebhookAction !== null} onClick={() => setConfirmProviderDisconnect(false)}>Cancel</Button><Button variant="primary" disabled={providerWebhookAction !== null} onClick={() => void disconnectProviderWebhook()}>{providerWebhookAction === "disconnect" ? "Disconnecting…" : "Confirm disconnect"}</Button></div>}
     <Button variant="primary" className="run-button" onClick={() => endpoint ? setConfirmRotation(true) : void createEndpoint()} disabled={!canRegister || isSaving || endpointLoading || Boolean(endpointError) || !path.trim() || confirmRotation}>{endpointLoading ? "Checking registration…" : isSaving ? "Creating…" : endpoint ? "Rotate registration" : "Create registration"}</Button>
     {!canRegister && <small className="webhook-endpoint-panel__warning">Publish a version containing this webhook trigger before creating its endpoint.</small>}
   </Dialog>;
@@ -600,12 +720,6 @@ function NodeInspector({ node, execution, credentials, workspaceId, onResolveApp
           <ConfigField label="Message text" value={readConfigText(node.data.config, "text") || readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("text", value)} multiline />
           <Field label="Parse mode" className="config-field"><Select aria-label="Telegram parse mode" value={readConfigText(node.data.config, "parseMode")} onChange={(event) => updateConfig("parseMode", event.target.value)}><option value="">Plain text</option><option value="Markdown">Markdown</option><option value="HTML">HTML</option><option value="MarkdownV2">MarkdownV2</option></Select></Field>
         </>
-      )}
-      {node.data.nodeType === "action.google-drive" && (readConfigText(node.data.config, "operation") === "downloadText" ?
-        <ResourcePicker workspaceId={workspaceId} resource="google-file" credentialId={readConfigText(node.data.config, "credentialId")} label="Text file" value={readConfigText(node.data.config, "fileId")} placeholder="Search loaded text files" allowExpression onChange={(value) => updateConfig("fileId", value)} /> :
-        readConfigText(node.data.config, "operation") === "search" ? <ConfigField label="Search query" value={readConfigText(node.data.config, "query")} onChange={(value) => updateConfig("query", value)} /> : null)}
-      {node.data.nodeType === "action.google-sheets" && ["append", "update"].includes(readConfigText(node.data.config, "operation")) && (
-        <SheetsValuesEditor key={node.id} value={node.data.config.values} onChange={(value) => updateConfig("values", value)} />
       )}
       {node.data.nodeType === "condition.if" && (
         <>

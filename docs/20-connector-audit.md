@@ -1,64 +1,156 @@
-# Connector audit — 2026-10-28
+# Connector audit — pre-production baseline
 
-Snapshot: main `16d53a5`; PR #32 and `codex/github-webhook-automation` are separate work, not main. Evidence is the catalog, inspector, executor, credential services, provider-specific tests and documented live checks. “Available” means implemented, not fully qualified for production.
+**Audit date:** 2026-10-28
+**Scope:** the complete source-owned catalog in
+`apps/web/src/features/workflow/node-catalog.ts`, the execution dispatch in
+`apps/api/src/execution/execution.service.ts`, live readiness in
+`apps/api/src/execution/live-readiness.ts`, and the provider resource services.
 
-| App | Current capability and classification | Configuration and evidence | Gap / next step |
-|---|---|---|---|
-| GitHub | Four event triggers and four action operations; manual signed webhook registration | Workspace-scoped credential, repository resource picker, visible-owner filter, tests; one live Push trigger-only execution succeeded | A classic token can expose repositories across personal and organization owners; the picker now makes that visibility explicit instead of hard-coding `ithelpdesk`. Automatic provider lifecycle is incomplete on a separate branch. Actions not live-qualified. |
-| Steam | Account snapshot action, not a trigger | API key/Steam ID credential, identity override, owned/recent games, achievement app ID; simple fields use the shared inspector contract; live Steam→Chat execution reported | No claim that Steam OpenID is an API credential; no automatic event subscription. Verify other options and provider limits as needed. |
-| Google Chat | Incoming webhook send action | Separate webhook secret and message; notification adapter | OAuth action marked unavailable; no Chat trigger. Live Steam→Chat execution reported. |
-| Discord | Incoming webhook send action | Webhook credential, content, username, avatar, embeds and mention-policy JSON; adapter tests | Rich field editors and live delivery qualification need separate scope; webhook URL is a secret. |
-| Telegram | Bot send action | Bot token, typed destination, chat ID, optional topic ID, text and parse mode; adapter tests | Destination requires user-provided ID; no Telegram trigger or automatic registration. Live delivery and handling of formatting errors need qualification. |
-| Google Drive | One action exposing list/search/upload text/download text operations | Google OAuth credential, text-file picker and operation-specific data; real OAuth and read-only picker discovery succeeded | UI originally showed unrelated upload fields and search query for other operations; this slice makes visibility operation-aware. All-file Drive scope is restricted; refresh expiry, file actions and verification remain. |
-| Google Sheets | One action exposing read/append/update rows | Google OAuth, spreadsheet picker, range and one-row comma-separated editor; real OAuth/read-only picker discovery succeeded | Hide values during reads. Comma-splitting is not a general CSV or multidimensional editor; avoid claiming full Sheets parity. File writes and token-expiry recovery remain unverified. |
-| HTTP | Generic request action | Optional vault credential, method select, URL, body, timeout; headers in advanced JSON; safe outbound policy | Improve structured headers/body configuration in a separate slice; live provider-specific behavior depends on target. |
-| Email | Roadmap-only action, unavailable | Placeholder fields | No delivery adapter/credential; do not present as production-ready. |
-| OpenAI / Gemini | Roadmap-only actions, unavailable | Placeholder model/prompt | No live executor or credential lifecycle; validate current provider APIs before implementing. |
-| MongoDB | Roadmap-only action, unavailable | Placeholder database/collection/operation | No executor/credential or safe query mapping. |
-| Facebook Meta / Instagram | Roadmap-only actions, unavailable | Placeholder operation | No connector execution or OAuth lifecycle; platform policy and permissions need separate research. |
+This document is an implementation audit, not a claim that every listed app is
+already production-ready. `available: false` is an intentional product
+boundary: the node can remain visible for roadmap discovery, but cannot be
+added or executed as an MVP runtime node.
 
-On the in-progress `codex/connector-config-audit` branch, the Sheets editor has
-been changed from comma splitting to individual cells supporting multiple rows
-and columns, with confirmation before removing the final row or column. The
-main-branch limitation in the table remains until reviewed and merged. Editing
-one cell preserves other cells and their stored types; it does
-not make the connector equivalent to all Google Sheets node operations.
+## Architecture decision
 
-The comparison is about interaction patterns, not feature parity: n8n groups Drive operations by resource and operation ([Drive](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.googledrive/)); Sheets likewise distinguishes document and sheet operations ([Sheets](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.googlesheets/)); Telegram has separate action and trigger capabilities ([Telegram](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.telegram/)). Not all providers expose discoverable destinations or need webhook registration. Do not apply GitHub's model indiscriminately.
+Fluxora follows the mature automation-platform model:
 
-Release gates remain: provider-specific live qualification with explicit owner approval; Google Testing-mode refresh expiry and OAuth verification; monitoring and restore/rollback evidence. The owner previously deferred backup, so do not silently reinstate it. Prioritize data integrity and operation-specific fields before expanding provider count.
+```text
+App / connector
+  → concrete operation
+    → typed trigger/action/search/utility behavior
+      → reusable workspace connection
+        → provider resource picker where enumeration is safe
+```
 
-## Connector shape and field-contract verdict
+The workflow graph stores the stable operation node type. Credentials are
+workspace-owned and encrypted; they are selected by ID and are never placed in
+the browser as secret payloads. A provider-specific node may use a shared
+backend adapter, but the UI should not collapse unrelated provider operations
+into one generic notification or “do everything” node.
 
-The connectors are not all expected to match GitHub one-for-one. The current
-shape follows the provider interaction rather than a single universal node:
+Runtime capability is now an explicit shared contract: `workflowNodeTypes`
+continues to include schema-only roadmap nodes for graph compatibility, while
+`executableWorkflowNodeTypes` is the allow-list for current dispatch. The web
+catalog parity test requires its available definitions to match that allow-list
+exactly, and the execution boundary rejects a known-but-schema-only node before
+provider dispatch. This keeps enabling a future app a deliberate vertical slice
+across contract, catalog, fields, readiness, executor, and tests rather than a
+single UI flag.
 
-| Shape | Connectors | Verdict |
+This matches the external products reviewed for this audit:
+
+- n8n documents app nodes as collections of operations, with separate
+  credential definitions and an HTTP Request escape hatch when a dedicated
+  operation is unavailable. It also treats resource parameters as selectable
+  provider data rather than requiring users to memorize IDs. See the
+  [n8n MISP node operation model](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.misp/)
+  and [n8n credential model](https://docs.n8n.io/integrations/builtin/credentials/).
+- Make calls each concrete app operation a module, asks for a reusable
+  connection, marks required fields, and supports mapping dynamic values from
+  earlier modules. See [Make module types](https://help.make.com/types-of-modules)
+  and [Make module settings](https://help.make.com/module-settings?hl=en).
+- Zapier separates trigger/action/search steps, app connections, and a generic
+  API/custom-action escape hatch. It explicitly distinguishes reusable app
+  connections from credentials entered directly into a one-off webhook step.
+  See [Zap structure](https://help.zapier.com/hc/en-us/articles/8496309697421-What-is-a-Zap)
+  and [API request actions](https://help.zapier.com/hc/en-us/articles/12899473501453-API-Request-actions).
+
+Therefore “Developer & DevOps”, “Communication”, and similar labels in Fluxora
+are discovery groups, not new workflow types. The current catalog structure is
+correct and extensible; the production requirement is contract parity and
+provider qualification, not a larger UI taxonomy.
+
+## Connector matrix
+
+| App / connector | Catalog operations and category | Runtime status | Credential contract | Resource / field UX | Production gap |
+|---|---|---|---|---|---|
+| Steam | `Account snapshot` — action | Implemented; mock and live-capable executor | `STEAM`, encrypted API key plus Steam ID 64 fallback | Credential and Steam ID are purpose-built Inspector fields; include-owned/recent and achievement options are typed controls | Real Steam → notification smoke is owner-gated; Steam OpenID is identity linking only, not a workflow credential |
+| Google Chat | `Send webhook message` — action; OAuth message is roadmap | Webhook action implemented; OAuth action unavailable | `GOOGLE_CHAT_WEBHOOK`; Google OAuth `GOOGLE` is managed separately | Message textarea; credential select; OAuth node remains disabled | Live delivery and OAuth scope/callback qualification remain owner-gated |
+| Discord | `Send webhook message` — action | Implemented through shared notification dispatcher | `DISCORD_WEBHOOK`, encrypted webhook URL | Content, username, avatar URL, embeds JSON, allowlisted mentions JSON | Real channel delivery and rate-limit smoke remain owner-gated |
+| Telegram | `Send message` — action | Implemented through shared notification dispatcher | `TELEGRAM_BOT`, encrypted bot token only | Purpose-built destination type, chat ID, optional topic/thread ID, parse-mode select; legacy credential chat ID fallback | Real bot/chat authorization and channel/group smoke remain owner-gated |
+| Google Drive | `Manage files` — action: list, search, upload text, download text | Implemented for configured operations | `GOOGLE`, OAuth or manual compatible credential | Operation select; download uses authenticated text-file picker; upload-only name/text fields are conditional | Live OAuth scopes, shared-drive edge cases, and provider smoke remain owner-gated |
+| Google Sheets | `Read or write rows` — action: read, append, update | Implemented | `GOOGLE` | Spreadsheet picker, operation select, range, and reusable table editor for rows/columns | Live OAuth/resource qualification remains owner-gated; richer expression mapping is a follow-up, not a blocker for current MVP |
+| HTTP | `Make API request` — action | Implemented with SSRF policy, timeout and retry classification | Optional `HTTP` API-key/bearer/basic/header credential | Method select, URL, body, timeout; **headers were previously hidden in Advanced JSON and are closed by this slice with a key/value editor** | Production allowlist/egress policy and provider-specific API behavior remain deployment/operator concerns |
+| Email SMTP | `Send email` — action | Implemented with deterministic mock and guarded live transport | `SMTP`, encrypted hostname, TLS submission port, username, password and From address | SMTP credential selector; To/Cc/Bcc, subject, plain-text/HTML body and Reply-to fields; recipients stay on the node | No owner-approved SMTP sandbox/live delivery yet; no attachments, inbound mail, bulk sending, Gmail OAuth or vendor presets in this MVP connector |
+| OpenAI | `Generate text` — action | Roadmap/schema-only | No runtime credential contract yet | Model/prompt placeholder; model is currently free text | Must define API-key credential, model enum/resource behavior, token/error policy and executor before enabling |
+| Gemini | `Generate text` — action | Roadmap/schema-only | No runtime credential contract yet | Model/prompt placeholder; model is currently free text | Must define Google AI credential/scopes, model selection and executor before enabling |
+| MongoDB | `Query documents` — action | Roadmap/schema-only | No runtime credential contract yet | Database, collection and operation placeholders; operation is currently free text | Must define connection credential, safe query model, operation enum, limits and executor before enabling |
+| GitHub | Triggers: issue opened, PR opened, push, workflow run completed; actions: create issue, add label, add comment, merge PR | Implemented; signed trigger delivery, guarded action calls, and feature-flagged managed webhook lifecycle with recorded-identity reconciliation | `GITHUB`, workspace connector token; separate from GitHub account login | Authenticated paginated repository picker; optional repository trigger filter; merge method select; published-version webhook setup | Reconciliation is locally tested and never claims unknown hooks; live webhook/action qualification and owner/operator proof remain gated |
+| Facebook Meta | `Manage content` — action | Roadmap/schema-only | No runtime credential contract yet | Operation placeholder only | Must define Meta OAuth/page-token model, asset/resource pickers and executor before enabling |
+| Instagram | `Manage content` — action | Roadmap/schema-only | No runtime credential contract yet | Operation placeholder only | Must define Meta/Instagram account/media model, OAuth and executor before enabling |
+
+## Contract findings
+
+### Correct and production-safe enough for the current MVP boundary
+
+1. Every currently executable provider operation has a matching execution
+   branch and live-readiness rule.
+2. Roadmap nodes are visible but disabled, so the UI does not promise behavior
+   that the backend cannot execute.
+3. GitHub, Google, Discord, Telegram and HTTP credentials are selected by
+   provider-aware selectors. GitHub and Google resources are server-proxied and
+   return metadata only.
+4. Provider-specific actions remain separate nodes while Discord, Telegram,
+   Google Chat and approval delivery share the notification adapter contract.
+   SMTP Email deliberately keeps its mail-specific envelope, subject and body
+   contract instead of forcing those fields into the webhook-style adapter.
+5. Node output and errors use the common execution model: redacted I/O,
+   normalized errors, timeout/retry classification, and success/error routes.
+
+### Gaps found and disposition
+
+| Gap | Decision | Status |
 |---|---|---|
-| Separate trigger/action nodes | GitHub event triggers and GitHub actions; Manual, Cron, Webhook, Approval | Correct: the event boundary, permissions, and execution semantics differ. |
-| One app node with an operation selector | Google Drive and Google Sheets | Correct for the current scope: the credential/resource stays stable while the operation changes the fields. This is the same resource/operation pattern used by n8n. |
-| Separate provider notification action | Google Chat webhook, Discord webhook, Telegram message | Correct: each provider has a different credential and payload contract; they share backend adapter/error behavior, not a misleading generic UI node. |
-| Provider action with bespoke fields | Steam account snapshot and Telegram destination controls | Correct where the provider needs identity/destination guidance. Steam's simple fields now use shared metadata; Telegram keeps conditional destination hints as a bespoke control. |
-| Generic action | HTTP request | Correct to keep URL and request details user-configurable. A generic HTTP node cannot safely offer a provider resource picker for arbitrary destinations; headers/body structured editors are a later UX slice. |
-| Roadmap-only nodes | Email, Google Chat OAuth, OpenAI, Gemini, MongoDB, Meta, Instagram | Correctly marked unavailable. They must not receive a fake credential or live-readiness contract until their provider adapter and credential lifecycle exist. |
+| HTTP runtime accepts `headers`, but the normal Inspector did not expose them | Add a reusable structured key/value field; preserve Advanced JSON compatibility | Fixed in `CONNECTOR-AUDIT-1` |
+| Steam and Telegram contain provider-specific conditional controls outside the declarative field list | Keep purpose-built controls; these are not generic fields and are explicitly allowed by the node-library contract | Intentional; covered by editor tests |
+| Google Drive changes fields based on selected operation | Keep conditional operation-specific controls and authenticated file picker | Fixed in `CONNECTOR-FIELD-UX-1` |
+| Google Sheets values previously used compact single-row input | Use a reusable table editor that persists the existing matrix payload | Fixed in `CONNECTOR-FIELD-UX-1`; expression mapping remains future work |
+| Roadmap AI/database/social nodes have placeholder fields | Keep disabled; do not add fake runtime branches | Intentional roadmap boundary |
+| Manual/expression entry remains for dynamic values | Retain hybrid behavior; providers cannot safely enumerate arbitrary runtime strings | Intentional and aligned with mature platforms |
 
-Field audit rules now enforced in code are: stable operation metadata for every
-catalog entry; credential selection for executable credential-backed nodes;
-resource pickers only where a safe owner-scoped provider listing exists; static
-enums rendered as selects; and boolean Steam options rendered through the
-shared inspector field contract. Telegram chat IDs and HTTP URLs remain manual
-by design, with provider-specific guidance or generic-target semantics rather
-than invented discovery APIs.
+## Remaining production qualification after this audit
 
-For GitHub, the connector credential is an authentication boundary, not an
-organization allowlist. The repository proxy returns only safe metadata and
-the picker exposes the owners visible in the loaded page; selecting an owner
-filters the proxy results case-insensitively. This explains why a classic token
-may show repositories outside the account name the owner expected. It does not
-expand the token's permissions or claim that a selected owner is trusted for
-webhook management; provider-managed webhook scope remains a separate
-lifecycle concern.
+The code contract is not the same as live provider proof. Before calling the
+system production-ready, the completed live smoke is recorded below and the
+remaining release checklist is:
 
-This audit is an interaction/contract check, not a production qualification.
-Mock tests do not prove OAuth refresh, provider permissions, remote webhook
-ownership, or live delivery. Those remain explicit release gates.
+- Google OAuth callback and Drive/Sheets resource discovery with the actual
+  configured client (read-only discovery is recorded; refresh-expiry and
+  write semantics remain open);
+- one owner-approved GitHub connector action and signed webhook delivery (a
+  trigger-only signed Push qualification is recorded; action qualification
+  remains open);
+- VPS DNS/TLS/env/readiness/rollback evidence from the operator runbook;
+- a final audit that no test credential, token, webhook URL, or raw provider
+  response appears in tracked files, browser state, logs, or execution history.
+
+These are external-boundary checks and must not be simulated by changing the
+catalog's `available` flags.
+
+The first owner-approved live smoke was attempted on 2026-10-28 and recorded a
+Steam HTTP 403. After the workspace credential was rotated, a second
+owner-approved run of published version 13 succeeded end-to-end for the
+connected Steam, Google Chat, Discord, and Telegram nodes. Google Drive was
+not part of that run because it is currently disconnected from the graph. The
+full evidence is recorded in
+[`2026-10-28-live-provider-smoke.md`](../.agent/reports/2026-10-28-live-provider-smoke.md).
+
+SMTP Email is code-qualified but has no provider smoke yet. It accepts only
+public DNS hostnames, port 465 with TLS or 587 with required STARTTLS, enforces
+certificate validation, caps connection/message inputs, never logs SMTP debug
+traffic, and redacts credential/provider failure detail. The intentional
+remaining risk is delivery uncertainty after a network interruption: SMTP has
+no portable idempotency primitive, so a retry can be at-least-once. Operators
+should use a sandbox mailbox before enabling automatic retries for workflows
+whose messages must be unique.
+
+## Current runtime evidence
+
+The read-only follow-up in
+[`2026-10-28-current-runtime-audit.md`](../.agent/reports/2026-10-28-current-runtime-audit.md)
+confirmed public liveness/readiness and healthy production containers, but also
+confirmed that the VPS image SHA differs from the current connector branch and
+that the VPS checkout contains deployment/backup drift plus a running staging
+stack. This is operational evidence only; it does not upgrade mocked connector
+tests into live-provider proof or justify a final production Go decision.

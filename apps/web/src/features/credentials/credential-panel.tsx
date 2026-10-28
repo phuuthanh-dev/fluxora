@@ -1,10 +1,10 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { LockKeyhole } from "lucide-react";
+import { ArrowUpRight, LockKeyhole, MoreVertical } from "lucide-react";
 import { ApiClientError, apiRequest, apiUrl } from "../api/api-client";
 import type { CredentialProvider, CredentialReferenceDetails, CredentialSummary } from "./credential-types";
-import { Button, Field, IconButton, Select, Status, useDialogFocus } from "../../components/ui";
+import { Button, Field, IconButton, Menu, Select, Status, useDialogFocus } from "../../components/ui";
 
 type CredentialPreset = {
   label: string;
@@ -48,6 +48,11 @@ const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
     data: '{\n  "token": ""\n}',
     hint: "Enter a GitHub token for workflow actions and repository discovery. GitHub webhook registrations use their own signing secret. This connection is separate from GitHub account sign-in.",
   },
+  SMTP: {
+    label: "SMTP email",
+    data: '{\n  "host": "smtp.example.com",\n  "port": 587,\n  "username": "",\n  "password": "",\n  "from": ""\n}',
+    hint: "Use an SMTP submission host with port 587 (required STARTTLS) or 465 (TLS). Port 25 and self-signed certificates are not supported.",
+  },
 };
 
 type ActiveAction = { credentialId: string; type: "rename" | "rotate" | "delete" };
@@ -57,6 +62,21 @@ function requestErrorMessage(reason: unknown, fallback: string) {
     return `Unable to reach the API at ${apiUrl}. Start the API server and try again.`;
   }
   return reason instanceof Error ? reason.message : fallback;
+}
+
+function credentialProviderLabel(provider: CredentialProvider) {
+  const labels: Record<CredentialProvider, string> = {
+    GOOGLE: "Google",
+    STEAM: "Steam",
+    GOOGLE_CHAT_WEBHOOK: "Google Chat webhook",
+    HTTP: "HTTP authentication",
+    DISCORD_WEBHOOK: "Discord webhook",
+    TELEGRAM_BOT: "Telegram bot",
+    GITHUB: "GitHub",
+    SMTP: "SMTP email",
+  };
+
+  return labels[provider];
 }
 
 type CredentialManagerProps = {
@@ -118,6 +138,7 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
       DISCORD_WEBHOOK: "Discord",
       TELEGRAM_BOT: "Telegram",
       GITHUB: "GitHub",
+      SMTP: "SMTP email",
     };
     setNotice(`${providerLabels[nextProvider] ?? nextProvider} credential template loaded.`);
   };
@@ -291,14 +312,11 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
       </div>
       <p>Secrets are encrypted server-side and never shown again after save.</p>
       {presentation === "panel" ? (
-        <Button variant="ghost" className="credential-panel__directory-link" onClick={() => window.open(`/dashboard/connections?workspace=${encodeURIComponent(workspaceId)}`, "_blank", "noopener,noreferrer")}>
-          Open full connection center
-        </Button>
-      ) : null}
-      {provider === "GOOGLE" ? (
-        <Button variant="ghost" className="ghost-button credential-panel__oauth" onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google/connect`); }}>
-          Connect Google with OAuth
-        </Button>
+        <div className="credential-panel__directory">
+          <Button variant="ghost" className="credential-panel__directory-link" onClick={() => window.open(`/dashboard/connections?workspace=${encodeURIComponent(workspaceId)}`, "_blank", "noopener,noreferrer")}>
+            Open connection center <ArrowUpRight size={13} aria-hidden="true" />
+          </Button>
+        </div>
       ) : null}
       <form onSubmit={submit} className="credential-form">
         <Field label="Provider" className="credential-form__field">
@@ -308,10 +326,19 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
             <option value="GOOGLE_CHAT_WEBHOOK">Google Chat webhook</option>
             <option value="DISCORD_WEBHOOK">Discord webhook</option>
             <option value="TELEGRAM_BOT">Telegram bot</option>
+            <option value="SMTP">SMTP email</option>
             <option value="GITHUB">GitHub connector</option>
             <option value="HTTP">HTTP</option>
           </Select>
         </Field>
+        {provider === "GOOGLE" ? (
+          <div className="credential-form__oauth-helper">
+            <span>For Google Drive and Sheets, use a managed OAuth connection.</span>
+            <button type="button" className="credential-form__oauth-link" onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google/connect`); }}>
+              Connect Google <ArrowUpRight size={13} aria-hidden="true" />
+            </button>
+          </div>
+        ) : null}
         <p className="credential-form__hint" aria-live="polite">{credentialPresets[provider].hint}</p>
         <Field label="Connection name" className="credential-form__field">
           <input aria-label="Connection name" value={label} onChange={(event) => { setLabel(event.target.value); setCreateError(null); }} />
@@ -338,55 +365,35 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
               <div className="credential-card__header">
                 <div className="credential-card__info">
                   <strong>{credential.label}</strong>
-                  <span>{credential.provider}</span>
-                  <code>{credential.id}</code>
+                  <span className="credential-card__provider">{credentialProviderLabel(credential.provider)}</span>
                 </div>
-                {isGoogleOAuth(credential) ? (
-                  <div className="credential-card__oauth-managed">
-                    <p className="credential-card__oauth-text">
-                      Managed by Google OAuth. Reconnect through Google sign-in to refresh or reauthorize permissions.
-                    </p>
-                      <Button
-                        variant="ghost"
-                      type="button"
-                      className="ghost-button credential-panel__oauth"
-                      onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google/connect`); }}
-                    >
-                      Reconnect Google OAuth
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="credential-card__actions">
-                    <Button
-                      variant="ghost"
-                      type="button"
-                      className="ghost-button"
-                      aria-label={`Rename ${credential.label}`}
-                      onClick={() => startRename(credential)}
-                    >
-                      Rename
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      type="button"
-                      className="ghost-button"
-                      aria-label={`Rotate secret for ${credential.label}`}
-                      onClick={() => startRotate(credential)}
-                    >
-                      Rotate secret
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      type="button"
-                      className="ghost-button credential-card__btn-delete"
-                      aria-label={`Delete ${credential.label}`}
-                      onClick={() => startDelete(credential)}
-                    >
-                      Delete
-                    </Button>
-                  </div>
+                {isGoogleOAuth(credential) ? <span className="credential-card__managed-badge">Managed OAuth</span> : (
+                  <Menu
+                    label={`Actions for ${credential.label}`}
+                    trigger={<MoreVertical size={17} aria-hidden="true" />}
+                    className="credential-card__menu"
+                    contentClassName="credential-card__menu-content"
+                  >
+                    <button type="button" aria-label={`Rename ${credential.label}`} onClick={() => startRename(credential)}>Rename</button>
+                    <button type="button" aria-label={`Rotate secret for ${credential.label}`} onClick={() => startRotate(credential)}>Rotate secret</button>
+                    <button type="button" className="credential-card__menu-delete" aria-label={`Delete ${credential.label}`} onClick={() => startDelete(credential)}>Delete</button>
+                  </Menu>
                 )}
               </div>
+
+              {isGoogleOAuth(credential) ? (
+                <div className="credential-card__oauth-managed">
+                  <p className="credential-card__oauth-text">Reconnect Google to refresh the secure server-side authorization.</p>
+                  <Button
+                    variant="ghost"
+                    type="button"
+                    className="ghost-button credential-panel__oauth"
+                    onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google/connect`); }}
+                  >
+                    Reconnect Google
+                  </Button>
+                </div>
+              ) : null}
 
               {isRenaming && (
                 <form className="credential-card__form" onSubmit={(event) => void submitRename(event, credential)}>

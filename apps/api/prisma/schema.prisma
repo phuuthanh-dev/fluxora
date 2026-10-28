@@ -33,6 +33,20 @@ enum CredentialProvider {
   DISCORD_WEBHOOK
   TELEGRAM_BOT
   GITHUB
+  SMTP
+}
+
+// Provider writes can succeed even when the response is lost. Pending and
+// uncertain states must never be silently retried as new creates.
+enum ProviderWebhookState {
+  CREATING
+  CREATE_DISPATCHING
+  CREATE_UNCERTAIN
+  CREATE_REJECTED
+  ACTIVE
+  DELETING
+  DELETE_UNCERTAIN
+  REMOVED
 }
 
 enum ExecutionStatus {
@@ -179,6 +193,7 @@ model WorkflowVersion {
   publishedFor Workflow?            @relation("WorkflowPublishedVersion")
   executions  Execution[]
   webhookEndpoints WebhookEndpoint[]
+  providerWebhookRegistrations ProviderWebhookRegistration[]
 
   @@unique([workflowId, version])
   @@index([workflowId, status])
@@ -193,6 +208,7 @@ model Credential {
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
   workspace     Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  providerWebhookRegistrations ProviderWebhookRegistration[]
 
   @@unique([workspaceId, provider, label])
   @@index([workspaceId, provider])
@@ -266,8 +282,34 @@ model WebhookEndpoint {
   updatedAt    DateTime @updatedAt
   workflow     Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   workflowVersion WorkflowVersion @relation(fields: [workflowVersionId], references: [id], onDelete: Restrict)
+  providerRegistration ProviderWebhookRegistration?
 
   @@index([workflowVersionId])
+}
+
+// Not yet used by the manual webhook flow. Provider operations own exactly
+// one recorded identity per endpoint; only that identity may be removed.
+model ProviderWebhookRegistration {
+  id                     String               @id @default(uuid())
+  endpointId             String               @unique
+  provider               String
+  repository             String
+  event                  String
+  callbackUrl            String
+  credentialId           String
+  workflowVersionId      String
+  encryptedSigningSecret String
+  state                  ProviderWebhookState
+  operationId            String               @unique
+  remoteHookId           BigInt?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  endpoint               WebhookEndpoint      @relation(fields: [endpointId], references: [id], onDelete: Restrict)
+  credential             Credential           @relation(fields: [credentialId], references: [id], onDelete: Restrict)
+  workflowVersion        WorkflowVersion       @relation(fields: [workflowVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, repository, remoteHookId], map: "ProviderWebhookRegistration_remote_identity_key")
+  @@index([state, updatedAt])
 }
 
 model WorkflowTemplate {

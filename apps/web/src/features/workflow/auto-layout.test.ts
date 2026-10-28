@@ -54,7 +54,7 @@ test("provider nodes declare reusable inspector fields in the catalog", () => {
   const drive = nodeCatalog.find((node) => node.type === "action.google-drive");
 
   assert.deepEqual(discord?.configurationFields?.map((field) => field.key), ["credentialId", "content", "username", "avatarUrl", "embeds", "allowedMentions"]);
-  assert.deepEqual(http?.configurationFields?.map((field) => field.key), ["credentialId", "method", "url", "body", "timeoutMs"]);
+  assert.deepEqual(http?.configurationFields?.map((field) => field.key), ["credentialId", "method", "url", "headers", "body", "timeoutMs"]);
   assert.equal(http?.configurationFields?.find((field) => field.key === "credentialId")?.kind, "credential");
   assert.equal(drive?.configurationFields?.find((field) => field.key === "text")?.kind, "textarea");
 });

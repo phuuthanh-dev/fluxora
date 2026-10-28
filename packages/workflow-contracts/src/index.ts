@@ -35,6 +35,47 @@ export const workflowNodeTypes = [
 
 export type WorkflowNodeType = (typeof workflowNodeTypes)[number];
 
+/**
+ * Node types backed by an executor in the current runtime.
+ *
+ * `workflowNodeTypes` intentionally also contains schema-only roadmap nodes so
+ * older/imported graphs remain readable. Keep this list as the capability
+ * boundary used by runtime and catalog parity checks; adding a node here is a
+ * deliberate implementation claim.
+ */
+export const executableWorkflowNodeTypes = [
+  "trigger.manual",
+  "trigger.cron",
+  "trigger.webhook",
+  "trigger.github.issue-opened",
+  "trigger.github.pull-request-opened",
+  "trigger.github.push",
+  "trigger.github.workflow-run-completed",
+  "condition.if",
+  "condition.switch",
+  "action.steam.account-snapshot",
+  "action.google-chat.webhook",
+  "action.discord.webhook",
+  "action.telegram.message",
+  "action.google-drive",
+  "action.google-sheets",
+  "action.http-request",
+  "action.email",
+  "approval.request",
+  "action.github",
+  "action.github.add-label",
+  "action.github.add-comment",
+  "action.github.merge-pull-request",
+] as const satisfies readonly WorkflowNodeType[];
+
+export type ExecutableWorkflowNodeType = (typeof executableWorkflowNodeTypes)[number];
+
+const executableWorkflowNodeTypeSet = new Set<string>(executableWorkflowNodeTypes);
+
+export function isExecutableWorkflowNodeType(type: WorkflowNodeType | string): type is ExecutableWorkflowNodeType {
+  return executableWorkflowNodeTypeSet.has(type);
+}
+
 export type WorkflowNode = {
   id: string;
   type: WorkflowNodeType;

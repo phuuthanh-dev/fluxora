@@ -77,6 +77,7 @@ test("failed audit rolls back a GitHub secret rotation", async () => {
   let persisted = "old-secret";
   const transaction = {
     $queryRaw: async () => [{ publishedVersionId: "version-1" }],
+    providerWebhookRegistration: { findUnique: async () => null },
     webhookEndpoint: {
       findMany: async () => [{ id: "endpoint-1", updatedAt: new Date("2026-01-01T00:00:00.000Z") }],
       update: async ({ data }: { data: { encryptedSigningSecret: string } }) => ({ id: "endpoint-1", path: "github-push", newSecret: data.encryptedSigningSecret }),
@@ -90,6 +91,23 @@ test("failed audit rolls back a GitHub secret rotation", async () => {
   } as never, {} as never, {} as never, {} as never, { encrypt: (data: { secret: string }) => `encrypted:${data.secret}` } as never);
   await assert.rejects(() => service.createEndpoint("workflow-1", "owner-1", "github-push", true, { publishedVersionId: "version-1", endpoint: { id: "endpoint-1", updatedAt: "2026-01-01T00:00:00.000Z" } }), /audit unavailable/);
   assert.equal(persisted, "old-secret");
+});
+
+test("manual rotation cannot modify an endpoint owned by a provider registration", async () => {
+  let writes = 0;
+  const transaction = {
+    $queryRaw: async () => [{ publishedVersionId: "version-1" }],
+    webhookEndpoint: { findMany: async () => [{ id: "endpoint-1", updatedAt: new Date("2026-01-01T00:00:00.000Z") }], update: async () => { writes++; return {}; } },
+    providerWebhookRegistration: { findUnique: async ({ where }: { where: { endpointId: string } }) => where.endpointId === "endpoint-1" ? { id: "managed-1" } : null },
+    auditLog: { create: async () => { writes++; } },
+  };
+  const service = new WebhookService({
+    workflow: { findFirst: async () => ({ id: "workflow-1", workspaceId: "workspace-1", publishedVersion: { id: "version-1", graph: { nodes: [{ id: "github", type: "trigger.github.push", position: { x: 0, y: 0 }, config: { event: "push" } }], edges: [] } } }) },
+    webhookEndpoint: { findFirst: async () => null },
+    $transaction: async (callback: (client: typeof transaction) => Promise<unknown>) => callback(transaction),
+  } as never, {} as never, {} as never, {} as never, { encrypt: () => "synthetic" } as never);
+  await assert.rejects(() => service.createEndpoint("workflow-1", "owner-1", "github-push", true, { publishedVersionId: "version-1", endpoint: { id: "endpoint-1", updatedAt: "2026-01-01T00:00:00.000Z" } }), (error: any) => error.response?.code === "PROVIDER_WEBHOOK_MANAGED");
+  assert.equal(writes, 0);
 });
 
 test("stale registration state cannot overwrite another rotation", async () => {

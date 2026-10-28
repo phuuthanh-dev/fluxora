@@ -1,18 +1,5 @@
-# GitHub repository owner filter
+# GitHub repository picker ownership
 
-GitHub classic personal access tokens can list repositories visible through
-the token, including repositories under organizations or other owners. The
-resource proxy previously returned that list without explaining the owner
-boundary, which made the UI look as if Fluxora had mixed accounts.
+The GitHub repository picker offers an owner filter over loaded results, explains the loaded-page and action-permission limits, and preserves configured values even if filtered or absent. Values not present in loaded results are labeled unverified. No token scope, provider query, or authorization enforcement changed.
 
-The proxy now returns safe owner names, accepts a validated case-insensitive
-owner filter, and still keeps the token server-side. The picker exposes an
-`All visible owners` selector, retains the manual/expression fallback and
-current values, and documents that filtering does not change GitHub
-permissions. It deliberately does not hard-code `ithelpdesk` or turn the
-credential into an organization allowlist.
-
-Focused API/controller and browser coverage was added. The full quality gate
-passed with 172 API tests, 20 web tests, and 39 Playwright tests. No real
-GitHub token, provider request, webhook mutation, migration, deployment, or
-external write was used.
+The focused webhook/resource-picker suite passed 8 tests. `npm run verify` passed, including 168 API tests, 19 web tests and 38 Playwright tests. Light/dark screenshots were inspected with mocked resources. Live Google OAuth discovery and its separate limits are documented in `.agent/reports/2026-10-28-google-oauth-live.md`.

@@ -1,53 +1,42 @@
-# GitHub repository owner filter
+# Task contract
 
 ## Identity
-
 - Task ID: `2026-10-28-github-picker-owner`
-- Base commit: `2cd363b`
-- Working branch: `codex/connector-config-audit`
-- Implementer/reviewer: `Codex and human owner`
+- Base commit: `16d53a5ee6b0ef19bfc26383a551f080c4b8ac36`
+- Working branch: `codex/github-picker-owner-clarity`
+- Implementer: Codex
+- Reviewer: Codex and owner
 
 ## Outcome
-
-Make GitHub repository discovery explicit about token visibility and provide an
-owner filter without hard-coding the user's account or organization.
+Make it clear which loaded GitHub repository owner is selected and when a saved value is not in loaded results.
 
 ## Target slice IDs
-
 - `GH-PICKER-OWNER-1`
 
 ## In scope
-
-- Return safe owner names from the existing owner-scoped repository proxy.
-- Support a validated, case-insensitive owner filter in the API.
-- Add a repository-owner selector to the GitHub resource picker with loading,
-  current-value, and reset behavior.
-- Preserve manual/expression fallback, selected repository values, pagination,
-  workspace ownership, and credential secrecy.
-- Add API and browser regression coverage and document classic-token behavior.
+- Filter loaded GitHub repository results by owner without implying server-wide coverage.
+- Clarify preserved manual or filtered values and that listing does not guarantee permission.
+- Regression coverage for filtering, selection and pagination.
 
 ## Explicitly out of scope
-
-- Assuming or enforcing `ithelpdesk` (or any other account) as a global owner.
-- Changing GitHub credential permissions, creating an allowlist credential
-  schema, provider calls outside the existing read proxy, or webhook lifecycle.
-- Live GitHub requests, deployment, migrations, or external writes.
+- Changing GitHub token scopes, credentials, authorization or webhook routing.
+- Deployment and live external writes.
 
 ## Acceptance criteria
-
-- [x] Repository proxy returns only safe owner metadata and filters correctly.
-- [x] Picker exposes owner selection without losing selected repository data.
-- [x] Invalid owner input is rejected at the API boundary.
-- [x] Focused tests, task-state check, and full quality gate pass.
+- Owner choices reflect loaded repositories and preserve existing configured values.
+- UI explains unloaded or filtered values and does not claim action permissions.
+- Filtering, manual mode, pagination and accessibility have focused coverage.
 
 ## Required evidence
-
-- `apps/api/src/credentials/github-resource.service.test.ts`
-- `apps/web/src/features/workflow/resource-picker.tsx`
-- `npm run agent:task:check -- .agent/tasks/2026-10-28-github-picker-owner.md`
-- `npm run verify`
+- Focused Playwright coverage and `npm run verify`.
+- Test both theme contrast via existing regression tests.
 
 ## Safety boundaries
+- Do not print or use real provider credentials in tests.
+- Do not deploy or merge without user authorization.
 
-- Do not read, print, commit, or request real provider credentials.
-- Do not call GitHub during tests, deploy, merge, or alter CI secrets.
+## Completion evidence
+
+- Focused `e2e/webhook-registration.spec.ts` passed 8/8 with mocked provider responses.
+- `npm run verify` passed: API 198/198, web 22/22, Playwright 39/39, builds, typechecks, deployment checks, release checks, and tracked-secret scan.
+- The owner filter remains limited to loaded repository pages and does not claim GitHub permissions.

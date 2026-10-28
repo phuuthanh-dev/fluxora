@@ -110,6 +110,25 @@ test("create rejects canonical Google OAuth credential with CREDENTIAL_MANAGED_B
   );
 });
 
+test("create validates SMTP credentials before encrypting them", async () => {
+  const workspaces = { requireOwner: async () => {} } as never;
+  const service = new CredentialService({} as never, workspaces, {} as never);
+
+  await assert.rejects(
+    () => service.create("ws-1", "user-1", {
+      provider: "SMTP",
+      label: "Mailer",
+      data: { host: "localhost", port: 25, username: "mailer", password: "smtp-secret", from: "alerts@example.com" },
+    }),
+    (err: unknown) => {
+      const error = err as HttpErrorShape;
+      assert.equal(error.response?.code, "INVALID_INPUT");
+      assert.ok(!(error.response?.message ?? "").includes("smtp-secret"));
+      return true;
+    },
+  );
+});
+
 test("create allows manual Google credentials including names that contain OAuth", async () => {
   const prisma = {
     credential: {

@@ -59,6 +59,8 @@ export type NodeDefinition = {
 };
 
 export type NodeSelectOption = { value: string; label: string };
+type NodeFieldVisibilityValue = string | number | boolean;
+export type NodeFieldVisibility = { visibleWhen?: { key: string; equals: NodeFieldVisibilityValue | readonly NodeFieldVisibilityValue[] } };
 
 export type NodeResource = "github-repository" | "google-file" | "google-spreadsheet";
 
@@ -67,14 +69,15 @@ export type NodeResource = "github-repository" | "google-file" | "google-spreads
  * provider-specific branch. Complex controls (such as Telegram destinations)
  * remain intentionally bespoke in the editor.
  */
-export type NodeConfigurationField = (
-  | { kind: "credential"; key: string; label: string; providers: CredentialProvider[]; optional?: boolean }
-  | { kind: "boolean"; key: string; label: string }
-  | { kind: "text" | "textarea"; key: string; label: string }
-  | { kind: "number"; key: string; label: string; fallbackValue: number }
-  | { kind: "select"; key: string; label: string; options: NodeSelectOption[] }
-  | { kind: "resource"; key: string; label: string; resource: NodeResource; credentialKey: string; placeholder?: string }
-) & { showWhen?: { key: string; values: string[] } };
+export type NodeConfigurationField =
+  | ({ kind: "credential"; key: string; label: string; providers: CredentialProvider[]; optional?: boolean } & NodeFieldVisibility)
+  | ({ kind: "boolean"; key: string; label: string } & NodeFieldVisibility)
+  | ({ kind: "text" | "textarea"; key: string; label: string } & NodeFieldVisibility)
+  | ({ kind: "number"; key: string; label: string; fallbackValue: number } & NodeFieldVisibility)
+  | ({ kind: "select"; key: string; label: string; options: NodeSelectOption[] } & NodeFieldVisibility)
+  | ({ kind: "key-value"; key: string; label: string; keyPlaceholder?: string; valuePlaceholder?: string } & NodeFieldVisibility)
+  | ({ kind: "table"; key: string; label: string } & NodeFieldVisibility)
+  | ({ kind: "resource"; key: string; label: string; resource: NodeResource; credentialKey: string; placeholder?: string } & NodeFieldVisibility);
 
 export const categoryOrder: WorkflowNodeCategory[] = ["trigger", "condition", "action", "approval"];
 
@@ -372,8 +375,10 @@ export const nodeCatalog: NodeDefinition[] = [
         { value: "uploadText", label: "Upload text file" },
         { value: "downloadText", label: "Download text file" },
       ] },
-      { kind: "text", key: "name", label: "File name", showWhen: { key: "operation", values: ["uploadText"] } },
-      { kind: "textarea", key: "text", label: "Text content", showWhen: { key: "operation", values: ["uploadText"] } },
+      { kind: "text", key: "query", label: "Search query", visibleWhen: { key: "operation", equals: "search" } },
+      { kind: "resource", key: "fileId", label: "Text file", resource: "google-file", credentialKey: "credentialId", placeholder: "Search loaded text files", visibleWhen: { key: "operation", equals: "downloadText" } },
+      { kind: "text", key: "name", label: "File name", visibleWhen: { key: "operation", equals: "uploadText" } },
+      { kind: "textarea", key: "text", label: "Text content", visibleWhen: { key: "operation", equals: "uploadText" } },
     ],
   },
   {
@@ -398,6 +403,7 @@ export const nodeCatalog: NodeDefinition[] = [
         { value: "update", label: "Update rows" },
       ] },
       { kind: "text", key: "range", label: "Range" },
+      { kind: "table", key: "values", label: "Values", visibleWhen: { key: "operation", equals: ["append", "update"] } },
     ],
   },
   {
@@ -423,6 +429,7 @@ export const nodeCatalog: NodeDefinition[] = [
         { value: "DELETE", label: "DELETE" },
       ] },
       { kind: "text", key: "url", label: "URL" },
+      { kind: "key-value", key: "headers", label: "Headers (optional)", keyPlaceholder: "Header name", valuePlaceholder: "Header value" },
       { kind: "textarea", key: "body", label: "Request body" },
       { kind: "number", key: "timeoutMs", label: "Timeout (ms)", fallbackValue: 15_000 },
     ],
@@ -442,8 +449,8 @@ export const nodeCatalog: NodeDefinition[] = [
   },
   {
     type: "action.email",
-    label: "Email",
-    description: "Send an email notification.",
+    label: "Email (SMTP)",
+    description: "Send an email through an encrypted SMTP connection.",
     category: "action",
     libraryGroup: "communication",
     appId: "email",
@@ -451,12 +458,20 @@ export const nodeCatalog: NodeDefinition[] = [
     operationLabel: "Send email",
     operationKind: "action",
     icon: "email",
-    available: false,
-    defaultConfig: { to: "", subject: "", body: "" },
+    available: true,
+    defaultConfig: { credentialId: "", to: "", cc: "", bcc: "", subject: "", body: "", bodyFormat: "text", replyTo: "" },
     configurationFields: [
-      { kind: "text", key: "to", label: "To" },
+      { kind: "credential", key: "credentialId", label: "SMTP credential", providers: ["SMTP"] },
+      { kind: "text", key: "to", label: "To (comma-separated)" },
+      { kind: "text", key: "cc", label: "Cc (optional, comma-separated)" },
+      { kind: "text", key: "bcc", label: "Bcc (optional, comma-separated)" },
       { kind: "text", key: "subject", label: "Subject" },
-      { kind: "textarea", key: "body", label: "Body" },
+      { kind: "select", key: "bodyFormat", label: "Body format", options: [
+        { value: "text", label: "Plain text" },
+        { value: "html", label: "HTML" },
+      ] },
+      { kind: "textarea", key: "body", label: "Message" },
+      { kind: "text", key: "replyTo", label: "Reply-to (optional)" },
     ],
   },
   {
@@ -688,6 +703,10 @@ export function groupNodeLibrary(nodes: NodeDefinition[]) {
 
 export function getNodeDefinition(type: string) {
   return nodeCatalog.find((definition) => definition.type === type);
+}
+
+export function availableCatalogTypes() {
+  return nodeCatalog.filter((definition) => definition.available).map((definition) => definition.type);
 }
 
 export function createNodeData(definition: NodeDefinition): WorkflowNodeData {
