@@ -32,6 +32,12 @@ production migrations noted in the earlier slices were applied. A GitHub Push
 trigger-only live qualification succeeded on 2026-10-28. Consult the latest
 slice report and verify the current Git/GitHub state before planning work.
 
+Current production incident: deploy run `40696163966` for merged PR #34 passed
+the database migration but left API/worker unhealthy because Nest could not
+construct `GitHubWebhookAdapter`. Do not treat that release as healthy or
+attempt provider qualification until the application-bootstrap repair is
+verified, reviewed, and deployed.
+
 | Field | Value |
 |---|---|
 | Local base commit | `6565a3c` (subsequent changes are on `codex/webhook-registration-ux`) |
@@ -70,6 +76,7 @@ one of these IDs or explicitly reopen a completed ledger slice.
 |---|---|---|---|
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
 | `LIVE-1` | Validate one explicitly approved real Steam → Google Chat run plus configured OAuth callbacks | pending | Steam → Google Chat/Discord/Telegram is proven after credential rotation; Google Drive and any additional OAuth callback/write semantics remain separate owner-approved checks |
+| `RELEASE-REPAIR-1` | Repair and prove production application bootstrap after the GitHub webhook adapter DI regression | operator-gated | Local no-I/O app boot and full quality gate passed; PR review/merge and post-deploy application health evidence remain required, with no provider credential or live webhook needed |
 
 ## Closed boundary
 
