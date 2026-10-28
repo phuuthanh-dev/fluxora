@@ -53,6 +53,7 @@ security finding, or changed requirement.
 - `CONNECTOR-CONTRACT-1` — Shared executable node capabilities now align the UI catalog and execution boundary while preserving schema-only roadmap imports. Web 22/22, API 198/198, Playwright 39/39, and the full quality gate passed without provider calls.
 - `WEBHOOK-UI-POLISH-1` — Resource pickers separate search/select/manual entry and webhook setup is reachable from the selected trigger with published-version and multiple-draft safeguards. The owner-approved GitHub Push qualification for `phuuthanh-dev/math-util` returned HTTP 201 for the signed ping and branch push, and the pinned live trigger execution succeeded; action nodes and sustained stability remain unverified. See `.agent/reports/2026-10-28-webhook-ui-polish.md`.
 - `GH-PICKER-OWNER-1` — GitHub repository picker filters loaded results by owner, preserves filtered/unloaded values, and explicitly avoids implying permissions. The provider query and credential scope were not changed; focused and full-gate evidence is recorded in `.agent/reports/2026-10-28-github-picker-owner.md`.
+- `LIVE-1` — The owner-approved live smoke was rerun after rotating the Steam credential. Published workflow v13 succeeded for the connected Steam, Google Chat, Discord, and Telegram nodes; Google Drive remains unqualified because it is disconnected from the graph. Evidence is recorded in `.agent/reports/2026-10-28-live-provider-smoke.md`.
 
 ## Next approved slices
 
@@ -62,7 +63,7 @@ one of these IDs or explicitly reopen a completed ledger slice.
 | ID | Outcome | Status | Owner/evidence boundary |
 |---|---|---|---|
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
-| `LIVE-1` | Validate one explicitly approved real Steam → Google Chat run plus configured OAuth callbacks | owner-input-required | Requires user credentials and explicit external-side-effect approval |
+| `LIVE-1` | Validate one explicitly approved real Steam → Google Chat run plus configured OAuth callbacks | pending | Steam → Google Chat/Discord/Telegram is proven after credential rotation; Google Drive and any additional OAuth callback/write semantics remain separate owner-approved checks |
 
 ## Closed boundary
 

@@ -1,4 +1,4 @@
-# Live provider smoke — first owner-approved run
+# Live provider smoke — owner-approved runs
 
 ## Scope
 
@@ -22,9 +22,29 @@ or otherwise rejected Steam Web API key; the response did not expose or log the
 key. The application classified HTTP 403 as non-retryable, which avoided an
 accidental duplicate attempt.
 
+## Second owner-approved run after credential rotation
+
+The workspace Steam credential was rotated and the same published version `13`
+was run once more from the authenticated local editor. The execution succeeded
+in `5.3 s` with no retry:
+
+| Node/provider | Result | Evidence |
+|---|---|---|
+| Schedule | Succeeded | `trigger.cron`, attempt 1, 6 ms |
+| Steam account snapshot | Succeeded | `action.steam.account-snapshot`, attempt 1, 2.2 s; returned the configured Steam profile and game summary |
+| Google Chat | Succeeded | `delivered: true`, provider `google_chat` |
+| Discord | Succeeded | provider `discord`, delivery result returned; webhook destination remained redacted |
+| Telegram | Succeeded | provider `telegram`, message ID returned; destination remained the configured chat ID |
+| Google Drive | Not executed | The node is currently disconnected from the graph, so it is correctly absent from the execution timeline |
+
+No credential, webhook URL, or raw provider secret was exposed in the UI
+execution output. The successful run proves the rotated Steam credential and
+the three connected notification providers for this workflow version. It does
+not qualify Google Drive until that node is connected and run intentionally.
+
 ## Required next action
 
-Replace or rotate the workspace Steam credential with a valid Steam Web API key,
-keep the existing 64-bit Steam ID, then run the same published workflow once
-again. Only after Steam succeeds can the downstream Google Chat, Discord,
-Telegram and Google Drive provider checks produce meaningful evidence.
+If Google Drive qualification is required, connect it to the workflow, choose
+an explicit read-only operation such as `List files`, and run a separate
+owner-approved smoke. Keep that test separate from the notification workflow so
+it cannot create or overwrite a file accidentally.

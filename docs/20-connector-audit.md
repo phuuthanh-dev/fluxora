@@ -107,20 +107,18 @@ provider qualification, not a larger UI taxonomy.
 | Roadmap AI/database/social nodes have placeholder fields | Keep disabled; do not add fake runtime branches | Intentional roadmap boundary |
 | Manual/expression entry remains for dynamic values | Retain hybrid behavior; providers cannot safely enumerate arbitrary runtime strings | Intentional and aligned with mature platforms |
 
-## Required production qualification after this audit
+## Remaining production qualification after this audit
 
 The code contract is not the same as live provider proof. Before calling the
-system production-ready, the release checklist still needs:
+system production-ready, the completed live smoke is recorded below and the
+remaining release checklist is:
 
-- one owner-approved live Steam → Google Chat execution;
 - Google OAuth callback and Drive/Sheets resource discovery with the actual
   configured client (read-only discovery is recorded; refresh-expiry and
   write semantics remain open);
 - one owner-approved GitHub connector action and signed webhook delivery (a
   trigger-only signed Push qualification is recorded; action qualification
   remains open);
-- Discord and Telegram delivery smoke tests using the workspace's own
-  credentials;
 - VPS DNS/TLS/env/readiness/rollback evidence from the operator runbook;
 - a final audit that no test credential, token, webhook URL, or raw provider
   response appears in tracked files, browser state, logs, or execution history.
@@ -128,10 +126,13 @@ system production-ready, the release checklist still needs:
 These are external-boundary checks and must not be simulated by changing the
 catalog's `available` flags.
 
-The first owner-approved live smoke was attempted on 2026-10-28 and is recorded
-in [`2026-10-28-live-provider-smoke.md`](../.agent/reports/2026-10-28-live-provider-smoke.md):
-Steam returned HTTP 403, so downstream notification nodes were skipped and no
-live delivery qualification was claimed.
+The first owner-approved live smoke was attempted on 2026-10-28 and recorded a
+Steam HTTP 403. After the workspace credential was rotated, a second
+owner-approved run of published version 13 succeeded end-to-end for the
+connected Steam, Google Chat, Discord, and Telegram nodes. Google Drive was
+not part of that run because it is currently disconnected from the graph. The
+full evidence is recorded in
+[`2026-10-28-live-provider-smoke.md`](../.agent/reports/2026-10-28-live-provider-smoke.md).
 
 ## Current runtime evidence
 
