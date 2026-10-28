@@ -108,6 +108,7 @@ CI runs the same gate for every pull request and push to `main`.
 | L11.19 | Execution retention policy visibility | Complete locally | An owner-scoped API exposes configured cleanup policy and system-wide count scope; the Executions page shows it in a collapsible section. Unit, browser, and full quality-gate checks passed. |
 | L11.20 | Saved execution status views | Complete locally | Named status filters persist per user and workspace with guarded create/list/delete, browser coverage, and full quality gate. Fresh isolated PostgreSQL migrations passed; workflow/date/mode filters and production migration remain outstanding. |
 | L11.21 | Google resource pickers | Complete locally | Owner-scoped Google resource proxy supplies paginated spreadsheet and text-file choices, while manual ID/expression entry remains available. Mocked provider tests and 33 Playwright tests passed; existing OAuth scopes and live provider qualification remain unchanged. |
+| L11.22 | Connector contract audit and structured HTTP headers | Complete locally | `docs/20-connector-audit.md` covers every catalog app and separates implemented runtime nodes from roadmap-only nodes; HTTP headers are now a reusable key/value Inspector field. Web catalog tests 20/20, full API/web checks, builds, security checks, and Playwright 38/38 passed. No real provider calls were made. |
 
 ## External-boundary rule
 

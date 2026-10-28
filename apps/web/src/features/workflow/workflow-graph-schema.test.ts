@@ -80,3 +80,10 @@ test("GitHub Create Issue is executable with a separate connector credential", (
   assert.equal(githubWorkflowRunTrigger.available, true);
   assert.deepEqual(githubWorkflowRunTrigger.defaultConfig, { path: "github-workflow-run-completed", credentialId: "", event: "workflow_run", action: "completed" });
 });
+
+test("HTTP configuration exposes runtime headers through a structured field", () => {
+  const definition = getNodeDefinition("action.http-request");
+  assert.ok(definition);
+  const headers = definition.configurationFields?.find((field) => field.key === "headers");
+  assert.deepEqual(headers, { kind: "key-value", key: "headers", label: "Headers (optional)", keyPlaceholder: "Header name", valuePlaceholder: "Header value" });
+});

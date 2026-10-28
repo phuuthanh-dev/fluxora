@@ -72,6 +72,7 @@ export type NodeConfigurationField =
   | { kind: "text" | "textarea"; key: string; label: string }
   | { kind: "number"; key: string; label: string; fallbackValue: number }
   | { kind: "select"; key: string; label: string; options: NodeSelectOption[] }
+  | { kind: "key-value"; key: string; label: string; keyPlaceholder?: string; valuePlaceholder?: string }
   | { kind: "resource"; key: string; label: string; resource: NodeResource; credentialKey: string; placeholder?: string };
 
 export const categoryOrder: WorkflowNodeCategory[] = ["trigger", "condition", "action", "approval"];
@@ -414,6 +415,7 @@ export const nodeCatalog: NodeDefinition[] = [
         { value: "DELETE", label: "DELETE" },
       ] },
       { kind: "text", key: "url", label: "URL" },
+      { kind: "key-value", key: "headers", label: "Headers (optional)", keyPlaceholder: "Header name", valuePlaceholder: "Header value" },
       { kind: "textarea", key: "body", label: "Request body" },
       { kind: "number", key: "timeoutMs", label: "Timeout (ms)", fallbackValue: 15_000 },
     ],

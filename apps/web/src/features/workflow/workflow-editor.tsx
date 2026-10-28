@@ -136,6 +136,48 @@ function readConfigurationFieldValue(config: Record<string, unknown>, field: Nod
     : readConfigText(config, field.key);
 }
 
+function readKeyValueRows(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [] as Array<{ key: string; value: string }>;
+  return Object.entries(value as Record<string, unknown>).map(([key, entryValue]) => ({ key, value: String(entryValue ?? "") }));
+}
+
+function KeyValueField({ label, value, keyPlaceholder = "Key", valuePlaceholder = "Value", onChange }: {
+  label: string;
+  value: unknown;
+  keyPlaceholder?: string;
+  valuePlaceholder?: string;
+  onChange: (value: Record<string, string>) => void;
+}) {
+  const rows = readKeyValueRows(value);
+  const updateRow = (index: number, next: Partial<{ key: string; value: string }>) => {
+    const nextRows = rows.map((row, rowIndex) => rowIndex === index ? { ...row, ...next } : row);
+    onChange(Object.fromEntries(nextRows.map((row) => [row.key, row.value])));
+  };
+  const addRow = () => {
+    let nextKey = `header-${rows.length + 1}`;
+    let suffix = rows.length + 1;
+    while (rows.some((row) => row.key === nextKey)) nextKey = `header-${++suffix}`;
+    onChange(Object.fromEntries([...rows, { key: nextKey, value: "" }].map((row) => [row.key, row.value])));
+  };
+  const removeRow = (index: number) => onChange(Object.fromEntries(rows.filter((_, rowIndex) => rowIndex !== index).map((row) => [row.key, row.value])));
+
+  return (
+    <Field label={label} className="config-field key-value-field">
+      <div className="key-value-field__rows">
+        {rows.map((row, index) => (
+          <div className="key-value-field__row" key={`${row.key}-${index}`}>
+            <input aria-label={`${label} ${keyPlaceholder} ${index + 1}`} placeholder={keyPlaceholder} value={row.key} onChange={(event) => updateRow(index, { key: event.target.value })} />
+            <input aria-label={`${label} ${valuePlaceholder} ${index + 1}`} placeholder={valuePlaceholder} value={row.value} onChange={(event) => updateRow(index, { value: event.target.value })} />
+            <button className="key-value-field__remove" type="button" aria-label={`Remove ${label} row ${index + 1}`} onClick={() => removeRow(index)}>Remove</button>
+          </div>
+        ))}
+      </div>
+      <button className="ghost-button key-value-field__add" type="button" onClick={addRow}>Add header</button>
+      <small>Use the connection for authentication when possible. Header values are stored in the workflow configuration.</small>
+    </Field>
+  );
+}
+
 function NodeConfigurationFields({ fields, config, credentials, workspaceId, allowExpressions, onChange }: {
   fields: NodeConfigurationField[];
   config: Record<string, unknown>;
@@ -155,6 +197,9 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, all
       }
       if (field.kind === "select") {
         return <Field key={field.key} label={field.label} className="config-field"><Select aria-label={field.label} value={value} onChange={(event) => onChange(field.key, event.target.value)}>{field.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></Field>;
+      }
+      if (field.kind === "key-value") {
+        return <KeyValueField key={field.key} label={field.label} value={config[field.key]} keyPlaceholder={field.keyPlaceholder} valuePlaceholder={field.valuePlaceholder} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       }
       return <ConfigField
         key={field.key}
