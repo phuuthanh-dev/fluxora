@@ -147,3 +147,6 @@ The MVP pins Prisma ORM 6.12.0 because the local Node 23 runtime is outside Pris
   rejected. Clients using the older request format must reload and use the new
   format. The application-level lock cannot prevent direct database writes;
   the database does not yet enforce a unique workflow ID for endpoints.
+- Webhook trigger inspectors link directly to the existing endpoint setup
+  panel. This improves discoverability but does not automate GitHub webhook
+  creation: an owner still configures the repository webhook manually.

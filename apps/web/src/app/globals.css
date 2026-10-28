@@ -165,7 +165,13 @@ button:focus-visible, summary:focus-visible { outline: 3px solid rgba(214, 255, 
 .credential-field small, .resource-picker small { color: var(--muted); display: block; font-size: 10px; line-height: 1.4; margin-top: 4px; }
 .inspector-note { background: color-mix(in srgb, var(--text-accent) 7%, var(--panel)); border: 1px solid var(--line); border-radius: 8px; color: var(--text-secondary); display: grid; font-size: 12px; gap: 4px; line-height: 1.5; margin-top: 14px; padding: 11px 12px; }
 .inspector-note strong { color: var(--ink); font-size: 12px; font-weight: 700; }
-.resource-picker input + select { margin-top: 6px; }
+.resource-picker { display: grid; gap: 8px; min-width: 0; }
+.resource-picker > .ui-field__label { margin: 0 0 2px; }
+.resource-picker input, .resource-picker select { min-width: 0; text-overflow: ellipsis; }
+.resource-picker small { font-size: 12px; margin: 0; }
+.resource-picker .resource-picker__mode, .inspector-webhook-setup__action { border-color: transparent; color: var(--text-accent); font-size: 12px; justify-self: start; min-height: 32px; padding: 4px 2px; }
+.inspector-webhook-setup { display: grid; gap: 6px; }
+.inspector-webhook-setup__action { justify-self: start; }
 .webhook-endpoint-panel__help, .webhook-endpoint-panel__notice, .webhook-endpoint-panel__confirmation { font-size: 12px; line-height: 1.5; }
 .webhook-endpoint-panel__help { color: var(--muted-on-dark); }
 .webhook-endpoint-panel__confirmation { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
@@ -578,6 +584,17 @@ button:focus-visible, summary:focus-visible { outline: 3px solid rgba(214, 255, 
 .connections-main .ui-page-header, .executions-main .ui-page-header { margin-bottom: 28px; }
 .connections-error, .executions-error { align-items: center; display: flex; gap: 9px; margin-bottom: 18px; padding: 12px 14px; }
 .connections-error .ui-button, .executions-error .ui-button { margin-left: auto; min-height: 29px; padding: 6px 9px; }
+
+/* Keep registration steps distinct and readable in the compact editor panel. */
+.webhook-endpoint-panel { display: flex; flex-direction: column; gap: 12px; z-index: 50; }
+.webhook-endpoint-panel .section-label { color: var(--muted-on-dark); }
+.webhook-endpoint-panel > p, .webhook-endpoint-panel > .config-field, .webhook-endpoint-panel > .checkbox-field,
+.webhook-endpoint-panel__url, .webhook-endpoint-panel__secret, .webhook-endpoint-panel__notice,
+.webhook-endpoint-panel__confirmation, .webhook-endpoint-panel__warning { margin: 0; }
+.webhook-endpoint-panel__notice { border-top: 0; padding: 10px 12px; }
+.webhook-endpoint-panel > .ui-button { align-self: flex-start; }
+.webhook-endpoint-panel__url span, .webhook-endpoint-panel__secret small, .webhook-endpoint-panel__warning { font-size: 12px; }
+.webhook-endpoint-panel__url code, .webhook-endpoint-panel__secret code { font-size: 11px; }
 .connections-loading__mark { border-radius: 999px; height: 32px; min-width: 32px; width: 32px; }
 .credential-panel--page { background: var(--surface-dark); border: 1px solid var(--surface-dark-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-dark); color: var(--text-on-dark); max-height: none; overflow: visible; padding: clamp(18px, 3vw, 30px); position: static; width: auto; }
 .credential-panel--page > p { color: var(--muted-on-dark); font-size: 13px; margin: 0; max-width: 680px; }
