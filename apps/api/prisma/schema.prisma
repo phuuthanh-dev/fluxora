@@ -39,6 +39,7 @@ enum CredentialProvider {
 // uncertain states must never be silently retried as new creates.
 enum ProviderWebhookState {
   CREATING
+  CREATE_DISPATCHING
   CREATE_UNCERTAIN
   CREATE_REJECTED
   ACTIVE

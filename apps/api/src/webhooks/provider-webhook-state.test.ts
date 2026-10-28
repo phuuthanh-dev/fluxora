@@ -19,6 +19,8 @@ function memoryTable() {
 
 test("creation records the known remote identity only once and ignores stale replies", async () => {
   const { row, store } = memoryTable();
+  assert.equal(await store.beginCreate("one", "create-1"), true);
+  assert.equal(await store.beginCreate("one", "create-1"), false);
   const results = await Promise.all([store.finishCreate("one", "create-1", { kind: "created", hookId: 42 }), store.finishCreate("one", "create-1", { kind: "uncertain" })]);
   assert.deepEqual(results, [true, false]);
   assert.equal(row.state, "ACTIVE");
@@ -29,6 +31,7 @@ test("creation records the known remote identity only once and ignores stale rep
 
 test("expired writes become uncertain, never eligible for automatic recreation or deletion", async () => {
   const { row, store } = memoryTable();
+  await store.beginCreate("one", "create-1");
   assert.equal(await store.recoverExpired("one", "create-1", "create", new Date("2025-01-01")), false);
   assert.equal(await store.recoverExpired("one", "create-1", "create", new Date("2027-01-01")), true);
   assert.equal(row.state, "CREATE_UNCERTAIN");
@@ -38,6 +41,7 @@ test("expired writes become uncertain, never eligible for automatic recreation o
 
 test("deletion requires a recorded active identity and makes ambiguous outcomes uncertain", async () => {
   const { row, store } = memoryTable();
+  await store.beginCreate("one", "create-1");
   await store.finishCreate("one", "create-1", { kind: "created", hookId: 42 });
   assert.equal(await store.beginDelete("one", "create-1", "delete-1"), true);
   assert.equal(await store.beginDelete("one", "create-1", "delete-2"), false);
@@ -50,6 +54,7 @@ test("deletion requires a recorded active identity and makes ambiguous outcomes 
 
 test("definitive delete rejection retains ownership; explicit success records removal", async () => {
   const { row, store } = memoryTable();
+  await store.beginCreate("one", "create-1");
   await store.finishCreate("one", "create-1", { kind: "created", hookId: 42 });
   await store.beginDelete("one", "create-1", "delete-1");
   assert.equal(await store.finishDelete("one", "delete-1", "rejected"), true);

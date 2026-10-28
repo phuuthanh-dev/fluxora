@@ -1,6 +1,6 @@
 -- This table is not used by manual registrations. A provider write and the
 -- database cannot commit atomically: uncertain writes need reconciliation.
-CREATE TYPE "ProviderWebhookState" AS ENUM ('CREATING', 'CREATE_UNCERTAIN', 'CREATE_REJECTED', 'ACTIVE', 'DELETING', 'DELETE_UNCERTAIN', 'REMOVED');
+CREATE TYPE "ProviderWebhookState" AS ENUM ('CREATING', 'CREATE_DISPATCHING', 'CREATE_UNCERTAIN', 'CREATE_REJECTED', 'ACTIVE', 'DELETING', 'DELETE_UNCERTAIN', 'REMOVED');
 
 CREATE TABLE "ProviderWebhookRegistration" (
     "id" TEXT NOT NULL,
@@ -22,7 +22,7 @@ CREATE TABLE "ProviderWebhookRegistration" (
     CONSTRAINT "ProviderWebhookRegistration_github_repository_case_check" CHECK ("provider" <> 'GITHUB' OR "repository" = lower("repository")),
     CONSTRAINT "ProviderWebhookRegistration_remote_identity_check" CHECK ("remoteHookId" IS NULL OR "remoteHookId" > 0),
     CONSTRAINT "ProviderWebhookRegistration_state_identity_check" CHECK (
-        ("state" IN ('CREATING', 'CREATE_UNCERTAIN', 'CREATE_REJECTED') AND "remoteHookId" IS NULL)
+        ("state" IN ('CREATING', 'CREATE_DISPATCHING', 'CREATE_UNCERTAIN', 'CREATE_REJECTED') AND "remoteHookId" IS NULL)
         OR ("state" IN ('ACTIVE', 'DELETING', 'DELETE_UNCERTAIN') AND "remoteHookId" IS NOT NULL)
         OR "state" = 'REMOVED'
     )

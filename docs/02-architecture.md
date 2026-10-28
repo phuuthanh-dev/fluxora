@@ -196,3 +196,10 @@ The check runs while holding the workflow row lock; the future provider
 registration creator must acquire the same lock before inserting its record,
 otherwise a concurrent manual rotation can race the check. Removal and secret
 rotation must go through a managed lifecycle once that lifecycle exists.
+
+The unfinished GitHub create dispatcher claims CREATING as
+CREATE_DISPATCHING atomically before a provider call. Only the winner sends;
+unexpected failures are uncertain rather than automatically retried. A crash
+or failed result persistence leaves dispatching state requiring recovery. This
+internal function is not exposed to clients and does not complete lifecycle,
+UI, deletion or restart handling.
