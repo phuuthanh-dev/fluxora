@@ -101,6 +101,21 @@ test("Google connector fields follow operation-specific runtime contracts", () =
   const sheets = getNodeDefinition("action.google-sheets");
   assert.ok(sheets);
   assert.equal(sheets.configurationFields?.find((field) => field.key === "values")?.kind, "table");
+  assert.deepEqual(sheets.configurationFields?.find((field) => field.key === "values")?.visibleWhen, { key: "operation", equals: ["append", "update"] });
+});
+
+test("Steam uses the shared configuration field contract for its simple controls", () => {
+  const definition = getNodeDefinition("action.steam.account-snapshot");
+  assert.ok(definition);
+  assert.deepEqual(definition.configurationFields?.map((field) => field.key), [
+    "credentialId",
+    "steamId",
+    "includeOwnedGames",
+    "includeRecentGames",
+    "achievementAppId",
+  ]);
+  assert.equal(definition.configurationFields?.find((field) => field.key === "includeOwnedGames")?.kind, "boolean");
+  assert.equal(definition.configurationFields?.find((field) => field.key === "credentialId")?.kind, "credential");
 });
 
 test("executable node capabilities stay aligned with the UI catalog", () => {

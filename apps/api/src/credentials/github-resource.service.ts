@@ -16,11 +16,15 @@ export type GitHubRepositoryResource = {
 export class GitHubResourceService {
   constructor(@Inject(CredentialService) private readonly credentials: CredentialService) {}
 
-  async listRepositories(workspaceId: string, credentialId: string, userId: string, page = 1) {
+  async listRepositories(workspaceId: string, credentialId: string, userId: string, page = 1, owner?: string) {
     await this.credentials.requireOwner(workspaceId, userId);
     const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.GITHUB);
     const token = typeof credential.token === "string" ? credential.token.trim() : "";
     if (!token) throw new BadRequestException({ code: "GITHUB_CREDENTIAL_INVALID", message: "GitHub credential is missing a token." });
+    const ownerFilter = owner?.trim().toLowerCase();
+    if (ownerFilter && !/^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$/i.test(ownerFilter)) {
+      throw new BadRequestException({ code: "INVALID_INPUT", message: "Repository owner must be a valid GitHub login." });
+    }
 
     let response: Response;
     try {
@@ -44,8 +48,14 @@ export class GitHubResourceService {
 
     const payload = await response.json().catch(() => null) as unknown;
     if (!Array.isArray(payload)) throw new BadRequestException({ code: "GITHUB_RESOURCE_INVALID", message: "GitHub returned an invalid repository list." });
+    const normalized = payload.flatMap((item) => normalizeGitHubRepository(item));
+    const repositoryOwners = [...new Map(normalized.map((repository) => [repository.owner.toLowerCase(), repository.owner])).values()].sort((left, right) => left.localeCompare(right));
     const hasNext = /(?:^|,)\s*<[^>]+>\s*;\s*rel="next"/i.test(response.headers.get("link") ?? "");
-    return { repositories: payload.flatMap((item) => normalizeGitHubRepository(item)), nextPage: hasNext && page < 1000 ? page + 1 : null };
+    return {
+      repositories: ownerFilter ? normalized.filter((repository) => repository.owner.toLowerCase() === ownerFilter) : normalized,
+      repositoryOwners,
+      nextPage: hasNext && page < 1000 ? page + 1 : null,
+    };
   }
 }
 

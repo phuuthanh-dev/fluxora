@@ -59,7 +59,8 @@ export type NodeDefinition = {
 };
 
 export type NodeSelectOption = { value: string; label: string };
-export type NodeFieldVisibility = { visibleWhen?: { key: string; equals: string | number | boolean } };
+type NodeFieldVisibilityValue = string | number | boolean;
+export type NodeFieldVisibility = { visibleWhen?: { key: string; equals: NodeFieldVisibilityValue | readonly NodeFieldVisibilityValue[] } };
 
 export type NodeResource = "github-repository" | "google-file" | "google-spreadsheet";
 
@@ -70,6 +71,7 @@ export type NodeResource = "github-repository" | "google-file" | "google-spreads
  */
 export type NodeConfigurationField =
   | ({ kind: "credential"; key: string; label: string; providers: CredentialProvider[]; optional?: boolean } & NodeFieldVisibility)
+  | ({ kind: "boolean"; key: string; label: string } & NodeFieldVisibility)
   | ({ kind: "text" | "textarea"; key: string; label: string } & NodeFieldVisibility)
   | ({ kind: "number"; key: string; label: string; fallbackValue: number } & NodeFieldVisibility)
   | ({ kind: "select"; key: string; label: string; options: NodeSelectOption[] } & NodeFieldVisibility)
@@ -290,6 +292,13 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "steam",
     available: true,
     defaultConfig: { credentialId: "", steamId: "", includeOwnedGames: true, includeRecentGames: true, achievementAppId: "" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Steam credential", providers: ["STEAM"] },
+      { kind: "text", key: "steamId", label: "Steam ID 64" },
+      { kind: "boolean", key: "includeOwnedGames", label: "Include owned games and playtime" },
+      { kind: "boolean", key: "includeRecentGames", label: "Include recently played games" },
+      { kind: "text", key: "achievementAppId", label: "Achievement app ID (optional)" },
+    ],
   },
   {
     type: "action.google-chat.webhook",
@@ -366,6 +375,8 @@ export const nodeCatalog: NodeDefinition[] = [
         { value: "uploadText", label: "Upload text file" },
         { value: "downloadText", label: "Download text file" },
       ] },
+      { kind: "text", key: "query", label: "Search query", visibleWhen: { key: "operation", equals: "search" } },
+      { kind: "resource", key: "fileId", label: "Text file", resource: "google-file", credentialKey: "credentialId", placeholder: "Search loaded text files", visibleWhen: { key: "operation", equals: "downloadText" } },
       { kind: "text", key: "name", label: "File name", visibleWhen: { key: "operation", equals: "uploadText" } },
       { kind: "textarea", key: "text", label: "Text content", visibleWhen: { key: "operation", equals: "uploadText" } },
     ],
@@ -392,7 +403,7 @@ export const nodeCatalog: NodeDefinition[] = [
         { value: "update", label: "Update rows" },
       ] },
       { kind: "text", key: "range", label: "Range" },
-      { kind: "table", key: "values", label: "Values" },
+      { kind: "table", key: "values", label: "Values", visibleWhen: { key: "operation", equals: ["append", "update"] } },
     ],
   },
   {

@@ -49,6 +49,35 @@ test("normalizes GitHub repository metadata without carrying provider secrets", 
   assert.equal("webhookSecret" in (repository ?? {}), false);
 });
 
+test("returns visible owners and filters repositories by the selected owner", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify([
+    { id: 1, name: "first", full_name: "ithelpdesk/first", owner: { login: "ithelpdesk" } },
+    { id: 2, name: "second", full_name: "phuuthanh-dev/second", owner: { login: "phuuthanh-dev" } },
+  ]), { status: 200 });
+  try {
+    const service = new GitHubResourceService({ requireOwner: async () => undefined, readForExecution: async () => ({ token: "test-token" }) } as never);
+    const result = await service.listRepositories("ws", "credential", "user", 1, "ITHELPDESK");
+    assert.deepEqual(result.repositories.map((repository) => repository.fullName), ["ithelpdesk/first"]);
+    assert.deepEqual(result.repositoryOwners, ["ithelpdesk", "phuuthanh-dev"]);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("rejects malformed repository owner filters before returning data", async () => {
+  const original = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => { calls += 1; return new Response("[]", { status: 200 }); };
+  try {
+    const service = new GitHubResourceService({ requireOwner: async () => undefined, readForExecution: async () => ({ token: "test-token" }) } as never);
+    await assert.rejects(() => service.listRepositories("ws", "credential", "user", 1, "owner/other"), (error: any) => error.response?.code === "INVALID_INPUT");
+    assert.equal(calls, 0);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
 test("drops malformed GitHub repository records", () => {
   assert.deepEqual(normalizeGitHubRepository({ id: "42", full_name: "acme/automation" }), []);
   assert.deepEqual(normalizeGitHubRepository(null), []);

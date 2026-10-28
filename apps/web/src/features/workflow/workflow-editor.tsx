@@ -174,13 +174,13 @@ function KeyValueField({ label, value, keyPlaceholder = "Key", valuePlaceholder 
 
 function readTableRows(value: unknown) {
   const rows = Array.isArray(value)
-    ? value.filter((row): row is unknown[] => Array.isArray(row)).map((row) => row.map((cell) => String(cell ?? "")))
+    ? value.filter((row): row is unknown[] => Array.isArray(row)).map((row) => [...row])
     : [];
   const columnCount = Math.max(1, ...rows.map((row) => row.length));
   return (rows.length ? rows : [[]]).map((row) => [...row, ...Array.from({ length: Math.max(0, columnCount - row.length) }, () => "")]);
 }
 
-function TableField({ label, value, onChange }: { label: string; value: unknown; onChange: (value: string[][]) => void }) {
+function TableField({ label, value, onChange }: { label: string; value: unknown; onChange: (value: unknown[][]) => void }) {
   const rows = readTableRows(value);
   const columnCount = rows[0]?.length ?? 1;
   const updateCell = (rowIndex: number, columnIndex: number, cellValue: string) => {
@@ -195,7 +195,7 @@ function TableField({ label, value, onChange }: { label: string; value: unknown;
     <Field label={label} className="config-field table-field">
       <div className="table-field__scroll">
         <table className="table-field__table"><tbody>{rows.map((row, rowIndex) => <tr key={`row-${rowIndex}`}>
-          {row.map((cell, columnIndex) => <td key={`cell-${rowIndex}-${columnIndex}`}><input aria-label={`${label} row ${rowIndex + 1} column ${columnIndex + 1}`} value={cell} onChange={(event) => updateCell(rowIndex, columnIndex, event.target.value)} /></td>)}
+          {row.map((cell, columnIndex) => <td key={`cell-${rowIndex}-${columnIndex}`}><input aria-label={`${label} row ${rowIndex + 1} column ${columnIndex + 1}`} value={cell == null ? "" : typeof cell === "object" ? JSON.stringify(cell) : String(cell)} onChange={(event) => updateCell(rowIndex, columnIndex, event.target.value)} /></td>)}
           <td><button className="table-field__remove" type="button" aria-label={`Remove ${label} row ${rowIndex + 1}`} onClick={() => removeRow(rowIndex)}>Remove</button></td>
         </tr>)}</tbody></table>
       </div>
@@ -215,10 +215,15 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, all
 }) {
   return <>
     {fields.map((field) => {
-      if (field.visibleWhen && config[field.visibleWhen.key] !== field.visibleWhen.equals) return null;
+      const expectedValue = field.visibleWhen?.equals;
+      const currentValue = field.visibleWhen ? config[field.visibleWhen.key] : undefined;
+      if (expectedValue !== undefined && !(Array.isArray(expectedValue) ? expectedValue.includes(currentValue as never) : currentValue === expectedValue)) return null;
       const value = readConfigurationFieldValue(config, field);
       if (field.kind === "credential") {
         return <CredentialField key={field.key} label={field.label} value={value} providers={field.providers} credentials={credentials} onChange={(nextValue) => onChange(field.key, nextValue)} optional={field.optional} />;
+      }
+      if (field.kind === "boolean") {
+        return <label key={field.key} className="checkbox-field"><input type="checkbox" checked={config[field.key] !== false} onChange={(event) => onChange(field.key, event.target.checked)} /> {field.label}</label>;
       }
       if (field.kind === "resource") {
         return <ResourcePicker key={field.key} workspaceId={workspaceId} resource={field.resource} credentialId={readConfigText(config, field.credentialKey)} label={field.label} value={value} placeholder={field.placeholder} allowExpression={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
@@ -678,15 +683,6 @@ function NodeInspector({ node, execution, credentials, workspaceId, onResolveApp
         </>
       )}
       {(isGitHubWebhookTrigger(node.data.nodeType) || node.data.nodeType === "trigger.webhook") && <div className="inspector-webhook-setup"><Status tone={webhookContext === "different" || webhookContext === "other-draft" ? "warning" : "info"} className="inspector-note"><strong>Webhook setup</strong><span>{webhookContext === "different" ? "The published workflow uses a different webhook trigger. This setup manages that published trigger, not this draft node." : webhookContext === "other-draft" ? "This draft has multiple webhook triggers. Keep one trigger and publish before setting up its endpoint." : webhookContext === "published" ? "Setup uses the published workflow. Publish draft changes before applying them." : "Publish this workflow to set up its endpoint."}</span></Status>{webhookContext !== "other-draft" && <Button type="button" variant="ghost" className="inspector-webhook-setup__action" onClick={onOpenWebhook}>{webhookContext === "different" ? "Manage published webhook" : "Configure webhook"}</Button>}</div>}
-      {node.data.nodeType === "action.steam.account-snapshot" && (
-        <>
-          <CredentialField label="Steam credential" value={readConfigText(node.data.config, "credentialId")} providers={["STEAM"]} credentials={credentials} onChange={(value) => updateConfig("credentialId", value)} />
-          <ConfigField label="Steam ID 64" value={readConfigText(node.data.config, "steamId")} onChange={(value) => updateConfig("steamId", value)} />
-          <label className="checkbox-field"><input type="checkbox" checked={node.data.config.includeOwnedGames !== false} onChange={(event) => updateConfig("includeOwnedGames", event.target.checked)} /> Include owned games and playtime</label>
-          <label className="checkbox-field"><input type="checkbox" checked={node.data.config.includeRecentGames !== false} onChange={(event) => updateConfig("includeRecentGames", event.target.checked)} /> Include recently played games</label>
-          <ConfigField label="Achievement app ID (optional)" value={readConfigText(node.data.config, "achievementAppId")} onChange={(value) => updateConfig("achievementAppId", value)} />
-        </>
-      )}
       {node.data.nodeType === "action.telegram.message" && (
         <>
           <CredentialField label="Telegram credential" value={readConfigText(node.data.config, "credentialId")} providers={["TELEGRAM_BOT"]} credentials={credentials} onChange={(value) => updateConfig("credentialId", value)} />
@@ -725,9 +721,6 @@ function NodeInspector({ node, execution, credentials, workspaceId, onResolveApp
           <Field label="Parse mode" className="config-field"><Select aria-label="Telegram parse mode" value={readConfigText(node.data.config, "parseMode")} onChange={(event) => updateConfig("parseMode", event.target.value)}><option value="">Plain text</option><option value="Markdown">Markdown</option><option value="HTML">HTML</option><option value="MarkdownV2">MarkdownV2</option></Select></Field>
         </>
       )}
-      {node.data.nodeType === "action.google-drive" && (readConfigText(node.data.config, "operation") === "downloadText" ?
-        <ResourcePicker workspaceId={workspaceId} resource="google-file" credentialId={readConfigText(node.data.config, "credentialId")} label="Text file" value={readConfigText(node.data.config, "fileId")} placeholder="Search loaded text files" allowExpression onChange={(value) => updateConfig("fileId", value)} /> :
-        <ConfigField label="Search query" value={readConfigText(node.data.config, "query")} onChange={(value) => updateConfig("query", value)} />)}
       {node.data.nodeType === "condition.if" && (
         <>
           <ConfigField label="Left value" value={readConfigText(node.data.config, "left")} onChange={(value) => updateConfig("left", value)} />
