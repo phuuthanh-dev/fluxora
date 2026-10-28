@@ -26,6 +26,12 @@ security finding, or changed requirement.
 
 ## Last audited repository state
 
+The table and individual slice notes below are historical snapshots, not the
+current deployment state. PR #31 merged and deployed as `16d53a5`; the two
+production migrations noted in the earlier slices were applied. A GitHub Push
+trigger-only live qualification succeeded on 2026-10-28. Consult the latest
+slice report and verify the current Git/GitHub state before planning work.
+
 | Field | Value |
 |---|---|
 | Local base commit | `6565a3c` (subsequent changes are on `codex/webhook-registration-ux`) |
@@ -40,13 +46,14 @@ security finding, or changed requirement.
 - `WEBHOOK-REG-1` — Per-workflow GitHub signing secrets and compact editor guidance implemented locally; `npm run verify` passed (154 API, 19 web, 30 Playwright). Migration has not been applied and real delivery remains unverified.
 - `GH-UX-2` — Bounded GitHub repository pagination, manual/expression fallback, and recoverable picker states implemented locally; `npm run verify` passed with 31 Playwright tests. Provider calls in tests were mocked.
 - `OPS-2` — Status-based saved views scoped to user/workspace, server-side triage and retention policy visibility implemented locally. Full quality gate passed; both new migrations were applied to an isolated fresh PostgreSQL database and an isolated synthetic upgrade from `6565a3c`. Workflow, date, and mode filters remain future extensions; production migration and live validation are outstanding.
-- `GOOGLE-UX-1` — Google Sheets and Drive text-file pickers implemented locally through an owner-scoped server proxy. Full gate passed with mocked providers; real OAuth resource discovery remains unverified.
+- `GOOGLE-UX-1` — Google Sheets and Drive text-file pickers implemented through an owner-scoped server proxy. On 2026-10-28, the owner authorized OAuth in Testing and real read-only picker discovery succeeded for both Sheets and Drive; refresh expiry and file writes remain unverified. See `.agent/reports/2026-10-28-google-oauth-live.md`.
 - `GH-HARDEN-1` — Signed GitHub setup pings are acknowledged without running inactive workflows; repeated deliveries use registration-scoped delivery IDs. Full gate passed with mocked providers. Deduplication is bounded by execution retention and is not replay protection: the delivery header is not covered by the body HMAC.
 - `WEBHOOK-VERSION-UX-1` — Registration UI uses the published trigger, warns about endpoints pinned to older versions, and blocks registration for unpublished triggers. Full gate passed with 35 Playwright tests and mocked providers.
 - `WEBHOOK-ATOMIC-1` — Registration writes and audit writes share a database transaction; a synthetic PostgreSQL test confirms an audit error rolls back secret rotation. The full gate passed. A lost response after a successful commit can still require another rotation.
 - `WEBHOOK-UNCERTAIN-UX-1` — An unsuccessful registration request clears the previously displayed secret, reloads endpoint status, and warns of an uncertain outcome. Playwright simulates a lost response; the full gate passed. This does not recover a lost secret or prove a still-running request has finished.
 - `WEBHOOK-CONCURRENCY-1` — Workflow-row locking and observed version checks prevent concurrent app requests from silently creating duplicate registrations or replacing another rotation. Synthetic PostgreSQL and full-gate tests passed. Older clients must reload; the application lock does not constrain direct database writes.
 - `WEBHOOK-SECRET-CONTRACT-1` — Owner approved a one-time GitHub signing-secret display; generic webhooks retain the same one-time model after provider comparison. The response is non-cacheable, guidance is aligned, and focused and full-gate tests passed. Existing secrets remain unavailable on later reads.
+- `WEBHOOK-UI-POLISH-1` — PR #31 merged and deployed as `16d53a5`; resource picker and webhook setup UX improved. GitHub Push on `phuuthanh-dev/math-util` produced a successful live trigger-only execution. See `.agent/reports/2026-10-28-webhook-ui-polish.md` for limits.
 
 ## Next approved slices
 
@@ -57,7 +64,7 @@ one of these IDs or explicitly reopen a completed ledger slice.
 |---|---|---|---|
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
 | `LIVE-1` | Validate one explicitly approved real Steam → Google Chat run plus configured OAuth callbacks | owner-input-required | Requires user credentials and explicit external-side-effect approval |
-| `WEBHOOK-UI-POLISH-1` | Improve resource picker spacing and provide node-context access to webhook setup | pending | Implemented locally; review and CI required before merge; providers mocked |
+| `GH-PICKER-OWNER-1` | Clarify GitHub repository ownership and values not present in loaded results | pending | Owner filter applies to loaded pages only; no permission guarantees |
 
 ## Closed boundary
 
