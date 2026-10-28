@@ -48,6 +48,11 @@ const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
     data: '{\n  "token": ""\n}',
     hint: "Enter a GitHub token for workflow actions and repository discovery. GitHub webhook registrations use their own signing secret. This connection is separate from GitHub account sign-in.",
   },
+  SMTP: {
+    label: "SMTP email",
+    data: '{\n  "host": "smtp.example.com",\n  "port": 587,\n  "username": "",\n  "password": "",\n  "from": ""\n}',
+    hint: "Use an SMTP submission host with port 587 (required STARTTLS) or 465 (TLS). Port 25 and self-signed certificates are not supported.",
+  },
 };
 
 type ActiveAction = { credentialId: string; type: "rename" | "rotate" | "delete" };
@@ -118,6 +123,7 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
       DISCORD_WEBHOOK: "Discord",
       TELEGRAM_BOT: "Telegram",
       GITHUB: "GitHub",
+      SMTP: "SMTP email",
     };
     setNotice(`${providerLabels[nextProvider] ?? nextProvider} credential template loaded.`);
   };
@@ -308,6 +314,7 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
             <option value="GOOGLE_CHAT_WEBHOOK">Google Chat webhook</option>
             <option value="DISCORD_WEBHOOK">Discord webhook</option>
             <option value="TELEGRAM_BOT">Telegram bot</option>
+            <option value="SMTP">SMTP email</option>
             <option value="GITHUB">GitHub connector</option>
             <option value="HTTP">HTTP</option>
           </Select>

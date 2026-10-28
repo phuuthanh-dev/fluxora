@@ -13,6 +13,7 @@ import { isRetryableFailure, retryDelayMs } from "./retry-policy";
 import { parseWorkflowGraph } from "../workflows/workflow-graph";
 import { liveCredentialRequirements } from "./live-readiness";
 import { executionRetentionPolicy } from "./retention-policy";
+import { executeSmtpEmail } from "./smtp-email";
 
 type RunMode = "mock" | "live";
 export type ExecutionTriageFilter = "ALL" | "ATTENTION" | "IN_PROGRESS" | "FAILED" | "SUCCEEDED";
@@ -606,6 +607,9 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
   }
   if (node.type === "action.telegram.message") {
     return executeTelegramMessage(config, mode, workspaceId, credentials);
+  }
+  if (node.type === "action.email") {
+    return executeSmtpEmail(config, mode, workspaceId, credentials);
   }
   if (node.type === "action.github") {
     return executeGitHubCreateIssue(config, mode, workspaceId, credentials);

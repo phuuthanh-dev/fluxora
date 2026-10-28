@@ -72,7 +72,7 @@ provider qualification, not a larger UI taxonomy.
 | Google Drive | `Manage files` — action: list, search, upload text, download text | Implemented for configured operations | `GOOGLE`, OAuth or manual compatible credential | Operation select; download uses authenticated text-file picker; upload-only name/text fields are conditional | Live OAuth scopes, shared-drive edge cases, and provider smoke remain owner-gated |
 | Google Sheets | `Read or write rows` — action: read, append, update | Implemented | `GOOGLE` | Spreadsheet picker, operation select, range, and reusable table editor for rows/columns | Live OAuth/resource qualification remains owner-gated; richer expression mapping is a follow-up, not a blocker for current MVP |
 | HTTP | `Make API request` — action | Implemented with SSRF policy, timeout and retry classification | Optional `HTTP` API-key/bearer/basic/header credential | Method select, URL, body, timeout; **headers were previously hidden in Advanced JSON and are closed by this slice with a key/value editor** | Production allowlist/egress policy and provider-specific API behavior remain deployment/operator concerns |
-| Email | `Send email` — action | Roadmap/schema-only (`available: false`) | No runtime credential contract yet | Basic placeholder fields only | Must define provider strategy, credential, delivery adapter, redaction and live tests before enabling |
+| Email SMTP | `Send email` — action | Implemented with deterministic mock and guarded live transport | `SMTP`, encrypted hostname, TLS submission port, username, password and From address | SMTP credential selector; To/Cc/Bcc, subject, plain-text/HTML body and Reply-to fields; recipients stay on the node | No owner-approved SMTP sandbox/live delivery yet; no attachments, inbound mail, bulk sending, Gmail OAuth or vendor presets in this MVP connector |
 | OpenAI | `Generate text` — action | Roadmap/schema-only | No runtime credential contract yet | Model/prompt placeholder; model is currently free text | Must define API-key credential, model enum/resource behavior, token/error policy and executor before enabling |
 | Gemini | `Generate text` — action | Roadmap/schema-only | No runtime credential contract yet | Model/prompt placeholder; model is currently free text | Must define Google AI credential/scopes, model selection and executor before enabling |
 | MongoDB | `Query documents` — action | Roadmap/schema-only | No runtime credential contract yet | Database, collection and operation placeholders; operation is currently free text | Must define connection credential, safe query model, operation enum, limits and executor before enabling |
@@ -93,6 +93,8 @@ provider qualification, not a larger UI taxonomy.
    return metadata only.
 4. Provider-specific actions remain separate nodes while Discord, Telegram,
    Google Chat and approval delivery share the notification adapter contract.
+   SMTP Email deliberately keeps its mail-specific envelope, subject and body
+   contract instead of forcing those fields into the webhook-style adapter.
 5. Node output and errors use the common execution model: redacted I/O,
    normalized errors, timeout/retry classification, and success/error routes.
 
@@ -133,6 +135,15 @@ connected Steam, Google Chat, Discord, and Telegram nodes. Google Drive was
 not part of that run because it is currently disconnected from the graph. The
 full evidence is recorded in
 [`2026-10-28-live-provider-smoke.md`](../.agent/reports/2026-10-28-live-provider-smoke.md).
+
+SMTP Email is code-qualified but has no provider smoke yet. It accepts only
+public DNS hostnames, port 465 with TLS or 587 with required STARTTLS, enforces
+certificate validation, caps connection/message inputs, never logs SMTP debug
+traffic, and redacts credential/provider failure detail. The intentional
+remaining risk is delivery uncertainty after a network interruption: SMTP has
+no portable idempotency primitive, so a retry can be at-least-once. Operators
+should use a sandbox mailbox before enabling automatic retries for workflows
+whose messages must be unique.
 
 ## Current runtime evidence
 

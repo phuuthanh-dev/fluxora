@@ -33,6 +33,7 @@ enum CredentialProvider {
   DISCORD_WEBHOOK
   TELEGRAM_BOT
   GITHUB
+  SMTP
 }
 
 // Provider writes can succeed even when the response is lost. Pending and

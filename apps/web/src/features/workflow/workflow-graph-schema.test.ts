@@ -31,13 +31,16 @@ test("rejects an edge whose branch does not match its source node", () => {
 });
 
 test("keeps schema-only connector nodes importable while marking them unavailable", () => {
-  for (const type of ["action.email", "action.google-chat.oauth", "action.openai", "action.gemini", "action.mongodb", "action.facebook-meta", "action.instagram"]) {
+  for (const type of ["action.google-chat.oauth", "action.openai", "action.gemini", "action.mongodb", "action.facebook-meta", "action.instagram"]) {
     const definition = getNodeDefinition(type);
     assert.ok(definition);
     assert.equal(definition.available, false);
   }
   const email = getNodeDefinition("action.email");
   assert.ok(email);
+  assert.equal(email.available, true);
+  assert.deepEqual(email.defaultConfig, { credentialId: "", to: "", cc: "", bcc: "", subject: "", body: "", bodyFormat: "text", replyTo: "" });
+  assert.deepEqual(email.configurationFields?.[0], { kind: "credential", key: "credentialId", label: "SMTP credential", providers: ["SMTP"] });
   const graph = parseWorkflowCanvasGraph({ nodes: [{ id: "email", type: "workflowNode" as const, position: { x: 0, y: 0 }, data: createNodeData(email) }], edges: [] });
   assert.equal(graph.nodes[0]?.data.config.subject, "");
   assert.ok(nodeCatalog.length > 10);

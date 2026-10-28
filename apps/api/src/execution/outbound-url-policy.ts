@@ -26,17 +26,30 @@ export async function assertSafeOutboundUrl(rawUrl: string, dependencies: Pick<P
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new OutboundRequestPolicyError("OUTBOUND_URL_BLOCKED", "Outbound request target is not permitted.");
   }
-  if (url.username || url.password || isBlockedHostname(url.hostname)) {
+  if (url.username || url.password) {
     throw new OutboundRequestPolicyError("OUTBOUND_URL_BLOCKED", "Outbound request target is not permitted.");
   }
-  if (isAllowedHostname(url.hostname)) return url;
+  await assertSafeOutboundHostname(url.hostname, dependencies);
+  return url;
+}
 
-  const hostname = stripIpv6Brackets(url.hostname);
+/**
+ * Applies Fluxora's outbound-network boundary to a DNS hostname without
+ * accepting a URL. SMTP uses this before constructing its own TCP transport.
+ * The function intentionally returns no resolved address: callers must not log
+ * or retain network-target detail in execution history.
+ */
+export async function assertSafeOutboundHostname(rawHostname: string, dependencies: Pick<PolicyDependencies, "resolveHost"> = {}) {
+  const hostname = stripIpv6Brackets(rawHostname).toLowerCase();
+  if (!hostname || isBlockedHostname(hostname)) {
+    throw new OutboundRequestPolicyError("OUTBOUND_URL_BLOCKED", "Outbound request target is not permitted.");
+  }
+  if (isAllowedHostname(hostname)) return;
+
   const addresses = isIP(hostname) ? [hostname] : await (dependencies.resolveHost ?? resolvePublicHost)(hostname);
   if (!addresses.length || addresses.some(isBlockedAddress)) {
     throw new OutboundRequestPolicyError("OUTBOUND_URL_BLOCKED", "Outbound request target is not permitted.");
   }
-  return url;
 }
 
 export async function fetchSafeOutbound(rawUrl: string, init: RequestInit = {}, dependencies: PolicyDependencies = {}) {
