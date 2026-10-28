@@ -104,6 +104,15 @@
   --radius-lg: 14px;
   --motion-fast: 140ms;
   --motion-standard: 220ms;
+  /* Marketing surfaces are Fluxora-owned adaptations, not template source. */
+  --marketing-void: #050706;
+  --marketing-surface: #0d120e;
+  --marketing-surface-raised: #141b15;
+  --marketing-border: #2d3a2f;
+  --marketing-grid: rgba(214, 255, 50, 0.09);
+  --marketing-text: #f3f6ec;
+  --marketing-muted: #a8b3a4;
+  --marketing-glow: rgba(214, 255, 50, 0.18);
 }
 
 [data-theme="dark"] {

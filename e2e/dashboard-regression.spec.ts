@@ -33,7 +33,7 @@ async function expectContrast(locator: Locator, minimum: number) {
 
 // Shared helpers
 async function signUpAndDashboard(page: import("@playwright/test").Page, email: string) {
-  await page.goto("/");
+  await page.goto("/login");
   await page.getByRole("button", { name: "Create an account" }).click();
   await page.locator('input[autocomplete="name"]').fill("Regression Owner");
   await page.locator('input[autocomplete="email"]').fill(email);
@@ -53,7 +53,7 @@ test("runtime panel shows checking state then ready state after sign-in", async 
     await route.continue();
   });
 
-  await page.goto("/");
+  await page.goto("/login");
   await page.getByRole("button", { name: "Create an account" }).click();
   await page.locator('input[autocomplete="name"]').fill("Regression Owner");
   await page.locator('input[autocomplete="email"]').fill(email);

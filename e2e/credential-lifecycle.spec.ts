@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("credential lifecycle: create with conflict handling, rename, secret rotation, in-use delete blocking, and unreferenced deletion", async ({ page }) => {
   const email = `cred-lifecycle-${Date.now()}@example.test`;
-  await page.goto("/");
+  await page.goto("/login");
 
   // Sign up
   await page.getByRole("button", { name: "Create an account" }).click();

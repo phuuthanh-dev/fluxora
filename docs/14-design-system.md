@@ -5,16 +5,17 @@
 **Owner:** Fluxora product
 
 This document is the source of truth for the visual foundation shared by the
-dashboard, editor, authentication screens, credential surfaces, execution
-views, and future routes.
+public landing, dashboard, editor, authentication screens, credential
+surfaces, execution views, and future routes.
 
 ## Intent
 
-The product is moving to a Relay-inspired identity before the purchased Relay
-template is available. Public Relay references establish a near-black and
-acid-lime direction, but they do not expose the purchased template's private
-token manifest. These values are therefore an intentional product adaptation,
-not a claim of pixel-perfect or proprietary Relay tokens.
+The product uses the purchased Relay prompt as a visual reference for its
+public landing: near-black surfaces, lime energy, engineered spacing, and
+quiet movement. The Fluxora implementation is clean-room code: the purchased
+source has not been imported, extracted from the preview, or committed to this
+public repository. These values remain an intentional Fluxora adaptation, not
+a claim of pixel-perfect or proprietary Relay tokens.
 
 The application keeps a light workflow canvas because graph readability and
 long-running configuration work are more important than copying a marketing
@@ -211,11 +212,10 @@ light-theme gray values.
 
 When Relay is purchased:
 
-1. inspect its actual token/typography/spacing manifest;
-2. compare it to this file and `design-system.css`;
+1. keep downloaded source and license material out of this public repository;
+2. inspect its token/typography/spacing manifest only if the licence permits;
 3. preserve workflow semantics, credential boundaries, and execution safety;
-4. map its components into these semantic tokens instead of scattering template
-   values through feature CSS;
-5. visually review auth, dashboard, editor, credential, execution, and error
-   states at desktop widths;
+4. map reusable principles into semantic Fluxora tokens instead of scattering
+   template values through feature CSS;
+5. visually review the landing before app surfaces at desktop widths;
 6. run `npm run verify` and record any intentional deviations here.

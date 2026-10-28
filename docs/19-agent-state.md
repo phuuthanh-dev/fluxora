@@ -89,6 +89,14 @@ deployment, release security contracts, production release candidate
 documentation, dense-canvas navigation/minimap, and the reusable provider
 resource-picker foundation.
 
+## Recently closed slices
+
+- `LANDING-1` — The public root is now a clean-room Fluxora landing with an
+  explicit `/login` route for the existing email/password and OAuth UI.
+  Session expiry and sign-out route to `/login`; source/template assets were
+  not imported into this public repository. Focused browser coverage, desktop
+  and mobile visual review, and the full quality gate passed.
+
 ## Non-negotiable loop
 
 ```text

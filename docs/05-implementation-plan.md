@@ -59,6 +59,7 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | Production Release Candidate v1 | Merged into `main`; repository checks passed | High-confidence tracked-secret scan, non-printing production environment validation, dependency audit, backup-before-migration deployment contract, isolated restore/rollback/health runbook, and protected-environment release evidence are implemented. VPS/DNS/TLS, real environment validation, restore drill, and provider smoke remain operator/owner-gated. |
 | Credential dependency clarity | Complete locally | The connection center shows safe current workflow and active-execution references before rename, rotation, or deletion; secrets and graph payloads remain server-only. |
 | Dense-canvas navigation and minimap | Complete locally | The editor provides shared icon-button controls for fit, zoom, selected-node centering, and minimap visibility without changing workflow graph semantics. |
+| Public landing foundation | Complete locally | The changed product requirement introduces a public `/` landing route and moves the existing authenticated sign-in experience to `/login`. It is a clean-room Fluxora implementation guided by the purchased Relay prompt, not imported template source; focused landing/auth coverage, visual review, and the full quality gate passed. |
 
 ## Milestone 1 — Product foundation
 

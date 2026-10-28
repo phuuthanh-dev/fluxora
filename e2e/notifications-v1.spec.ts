@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("configure Discord and Telegram notification nodes with encrypted credentials and mock run", async ({ page }) => {
   const email = `notifications-e2e-${Date.now()}@example.test`;
-  await page.goto("/");
+  await page.goto("/login");
 
   // Sign up
   await page.getByRole("button", { name: "Create an account" }).click();

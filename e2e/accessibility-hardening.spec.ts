@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 async function signUpAndOpenEditor(page: Page, email: string) {
-  await page.goto("/");
+  await page.goto("/login");
   await page.getByRole("button", { name: "Create an account" }).click();
   await page.locator('input[autocomplete="name"]').fill("Accessibility Owner");
   await page.locator('input[autocomplete="email"]').fill(email);

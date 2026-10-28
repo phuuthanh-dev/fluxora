@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 
 async function signUpRunAndOpenDetails(page: Page, email: string) {
-  await page.goto("/");
+  await page.goto("/login");
   await page.getByRole("button", { name: "Create an account" }).click();
   await page.locator('input[autocomplete="name"]').fill("Runtime Owner");
   await page.locator('input[autocomplete="email"]').fill(email);
@@ -57,7 +57,7 @@ test("execution timeline is keyboard-safe, theme-safe, zoom-safe, and downloads 
 
 test("execution details expose loading, API error with retry, empty state, and reduced motion", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/");
+  await page.goto("/login");
   await page.getByRole("button", { name: "Create an account" }).click();
   await page.locator('input[autocomplete="name"]').fill("Runtime Owner");
   await page.locator('input[autocomplete="email"]').fill(`observability-state-${Date.now()}@example.test`);

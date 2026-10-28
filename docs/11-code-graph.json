@@ -970,11 +970,19 @@
       ]
     },
     {
-      "id": "apps/web/src/app/page.tsx",
+      "id": "apps/web/src/app/login/page.tsx",
       "boundary": "web",
       "internalImports": [],
       "externalImports": [
         "@/features/auth/login-form"
+      ]
+    },
+    {
+      "id": "apps/web/src/app/page.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "@/features/marketing/landing-page"
       ]
     },
     {
@@ -1224,6 +1232,17 @@
         "lucide-react",
         "next/navigation",
         "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/marketing/landing-page.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/brand/fluxora-mark.tsx"
+      ],
+      "externalImports": [
+        "lucide-react",
+        "next/link"
       ]
     },
     {
@@ -2398,6 +2417,10 @@
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
       "to": "apps/web/src/features/workflow/workflow-api.ts"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-page.tsx",
+      "to": "apps/web/src/components/brand/fluxora-mark.tsx"
     },
     {
       "from": "apps/web/src/features/workflow/auto-layout.ts",

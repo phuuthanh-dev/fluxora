@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("a new owner can configure, save, publish, and inspect a Steam workflow", async ({ page }) => {
   const email = `e2e-${Date.now()}@example.test`;
-  await page.goto("/");
+  await page.goto("/login");
 
   await expect(page.getByRole("button", { name: /^Google/ })).toBeVisible();
 
@@ -210,7 +210,7 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
 
 test("Google connector fields follow selected operations and preserve table-shaped values", async ({ page }) => {
   const email = `e2e-google-fields-${Date.now()}@example.test`;
-  await page.goto("/");
+  await page.goto("/login");
   await page.getByRole("button", { name: "Create an account" }).click();
   await page.locator('input[autocomplete="name"]').fill("Google Fields Owner");
   await page.locator('input[autocomplete="email"]').fill(email);
@@ -247,7 +247,7 @@ test("Google connector fields follow selected operations and preserve table-shap
 test("narrow desktop opens the node inspector as a focus-managed drawer", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 820 });
   const email = `e2e-inspector-${Date.now()}@example.test`;
-  await page.goto("/");
+  await page.goto("/login");
   await page.getByRole("button", { name: "Create an account" }).click();
   await page.locator('input[autocomplete="name"]').fill("Inspector Owner");
   await page.locator('input[autocomplete="email"]').fill(email);
@@ -284,7 +284,7 @@ test("narrow desktop opens the node inspector as a focus-managed drawer", async 
 
 test("node library and editor menus support keyboard-only navigation", async ({ page }) => {
   const email = `e2e-keyboard-${Date.now()}@example.test`;
-  await page.goto("/");
+  await page.goto("/login");
   await page.getByRole("button", { name: "Create an account" }).click();
   await page.locator('input[autocomplete="name"]').fill("Keyboard Owner");
   await page.locator('input[autocomplete="email"]').fill(email);
