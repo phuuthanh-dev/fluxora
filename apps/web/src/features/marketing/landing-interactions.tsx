@@ -1,96 +1,192 @@
 "use client";
 
-import { ChevronDown, Minus, Plus } from "lucide-react";
-import { useId, useState, type CSSProperties } from "react";
+import Link from "next/link";
+import { ArrowRight, Menu, Plus, X } from "lucide-react";
+import { useRef, useState, type CSSProperties } from "react";
+import { FluxoraMark } from "../../components/brand/fluxora-mark";
+import { LandingReveal } from "./landing-motion";
 
+const links = [
+  { href: "#product", label: "Product" },
+  { href: "#narrative", label: "How it works" },
+  { href: "#usage", label: "Your time back" },
+  { href: "#faq", label: "FAQ" },
+];
 const faqItems = [
   {
-    question: "Can I start with a manual or mock run?",
-    answer: "Yes. Build the graph, inspect deterministic mock data, then publish and explicitly confirm a live run only when the workflow is ready.",
+    question: "What can I automate with Fluxora?",
+    answer:
+      "Start with a recurring report, a GitHub event, or an update to a team channel. Connect triggers, conditions, app actions, and approvals in one visual workflow.",
+  },
+  {
+    question: "Can I try a workflow before it goes live?",
+    answer:
+      "Yes. Use a mock run to inspect sample input and output without calling connected services. Publish a version and confirm when you are ready to make a live run.",
   },
   {
     question: "Where do my connection secrets live?",
-    answer: "Connections are encrypted server-side. Fluxora shows a safe summary after saving, never the original secret value.",
+    answer:
+      "Connections are encrypted server-side. After saving, Fluxora shows connection details without returning the original secret. Credentials stay separate from your workflow configuration.",
   },
   {
-    question: "Is Fluxora only for teams?",
-    answer: "No. The product starts with personal workspaces and a focused control plane, while preserving a workspace model that can grow with a team.",
+    question: "Can I run Fluxora on my own infrastructure?",
+    answer:
+      "Yes. Fluxora is an open-source project built with Next.js, NestJS, PostgreSQL, and Redis, with Docker support for self-hosting. You manage your own provider accounts and infrastructure.",
   },
 ];
 
-export function LandingUsageMeter() {
-  const [runs, setRuns] = useState(240);
-  const usage = Math.min(100, Math.round((runs / 1000) * 100));
-  const style = { "--landing-usage": `${usage}%` } as CSSProperties;
-
+export function LandingNavigation() {
+  const menu = useRef<HTMLDetailsElement>(null);
+  const trigger = useRef<HTMLElement>(null);
   return (
-    <section className="landing-usage" id="usage" aria-labelledby="usage-heading">
-      <div className="landing-usage__intro">
-        <p className="landing-kicker"><span /> USAGE, MADE VISIBLE</p>
-        <h2 id="usage-heading">A clear view of the work your workflows carry.</h2>
-        <p>This is an illustrative planning meter, not a public pricing promise. It exists to make workload and run history tangible before commercial plans are defined.</p>
+    <header className="landing-nav landing-container">
+      <Link className="landing-brand" href="#top" aria-label="Fluxora home">
+        <FluxoraMark size={30} />
+        <strong>Fluxora</strong>
+      </Link>
+      <nav className="landing-nav__desktop" aria-label="Landing navigation">
+        {links.map((link) => (
+          <a href={link.href} key={link.href}>
+            {link.label}
+          </a>
+        ))}
+      </nav>
+      <div className="landing-nav__actions">
+        <Link href="/login" className="landing-nav__sign-in">
+          Sign in <ArrowRight size={14} />
+        </Link>
+        <details
+          className="landing-nav__mobile"
+          ref={menu}
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && menu.current) {
+              menu.current.open = false;
+              trigger.current?.focus();
+            }
+          }}
+        >
+          <summary aria-label="Navigation menu" ref={trigger}>
+            <Menu size={20} className="landing-menu-open" />
+            <X size={20} className="landing-menu-close" />
+          </summary>
+          <nav aria-label="Mobile navigation">
+            {links.map((link) => (
+              <a
+                href={link.href}
+                key={link.href}
+                onClick={() => {
+                  if (menu.current) menu.current.open = false;
+                }}
+              >
+                {link.label}
+                <ArrowRight size={14} />
+              </a>
+            ))}
+          </nav>
+        </details>
       </div>
-      <div className="landing-usage__panel">
-        <div className="landing-usage__reading"><span>MONTHLY RUNS</span><strong>{runs.toLocaleString("en-US")}</strong><small>illustrative workspace volume</small></div>
-        <label className="landing-usage__slider" htmlFor="landing-usage-runs">
-          <span>Estimate recurring work</span>
-          <input
-            id="landing-usage-runs"
-            type="range"
-            min="50"
-            max="1000"
-            step="10"
-            value={runs}
-            onChange={(event) => setRuns(Number(event.target.value))}
-            aria-valuetext={`${runs.toLocaleString("en-US")} illustrative monthly workflow runs`}
-          />
+    </header>
+  );
+}
+
+export function LandingUsageMeter() {
+  const [tasks, setTasks] = useState(5);
+  // A transparent planning calculation, not measured customer savings or pricing.
+  const hours = (tasks * 5 * 20) / 60;
+  const percentage = ((tasks - 1) / 19) * 100;
+  return (
+    <section
+      className="landing-usage landing-container"
+      id="usage"
+      aria-labelledby="usage-heading"
+    >
+      <LandingReveal className="landing-usage__intro">
+        <p className="landing-eyebrow">04 — SMALL TASKS. REAL TIME.</p>
+        <h2 id="usage-heading">
+          What would you do
+          <br />
+          with <em>that time back?</em>
+        </h2>
+        <p>
+          The five-minute tasks add up. Move a few off your list and make room
+          for the work you care about.
+        </p>
+      </LandingReveal>
+      <LandingReveal className="landing-usage__panel">
+        <div className="landing-usage__readout">
+          <span>TIME SPENT ON REPEAT TASKS</span>
+          <div>
+            <output htmlFor="landing-tasks">{hours.toFixed(1)}</output>
+            <span>
+              hours
+              <br />a month
+            </span>
+          </div>
+        </div>
+        <div className="landing-usage__bars" aria-hidden="true">
+          {Array.from({ length: 40 }, (_, index) => (
+            <i className={index < tasks * 2 ? "is-filled" : ""} key={index} />
+          ))}
+        </div>
+        <label htmlFor="landing-tasks">
+          Recurring tasks per workday <output>{tasks}</output>
         </label>
-        <div className="landing-usage__track" style={style} aria-label={`${usage}% of the illustrative planning scale`}>
-          <span />
+        <input
+          id="landing-tasks"
+          type="range"
+          min="1"
+          max="20"
+          step="1"
+          value={tasks}
+          onChange={(event) => setTasks(Number(event.target.value))}
+          style={{ "--meter-fill": `${percentage}%` } as CSSProperties}
+          aria-valuetext={`${tasks} tasks per workday, ${hours.toFixed(1)} hours per month`}
+        />
+        <div className="landing-usage__scale">
+          <span>1 task</span>
+          <span>20 tasks</span>
         </div>
-        <div className="landing-usage__facts">
-          <span><i /> Draft and test safely</span>
-          <span><i /> Publish intentional versions</span>
-          <span><i /> Trace every finished run</span>
-        </div>
-      </div>
+        <p className="landing-usage__assumption">
+          Planning estimate: 5 minutes per task × 20 workdays.
+          <br />
+          Actual time saved depends on your workflow.
+        </p>
+      </LandingReveal>
     </section>
   );
 }
 
 export function LandingFaq() {
-  const [openIndex, setOpenIndex] = useState<number | null>(0);
-  const baseId = useId();
-
   return (
-    <section className="landing-faq" id="faq" aria-labelledby="faq-heading">
+    <section
+      className="landing-faq landing-container"
+      id="faq"
+      aria-labelledby="faq-heading"
+    >
       <div>
-        <p className="landing-kicker"><span /> QUESTIONS, ANSWERED</p>
-        <h2 id="faq-heading">Less mystery, before the first workflow.</h2>
+        <p className="landing-eyebrow">A FEW THINGS TO KNOW</p>
+        <h2 id="faq-heading">
+          Before you
+          <br />
+          <em>connect the dots.</em>
+        </h2>
       </div>
       <div className="landing-faq__items">
-        {faqItems.map((item, index) => {
-          const isOpen = openIndex === index;
-          const contentId = `${baseId}-${index}`;
-          return (
-            <article className={`landing-faq__item${isOpen ? " is-open" : ""}`} key={item.question}>
-              <h3>
-                <button aria-controls={contentId} aria-expanded={isOpen} onClick={() => setOpenIndex(isOpen ? null : index)}>
-                  <span>{item.question}</span>
-                  {isOpen ? <Minus aria-hidden="true" size={18} /> : <Plus aria-hidden="true" size={18} />}
-                </button>
-              </h3>
-              <div id={contentId} className="landing-faq__answer" hidden={!isOpen}>
-                <p>{item.answer}</p>
-              </div>
-            </article>
-          );
-        })}
+        {faqItems.map((item, index) => (
+          <details
+            className="landing-faq__item"
+            key={item.question}
+            name="landing-faq"
+            open={index === 0}
+          >
+            <summary>
+              <span>{item.question}</span>
+              <Plus size={18} />
+            </summary>
+            <p>{item.answer}</p>
+          </details>
+        ))}
       </div>
     </section>
   );
-}
-
-export function LandingScrollCue() {
-  return <span className="landing-scroll-cue" aria-hidden="true"><ChevronDown size={16} /> Scroll to inspect</span>;
 }

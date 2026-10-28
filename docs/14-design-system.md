@@ -127,11 +127,21 @@ authentication screens remain HTML/CSS application surfaces.
 - Three.js scenes live in client-only landing feature islands. Semantic HTML
   and CSS are the fallback when WebGL is unavailable, JavaScript fails, or
   reduced motion is requested.
-- Mount a scene only while it is near the viewport and the document is visible;
-  unmount it otherwise so its render loop and GPU resources are released.
+- Mount bounded scenes only near their viewport. The owner-approved page-long
+  landing ribbon uses one fixed stage while the document is visible; pause,
+  reduced motion and hidden-tab state unmount it.
 - Cap the canvas DPR at 1.5, keep geometry/draw calls bounded, and do not add
   post-processing, controls, remote models, texture downloads, or autoplay
   video without a measured product need and an updated performance budget.
+- The current landing uses one procedural Catmull-Rom ribbon with Perlin-noise
+  GLSL filaments and analytic glow. GSAP ScrollTrigger and Lenis share one
+  ticker with manually advanced R3F; DPR is capped at 1.25. The owner's latest
+  brief explicitly supersedes the earlier hero-only/no-Lenis boundary.
+  A renderer failure/context loss falls back to SVG; pause/reduced-motion/hidden
+  tab removes the renderer, destroys Lenis and releases the owned trigger.
+- Route-scoped `features/marketing/landing.css` owns marketing composition;
+  reuse global brand tokens and the offline provider icons. Marketing-only
+  serif emphasis must not change app typography.
 - Never use a canvas as the only indicator of a live status, execution result,
   or interaction. Every state remains textual and keyboard-accessible.
 

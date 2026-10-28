@@ -104,10 +104,18 @@ resource-picker foundation.
 - `LANDING-V2-1` through `LANDING-V2-4` — Fluxora’s clean-room public landing
   now includes responsive navigation, hero/product proof, a readable workflow
   narrative, lifecycle, illustrative usage planning, FAQ disclosure, CTA, and
-  footer. It keeps the bounded landing-only R3F islands and intentionally does
-  not import Relay source/media, add scroll hijacking, or imply commercial
-  pricing. Focused public-landing coverage, desktop/iPhone visual review, and
-  the full quality gate passed.
+  footer. The initial delivery used bounded landing-only R3F islands. The owner
+  subsequently reopened L12.3 with the supplied Relay MP4 and an explicit
+  Catmull-Rom/GLSL/ScrollTrigger/Lenis brief; see the current revision below.
+- `L12.3` visual revision (2026-10-29) — The landing now has an original local
+  workflow replay, keyboard product tabs, a continuous Catmull-Rom ribbon with
+  Perlin GLSL, shared GSAP/Lenis/R3F ticker, fold plate, reliability section,
+  sample daily dashboard and workflow cases. It restores native scrolling on
+  route exit, pause or reduced motion. This supersedes the older no-Lenis /
+  hero-only boundary; do not reimplement the original landing slices. Current
+  acceptance and verification live in
+  `.agent/reports/2026-10-29-landing-art-direction.md`. Local changes do not imply
+  a PR, deployment or qualification of real provider integrations.
 
 ## Non-negotiable loop
 

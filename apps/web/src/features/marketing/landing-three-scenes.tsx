@@ -1,82 +1,232 @@
 "use client";
 
-import { Canvas, useFrame } from "@react-three/fiber";
-import { useRef, type ReactNode } from "react";
-import type { Group } from "three";
+import { Canvas, useThree } from "@react-three/fiber";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import Lenis from "lenis";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  DoubleSide,
+  OrthographicCamera,
+  Vector2,
+  type ShaderMaterial,
+} from "three";
+import {
+  createLightRibbon,
+  type LightWaypoint,
+} from "./landing-ribbon-geometry";
+import {
+  ribbonFragmentShader,
+  ribbonVertexShader,
+} from "./landing-ribbon-shader";
+import "lenis/dist/lenis.css";
 
-function HeroMesh() {
-  const group = useRef<Group>(null);
+gsap.registerPlugin(ScrollTrigger);
 
-  useFrame((state) => {
-    if (!group.current) return;
-    group.current.rotation.z = state.clock.elapsedTime * 0.13;
-    group.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.38) * 0.08;
-  });
+type PageLayout = {
+  width: number;
+  height: number;
+  pageHeight: number;
+  points: LightWaypoint[];
+};
 
-  return (
-    <group ref={group} position={[1.3, 0.12, 0]}>
-      <mesh rotation={[0.55, 0.08, 0.4]}>
-        <torusGeometry args={[1.2, 0.025, 12, 96]} />
-        <meshBasicMaterial color="#c9ff22" transparent opacity={0.42} />
-      </mesh>
-      <mesh rotation={[0.55, 0.08, 0.4]}>
-        <torusGeometry args={[0.87, 0.012, 10, 56, Math.PI * 1.28]} />
-        <meshBasicMaterial color="#f4ffd2" transparent opacity={0.48} />
-      </mesh>
-      <mesh position={[0, -0.78, -0.1]} rotation={[0, 0, -0.58]}>
-        <planeGeometry args={[2.45, 0.012]} />
-        <meshBasicMaterial color="#c9ff22" transparent opacity={0.56} />
-      </mesh>
-    </group>
+const waypoints = [
+  { selector: ".landing-hero", x: [0.73, 0.48, 0.95] },
+  { selector: "#product", x: [0.95, 0.16, 0.03] },
+  { selector: "#narrative", x: [0.04, 0.64, 0.94] },
+  { selector: ".landing-statement", x: [0.94, 0.65, 0.18] },
+  { selector: ".landing-reliability", x: [0.18, 0.05, 0.55] },
+  { selector: "#daily-view", x: [0.55, 0.91, 0.98] },
+  { selector: ".landing-cases", x: [0.96, 0.4, 0.02] },
+  { selector: "#usage", x: [0.03, 0.35, 0.9] },
+  { selector: "#faq", x: [0.91, 0.95, 0.5] },
+  { selector: ".landing-cta", x: [0.5, 0.08, 0.8] },
+];
+
+function Stream({
+  onReady,
+  onFailure,
+}: {
+  onReady: () => void;
+  onFailure: () => void;
+}) {
+  const material = useRef<ShaderMaterial>(null);
+  const [layout, setLayout] = useState<PageLayout | null>(null);
+  const { gl, camera, advance } = useThree();
+  const uniforms = useMemo(
+    () => ({
+      uTime: { value: 0 },
+      uProgress: { value: 0 },
+      uResolution: { value: new Vector2() },
+    }),
+    [],
   );
+
+  useLayoutEffect(() => {
+    const page = document.querySelector<HTMLElement>(".landing-page");
+    if (!page) return;
+    const measure = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const pageHeight = page.scrollHeight;
+      const points: LightWaypoint[] = [{ x: 0.65, y: -180, z: 0 }];
+      waypoints.forEach((waypoint, sectionIndex) => {
+        const section = page.querySelector<HTMLElement>(waypoint.selector);
+        if (!section) return;
+        const bounds = section.getBoundingClientRect();
+        waypoint.x.forEach((x, index) =>
+          points.push({
+            x,
+            y:
+              bounds.top +
+              window.scrollY +
+              bounds.height * (0.12 + index * 0.38),
+            z: Math.sin(sectionIndex + index * 0.8) * 0.8,
+          }),
+        );
+      });
+      points.push({ x: 0.9, y: pageHeight + 200, z: 0 });
+      setLayout((previous) =>
+        previous?.width === width &&
+        previous.height === height &&
+        previous.pageHeight === pageHeight
+          ? previous
+          : { width, height, pageHeight, points },
+      );
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(page);
+    window.addEventListener("resize", measure);
+    measure();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
+
+  const geometry = useMemo(
+    () => (layout ? createLightRibbon(layout.points, layout.width) : null),
+    [layout],
+  );
+  useEffect(() => () => geometry?.dispose(), [geometry]);
+
+  useLayoutEffect(() => {
+    if (!layout || !(camera instanceof OrthographicCamera)) return;
+    const visibleHeight = (layout.height / layout.width) * 10;
+    camera.left = -5;
+    camera.right = 5;
+    camera.top = visibleHeight / 2;
+    camera.bottom = -visibleHeight / 2;
+    camera.position.set(
+      0,
+      -visibleHeight / 2 - (window.scrollY / layout.width) * 10,
+      10,
+    );
+    camera.updateProjectionMatrix();
+  }, [layout, camera]);
+
+  useEffect(() => {
+    if (!layout) return;
+    const page = document.querySelector<HTMLElement>(".landing-page");
+    if (!page) return;
+    const distance = Math.max(1, layout.pageHeight - layout.height);
+    const state = { progress: window.scrollY / distance };
+    // Only this landing's instance owns smooth wheel scrolling. Touch remains
+    // native, anchors keep their hrefs, and destroy() restores native scrolling.
+    const lenis = new Lenis({
+      autoRaf: false,
+      smoothWheel: true,
+      syncTouch: false,
+      lerp: 0.1,
+      anchors: { offset: -100 },
+    });
+    lenis.on("scroll", ScrollTrigger.update);
+    const tween = gsap.fromTo(
+      state,
+      { progress: 0 },
+      {
+        progress: 1,
+        ease: "none",
+        scrollTrigger: {
+          trigger: page,
+          start: "top top",
+          end: () => `+=${distance}`,
+          scrub: 0.35,
+          invalidateOnRefresh: true,
+        },
+      },
+    );
+    tween.scrollTrigger?.refresh();
+    tween.progress(window.scrollY / distance);
+    let elapsed = 0;
+    let previousTime = 0;
+    const tick = (time: number) => {
+      lenis.raf(time * 1000);
+      // Avoid a jump after a background tab or a resumed scene.
+      elapsed += previousTime ? Math.min(time - previousTime, 0.05) : 0;
+      previousTime = time;
+      camera.position.y =
+        (-(layout.height / 2 + state.progress * distance) / layout.width) * 10;
+      camera.updateMatrixWorld();
+      const live = material.current?.uniforms;
+      if (live?.uTime) live.uTime.value = elapsed;
+      if (live?.uProgress) live.uProgress.value = state.progress;
+      if (live?.uResolution?.value instanceof Vector2)
+        gl.getDrawingBufferSize(live.uResolution.value);
+      // R3F never creates another RAF loop; GSAP advances Lenis and this scene.
+      advance(time, false);
+    };
+    gsap.ticker.add(tick);
+    onReady();
+    return () => {
+      gsap.ticker.remove(tick);
+      tween.scrollTrigger?.kill();
+      tween.kill();
+      lenis.off("scroll", ScrollTrigger.update);
+      lenis.destroy();
+    };
+  }, [layout, gl, camera, advance, onReady]);
+
+  useLayoutEffect(() => {
+    const canvas = gl.domElement;
+    const lost = (event: Event) => {
+      event.preventDefault();
+      onFailure();
+    };
+    canvas.addEventListener("webglcontextlost", lost);
+    return () => canvas.removeEventListener("webglcontextlost", lost);
+  }, [gl, onFailure]);
+
+  return geometry ? (
+    <mesh geometry={geometry} frustumCulled={false}>
+      <shaderMaterial
+        ref={material}
+        uniforms={uniforms}
+        vertexShader={ribbonVertexShader}
+        fragmentShader={ribbonFragmentShader}
+        side={DoubleSide}
+        transparent
+        depthTest={false}
+        depthWrite={false}
+      />
+    </mesh>
+  ) : null;
 }
 
-function LifecycleMesh() {
-  const group = useRef<Group>(null);
-
-  useFrame((state) => {
-    if (!group.current) return;
-    group.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.27) * 0.18;
-    group.current.position.y = Math.sin(state.clock.elapsedTime * 0.55) * 0.05;
-  });
-
-  return (
-    <group ref={group} position={[1.5, -0.45, 0]} rotation={[0.36, -0.34, 0.04]}>
-      <mesh>
-        <boxGeometry args={[1.55, 0.82, 0.06]} />
-        <meshBasicMaterial color="#c9ff22" transparent opacity={0.11} />
-      </mesh>
-      {[0.22, 0, -0.22].map((y) => (
-        <mesh key={y} position={[-0.18, y, 0.08]}>
-          <planeGeometry args={[0.82, 0.025]} />
-          <meshBasicMaterial color="#dfffa0" transparent opacity={0.48} />
-        </mesh>
-      ))}
-      <mesh position={[0.5, -0.18, 0.08]}>
-        <circleGeometry args={[0.09, 24]} />
-        <meshBasicMaterial color="#c9ff22" />
-      </mesh>
-    </group>
-  );
-}
-
-function SceneCanvas({ children }: { children: ReactNode }) {
+export function LightStreamScene(props: {
+  onReady: () => void;
+  onFailure: () => void;
+}) {
   return (
     <Canvas
       aria-hidden="true"
-      camera={{ position: [0, 0, 4.2], fov: 42 }}
-      dpr={[1, 1.5]}
+      orthographic
+      camera={{ near: 0.1, far: 50 }}
+      dpr={[1, 1.25]}
+      frameloop="never"
       gl={{ alpha: true, antialias: false, powerPreference: "low-power" }}
     >
-      {children}
+      <Stream {...props} />
     </Canvas>
   );
-}
-
-export function HeroThreeScene() {
-  return <SceneCanvas><HeroMesh /></SceneCanvas>;
-}
-
-export function LifecycleThreeScene() {
-  return <SceneCanvas><LifecycleMesh /></SceneCanvas>;
 }
