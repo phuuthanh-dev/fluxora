@@ -210,8 +210,18 @@ GitHub 404 as confirmed removal. The GitHub inspection and delete are separate
 requests and cannot guarantee the remote hook remains unchanged between them.
 The dispatcher is not exposed until recovery and user-facing status exist.
 
-The in-progress recovery service is disabled by default and will run only when
+The recovery service is disabled by default and will run only when
 `GITHUB_WEBHOOK_AUTOMATION_ENABLED=true` after migration and lifecycle release.
 It marks bounded batches of stale create/delete dispatches uncertain, rechecking
 state and timestamp to avoid overwriting a completed operation. It does not call
 GitHub, reconcile unknown results, or resume reservations that never dispatched.
+
+Workflow draft save and publish acquire the same workflow row lock used by
+provider registration. Save rejects a stale draft pointer; publish rereads the
+current draft after acquiring the lock and rejects any existing
+provider-managed registration. This prevents a managed remote hook from being
+silently left on an obsolete published version while preserving the existing
+manual endpoint flow. The reservation, create, delete, and recovery services
+are still internal: there is no production route or UI activation flow, and
+the feature must remain disabled until reconciliation and live-provider
+qualification are complete.
