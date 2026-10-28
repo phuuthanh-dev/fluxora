@@ -42,3 +42,19 @@ test("treats a successful create with missing hook ID as an unknown outcome", as
   const adapter = new GitHubWebhookAdapter(async () => new Response("{}", { status: 201 }));
   await assert.rejects(adapter.create("token", { repository: "owner/repo", url: "https://example.test/hook", event: "push", secret: "secret" }), (error: unknown) => error instanceof ProviderWebhookError && error.code === "OUTCOME_UNKNOWN");
 });
+
+test("inspection detects drift without returning the provider URL or secret", async () => {
+  const adapter = new GitHubWebhookAdapter(async () => new Response(JSON.stringify({ id: 42, active: false, events: ["push", "issues"], config: { url: "https://example.test/?token=private", secret: "hidden" } })));
+  const result = await adapter.inspect("token", { repository: "owner/repo", hookId: 42 }, { url: "https://example.test/hook", event: "push" });
+  assert.deepEqual(result, { urlMatches: false, eventsMatch: false, active: false });
+  assert.doesNotMatch(JSON.stringify(result), /private|hidden/);
+  const matching = new GitHubWebhookAdapter(async () => new Response(JSON.stringify({ id: 42, active: true, events: ["push"], config: { url: "https://example.test/hook" } })));
+  assert.deepEqual(await matching.inspect("token", { repository: "owner/repo", hookId: 42 }, { url: "https://example.test/hook", event: "push" }), { urlMatches: true, eventsMatch: true, active: true });
+});
+
+test("inspection rejects malformed or mismatched provider responses without leaking them", async () => {
+  for (const body of [{ id: 43, active: true, events: ["push"], config: { url: "secret" } }, { id: 42, active: true, events: [3], config: { url: "secret" } }, null]) {
+    const adapter = new GitHubWebhookAdapter(async () => new Response(JSON.stringify(body)));
+    await assert.rejects(adapter.inspect("token", { repository: "owner/repo", hookId: 42 }, { url: "https://example.test/hook", event: "push" }), (error: unknown) => error instanceof ProviderWebhookError && error.code === "UNAVAILABLE" && !error.message.includes("secret"));
+  }
+});

@@ -1,10 +1,12 @@
 /** Provider-side registration only. Endpoint persistence and activation are owned by the caller. */
 export type ProviderWebhookIdentity = { repository: string; hookId: number };
 export type ProviderWebhookSpec = { repository: string; url: string; event: string; secret: string };
+export type ProviderWebhookInspection = { urlMatches: boolean; eventsMatch: boolean; active: boolean };
 
 export interface ProviderWebhookAdapter {
   create(token: string, spec: ProviderWebhookSpec): Promise<ProviderWebhookIdentity>;
   exists(token: string, identity: ProviderWebhookIdentity): Promise<boolean>;
+  inspect(token: string, identity: ProviderWebhookIdentity, expected: { url: string; event: string }): Promise<ProviderWebhookInspection>;
   remove(token: string, identity: ProviderWebhookIdentity): Promise<void>;
 }
 

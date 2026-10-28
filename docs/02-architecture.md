@@ -175,3 +175,9 @@ Construct callback URLs from an operator-configured public HTTPS API origin,
 never from an untrusted request Host header or client-supplied URL. The adapter
 does not itself establish that an arbitrary URL belongs to this deployment;
 the orchestration must enforce that boundary before any GitHub request.
+
+The provider adapter can inspect metadata for a previously recorded GitHub hook
+ID and compare URL and events without exposing the provider's URL. An active,
+matching response does not prove the signing secret matches: GitHub does not
+return that secret. This primitive is not ownership discovery or a complete
+reconciliation workflow.

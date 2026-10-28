@@ -1,4 +1,4 @@
-import { ProviderWebhookAdapter, ProviderWebhookError, ProviderWebhookIdentity, ProviderWebhookSpec } from "./provider-webhook-adapter";
+import { ProviderWebhookAdapter, ProviderWebhookError, ProviderWebhookIdentity, ProviderWebhookInspection, ProviderWebhookSpec } from "./provider-webhook-adapter";
 
 const events = new Set(["push", "issues", "pull_request", "workflow_run"]);
 
@@ -21,6 +21,16 @@ export class GitHubWebhookAdapter implements ProviderWebhookAdapter {
     // GitHub can return 404 for missing permission as well as missing hooks.
     await this.call(token, hookPath(identity), "GET");
     return true;
+  }
+
+  async inspect(token: string, identity: ProviderWebhookIdentity, expected: { url: string; event: string }): Promise<ProviderWebhookInspection> {
+    const response = await this.call(token, hookPath(identity), "GET");
+    const body = await response.json().catch(() => null) as { id?: unknown; active?: unknown; events?: unknown; config?: { url?: unknown } } | null;
+    if (!body || body.id !== identity.hookId || typeof body.active !== "boolean" || !Array.isArray(body.events) || !body.events.every((event: unknown) => typeof event === "string") || typeof body.config?.url !== "string") {
+      throw new ProviderWebhookError("UNAVAILABLE", false);
+    }
+    // Return only comparisons: provider URLs can contain secrets. GitHub never returns the signing secret.
+    return { urlMatches: body.config.url === expected.url, eventsMatch: body.events.length === 1 && body.events[0] === expected.event, active: body.active };
   }
 
   async remove(token: string, identity: ProviderWebhookIdentity): Promise<void> {
