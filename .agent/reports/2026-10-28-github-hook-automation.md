@@ -1,0 +1,53 @@
+# GitHub-managed webhook work in progress
+
+Compared against [n8n's GitHub trigger lifecycle](https://github.com/n8n-io/n8n/blob/master/packages/nodes-base/nodes/Github/GithubTrigger.node.ts), [Make's GitHub connection guidance](https://apps.make.com/github), and [GitHub's repository webhook API](https://docs.github.com/en/rest/repos/webhooks). The existing Fluxora manual registration remains the only user-facing path.
+
+Implemented a narrow provider lifecycle interface and a GitHub adapter with fixed API host, HTTPS callback validation, bounded events and IDs, no provider-body logging, and explicit uncertain write outcomes. A GitHub 404 is not treated as proof that a webhook was removed. Five mocked adapter tests and the full quality gate passed (173 API tests and 38 browser tests); no live provider requests were made.
+
+Not implemented: persistence of provider hook identity and durable operation state, safe reconciliation after timeouts or process restarts, coordinated version/rotation/deactivation lifecycle, activation and editor UI, migrations, and live acceptance. The adapter is not wired into the running application. Do not treat this slice as completed or deploy it as automatic webhook support.
+
+The unfinished adapter now has a read-only inspection operation for a previously recorded hook ID. It compares callback URL and event against expected values and returns only match flags and active state, so provider URLs or response bodies are not surfaced. Invalid or mismatched responses are errors; inspection cannot verify a signing secret, establish ownership by URL, or prove that a 404 means deletion. The adapter is still not wired to a user-visible lifecycle.
+
+On the inspection follow-up, the full `npm run verify` passed with 175 API tests and 38 Playwright tests. All provider responses in these tests were mocked; no webhook was created or changed on GitHub.
+
+Persistence groundwork on the same unfinished branch adds a provider registration record with a pinned workflow version, credential, endpoint, encrypted signing secret and explicit create/delete states. Atomic compare-and-set transitions reject stale results, and expiry marks in-flight work uncertain rather than replaying it. The database requires a known positive remote ID in active/deleting states and prevents deletion of referenced endpoint, credential or version. This store is not connected to API routes or GitHub calls. The orchestrator must still enforce workspace ownership, configuration/version consistency and safe public callback construction; handle secrets, races, failure classifications and uncertain outcomes; and provide UX before release.
+
+The migration was applied to a newly initialized local PostgreSQL instance and Prisma schema diff reported no difference. An isolated database check exercised concurrent completion, database state/identity constraints, and endpoint/credential delete restrictions. It did not contact GitHub or modify an existing database. Unit tests use an in-memory table and are not a replacement for lifecycle integration testing.
+
+The final `npm run verify` passed (179 API tests, 38 Playwright tests). The isolated PostgreSQL migration was repeated after adding a lowercase constraint for GitHub repository identities; the schema matched Prisma and a mixed-case write was rejected. Before wiring, the implementation must also coordinate manual endpoint rotation and ensure the signing secret used for provider registration is the same one used to validate deliveries. Nothing was deployed.
+
+Manual endpoint rotation now rejects any existing provider registration before updating the endpoint or its secret. This deliberately includes pending, uncertain and removed records until a future managed cleanup flow resolves them. The registration query runs under the existing workflow row lock; future provider creation must acquire that same lock before inserting its ownership record, or the check alone cannot prevent a concurrent insert. The focused webhook tests pass when invoked with the API tsconfig. A first direct invocation without that tsconfig failed at TypeScript decorator transformation; no application test executed in that invocation.
+
+For this manual-rotation safeguard, `npm run verify` passed with 180 API and 38 Playwright tests. No live GitHub call, migration or deployment was performed.
+
+A draft internal GitHub reservation function now takes the same workflow row lock as manual rotation, checks owner membership, published version and endpoint timestamp, derives the event/repository/credential from the pinned graph, checks that the credential belongs to the workspace, and copies the endpoint's encrypted signing secret into a CREATING record. It returns only an operation ID and registration ID. Its origin parameter must be provided from trusted server configuration, not client input. It is not routed, does not call GitHub, and was tested against a competing manual rotation using real concurrent transactions on an isolated local PostgreSQL database. Provider calls, safe failure handling, authorization integration, lifecycle recovery and UI are still required.
+
+The reservation follow-up passed `npm run verify` (182 API tests and 38 Playwright tests). The real PostgreSQL race used a fresh local test database and no external provider. Origin validation currently checks HTTPS and URL shape only; it does not establish public DNS reachability. The future server configuration and release checks must enforce the deployment's intended public origin before routing this function.
+
+An internal create dispatcher now uses an atomic CREATING → CREATE_DISPATCHING claim before invoking the provider adapter. Concurrent calls cannot both send; definitive rejection and ambiguous outcomes are recorded separately. If the process dies or a database write fails after sending, the operation remains in dispatching state and must be marked uncertain before any recovery. A fresh isolated PostgreSQL migration matched the Prisma schema, and a real database concurrency check with a mocked provider sent one request and persisted the returned identity. `npm run verify` passed (185 API tests, 38 Playwright tests). No live provider call was made.
+
+The dispatcher is not exposed by a route, not connected to the UI, and does not yet perform recovery, deletion, version-change coordination, provider health verification, or safe rotation. The future route must source API origin exclusively from validated server configuration. This is incomplete and not production-ready.
+
+The internal delete dispatcher uses only the stored provider identity and atomically claims the operation. It first inspects URL, event and active status; inspection failures or drift do not issue DELETE. GitHub 404 after a DELETE is ambiguous and becomes DELETE_UNCERTAIN. An isolated PostgreSQL concurrency test with a mocked provider confirmed one delete call. `npm run verify` passed with 189 API tests and 38 Playwright tests after an interrupted first run was restarted. No live GitHub operation was made.
+
+Inspection and deletion are separate GitHub requests: external edits can occur between them, and GitHub does not expose the signing secret for verification. The internal dispatcher is not routed; disabled or externally changed hooks require a recovery path. Restart recovery, API/UI, credential/version lifecycle and provider qualification remain incomplete.
+
+The recovery service is registered but remains disabled unless `GITHUB_WEBHOOK_AUTOMATION_ENABLED=true`; it must only be enabled after the migration and managed lifecycle are ready. It scans at most 100 stale create and 100 stale delete operations per interval, rechecks state and timestamp when updating, and marks them uncertain without contacting GitHub. Its five-minute stale window exceeds the provider adapter's request timeout. Operations still in CREATING before dispatch are not automatically resumed. A local isolated PostgreSQL check confirmed an expired dispatch becomes uncertain once; `npm run verify` passed 191 API and 38 Playwright tests. No production DB or provider was modified.
+
+## Current local completion note
+
+The managed lifecycle now has a safe reconciliation path. It accepts only the
+remote hook identity already recorded by Fluxora; it never discovers or claims
+an unknown GitHub webhook by URL. A matching active hook can restore a
+`DELETE_UNCERTAIN` registration to `ACTIVE`. Drift, an ambiguous inspection
+response, and a `CREATE_UNCERTAIN` registration without a remote identity
+remain explicit manual-reconciliation outcomes and do not trigger a remote
+mutation. The owner-scoped route and editor action return only bounded status
+and outcome text, with no token, signing secret, callback URL or remote hook
+ID.
+
+Focused proof passed: API 202/202 and webhook-registration browser E2E 9/9.
+The final `npm run verify` also passed: API 202/202, web 22/22, and
+Playwright 40/40, together with typecheck, production build,
+deployment/release/security checks, and code-graph freshness. All provider
+calls were mocked; no live GitHub request or deployment was performed.

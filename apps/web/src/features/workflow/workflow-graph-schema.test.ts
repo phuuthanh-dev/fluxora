@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createNodeData, getNodeDefinition, initialEdges, initialNodes, nodeCatalog } from "./node-catalog";
+import { executableWorkflowNodeTypes, isExecutableWorkflowNodeType } from "@workflow/contracts";
+import { availableCatalogTypes, createNodeData, getNodeDefinition, initialEdges, initialNodes, nodeCatalog } from "./node-catalog";
 import { parseWorkflowCanvasGraph } from "./workflow-graph-schema";
 
 test("accepts a valid exported workflow graph", () => {
@@ -79,4 +80,29 @@ test("GitHub Create Issue is executable with a separate connector credential", (
   assert.ok(githubWorkflowRunTrigger);
   assert.equal(githubWorkflowRunTrigger.available, true);
   assert.deepEqual(githubWorkflowRunTrigger.defaultConfig, { path: "github-workflow-run-completed", credentialId: "", event: "workflow_run", action: "completed" });
+});
+
+test("HTTP configuration exposes runtime headers through a structured field", () => {
+  const definition = getNodeDefinition("action.http-request");
+  assert.ok(definition);
+  const headers = definition.configurationFields?.find((field) => field.key === "headers");
+  assert.deepEqual(headers, { kind: "key-value", key: "headers", label: "Headers (optional)", keyPlaceholder: "Header name", valuePlaceholder: "Header value" });
+});
+
+test("Google connector fields follow operation-specific runtime contracts", () => {
+  const drive = getNodeDefinition("action.google-drive");
+  assert.ok(drive);
+  assert.deepEqual(drive.configurationFields?.find((field) => field.key === "name")?.visibleWhen, { key: "operation", equals: "uploadText" });
+  assert.deepEqual(drive.configurationFields?.find((field) => field.key === "text")?.visibleWhen, { key: "operation", equals: "uploadText" });
+
+  const sheets = getNodeDefinition("action.google-sheets");
+  assert.ok(sheets);
+  assert.equal(sheets.configurationFields?.find((field) => field.key === "values")?.kind, "table");
+});
+
+test("executable node capabilities stay aligned with the UI catalog", () => {
+  const sortTypes = (types: readonly string[]) => [...types].sort();
+  assert.deepEqual(sortTypes(availableCatalogTypes()), sortTypes(executableWorkflowNodeTypes));
+  assert.equal(nodeCatalog.filter((definition) => definition.available).length, executableWorkflowNodeTypes.length);
+  assert.ok(nodeCatalog.filter((definition) => !definition.available).every((definition) => !isExecutableWorkflowNodeType(definition.type)));
 });

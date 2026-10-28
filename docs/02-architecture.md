@@ -154,3 +154,91 @@ The MVP pins Prisma ORM 6.12.0 because the local Node 23 runtime is outside Pris
   this is a convenience filter, not a security boundary or a global search.
   A stored value outside loaded results remains selectable but is labeled as
   unverified. GitHub remains authoritative for operation-specific permissions.
+### Planned provider-managed GitHub webhooks
+
+The existing endpoint registration and manual webhook flow remain supported.
+GitHub-managed registration will be a separate lifecycle orchestration using
+the workspace-owned GitHub credential and a provider adapter. The adapter only
+speaks to GitHub's fixed API host; it must not log credentials, signing secrets
+or provider response bodies. A remote webhook is mutable or removable only by
+an identity recorded as owned by the corresponding Fluxora registration.
+
+The lifecycle is not a single database transaction: GitHub may accept a write
+while the response is lost. Before a remote create, persist a unique operation
+intent and encrypted signing secret, then track a pending/unknown state and
+reconcile before retrying. Do not claim an unknown webhook by URL alone, or
+delete a webhook without verified ownership. GitHub 404 may mean missing access,
+not necessarily absence. Persist enough state to recover safely after crashes,
+competing requests, version changes, and partial updates. Publish, activation,
+deactivation and rotation must not silently break an existing manual endpoint.
+The UI should show the published version, connection status and actionable
+permission errors. The managed lifecycle and reconciliation action are now
+wired through the owner-scoped service and editor, but remain behind the
+feature flag until production origin, migration and live-provider qualification
+are complete. The UI must not present this as a guarantee that a remote hook
+can always be discovered or repaired.
+Construct callback URLs from an operator-configured public HTTPS API origin,
+never from an untrusted request Host header or client-supplied URL. The adapter
+does not itself establish that an arbitrary URL belongs to this deployment;
+the orchestration must enforce that boundary before any GitHub request.
+
+The provider adapter can inspect metadata for a previously recorded GitHub hook
+ID and compare URL and events without exposing the provider's URL. An active,
+matching response does not prove the signing secret matches: GitHub does not
+return that secret. Reconciliation therefore only uses the recorded remote
+identity: a matching active hook can restore an uncertain deletion to `ACTIVE`,
+while drift, an ambiguous provider response, or an unknown identity remains a
+manual boundary and never triggers a claim, create, or delete.
+
+The in-progress provider registration table pins an endpoint, credential and
+workflow version and stores its signing secret encrypted. Atomic state updates
+compare operation IDs and previous state; expired in-flight operations become
+uncertain, never automatic retries. Database constraints protect known remote
+identities and prevent deleting referenced endpoint, credential or version.
+The lifecycle is separate from manual endpoint persistence and is composed by
+an owner-scoped management service; manual endpoint UI remains compatible.
+The orchestration must check ownership and version consistency itself; the
+foreign keys alone do not prove that all records belong to the same workspace.
+
+Manual endpoint edits reject an existing provider registration in any state.
+The check runs while holding the workflow row lock; the future provider
+registration creator must acquire the same lock before inserting its record,
+otherwise a concurrent manual rotation can race the check. Removal and secret
+rotation must go through a managed lifecycle once that lifecycle exists.
+
+The GitHub create dispatcher claims CREATING as
+CREATE_DISPATCHING atomically before a provider call. Only the winner sends;
+unexpected failures are uncertain rather than automatically retried. A crash
+or failed result persistence leaves dispatching state requiring recovery. The
+owner-scoped management surface composes this dispatcher without exposing
+provider tokens or signing material.
+
+The delete dispatcher claims the stored provider identity, checks
+remote URL, event and active status, and never treats an ambiguous DELETE or
+GitHub 404 as confirmed removal. The GitHub inspection and delete are separate
+requests and cannot guarantee the remote hook remains unchanged between them.
+The dispatcher is exposed only through the owner-scoped management surface,
+which returns safe status and keeps the manual endpoint compatible.
+
+The recovery service is disabled by default and will run only when
+`GITHUB_WEBHOOK_AUTOMATION_ENABLED=true` after migration and lifecycle release.
+It marks bounded batches of stale create/delete dispatches uncertain, rechecking
+state and timestamp to avoid overwriting a completed operation. It does not call
+GitHub, reconcile unknown results, or resume reservations that never dispatched.
+Production startup also requires `PUBLIC_API_ORIGIN` to be a trusted HTTPS
+origin when the feature flag is enabled.
+
+Workflow draft save and publish acquire the same workflow row lock used by
+provider registration. Save rejects a stale draft pointer; publish rereads the
+current draft after acquiring the lock and rejects any existing
+provider-managed registration. This prevents a managed remote hook from being
+silently left on an obsolete published version while preserving the existing
+manual endpoint flow. The lifecycle now has an owner-scoped management surface:
+`GET/POST/DELETE /workflows/:workflowId/provider-webhook` plus the explicit
+`POST /workflows/:workflowId/provider-webhook/reconcile` action. The response
+contains only safe state, repository/event metadata, timestamps and a bounded
+reconciliation outcome; it never returns a token, signing secret, callback URL
+or remote hook ID. The editor shows the connection state, a recorded-identity
+verification action and keeps manual setup available as a fallback. The feature
+remains disabled by default until production origin, migration and
+live-provider qualification are complete.

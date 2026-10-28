@@ -208,6 +208,42 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(page.getByText(/Mock retry failed — using the original version 2/)).toBeVisible({ timeout: 15_000 });
 });
 
+test("Google connector fields follow selected operations and preserve table-shaped values", async ({ page }) => {
+  const email = `e2e-google-fields-${Date.now()}@example.test`;
+  await page.goto("/");
+  await page.getByRole("button", { name: "Create an account" }).click();
+  await page.locator('input[autocomplete="name"]').fill("Google Fields Owner");
+  await page.locator('input[autocomplete="email"]').fill(email);
+  await page.locator('input[autocomplete="new-password"]').fill("e2e-password-123");
+  await page.getByRole("button", { name: "Create account" }).click();
+  await page.getByRole("button", { name: "Use Steam template" }).click();
+  await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+
+  await page.getByRole("button", { name: /Open Google Drive, 1 operation/ }).click();
+  await page.getByRole("button", { name: /Google Drive: Manage files/ }).click();
+  const driveNode = page.locator(".react-flow__node").filter({ hasText: "Google Drive" }).last();
+  await expect(driveNode).toBeVisible();
+  await driveNode.click();
+  await expect(page.getByRole("textbox", { name: "File name" })).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: "Text content" })).toHaveCount(0);
+  await page.getByRole("combobox", { name: "Operation" }).selectOption("uploadText");
+  await expect(page.getByRole("textbox", { name: "File name" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Text content" })).toBeVisible();
+
+  await page.getByRole("button", { name: "All apps" }).click();
+  await page.getByRole("button", { name: /Open Google Sheets, 1 operation/ }).click();
+  await page.getByRole("button", { name: /Google Sheets: Read or write rows/ }).click();
+  const sheetsNode = page.locator(".react-flow__node").filter({ hasText: "Google Sheets" }).last();
+  await expect(sheetsNode).toBeVisible();
+  await sheetsNode.evaluate((element) => element.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+  await expect(page.getByRole("textbox", { name: "Values row 1 column 1" })).toBeVisible();
+  await page.getByRole("textbox", { name: "Values row 1 column 1" }).fill("Steam");
+  await page.getByRole("button", { name: "Add row" }).click();
+  await expect(page.getByRole("textbox", { name: "Values row 2 column 1" })).toBeVisible();
+  await page.getByRole("button", { name: "Add column" }).click();
+  await expect(page.getByRole("textbox", { name: "Values row 1 column 2" })).toBeVisible();
+});
+
 test("narrow desktop opens the node inspector as a focus-managed drawer", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 820 });
   const email = `e2e-inspector-${Date.now()}@example.test`;

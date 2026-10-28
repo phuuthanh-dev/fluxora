@@ -46,6 +46,9 @@ export class WebhookService {
       if ((existing?.id ?? null) !== (expected.endpoint?.id ?? null) || (existing && existing.updatedAt.toISOString() !== expected.endpoint?.updatedAt)) {
         throw new ConflictException({ code: "WEBHOOK_REGISTRATION_CHANGED", message: "The webhook registration changed. Reload its status before trying again." });
       }
+      if (existing && await transaction.providerWebhookRegistration.findUnique({ where: { endpointId: existing.id }, select: { id: true } })) {
+        throw new ConflictException({ code: "PROVIDER_WEBHOOK_MANAGED", message: "This endpoint has a provider-managed webhook. Resolve its provider registration before changing the endpoint." });
+      }
       const updatedAt = existing ? new Date(Math.max(Date.now(), existing.updatedAt.getTime() + 1)) : undefined;
       const saved = existing
         ? await transaction.webhookEndpoint.update({ where: { id: existing.id }, data: { path, secretHash: !githubTrigger && secret ? hashWebhookSecret(secret) : null, encryptedSigningSecret, workflowVersionId: publishedVersionId, isActive: true, updatedAt } })

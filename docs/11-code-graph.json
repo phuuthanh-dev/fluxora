@@ -658,11 +658,122 @@
       ]
     },
     {
+      "id": "apps/api/src/webhooks/github-webhook-adapter.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/webhooks/provider-webhook-adapter.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/github-webhook-create.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential-vault.service.ts",
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/webhooks/provider-webhook-adapter.ts",
+        "apps/api/src/webhooks/provider-webhook-state.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/github-webhook-delete.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/webhooks/provider-webhook-adapter.ts",
+        "apps/api/src/webhooks/provider-webhook-state.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/github-webhook-management.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential-vault.service.ts",
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/webhooks/github-webhook-adapter.ts",
+        "apps/api/src/webhooks/github-webhook-create.ts",
+        "apps/api/src/webhooks/github-webhook-delete.ts",
+        "apps/api/src/webhooks/github-webhook-reconcile.ts",
+        "apps/api/src/webhooks/github-webhook-reservation.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/github-webhook-reconcile.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/webhooks/github-webhook-adapter.ts",
+        "apps/api/src/webhooks/provider-webhook-state.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/github-webhook-reservation.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/workflows/workflow-graph.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/provider-webhook-adapter.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/webhooks/provider-webhook-recovery.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/provider-webhook-state.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@prisma/client"
+      ]
+    },
+    {
       "id": "apps/api/src/webhooks/webhook.controller.ts",
       "boundary": "api",
       "internalImports": [
         "apps/api/src/auth/authenticated-request.ts",
         "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/webhooks/github-webhook-management.service.ts",
         "apps/api/src/webhooks/webhook.service.ts"
       ],
       "externalImports": [
@@ -676,6 +787,9 @@
         "apps/api/src/auth/auth.module.ts",
         "apps/api/src/credentials/credential.module.ts",
         "apps/api/src/execution/execution.module.ts",
+        "apps/api/src/webhooks/github-webhook-adapter.ts",
+        "apps/api/src/webhooks/github-webhook-management.service.ts",
+        "apps/api/src/webhooks/provider-webhook-recovery.service.ts",
         "apps/api/src/webhooks/webhook.controller.ts",
         "apps/api/src/webhooks/webhook.service.ts"
       ],
@@ -1860,12 +1974,116 @@
       "to": "apps/api/src/scheduler/cron-scheduler.service.ts"
     },
     {
+      "from": "apps/api/src/webhooks/github-webhook-adapter.ts",
+      "to": "apps/api/src/webhooks/provider-webhook-adapter.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-create.ts",
+      "to": "apps/api/src/credentials/credential-vault.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-create.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-create.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-create.ts",
+      "to": "apps/api/src/webhooks/provider-webhook-adapter.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-create.ts",
+      "to": "apps/api/src/webhooks/provider-webhook-state.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-delete.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-delete.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-delete.ts",
+      "to": "apps/api/src/webhooks/provider-webhook-adapter.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-delete.ts",
+      "to": "apps/api/src/webhooks/provider-webhook-state.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-management.service.ts",
+      "to": "apps/api/src/credentials/credential-vault.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-management.service.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-management.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-management.service.ts",
+      "to": "apps/api/src/webhooks/github-webhook-adapter.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-management.service.ts",
+      "to": "apps/api/src/webhooks/github-webhook-create.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-management.service.ts",
+      "to": "apps/api/src/webhooks/github-webhook-delete.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-management.service.ts",
+      "to": "apps/api/src/webhooks/github-webhook-reconcile.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-management.service.ts",
+      "to": "apps/api/src/webhooks/github-webhook-reservation.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-reconcile.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-reconcile.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-reconcile.ts",
+      "to": "apps/api/src/webhooks/github-webhook-adapter.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-reconcile.ts",
+      "to": "apps/api/src/webhooks/provider-webhook-state.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-reservation.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-reservation.ts",
+      "to": "apps/api/src/workflows/workflow-graph.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/provider-webhook-recovery.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
       "from": "apps/api/src/webhooks/webhook.controller.ts",
       "to": "apps/api/src/auth/authenticated-request.ts"
     },
     {
       "from": "apps/api/src/webhooks/webhook.controller.ts",
       "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.controller.ts",
+      "to": "apps/api/src/webhooks/github-webhook-management.service.ts"
     },
     {
       "from": "apps/api/src/webhooks/webhook.controller.ts",
@@ -1882,6 +2100,18 @@
     {
       "from": "apps/api/src/webhooks/webhook.module.ts",
       "to": "apps/api/src/execution/execution.module.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.module.ts",
+      "to": "apps/api/src/webhooks/github-webhook-adapter.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.module.ts",
+      "to": "apps/api/src/webhooks/github-webhook-management.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.module.ts",
+      "to": "apps/api/src/webhooks/provider-webhook-recovery.service.ts"
     },
     {
       "from": "apps/api/src/webhooks/webhook.module.ts",

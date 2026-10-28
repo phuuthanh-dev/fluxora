@@ -34,3 +34,9 @@ Make it clear which loaded GitHub repository owner is selected and when a saved 
 ## Safety boundaries
 - Do not print or use real provider credentials in tests.
 - Do not deploy or merge without user authorization.
+
+## Completion evidence
+
+- Focused `e2e/webhook-registration.spec.ts` passed 8/8 with mocked provider responses.
+- `npm run verify` passed: API 198/198, web 22/22, Playwright 39/39, builds, typechecks, deployment checks, release checks, and tracked-secret scan.
+- The owner filter remains limited to loaded repository pages and does not claim GitHub permissions.

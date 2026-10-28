@@ -1,5 +1,5 @@
 import type { WorkflowGraph } from "@workflow/contracts";
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, WorkflowVersionStatus } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
 import { WorkspaceService } from "../workspaces/workspace.service";
@@ -79,6 +79,9 @@ export class WorkflowService {
     const workflow = await this.findOwned(workflowId, userId);
     const graph = parseWorkflowGraph(input.graph);
     const updated = await this.prisma.$transaction(async (transaction) => {
+      // Lock in the same order as publish and provider reservation.
+      const locked = await transaction.$queryRaw<Array<{ draftVersionId: string | null }>>`SELECT "draftVersionId" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
+      if (!locked[0] || locked[0].draftVersionId !== workflow.draftVersionId) throw new ConflictException({ code: "WORKFLOW_DRAFT_CHANGED", message: "The workflow draft changed. Reload before saving." });
       const draft = workflow.draftVersionId
         ? await transaction.workflowVersion.update({ where: { id: workflow.draftVersionId }, data: { graph: graph as Prisma.InputJsonValue } })
         : await transaction.workflowVersion.create({
@@ -105,9 +108,17 @@ export class WorkflowService {
       throw new NotFoundException({ code: "DRAFT_NOT_FOUND", message: "Workflow has no draft version to publish." });
     }
     const draftVersion = workflow.draftVersion;
-    const graph = parseWorkflowGraph(draftVersion.graph);
-    validatePublishableGraph(graph);
     const updated = await this.prisma.$transaction(async (transaction) => {
+      // The provider reservation uses this same lock. A published version must
+      // not change while a remote registration still refers to it.
+      const locked = await transaction.$queryRaw<Array<{ draftVersionId: string | null }>>`SELECT "draftVersionId" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
+      if (locked[0]?.draftVersionId !== draftVersion.id) throw new ConflictException({ code: "WORKFLOW_DRAFT_CHANGED", message: "The workflow draft changed. Reload before publishing." });
+      const managed = await transaction.providerWebhookRegistration.findFirst({ where: { endpoint: { workflowId } }, select: { id: true } });
+      if (managed) throw new ConflictException({ code: "PROVIDER_WEBHOOK_MANAGED", message: "Resolve the provider-managed webhook registration before publishing a new workflow version." });
+      const currentDraft = await transaction.workflowVersion.findUnique({ where: { id: draftVersion.id } });
+      if (!currentDraft || currentDraft.status !== WorkflowVersionStatus.DRAFT) throw new ConflictException({ code: "WORKFLOW_DRAFT_CHANGED", message: "The workflow draft changed. Reload before publishing." });
+      const graph = parseWorkflowGraph(currentDraft.graph);
+      validatePublishableGraph(graph);
       const published = await transaction.workflowVersion.update({
         where: { id: draftVersion.id },
         data: { status: WorkflowVersionStatus.PUBLISHED, publishedAt: new Date() },

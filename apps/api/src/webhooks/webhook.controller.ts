@@ -1,11 +1,12 @@
-import { BadRequestException, Controller, Get, Header, Headers, Inject, Param, Post, RawBody, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Controller, Delete, Get, Header, Headers, Inject, Optional, Param, Post, RawBody, Req, UseGuards } from "@nestjs/common";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
 import { WebhookService } from "./webhook.service";
+import { GitHubWebhookManagementService } from "./github-webhook-management.service";
 
 @Controller()
 export class WebhookController {
-  constructor(@Inject(WebhookService) private readonly webhooks: WebhookService) {}
+  constructor(@Inject(WebhookService) private readonly webhooks: WebhookService, @Optional() @Inject(GitHubWebhookManagementService) private readonly githubHooks?: GitHubWebhookManagementService) {}
 
   @Get("workflows/:workflowId/webhook-endpoint")
   @UseGuards(AuthenticationGuard)
@@ -26,9 +27,41 @@ export class WebhookController {
     return { endpoint: await this.webhooks.createEndpoint(workflowId, userId(request), path, secretRequired, { publishedVersionId: body.publishedVersionId, endpoint: expected as { id: string; updatedAt: string } | null }) };
   }
 
+  @Get("workflows/:workflowId/provider-webhook")
+  @UseGuards(AuthenticationGuard)
+  async providerStatus(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return { providerWebhook: await this.requireGitHubHooks().status(workflowId, userId(request)) };
+  }
+
+  @Post("workflows/:workflowId/provider-webhook")
+  @Header("Cache-Control", "no-store")
+  @UseGuards(AuthenticationGuard)
+  async providerCreate(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return { providerWebhook: await this.requireGitHubHooks().create(workflowId, userId(request)) };
+  }
+
+  @Delete("workflows/:workflowId/provider-webhook")
+  @Header("Cache-Control", "no-store")
+  @UseGuards(AuthenticationGuard)
+  async providerDelete(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return { providerWebhook: await this.requireGitHubHooks().remove(workflowId, userId(request)) };
+  }
+
+  @Post("workflows/:workflowId/provider-webhook/reconcile")
+  @Header("Cache-Control", "no-store")
+  @UseGuards(AuthenticationGuard)
+  async providerReconcile(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return { providerWebhook: await this.requireGitHubHooks().reconcile(workflowId, userId(request)) };
+  }
+
   @Post("webhooks/:path")
   async receive(@Param("path") path: string, @Headers("x-workflow-secret") secret: string | undefined, @Headers("x-github-event") githubEvent: string | undefined, @Headers("x-hub-signature-256") githubSignature: string | undefined, @Headers("idempotency-key") idempotencyKey: string | undefined, @RawBody() rawBody: Buffer | undefined, @Req() request: AuthenticatedRequest, @Headers("x-github-delivery") githubDelivery?: string) {
     return this.webhooks.receive(path, secret, request.body, readIdempotencyKey(idempotencyKey), { githubEvent, githubSignature, githubDelivery: readIdempotencyKey(githubDelivery), rawBody });
+  }
+
+  private requireGitHubHooks() {
+    if (!this.githubHooks) throw new Error("GitHub webhook management service is not configured.");
+    return this.githubHooks;
   }
 }
 

@@ -1,4 +1,4 @@
-import type { WorkflowEdge, WorkflowEdgeKind, WorkflowGraph, WorkflowNode } from "@workflow/contracts";
+import { isExecutableWorkflowNodeType, type WorkflowEdge, type WorkflowEdgeKind, type WorkflowGraph, type WorkflowNode } from "@workflow/contracts";
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { ApprovalRequestStatus, CredentialProvider, ExecutionStatus, NodeExecutionStatus, Prisma } from "@prisma/client";
 import { createHash, randomBytes } from "node:crypto";
@@ -578,6 +578,7 @@ function leaseExpiry(now: Date) {
 }
 
 async function executeNode(node: WorkflowNode, config: Record<string, unknown>, context: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService): Promise<NodeResult> {
+  if (!isExecutableWorkflowNodeType(node.type)) throw new NodeFailure("NODE_UNAVAILABLE", `${node.type} is not available in this MVP execution engine.`, false);
   if (node.type.startsWith("trigger.")) return { status: "succeeded", output: { received: context.trigger ?? {} }, route: "success" };
   if (node.type === "condition.if") {
     const matches = compare(config.left, String(config.operator ?? "equals"), config.right);
