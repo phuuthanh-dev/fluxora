@@ -3,6 +3,35 @@ import { createHmac } from "node:crypto";
 import test from "node:test";
 import { WebhookService, hashWebhookSecret, matchesWebhookSecret, verifyGitHubWebhookSignature } from "./webhook.service";
 
+test("GitHub registration encrypts its own secret and never stores it in the credential", async () => {
+  let stored: Record<string, unknown> | undefined;
+  const service = new WebhookService({
+    workflow: { findFirst: async () => ({ id: "workflow-1", workspaceId: "workspace-1", publishedVersion: { id: "version-1", graph: { nodes: [{ id: "github", type: "trigger.github.push", position: { x: 0, y: 0 }, config: { event: "push" } }], edges: [] } } }) },
+    webhookEndpoint: { findFirst: async () => null, create: async ({ data }: { data: Record<string, unknown> }) => { stored = data; return { id: "endpoint-1", path: data.path }; } },
+    auditLog: { create: async () => ({}) },
+  } as never, {} as never, {} as never, {} as never, { encrypt: (data: { secret: string }) => `encrypted:${data.secret}` } as never);
+  const result = await service.createEndpoint("workflow-1", "owner-1", "github-push", true);
+  assert.ok(result.secret);
+  assert.equal(stored?.encryptedSigningSecret, `encrypted:${result.secret}`);
+  assert.equal(stored?.secretHash, null);
+});
+
+test("GitHub delivery verifies the registration secret independently from the connector", async () => {
+  const body = Buffer.from('{"ref":"refs/heads/main"}');
+  const signature = `sha256=${createHmac("sha256", "registration-secret").update(body).digest("hex")}`;
+  let credentialReads = 0;
+  const service = new WebhookService({ webhookEndpoint: { findUnique: async () => ({ id: "endpoint-1", isActive: true, encryptedSigningSecret: "ciphertext", workflow: { workspaceId: "workspace-1", isActive: true, archivedAt: null }, workflowVersion: { graph: { nodes: [{ id: "github", type: "trigger.github.push", position: { x: 0, y: 0 }, config: { event: "push" } }], edges: [] } }, workflowVersionId: "version-1" }) } } as never,
+    { createScheduledExecution: async () => ({ id: "execution-1" }) } as never,
+    { dispatch: async () => undefined } as never,
+    { readForExecution: async () => { credentialReads++; return {}; } } as never,
+    { decrypt: () => ({ secret: "registration-secret" }) } as never);
+  assert.deepEqual(await service.receive("github-push", undefined, JSON.parse(body.toString()), undefined, { githubEvent: "push", githubSignature: signature, rawBody: body }), { executionId: "execution-1" });
+  assert.equal(credentialReads, 0);
+  const wrongSignature = `sha256=${createHmac("sha256", "legacy-secret").update(body).digest("hex")}`;
+  await assert.rejects(() => service.receive("github-push", undefined, JSON.parse(body.toString()), undefined, { githubEvent: "push", githubSignature: wrongSignature, rawBody: body }));
+  assert.equal(credentialReads, 0, "an invalid registration signature must not fall back to the legacy credential");
+});
+
 test("webhook secret hashes cannot be used as the original secret and only the correct secret matches", () => {
   const secret = "a-random-webhook-secret";
   const hash = hashWebhookSecret(secret);

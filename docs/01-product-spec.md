@@ -105,6 +105,11 @@ repositories/files/spaces, and a hybrid expression field for values produced
 at runtime. Resource pickers return metadata only and persist stable provider
 identifiers; credentials and provider tokens remain server-side.
 
+GitHub webhook registrations have a per-workflow signing secret independent of
+the reusable API connection. The secret is shown once at creation or rotation;
+rotating an existing registration requires updating GitHub. Existing endpoints
+continue accepting their legacy connection secret until rotated.
+
 ## 7. Executions
 
 Each execution stores its pinned workflow version and has these states:

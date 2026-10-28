@@ -12,6 +12,6 @@ import { GitHubResourceService } from "./github-resource.service";
   imports: [AuthModule, WorkspaceModule],
   controllers: [CredentialController, GoogleOAuthController, GitHubResourceController],
   providers: [CredentialService, CredentialVaultService, GitHubResourceService],
-  exports: [CredentialService],
+  exports: [CredentialService, CredentialVaultService],
 })
 export class CredentialModule {}

@@ -5,6 +5,7 @@ import { ExecutionQueueService } from "../execution/execution-queue.service";
 import { ExecutionService } from "../execution/execution.service";
 import { CredentialProvider } from "@prisma/client";
 import { CredentialService } from "../credentials/credential.service";
+import { CredentialVaultService } from "../credentials/credential-vault.service";
 import { parseWorkflowGraph } from "../workflows/workflow-graph";
 
 @Injectable()
@@ -14,12 +15,13 @@ export class WebhookService {
     @Inject(ExecutionService) private readonly executions: ExecutionService,
     @Inject(ExecutionQueueService) private readonly queue: ExecutionQueueService,
     @Inject(CredentialService) private readonly credentials: CredentialService,
+    @Inject(CredentialVaultService) private readonly vault: CredentialVaultService = new CredentialVaultService(),
   ) {}
 
   async getEndpoint(workflowId: string, userId: string) {
     const workflow = await this.findOwned(workflowId, userId);
     const endpoint = await this.prisma.webhookEndpoint.findFirst({ where: { workflowId: workflow.id } });
-    return endpoint ? { id: endpoint.id, path: endpoint.path, secretRequired: Boolean(endpoint.secretHash), workflowVersionId: endpoint.workflowVersionId, createdAt: endpoint.createdAt, updatedAt: endpoint.updatedAt } : null;
+    return endpoint ? { id: endpoint.id, path: endpoint.path, secretRequired: Boolean(endpoint.secretHash || endpoint.encryptedSigningSecret), signingMode: endpoint.encryptedSigningSecret ? "registration" : "legacy", workflowVersionId: endpoint.workflowVersionId, createdAt: endpoint.createdAt, updatedAt: endpoint.updatedAt } : null;
   }
 
   async createEndpoint(workflowId: string, userId: string, path: string, secretRequired: boolean) {
@@ -32,12 +34,12 @@ export class WebhookService {
     }
     const conflictingEndpoint = await this.prisma.webhookEndpoint.findFirst({ where: { path, NOT: { workflowId } } });
     if (conflictingEndpoint) throw new ConflictException({ code: "WEBHOOK_PATH_IN_USE", message: "This webhook path is already in use by another workflow." });
-    if (githubTrigger) await this.requireGitHubWebhookSecret(workflow.workspaceId, githubTrigger.config);
-    const secret = githubTrigger ? null : secretRequired ? randomBytes(24).toString("base64url") : null;
+    const secret = githubTrigger || secretRequired ? randomBytes(24).toString("base64url") : null;
+    const encryptedSigningSecret = githubTrigger && secret ? this.vault.encrypt({ secret }) : null;
     const existing = await this.prisma.webhookEndpoint.findFirst({ where: { workflowId } });
     const endpoint = existing
-      ? await this.prisma.webhookEndpoint.update({ where: { id: existing.id }, data: { path, secretHash: secret ? hashWebhookSecret(secret) : null, workflowVersionId: workflow.publishedVersion.id, isActive: true } })
-      : await this.prisma.webhookEndpoint.create({ data: { workflowId, workflowVersionId: workflow.publishedVersion.id, path, secretHash: secret ? hashWebhookSecret(secret) : null } });
+      ? await this.prisma.webhookEndpoint.update({ where: { id: existing.id }, data: { path, secretHash: !githubTrigger && secret ? hashWebhookSecret(secret) : null, encryptedSigningSecret, workflowVersionId: workflow.publishedVersion.id, isActive: true } })
+      : await this.prisma.webhookEndpoint.create({ data: { workflowId, workflowVersionId: workflow.publishedVersion.id, path, secretHash: !githubTrigger && secret ? hashWebhookSecret(secret) : null, encryptedSigningSecret } });
     await this.prisma.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "webhook.created", targetType: "webhook", targetId: endpoint.id, metadata: { path, secretRequired: Boolean(secretRequired) || Boolean(githubTrigger) } } });
     return { id: endpoint.id, path: endpoint.path, secret };
   }
@@ -57,7 +59,7 @@ export class WebhookService {
     const graph = parseWorkflowGraph(endpoint.workflowVersion.graph);
     const githubTrigger = githubWebhookTrigger(graph);
     if (githubTrigger) {
-      await this.verifyGitHubWebhook(endpoint.workflow.workspaceId, githubTrigger.config, payload, githubEventHeaders);
+      await this.verifyGitHubWebhook(endpoint.workflow.workspaceId, githubTrigger.config, payload, githubEventHeaders, endpoint.encryptedSigningSecret);
     } else if (endpoint.secretHash && (!secret || !matchesWebhookSecret(secret, endpoint.secretHash))) {
       throw new ForbiddenException({ code: "WEBHOOK_SECRET_INVALID", message: "Webhook secret is invalid." });
     }
@@ -70,14 +72,7 @@ export class WebhookService {
     return { executionId: execution.id };
   }
 
-  private async requireGitHubWebhookSecret(workspaceId: string, config: Record<string, unknown>) {
-    const credentialId = readCredentialId(config);
-    if (!credentialId) throw new BadRequestException({ code: "GITHUB_WEBHOOK_CREDENTIAL_REQUIRED", message: "Select a GitHub connector credential with a webhook secret." });
-    const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.GITHUB);
-    if (!readSecret(credential.webhookSecret)) throw new BadRequestException({ code: "GITHUB_WEBHOOK_SECRET_REQUIRED", message: "Add webhookSecret to the selected GitHub connector credential before creating the endpoint." });
-  }
-
-  private async verifyGitHubWebhook(workspaceId: string, config: Record<string, unknown>, payload: unknown, headers: GitHubEventHeaders) {
+  private async verifyGitHubWebhook(workspaceId: string, config: Record<string, unknown>, payload: unknown, headers: GitHubEventHeaders, encryptedSigningSecret: string | null) {
     const credentialId = readCredentialId(config);
     const eventName = readString(config.event) ?? "issues";
     const action = readString(config.action) ?? (eventName === "issues" || eventName === "pull_request" ? "opened" : null);
@@ -89,11 +84,11 @@ export class WebhookService {
     if (repositoryFilter && repositoryName !== repositoryFilter) {
       throw new ForbiddenException({ code: "GITHUB_REPOSITORY_NOT_MATCHED", message: "The GitHub webhook repository does not match this trigger." });
     }
-    if (!credentialId || !headers.rawBody || !headers.githubSignature) {
+    if (!headers.rawBody || !headers.githubSignature) {
       throw new ForbiddenException({ code: "GITHUB_WEBHOOK_SIGNATURE_INVALID", message: "The GitHub webhook signature is invalid." });
     }
-    const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.GITHUB);
-    const webhookSecret = readSecret(credential.webhookSecret);
+    const credential = !encryptedSigningSecret && credentialId ? await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.GITHUB) : null;
+    const webhookSecret = encryptedSigningSecret ? readSecret(this.vault.decrypt(encryptedSigningSecret).secret) : readSecret(credential?.webhookSecret);
     if (!webhookSecret || !verifyGitHubWebhookSignature(headers.rawBody, headers.githubSignature, webhookSecret)) {
       throw new ForbiddenException({ code: "GITHUB_WEBHOOK_SIGNATURE_INVALID", message: "The GitHub webhook signature is invalid." });
     }

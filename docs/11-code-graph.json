@@ -655,6 +655,7 @@
       "id": "apps/api/src/webhooks/webhook.service.ts",
       "boundary": "api",
       "internalImports": [
+        "apps/api/src/credentials/credential-vault.service.ts",
         "apps/api/src/credentials/credential.service.ts",
         "apps/api/src/database/prisma.service.ts",
         "apps/api/src/execution/execution-queue.service.ts",
@@ -1814,6 +1815,10 @@
     {
       "from": "apps/api/src/webhooks/webhook.module.ts",
       "to": "apps/api/src/webhooks/webhook.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.service.ts",
+      "to": "apps/api/src/credentials/credential-vault.service.ts"
     },
     {
       "from": "apps/api/src/webhooks/webhook.service.ts",

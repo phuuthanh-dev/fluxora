@@ -473,6 +473,16 @@ test("update rotates secret payload, encrypts data, and records redacted audit l
   assert.doesNotMatch(JSON.stringify(auditLogs[0]), /secret-token-123/);
 });
 
+test("GitHub token rotation preserves a legacy webhook secret when omitted", async () => {
+  let replacement: Record<string, unknown> | undefined;
+  const existing = { id: "cred-1", workspaceId: "ws-1", provider: "GITHUB", label: "GitHub", encryptedData: "encrypted", createdAt: new Date(), updatedAt: new Date() };
+  const prisma = { credential: { findFirst: async () => existing, update: async () => existing }, auditLog: { create: async () => undefined } } as unknown as PrismaService;
+  const vault = { decrypt: () => ({ token: "old-token", webhookSecret: "legacy-secret" }), encrypt: (value: Record<string, unknown>) => { replacement = value; return "new-encrypted"; } } as never;
+  const service = new CredentialService(prisma, { requireOwner: async () => undefined } as never, vault);
+  await service.update("ws-1", "cred-1", "user-1", { data: { token: "new-token" } });
+  assert.deepEqual(replacement, { token: "new-token", webhookSecret: "legacy-secret" });
+});
+
 test("update TELEGRAM_BOT preserves existing legacy chatId when replacement payload omits chatId", async () => {
   const updatedRecords: Array<{ encryptedData?: string }> = [];
   const existing = {

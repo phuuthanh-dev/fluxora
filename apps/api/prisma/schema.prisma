@@ -244,6 +244,7 @@ model WebhookEndpoint {
   workflowVersionId String
   path         String   @unique
   secretHash   String?
+  encryptedSigningSecret String?
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
