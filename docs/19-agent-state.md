@@ -96,6 +96,11 @@ resource-picker foundation.
   Session expiry and sign-out route to `/login`; source/template assets were
   not imported into this public repository. Focused browser coverage, desktop
   and mobile visual review, and the full quality gate passed.
+- `LANDING-ANIMATION-1` — The public landing now has bounded Motion polish and
+  two client-only React Three Fiber islands. Both unmount when off-screen or
+  hidden, reduce-motion and no-WebGL paths stay semantic HTML/CSS, and no
+  authenticated product surface imports the animation stack. Focused fallback
+  Playwright, desktop/mobile visual review, and the full quality gate passed.
 
 ## Non-negotiable loop
 

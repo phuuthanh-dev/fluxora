@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ArrowRight, Check, CirclePlay, Clock3, GitBranch, LockKeyhole, MessageSquareText, Workflow } from "lucide-react";
 import { FluxoraMark } from "../../components/brand/fluxora-mark";
+import { LandingMotionProvider, LandingReveal } from "./landing-motion";
+import { LandingHeroVisual, LandingLifecycleVisual } from "./landing-scenes";
 
 const workflowSteps = [
   { icon: <Clock3 size={16} />, label: "Schedule", detail: "Every weekday · 08:00", tone: "lime" },
@@ -31,6 +33,7 @@ const principles = [
 
 export function LandingPage() {
   return (
+    <LandingMotionProvider>
     <main className="landing-page">
       <div className="landing-grid" aria-hidden="true" />
       <header className="landing-nav">
@@ -47,7 +50,7 @@ export function LandingPage() {
       </header>
 
       <section className="landing-hero" id="top" aria-labelledby="landing-heading">
-        <div className="landing-hero__copy">
+        <LandingReveal className="landing-hero__copy">
           <p className="landing-kicker"><span /> WORKFLOW AUTOMATION, MADE LEGIBLE</p>
           <h1 id="landing-heading">Build the work that <em>keeps moving.</em></h1>
           <p className="landing-hero__lead">Fluxora turns repeatable tasks into visual workflows you can inspect, test, and run with confidence.</p>
@@ -56,9 +59,9 @@ export function LandingPage() {
             <a className="landing-button landing-button--quiet" href="#workflow">See a real flow <span aria-hidden="true">↓</span></a>
           </div>
           <div className="landing-hero__note"><Check size={15} /> Draft safely. Publish deliberately. Run live only when you are ready.</div>
-        </div>
+        </LandingReveal>
 
-        <div className="landing-workflow-window" aria-label="A sample automated daily report workflow">
+        <LandingReveal className="landing-workflow-window" delay={0.12} ariaLabel="A sample automated daily report workflow">
           <div className="landing-workflow-window__topbar">
             <span className="landing-workflow-window__pulse" />
             <span>steam-daily-report.fluxora</span>
@@ -66,6 +69,7 @@ export function LandingPage() {
           </div>
           <div className="landing-workflow-window__canvas">
             <span className="landing-stream" aria-hidden="true" />
+            <LandingHeroVisual />
             <div className="landing-workflow-window__run"><span /> Scheduled run succeeded <time>08:00:04</time></div>
             <div className="landing-workflow-window__nodes">
               {workflowSteps.map((step, index) => <div className={`landing-workflow-node landing-workflow-node--${step.tone}`} key={step.label}>
@@ -77,7 +81,7 @@ export function LandingPage() {
             </div>
             <div className="landing-workflow-window__footer"><span>3 nodes</span><span>0 retries</span><span>5.3 s total</span></div>
           </div>
-        </div>
+        </LandingReveal>
       </section>
 
       <section className="landing-marquee" aria-label="Fluxora capabilities">
@@ -85,22 +89,22 @@ export function LandingPage() {
       </section>
 
       <section className="landing-principles" id="how-it-works" aria-labelledby="principles-heading">
-        <div className="landing-section-heading">
+        <LandingReveal className="landing-section-heading">
           <p className="landing-kicker"><span /> A CLEARER AUTOMATION LOOP</p>
           <h2 id="principles-heading">The automation should never become the mystery.</h2>
-        </div>
+        </LandingReveal>
         <div className="landing-principles__grid">
-          {principles.map((principle, index) => <article className="landing-principle" key={principle.title}>
+          {principles.map((principle, index) => <LandingReveal as="article" className="landing-principle" delay={index * 0.07} key={principle.title}>
             <div className="landing-principle__top"><span>0{index + 1}</span><i>{principle.icon}</i></div>
             <p>{principle.eyebrow}</p>
             <h3>{principle.title}</h3>
             <span>{principle.description}</span>
-          </article>)}
+          </LandingReveal>)}
         </div>
       </section>
 
       <section className="landing-control" id="control" aria-labelledby="control-heading">
-        <div className="landing-control__copy">
+        <LandingReveal className="landing-control__copy">
           <p className="landing-kicker"><span /> ONE CONTROL PLANE</p>
           <h2 id="control-heading">From first idea to an accountable run.</h2>
           <p>Fluxora separates the work you are designing from the version you publish. That gives you a safe place to experiment without losing track of what actually ran.</p>
@@ -109,8 +113,9 @@ export function LandingPage() {
             <li><Check size={16} /> Confirm live side effects against a published workflow version.</li>
             <li><Check size={16} /> Trace every node through an execution timeline.</li>
           </ul>
-        </div>
-        <div className="landing-control__panel" aria-label="Workflow lifecycle">
+        </LandingReveal>
+        <LandingReveal className="landing-control__panel" delay={0.1} ariaLabel="Workflow lifecycle">
+          <LandingLifecycleVisual />
           <p>WORKFLOW LIFECYCLE</p>
           <ol>
             <li><span>01</span><div><strong>Design draft</strong><small>Configure nodes and connections.</small></div><em>Editable</em></li>
@@ -118,20 +123,20 @@ export function LandingPage() {
             <li><span>03</span><div><strong>Publish version</strong><small>Freeze an intentional graph.</small></div><em>Immutable</em></li>
             <li><span>04</span><div><strong>Run live</strong><small>Confirm the real-world effect.</small></div><em>Guarded</em></li>
           </ol>
-        </div>
+        </LandingReveal>
       </section>
 
       <section className="landing-example" id="workflow" aria-labelledby="example-heading">
-        <div className="landing-example__label"><span>EXAMPLE / 01</span><span>PERSONAL AUTOMATION</span></div>
-        <div className="landing-example__content">
+        <LandingReveal className="landing-example__label"><span>EXAMPLE / 01</span><span>PERSONAL AUTOMATION</span></LandingReveal>
+        <LandingReveal className="landing-example__content" delay={0.07}>
           <h2 id="example-heading">A daily report that does not need chasing.</h2>
           <p>Schedule a Steam account snapshot, shape the result with conditions, then deliver the useful part to Google Chat, Discord, Telegram, or email.</p>
           <Link className="landing-text-link" href="/login">Build this workflow <ArrowRight size={16} /></Link>
-        </div>
-        <div className="landing-example__meter" aria-label="Example workflow success rate">
+        </LandingReveal>
+        <LandingReveal className="landing-example__meter" delay={0.14} ariaLabel="Example workflow success rate">
           <div><span>LAST 30 DAYS</span><strong>98.7%</strong><small>successful runs</small></div>
           <div className="landing-example__bars" aria-hidden="true"><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /></div>
-        </div>
+        </LandingReveal>
       </section>
 
       <section className="landing-cta" aria-labelledby="cta-heading">
@@ -148,5 +153,6 @@ export function LandingPage() {
         <Link href="/login">Sign in</Link>
       </footer>
     </main>
+    </LandingMotionProvider>
   );
 }

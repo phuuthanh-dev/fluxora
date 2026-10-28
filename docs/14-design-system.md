@@ -113,6 +113,27 @@ migrated incrementally without changing component APIs.
    at least 4.5:1 for readable text and 3:1 for non-text UI/icons in both
    themes. Disabled controls may be de-emphasized, but must retain a clear
    disabled affordance. Do not communicate state by color alone.
+
+## Public landing motion and WebGL
+
+Motion and WebGL are progressive decoration for the public marketing route
+only. They must never gate copy, navigation, calls to action, or product
+status. The authenticated dashboard, editor, Connections, Executions, and
+authentication screens remain HTML/CSS application surfaces.
+
+- Use `MotionConfig reducedMotion="user"` and keep the server-rendered state
+  readable before client hydration. Do not begin an information-bearing region
+  at zero opacity, translated off-screen, or blurred.
+- Three.js scenes live in client-only landing feature islands. Semantic HTML
+  and CSS are the fallback when WebGL is unavailable, JavaScript fails, or
+  reduced motion is requested.
+- Mount a scene only while it is near the viewport and the document is visible;
+  unmount it otherwise so its render loop and GPU resources are released.
+- Cap the canvas DPR at 1.5, keep geometry/draw calls bounded, and do not add
+  post-processing, controls, remote models, texture downloads, or autoplay
+  video without a measured product need and an updated performance budget.
+- Never use a canvas as the only indicator of a live status, execution result,
+  or interaction. Every state remains textual and keyboard-accessible.
 11. **Theme parity:** every new surface must be readable in both
     `data-theme="light"` and `data-theme="dark"`; do not use a hard-coded white
     or black background for product UI.

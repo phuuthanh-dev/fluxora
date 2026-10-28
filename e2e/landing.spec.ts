@@ -22,4 +22,20 @@ test("landing remains readable without decorative motion", async ({ page }) => {
   await expect(page.locator(".landing-page")).toHaveCSS("background-color", "rgb(5, 7, 6)");
   await expect(page.getByText("Draft safely. Publish deliberately. Run live only when you are ready.")).toBeVisible();
   await expect(page.locator(".landing-workflow-window")).toHaveCSS("transform", "none");
+  await expect(page.locator(".landing-scene canvas")).toHaveCount(0);
+});
+
+test("landing falls back to its semantic layout when WebGL is unavailable", async ({ page }) => {
+  await page.addInitScript(() => {
+    const originalGetContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function patchedGetContext(contextId, ...args) {
+      if (contextId === "webgl" || contextId === "webgl2") return null;
+      return originalGetContext.call(this, contextId, ...args);
+    };
+  });
+  await page.goto("/");
+
+  await expect(page.getByRole("heading", { name: "Build the work that keeps moving." })).toBeVisible();
+  await expect(page.locator(".landing-scene--hero")).toHaveAttribute("data-scene-state", "fallback");
+  await expect(page.locator(".landing-scene canvas")).toHaveCount(0);
 });
