@@ -26,6 +26,7 @@ export function ResourcePicker({ workspaceId, resource, credentialId, label, val
 }) {
   const [resources, setResources] = useState<ResourceOption[]>([]);
   const [query, setQuery] = useState("");
+  const [owner, setOwner] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState<string>("");
@@ -36,6 +37,7 @@ export function ResourcePicker({ workspaceId, resource, credentialId, label, val
   useEffect(() => {
     setResources([]);
     setQuery("");
+    setOwner("");
     setNextPage(null);
     setPage("");
   }, [credentialId, resource, workspaceId]);
@@ -67,22 +69,26 @@ export function ResourcePicker({ workspaceId, resource, credentialId, label, val
     return () => { isCurrent = false; };
   }, [credentialId, resource, workspaceId, page, retry]);
 
+  const owners = useMemo(() => [...new Set(resources.map((item) => item.value.split("/")[0]).filter((item): item is string => Boolean(item)))].sort((a, b) => a.localeCompare(b)), [resources]);
   const filteredResources = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    return normalized ? resources.filter((item) => item.label.toLowerCase().includes(normalized) || item.value.toLowerCase().includes(normalized)) : resources;
-  }, [query, resources]);
+    return resources.filter((item) => (!owner || item.value.split("/")[0] === owner) && (!normalized || item.label.toLowerCase().includes(normalized) || item.value.toLowerCase().includes(normalized)));
+  }, [query, resources, owner]);
   const selectedNotShown = Boolean(value) && !filteredResources.some((item) => item.value === value);
+  const selectedNotLoaded = Boolean(value) && !resources.some((item) => item.value === value);
 
   return (
     <div role="group" aria-label={label} className="config-field resource-picker">
       <span className="ui-field__label">{label}</span>
       {manual ? <><input value={value} onChange={(event) => onChange(event.target.value)} aria-label={`${label} value`} placeholder={resource === "github-repository" ? (allowExpression ? "owner/repository or expression" : "owner/repository") : "File ID or expression"} /><small>{allowExpression ? "Use a value from the provider or a previous step." : "Enter the exact provider value."}</small></> : !credentialId ? <small>Select a compatible credential first.</small> : <>
+        {resource === "github-repository" && owners.length > 0 && <><Select aria-label={`${label} owner`} value={owner} onChange={(event) => setOwner(event.target.value)}><option value="">All loaded owners</option>{owners.map((item) => <option key={item} value={item}>{item}</option>)}</Select><small>Owners and search cover loaded repositories only. Listing a repository does not guarantee permission for an action.</small></>}
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={placeholder} aria-label={`${label} search`} />
         <Select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} disabled={(loading && !page) || (Boolean(error) && !resources.length)}>
           <option value="">{loading ? "Loading…" : `Select ${resourceLabels[resource]}`}</option>
-          {selectedNotShown && <option value={value}>{value} · current value</option>}
+          {selectedNotShown && <option value={value}>{value} · {selectedNotLoaded ? "not in loaded results" : "hidden by filter"}</option>}
           {filteredResources.map((item) => <option key={item.id} value={item.value}>{item.label}</option>)}
         </Select>
+        {resource === "github-repository" && selectedNotLoaded && <small>Saved value is not in loaded results; access has not been verified.</small>}
         {error && <><small role="alert">{error}</small><Button type="button" variant="ghost" onClick={() => setRetry((current) => current + 1)}>Retry</Button></>}
         {!loading && !error && !resources.length && <small>No {resourcePlurals[resource]} found for this connection.</small>}
         {!loading && !error && resources.length > 0 && <small>{filteredResources.length} of {resources.length} loaded {resourcePlurals[resource]} match{nextPage ? "; more are available" : ""}.</small>}

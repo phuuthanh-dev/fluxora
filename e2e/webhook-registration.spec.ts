@@ -200,7 +200,7 @@ test("GitHub repository picker loads more pages and keeps the chosen value", asy
     if (url.pathname.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
     if (url.pathname.endsWith("/credentials")) return send({ credentials: [{ id: "credential-1", provider: "GITHUB", label: "GitHub" }] });
     if (url.pathname.endsWith("/github/repositories")) {
-      return url.searchParams.get("page") === "2" ? send({ repositories: [{ id: 2, fullName: "owner/second", private: false }], nextPage: null }) : send({ repositories: [{ id: 1, fullName: "owner/first", private: false }], nextPage: 2 });
+      return url.searchParams.get("page") === "2" ? send({ repositories: [{ id: 2, fullName: "other/second", private: false }], nextPage: null }) : send({ repositories: [{ id: 1, fullName: "owner/first", private: false }], nextPage: 2 });
     }
     if (url.pathname.endsWith("/workflows/workflow-2")) return send({ workflow });
     return route.continue();
@@ -215,11 +215,19 @@ test("GitHub repository picker loads more pages and keeps the chosen value", asy
   expect(selectBox!.y - (searchBox!.y + searchBox!.height)).toBeGreaterThanOrEqual(6);
   await expect(picker.getByRole("button", { name: "Load more repositories" })).toBeVisible();
   await picker.getByRole("button", { name: "Load more repositories" }).click();
-  await picker.getByLabel("Repository", { exact: true }).selectOption("owner/second");
+  await picker.getByLabel("Repository", { exact: true }).selectOption("other/second");
+  await picker.getByLabel("Repository owner").selectOption("owner");
+  await expect(picker.getByLabel("Repository", { exact: true })).toHaveValue("other/second");
+  await expect(picker.getByRole("option", { name: /other\/second · hidden by filter/ })).toHaveCount(1);
+  await expect(picker.getByText(/Owners and search cover loaded repositories only/)).toBeVisible();
   await picker.getByLabel("Repository search").fill("first");
-  await expect(picker.getByLabel("Repository", { exact: true })).toHaveValue("owner/second");
+  await expect(picker.getByLabel("Repository", { exact: true })).toHaveValue("other/second");
   await picker.getByRole("button", { name: "Enter value or expression" }).click();
-  await expect(picker.getByLabel("Repository value")).toHaveValue("owner/second");
+  await expect(picker.getByLabel("Repository value")).toHaveValue("other/second");
+  await picker.getByLabel("Repository value").fill("outside/manual");
+  await picker.getByRole("button", { name: "Choose from list" }).click();
+  await expect(picker.getByLabel("Repository", { exact: true })).toHaveValue("outside/manual");
+  await expect(picker.getByText("Saved value is not in loaded results; access has not been verified.")).toBeVisible();
 });
 
 test("Google Sheets picker selects a spreadsheet and supports manual input", async ({ page }) => {

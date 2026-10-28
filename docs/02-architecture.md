@@ -150,3 +150,7 @@ The MVP pins Prisma ORM 6.12.0 because the local Node 23 runtime is outside Pris
 - Webhook trigger inspectors link directly to the existing endpoint setup
   panel. This improves discoverability but does not automate GitHub webhook
   creation: an owner still configures the repository webhook manually.
+- GitHub repository pickers can filter the currently loaded pages by owner;
+  this is a convenience filter, not a security boundary or a global search.
+  A stored value outside loaded results remains selectable but is labeled as
+  unverified. GitHub remains authoritative for operation-specific permissions.
