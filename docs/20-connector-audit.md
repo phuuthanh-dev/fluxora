@@ -29,6 +29,15 @@ the browser as secret payloads. A provider-specific node may use a shared
 backend adapter, but the UI should not collapse unrelated provider operations
 into one generic notification or “do everything” node.
 
+Runtime capability is now an explicit shared contract: `workflowNodeTypes`
+continues to include schema-only roadmap nodes for graph compatibility, while
+`executableWorkflowNodeTypes` is the allow-list for current dispatch. The web
+catalog parity test requires its available definitions to match that allow-list
+exactly, and the execution boundary rejects a known-but-schema-only node before
+provider dispatch. This keeps enabling a future app a deliberate vertical slice
+across contract, catalog, fields, readiness, executor, and tests rather than a
+single UI flag.
+
 This matches the external products reviewed for this audit:
 
 - n8n documents app nodes as collections of operations, with separate

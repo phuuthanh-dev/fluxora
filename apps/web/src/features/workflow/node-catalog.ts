@@ -686,6 +686,10 @@ export function getNodeDefinition(type: string) {
   return nodeCatalog.find((definition) => definition.type === type);
 }
 
+export function availableCatalogTypes() {
+  return nodeCatalog.filter((definition) => definition.available).map((definition) => definition.type);
+}
+
 export function createNodeData(definition: NodeDefinition): WorkflowNodeData {
   return {
     nodeType: definition.type,

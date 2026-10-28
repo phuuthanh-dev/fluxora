@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createNodeData, getNodeDefinition, initialEdges, initialNodes, nodeCatalog } from "./node-catalog";
+import { executableWorkflowNodeTypes, isExecutableWorkflowNodeType } from "@workflow/contracts";
+import { availableCatalogTypes, createNodeData, getNodeDefinition, initialEdges, initialNodes, nodeCatalog } from "./node-catalog";
 import { parseWorkflowCanvasGraph } from "./workflow-graph-schema";
 
 test("accepts a valid exported workflow graph", () => {
@@ -97,4 +98,11 @@ test("Google connector fields follow operation-specific runtime contracts", () =
   const sheets = getNodeDefinition("action.google-sheets");
   assert.ok(sheets);
   assert.equal(sheets.configurationFields?.find((field) => field.key === "values")?.kind, "table");
+});
+
+test("executable node capabilities stay aligned with the UI catalog", () => {
+  const sortTypes = (types: readonly string[]) => [...types].sort();
+  assert.deepEqual(sortTypes(availableCatalogTypes()), sortTypes(executableWorkflowNodeTypes));
+  assert.equal(nodeCatalog.filter((definition) => definition.available).length, executableWorkflowNodeTypes.length);
+  assert.ok(nodeCatalog.filter((definition) => !definition.available).every((definition) => !isExecutableWorkflowNodeType(definition.type)));
 });
