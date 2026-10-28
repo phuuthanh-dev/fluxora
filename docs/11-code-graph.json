@@ -707,7 +707,22 @@
         "apps/api/src/webhooks/github-webhook-adapter.ts",
         "apps/api/src/webhooks/github-webhook-create.ts",
         "apps/api/src/webhooks/github-webhook-delete.ts",
+        "apps/api/src/webhooks/github-webhook-reconcile.ts",
         "apps/api/src/webhooks/github-webhook-reservation.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/github-webhook-reconcile.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/webhooks/github-webhook-adapter.ts",
+        "apps/api/src/webhooks/provider-webhook-state.ts"
       ],
       "externalImports": [
         "@nestjs/common",
@@ -2024,7 +2039,27 @@
     },
     {
       "from": "apps/api/src/webhooks/github-webhook-management.service.ts",
+      "to": "apps/api/src/webhooks/github-webhook-reconcile.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-management.service.ts",
       "to": "apps/api/src/webhooks/github-webhook-reservation.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-reconcile.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-reconcile.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-reconcile.ts",
+      "to": "apps/api/src/webhooks/github-webhook-adapter.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/github-webhook-reconcile.ts",
+      "to": "apps/api/src/webhooks/provider-webhook-state.ts"
     },
     {
       "from": "apps/api/src/webhooks/github-webhook-reservation.ts",

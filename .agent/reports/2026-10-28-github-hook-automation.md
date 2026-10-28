@@ -33,3 +33,21 @@ The internal delete dispatcher uses only the stored provider identity and atomic
 Inspection and deletion are separate GitHub requests: external edits can occur between them, and GitHub does not expose the signing secret for verification. The internal dispatcher is not routed; disabled or externally changed hooks require a recovery path. Restart recovery, API/UI, credential/version lifecycle and provider qualification remain incomplete.
 
 The recovery service is registered but remains disabled unless `GITHUB_WEBHOOK_AUTOMATION_ENABLED=true`; it must only be enabled after the migration and managed lifecycle are ready. It scans at most 100 stale create and 100 stale delete operations per interval, rechecks state and timestamp when updating, and marks them uncertain without contacting GitHub. Its five-minute stale window exceeds the provider adapter's request timeout. Operations still in CREATING before dispatch are not automatically resumed. A local isolated PostgreSQL check confirmed an expired dispatch becomes uncertain once; `npm run verify` passed 191 API and 38 Playwright tests. No production DB or provider was modified.
+
+## Current local completion note
+
+The managed lifecycle now has a safe reconciliation path. It accepts only the
+remote hook identity already recorded by Fluxora; it never discovers or claims
+an unknown GitHub webhook by URL. A matching active hook can restore a
+`DELETE_UNCERTAIN` registration to `ACTIVE`. Drift, an ambiguous inspection
+response, and a `CREATE_UNCERTAIN` registration without a remote identity
+remain explicit manual-reconciliation outcomes and do not trigger a remote
+mutation. The owner-scoped route and editor action return only bounded status
+and outcome text, with no token, signing secret, callback URL or remote hook
+ID.
+
+Focused proof passed: API 202/202 and webhook-registration browser E2E 9/9.
+The final `npm run verify` also passed: API 202/202, web 22/22, and
+Playwright 40/40, together with typecheck, production build,
+deployment/release/security checks, and code-graph freshness. All provider
+calls were mocked; no live GitHub request or deployment was performed.

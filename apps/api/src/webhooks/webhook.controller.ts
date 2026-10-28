@@ -47,6 +47,13 @@ export class WebhookController {
     return { providerWebhook: await this.requireGitHubHooks().remove(workflowId, userId(request)) };
   }
 
+  @Post("workflows/:workflowId/provider-webhook/reconcile")
+  @Header("Cache-Control", "no-store")
+  @UseGuards(AuthenticationGuard)
+  async providerReconcile(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return { providerWebhook: await this.requireGitHubHooks().reconcile(workflowId, userId(request)) };
+  }
+
   @Post("webhooks/:path")
   async receive(@Param("path") path: string, @Headers("x-workflow-secret") secret: string | undefined, @Headers("x-github-event") githubEvent: string | undefined, @Headers("x-hub-signature-256") githubSignature: string | undefined, @Headers("idempotency-key") idempotencyKey: string | undefined, @RawBody() rawBody: Buffer | undefined, @Req() request: AuthenticatedRequest, @Headers("x-github-delivery") githubDelivery?: string) {
     return this.webhooks.receive(path, secret, request.body, readIdempotencyKey(idempotencyKey), { githubEvent, githubSignature, githubDelivery: readIdempotencyKey(githubDelivery), rawBody });

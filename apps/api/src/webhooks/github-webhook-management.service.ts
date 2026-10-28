@@ -5,6 +5,7 @@ import { CredentialVaultService } from "../credentials/credential-vault.service"
 import { GitHubWebhookAdapter } from "./github-webhook-adapter";
 import { dispatchGitHubWebhookCreate } from "./github-webhook-create";
 import { dispatchGitHubWebhookDelete } from "./github-webhook-delete";
+import { reconcileGitHubWebhook } from "./github-webhook-reconcile";
 import { reserveGitHubWebhook } from "./github-webhook-reservation";
 import { ProviderWebhookState } from "@prisma/client";
 
@@ -66,6 +67,14 @@ export class GitHubWebhookManagementService {
     if (record.registration.state !== ProviderWebhookState.ACTIVE) throw new ConflictException({ code: "PROVIDER_WEBHOOK_REQUIRES_RECONCILIATION", message: "Reconcile the recorded GitHub webhook state before removing it." });
     const result = await dispatchGitHubWebhookDelete(this.prisma, this.credentials, this.adapter, { id: record.registration.id, userId });
     return { ...await this.status(workflowId, userId), operationResult: result.result };
+  }
+
+  async reconcile(workflowId: string, userId: string) {
+    this.requireEnabled();
+    const record = await this.findOwnedRecord(workflowId, userId);
+    if (!record.registration) throw new NotFoundException({ code: "PROVIDER_WEBHOOK_NOT_FOUND", message: "This workflow has no managed GitHub webhook." });
+    const reconciliation = await reconcileGitHubWebhook(this.prisma, this.credentials, this.adapter, { id: record.registration.id, userId });
+    return { ...await this.status(workflowId, userId), reconciliation };
   }
 
   private async findOwnedRecord(workflowId: string, userId: string) {

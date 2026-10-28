@@ -173,8 +173,11 @@ not necessarily absence. Persist enough state to recover safely after crashes,
 competing requests, version changes, and partial updates. Publish, activation,
 deactivation and rotation must not silently break an existing manual endpoint.
 The UI should show the published version, connection status and actionable
-permission errors. Automatic provider registration has not yet been wired to
-activation; do not imply it is available until lifecycle and UI tests pass.
+permission errors. The managed lifecycle and reconciliation action are now
+wired through the owner-scoped service and editor, but remain behind the
+feature flag until production origin, migration and live-provider qualification
+are complete. The UI must not present this as a guarantee that a remote hook
+can always be discovered or repaired.
 Construct callback URLs from an operator-configured public HTTPS API origin,
 never from an untrusted request Host header or client-supplied URL. The adapter
 does not itself establish that an arbitrary URL belongs to this deployment;
@@ -183,8 +186,10 @@ the orchestration must enforce that boundary before any GitHub request.
 The provider adapter can inspect metadata for a previously recorded GitHub hook
 ID and compare URL and events without exposing the provider's URL. An active,
 matching response does not prove the signing secret matches: GitHub does not
-return that secret. This primitive is not ownership discovery or a complete
-reconciliation workflow.
+return that secret. Reconciliation therefore only uses the recorded remote
+identity: a matching active hook can restore an uncertain deletion to `ACTIVE`,
+while drift, an ambiguous provider response, or an unknown identity remains a
+manual boundary and never triggers a claim, create, or delete.
 
 The in-progress provider registration table pins an endpoint, credential and
 workflow version and stores its signing secret encrypted. Atomic state updates
@@ -209,7 +214,7 @@ or failed result persistence leaves dispatching state requiring recovery. The
 owner-scoped management surface composes this dispatcher without exposing
 provider tokens or signing material.
 
-The unfinished delete dispatcher claims the stored provider identity, checks
+The delete dispatcher claims the stored provider identity, checks
 remote URL, event and active status, and never treats an ambiguous DELETE or
 GitHub 404 as confirmed removal. The GitHub inspection and delete are separate
 requests and cannot guarantee the remote hook remains unchanged between them.
@@ -230,9 +235,11 @@ current draft after acquiring the lock and rejects any existing
 provider-managed registration. This prevents a managed remote hook from being
 silently left on an obsolete published version while preserving the existing
 manual endpoint flow. The lifecycle now has an owner-scoped management surface:
-`GET/POST/DELETE /workflows/:workflowId/provider-webhook`. The response contains
-only safe state, repository/event metadata and timestamps; it never returns a
-token, signing secret, callback URL or remote hook ID. The editor shows the
-connection state while keeping manual setup available as a fallback. The
-feature remains disabled by default until reconciliation and live-provider
-qualification are complete.
+`GET/POST/DELETE /workflows/:workflowId/provider-webhook` plus the explicit
+`POST /workflows/:workflowId/provider-webhook/reconcile` action. The response
+contains only safe state, repository/event metadata, timestamps and a bounded
+reconciliation outcome; it never returns a token, signing secret, callback URL
+or remote hook ID. The editor shows the connection state, a recorded-identity
+verification action and keeps manual setup available as a fallback. The feature
+remains disabled by default until production origin, migration and
+live-provider qualification are complete.

@@ -31,6 +31,10 @@ export class ProviderWebhookStateStore {
     return this.update({ id, operationId, state: ProviderWebhookState.DELETING }, { state });
   }
 
+  async restoreDeleteUncertain(id: string, operationId: string): Promise<boolean> {
+    return this.update({ id, operationId, state: ProviderWebhookState.DELETE_UNCERTAIN }, { state: ProviderWebhookState.ACTIVE });
+  }
+
   async recoverExpired(id: string, operationId: string, operation: "create" | "delete", expiredBefore: Date): Promise<boolean> {
     if (!Number.isFinite(expiredBefore.getTime())) throw new Error("A valid expiry time is required");
     const state = operation === "create" ? ProviderWebhookState.CREATE_DISPATCHING : ProviderWebhookState.DELETING;
