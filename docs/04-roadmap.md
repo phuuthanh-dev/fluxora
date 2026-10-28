@@ -30,8 +30,15 @@ phase here may already have a locally verified foundation.
 - Notifications v1: Discord Incoming Webhook and Telegram Bot API action nodes with encrypted credentials and safe expression interpolation.
 - Notification adapters: provider-neutral dispatcher and adapters for Google Chat, Discord, Telegram, and approval webhooks with normalized safe delivery results, Discord embeds/mention-policy, and vault-only Telegram bot tokens.
 - Actual Email sending.
-- OpenAI, Gemini, MongoDB, GitHub nodes.
-- GitHub runtime node and OAuth credential mode.
+- OpenAI, Gemini, MongoDB, and additional GitHub operations.
+- GitHub runtime operations beyond Create Issue; connector credentials remain separate from GitHub account OAuth.
+- GitHub Add Label is the first additional runtime operation; further issue and pull-request operations remain separately qualified slices.
+- GitHub Add Comment is the second additional runtime operation; pull-request operations and triggers remain separately qualified slices.
+- GitHub Merge Pull Request is the first pull-request action; GitHub triggers and other pull-request operations remain separately qualified slices.
+- GitHub Issue opened is the first provider-specific trigger; pull-request, push, and workflow-run triggers remain separately qualified slices.
+- GitHub Pull request opened is the second provider-specific trigger; push and workflow-run triggers remain separately qualified slices.
+- GitHub Push is the third provider-specific trigger; workflow-run triggers remain separately qualified slices.
+- GitHub Workflow run completed is the fourth provider-specific trigger; additional GitHub triggers and operations remain separately qualified slices.
 - Full Google Chat OAuth mode.
 - Workspace members, roles, and credential sharing.
 - Drive upload/download enhancements.

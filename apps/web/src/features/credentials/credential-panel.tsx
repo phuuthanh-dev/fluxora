@@ -43,6 +43,11 @@ const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
     data: '{\n  "botToken": ""\n}',
     hint: "Enter your Telegram Bot API token from @BotFather. Destination Chat ID is configured on the Telegram message node (credential chatId is deprecated).",
   },
+  GITHUB: {
+    label: "GitHub connector",
+    data: '{\n  "token": "",\n  "webhookSecret": ""\n}',
+    hint: "Enter a GitHub token for workflow actions. Add webhookSecret when using the GitHub Issue opened trigger. This connector credential is separate from GitHub account sign-in.",
+  },
 };
 
 type ActiveAction = { credentialId: string; type: "rename" | "rotate" | "delete" };
@@ -112,6 +117,7 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
       HTTP: "HTTP",
       DISCORD_WEBHOOK: "Discord",
       TELEGRAM_BOT: "Telegram",
+      GITHUB: "GitHub",
     };
     setNotice(`${providerLabels[nextProvider] ?? nextProvider} credential template loaded.`);
   };
@@ -302,6 +308,7 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
             <option value="GOOGLE_CHAT_WEBHOOK">Google Chat webhook</option>
             <option value="DISCORD_WEBHOOK">Discord webhook</option>
             <option value="TELEGRAM_BOT">Telegram bot</option>
+            <option value="GITHUB">GitHub connector</option>
             <option value="HTTP">HTTP</option>
           </Select>
         </Field>

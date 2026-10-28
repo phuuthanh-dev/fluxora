@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Headers, Inject, Param, Post, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Controller, Get, Headers, Inject, Param, Post, RawBody, Req, UseGuards } from "@nestjs/common";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
 import { WebhookService } from "./webhook.service";
@@ -23,8 +23,8 @@ export class WebhookController {
   }
 
   @Post("webhooks/:path")
-  async receive(@Param("path") path: string, @Headers("x-workflow-secret") secret: string | undefined, @Headers("idempotency-key") idempotencyKey: string | undefined, @Req() request: AuthenticatedRequest) {
-    return this.webhooks.receive(path, secret, request.body, readIdempotencyKey(idempotencyKey));
+  async receive(@Param("path") path: string, @Headers("x-workflow-secret") secret: string | undefined, @Headers("x-github-event") githubEvent: string | undefined, @Headers("x-hub-signature-256") githubSignature: string | undefined, @Headers("idempotency-key") idempotencyKey: string | undefined, @RawBody() rawBody: Buffer | undefined, @Req() request: AuthenticatedRequest) {
+    return this.webhooks.receive(path, secret, request.body, readIdempotencyKey(idempotencyKey), { githubEvent, githubSignature, rawBody });
   }
 }
 

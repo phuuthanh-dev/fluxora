@@ -8,7 +8,7 @@ import { validateEnvironment } from "./platform/environment";
 
 async function bootstrap() {
   validateEnvironment();
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
   app.useSecurityHeaders();
   if (process.env.TRUST_PROXY === "true") app.set("trust proxy", "loopback");
   app.setGlobalPrefix("api/v1");

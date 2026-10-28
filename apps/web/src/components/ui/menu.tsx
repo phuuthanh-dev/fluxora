@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
+import { flushSync } from "react-dom";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 type MenuProps = {
@@ -15,21 +16,27 @@ export function Menu({ label, children, trigger, className, contentClassName }: 
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const triggerRef = useRef<HTMLElement>(null);
   const contentId = useId();
+  const pendingFocusRef = useRef<"first" | "last" | null>(null);
   const [open, setOpen] = useState(false);
 
   const menuItems = () => Array.from(detailsRef.current?.querySelectorAll<HTMLElement>(
     '.ui-menu__content button:not([disabled]), .ui-menu__content [href], .ui-menu__content [tabindex]:not([tabindex="-1"])',
   ) ?? []);
-  const focusItem = (edge: "first" | "last") => {
-    window.requestAnimationFrame(() => {
-      const items = menuItems();
-      items[edge === "first" ? 0 : items.length - 1]?.focus();
-    });
-  };
   const closeAndRestoreFocus = () => {
     setOpen(false);
     triggerRef.current?.focus();
   };
+
+  useEffect(() => {
+    if (!open || pendingFocusRef.current === null) return;
+    const edge = pendingFocusRef.current;
+    pendingFocusRef.current = null;
+    const frame = window.requestAnimationFrame(() => {
+      const items = menuItems();
+      items[edge === "first" ? 0 : items.length - 1]?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -43,8 +50,11 @@ export function Menu({ label, children, trigger, className, contentClassName }: 
   const onTriggerKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
-      setOpen(true);
-      focusItem(event.key === "ArrowDown" ? "first" : "last");
+      const edge = event.key === "ArrowDown" ? "first" : "last";
+      pendingFocusRef.current = null;
+      flushSync(() => setOpen(true));
+      const items = menuItems();
+      items[edge === "first" ? 0 : items.length - 1]?.focus();
     } else if (event.key === "Escape" && open) {
       event.preventDefault();
       closeAndRestoreFocus();

@@ -33,12 +33,20 @@ The Steam profile is public. The Steam node returns every field available throug
 | Trigger | Manual | Start a test execution from the editor. |
 | Trigger | Cron | Run published workflow by cron expression in `Asia/Ho_Chi_Minh`. |
 | Trigger | Webhook | Receive JSON with optional secret header. |
+| Trigger | GitHub Issue opened | Receive a signed GitHub `issues` webhook with `action: opened` using a workspace-owned GitHub connector secret. |
+| Trigger | GitHub Pull request opened | Receive a signed GitHub `pull_request` webhook with `action: opened` using a workspace-owned GitHub connector secret. |
+| Trigger | GitHub Push | Receive a signed GitHub `push` webhook using a workspace-owned GitHub connector secret. |
+| Trigger | GitHub Workflow run completed | Receive a signed GitHub `workflow_run` webhook with `action: completed` using a workspace-owned GitHub connector secret. |
 | Condition | If/Else | Comparison operators and true/false paths. |
 | Condition | Switch | Multiple cases and a default path. |
 | Action | Steam Account Snapshot | Profile, current game, owned/recent games, playtime, and optional per-game achievements. |
 | Action | Google Chat Webhook | Send formatted daily report into one space. |
 | Action | Discord Webhook | Send content, embeds, and an explicitly allowlisted mention policy into a Discord channel via incoming webhook. |
 | Action | Telegram Message | Send message via Telegram Bot API with bot token and a typed destination: DM, group, supergroup, or channel. Supergroups may optionally target a topic/thread. |
+| Action | GitHub Create Issue | Create an issue with a workspace-owned GitHub connector credential; an optional idempotency key reuses a previously created issue. |
+| Action | GitHub Add Label | Add one label to an existing issue with the same workspace-owned GitHub connector credential. |
+| Action | GitHub Add Comment | Post a comment to an existing issue with the same workspace-owned GitHub connector credential. |
+| Action | GitHub Merge Pull Request | Merge an existing pull request with an explicit merge method using the same workspace-owned GitHub connector credential. |
 | Action | Google Drive | List/search file metadata and upload/download text assets. |
 | Action | Google Sheets | Read ranges, append rows, update ranges. |
 | Action | HTTP Request | Generic REST request with structured response. |
@@ -48,7 +56,7 @@ The Steam profile is public. The Steam node returns every field available throug
 
 - Email, including the configuration form and validation label `Not available in MVP`.
 - Google Chat OAuth credential mode.
-- OpenAI, Gemini, MongoDB, GitHub, Facebook Meta, Instagram.
+- OpenAI, Gemini, MongoDB, remaining GitHub operations, Facebook Meta, Instagram.
 
 ### Explicitly out of scope
 
@@ -114,6 +122,14 @@ Action nodes support timeout, retry with exponential backoff, and an error edge.
 - Google Drive and Sheets: Google OAuth 2.0 authorization-code flow handled by the backend, with encrypted refresh tokens.
 - Google account sign-in: a separate OpenID Connect authorization-code flow that links a verified Google subject to the app user. It never stores Drive/Sheets access tokens as account-login state.
 - GitHub account sign-in: an OAuth 2.0 authorization-code flow that links a GitHub subject with a verified email to the app user. It requests only `read:user` and `user:email`, and never persists the provider access token as account-login state.
+- GitHub connector: a separate workspace-owned token credential for workflow actions. `Create Issue` calls the GitHub REST API from the backend; an optional idempotency key is hashed into an HTML comment marker and searched before creation because GitHub's Issues API does not provide a native idempotency key.
+- GitHub `Add Label` calls the issue-labels endpoint with the same workspace-owned token, returns the provider's normalized label set, and uses the shared timeout/retry/error contract. It is intentionally a separate operation node from `Create Issue`.
+- GitHub `Add Comment` calls the issue-comments endpoint with the same workspace-owned token, returns the normalized comment identity and body, and uses the shared timeout/retry/error contract. It is intentionally a separate operation node from issue creation and labeling.
+- GitHub `Merge Pull Request` calls the pull-request merge endpoint with the same workspace-owned token and an explicit `merge`, `squash`, or `rebase` method. The action remains subject to the existing live-run confirmation boundary and normalizes the provider merge result.
+- GitHub `Issue opened` verifies `X-Hub-Signature-256` against the raw request body using `webhookSecret` from the selected workspace GitHub connector credential, filters `issues.opened`, and passes the verified payload into the workflow. GitHub account-login OAuth is never used for webhook verification.
+- GitHub `Pull request opened` uses the same signed raw-body webhook path and workspace-owned `webhookSecret`, filters `pull_request.opened`, and passes the verified payload into the workflow. GitHub account-login OAuth is never used for webhook verification.
+- GitHub `Push` uses the same signed raw-body webhook path and workspace-owned `webhookSecret`, filters the `push` event without requiring an action field, and passes the verified payload into the workflow. GitHub account-login OAuth is never used for webhook verification.
+- GitHub `Workflow run completed` uses the same signed raw-body webhook path and workspace-owned `webhookSecret`, filters `workflow_run.completed`, and passes the verified payload into the workflow. GitHub account-login OAuth is never used for webhook verification.
 - Google Chat MVP: incoming webhook URL credential.
 - Generic HTTP: API key, bearer token, basic auth, or headers.
 - All credential values are encrypted at rest and never returned to the client after save.
