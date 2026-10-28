@@ -12,7 +12,7 @@
 - Version endpoints under `/api/v1`.
 - Validate request data and node configuration with schemas.
 - Return a stable error shape: `{ code, message, details?, requestId }`.
-- Never serialize credential values, OAuth refresh tokens, secrets, or sensitive headers.
+- Never serialize stored credential values, OAuth tokens, existing secrets, or sensitive headers. A newly generated webhook signing or header-auth secret may be returned only once to the authenticated workspace owner in a non-cacheable creation or rotation response; later reads must not return it, and it must never be logged.
 - Make external calls only in backend executors.
 
 ## Frontend rules

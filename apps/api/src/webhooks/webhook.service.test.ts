@@ -3,6 +3,12 @@ import { createHmac } from "node:crypto";
 import test from "node:test";
 import { WebhookService, hashWebhookSecret, matchesWebhookSecret, verifyGitHubWebhookSignature } from "./webhook.service";
 import { WebhookController } from "./webhook.controller";
+import { HEADERS_METADATA } from "@nestjs/common/constants";
+
+test("webhook registration responses prohibit caching the one-time secret", () => {
+  const headers = Reflect.getMetadata(HEADERS_METADATA, WebhookController.prototype.create) as Array<{ name: string; value: string }>;
+  assert.ok(headers.some((header) => header.name.toLowerCase() === "cache-control" && header.value === "no-store"));
+});
 
 test("webhook controller forwards and validates the GitHub delivery header", async () => {
   let received: unknown;

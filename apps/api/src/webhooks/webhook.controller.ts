@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Headers, Inject, Param, Post, RawBody, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Controller, Get, Header, Headers, Inject, Param, Post, RawBody, Req, UseGuards } from "@nestjs/common";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
 import { WebhookService } from "./webhook.service";
@@ -14,6 +14,7 @@ export class WebhookController {
   }
 
   @Post("workflows/:workflowId/webhook-endpoint")
+  @Header("Cache-Control", "no-store")
   @UseGuards(AuthenticationGuard)
   async create(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
     const body = readObject(request.body);

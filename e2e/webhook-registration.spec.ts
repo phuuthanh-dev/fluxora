@@ -1,5 +1,28 @@
 import { expect, test } from "@playwright/test";
 
+test("generic webhook explains the one-time header secret without GitHub-specific instructions", async ({ page }) => {
+  const graph = { nodes: [{ id: "webhook", type: "trigger.webhook", position: { x: 100, y: 100 }, config: { path: "generic-hook", secretRequired: true } }], edges: [] };
+  const workflow = { id: "workflow-generic", workspaceId: "workspace-1", name: "Generic webhook", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: { id: "published", version: 1, graph } };
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+    if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
+    if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
+    if (path.endsWith("/credentials")) return send({ credentials: [] });
+    if (path.endsWith("/workflows/workflow-generic")) return send({ workflow });
+    if (path.endsWith("/webhook-endpoint")) return send(route.request().method() === "GET" ? { endpoint: null } : { endpoint: { id: "endpoint", path: "generic-hook", secret: "synthetic-header-secret", workflowVersionId: "published", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" } });
+    return route.continue();
+  });
+  await page.goto("/editor?workflow=workflow-generic");
+  await page.getByLabel("Manage actions").click();
+  await page.getByRole("button", { name: "Webhook endpoint" }).click();
+  const panel = page.getByRole("dialog", { name: "Webhook endpoint" });
+  await panel.getByRole("button", { name: "Create registration" }).click();
+  await expect(panel.getByText("synthetic-header-secret")).toBeVisible();
+  await expect(panel.getByText(/send it in the x-workflow-secret header/)).toBeVisible();
+  await expect(panel.getByText(/paste it into GitHub/)).toHaveCount(0);
+});
+
 test("webhook setup follows published trigger even when the draft differs", async ({ page }) => {
   const graph = (type: string, config: Record<string, string>) => ({ nodes: [{ id: "trigger", type, position: { x: 100, y: 100 }, config }], edges: [] });
   const workflow = { id: "workflow-versions", workspaceId: "workspace-1", name: "Versioned webhook", description: null, isActive: false,

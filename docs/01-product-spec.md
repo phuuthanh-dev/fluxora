@@ -33,10 +33,10 @@ The Steam profile is public. The Steam node returns every field available throug
 | Trigger | Manual | Start a test execution from the editor. |
 | Trigger | Cron | Run published workflow by cron expression in `Asia/Ho_Chi_Minh`. |
 | Trigger | Webhook | Receive JSON with optional secret header. |
-| Trigger | GitHub Issue opened | Receive a signed GitHub `issues` webhook with `action: opened` using a workspace-owned GitHub connector secret. |
-| Trigger | GitHub Pull request opened | Receive a signed GitHub `pull_request` webhook with `action: opened` using a workspace-owned GitHub connector secret. |
-| Trigger | GitHub Push | Receive a signed GitHub `push` webhook using a workspace-owned GitHub connector secret. |
-| Trigger | GitHub Workflow run completed | Receive a signed GitHub `workflow_run` webhook with `action: completed` using a workspace-owned GitHub connector secret. |
+| Trigger | GitHub Issue opened | Receive a signed GitHub `issues` webhook with `action: opened` using the registration signing secret. |
+| Trigger | GitHub Pull request opened | Receive a signed GitHub `pull_request` webhook with `action: opened` using the registration signing secret. |
+| Trigger | GitHub Push | Receive a signed GitHub `push` webhook using the registration signing secret. |
+| Trigger | GitHub Workflow run completed | Receive a signed GitHub `workflow_run` webhook with `action: completed` using the registration signing secret. |
 | Condition | If/Else | Comparison operators and true/false paths. |
 | Condition | Switch | Multiple cases and a default path. |
 | Action | Steam Account Snapshot | Profile, current game, owned/recent games, playtime, and optional per-game achievements. |
@@ -106,9 +106,12 @@ at runtime. Resource pickers return metadata only and persist stable provider
 identifiers; credentials and provider tokens remain server-side.
 
 GitHub webhook registrations have a per-workflow signing secret independent of
-the reusable API connection. The secret is shown once at creation or rotation;
-rotating an existing registration requires updating GitHub. Existing endpoints
+the reusable API connection. The newly generated secret is returned once to the
+authenticated workspace owner in a non-cacheable response at creation or
+rotation; later reads never return it. Rotating an existing registration requires updating GitHub. Existing endpoints
 continue accepting their legacy connection secret until rotated.
+Generic webhooks may require an `x-workflow-secret` header; when enabled, the
+generated secret follows the same one-time, non-cacheable display rule.
 
 ## 7. Executions
 
@@ -138,10 +141,7 @@ Action nodes support timeout, retry with exponential backoff, and an error edge.
 - GitHub `Add Label` calls the issue-labels endpoint with the same workspace-owned token, returns the provider's normalized label set, and uses the shared timeout/retry/error contract. It is intentionally a separate operation node from `Create Issue`.
 - GitHub `Add Comment` calls the issue-comments endpoint with the same workspace-owned token, returns the normalized comment identity and body, and uses the shared timeout/retry/error contract. It is intentionally a separate operation node from issue creation and labeling.
 - GitHub `Merge Pull Request` calls the pull-request merge endpoint with the same workspace-owned token and an explicit `merge`, `squash`, or `rebase` method. The action remains subject to the existing live-run confirmation boundary and normalizes the provider merge result.
-- GitHub `Issue opened` verifies `X-Hub-Signature-256` against the raw request body using `webhookSecret` from the selected workspace GitHub connector credential, filters `issues.opened`, and passes the verified payload into the workflow. GitHub account-login OAuth is never used for webhook verification.
-- GitHub `Pull request opened` uses the same signed raw-body webhook path and workspace-owned `webhookSecret`, filters `pull_request.opened`, and passes the verified payload into the workflow. GitHub account-login OAuth is never used for webhook verification.
-- GitHub `Push` uses the same signed raw-body webhook path and workspace-owned `webhookSecret`, filters the `push` event without requiring an action field, and passes the verified payload into the workflow. GitHub account-login OAuth is never used for webhook verification.
-- GitHub `Workflow run completed` uses the same signed raw-body webhook path and workspace-owned `webhookSecret`, filters `workflow_run.completed`, and passes the verified payload into the workflow. GitHub account-login OAuth is never used for webhook verification.
+- GitHub `Issue opened`, `Pull request opened`, `Push`, and `Workflow run completed` verify `X-Hub-Signature-256` against the raw body using the endpoint registration's signing secret, then filter the configured event and action before execution. Legacy endpoints continue using the connector's `webhookSecret` until rotated. GitHub account-login OAuth is never used for verification.
 - Google Chat MVP: incoming webhook URL credential.
 - Generic HTTP: API key, bearer token, basic auth, or headers.
 - All credential values are encrypted at rest and never returned to the client after save.
