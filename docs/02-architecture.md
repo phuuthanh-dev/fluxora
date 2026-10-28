@@ -190,3 +190,9 @@ identities and prevent deleting referenced endpoint, credential or version.
 This groundwork is not wired to provider calls or the manual endpoint UI.
 The orchestration must check ownership and version consistency itself; the
 foreign keys alone do not prove that all records belong to the same workspace.
+
+Manual endpoint edits reject an existing provider registration in any state.
+The check runs while holding the workflow row lock; the future provider
+registration creator must acquire the same lock before inserting its record,
+otherwise a concurrent manual rotation can race the check. Removal and secret
+rotation must go through a managed lifecycle once that lifecycle exists.
