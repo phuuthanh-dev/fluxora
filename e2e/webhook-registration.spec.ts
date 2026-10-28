@@ -39,8 +39,9 @@ test("webhook setup follows published trigger even when the draft differs", asyn
     return route.continue();
   });
   await page.goto("/editor?workflow=workflow-versions");
-  await page.getByLabel("Manage actions").click();
-  await page.getByRole("button", { name: "Webhook endpoint" }).click();
+  await page.locator(".react-flow__node").filter({ hasText: "Pull request opened" }).click();
+  await expect(page.locator(".inspector-note")).toContainText("not this draft node");
+  await page.getByRole("button", { name: "Manage published webhook" }).click();
   const panel = page.getByRole("dialog", { name: "Webhook endpoint" });
   await expect(panel.getByText(/settings for/)).toContainText("push");
   await expect(panel.getByText(/settings for/)).not.toContainText("pull_request");
@@ -70,6 +71,7 @@ test("webhook registration stays disabled when the trigger exists only in the dr
 });
 
 test("GitHub registration is readable and protects existing secrets while loading and rotating", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 820 });
   const graph = { nodes: [{ id: "github", type: "trigger.github.pull-request-opened", position: { x: 100, y: 100 }, config: { path: "github-pr", credentialId: "", event: "pull_request", action: "opened" } }], edges: [] };
   const workflow = { id: "workflow-1", workspaceId: "workspace-1", name: "GitHub test", description: null, isActive: false, draft: { id: "draft-1", version: 1, graph }, published: { id: "version-1", version: 1, graph } };
   let release!: () => void;
@@ -103,9 +105,9 @@ test("GitHub registration is readable and protects existing secrets while loadin
   await expect(note).toContainText("Webhook setup");
   await expect(note).toHaveCSS("font-size", "12px");
   await expect(note).not.toContainText("webhookSecret");
-  await page.getByLabel("Manage actions").click();
-  await page.getByRole("button", { name: "Webhook endpoint" }).click();
+  await page.getByRole("button", { name: "Configure webhook" }).click();
   const panel = page.getByRole("dialog", { name: "Webhook endpoint" });
+  await expect(page.getByRole("dialog", { name: "Node inspector" })).toHaveCount(0);
   await expect(panel.getByText("Status unavailable")).toBeVisible();
   await expect(panel.getByRole("button", { name: "Create registration" })).toBeDisabled();
   statusUnavailable = false;
@@ -185,6 +187,11 @@ test("GitHub repository picker loads more pages and keeps the chosen value", asy
   await page.goto("/editor?workflow=workflow-2");
   await page.locator(".react-flow__node").filter({ hasText: "Create issue" }).click();
   const picker = page.getByRole("group", { name: "Repository", exact: true });
+  const searchBox = await picker.getByLabel("Repository search").boundingBox();
+  const selectBox = await picker.getByLabel("Repository", { exact: true }).boundingBox();
+  expect(searchBox).not.toBeNull();
+  expect(selectBox).not.toBeNull();
+  expect(selectBox!.y - (searchBox!.y + searchBox!.height)).toBeGreaterThanOrEqual(6);
   await expect(picker.getByRole("button", { name: "Load more repositories" })).toBeVisible();
   await picker.getByRole("button", { name: "Load more repositories" }).click();
   await picker.getByLabel("Repository", { exact: true }).selectOption("owner/second");
