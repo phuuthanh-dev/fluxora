@@ -75,6 +75,13 @@ test("workspace execution list is owner-scoped", async () => {
   assert.deepEqual(result, { executions: [{ id: "execution-1", args: ["workspace-1", "user-1", 10, "cursor-1"] }], nextCursor: "execution-1" });
 });
 
+test("saved view input rejects invalid names and filters", async () => {
+  const controller = new ExecutionController({} as never, {} as never, {} as never);
+  const request = (body: unknown) => ({ currentUser: { id: "user-1" }, body }) as never;
+  await assert.rejects(() => controller.createSavedView("workspace-1", request({ name: " ", filter: "FAILED" })));
+  await assert.rejects(() => controller.createSavedView("workspace-1", request({ name: "Failure", filter: "INVALID" })));
+});
+
 test("live readiness is exposed without starting an execution", async () => {
   const calls: unknown[] = [];
   const executions = {

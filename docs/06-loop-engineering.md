@@ -106,6 +106,7 @@ CI runs the same gate for every pull request and push to `main`.
 | L11.17 | GitHub repository picker pagination | Complete locally | Owner-scoped, bounded API pages and picker load-more, retry, selected-value preservation, and manual/expression modes have mocked provider and browser coverage. Full quality gate passed; real provider validation remains outstanding. |
 | L11.18 | Execution triage server filtering | Complete locally | The dedicated Executions page applies status filters before cursor pagination, retains workspace authorization, and reports loaded counts accurately. Focused API/browser tests and the full quality gate passed; saved views and retention visibility remain in OPS-2. |
 | L11.19 | Execution retention policy visibility | Complete locally | An owner-scoped API exposes configured cleanup policy and system-wide count scope; the Executions page shows it in a collapsible section. Unit, browser, and full quality-gate checks passed. |
+| L11.20 | Saved execution status views | Complete locally | Named status filters persist per user and workspace with guarded create/list/delete, browser coverage, and full quality gate. Fresh isolated PostgreSQL migrations passed; workflow/date/mode filters and production migration remain outstanding. |
 
 ## External-boundary rule
 

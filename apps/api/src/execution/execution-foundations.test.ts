@@ -225,6 +225,27 @@ test("retention policy is available only to the workspace owner", async () => {
   assert.equal(typeof policy.successDays, "number");
 });
 
+test("saved execution views are scoped to the owner and workspace", async () => {
+  const calls: Array<{ operation: string; query: unknown }> = [];
+  const service = new ExecutionService({
+    workspaceMember: { findUnique: async () => ({ role: "OWNER" }) },
+    executionSavedView: {
+      findMany: async (query: unknown) => { calls.push({ operation: "list", query }); return []; },
+      count: async (query: unknown) => { calls.push({ operation: "count", query }); return 0; },
+      create: async (query: unknown) => { calls.push({ operation: "create", query }); return { id: "view-1", name: "Failures", filter: "FAILED" }; },
+      deleteMany: async (query: unknown) => { calls.push({ operation: "delete", query }); return { count: 1 }; },
+    },
+  } as never, {} as never, {} as never);
+  await service.savedViews("workspace-1", "owner-1");
+  await service.createSavedView("workspace-1", "owner-1", "Failures", "FAILED");
+  await service.deleteSavedView("workspace-1", "owner-1", "view-1");
+  assert.deepEqual((calls[0]?.query as { where: unknown }).where, { workspaceId: "workspace-1", userId: "owner-1" });
+  assert.deepEqual((calls[2]?.query as { data: unknown }).data, { workspaceId: "workspace-1", userId: "owner-1", name: "Failures", filter: "FAILED" });
+  assert.deepEqual((calls[3]?.query as { where: unknown }).where, { id: "view-1", workspaceId: "workspace-1", userId: "owner-1" });
+  const outsider = new ExecutionService({ workspaceMember: { findUnique: async () => null } } as never, {} as never, {} as never);
+  await assert.rejects(() => outsider.savedViews("workspace-1", "other-user"));
+});
+
 test("diagnostic snapshot is deterministic, owner-scoped, and excludes execution payload secrets", async () => {
   const queries: unknown[] = [];
   const execution = {

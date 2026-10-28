@@ -1,5 +1,5 @@
 import type { WorkflowEdge, WorkflowEdgeKind, WorkflowGraph, WorkflowNode } from "@workflow/contracts";
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { ApprovalRequestStatus, CredentialProvider, ExecutionStatus, NodeExecutionStatus, Prisma } from "@prisma/client";
 import { createHash, randomBytes } from "node:crypto";
 import { CredentialService } from "../credentials/credential.service";
@@ -215,6 +215,34 @@ export class ExecutionService {
     const membership = await this.prisma.workspaceMember.findUnique({ where: { workspaceId_userId: { workspaceId, userId } } });
     if (!membership || membership.role !== "OWNER") throw new NotFoundException({ code: "WORKSPACE_NOT_FOUND", message: "Workspace was not found." });
     return { ...executionRetentionPolicy(), enabled: process.env.EXECUTION_MAINTENANCE_ENABLED !== "false", countScope: "system" as const };
+  }
+
+  async savedViews(workspaceId: string, userId: string) {
+    await this.requireExecutionWorkspaceOwner(workspaceId, userId);
+    return this.prisma.executionSavedView.findMany({ where: { workspaceId, userId }, select: { id: true, name: true, filter: true }, orderBy: { createdAt: "asc" }, take: 50 });
+  }
+
+  async createSavedView(workspaceId: string, userId: string, name: string, filter: ExecutionTriageFilter) {
+    await this.requireExecutionWorkspaceOwner(workspaceId, userId);
+    if (await this.prisma.executionSavedView.count({ where: { workspaceId, userId } }) >= 50) throw new BadRequestException({ code: "VIEW_LIMIT_REACHED", message: "You can save up to 50 views per workspace." });
+    try {
+      return await this.prisma.executionSavedView.create({ data: { workspaceId, userId, name, filter }, select: { id: true, name: true, filter: true } });
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "P2002") throw new ConflictException({ code: "VIEW_NAME_CONFLICT", message: "A saved view with this name already exists." });
+      throw error;
+    }
+  }
+
+  async deleteSavedView(workspaceId: string, userId: string, viewId: string) {
+    await this.requireExecutionWorkspaceOwner(workspaceId, userId);
+    const deleted = await this.prisma.executionSavedView.deleteMany({ where: { id: viewId, workspaceId, userId } });
+    if (!deleted.count) throw new NotFoundException({ code: "VIEW_NOT_FOUND", message: "Saved view was not found." });
+    return { deleted: true };
+  }
+
+  private async requireExecutionWorkspaceOwner(workspaceId: string, userId: string) {
+    const membership = await this.prisma.workspaceMember.findUnique({ where: { workspaceId_userId: { workspaceId, userId } } });
+    if (!membership || membership.role !== "OWNER") throw new NotFoundException({ code: "WORKSPACE_NOT_FOUND", message: "Workspace was not found." });
   }
 
   async getApproval(approvalId: string, userId: string) {

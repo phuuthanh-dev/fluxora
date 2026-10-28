@@ -1035,11 +1035,22 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/features/api/api-client.ts",
-        "apps/web/src/features/app-shell/app-shell-header.tsx"
+        "apps/web/src/features/app-shell/app-shell-header.tsx",
+        "apps/web/src/features/dashboard/saved-execution-views.tsx"
       ],
       "externalImports": [
         "lucide-react",
         "next/navigation",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/dashboard/saved-execution-views.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/api/api-client.ts"
+      ],
+      "externalImports": [
         "react"
       ]
     },
@@ -2047,6 +2058,14 @@
     {
       "from": "apps/web/src/features/dashboard/executions-dashboard.tsx",
       "to": "apps/web/src/features/app-shell/app-shell-header.tsx"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/executions-dashboard.tsx",
+      "to": "apps/web/src/features/dashboard/saved-execution-views.tsx"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/saved-execution-views.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
     },
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",

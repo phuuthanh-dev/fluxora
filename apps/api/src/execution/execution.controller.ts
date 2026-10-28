@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Inject, Param, Post, Query, Req, Sse, UseGuards } from "@nestjs/common";
+import { BadRequestException, Controller, Delete, Get, Inject, Param, Post, Query, Req, Sse, UseGuards } from "@nestjs/common";
 import { from, switchMap } from "rxjs";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
@@ -56,6 +56,24 @@ export class ExecutionController {
   @Get("workspaces/:workspaceId/execution-retention")
   async retention(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest) {
     return { retention: await this.executions.retentionForWorkspace(workspaceId, requireUserId(request)) };
+  }
+
+  @Get("workspaces/:workspaceId/execution-views")
+  async savedViews(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest) {
+    return { views: await this.executions.savedViews(workspaceId, requireUserId(request)) };
+  }
+
+  @Post("workspaces/:workspaceId/execution-views")
+  async createSavedView(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest) {
+    const body = request.body && typeof request.body === "object" && !Array.isArray(request.body) ? request.body as Record<string, unknown> : {};
+    if (typeof body.name !== "string" || !body.name.trim() || body.name.trim().length > 80) throw new BadRequestException({ code: "INVALID_INPUT", message: "View name must contain 1 to 80 characters." });
+    if (typeof body.filter !== "string") throw new BadRequestException({ code: "INVALID_FILTER", message: "Select an execution filter." });
+    return { view: await this.executions.createSavedView(workspaceId, requireUserId(request), body.name.trim(), readExecutionFilter(body.filter)) };
+  }
+
+  @Delete("workspaces/:workspaceId/execution-views/:viewId")
+  async deleteSavedView(@Param("workspaceId") workspaceId: string, @Param("viewId") viewId: string, @Req() request: AuthenticatedRequest) {
+    return this.executions.deleteSavedView(workspaceId, requireUserId(request), viewId);
   }
 
   @Get("workflows/:workflowId/live-readiness")
