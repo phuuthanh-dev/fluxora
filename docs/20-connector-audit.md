@@ -128,6 +128,11 @@ system production-ready, the release checklist still needs:
 These are external-boundary checks and must not be simulated by changing the
 catalog's `available` flags.
 
+The first owner-approved live smoke was attempted on 2026-10-28 and is recorded
+in [`2026-10-28-live-provider-smoke.md`](../.agent/reports/2026-10-28-live-provider-smoke.md):
+Steam returned HTTP 403, so downstream notification nodes were skipped and no
+live delivery qualification was claimed.
+
 ## Current runtime evidence
 
 The read-only follow-up in
