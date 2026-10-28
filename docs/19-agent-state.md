@@ -51,6 +51,7 @@ security finding, or changed requirement.
 - `CONNECTOR-AUDIT-1` — Every catalog app is now mapped to its operations, availability, credential, resource-picker, executor, and production-proof boundary in `docs/20-connector-audit.md`. The available HTTP node now exposes runtime headers through a reusable key/value Inspector field; roadmap-only nodes remain disabled. Web catalog tests 20/20, full quality gate, and Playwright 38/38 passed without provider calls.
 - `CONNECTOR-FIELD-UX-1` — Google Drive hides upload-only fields until `uploadText` is selected, and Google Sheets uses a reusable table editor that preserves the existing matrix runtime payload. Web catalog tests 21/21, Playwright 39/39, and the full quality gate passed without provider calls.
 - `CONNECTOR-CONTRACT-1` — Shared executable node capabilities now align the UI catalog and execution boundary while preserving schema-only roadmap imports. Web 22/22, API 198/198, Playwright 39/39, and the full quality gate passed without provider calls.
+- `WEBHOOK-UI-POLISH-1` — Resource pickers separate search/select/manual entry and webhook setup is reachable from the selected trigger with published-version and multiple-draft safeguards. PR #31 is merged into this branch; the recorded report and full quality gate provide the evidence. No live provider webhook was used.
 
 ## Next approved slices
 
@@ -63,7 +64,6 @@ one of these IDs or explicitly reopen a completed ledger slice.
 | `LIVE-1` | Validate one explicitly approved real Steam → Google Chat run plus configured OAuth callbacks | owner-input-required | Requires user credentials and explicit external-side-effect approval |
 | `GH-PICKER-OWNER-1` | Clarify GitHub repository ownership and values not present in loaded results | pending | PR #32 is open; it is not included in this branch |
 | `GH-HOOK-AUTO-1` | Automatically manage GitHub repository webhooks using the owner's connector credential | pending | Preserve manual registrations, explicit ownership, version safety and recovery after partial failures |
-| `WEBHOOK-UI-POLISH-1` | Improve resource picker spacing and provide node-context access to webhook setup | pending | Implemented locally; review and CI required before merge; providers mocked |
 
 ## Closed boundary
 
