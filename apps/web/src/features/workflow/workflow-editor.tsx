@@ -328,6 +328,7 @@ function WebhookEndpointPanel({ workflow, config, isGitHub, canRegister, onClose
   const [endpointError, setEndpointError] = useState<string | null>(null);
   const [endpointRetry, setEndpointRetry] = useState(0);
   const [confirmRotation, setConfirmRotation] = useState(false);
+  const [writeUncertain, setWriteUncertain] = useState(false);
   const endpointUrl = `${apiUrl}/webhooks/${endpoint?.path ?? path}`;
   const githubEvent = readConfigText(config, "event") || "issues";
   const githubAction = readConfigText(config, "action");
@@ -346,6 +347,7 @@ function WebhookEndpointPanel({ workflow, config, isGitHub, canRegister, onClose
 
   const createEndpoint = async () => {
     setIsSaving(true);
+    setCreatedSecret(null);
     try {
       const response = await apiRequest<{ endpoint: { id: string; path: string; secret: string | null } }>(`/workflows/${workflow.id}/webhook-endpoint`, {
         method: "POST",
@@ -353,9 +355,13 @@ function WebhookEndpointPanel({ workflow, config, isGitHub, canRegister, onClose
       });
       setEndpoint({ id: response.endpoint.id, path: response.endpoint.path, secretRequired: response.endpoint.secret !== null, workflowVersionId: workflow.published?.id ?? "", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
       setCreatedSecret(response.endpoint.secret);
+      setWriteUncertain(false);
       setNotice(response.endpoint.secret ? "Endpoint created. Copy the secret now; it will not be shown again." : "Endpoint created without a secret header.");
     } catch (reason) {
+      setWriteUncertain(true);
       setNotice(reason instanceof Error ? reason.message : "Unable to create the webhook endpoint.");
+      setEndpointLoading(true);
+      setEndpointRetry((value) => value + 1);
     } finally {
       setIsSaving(false);
     }
@@ -369,6 +375,7 @@ function WebhookEndpointPanel({ workflow, config, isGitHub, canRegister, onClose
     {isGitHub ? <Status tone="info" className="webhook-endpoint-panel__help">Add this URL and signing secret in your repository’s GitHub webhook settings for <code>{githubEventLabel}</code>. The secret belongs to this registration.</Status> : <label className="checkbox-field"><input type="checkbox" checked={secretRequired} onChange={(event) => setSecretRequired(event.target.checked)} /> Require <code>x-workflow-secret</code> header</label>}
     <div className="webhook-endpoint-panel__url"><span>POST URL</span><code>{endpointUrl}</code><Button variant="ghost" onClick={() => void navigator.clipboard.writeText(endpointUrl)}>Copy URL</Button></div>
     {createdSecret && <div className="webhook-endpoint-panel__secret"><strong>Copy this secret now</strong><code>{createdSecret}</code><Button variant="ghost" onClick={() => void navigator.clipboard.writeText(createdSecret)}>Copy secret</Button><small>It is displayed only once. Store it securely and paste it into GitHub.</small></div>}
+    {writeUncertain && <Status tone="warning">The request did not complete. The endpoint may have changed even if no secret was displayed. Check its status; if you do not have the current secret, rotate it again and update the external webhook.</Status>}
     <Status tone={endpointError ? "error" : "info"} className="webhook-endpoint-panel__notice">{endpointError ?? notice}</Status>
     {endpointError && <Button variant="ghost" onClick={() => setEndpointRetry((value) => value + 1)}>Retry status check</Button>}
     {confirmRotation && <div className="webhook-endpoint-panel__confirmation"><Status tone="warning">Rotating immediately replaces the secret. Update the external webhook with the new secret to resume delivery.</Status><Button variant="ghost" onClick={() => setConfirmRotation(false)}>Cancel</Button><Button variant="primary" disabled={isSaving} onClick={() => { setConfirmRotation(false); void createEndpoint(); }}>Confirm rotation</Button></div>}

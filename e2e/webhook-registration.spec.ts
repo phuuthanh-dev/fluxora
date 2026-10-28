@@ -100,6 +100,45 @@ test("GitHub registration is readable and protects existing secrets while loadin
   expect(writes).toBe(1);
 });
 
+test("a lost rotation response clears the old secret and reloads endpoint status", async ({ page }) => {
+  const graph = { nodes: [{ id: "github", type: "trigger.github.push", position: { x: 100, y: 100 }, config: { path: "github-push", event: "push" } }], edges: [] };
+  const workflow = { id: "workflow-error", workspaceId: "workspace-1", name: "Uncertain rotation", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: { id: "published", version: 1, graph } };
+  let reads = 0;
+  let writes = 0;
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+    if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
+    if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
+    if (path.endsWith("/credentials")) return send({ credentials: [] });
+    if (path.endsWith("/workflows/workflow-error")) return send({ workflow });
+    if (path.endsWith("/webhook-endpoint")) {
+      if (route.request().method() === "GET") {
+        reads++;
+        return send({ endpoint: writes === 0 ? null : { id: "endpoint-1", path: "github-push", signingMode: "registration", workflowVersionId: "published", secretRequired: true, createdAt: "2026-01-01", updatedAt: "2026-01-01" } });
+      }
+      writes++;
+      if (writes === 1) return send({ endpoint: { id: "endpoint-1", path: "github-push", secret: "old-test-secret" } });
+      return route.abort("connectionreset");
+    }
+    return route.continue();
+  });
+  await page.goto("/editor?workflow=workflow-error");
+  await page.getByLabel("Manage actions").click();
+  await page.getByRole("button", { name: "Webhook endpoint" }).click();
+  const panel = page.getByRole("dialog", { name: "Webhook endpoint" });
+  await panel.getByRole("button", { name: "Create registration" }).click();
+  await expect(panel.getByText("old-test-secret")).toBeVisible();
+  const readsBeforeRotation = reads;
+  await panel.getByRole("button", { name: "Rotate registration" }).click();
+  await panel.getByRole("button", { name: "Confirm rotation" }).click();
+  await expect(panel.getByText("old-test-secret")).toHaveCount(0);
+  await expect(panel.getByText(/endpoint may have changed/)).toBeVisible();
+  await expect.poll(() => reads).toBeGreaterThan(readsBeforeRotation);
+  await expect(panel.getByRole("button", { name: "Rotate registration" })).toBeEnabled();
+  expect(writes).toBe(2);
+});
+
 test("GitHub repository picker loads more pages and keeps the chosen value", async ({ page }) => {
   const graph = { nodes: [{ id: "github", type: "action.github", position: { x: 100, y: 100 }, config: { credentialId: "credential-1", repository: "", title: "Test" } }], edges: [] };
   const workflow = { id: "workflow-2", workspaceId: "workspace-1", name: "Picker test", description: null, isActive: false, draft: { id: "draft-1", version: 1, graph }, published: null };
