@@ -154,7 +154,6 @@ The MVP pins Prisma ORM 6.12.0 because the local Node 23 runtime is outside Pris
   this is a convenience filter, not a security boundary or a global search.
   A stored value outside loaded results remains selectable but is labeled as
   unverified. GitHub remains authoritative for operation-specific permissions.
-
 ### Planned provider-managed GitHub webhooks
 
 The existing endpoint registration and manual webhook flow remain supported.

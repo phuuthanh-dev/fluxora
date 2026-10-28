@@ -26,6 +26,12 @@ security finding, or changed requirement.
 
 ## Last audited repository state
 
+The table and individual slice notes below are historical snapshots, not the
+current deployment state. PR #31 merged and deployed as `16d53a5`; the two
+production migrations noted in the earlier slices were applied. A GitHub Push
+trigger-only live qualification succeeded on 2026-10-28. Consult the latest
+slice report and verify the current Git/GitHub state before planning work.
+
 | Field | Value |
 |---|---|
 | Local base commit | `6565a3c` (subsequent changes are on `codex/webhook-registration-ux`) |
