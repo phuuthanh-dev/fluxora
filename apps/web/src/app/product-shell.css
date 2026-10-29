@@ -56,8 +56,16 @@
 /* Authentication shares the landing identity and the product's accessible controls. */
 .auth-page { background: var(--canvas); display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto 1fr; min-height: 100svh; }
 .auth-navigation {
+  /* Keep the brand bar dark while the form follows the selected theme. */
+  --ink: var(--marketing-text);
+  --text-secondary: var(--marketing-muted);
+  --text-tertiary: var(--marketing-muted);
+  --line: var(--marketing-border);
+  --surface-inset: var(--marketing-surface);
+  --surface-raised: var(--marketing-surface-raised);
+  --focus-ring: var(--accent);
   align-items: center;
-  background: var(--panel);
+  background: var(--brand-void);
   border-bottom: 1px solid var(--line);
   color: var(--ink);
   display: flex;

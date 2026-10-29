@@ -46,3 +46,21 @@ Owner review is still required before release. Functional passes do not imply
 visual approval. The original dark introduction/light form composition is
 intentionally preserved; do not reintroduce split-header or inset-panel designs.
 No push, merge to main, deployment or real provider qualification was performed.
+
+## Owner follow-up: separate the brand bar from the light form
+
+- Base for follow-up: `8e25593`. The owner identified the pale bar visually
+  merging with the light right column. Only `.auth-navigation` now aliases
+  semantic colors to existing dark marketing tokens, including hover/focus.
+  The full-width header stays dark; the form still follows the selected theme.
+- Existing responsive matrix passed (1 focused test, 12 screenshots); desktop
+  login/light, register/dark and mobile login/light screenshots reviewed at
+  `../previews/auth-brand-header-2026-10-29/`.
+- One-off rendered contrast check passed in both themes: support 9.28:1,
+  theme icon 8.69:1, support hover 16.04:1. Shift+Tab shows the focus ring.
+  Initial programmatic-focus probe was replaced with keyboard navigation:
+  pointer-origin focus need not match `:focus-visible`.
+- `npm run verify` passed again: 213 API, 23 web, 82 E2E, plus build and harness.
+  Receipt: `/tmp/fluxora-auth-brand-header-verify.log`.
+- Local develop integration only. PR #45 remains draft; owner visual acceptance
+  and release are still pending.

@@ -212,6 +212,10 @@ resource-picker foundation.
   12 route/theme/viewport screenshots were reviewed. See
   `.agent/reports/2026-10-29-auth-header-composition.md`. Local develop only;
   PR #45 remains draft. Owner visual acceptance and release remain pending.
+  Owner follow-up after `8e25593`: the pale bar still blended into the light form;
+  the auth header now uses the landing's dark marketing palette in both modes.
+  Body layout and theme selection remain unchanged. Repeated full verify passed
+  (213 API, 23 web, 82 E2E); rendered contrast and keyboard focus also passed.
 
 ## Non-negotiable loop
 

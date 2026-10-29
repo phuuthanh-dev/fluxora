@@ -90,8 +90,12 @@ this recipe shared rather than adding route-specific header padding offsets.
 
 Auth header correction (2026-10-29): the owner rejected both a header split
 into light/dark halves and an inset showcase experiment. Restore the auth body
-layout from `ddaa9e9`; style only `.auth-navigation` as one continuous semantic
-panel with a subtle bottom border, a support link and a circular theme control.
+layout from `ddaa9e9`; style only `.auth-navigation` as one continuous dark
+brand surface with a subtle bottom border, a support link and a circular theme
+control. The subsequent owner review rejected the pale header merging visually
+with the light form. The header therefore uses the landing's marketing tokens
+in both modes; the form still follows the selected theme. Scope these token
+aliases to the header so its hover/focus states remain readable in light mode.
 Keep its logo, layout breakpoints and form behavior shared and unchanged.
 Functional test passes do not establish visual acceptance: review rendered
 light/dark screenshots before handoff. PR #45 stays draft pending owner review.
