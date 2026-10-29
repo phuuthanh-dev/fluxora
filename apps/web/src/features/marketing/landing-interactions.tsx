@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, Menu, Plus, X } from "lucide-react";
 import { useRef, useState, type CSSProperties } from "react";
-import { FluxoraMark } from "../../components/brand/fluxora-mark";
+import { BrandLockup } from "../../components/brand/brand-lockup";
 import { LandingReveal } from "./landing-motion";
 
 const links = [
@@ -41,8 +41,7 @@ export function LandingNavigation() {
   return (
     <header className="landing-nav landing-container">
       <Link className="landing-brand" href="#top" aria-label="Fluxora home">
-        <FluxoraMark size={30} />
-        <strong>Fluxora</strong>
+        <BrandLockup />
       </Link>
       <nav className="landing-nav__desktop" aria-label="Landing navigation">
         {links.map((link) => (

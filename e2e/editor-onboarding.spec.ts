@@ -58,7 +58,7 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
     };
   });
   expect(relayTokens).toEqual({ void: "#080a09", lime: "#d6ff32", canvas: "#f5f7f1" });
-  await expect(page.locator(".editor-header")).toHaveCSS("background-color", "rgb(8, 10, 9)");
+  await expect(page.locator(".editor-header")).toHaveCSS("background-color", "rgb(255, 254, 249)");
   await expect(page.getByRole("button", { name: "Run test" })).toHaveCSS("background-color", "rgb(214, 255, 50)");
   await expect(page.getByRole("button", { name: "Run test" })).toHaveCSS("color", "rgb(8, 10, 9)");
 

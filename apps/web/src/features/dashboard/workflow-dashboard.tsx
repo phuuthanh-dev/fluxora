@@ -7,7 +7,7 @@ import type { WorkflowNodeType } from "@workflow/contracts";
 import { apiRequest, apiUrl } from "../api/api-client";
 import { getNodeDefinition } from "../workflow/node-catalog";
 import type { ApiWorkflow } from "../workflow/workflow-api";
-import { Button, Dialog, IconButton, Menu, Select, Status, Toolbar } from "../../components/ui";
+import { Button, Dialog, IconButton, Menu, PageHeader, Select, Status, Toolbar } from "../../components/ui";
 import { AppShellHeader } from "../app-shell/app-shell-header";
 
 type WorkspaceSummary = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
@@ -295,7 +295,7 @@ export function WorkflowDashboard() {
     <main className="dashboard-page">
       <AppShellHeader workspaces={workspaces} workspaceId={workspaceId} onWorkspaceChange={(nextWorkspaceId) => void switchWorkspace(nextWorkspaceId)} active="dashboard" />
       <section className="dashboard-main">
-        <div className="dashboard-hero"><div><p className="section-label">{activeWorkspace?.name ?? "WORKSPACE"}</p><h1>Your workflow control room.</h1><p>Create, publish, monitor, and revisit every automation from one place.</p></div><Button variant="primary" className="dashboard-new-button" onClick={focusWorkflowCreate}><CirclePlus size={17} /> New workflow</Button></div>
+        <PageHeader className="dashboard-hero" eyebrow={activeWorkspace?.name ?? "WORKSPACE"} title="Your workflow control room." description="Create, publish, monitor, and revisit every automation from one place." actions={<Button variant="primary" className="dashboard-new-button" onClick={focusWorkflowCreate}><CirclePlus size={17} /> New workflow</Button>} />
         <div className="dashboard-stats"><div><LayoutDashboard size={17} /><strong>{workflows.length}</strong><span>workflows</span></div><div><FolderKanban size={17} /><strong>{workflows.filter((workflow) => workflow.isActive).length}</strong><span>active workflows</span></div><div><FilePlus2 size={17} /><strong>{workflows.filter((workflow) => !workflow.published).length}</strong><span>draft-only</span></div></div>
         <Status tone={runtimeLoading ? "info" : runtime?.status === "ready" ? "success" : runtime?.status === "degraded" ? "warning" : "error"} className={`dashboard-runtime dashboard-runtime--${runtimeLoading ? "checking" : runtime?.status ?? "unreachable"}`} aria-live="polite" aria-busy={runtimeLoading}><Activity size={17} /><div><strong>{runtimeLoading ? "Checking runtime status…" : runtime?.status === "ready" ? "Execution runtime ready" : runtime?.status === "degraded" ? "Execution runtime needs attention" : "Runtime status unreachable"}</strong><span>{runtimeLoading ? "Contacting the API readiness endpoint." : runtime ? `Database ${runtime.checks.database} · ${runtime.checks.queue.mode} queue ${runtime.checks.queue.status} · ${runtime.checks.queue.active}/${runtime.checks.queue.configuredWorkerConcurrency} active · ${runtime.checks.queue.waiting} queued` : "Could not reach the API readiness endpoint."}</span></div></Status>
         <section className="dashboard-executions" aria-labelledby="execution-center-heading">

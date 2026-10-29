@@ -108,17 +108,27 @@ export function LandingDemo() {
     <motion.div
       className="landing-demo"
       style={
-        reduceMotion
+        !ready || reduceMotion
           ? undefined
           : { rotateX, rotateY, transformPerspective: 1400 }
       }
       onPointerMove={(event) => {
         if (reduceMotion || event.pointerType !== "mouse") return;
+        // Keep interactive controls still; decorative tilt must not chase a click.
+        if (event.target instanceof Element && event.target.closest(".landing-demo__toolbar")) {
+          pointerX.set(0);
+          pointerY.set(0);
+          return;
+        }
         const bounds = event.currentTarget.getBoundingClientRect();
         pointerX.set(((event.clientX - bounds.left) / bounds.width - 0.5) * 5);
         pointerY.set(((event.clientY - bounds.top) / bounds.height - 0.5) * -4);
       }}
       onPointerLeave={() => {
+        pointerX.set(0);
+        pointerY.set(0);
+      }}
+      onFocusCapture={() => {
         pointerX.set(0);
         pointerY.set(0);
       }}

@@ -91,6 +91,16 @@ resource-picker foundation.
 
 ## Recently closed slices
 
+- `UI-CORE-1` / `L13.1` — Owner-requested visual unification across all six
+  existing routes: compact glass landing navigation, shared BrandLockup and
+  PageHeader, theme-aware product shell/overlays and common typography/control
+  roles. Native visual review and full verify passed (213 API, 23 web, 58 E2E).
+  See `docs/25-ui-core-unification.md` and `.agent/reports/2026-10-29-ui-core.md`.
+  The owner subsequently authorized release through develop → main in PR #40.
+  Its first CI exposed a disabled-button theme-transition contrast regression;
+  the release follow-up is recorded in the same task/report. Production rollout
+  requires passing replacement CI; owner visual approval is separate. Do not
+  repeat this migration without a specific regression or changed requirement.
 - `LANDING-1` — The public root is now a clean-room Fluxora landing with an
   explicit `/login` route for the existing email/password and OAuth UI.
   Session expiry and sign-out route to `/login`; source/template assets were

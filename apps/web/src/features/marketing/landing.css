@@ -15,6 +15,7 @@
   overflow-x: clip;
   font-size: 16px;
   line-height: 1.5;
+  padding-top: 12px;
   -webkit-font-smoothing: antialiased;
 }
 .landing-page :where(h1, h2, h3, h4, p) {
@@ -23,6 +24,9 @@
 .landing-page :where(a, button, summary, input):focus-visible {
   outline: 2px solid var(--relay-lime);
   outline-offset: 5px;
+}
+.landing-page :where(a, button, summary, input) {
+  scroll-margin-block: 100px 32px;
 }
 .landing-page a {
   text-decoration: none;
@@ -86,14 +90,18 @@
 }
 .landing-nav {
   align-items: center;
-  border-bottom: 1px solid var(--landing-soft-line);
+  border: 1px solid var(--landing-line);
+  border-radius: var(--radius-lg);
   display: flex;
-  gap: 32px;
-  min-height: 94px;
+  gap: 24px;
+  min-height: var(--header-height);
+  margin-top: 0;
+  padding: 10px 16px;
   position: sticky;
-  top: 0;
-  background: #050706ed;
-  backdrop-filter: blur(16px);
+  top: 12px;
+  background: color-mix(in srgb, var(--marketing-void) 82%, transparent);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px #0002;
   z-index: 20;
 }
 .landing-brand {
@@ -101,7 +109,7 @@
   color: var(--marketing-text);
   display: inline-flex;
   gap: 10px;
-  font-size: 22px;
+  font-size: var(--brand-size);
   letter-spacing: -0.04em;
 }
 .landing-brand strong {
@@ -110,7 +118,7 @@
 .landing-nav__desktop {
   align-items: center;
   display: flex;
-  gap: 30px;
+  gap: 24px;
   justify-content: center;
   margin: auto;
 }
@@ -1606,11 +1614,13 @@
     width: calc(100% - 40px);
   }
   .landing-nav {
-    min-height: 80px;
+    min-height: 60px;
+    padding-inline: 12px;
+    gap: 12px;
     justify-content: space-between;
   }
   .landing-brand {
-    font-size: 21px;
+    font-size: var(--brand-size);
   }
   .landing-nav__desktop {
     display: none;

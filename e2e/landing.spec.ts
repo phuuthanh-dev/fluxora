@@ -21,6 +21,9 @@ test("public landing leads to the existing login without changing the auth bound
 test("sample run progresses, stops and replays locally without contacting an API", async ({
   page,
 }) => {
+  // Keep the whole sample visible so automatic scrolling cannot consume its
+  // short running state while the decorative scene settles on a busy runner.
+  await page.setViewportSize({ width: 1440, height: 1000 });
   const mutations: string[] = [];
   page.on("request", (request) => {
     if (request.method() !== "GET" || /\/api\//.test(request.url()))
