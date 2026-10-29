@@ -320,7 +320,7 @@ export function LandingPage() {
             Build something useful <ArrowRight size={17} />
           </Link>
         </section>
-        <footer className="landing-footer landing-container">
+        <LandingReveal as="footer" className="landing-footer landing-container" ariaLabel="Fluxora footer">
           <Link className="landing-brand" href="#top">
             <FluxoraMark size={26} />
             <strong>Fluxora</strong>
@@ -329,6 +329,7 @@ export function LandingPage() {
           <nav aria-label="Footer">
             <a href="#product">Product</a>
             <a href="#faq">FAQ</a>
+            <a href="https://github.com/phuuthanh-dev/workflow-automation">GitHub</a>
             <Link href="/login">
               Sign in <ArrowRight size={13} />
             </Link>
@@ -338,7 +339,7 @@ export function LandingPage() {
             <span>MADE FOR THE WORK IN BETWEEN.</span>
             <a href="#top">Back to top ↑</a>
           </div>
-        </footer>
+        </LandingReveal>
       </main>
     </LandingMotionProvider>
   );

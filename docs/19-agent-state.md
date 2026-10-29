@@ -91,6 +91,17 @@ resource-picker foundation.
 
 ## Recently closed slices
 
+- `L12.3` / `L6.1` readability and GSAP skills follow-up (2026-10-29) —
+  Public type/footer readability and scoped GSAP section reveals are implemented.
+  Eight official skills are pinned in user/project skill directories, with MIT
+  notice, provenance and AGENTS selection rules in `docs/26-gsap-workflow.md`.
+  Skill review removed redundant nested context. API 213, web 23 and all 66
+  E2E are qualified across a full run and targeted recovery; two existing E2E
+  synchronizations were corrected with their assertions retained. Fresh default
+  full-suite CI is required before a future PR merges. Current evidence:
+  `.agent/reports/2026-10-29-landing-readability-motion.md`. Do not reinstall
+  these skills or repeat the typography/reveal migration without a new request
+  or concrete regression. Owner visual acceptance remains separate.
 - `L12.3` statement-to-diagram correction (2026-10-29) — The owner's new
   brief and initial-icon screenshot reopen only this missing choreography:
   dark outlined Fluxora badge → lime statement → collapsed badge → existing

@@ -40,7 +40,8 @@ customer count, testimonial, success-rate or pricing claim may be invented.
 - `landing-handoff.tsx`: one scroll-controlled statement-to-diagram object.
 - `landing-sections.tsx`: reliability, daily activity, workflow cases.
 - `landing-interactions.tsx`: native menu/FAQ and workload estimate.
-- `landing-motion.tsx`: progressive entrance motion, readable before hydration.
+- `landing-motion.tsx`: scoped GSAP section entrances and shared pause state;
+  readable before hydration. MotionConfig remains for interactive islands.
 - `landing-scenes.tsx`: lazy renderer, SVG fallback, pause/visibility/preference.
 - `landing-three-scenes.tsx`: page measurement, Lenis/ScrollTrigger ownership,
   orthographic camera and shared ticker.
@@ -130,6 +131,32 @@ the existing landing tests cover WebGL/Lenis lifecycle separately. It is not a
 GPU performance measurement. Visual acceptance remains separate from assertions.
 
 ## Verification
+
+### Readability and section motion revision (2026-10-29)
+
+Public explanatory copy is 15–16px, FAQ questions 18px and answers 16px.
+Section labels and footer metadata are at least 12px; footer navigation is
+14px. Compact illustrative UI uses an 11px floor instead of 6–9px. Mobile
+coordinate decoration is hidden and node description space increases. Gilroy
+remains the primary family; Georgia italic is explicitly limited to display
+emphasis. The native serif may vary across operating systems.
+
+The shared LandingReveal now uses scoped GSAP/ScrollTrigger entrances (20px
+rise, 0.75s, power2.out), replacing Motion reveals without stacking effects.
+FAQ rows and footer groups stagger by 0.07s. Default markup is fully visible;
+pause, reduced-motion changes and route exit revert only the owned context.
+No extra RAF, Lenis instance, dependency or per-letter DOM splitting is added.
+The owner's official GSAP skills are installed globally and pinned under
+`.agents/skills/`. Their review removed a redundant context nested inside
+matchMedia and moved the new reveal's registration into its client effect.
+See `26-gsap-workflow.md` for skill selection and maintenance.
+The reliability docking ancestors remain stable. FAQ uses a local dark reading
+surface over the ribbon. The footer keeps real links and adds the source repo.
+
+Potential later enhancements, subject to visual review: SVG connector stroke
+draw in the narrative; scroll-linked sample bars with fixed final values;
+light pointer response for CTA on fine pointers. Avoid pinning more text
+sections, animating every letter or delaying clicks/FAQ disclosure.
 
 Browser coverage must include the login boundary; local sample and no API calls;
 no-WebGL/context-loss/reduced-motion recovery; pause/resume and restored native

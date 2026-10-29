@@ -1287,6 +1287,8 @@
       "boundary": "web",
       "internalImports": [],
       "externalImports": [
+        "gsap",
+        "gsap/ScrollTrigger",
         "motion/react",
         "react"
       ]

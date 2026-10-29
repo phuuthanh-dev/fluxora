@@ -123,6 +123,14 @@ CI runs the same gate for every pull request and push to `main`.
 
 ## External-boundary rule
 
+Owner follow-up to L12.3/L6.1 (2026-10-29): homepage reading sizes, footer and
+GSAP reveal lifecycle are improved; eight official GreenSock skills are pinned
+globally and in the repository. Local qualification covers 213 API, 23 web and
+66 E2E across a full run and targeted recovery, with no CI-timeout change.
+Latest evidence: `.agent/reports/2026-10-29-landing-readability-motion.md`.
+Usage policy: `docs/26-gsap-workflow.md`. Fresh default full-suite CI is required
+for a future PR; this is local delivery, not deployment or visual acceptance.
+
 Real Steam, Google Chat, GitHub connector, and Google OAuth calls are enabled only after a user supplies their credentials through the application. Until then, adapters use deterministic mock transport; no secret belongs in source, tests, logs, or frontend state. GitHub account sign-in remains a separate identity flow and never supplies the workspace GitHub connector token.
 
 See [`07-local-mvp-acceptance-audit.md`](./07-local-mvp-acceptance-audit.md) for requirement evidence and [`17-release-go-no-go.md`](./17-release-go-no-go.md) for the deliberately operator-gated external validations.

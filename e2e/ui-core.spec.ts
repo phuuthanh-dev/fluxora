@@ -81,7 +81,14 @@ test("workspace routes share shell, theme-aware overlays and compact editor cont
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await register(page);
+  const templateCreated = page.waitForResponse(response =>
+    response.request().method() === "POST" && response.url().includes("/workflows"),
+  );
   await page.getByRole("button", { name: "Use Steam template", exact: true }).click();
+  expect((await templateCreated).ok()).toBeTruthy();
+  // Next's development route can still be compiling after the POST succeeds.
+  // Use the same bounded navigation budget as the editor onboarding flow.
+  await page.waitForURL(/\/editor\?workflow=/, { timeout: 15_000 });
   await expect(page).toHaveURL(/\/editor\?workflow=/);
   const editorUrl = page.url();
   const workspaceId = await page.locator("#app-shell-workspace").inputValue();
