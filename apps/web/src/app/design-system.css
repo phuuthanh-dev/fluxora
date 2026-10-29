@@ -39,6 +39,7 @@
   --text-tertiary: #5f685b;
   --text-accent: #486200;
   --icon-muted: #566052;
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23566052' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   --line: #e1e6dc;
   --panel: #fffef9;
   --nav: var(--relay-void);
@@ -129,6 +130,7 @@
 }
 
 [data-theme="dark"] {
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23c8d1c4' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   color-scheme: dark;
   --focus-ring: var(--relay-lime);
   --surface-raised: #171e18;
@@ -262,13 +264,31 @@
 .ui-field__error { color: var(--semantic-danger); font-size: var(--text-xs); line-height: 1.4; margin: 0; }
 
 .ui-select { min-height: 36px; }
+/* One inset for native single-selects, including legacy feature controls.
+   Explicit specificity keeps background/padding shorthands from erasing the caret. */
+:root select:not([multiple]):not([size]) {
+  appearance: none;
+  background-image: var(--select-chevron);
+  background-position: right 12px center;
+  background-repeat: no-repeat;
+  background-size: 16px 16px;
+  padding-inline-end: 40px;
+}
+@media (forced-colors: active) {
+  :root select:not([multiple]):not([size]) { appearance: auto; background-image: none; }
+}
 .ui-menu { position: relative; }
 /* Explicit display prevents closed details from retaining stale theme paint. */
 .ui-menu:not([open]) > .ui-menu__content { display: none; }
 .ui-menu__trigger { align-items: center; cursor: pointer; display: inline-flex; gap: 7px; list-style: none; }
 .ui-menu__trigger::-webkit-details-marker { display: none; }
 .ui-menu__trigger:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
-.ui-dialog { color: var(--text-on-dark); }
+.ui-dialog { color: var(--text-on-dark); font-size: var(--text-md); line-height: 1.55; overscroll-behavior: contain; }
+.ui-dialog :is(h2, h3) { text-wrap: balance; }
+.ui-dialog button { flex-shrink: 0; }
+.ui-dialog-header { align-items: flex-start; border-bottom: 1px solid var(--line); display: flex; gap: 20px; justify-content: space-between; margin-bottom: 22px; padding-bottom: 20px; }
+.ui-dialog-header h2 { color: var(--ink); font-size: 22px; font-weight: 600; letter-spacing: -.03em; line-height: 1.25; margin: 7px 0 0; }
+.ui-dialog-header .ui-icon-button { border-radius: 50%; flex: 0 0 36px; }
 .ui-page-header { align-items: end; display: flex; gap: var(--space-5); justify-content: space-between; }
 .ui-page-header h1 { color: var(--ink); font-size: var(--page-title); font-weight: 600; letter-spacing: -.04em; line-height: 1.15; margin: 8px 0 10px; }
 .ui-page-header > div > p:not(.ui-kicker) { color: var(--muted); font-size: var(--text-md); line-height: 1.55; margin: 0; max-width: 620px; }

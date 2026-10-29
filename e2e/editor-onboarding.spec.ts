@@ -13,7 +13,7 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await page.getByRole("button", { name: "Create account" }).click();
 
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByRole("heading", { name: "Your workflow control room." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Workflows", level: 1 })).toBeVisible();
   await expect(page.getByText("Execution runtime ready")).toBeVisible();
   await page.getByLabel("Account actions").click();
   await expect(page.getByRole("button", { name: /^(Steam setup|Link Steam)$/ })).toBeVisible();
@@ -153,6 +153,7 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await page.getByRole("button", { name: "Credentials" }).click();
   await page.getByLabel("Provider").selectOption("STEAM");
   await expect(page.getByRole("textbox", { name: "Connection name" })).toHaveValue("Steam account");
+  await page.getByRole("button", { name: "Edit JSON", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Secret JSON" })).toContainText('"apiKey"');
   await expect(page.getByText("Enter a Steam Web API key and your 64-bit Steam ID.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Connect Google with OAuth" })).toHaveCount(0);

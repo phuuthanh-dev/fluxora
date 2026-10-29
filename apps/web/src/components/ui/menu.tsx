@@ -17,7 +17,6 @@ export function Menu({ label, children, trigger, className, contentClassName }: 
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const triggerRef = useRef<HTMLElement>(null);
   const contentId = useId();
-  const pendingFocusRef = useRef<"first" | "last" | null>(null);
   const [open, setOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   useSurfaceMotion(contentRef, open);
@@ -29,17 +28,6 @@ export function Menu({ label, children, trigger, className, contentClassName }: 
     setOpen(false);
     triggerRef.current?.focus();
   };
-
-  useEffect(() => {
-    if (!open || pendingFocusRef.current === null) return;
-    const edge = pendingFocusRef.current;
-    pendingFocusRef.current = null;
-    const frame = window.requestAnimationFrame(() => {
-      const items = menuItems();
-      items[edge === "first" ? 0 : items.length - 1]?.focus();
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -54,7 +42,6 @@ export function Menu({ label, children, trigger, className, contentClassName }: 
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       const edge = event.key === "ArrowDown" ? "first" : "last";
-      pendingFocusRef.current = null;
       flushSync(() => setOpen(true));
       const items = menuItems();
       items[edge === "first" ? 0 : items.length - 1]?.focus();
@@ -91,7 +78,6 @@ export function Menu({ label, children, trigger, className, contentClassName }: 
       ref={detailsRef}
       open={open}
       className={["ui-menu", className].filter(Boolean).join(" ")}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
       onBlur={(event) => {
         if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return;
         setOpen(false);
@@ -104,11 +90,12 @@ export function Menu({ label, children, trigger, className, contentClassName }: 
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={contentId}
+        onClick={(event) => { event.preventDefault(); setOpen((current) => !current); }}
         onKeyDown={onTriggerKeyDown}
       >
         {trigger ?? <><span>{label}</span><ChevronDown size={14} aria-hidden="true" /></>}
       </summary>
-      <div
+      {open && <div
         ref={contentRef}
         id={contentId}
         className={["ui-menu__content", contentClassName].filter(Boolean).join(" ")}
@@ -122,7 +109,7 @@ export function Menu({ label, children, trigger, className, contentClassName }: 
         }}
       >
         {children}
-      </div>
+      </div>}
     </details>
   );
 }

@@ -3,6 +3,8 @@
 import type { ReactNode } from "react";
 import { useDialogFocus } from "./use-dialog-focus";
 import { useSurfaceMotion } from "./ui-motion";
+import { X } from "lucide-react";
+import { IconButton } from "./button";
 
 type DialogProps = {
   label: string;
@@ -27,4 +29,13 @@ export function Dialog({ label, children, className, modal = true, onClose, init
       {children}
     </section>
   );
+}
+
+export function DialogHeader({ title, eyebrow, onClose, closeLabel = "Close dialog" }: {
+  title: ReactNode; eyebrow?: string; onClose?: () => void; closeLabel?: string;
+}) {
+  return <header className="ui-dialog-header">
+    <div>{eyebrow && <p className="section-label">{eyebrow}</p>}<h2>{title}</h2></div>
+    {onClose && <IconButton label={closeLabel} onClick={onClose}><X size={17} /></IconButton>}
+  </header>;
 }

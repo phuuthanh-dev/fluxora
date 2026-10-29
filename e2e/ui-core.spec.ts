@@ -111,6 +111,7 @@ test("workspace routes share shell, theme-aware overlays and compact editor cont
       await readable(page.getByRole("button", { name: "Sign out" }));
       await page.keyboard.press("Escape");
       await expect(page.getByLabel("Account actions", { exact: true })).toBeFocused();
+      await expect(page.getByRole("menu", { name: "Account menu" })).toHaveCount(0);
       if (route.endsWith("connections")) {
         await expect(page.locator(".credential-form")).toBeVisible();
         await readable(page.locator(".credential-form__hint"));
@@ -128,11 +129,20 @@ test("workspace routes share shell, theme-aware overlays and compact editor cont
     await expect(page.locator(".credential-panel")).toHaveCSS("background-color", theme === "light" ? "rgb(255, 254, 249)" : "rgb(17, 23, 18)");
     await readable(page.locator(".credential-panel__directory-link"));
     await readable(page.locator(".credential-form__hint"));
+    const manager = page.getByRole("dialog", { name: "Credential manager" });
+    const toolbar = await manager.locator(".credential-toolbar").boundingBox();
+    const form = await manager.locator(".credential-form").boundingBox();
+    expect(form!.y).toBeGreaterThanOrEqual(toolbar!.y + toolbar!.height);
+    await expect(manager.getByLabel("Provider", { exact: true })).toHaveCSS("padding-right", "40px");
+    await page.screenshot({ path: testInfo.outputPath(`connections-panel-${theme}.png`) });
     await page.getByRole("button", { name: "Close credential manager" }).click();
     await page.setViewportSize({ width: 960, height: 900 });
     await expect(page.getByRole("button", { name: "Save draft", exact: true })).toBeVisible();
     await noHorizontalOverflow(page);
     await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.locator(".workflow-node").filter({ hasText: "Get account snapshot" }).click();
+    await expect(page.locator(".inspector__identity")).toBeVisible();
+    await expect(page.locator(".inspector__heading h2")).toHaveCSS("font-size", "16px");
     await page.screenshot({ path: testInfo.outputPath(`editor-${theme}.png`) });
   }
   await page.setViewportSize({ width: 390, height: 844 });

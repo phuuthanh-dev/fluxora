@@ -64,7 +64,7 @@ export function ConnectionsDashboard() {
         <PageHeader
           eyebrow={activeWorkspace?.name ?? "CONNECTIONS"}
           title="Connections"
-          description="Create and maintain the encrypted accounts, keys, and webhooks that your workflows can use. Secret values are never shown after saving."
+          description="Manage app accounts and credentials shared by your workflows."
           actions={<Button variant="secondary" onClick={() => router.push("/dashboard")}><ArrowLeft size={15} /> Dashboard</Button>}
         />
         {error ? <Status tone="error" className="connections-error">{error}<Button variant="ghost" onClick={() => window.location.reload()}>Retry</Button></Status> : null}

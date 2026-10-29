@@ -292,6 +292,7 @@ test("connections are managed on a dedicated workspace page without exposing a c
 
   await page.getByLabel("Provider").selectOption("STEAM");
   await page.getByLabel("Connection name").fill("Steam page connection");
+  await page.getByRole("button", { name: "Edit JSON", exact: true }).click();
   await page.getByLabel("Secret JSON").fill('{"apiKey":"test-key","steamId":"76561198000000000"}');
   await page.getByRole("button", { name: "Encrypt & save" }).click();
   await expect(page.getByText("Credential encrypted and saved. Select it from a compatible node in the editor.")).toBeVisible();
@@ -454,7 +455,7 @@ test("workflow cards expose rename, duplicate, archive, and guarded delete actio
   const cardMeta = actionCard.locator(".workflow-card__meta");
   await expect(cardMeta.locator("summary")).toHaveCount(1);
   await expect(cardMeta).toHaveCSS("flex-direction", "row");
-  await expect(cardMeta.locator(".workflow-card__updated")).toHaveCSS("font-size", "10px");
+  await expect(cardMeta.locator(".workflow-card__updated")).toHaveCSS("font-size", "12px");
   await actionCard.getByLabel("Workflow actions for Action target actions").click();
   await actionCard.getByRole("button", { name: "Rename" }).click();
   await expect(page.getByRole("dialog", { name: "Rename workflow" })).toBeVisible();
@@ -533,9 +534,14 @@ test("dialogs and editor panels manage focus entry, trapping, Escape, and focus 
   const dialog = page.getByRole("dialog", { name: "Rename workflow" });
   const nameInput = dialog.getByRole("textbox", { name: "Workflow name" });
   const saveButton = dialog.getByRole("button", { name: "Save name" });
+  const closeButton = dialog.getByRole("button", { name: "Close workflow action" });
   await expect(nameInput).toBeFocused();
   await page.keyboard.press("Shift+Tab");
+  await expect(closeButton).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
   await expect(saveButton).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(closeButton).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(nameInput).toBeFocused();
   await page.keyboard.press("Escape");
@@ -544,7 +550,7 @@ test("dialogs and editor panels manage focus entry, trapping, Escape, and focus 
 
   await actionMenu.click();
   await expect(card.getByRole("button", { name: "Rename" })).toBeVisible();
-  await page.getByRole("heading", { name: "Your workflow control room." }).click();
+  await page.getByRole("heading", { name: "Workflows", level: 1 }).click();
   await expect(actionMenu).toHaveAttribute("aria-expanded", "false");
 
   await card.getByRole("button", { name: "Open editor" }).click();

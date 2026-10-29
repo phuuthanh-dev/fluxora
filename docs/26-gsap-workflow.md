@@ -119,3 +119,9 @@ or effects merely because a skill is installed.
 
 - [GreenSock skills](https://github.com/greensock/gsap-skills).
 - [OpenAI: repository skills and AGENTS.md](https://developers.openai.com/blog/skills-agents-sdk).
+
+Connection creation now reuses `Collapse`. Shared Menu content mounts only while
+open and its summary click is controlled by React; native delayed `toggle`
+events must not reopen a menu after Escape. The existing surface hook receives
+the open state and cleans up on close. Repeated keyboard dismissal and actual
+menu absence are asserted in product-experience E2E.

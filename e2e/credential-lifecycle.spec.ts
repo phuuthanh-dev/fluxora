@@ -30,6 +30,8 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   await page.getByLabel("Manage actions").click();
   await page.getByRole("button", { name: "Credentials" }).click();
 
+  await page.getByRole("button", { name: "Edit JSON", exact: true }).click();
+
   // 1. Create a Discord Webhook credential
   await page.getByLabel("Provider").selectOption("DISCORD_WEBHOOK");
   await page.getByRole("textbox", { name: "Connection name" }).fill("Discord Primary Alerts");
@@ -86,7 +88,9 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   // 4. Secret rotation test
   await primaryCard.getByLabel("Actions for Discord Ops Main actions").click();
   await primaryCard.getByRole("button", { name: "Rotate secret for Discord Ops Main" }).click();
-  await expect(primaryCard.getByText("Existing secret values cannot be displayed for security. Enter a complete replacement JSON payload.")).toBeVisible();
+  await expect(primaryCard.getByText("Existing secret values cannot be displayed for security. Enter all replacement values. The advanced JSON option preserves custom fields.")).toBeVisible();
+
+  await primaryCard.getByRole("button", { name: "Edit JSON", exact: true }).click();
 
   // Try invalid JSON
   await primaryCard.getByLabel("Replacement secret JSON").fill("not-json");
@@ -268,6 +272,8 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
 
   // Verify UI explainer for Telegram bot token rotation preserving legacy fallback
   await expect(legacyTgCard.getByText(/legacy fallback chat ID stored with this credential will be preserved server-side/)).toBeVisible();
+
+  await legacyTgCard.getByRole("button", { name: "Edit JSON", exact: true }).click();
 
   // Rotate with payload that omits chatId
   await legacyTgCard.getByLabel("Replacement secret JSON").fill('{"botToken":"new-rotated-token-456"}');

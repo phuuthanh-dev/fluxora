@@ -1039,6 +1039,16 @@
       ]
     },
     {
+      "id": "apps/web/src/app/register/page.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/public-site/site.ts"
+      ],
+      "externalImports": [
+        "@/features/auth/login-form"
+      ]
+    },
+    {
       "id": "apps/web/src/app/robots.ts",
       "boundary": "web",
       "internalImports": [
@@ -1117,10 +1127,12 @@
       "id": "apps/web/src/components/ui/dialog.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/button.tsx",
         "apps/web/src/components/ui/ui-motion.ts",
         "apps/web/src/components/ui/use-dialog-focus.ts"
       ],
       "externalImports": [
+        "lucide-react",
         "react"
       ]
     },
@@ -1284,10 +1296,13 @@
       "internalImports": [
         "apps/web/src/components/brand/brand-lockup.tsx",
         "apps/web/src/components/brand/oauth-provider-icon.tsx",
+        "apps/web/src/components/ui/ui-motion.ts",
         "apps/web/src/features/api/api-client.ts",
-        "apps/web/src/features/theme/theme-toggle.tsx"
+        "apps/web/src/features/theme/theme-toggle.tsx",
+        "apps/web/src/features/workflow/node-icon.tsx"
       ],
       "externalImports": [
+        "lucide-react",
         "next/link",
         "next/navigation",
         "react"
@@ -1311,12 +1326,26 @@
       "id": "apps/web/src/features/credentials/credential-panel.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/disclosure.tsx",
         "apps/web/src/features/api/api-client.ts",
-        "apps/web/src/features/credentials/credential-types.ts"
+        "apps/web/src/features/credentials/credential-secret-fields.tsx",
+        "apps/web/src/features/credentials/credential-types.ts",
+        "apps/web/src/features/workflow/node-icon.tsx"
       ],
       "externalImports": [
         ": ",
         "lucide-react",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/credentials/credential-secret-fields.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/credentials/credential-types.ts"
+      ],
+      "externalImports": [
+        ", label: ",
         "react"
       ]
     },
@@ -2617,6 +2646,10 @@
       "to": "apps/web/src/features/public-site/site.ts"
     },
     {
+      "from": "apps/web/src/app/register/page.tsx",
+      "to": "apps/web/src/features/public-site/site.ts"
+    },
+    {
       "from": "apps/web/src/app/robots.ts",
       "to": "apps/web/src/features/public-site/site.ts"
     },
@@ -2643,6 +2676,10 @@
     {
       "from": "apps/web/src/components/brand/brand-lockup.tsx",
       "to": "apps/web/src/components/brand/fluxora-mark.tsx"
+    },
+    {
+      "from": "apps/web/src/components/ui/dialog.tsx",
+      "to": "apps/web/src/components/ui/button.tsx"
     },
     {
       "from": "apps/web/src/components/ui/dialog.tsx",
@@ -2738,11 +2775,19 @@
     },
     {
       "from": "apps/web/src/features/auth/login-form.tsx",
+      "to": "apps/web/src/components/ui/ui-motion.ts"
+    },
+    {
+      "from": "apps/web/src/features/auth/login-form.tsx",
       "to": "apps/web/src/features/api/api-client.ts"
     },
     {
       "from": "apps/web/src/features/auth/login-form.tsx",
       "to": "apps/web/src/features/theme/theme-toggle.tsx"
+    },
+    {
+      "from": "apps/web/src/features/auth/login-form.tsx",
+      "to": "apps/web/src/features/workflow/node-icon.tsx"
     },
     {
       "from": "apps/web/src/features/credentials/connections-dashboard.tsx",
@@ -2758,10 +2803,26 @@
     },
     {
       "from": "apps/web/src/features/credentials/credential-panel.tsx",
+      "to": "apps/web/src/components/ui/disclosure.tsx"
+    },
+    {
+      "from": "apps/web/src/features/credentials/credential-panel.tsx",
       "to": "apps/web/src/features/api/api-client.ts"
     },
     {
       "from": "apps/web/src/features/credentials/credential-panel.tsx",
+      "to": "apps/web/src/features/credentials/credential-secret-fields.tsx"
+    },
+    {
+      "from": "apps/web/src/features/credentials/credential-panel.tsx",
+      "to": "apps/web/src/features/credentials/credential-types.ts"
+    },
+    {
+      "from": "apps/web/src/features/credentials/credential-panel.tsx",
+      "to": "apps/web/src/features/workflow/node-icon.tsx"
+    },
+    {
+      "from": "apps/web/src/features/credentials/credential-secret-fields.tsx",
       "to": "apps/web/src/features/credentials/credential-types.ts"
     },
     {

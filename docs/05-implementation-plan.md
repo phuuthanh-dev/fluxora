@@ -197,3 +197,6 @@ delivery, not deployment or final owner visual acceptance.
 - Each slice needs a focused commit, tests or an explicit verification note, and documentation updates if behavior changes.
 - Keep runtime secrets out of fixtures and client state.
 - Do not add deployment configuration until Milestone 4 has passed local acceptance.
+
+### Product experience refinement — owner request 2026-10-29
+After the public release, reopen L13.1 for workflow-first dashboard composition, searchable connection management and guided draft-secret input, readable inspector sections, shared dialog headers and deterministic menu dismissal. See `28-product-experience.md` and `.agent/tasks/2026-10-29-product-experience.md`. Completed prior UI/runner slices are not new goals. Release evidence and local UI delivery are recorded separately.
