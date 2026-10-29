@@ -43,6 +43,19 @@ If a request conflicts with the specification, call out the conflict and propose
 
 ## Source of truth and documentation
 
+### GSAP animation work
+
+- For landing animation changes, read `docs/22-public-landing-v2.md` and
+  `docs/26-gsap-workflow.md`, then the relevant official skills under
+  `.agents/skills/`. Use `gsap-core`, `gsap-react` and `gsap-scrolltrigger` for
+  React scroll work; add `gsap-timeline` and `gsap-performance` for choreography
+  and optimization. Load plugins/utils/frameworks only when needed.
+- Preserve component-scoped cleanup, readable SSR content, pause/reduced-motion
+  support and the existing single scroll/render ticker. Validate skill examples
+  against installed APIs; do not copy unrelated snippets or expand scope.
+- Skills guide implementation; they do not authorize new dependencies, provider
+  calls, publishing or deployment. Repository constraints and user scope apply.
+
 - Product behavior: `docs/01-product-spec.md`
 - Technical boundaries: `docs/02-architecture.md`
 - Code style and quality gates: `docs/03-development-rules.md`

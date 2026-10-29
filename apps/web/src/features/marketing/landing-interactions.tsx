@@ -162,15 +162,15 @@ export function LandingFaq() {
       id="faq"
       aria-labelledby="faq-heading"
     >
-      <div>
+      <LandingReveal>
         <p className="landing-eyebrow">A FEW THINGS TO KNOW</p>
         <h2 id="faq-heading">
           Before you
           <br />
           <em>connect the dots.</em>
         </h2>
-      </div>
-      <div className="landing-faq__items">
+      </LandingReveal>
+      <LandingReveal className="landing-faq__items" delay={0.1}>
         {faqItems.map((item, index) => (
           <details
             className="landing-faq__item"
@@ -185,7 +185,7 @@ export function LandingFaq() {
             <p>{item.answer}</p>
           </details>
         ))}
-      </div>
+      </LandingReveal>
     </section>
   );
 }

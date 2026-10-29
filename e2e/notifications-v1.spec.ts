@@ -161,14 +161,16 @@ test("configure Discord and Telegram notification nodes with encrypted credentia
   await expect(page.getByText(/Mock execution succeeded/i)).toBeVisible({ timeout: 15_000 });
 
   // Inspect Discord node output in execution result
-  await page.locator(".react-flow__node").filter({ hasText: "Discord · Action" }).first().click();
+  await page.getByRole("heading", { name: "Send webhook message", exact: true }).click();
+  await expect(page.getByLabel("Display name", { exact: true })).toHaveValue("Discord webhook");
   await expect(page.getByRole("region", { name: "Last execution" }).getByText(/SUCCEEDED · ATTEMPT/i)).toBeVisible();
   await expect(page.locator(".result-view").getByText("delivered", { exact: true })).toBeVisible();
   await expect(page.locator(".result-view").getByText(": mock", { exact: true })).toBeVisible();
   await expect(page.locator(".result-view").getByText("destination", { exact: true })).toBeVisible();
 
   // Inspect Telegram node output in execution result
-  await page.locator(".react-flow__node").filter({ hasText: "Telegram · Action" }).first().click();
+  await page.getByRole("heading", { name: "Send message", exact: true }).click();
+  await expect(page.getByLabel("Display name", { exact: true })).toHaveValue("Telegram message");
   await expect(page.getByRole("region", { name: "Last execution" }).getByText(/SUCCEEDED · ATTEMPT/i)).toBeVisible();
   await expect(page.locator(".result-view").getByText("delivered", { exact: true })).toBeVisible();
   await expect(page.locator(".result-view").getByText(": mock", { exact: true })).toBeVisible();
