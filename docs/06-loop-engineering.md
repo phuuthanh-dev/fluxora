@@ -32,6 +32,7 @@ CI runs the same gate for every pull request and push to `main`.
 
 | Loop | Outcome | Status | Proof required |
 |---|---|---:|---|
+| L13.1 | Landing/product UI core unification | Complete locally | Compact glass landing header, shared brand/page hierarchy and theme-aware shell/forms/overlays across all six existing routes. Native visual review, responsive/contrast regression and full verify passed: 213 API, 23 web, 58 E2E. See docs/25 and the UI-core report; no publication implied. |
 | L0 | Repeatable repository quality gate and CI | Complete | `npm run verify` passed locally; GitHub Actions checks the same gate |
 | L1 | Authenticated owner can create, save, reload, and publish a workflow | Complete | HTTP and browser checks passed locally |
 | L2 | Pinned version can run with persisted node I/O | Complete locally and in CI | Inline mock and Redis worker paths persist node I/O. A pinned isolated local Redis runtime and CI Redis service cover handoff, bounded concurrency, delayed retry primitives, owner-scoped SSE, shutdown/restart, and single-attempt dispatch with no test-level skip. |

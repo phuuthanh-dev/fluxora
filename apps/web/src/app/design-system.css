@@ -13,6 +13,17 @@
   --relay-lime-soft: #efffc4;
   --font-ui: var(--font-fluxora-gilroy), Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --header-height: 64px;
+  --brand-size: 20px;
+  --page-width: 1248px;
+  --page-gutter: clamp(20px, 4vw, 56px);
+  --page-title: clamp(28px, 3vw, 36px);
+  --control-height: 38px;
+  --control-text: 13px;
+  --focus-ring: #607d00;
+  --surface-raised: #f0f3eb;
+  --surface-inset: #f8faf5;
+  --danger-fill: #b42340;
 
   /* Semantic tokens are intentionally separate from provider brand colors. */
   --semantic-success: #197a4b;
@@ -20,7 +31,7 @@
   --semantic-danger: #c52f4e;
   --semantic-info: #267da3;
 
-  /* Product surfaces. Keep the graph light for readability; shell and overlays stay dark. */
+  /* Theme-aware product surfaces; marketing remains intentionally dark. */
   --canvas: #f5f7f1;
   --ink: #101410;
   --muted: #687064;
@@ -96,17 +107,19 @@
   --text-md: 14px;
   --text-lg: 18px;
   --text-xl: 24px;
-  --weight-medium: 600;
+  --weight-medium: 500;
   --weight-bold: 700;
-  --weight-extrabold: 800;
+  --weight-extrabold: 700;
   --radius-sm: 7px;
   --radius-md: 10px;
   --radius-lg: 14px;
   --motion-fast: 140ms;
   --motion-standard: 220ms;
   /* Marketing surfaces are Fluxora-owned adaptations, not template source. */
-  --marketing-void: #050706;
-  --marketing-surface: #0d120e;
+  --brand-void: #050706;
+  --brand-surface: #0d120e;
+  --marketing-void: var(--brand-void);
+  --marketing-surface: var(--brand-surface);
   --marketing-surface-raised: #141b15;
   --marketing-border: #2d3a2f;
   --marketing-grid: rgba(214, 255, 50, 0.09);
@@ -117,6 +130,9 @@
 
 [data-theme="dark"] {
   color-scheme: dark;
+  --focus-ring: var(--relay-lime);
+  --surface-raised: #171e18;
+  --surface-inset: #0b100c;
 
   /* Dark mode keeps the Relay character while moving reading surfaces into the shell. */
   --relay-void: #050706;
@@ -206,10 +222,9 @@
 }
 
 .ui-kicker {
-  color: var(--accent);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
+  color: var(--text-accent);
+  font: 10px/1.5 var(--font-mono);
+  letter-spacing: 0.09em;
   text-transform: uppercase;
 }
 
@@ -218,41 +233,41 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   display: inline-flex;
-  font-size: 12px;
-  font-weight: 800;
+  font-size: var(--control-text);
+  font-weight: 600;
   gap: 7px;
   justify-content: center;
-  min-height: 36px;
+  min-height: var(--control-height);
   padding: 9px 12px;
   transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease, transform var(--motion-fast) ease;
 }
 
-.ui-button:hover:not(:disabled) { transform: translateY(-1px); }
+.ui-button:hover:not(:disabled) { border-color: var(--text-accent); }
 .ui-button:disabled { cursor: not-allowed; opacity: 0.45; transform: none; }
 .ui-button:focus-visible, .ui-select:focus-visible, .ui-field :is(input, textarea, select):focus-visible {
-  outline: 3px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 .ui-button--primary { background: var(--accent); border: 1px solid var(--accent); color: var(--text-on-accent); }
 .ui-button--secondary { background: var(--panel); border: 1px solid var(--line); color: var(--ink); }
-.ui-button--ghost { background: transparent; border: 1px solid var(--surface-dark-border); color: var(--text-on-dark); }
-.ui-button--danger { background: var(--semantic-danger); border: 1px solid var(--semantic-danger); color: #fff; }
+.ui-button--ghost { background: transparent; border: 1px solid var(--line); color: var(--ink); }
+.ui-button--danger { background: var(--danger-fill); border: 1px solid var(--danger-fill); color: #fff; }
 
 .ui-icon-button { min-width: 36px; padding-inline: 9px; }
 
 .ui-field { display: grid; gap: 5px; }
-.ui-field__label { color: var(--muted-on-dark); font-size: var(--text-sm); font-weight: var(--weight-bold); }
-.ui-field__hint { color: var(--muted-on-dark); font-size: var(--text-xs); line-height: 1.4; margin: 0; }
+.ui-field__label { color: var(--text-secondary); font-size: var(--control-text); font-weight: 600; }
+.ui-field__hint { color: var(--muted); font-size: var(--text-sm); line-height: 1.5; margin: 0; }
 .ui-field__error { color: var(--semantic-danger); font-size: var(--text-xs); line-height: 1.4; margin: 0; }
 
 .ui-select { min-height: 36px; }
 .ui-menu { position: relative; }
 .ui-menu__trigger { align-items: center; cursor: pointer; display: inline-flex; gap: 7px; list-style: none; }
 .ui-menu__trigger::-webkit-details-marker { display: none; }
-.ui-menu__trigger:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.ui-menu__trigger:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .ui-dialog { color: var(--text-on-dark); }
 .ui-page-header { align-items: end; display: flex; gap: var(--space-5); justify-content: space-between; }
-.ui-page-header h1 { color: var(--ink); font-size: clamp(30px, 4vw, 44px); letter-spacing: -.05em; margin: 7px 0; }
+.ui-page-header h1 { color: var(--ink); font-size: var(--page-title); font-weight: 600; letter-spacing: -.04em; line-height: 1.15; margin: 8px 0 10px; }
 .ui-page-header > div > p:not(.ui-kicker) { color: var(--muted); font-size: var(--text-md); line-height: 1.55; margin: 0; max-width: 620px; }
 .ui-page-header__actions { align-items: center; display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; }
 .ui-section-header { align-items: end; display: flex; gap: var(--space-4); justify-content: space-between; }

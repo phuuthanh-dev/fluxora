@@ -170,7 +170,7 @@ test("editor text, controls, and provider icons meet contrast targets in both th
     await expectContrast(page.locator(".palette-filter--active"), 4.5);
     await expectContrast(page.locator(".palette-group > header p").first(), 4.5);
     await expectContrast(page.locator(".workflow-node p:not(.workflow-node__category)").first(), 4.5);
-    await expect(page.getByRole("button", { name: "Go live" })).toHaveCSS("color", "rgb(52, 32, 0)");
+    await expectContrast(page.getByRole("button", { name: "Go live" }), 4.5);
     await expectContrast(
       page.locator(".react-flow__node").filter({ hasText: "Get account snapshot" }).locator(".workflow-node__provider-icon svg"),
       3,

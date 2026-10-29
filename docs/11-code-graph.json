@@ -986,6 +986,14 @@
       ]
     },
     {
+      "id": "apps/web/src/components/brand/brand-lockup.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/brand/fluxora-mark.tsx"
+      ],
+      "externalImports": []
+    },
+    {
       "id": "apps/web/src/components/brand/fluxora-mark.tsx",
       "boundary": "web",
       "internalImports": [],
@@ -1137,7 +1145,7 @@
       "id": "apps/web/src/features/app-shell/app-shell-header.tsx",
       "boundary": "web",
       "internalImports": [
-        "apps/web/src/components/brand/fluxora-mark.tsx",
+        "apps/web/src/components/brand/brand-lockup.tsx",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/theme/theme-toggle.tsx"
       ],
@@ -1151,12 +1159,13 @@
       "id": "apps/web/src/features/auth/login-form.tsx",
       "boundary": "web",
       "internalImports": [
-        "apps/web/src/components/brand/fluxora-mark.tsx",
+        "apps/web/src/components/brand/brand-lockup.tsx",
         "apps/web/src/components/brand/oauth-provider-icon.tsx",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/theme/theme-toggle.tsx"
       ],
       "externalImports": [
+        "next/link",
         "next/navigation",
         "react"
       ]
@@ -1250,7 +1259,7 @@
       "id": "apps/web/src/features/marketing/landing-interactions.tsx",
       "boundary": "web",
       "internalImports": [
-        "apps/web/src/components/brand/fluxora-mark.tsx",
+        "apps/web/src/components/brand/brand-lockup.tsx",
         "apps/web/src/features/marketing/landing-motion.tsx"
       ],
       "externalImports": [
@@ -2394,6 +2403,10 @@
       "to": "apps/api/src/database/prisma.service.ts"
     },
     {
+      "from": "apps/web/src/components/brand/brand-lockup.tsx",
+      "to": "apps/web/src/components/brand/fluxora-mark.tsx"
+    },
+    {
       "from": "apps/web/src/components/ui/dialog.tsx",
       "to": "apps/web/src/components/ui/use-dialog-focus.ts"
     },
@@ -2451,7 +2464,7 @@
     },
     {
       "from": "apps/web/src/features/app-shell/app-shell-header.tsx",
-      "to": "apps/web/src/components/brand/fluxora-mark.tsx"
+      "to": "apps/web/src/components/brand/brand-lockup.tsx"
     },
     {
       "from": "apps/web/src/features/app-shell/app-shell-header.tsx",
@@ -2463,7 +2476,7 @@
     },
     {
       "from": "apps/web/src/features/auth/login-form.tsx",
-      "to": "apps/web/src/components/brand/fluxora-mark.tsx"
+      "to": "apps/web/src/components/brand/brand-lockup.tsx"
     },
     {
       "from": "apps/web/src/features/auth/login-form.tsx",
@@ -2535,7 +2548,7 @@
     },
     {
       "from": "apps/web/src/features/marketing/landing-interactions.tsx",
-      "to": "apps/web/src/components/brand/fluxora-mark.tsx"
+      "to": "apps/web/src/components/brand/brand-lockup.tsx"
     },
     {
       "from": "apps/web/src/features/marketing/landing-interactions.tsx",

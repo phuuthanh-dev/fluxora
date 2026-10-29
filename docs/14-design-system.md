@@ -1,7 +1,7 @@
 # Global design system
 
-**Status:** v1 active, Relay-inspired
-**Decision date:** 2026-10-25
+**Status:** v2, shared landing/product core
+**Decision date:** 2026-10-29
 **Owner:** Fluxora product
 
 This document is the source of truth for the visual foundation shared by the
@@ -17,10 +17,11 @@ source has not been imported, extracted from the preview, or committed to this
 public repository. These values remain an intentional Fluxora adaptation, not
 a claim of pixel-perfect or proprietary Relay tokens.
 
-The application keeps a light workflow canvas because graph readability and
-long-running configuration work are more important than copying a marketing
-hero. The shell, command surfaces, drawers, dialogs, and runtime overlays use
-the near-black foundation.
+The landing stays deliberately dark. Authenticated pages, including the shell,
+command surfaces and overlays, follow the selected light/dark theme. They share
+the landing's brand, Gilroy family, lime action hierarchy and spacing rhythm,
+with a compact scale for work. Marketing display typography and WebGL remain
+exclusive to the landing.
 
 Light mode is the default product presentation. Dark mode keeps the same
 Relay-inspired shell and lime hierarchy but moves the dashboard, canvas,
@@ -35,8 +36,10 @@ available on auth, dashboard, and editor surfaces.
 The implementation source is:
 
 - `apps/web/src/app/design-system.css` — global tokens and reusable recipes;
-- `apps/web/src/app/globals.css` — legacy class migration and route-level
-  composition;
+- `apps/web/src/app/globals.css` — existing editor and management recipes;
+- `apps/web/src/app/product-shell.css` — sole owner of authentication and app
+  navigation composition, responsive behavior and theme compatibility aliases;
+- `apps/web/src/components/brand/brand-lockup.tsx` — shared mark/wordmark;
 - `apps/web/src/app/fonts/` — local Gilroy family copied from the
   VietAuction source project and loaded through `next/font/local`;
 - `apps/web/src/features/workflow/node-icon.tsx` — provider and node icon
@@ -49,7 +52,8 @@ only when it is a provider brand color or a clearly documented semantic state.
 
 | Purpose | Token | Value/role |
 |---|---|---|
-| Product void | `--relay-void` | `#080a09`, primary shell background |
+| Brand void | `--brand-void` | `#050706`, public landing and auth introduction |
+| Legacy product void | `--relay-void` | Resolves to the theme-aware inset inside product pages |
 | Dark surface | `--relay-surface` | `#111512`, panels and overlays |
 | Raised dark surface | `--relay-surface-raised` | `#1a201b`, inputs and menu hover |
 | Dark border | `--relay-surface-border` | `#303a32` |
@@ -70,7 +74,11 @@ only when it is a provider brand color or a clearly documented semantic state.
 | Light panel | `--panel` | `#fffef9` |
 | Spacing | `--space-1` … `--space-7` | 4px–32px rhythm |
 | Type scale | `--text-xs` … `--text-xl` | 10px–24px product scale |
-| Type weight | `--weight-medium` … `--weight-extrabold` | 600–800 |
+| Type weight | `--weight-medium` … `--weight-extrabold` | 500–700; matches bundled fonts |
+| Navigation | `--header-height`, `--brand-size` | 64px header, 20px wordmark; wrapping allowed on narrow app screens |
+| Page layout | `--page-width`, `--page-gutter`, `--page-title` | Shared management-page width, gutter, 28–36px title |
+| Controls | `--control-height`, `--control-text`, `--focus-ring` | 38px/13px working controls, theme-aware visible focus |
+| Surface layers | `--surface-inset`, `--surface-raised` | Inputs, menus and grouped information in either theme |
 | UI font | `--font-ui` | Fluxora Gilroy, Arial fallback |
 
 Compatibility aliases such as `--accent`, `--nav`, `--soft-purple`, and
@@ -92,9 +100,10 @@ migrated incrementally without changing component APIs.
    identity. The product shell must not recolor them to the accent. Single-color
    marks use `--provider-*` so dark marks such as Steam, GitHub, and OpenAI
    receive an accessible light variant on dark tiles.
-5. **Surfaces:** light canvas and cards are for reading and graph work; dark
-   shell, menus, drawers, credential panels, execution history, and runtime
-   overlays are for control/status surfaces.
+5. **Surfaces:** shell, menus, drawers, credential panels and execution surfaces
+   follow the same theme as the canvas. Use semantic tokens; legacy
+   `--surface-dark`/`--text-on-dark` aliases resolve to the current product theme.
+   The public landing and auth introduction retain explicit brand-dark tokens.
 6. **Typography:** use the local Gilroy family through `--font-ui` for all
    product text. Use the bundled 500/600/700 weights consistently; use
    `--font-mono` only for IDs, expressions, logs, webhook URLs, and JSON.
@@ -185,10 +194,9 @@ legacy class only when a migration-specific selector is still needed.
 ### Component and utility audit
 
 Tailwind CSS v4 is installed through `@tailwindcss/postcss` and imported from
-`globals.css`, but it is currently a compatibility/tooling layer rather than
-the primary styling system. Most existing screens still use feature-scoped CSS
-selectors. The current `.ui-*` recipes are reusable CSS contracts, not a
-typed React component library yet.
+`globals.css`. Existing screens use feature-scoped CSS alongside typed shared
+primitives. Keep this single token system; do not install another component
+library or duplicate shell rules merely to restyle a page.
 
 The typed primitive set is now available: `Button`, `IconButton`, `Field`,
 `Select`, `Menu`, `Dialog`, `Status`, `PageHeader`, `EmptyState`, `Skeleton`,

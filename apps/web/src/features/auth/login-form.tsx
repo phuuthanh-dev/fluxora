@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { apiUrl } from "../api/api-client";
 import { ThemeToggle } from "../theme/theme-toggle";
 import { Button, Field } from "../../components/ui";
-import { FluxoraMark } from "../../components/brand/fluxora-mark";
+import { BrandLockup } from "../../components/brand/brand-lockup";
 import { OAuthProviderIcon } from "../../components/brand/oauth-provider-icon";
 
 type AuthMode = "login" | "register";
@@ -59,9 +60,12 @@ export function LoginForm() {
 
   return (
     <main className="auth-page">
+      <header className="auth-navigation">
+        <Link href="/" aria-label="Fluxora home"><BrandLockup /></Link>
+        <ThemeToggle />
+      </header>
       <section className="auth-showcase" aria-label="Product introduction">
-        <span className="auth-brand-mark"><FluxoraMark size={44} /></span>
-        <p className="auth-eyebrow">FLUXORA</p>
+        <p className="auth-eyebrow">LESS REPETITION. MORE POSSIBILITY.</p>
         <h1>Build dependable work, visually.</h1>
         <p>Connect the tasks you repeat every day, keep every execution visible, and stay in control of your data.</p>
         <div className="auth-flow-preview" aria-hidden="true">
@@ -69,7 +73,6 @@ export function LoginForm() {
         </div>
       </section>
       <section className="auth-panel">
-        <ThemeToggle />
         <div className="auth-card">
           <p className="auth-eyebrow">WELCOME</p>
           <h2>{mode === "login" ? "Sign in to your workspace" : "Create your workspace"}</h2>
@@ -78,7 +81,7 @@ export function LoginForm() {
             {mode === "register" && <Field label="Name" className="auth-field"><input autoComplete="name" onChange={(event) => setDisplayName(event.target.value)} value={displayName} /></Field>}
             <Field label="Email" className="auth-field"><input autoComplete="email" onChange={(event) => setEmail(event.target.value)} required type="email" value={email} /></Field>
             <Field label="Password" className="auth-field"><input autoComplete={mode === "login" ? "current-password" : "new-password"} minLength={mode === "register" ? 12 : 1} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} /></Field>
-            {mode === "register" && <p className="auth-help">Use at least 12 characters. Your password is stored as an Argon2id hash.</p>}
+            {mode === "register" && <p className="auth-help">Use at least 12 characters to keep your account secure.</p>}
             {error && <p className="auth-error" role="alert">{error}</p>}
             <Button variant="primary" className="auth-submit" disabled={isSubmitting} type="submit">{isSubmitting ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}</Button>
           </form>

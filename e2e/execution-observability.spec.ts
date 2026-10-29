@@ -36,10 +36,10 @@ test("execution timeline is keyboard-safe, theme-safe, zoom-safe, and downloads 
   expect(await page.evaluate(() => document.activeElement?.closest('[role="dialog"]')?.getAttribute("aria-label"))).toBe("Execution details");
 
   await page.evaluate(() => { document.documentElement.dataset.theme = "dark"; });
-  await expect(panel).toHaveCSS("background-color", "rgb(13, 18, 14)");
+  await expect(panel).toHaveCSS("background-color", "rgb(17, 23, 18)");
   await expect(panel.getByText("Safe diagnostic snapshot")).toBeVisible();
   await page.evaluate(() => { document.documentElement.dataset.theme = "light"; });
-  await expect(panel).toHaveCSS("background-color", "rgb(17, 21, 18)");
+  await expect(panel).toHaveCSS("background-color", "rgb(255, 254, 249)");
 
   const downloadPromise = page.waitForEvent("download");
   await panel.getByRole("button", { name: "Download JSON" }).click();

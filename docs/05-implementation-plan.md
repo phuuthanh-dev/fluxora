@@ -81,6 +81,12 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 
 ## Next UI/UX roadmap
 
+The owner's 2026-10-29 cross-page visual revision is complete locally:
+`UI-CORE-1` / `L13.1` aligns all six current routes with shared landing brand
+tokens, compact navigation and theme-aware product surfaces. Full verify passed
+(213 API, 23 web, 58 E2E); see `docs/25-ui-core-unification.md`. This is local
+delivery, not deployment or final owner visual acceptance.
+
 1. **Operational usability:** build on the completed execution timeline/diagnostic export with saved triage views and retention visibility; do not expose raw secrets or provider URLs.
 
 **Exit criterion:** a logged-in owner can create a workspace, create a workflow, save a draft graph, publish a frozen version, reload the page, and see the saved workflow.
