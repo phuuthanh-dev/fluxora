@@ -11,58 +11,10 @@ import {
   Server,
   ShieldCheck,
 } from "lucide-react";
-import {
-  motion,
-  useReducedMotion,
-  useScroll,
-  useTransform,
-} from "motion/react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { FluxoraMark } from "../../components/brand/fluxora-mark";
 import { NodeIcon, type NodeIconName } from "../workflow/node-icon";
 import { LandingReveal } from "./landing-motion";
-
-export function LandingStatement() {
-  const ref = useRef<HTMLElement>(null);
-  const reduced = useReducedMotion();
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start end", "end start"],
-  });
-  const scaleX = useTransform(
-    scrollYProgress,
-    [0, 0.25, 0.65, 1],
-    [0.76, 1, 1, 0.76],
-  );
-  const rotateX = useTransform(
-    scrollYProgress,
-    [0, 0.25, 0.65, 1],
-    [18, 0, 0, -18],
-  );
-  return (
-    <section
-      ref={ref}
-      className="landing-statement landing-container"
-      aria-labelledby="statement-heading"
-    >
-      <motion.div
-        className="landing-statement__plate"
-        style={reduced ? undefined : { scaleX, rotateX }}
-      >
-        <p className="landing-eyebrow">A LITTLE LESS TO THINK ABOUT</p>
-        <h2 id="statement-heading">
-          The best kind of busywork?
-          <br />
-          <em>The kind that runs itself.</em>
-        </h2>
-        <span className="landing-statement__mark">
-          <FluxoraMark size={52} />
-        </span>
-        <p>Give the repetition a system. Give yourself some space.</p>
-      </motion.div>
-    </section>
-  );
-}
 
 const hubApps: NodeIconName[] = [
   "google",
@@ -78,7 +30,7 @@ export function LandingReliability() {
       className="landing-reliability landing-container"
       aria-labelledby="reliability-heading"
     >
-      <LandingReveal className="landing-split-heading">
+      <div className="landing-split-heading">
         <div>
           <p className="landing-eyebrow">THE PARTS THAT DO THE HEAVY LIFTING</p>
           <h2 id="reliability-heading">
@@ -91,9 +43,9 @@ export function LandingReliability() {
           Credentials, retries, pinned versions. The practical foundations that
           make a workflow easier to rely on.
         </p>
-      </LandingReveal>
+      </div>
       <div className="landing-reliability__grid">
-        <LandingReveal as="article" className="landing-reliability__card">
+        <article className="landing-reliability__card">
           <p className="landing-eyebrow">
             <LockKeyhole size={13} /> CONNECT ONCE. REUSE WITH INTENT.
           </p>
@@ -123,8 +75,8 @@ export function LandingReliability() {
             <span>Encrypted secrets</span>
             <span>Reusable credentials</span>
           </div>
-        </LandingReveal>
-        <LandingReveal as="article" className="landing-reliability__card">
+        </article>
+        <article className="landing-reliability__card">
           <p className="landing-eyebrow">
             <Server size={13} /> YOUR INFRASTRUCTURE. YOUR CONTROL.
           </p>
@@ -175,7 +127,7 @@ export function LandingReliability() {
             <span>Self-host with Docker</span>
             <span>Pinned versions</span>
           </div>
-        </LandingReveal>
+        </article>
       </div>
     </section>
   );

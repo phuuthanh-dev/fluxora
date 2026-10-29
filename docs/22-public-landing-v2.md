@@ -19,7 +19,8 @@ boundary. See `.agent/tasks/2026-10-29-landing-art-direction.md` and
 2. Offline provider icons using the existing product icon component.
 3. Product tabs: workflows, execution evidence, encrypted connections.
 4. Trigger → orchestrate → observe narrative, followed by the publish lifecycle.
-5. A lime statement plate that opens and folds with scroll.
+5. A dark, lime-outlined Fluxora badge that opens into a lime statement plate,
+   folds back to a badge and docks in the following app diagram with scroll.
 6. Reliability: reusable encrypted connections and the actual API/queue/worker/
    database architecture, with self-hosting instead of invented regional hosting.
 7. A daily activity preview with selectable sample weekdays, completion gauge,
@@ -36,7 +37,8 @@ customer count, testimonial, success-rate or pricing claim may be invented.
 - `landing-page.tsx`: server-rendered composition.
 - `landing-demo.tsx`: local sample state, responsive node edges and pointer tilt.
 - `landing-showcase.tsx`: keyboard-accessible product tabs.
-- `landing-sections.tsx`: statement, reliability, daily activity, workflow cases.
+- `landing-handoff.tsx`: one scroll-controlled statement-to-diagram object.
+- `landing-sections.tsx`: reliability, daily activity, workflow cases.
 - `landing-interactions.tsx`: native menu/FAQ and workload estimate.
 - `landing-motion.tsx`: progressive entrance motion, readable before hydration.
 - `landing-scenes.tsx`: lazy renderer, SVG fallback, pause/visibility/preference.
@@ -88,6 +90,44 @@ their real URLs and offset below navigation.
 The SVG fallback and semantic content remain useful with no WebGL or JavaScript.
 Reduced motion also removes tilt/folding and completes the local demo immediately.
 The pause button is keyboard accessible. Motion never carries exclusive status.
+
+## Statement → runtime handoff (owner revision, 2026-10-29)
+
+The owner's three-state brief and additional initial-icon screenshot supersede
+the previous scale-X/rotate-X plate approximation. Use the Fluxora identity and
+existing supported apps, preserving truthful product copy.
+
+- 0–0.04: a compact dark badge with a lime outline; no copy or dot grid.
+- 0.04–0.24: the shell opens into an approximately 84vw × 60vh lime plate,
+  capped at 1100 × 560px. Copy/grid reveal as it opens; hold through 0.4.
+- 0.4–0.7: copy/grid fade and the plate contracts to an 80px node. The badge
+  stays legible independently of the outer shell's changing aspect ratio.
+- 0.7–1: the same visible badge travels into the measured center of the app
+  diagram. Its dark/lime treatment inverts; beyond 1 it follows the card's
+  document position. Horizontal travel starts late so the desktop badge clears
+  the heading and card copy before entering the diagram. Reverse scrolling
+  retraces the entire transition.
+
+CSS supplies a sticky viewport and stable scroll space; a scoped ScrollTrigger
+maps scroll progress into the geometry. No additional ticker, smooth-scroll
+instance, animation package, canvas or provider request is introduced. The
+destination is measured again on refresh/resize/font readiness. Reliability
+cards have stable geometry rather than a competing entrance transform.
+
+The default server-rendered statement and diagram are both readable. The
+scroll space is reserved before hydration only when scripting and motion are
+enabled, preserving browser scroll restoration. Pause and reduced-motion
+preferences restore the static layout and diagram mark. WebGL failure leaves
+this DOM choreography usable with native scrolling. Cleanup removes only this
+component's trigger/listeners/styles.
+
+Functional regression must cover the initial icon, expansion, collapse, exact
+docking, continued scrolling, reversal, resize, restored scroll, pause/resume,
+preference changes, no-WebGL and no-JS. Record the forward/reverse sequence with
+`LANDING_RECORD_VIDEO=1 npm run test:e2e -- e2e/landing-handoff.spec.ts --grep 1440px`.
+This deterministic recording disables WebGL and proves the DOM choreography;
+the existing landing tests cover WebGL/Lenis lifecycle separately. It is not a
+GPU performance measurement. Visual acceptance remains separate from assertions.
 
 ## Verification
 

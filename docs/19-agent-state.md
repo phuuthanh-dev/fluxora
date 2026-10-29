@@ -91,6 +91,16 @@ resource-picker foundation.
 
 ## Recently closed slices
 
+- `L12.3` statement-to-diagram correction (2026-10-29) — The owner's new
+  brief and initial-icon screenshot reopen only this missing choreography:
+  dark outlined Fluxora badge → lime statement → collapsed badge → existing
+  runtime diagram. The same object tracks measured geometry, clears desktop
+  copy, reverses on scroll, and supports pause/reduced-motion/no-JS fallback.
+  Full default verify passed: 213 API, 23 web, 62 E2E. Temporal recording uses
+  the SVG fallback; existing WebGL lifecycle tests also passed. See
+  `.agent/reports/2026-10-29-landing-card-handoff.md`. Local delivery only;
+  no push/deploy or final owner visual acceptance is implied. Do not repeat
+  the completed landing/ribbon work without a new specific requirement.
 - `UI-CORE-1` / `L13.1` — Owner-requested visual unification across all six
   existing routes: compact glass landing navigation, shared BrandLockup and
   PageHeader, theme-aware product shell/overlays and common typography/control
