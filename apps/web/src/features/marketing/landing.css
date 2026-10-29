@@ -2054,65 +2054,125 @@
 .landing-light-stream[data-scene-state="running"] .landing-stream-fallback {
   opacity: 0;
 }
+.landing-handoff {
+  position: relative;
+  isolation: isolate;
+}
 .landing-statement {
-  display: grid;
-  min-height: 620px;
   padding-block: 100px;
-  perspective: 1100px;
-  place-items: center;
 }
 .landing-statement__plate {
-  align-items: center;
-  background: var(--relay-lime);
-  background-image: radial-gradient(#080a091a 1px, transparent 1px);
-  background-size: 22px 22px;
-  border: 1px solid #edff9a;
-  border-radius: 24px;
-  color: var(--relay-void);
-  display: flex;
-  flex-direction: column;
-  padding: 58px 35px;
+  --plate-width: min(1100px, 84vw);
+  --plate-height: clamp(350px, 60svh, 560px);
+  --badge-top: 67%;
+  --badge-size: 68px;
+  --badge-invert: 0%;
+  border-radius: 42px;
+  color: var(--brand-void);
+  height: var(--plate-height);
+  margin-inline: auto;
+  overflow: hidden;
+  position: relative;
   text-align: center;
-  transform-origin: center;
-  width: 100%;
+  width: var(--plate-width);
 }
-.landing-statement__plate .landing-eyebrow {
-  color: #3a4914;
+.landing-statement__shell,
+.landing-statement__grid {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.landing-statement__shell {
+  background: color-mix(in srgb, var(--relay-lime) var(--plate-fill, 100%), var(--brand-void));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--relay-lime) var(--plate-outline, 0%), transparent);
+  opacity: var(--plate-shell, 1);
+}
+.landing-statement__grid {
+  background-image: radial-gradient(color-mix(in srgb, var(--brand-void) 16%, transparent) 1px, transparent 1px);
+  background-size: 28px 28px;
+  opacity: var(--plate-grid, 1);
+}
+.landing-statement__copy {
+  height: var(--plate-height);
+  left: 50%;
+  opacity: var(--plate-copy, 1);
+  padding: clamp(28px, 4.5svh, 48px) 24px;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(var(--copy-scale, 1));
+  width: var(--plate-width);
+}
+.landing-statement__copy .landing-eyebrow {
+  color: color-mix(in srgb, var(--brand-void) 72%, transparent);
   justify-content: center;
 }
-.landing-statement__plate h2 {
-  font-size: clamp(32px, 4.1vw, 56px);
-  margin-top: 25px;
+.landing-statement__copy h2 {
+  font-size: clamp(28px, 3.8vw, 54px);
+  margin-top: clamp(18px, 3svh, 30px);
 }
-.landing-statement__plate h2 em {
-  color: var(--relay-void);
+.landing-statement__copy h2 em {
+  color: var(--brand-void);
 }
-.landing-statement__plate > p:last-child {
-  color: #3c4a1c;
+.landing-statement__copy .landing-statement__caption {
+  bottom: 9%;
+  color: color-mix(in srgb, var(--brand-void) 78%, transparent);
   font-size: 13px;
-  margin-top: 22px;
+  left: 24px;
+  position: absolute;
+  right: 24px;
 }
 .landing-statement__mark {
-  background: var(--relay-void);
-  border-radius: 16px;
   display: grid;
-  height: 66px;
-  margin-top: 35px;
+  height: var(--badge-size);
+  left: 50%;
   place-items: center;
-  width: 66px;
+  position: absolute;
+  top: var(--badge-top);
+  transform: translate(-50%, -50%);
+  width: var(--badge-size);
 }
 .landing-statement__mark > svg {
-  height: 40px;
-  width: 40px;
+  height: 100%;
+  width: 100%;
 }
-.landing-statement__mark rect {
-  fill: var(--relay-void);
+.landing-statement__mark :is(rect, circle) {
+  fill: color-mix(in srgb, var(--relay-lime) var(--badge-invert), var(--brand-void));
 }
 .landing-statement__mark path {
-  fill: var(--relay-lime);
+  fill: color-mix(in srgb, var(--brand-void) var(--badge-invert), var(--relay-lime));
 }
-.landing-statement__mark circle {
-  fill: var(--relay-void);
+/* CSS owns pinning, so layout height stays deterministic for the ribbon's
+   measured waypoints. GSAP owns only the one scroll-driven visual object. */
+@media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+  /* Reserve the track before hydration, including browser scroll restoration.
+     No-JS and reduced-motion visitors retain the compact static document. */
+  .landing-handoff:not([data-handoff="static"]) .landing-statement {
+    height: 210svh;
+    padding: 0;
+  }
+}
+.landing-handoff[data-handoff="active"] .landing-statement {
+  height: 210svh;
+  padding: 0;
+}
+.landing-handoff[data-handoff="active"] .landing-statement__track {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
+}
+.landing-handoff[data-handoff="active"] .landing-statement__stage {
+  height: 100svh;
+  position: sticky;
+  top: 0;
+}
+.landing-handoff[data-handoff="active"] .landing-statement__plate {
+  margin: 0;
+  position: absolute;
+  will-change: transform;
+}
+.landing-handoff[data-handoff="active"] .landing-runtime-hub__center > svg {
+  visibility: hidden;
 }
 .landing-reliability,
 .landing-daily,
@@ -2182,12 +2242,18 @@
   stroke-dasharray: 2 5;
 }
 .landing-runtime-hub__center {
+  display: grid;
+  height: 80px;
   left: 50%;
+  place-items: center;
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
+  width: 80px;
 }
 .landing-runtime-hub__center > svg {
+  height: 100%;
+  width: 100%;
   box-shadow: 0 0 65px #d6ff3220;
   border-radius: 16px;
 }
@@ -2592,21 +2658,17 @@
   .landing-light-stream {
     opacity: 0.6;
   }
-  .landing-statement {
-    min-height: 450px;
-    padding-block: 55px;
-    width: calc(100% - 24px);
-  }
+  .landing-statement { padding-block: 55px; }
   .landing-statement__plate {
-    border-radius: 16px;
-    padding: 42px 18px;
+    --plate-width: calc(100vw - 32px);
+    border-radius: 28px;
   }
-  .landing-statement__plate h2 {
-    font-size: 31px;
+  .landing-statement__copy { padding-inline: 16px; }
+  .landing-statement__copy h2 {
+    font-size: clamp(27px, 7vw, 38px);
   }
-  .landing-statement__plate > p:last-child {
+  .landing-statement__copy .landing-statement__caption {
     font-size: 11px;
-    max-width: 240px;
   }
   .landing-split-heading {
     gap: 22px;

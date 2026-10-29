@@ -1,10 +1,26 @@
 "use client";
 
 import { MotionConfig, motion, useReducedMotion } from "motion/react";
-import type { ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
+
+const LandingEffectsContext = createContext({
+  paused: false,
+  togglePaused: () => {},
+});
+
+export function useLandingEffects() {
+  return useContext(LandingEffectsContext);
+}
 
 export function LandingMotionProvider({ children }: { children: ReactNode }) {
-  return <MotionConfig reducedMotion="user">{children}</MotionConfig>;
+  const [paused, setPaused] = useState(false);
+  return (
+    <LandingEffectsContext.Provider
+      value={{ paused, togglePaused: () => setPaused((value) => !value) }}
+    >
+      <MotionConfig reducedMotion="user">{children}</MotionConfig>
+    </LandingEffectsContext.Provider>
+  );
 }
 
 export function LandingReveal({

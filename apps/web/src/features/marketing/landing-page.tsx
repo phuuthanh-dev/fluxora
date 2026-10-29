@@ -11,6 +11,7 @@ import {
 import { FluxoraMark } from "../../components/brand/fluxora-mark";
 import { NodeIcon, type NodeIconName } from "../workflow/node-icon";
 import { LandingDemo } from "./landing-demo";
+import { LandingHandoff } from "./landing-handoff";
 import {
   LandingFaq,
   LandingNavigation,
@@ -20,8 +21,6 @@ import { LandingMotionProvider, LandingReveal } from "./landing-motion";
 import { LandingLightStream } from "./landing-scenes";
 import {
   LandingDailyView,
-  LandingReliability,
-  LandingStatement,
   LandingUseCases,
 } from "./landing-sections";
 import { LandingShowcase } from "./landing-showcase";
@@ -294,8 +293,7 @@ export function LandingPage() {
             ))}
           </LandingReveal>
         </section>
-        <LandingStatement />
-        <LandingReliability />
+        <LandingHandoff />
         <LandingDailyView />
         <LandingUseCases />
         <LandingUsageMeter />

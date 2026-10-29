@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useLandingEffects } from "./landing-motion";
 import { Pause, Play } from "lucide-react";
 import {
   Component,
@@ -50,7 +51,8 @@ export function LandingLightStream() {
   const [documentVisible, setDocumentVisible] = useState(true);
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
-  const [paused, setPaused] = useState(false);
+  const [interactive, setInteractive] = useState(false);
+  const { paused, togglePaused } = useLandingEffects();
   const hasStarted = useRef(false);
   const onReady = useCallback(() => {
     hasStarted.current = true;
@@ -59,6 +61,7 @@ export function LandingLightStream() {
   const onFailure = useCallback(() => setFailed(true), []);
 
   useEffect(() => {
+    setInteractive(true);
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     let capability: boolean | undefined;
     const update = () => {
@@ -130,13 +133,13 @@ export function LandingLightStream() {
           </SceneBoundary>
         ) : null}
       </div>
-      {supported && !failed ? (
+      {interactive ? (
         <button
           type="button"
           className="landing-effects-toggle"
           aria-pressed={paused}
           aria-label={paused ? "Resume visual effects" : "Pause visual effects"}
-          onClick={() => setPaused((value) => !value)}
+          onClick={togglePaused}
         >
           {paused ? <Play size={13} /> : <Pause size={13} />}
           <span>{paused ? "Motion paused" : "Pause motion"}</span>
