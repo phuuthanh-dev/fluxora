@@ -22,7 +22,7 @@ Provider credential use, database/schema changes, OAuth console submission, new 
 - [x] Public pages are readable without sign-in/JavaScript on desktop/mobile, using shared Fluxora branding.
 - [x] Privacy content matches code; public contact is owner-approved, no invented SLA/certification/deletion endpoint.
 - [x] Crawl/share metadata is correct; private application routes are noindex and excluded from sitemap.
-- [ ] Local quality gate and PR CI pass; release uses only develop → main and observed deployment/HTTP evidence.
+- [x] Local quality gate and PR CI pass; release uses only develop → main and observed deployment/HTTP evidence.
 
 ## Required evidence
 Public route/link/metadata/keyboard/responsive E2E; visual screenshots; npm run verify; GitHub CI/deploy receipts.

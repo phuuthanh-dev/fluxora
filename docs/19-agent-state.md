@@ -73,7 +73,6 @@ one of these IDs or explicitly reopen a completed ledger slice.
 
 | ID | Outcome | Status | Owner/evidence boundary |
 |---|---|---|---|
-| `PUBLIC-READY-1` | Public privacy, terms, support and search metadata; release via develop → main | planned | Owner authorized completion and release on 2026-10-29; public contact email approved |
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
 | `LIVE-1` | Validate one explicitly approved real Steam → Google Chat run plus configured OAuth callbacks | pending | Steam → Google Chat/Discord/Telegram is proven after credential rotation; Google Drive and any additional OAuth callback/write semantics remain separate owner-approved checks |
 | `RELEASE-REPAIR-1` | Repair and prove production application bootstrap after the GitHub webhook adapter DI regression | operator-gated | Local no-I/O app boot and full quality gate passed; PR review/merge and post-deploy application health evidence remain required, with no provider credential or live webhook needed |
@@ -91,6 +90,24 @@ documentation, dense-canvas navigation/minimap, and the reusable provider
 resource-picker foundation.
 
 ## Recently closed slices
+
+- `L13.1` reopen / product experience (2026-10-29) — New owner-requested
+  refinement complete locally: workflow-first dashboard, searchable saved
+  connections and guided draft-secret fields, shared dialog headers,
+  deterministic menu dismissal, readable inspector/palette and theme parity.
+  Full gate: 213 API / 23 web / 79 E2E. Task branch remains local and is
+  integrated into develop; this UI refinement is not part of public PR #43.
+  Evidence: `.agent/reports/2026-10-29-product-experience.md`. Do not propose
+  these completed changes again without a concrete new finding.
+
+- `PUBLIC-READY-1` (2026-10-29) — Public privacy/terms/support, contact redirect,
+  footer/login links, metadata, robots/sitemap and social image shipped through
+  PR #43 (develop → main), release `bff788782f6be8034629595abfc522f446eda6ac`.
+  PR quality run 40889119558, main quality run 40890095004 and production deploy
+  40891122177 passed. External public routes returned 200, contact returned
+  308 → /support, and API/database/queue readiness returned ready. Website
+  publication does not imply Google verification. Evidence:
+  `.agent/reports/2026-10-29-public-site.md`.
 
 - `UI-MOTION-1` / `L12.3` / `L13.1` (2026-10-29) — Owner-reported FAQ jump
   corrected with reversible shared GSAP disclosures, independent answers,

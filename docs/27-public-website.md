@@ -26,3 +26,5 @@ Local public-route tests cover desktop/tablet/mobile, keyboard skip link, no-JS 
 - Google API Services User Data Policy: https://developers.google.com/terms/api-services-user-data-policy
 - Google verification requirements: https://support.google.com/cloud/answer/13464321
 - Installed Next.js metadata/robots/sitemap APIs in node_modules/next/dist/docs.
+
+Release receipt: PR #43 merged and deployed as `bff788782f6be8034629595abfc522f446eda6ac` on 2026-10-29. Quality gate and deployment succeeded; public routes and API readiness were checked externally. See `.agent/reports/2026-10-29-public-site.md`.

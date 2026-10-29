@@ -111,6 +111,7 @@ test("workspace routes share shell, theme-aware overlays and compact editor cont
       await readable(page.getByRole("button", { name: "Sign out" }));
       await page.keyboard.press("Escape");
       await expect(page.getByLabel("Account actions", { exact: true })).toBeFocused();
+      await expect(page.getByRole("menu", { name: "Account menu" })).toHaveCount(0);
       if (route.endsWith("connections")) {
         await expect(page.locator(".credential-form")).toBeVisible();
         await readable(page.locator(".credential-form__hint"));
@@ -133,6 +134,8 @@ test("workspace routes share shell, theme-aware overlays and compact editor cont
     await expect(page.getByRole("button", { name: "Save draft", exact: true })).toBeVisible();
     await noHorizontalOverflow(page);
     await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.locator(".workflow-node").filter({ hasText: "Get account snapshot" }).click();
+    await expect(page.locator(".inspector__identity")).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath(`editor-${theme}.png`) });
   }
   await page.setViewportSize({ width: 390, height: 844 });

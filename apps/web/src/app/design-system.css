@@ -268,7 +268,12 @@
 .ui-menu__trigger { align-items: center; cursor: pointer; display: inline-flex; gap: 7px; list-style: none; }
 .ui-menu__trigger::-webkit-details-marker { display: none; }
 .ui-menu__trigger:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
-.ui-dialog { color: var(--text-on-dark); }
+.ui-dialog { color: var(--text-on-dark); font-size: var(--text-md); line-height: 1.55; overscroll-behavior: contain; }
+.ui-dialog :is(h2, h3) { text-wrap: balance; }
+.ui-dialog button { flex-shrink: 0; }
+.ui-dialog-header { align-items: flex-start; border-bottom: 1px solid var(--line); display: flex; gap: 20px; justify-content: space-between; margin-bottom: 22px; padding-bottom: 20px; }
+.ui-dialog-header h2 { color: var(--ink); font-size: 22px; font-weight: 600; letter-spacing: -.03em; line-height: 1.25; margin: 7px 0 0; }
+.ui-dialog-header .ui-icon-button { border-radius: 50%; flex: 0 0 36px; }
 .ui-page-header { align-items: end; display: flex; gap: var(--space-5); justify-content: space-between; }
 .ui-page-header h1 { color: var(--ink); font-size: var(--page-title); font-weight: 600; letter-spacing: -.04em; line-height: 1.15; margin: 8px 0 10px; }
 .ui-page-header > div > p:not(.ui-kicker) { color: var(--muted); font-size: var(--text-md); line-height: 1.55; margin: 0; max-width: 620px; }

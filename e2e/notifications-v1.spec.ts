@@ -29,6 +29,7 @@ test("configure Discord and Telegram notification nodes with encrypted credentia
 
   await page.getByLabel("Provider").selectOption("DISCORD_WEBHOOK");
   await expect(page.getByRole("textbox", { name: "Connection name" })).toHaveValue("Discord incoming webhook");
+  await page.getByRole("button", { name: "Edit JSON", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Secret JSON" })).toContainText('"webhookUrl"');
   await expect(page.getByText("Paste the webhook URL from your Discord channel integrations.")).toBeVisible();
 

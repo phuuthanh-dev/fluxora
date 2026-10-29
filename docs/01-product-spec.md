@@ -191,3 +191,6 @@ public search/share metadata, and a branded not-found page. These pages work
 without sign-in or JavaScript and reuse Fluxora branding. Privacy wording must
 reflect the actual connector scopes, retention and support capabilities. See
 `27-public-website.md`. This extension changes no workflow or credential semantics.
+
+### Connection management usability (2026-10-29 refinement)
+The workspace connection center prioritizes saved accounts and name/provider search. New credentials use provider-labelled draft fields (masked secret input) with an explicit advanced JSON option; flexible HTTP authentication remains JSON. Exact IDs and additional JSON properties are preserved. This adds no provider calls or secret-read endpoint. Existing encrypted storage, OAuth management and dependency-aware rotation/deletion contracts remain unchanged.

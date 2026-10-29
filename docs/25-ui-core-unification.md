@@ -70,3 +70,7 @@ node connections, provider forms, mock execution and credential lifecycle.
 Screenshots use synthetic local accounts. The final report records actual
 quality-gate results; no production release or real provider qualification is
 implied by local UI validation.
+
+## Subsequent owner-requested refinement
+
+The 2026-10-29 workflow-first layout, searchable connections, guided draft-secret fields, shared dialog header and deterministic menu dismissal are documented in `28-product-experience.md`. This preserves the core above and records a concrete L13.1 reopen, rather than treating the prior UI unification as unfinished.

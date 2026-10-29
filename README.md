@@ -5,10 +5,17 @@
 [![Quality gate](https://github.com/phuuthanh-dev/workflow-automation/actions/workflows/quality.yml/badge.svg?branch=main)](https://github.com/phuuthanh-dev/workflow-automation/actions/workflows/quality.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-8b5cf6.svg)](./LICENSE)
 [![Node.js](https://img.shields.io/badge/node.js-22-339933.svg)](https://nodejs.org/)
-[![Next.js](https://img.shields.io/badge/Next.js-15-000000.svg)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-000000.svg)](https://nextjs.org/)
 [![NestJS](https://img.shields.io/badge/NestJS-11-ea2845.svg)](https://nestjs.com/)
 
 Fluxora is an open-source, self-host-ready workflow builder. It is designed as a polished personal and portfolio project first, while keeping the execution engine and connector boundaries ready for small teams later.
+
+## Public website and workspace
+
+- [Website](https://fluxora.io.vn/) · [Support](https://fluxora.io.vn/support) · [Privacy](https://fluxora.io.vn/privacy) · [Terms](https://fluxora.io.vn/terms)
+- Local workspace: `/dashboard`, `/dashboard/connections`, `/dashboard/executions`; workflow editor: `/editor`.
+- Connections can be searched by name/app. New secrets use labelled fields, with Edit JSON for advanced input; stored secrets stay encrypted.
+- Public-page ownership and release evidence: [public website contract](docs/27-public-website.md). Shared UI behavior: [product experience](docs/28-product-experience.md).
 
 ## The demo in one minute
 
@@ -27,14 +34,14 @@ The editor lets you connect nodes, configure credentials, run a test, and inspec
 | Workflow editor | Drag-and-drop graph, connections, auto-layout, node configuration, light/dark UI |
 | Triggers | Manual, schedule, webhook |
 | Logic | If/else and switch routing |
-| Actions | Steam, Google Chat, Google Drive, Google Sheets, HTTP/API |
-| Notifications | Discord webhook, Telegram Bot API, Google Chat, email-shaped adapter boundary |
+| Actions | Steam, Google Chat, Google Drive, Google Sheets, HTTP/API, GitHub |
+| Notifications | Discord webhook, Telegram Bot API, Google Chat, SMTP email |
 | Credentials | Encrypted server-side storage, OAuth 2.0 where supported, manual token/API key support |
 | Authentication | Email/password, Google, GitHub, Steam identity linking |
 | Execution | Mock/live modes, input/output inspection, retries, timeout and error paths |
 | Operations | PostgreSQL persistence, Redis queue mode, worker process, Docker/VPS deployment |
 
-Provider credentials are never returned to the browser and real provider calls are opt-in. The repository test suite uses mock execution by default.
+Stored provider credentials are never returned to the browser and real provider calls are opt-in. Newly generated webhook signing/header secrets are shown once to the workspace owner for sender configuration. The repository test suite uses mock execution by default.
 
 ## Architecture at a glance
 
@@ -92,7 +99,7 @@ Open:
 - API health: http://localhost:3001/api/v1/health
 - API readiness: http://localhost:3001/api/v1/health/ready
 
-The root page is the sign-in screen. Registering creates a personal workspace and opens the dashboard. Local execution defaults to `EXECUTION_QUEUE_MODE=inline`, so the demo works without Redis or live provider credentials.
+The root page is the public landing page; sign in or register at `/login`. Registering creates a personal workspace and opens `/dashboard`. Local execution defaults to `EXECUTION_QUEUE_MODE=inline`, so the demo works without Redis or live provider credentials.
 
 To run the Redis-backed worker path:
 

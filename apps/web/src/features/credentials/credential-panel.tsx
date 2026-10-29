@@ -1,10 +1,17 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { ArrowUpRight, LockKeyhole, MoreVertical } from "lucide-react";
+import { ArrowUpRight, ChevronUp, KeyRound, LockKeyhole, MoreVertical, Plus, Search } from "lucide-react";
 import { ApiClientError, apiRequest, apiUrl } from "../api/api-client";
 import type { CredentialProvider, CredentialReferenceDetails, CredentialSummary } from "./credential-types";
-import { Button, Field, IconButton, Menu, Select, Status, useDialogFocus } from "../../components/ui";
+import { Button, EmptyState, Field, IconButton, Menu, Select, Skeleton, Status, useDialogFocus } from "../../components/ui";
+
+import { Collapse } from "../../components/ui/disclosure";
+import "./credentials.css";
+import { CredentialSecretFields } from "./credential-secret-fields";
+import { NodeIcon, type NodeIconName } from "../workflow/node-icon";
+
+const providerIcons: Record<CredentialProvider, NodeIconName> = { GOOGLE: "google", STEAM: "steam", GOOGLE_CHAT_WEBHOOK: "google-chat", HTTP: "http", DISCORD_WEBHOOK: "discord", TELEGRAM_BOT: "telegram", GITHUB: "github", SMTP: "email" };
 
 type CredentialPreset = {
   label: string;
@@ -86,13 +93,25 @@ type CredentialManagerProps = {
   presentation?: "panel" | "page";
 };
 
-export function CredentialManager({ workspaceId, onClose, onSaved, presentation = "panel" }: CredentialManagerProps) {
+export function CredentialManager(props: CredentialManagerProps) {
+  return <WorkspaceCredentials key={props.workspaceId} {...props} />;
+}
+
+function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "panel" }: CredentialManagerProps) {
   const panelRef = useDialogFocus<HTMLElement>({
     active: presentation === "panel",
     trapFocus: false,
     onClose,
   });
   const [credentials, setCredentials] = useState<CredentialSummary[]>([]);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [createOpen, setCreateOpen] = useState(true);
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const initializedRef = useRef(false);
+  const mountedRef = useRef(true);
+  const loadRequestRef = useRef(0);
   const [provider, setProvider] = useState<CredentialProvider>("GOOGLE");
   const [label, setLabel] = useState(credentialPresets.GOOGLE.label);
   const [data, setData] = useState(credentialPresets.GOOGLE.data);
@@ -112,16 +131,39 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
   const referenceRequestRef = useRef(0);
 
   const load = async () => {
+    const request = ++loadRequestRef.current;
+    setLoading(true);
+    setLoadError(null);
     try {
       const response = await apiRequest<{ credentials: CredentialSummary[] }>(`/workspaces/${workspaceId}/credentials`);
+      if (!mountedRef.current || request !== loadRequestRef.current) return;
       setCredentials(response.credentials);
+      if (!initializedRef.current) {
+        setCreateOpen(presentation === "panel" || response.credentials.length === 0);
+        initializedRef.current = true;
+      }
       onSaved?.(response.credentials);
     } catch (reason) {
-      setNotice(requestErrorMessage(reason, "Unable to load credentials."));
+      if (mountedRef.current && request === loadRequestRef.current) setLoadError(requestErrorMessage(reason, "Unable to load credentials."));
+    } finally {
+      if (mountedRef.current && request === loadRequestRef.current) setLoading(false);
     }
   };
 
-  useEffect(() => { void load(); }, [workspaceId]);
+  useEffect(() => {
+    mountedRef.current = true;
+    void load();
+    return () => { mountedRef.current = false; loadRequestRef.current += 1; };
+  }, [workspaceId]);
+
+  const toggleCreate = () => {
+    initializedRef.current = true;
+    setCreateOpen(!createOpen);
+    if (!createOpen) window.requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ behavior: "auto", block: "nearest" });
+      formRef.current?.querySelector("select")?.focus({ preventScroll: true });
+    });
+  };
 
   const changeProvider = (nextProvider: CredentialProvider) => {
     const preset = credentialPresets[nextProvider];
@@ -294,6 +336,8 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
   const isGoogleOAuth = (cred: CredentialSummary) =>
     cred.isManaged ?? (cred.provider === "GOOGLE" && cred.label === "Google OAuth");
 
+  const visibleCredentials = credentials.filter((credential) => `${credential.label} ${credentialProviderLabel(credential.provider)}`.toLowerCase().includes(query.trim().toLowerCase()));
+
   return (
     <section
       ref={panelRef}
@@ -305,8 +349,8 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
     >
       <div className="credential-panel__heading">
         <div>
-          <p className="section-label">CREDENTIALS</p>
-          <h2>Secure connections</h2>
+          <p className="section-label">WORKSPACE VAULT</p>
+          <h2>{presentation === "page" ? "Saved connections" : "Secure connections"}</h2>
         </div>
         {onClose ? <IconButton className="icon-button" label="Close credential manager" onClick={onClose}>×</IconButton> : null}
       </div>
@@ -318,44 +362,13 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
           </Button>
         </div>
       ) : null}
-      <form onSubmit={submit} className="credential-form">
-        <Field label="Provider" className="credential-form__field">
-          <Select aria-label="Provider" value={provider} onChange={(event) => changeProvider(event.target.value as CredentialProvider)}>
-            <option value="GOOGLE">Google Drive / Sheets</option>
-            <option value="STEAM">Steam</option>
-            <option value="GOOGLE_CHAT_WEBHOOK">Google Chat webhook</option>
-            <option value="DISCORD_WEBHOOK">Discord webhook</option>
-            <option value="TELEGRAM_BOT">Telegram bot</option>
-            <option value="SMTP">SMTP email</option>
-            <option value="GITHUB">GitHub connector</option>
-            <option value="HTTP">HTTP</option>
-          </Select>
-        </Field>
-        {provider === "GOOGLE" ? (
-          <div className="credential-form__oauth-helper">
-            <span>For Google Drive and Sheets, use a managed OAuth connection.</span>
-            <button type="button" className="credential-form__oauth-link" onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google/connect`); }}>
-              Connect Google <ArrowUpRight size={13} aria-hidden="true" />
-            </button>
-          </div>
-        ) : null}
-        <p className="credential-form__hint" aria-live="polite">{credentialPresets[provider].hint}</p>
-        <Field label="Connection name" className="credential-form__field">
-          <input aria-label="Connection name" value={label} onChange={(event) => { setLabel(event.target.value); setCreateError(null); }} />
-        </Field>
-        <Field label="Secret JSON" className="credential-form__field">
-          <textarea aria-label="Secret JSON" aria-invalid={jsonError ? "true" : undefined} value={data} onChange={(event) => { setData(event.target.value); setJsonError(null); setCreateError(null); }} rows={provider === "STEAM" ? 7 : 6} spellCheck={false} />
-        </Field>
-        {jsonError && <p className="credential-form__error" role="alert">{jsonError}</p>}
-        {createError && <p className="credential-form__error" role="alert">{createError}</p>}
-        <Button variant="primary" className="run-button" type="submit" disabled={isSaving}>{isSaving ? "Encrypting…" : "Encrypt & save"}</Button>
-      </form>
-      <Status tone="info" className="credential-panel__notice" aria-live="polite">
-        <span className="credential-panel__notice-icon"><LockKeyhole size={15} aria-hidden="true" /></span>
-        <span className="credential-panel__notice-copy">{notice}</span>
-      </Status>
+      <div className="credential-toolbar">
+        <label className="credential-search"><Search size={16} aria-hidden="true" /><input type="search" aria-label="Search connections" placeholder="Search name or app" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+        <Button variant={createOpen ? "secondary" : "primary"} type="button" aria-expanded={createOpen} aria-controls="credential-create-content" onClick={toggleCreate}>{createOpen ? <ChevronUp size={15} /> : <Plus size={15} />}{createOpen ? "Hide new connection" : "New connection"}</Button>
+      </div>
+      {loading ? <div className="credential-list-loading" aria-busy="true" aria-label="Loading connections"><Skeleton /><Skeleton /></div> : loadError ? <Status tone="error" role="alert">{loadError}<Button variant="ghost" onClick={() => void load()}>Retry connections</Button></Status> : visibleCredentials.length === 0 ? <EmptyState icon={<KeyRound size={22} />} title={query ? "No matching connections" : "Your connections will appear here"} description={query ? "Try another app or connection name." : "Add an app once, then select it in any compatible workflow node."} action={query ? <Button variant="ghost" onClick={() => setQuery("")}>Clear search</Button> : undefined} /> : (
       <ul className="credential-list">
-        {credentials.map((credential) => {
+        {visibleCredentials.map((credential) => {
           const isRenaming = activeAction?.credentialId === credential.id && activeAction.type === "rename";
           const isRotating = activeAction?.credentialId === credential.id && activeAction.type === "rotate";
           const isDeleting = activeAction?.credentialId === credential.id && activeAction.type === "delete";
@@ -363,6 +376,7 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
           return (
             <li key={credential.id} className="credential-card" data-credential-id={credential.id}>
               <div className="credential-card__header">
+                <span className="credential-card__icon"><NodeIcon name={providerIcons[credential.provider]} size={23} /></span>
                 <div className="credential-card__info">
                   <strong>{credential.label}</strong>
                   <span className="credential-card__provider">{credentialProviderLabel(credential.provider)}</span>
@@ -425,19 +439,9 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
                   <p className="credential-card__warning">
                     {credential.provider === "TELEGRAM_BOT"
                       ? "Updating replaces only the bot token. Any legacy fallback chat ID stored with this credential will be preserved server-side until destinations are migrated to workflow nodes."
-                      : "Existing secret values cannot be displayed for security. Enter a complete replacement JSON payload."}
+                      : "Existing secret values cannot be displayed for security. Enter all replacement values. The advanced JSON option preserves custom fields."}
                   </p>
-                  <label>
-                    <span>Replacement secret JSON</span>
-                    <textarea
-                      aria-label="Replacement secret JSON"
-                      value={actionData}
-                      onChange={(event) => { setActionData(event.target.value); setActionError(null); }}
-                      rows={credential.provider === "STEAM" ? 7 : 5}
-                      spellCheck={false}
-                      autoFocus
-                    />
-                  </label>
+                  <CredentialSecretFields provider={credential.provider} value={actionData} replacement onChange={(value) => { setActionData(value); setActionError(null); }} />
                   {actionError && <p className="credential-card__error" role="alert">{actionError}</p>}
                   <div className="credential-card__form-actions">
                     <Button variant="primary" type="submit" className="run-button" disabled={isActionSubmitting}>
@@ -481,6 +485,45 @@ export function CredentialManager({ workspaceId, onClose, onSaved, presentation 
           );
         })}
       </ul>
+      )}
+      <Collapse open={createOpen} id="credential-create-content">
+      <form ref={formRef} onSubmit={submit} className="credential-form" aria-label="New connection">
+        <div className="credential-form__title"><h3>New connection</h3><p>Choose an app and add its authorization details.</p></div>
+        <Field label="Provider" className="credential-form__field">
+          <Select aria-label="Provider" value={provider} onChange={(event) => changeProvider(event.target.value as CredentialProvider)}>
+            <option value="GOOGLE">Google Drive / Sheets</option>
+            <option value="STEAM">Steam</option>
+            <option value="GOOGLE_CHAT_WEBHOOK">Google Chat webhook</option>
+            <option value="DISCORD_WEBHOOK">Discord webhook</option>
+            <option value="TELEGRAM_BOT">Telegram bot</option>
+            <option value="SMTP">SMTP email</option>
+            <option value="GITHUB">GitHub connector</option>
+            <option value="HTTP">HTTP</option>
+          </Select>
+        </Field>
+        <Field label="Connection name" className="credential-form__field">
+          <input aria-label="Connection name" value={label} onChange={(event) => { setLabel(event.target.value); setCreateError(null); }} />
+        </Field>
+        {provider === "GOOGLE" ? (
+          <div className="credential-form__oauth-helper">
+            <span>For Google Drive and Sheets, use a managed OAuth connection.</span>
+            <button type="button" className="credential-form__oauth-link" onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google/connect`); }}>
+              Connect Google <ArrowUpRight size={13} aria-hidden="true" />
+            </button>
+          </div>
+        ) : null}
+        <p className="credential-form__hint" aria-live="polite">{credentialPresets[provider].hint}</p>
+        <CredentialSecretFields provider={provider} value={data} onChange={(value) => { setData(value); setJsonError(null); setCreateError(null); }} />
+        {jsonError && <p className="credential-form__error" role="alert">{jsonError}</p>}
+        {createError && <p className="credential-form__error" role="alert">{createError}</p>}
+        <Button variant="primary" className="run-button" type="submit" disabled={isSaving}>{isSaving ? "Encrypting…" : "Encrypt & save"}</Button>
+      </form>
+      </Collapse>
+      <Status tone="info" className="credential-panel__notice" aria-live="polite">
+        <span className="credential-panel__notice-icon"><LockKeyhole size={15} aria-hidden="true" /></span>
+        <span className="credential-panel__notice-copy">{notice}</span>
+      </Status>
+
     </section>
   );
 }

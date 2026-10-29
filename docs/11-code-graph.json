@@ -1117,10 +1117,12 @@
       "id": "apps/web/src/components/ui/dialog.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/button.tsx",
         "apps/web/src/components/ui/ui-motion.ts",
         "apps/web/src/components/ui/use-dialog-focus.ts"
       ],
       "externalImports": [
+        "lucide-react",
         "react"
       ]
     },
@@ -1311,12 +1313,26 @@
       "id": "apps/web/src/features/credentials/credential-panel.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/disclosure.tsx",
         "apps/web/src/features/api/api-client.ts",
-        "apps/web/src/features/credentials/credential-types.ts"
+        "apps/web/src/features/credentials/credential-secret-fields.tsx",
+        "apps/web/src/features/credentials/credential-types.ts",
+        "apps/web/src/features/workflow/node-icon.tsx"
       ],
       "externalImports": [
         ": ",
         "lucide-react",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/credentials/credential-secret-fields.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/credentials/credential-types.ts"
+      ],
+      "externalImports": [
+        ", label: ",
         "react"
       ]
     },
@@ -2646,6 +2662,10 @@
     },
     {
       "from": "apps/web/src/components/ui/dialog.tsx",
+      "to": "apps/web/src/components/ui/button.tsx"
+    },
+    {
+      "from": "apps/web/src/components/ui/dialog.tsx",
       "to": "apps/web/src/components/ui/ui-motion.ts"
     },
     {
@@ -2758,10 +2778,26 @@
     },
     {
       "from": "apps/web/src/features/credentials/credential-panel.tsx",
+      "to": "apps/web/src/components/ui/disclosure.tsx"
+    },
+    {
+      "from": "apps/web/src/features/credentials/credential-panel.tsx",
       "to": "apps/web/src/features/api/api-client.ts"
     },
     {
       "from": "apps/web/src/features/credentials/credential-panel.tsx",
+      "to": "apps/web/src/features/credentials/credential-secret-fields.tsx"
+    },
+    {
+      "from": "apps/web/src/features/credentials/credential-panel.tsx",
+      "to": "apps/web/src/features/credentials/credential-types.ts"
+    },
+    {
+      "from": "apps/web/src/features/credentials/credential-panel.tsx",
+      "to": "apps/web/src/features/workflow/node-icon.tsx"
+    },
+    {
+      "from": "apps/web/src/features/credentials/credential-secret-fields.tsx",
       "to": "apps/web/src/features/credentials/credential-types.ts"
     },
     {
