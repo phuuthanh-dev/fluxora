@@ -183,3 +183,11 @@ No multi-approver routing, reminder schedule, or approval policy engine is inclu
 10. The dashboard supports switching/creating workspaces and creating/opening workflows; a live run is guarded by publish and confirmation.
 11. A signed-in user can link a Steam OpenID identity when the callback endpoint is configured; linking neither exposes nor creates a Steam Web API credential.
 12. A user can sign in with Google or GitHub when the matching OAuth callback is configured, and cannot unlink their only available sign-in method.
+
+## 12. Public website (owner-authorized extension, 2026-10-29)
+
+The public service includes privacy, terms and support pages, a contact redirect,
+public search/share metadata, and a branded not-found page. These pages work
+without sign-in or JavaScript and reuse Fluxora branding. Privacy wording must
+reflect the actual connector scopes, retention and support capabilities. See
+`27-public-website.md`. This extension changes no workflow or credential semantics.

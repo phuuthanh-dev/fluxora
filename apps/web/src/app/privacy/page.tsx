@@ -1,0 +1,32 @@
+import Link from "next/link";
+import { PublicShell, PublicSection } from "../../features/public-site/public-shell";
+import { publicMetadata, publicSite } from "../../features/public-site/site";
+
+export const metadata = publicMetadata("Privacy policy", "How Fluxora handles account data, connected apps, workflow content and requests to delete data.", "/privacy");
+const sections = [
+  { id: "scope", title: "Who this policy covers" }, { id: "data", title: "Data we handle" },
+  { id: "google", title: "Google account data" }, { id: "sharing", title: "Use and sharing" },
+  { id: "storage", title: "Storage and retention" }, { id: "choices", title: "Your choices" }, { id: "contact", title: "Contact and updates" },
+];
+export default function PrivacyPage() {
+  return <PublicShell eyebrow="Privacy policy / Trust & transparency" title="Your data. Clear boundaries." description="Understand what Fluxora stores, why it needs it, and how you can stay in control." sections={sections}>
+    <PublicSection {...sections[0]!}><p>This privacy policy applies to the Fluxora service at fluxora.io.vn, maintained by Phung Huu Thanh. If you run a separate, self-hosted installation, its operator manages its data and retention settings; contact that operator for requests about that installation.</p></PublicSection>
+    <PublicSection {...sections[1]!}><ul>
+      <li><strong>Account information:</strong> your email, display name, account identifier and linked provider identities. Password accounts store a password hash. Social sign-in supplies the profile and verified email needed to identify your account.</li>
+      <li><strong>Workspace content:</strong> workflow drafts and published versions, node configuration, connection names and encrypted connection secrets or OAuth tokens.</li>
+      <li><strong>Execution records:</strong> trigger data, node inputs and outputs, status, errors, timing and approvals. Redaction removes recognized secrets, but workflow content can still contain personal or confidential information you choose to process.</li>
+      <li><strong>Operational information:</strong> authentication and audit events, service logs, and technical request information needed to run and protect the service.</li>
+      <li><strong>Browser storage:</strong> session and sign-in security cookies, plus local preferences such as theme and editor settings. The application does not include advertising or third-party analytics scripts.</li>
+    </ul></PublicSection>
+    <PublicSection {...sections[2]!}><p><strong>Google sign-in and Google connections are separate.</strong> Sign-in uses your Google identity, email and profile to access Fluxora. Connecting Drive and Sheets authorizes workflows to search and read files, upload text files, and read or write spreadsheet data. The current connection requests Drive and Sheets scopes; review the permissions on Google’s consent screen before continuing.</p><p>Google access and refresh tokens are encrypted on the server. Data retrieved by a workflow may be stored in execution history or sent to destinations you configure, such as a chat channel or an HTTP endpoint. Connect only data and destinations you are authorized to use.</p><p>Fluxora uses Google data to provide the user-facing integrations you request. It does not sell that data, use it for advertising, or use it to train general-purpose AI models. Human access is limited to your consent for support, necessary security investigation, legal obligations, or permitted aggregated internal operations.</p><p>Fluxora’s use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including its Limited Use requirements.</p></PublicSection>
+    <PublicSection {...sections[3]!}><p>We use this information to authenticate you, run your workflows, display results, diagnose failures and secure the service. Your configured workflows determine which connected services receive their payloads. Those providers process data under their own policies.</p><p>The service operator and infrastructure providers may process information to host, maintain and secure the service. Information may also be disclosed when required by law or necessary to address abuse. We do not sell personal information.</p></PublicSection>
+    <PublicSection {...sections[4]!}><p>Credentials are encrypted at rest and used by the backend. Stored secrets are not returned to the browser. Newly generated webhook secrets are displayed once so you can configure the sender.</p><p>Workflows and connections persist until removed or an account-data request is handled. Completed executions are pruned according to the installation’s configured retention policy, visible in the Execution Center. Active runs are not pruned by that policy. Audit logs and operational records have a separate lifecycle; deleting a workflow does not necessarily remove them. Backup copies, where maintained, follow the operator’s retention process.</p><p>No system can guarantee absolute security. Avoid putting secrets in ordinary node fields or support messages.</p></PublicSection>
+    <PublicSection {...sections[5]!}><ul>
+      <li>Manage or delete connections from Connections. A connection still used by a workflow or active execution must first be detached.</li>
+      <li>Revoke Google authorization at <a href="https://myaccount.google.com/connections">Google Account connections</a>. This stops future authorized access; it does not erase results already stored in Fluxora or sent to other services.</li>
+      <li>Unlink sign-in identities through your account menu while retaining another sign-in method. Unlinking login is separate from deleting a workspace connection.</li>
+      <li>For access, correction or deletion of account data, email <a href={`mailto:${publicSite.email}`}>{publicSite.email}</a> from your account email. We verify ownership before acting. Account-wide deletion is currently handled through support, not a self-service button.</li>
+    </ul></PublicSection>
+    <PublicSection {...sections[6]!}><p>Contact <a href={`mailto:${publicSite.email}`}>{publicSite.email}</a> with privacy questions. This page’s update date identifies the current version. Material changes will be described here. See <Link href="/support">Support</Link> for a safe way to report a problem.</p></PublicSection>
+  </PublicShell>;
+}

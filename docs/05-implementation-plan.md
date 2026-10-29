@@ -96,6 +96,13 @@ scope and reuse rules. Local qualification does not imply a remote release.
 3. Replace the editor's local notice/save behavior with API calls and server state.
 4. Add foreign-key workflow-version pointers, pinned webhook-version schema, and workflow templates schema.
 
+## Current public delivery
+
+Owner-approved public completion and release is tracked by `PUBLIC-READY-1` in
+`19-agent-state.md` and `27-public-website.md`. The following original milestone
+notes are historical; do not infer unfinished work from them without checking
+the current state gate and completion ledger.
+
 ## Next UI/UX roadmap
 
 The owner's 2026-10-29 cross-page visual revision is complete locally:

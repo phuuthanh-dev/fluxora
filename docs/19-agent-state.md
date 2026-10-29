@@ -73,6 +73,7 @@ one of these IDs or explicitly reopen a completed ledger slice.
 
 | ID | Outcome | Status | Owner/evidence boundary |
 |---|---|---|---|
+| `PUBLIC-READY-1` | Public privacy, terms, support and search metadata; release via develop → main | planned | Owner authorized completion and release on 2026-10-29; public contact email approved |
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
 | `LIVE-1` | Validate one explicitly approved real Steam → Google Chat run plus configured OAuth callbacks | pending | Steam → Google Chat/Discord/Telegram is proven after credential rotation; Google Drive and any additional OAuth callback/write semantics remain separate owner-approved checks |
 | `RELEASE-REPAIR-1` | Repair and prove production application bootstrap after the GitHub webhook adapter DI regression | operator-gated | Local no-I/O app boot and full quality gate passed; PR review/merge and post-deploy application health evidence remain required, with no provider credential or live webhook needed |

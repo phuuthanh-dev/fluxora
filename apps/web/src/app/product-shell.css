@@ -108,3 +108,6 @@
   .app-shell-navigation nav { justify-content: space-between; }
   .app-shell-nav-link { flex: 1; }
 }
+
+.auth-legal { color:var(--text-tertiary); font-size:12px; line-height:1.7; margin-top:24px; text-align:center; }
+.auth-legal a { color:var(--text-accent); text-underline-offset:3px; }
