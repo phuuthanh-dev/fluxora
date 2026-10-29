@@ -204,6 +204,21 @@ resource-picker foundation.
   55 E2E). Latest evidence: `.agent/reports/2026-10-29-ribbon-detail.md`.
   Owner visual acceptance remains pending; no push or deployment is implied.
 
+## Latest auth-header correction
+
+- `L13.1` (2026-10-29): owner rejected the split-color header and inset showcase
+  experiment. Auth body restored to `ddaa9e9`; only auth navigation styling and
+  header controls differ. Full verify passed (213 API, 23 web, 82 E2E), and all
+  12 route/theme/viewport screenshots were reviewed. See
+  `.agent/reports/2026-10-29-auth-header-composition.md`.
+  Owner follow-up after `8e25593`: the pale bar still blended into the light form;
+  the auth header now uses the landing's dark marketing palette in both modes.
+  Body layout and theme selection remain unchanged. Repeated full verify passed
+  (213 API, 23 web, 82 E2E); rendered contrast and keyboard focus also passed.
+  The owner has now authorized merge. Refreshed GitHub state shows PR #45 was
+  already merged at the earlier split-header revision; the two local correction
+  commits require the next develop-to-main PR and its passing CI before merge.
+
 ## Non-negotiable loop
 
 ```text
