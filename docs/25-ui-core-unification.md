@@ -24,6 +24,9 @@ routes.
 - Light and dark modes apply to forms, menus and overlays as well as the
   canvas. Lime fill always uses dark text; light surfaces use the darker
   semantic accent for text. Semantic errors are separate from brand colors.
+- Disabled shared buttons change theme colors immediately; interpolating both
+  foreground and background caused transient contrast loss. Contrast tests
+  cover rendered frames during the change as well as the settled themes.
 - Marketing display type, serif emphasis, smooth scrolling and WebGL stay on
   the landing. Operational pages retain native scrolling and focused controls.
 

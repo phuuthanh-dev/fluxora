@@ -243,7 +243,8 @@
 }
 
 .ui-button:hover:not(:disabled) { border-color: var(--text-accent); }
-.ui-button:disabled { cursor: not-allowed; opacity: 0.45; transform: none; }
+/* Disabled labels must not cross unreadable intermediate theme colors. */
+.ui-button:disabled { cursor: not-allowed; opacity: 0.45; transform: none; transition: none; }
 .ui-button:focus-visible, .ui-select:focus-visible, .ui-field :is(input, textarea, select):focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;

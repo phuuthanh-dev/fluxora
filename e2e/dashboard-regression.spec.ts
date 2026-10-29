@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
 import type { Locator } from "@playwright/test";
 
-async function expectContrast(locator: Locator, minimum: number) {
-  const sample = await locator.evaluate((element) => {
+async function expectContrast(locator: Locator, minimum: number, frames = 1) {
+  const sample = await locator.evaluate(async (element, frames) => {
     const parseColor = (value: string) => {
       const channels = value.match(/[\d.]+/g)?.map(Number);
       if (!channels || channels.length < 3 || (channels.length > 3 && channels[3] === 0)) return null;
@@ -15,17 +15,22 @@ async function expectContrast(locator: Locator, minimum: number) {
       })
       .reduce((total, value, index) => total + value * [0.2126, 0.7152, 0.0722][index], 0);
 
-    const foreground = parseColor(getComputedStyle(element).color);
-    let current: Element | null = element;
-    let background: number[] | null = null;
-    while (current && !background) {
-      background = parseColor(getComputedStyle(current).backgroundColor);
-      current = current.parentElement;
+    const samples: number[] = [];
+    for (let frame = 0; frame < frames; frame += 1) {
+      if (frame > 0) await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      const foreground = parseColor(getComputedStyle(element).color);
+      let current: Element | null = element;
+      let background: number[] | null = null;
+      while (current && !background) {
+        background = parseColor(getComputedStyle(current).backgroundColor);
+        current = current.parentElement;
+      }
+      if (!foreground || !background) return null;
+      const [darker, lighter] = [luminance(foreground), luminance(background)].sort((left, right) => left - right);
+      samples.push((lighter + 0.05) / (darker + 0.05));
     }
-    if (!foreground || !background) return null;
-    const [darker, lighter] = [luminance(foreground), luminance(background)].sort((left, right) => left - right);
-    return (lighter + 0.05) / (darker + 0.05);
-  });
+    return Math.min(...samples);
+  }, frames);
 
   expect(sample).not.toBeNull();
   expect(sample!).toBeGreaterThanOrEqual(minimum);
@@ -187,6 +192,14 @@ test("editor text, controls, and provider icons meet contrast targets in both th
     await addNode.click();
   };
 
+  const assertDisabledActionDuringThemeChange = async () => {
+    const goLive = page.getByRole("button", { name: "Go live", exact: true });
+    await expect(goLive).toBeDisabled();
+    // Sample rendered frames, including the old 140ms color transition. Checking
+    // only the settled theme misses light text crossing a light background.
+    await expectContrast(goLive, 4.5, 12);
+  };
+
   await assertEditorContrast();
   const toDark = page.getByRole("button", { name: "Switch to dark mode" });
   await toDark.hover();
@@ -194,12 +207,15 @@ test("editor text, controls, and provider icons meet contrast targets in both th
   await expectContrast(toDark, 4.5);
   await toDark.click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await assertDisabledActionDuringThemeChange();
   await assertEditorContrast();
 
   const toLight = page.getByRole("button", { name: "Switch to light mode" });
   await toLight.hover();
   await page.waitForTimeout(180);
   await expectContrast(toLight, 4.5);
+  await toLight.click();
+  await assertDisabledActionDuringThemeChange();
 });
 
 test("account dropdown keeps its trigger inline and opens below the header", async ({ page }) => {
