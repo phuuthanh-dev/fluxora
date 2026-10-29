@@ -89,6 +89,48 @@ deployment, release security contracts, production release candidate
 documentation, dense-canvas navigation/minimap, and the reusable provider
 resource-picker foundation.
 
+## Recently closed slices
+
+- `LANDING-1` — The public root is now a clean-room Fluxora landing with an
+  explicit `/login` route for the existing email/password and OAuth UI.
+  Session expiry and sign-out route to `/login`; source/template assets were
+  not imported into this public repository. Focused browser coverage, desktop
+  and mobile visual review, and the full quality gate passed.
+- `LANDING-ANIMATION-1` — The public landing now has bounded Motion polish and
+  two client-only React Three Fiber islands. Both unmount when off-screen or
+  hidden, reduce-motion and no-WebGL paths stay semantic HTML/CSS, and no
+  authenticated product surface imports the animation stack. Focused fallback
+  Playwright, desktop/mobile visual review, and the full quality gate passed.
+- `LANDING-V2-1` through `LANDING-V2-4` — Fluxora’s clean-room public landing
+  now includes responsive navigation, hero/product proof, a readable workflow
+  narrative, lifecycle, illustrative usage planning, FAQ disclosure, CTA, and
+  footer. The initial delivery used bounded landing-only R3F islands. The owner
+  subsequently reopened L12.3 with the supplied Relay MP4 and an explicit
+  Catmull-Rom/GLSL/ScrollTrigger/Lenis brief; see the current revision below.
+- `L12.3` visual revision (2026-10-29) — The landing now has an original local
+  workflow replay, keyboard product tabs, a continuous Catmull-Rom ribbon with
+  Perlin GLSL, shared GSAP/Lenis/R3F ticker, fold plate, reliability section,
+  sample daily dashboard and workflow cases. It restores native scrolling on
+  route exit, pause or reduced motion. This supersedes the older no-Lenis /
+  hero-only boundary; do not reimplement the original landing slices. Current
+  acceptance and verification live in
+  `.agent/reports/2026-10-29-landing-art-direction.md`. Local changes do not imply
+  a PR, deployment or qualification of real provider integrations.
+- `L12.3` motion fidelity correction (2026-10-29) — Owner feedback rejected the
+  thin-wire approximation. Temporal review separates the autonomous entrance
+  from scrolling; a broad implicit ribbon field replaces the offset mesh,
+  adds converging/diverging filaments, soft focus and drifting light, and
+  preserves the existing cleanup/fallback boundary. Current evidence is
+  `.agent/reports/2026-10-29-ribbon-motion-fidelity.md`. Visual acceptance by
+  the owner remains distinct from functional test results; do not claim Relay
+  equivalence from static frames or tests alone.
+- `L12.3` detail/color refinement (2026-10-29) — The owner requested sharper
+  lower sections and more particles in varied bright colors. The existing
+  shader now retains 48 fine cores with separate glow and two multicolor
+  particle fields. Native-GPU preview and full verify passed (213 API, 23 web,
+  55 E2E). Latest evidence: `.agent/reports/2026-10-29-ribbon-detail.md`.
+  Owner visual acceptance remains pending; no push or deployment is implied.
+
 ## Non-negotiable loop
 
 ```text

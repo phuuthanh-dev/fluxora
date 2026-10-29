@@ -132,7 +132,7 @@ export function WorkflowDashboard() {
       } catch (reason) {
         if (!active) return;
         const message = reason instanceof Error ? reason.message : "Unable to load your workspace.";
-        if (message === "Sign in is required." || message === "Your session has expired.") router.replace("/");
+        if (message === "Sign in is required." || message === "Your session has expired.") router.replace("/login");
         else setNotice(message);
       } finally {
         if (active) setIsLoading(false);

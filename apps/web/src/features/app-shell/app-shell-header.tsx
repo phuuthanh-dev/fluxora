@@ -54,7 +54,7 @@ export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, act
 
   const logout = async () => {
     await apiRequest("/auth/logout", { method: "POST" }).catch(() => undefined);
-    router.replace("/");
+    router.replace("/login");
   };
   const unlink = async (provider: Identity["provider"]) => {
     setUnlinking(provider);

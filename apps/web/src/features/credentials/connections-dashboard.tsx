@@ -31,7 +31,7 @@ export function ConnectionsDashboard() {
       } catch (reason) {
         if (!active) return;
         const message = reason instanceof Error ? reason.message : "Unable to load connections.";
-        if (message === "Sign in is required." || message === "Your session has expired.") router.replace("/");
+        if (message === "Sign in is required." || message === "Your session has expired.") router.replace("/login");
         else setError(message);
       } finally {
         if (active) setIsLoading(false);

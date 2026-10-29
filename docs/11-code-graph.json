@@ -970,11 +970,19 @@
       ]
     },
     {
-      "id": "apps/web/src/app/page.tsx",
+      "id": "apps/web/src/app/login/page.tsx",
       "boundary": "web",
       "internalImports": [],
       "externalImports": [
         "@/features/auth/login-form"
+      ]
+    },
+    {
+      "id": "apps/web/src/app/page.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "@/features/marketing/landing-page"
       ]
     },
     {
@@ -1224,6 +1232,128 @@
         "lucide-react",
         "next/navigation",
         "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/marketing/landing-demo.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/workflow/node-icon.tsx"
+      ],
+      "externalImports": [
+        "lucide-react",
+        "motion/react",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/marketing/landing-interactions.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/brand/fluxora-mark.tsx",
+        "apps/web/src/features/marketing/landing-motion.tsx"
+      ],
+      "externalImports": [
+        "lucide-react",
+        "next/link",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/marketing/landing-motion.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "motion/react",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/marketing/landing-page.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/brand/fluxora-mark.tsx",
+        "apps/web/src/features/marketing/landing-demo.tsx",
+        "apps/web/src/features/marketing/landing-interactions.tsx",
+        "apps/web/src/features/marketing/landing-motion.tsx",
+        "apps/web/src/features/marketing/landing-scenes.tsx",
+        "apps/web/src/features/marketing/landing-sections.tsx",
+        "apps/web/src/features/marketing/landing-showcase.tsx",
+        "apps/web/src/features/workflow/node-icon.tsx"
+      ],
+      "externalImports": [
+        "lucide-react",
+        "next/link"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/marketing/landing-ribbon-geometry.ts",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "three"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/marketing/landing-ribbon-shader.ts",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
+      "id": "apps/web/src/features/marketing/landing-scenes.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/marketing/landing-three-scenes.tsx"
+      ],
+      "externalImports": [
+        "lucide-react",
+        "next/dynamic",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/marketing/landing-sections.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/brand/fluxora-mark.tsx",
+        "apps/web/src/features/marketing/landing-motion.tsx",
+        "apps/web/src/features/workflow/node-icon.tsx"
+      ],
+      "externalImports": [
+        "lucide-react",
+        "motion/react",
+        "next/link",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/marketing/landing-showcase.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/brand/fluxora-mark.tsx",
+        "apps/web/src/features/workflow/node-icon.tsx"
+      ],
+      "externalImports": [
+        "lucide-react",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/marketing/landing-three-scenes.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/marketing/landing-ribbon-geometry.ts",
+        "apps/web/src/features/marketing/landing-ribbon-shader.ts"
+      ],
+      "externalImports": [
+        "@react-three/fiber",
+        "gsap",
+        "gsap/ScrollTrigger",
+        "lenis",
+        "lenis/dist/lenis.css",
+        "react",
+        "three"
       ]
     },
     {
@@ -2398,6 +2528,82 @@
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
       "to": "apps/web/src/features/workflow/workflow-api.ts"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-demo.tsx",
+      "to": "apps/web/src/features/workflow/node-icon.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-interactions.tsx",
+      "to": "apps/web/src/components/brand/fluxora-mark.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-interactions.tsx",
+      "to": "apps/web/src/features/marketing/landing-motion.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-page.tsx",
+      "to": "apps/web/src/components/brand/fluxora-mark.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-page.tsx",
+      "to": "apps/web/src/features/marketing/landing-demo.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-page.tsx",
+      "to": "apps/web/src/features/marketing/landing-interactions.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-page.tsx",
+      "to": "apps/web/src/features/marketing/landing-motion.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-page.tsx",
+      "to": "apps/web/src/features/marketing/landing-scenes.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-page.tsx",
+      "to": "apps/web/src/features/marketing/landing-sections.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-page.tsx",
+      "to": "apps/web/src/features/marketing/landing-showcase.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-page.tsx",
+      "to": "apps/web/src/features/workflow/node-icon.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-scenes.tsx",
+      "to": "apps/web/src/features/marketing/landing-three-scenes.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-sections.tsx",
+      "to": "apps/web/src/components/brand/fluxora-mark.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-sections.tsx",
+      "to": "apps/web/src/features/marketing/landing-motion.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-sections.tsx",
+      "to": "apps/web/src/features/workflow/node-icon.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-showcase.tsx",
+      "to": "apps/web/src/components/brand/fluxora-mark.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-showcase.tsx",
+      "to": "apps/web/src/features/workflow/node-icon.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-three-scenes.tsx",
+      "to": "apps/web/src/features/marketing/landing-ribbon-geometry.ts"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-three-scenes.tsx",
+      "to": "apps/web/src/features/marketing/landing-ribbon-shader.ts"
     },
     {
       "from": "apps/web/src/features/workflow/auto-layout.ts",

@@ -923,7 +923,7 @@ export function WorkflowEditor() {
         if (!isCurrent) return;
         const message = reason instanceof Error ? reason.message : "Unable to load this workspace.";
         if (message === "Sign in is required." || message === "Your session has expired.") {
-          router.replace("/");
+          router.replace("/login");
           return;
         }
         setNotice(message);

@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("password sign-in works while social providers expose their configured state", async ({ page }) => {
   const email = `auth-${Date.now()}@example.test`;
   const password = "e2e-password-123";
-  await page.goto("/");
+  await page.goto("/login");
 
   await expect(page.getByRole("button", { name: "Switch to dark mode" })).toBeVisible();
   await page.getByRole("button", { name: "Switch to dark mode" }).click();
@@ -26,7 +26,7 @@ test("password sign-in works while social providers expose their configured stat
 
   await page.getByLabel("Account actions").click();
   await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByRole("heading", { name: "Sign in to your workspace" })).toBeVisible();
   await expect(page.locator('input[autocomplete="current-password"]')).toBeVisible();
   await page.locator('input[autocomplete="email"]').fill(email);

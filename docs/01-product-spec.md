@@ -78,7 +78,7 @@ The Steam profile is public. The Steam node returns every field available throug
 - Inspector panel for node configuration, validation, test data, and node result.
 - A workflow has Draft and Published versions. Published versions are immutable.
 - Export/import graph JSON, clone workflow, and create from template.
-- A dashboard is the authenticated landing page. It lists workflows in the selected workspace, distinguishes draft-only from published workflows, and opens or creates workflows without an editor modal.
+- The public root route is a product landing page. The dashboard is the authenticated control-plane home: it lists workflows in the selected workspace, distinguishes draft-only from published workflows, and opens or creates workflows without an editor modal.
 - The graph must be acyclic in MVP.
 
 ## 6. Data mapping and expressions

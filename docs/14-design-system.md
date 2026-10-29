@@ -5,16 +5,17 @@
 **Owner:** Fluxora product
 
 This document is the source of truth for the visual foundation shared by the
-dashboard, editor, authentication screens, credential surfaces, execution
-views, and future routes.
+public landing, dashboard, editor, authentication screens, credential
+surfaces, execution views, and future routes.
 
 ## Intent
 
-The product is moving to a Relay-inspired identity before the purchased Relay
-template is available. Public Relay references establish a near-black and
-acid-lime direction, but they do not expose the purchased template's private
-token manifest. These values are therefore an intentional product adaptation,
-not a claim of pixel-perfect or proprietary Relay tokens.
+The product uses the purchased Relay prompt as a visual reference for its
+public landing: near-black surfaces, lime energy, engineered spacing, and
+quiet movement. The Fluxora implementation is clean-room code: the purchased
+source has not been imported, extracted from the preview, or committed to this
+public repository. These values remain an intentional Fluxora adaptation, not
+a claim of pixel-perfect or proprietary Relay tokens.
 
 The application keeps a light workflow canvas because graph readability and
 long-running configuration work are more important than copying a marketing
@@ -112,6 +113,47 @@ migrated incrementally without changing component APIs.
    at least 4.5:1 for readable text and 3:1 for non-text UI/icons in both
    themes. Disabled controls may be de-emphasized, but must retain a clear
    disabled affordance. Do not communicate state by color alone.
+
+## Public landing motion and WebGL
+
+Motion and WebGL are progressive decoration for the public marketing route
+only. They must never gate copy, navigation, calls to action, or product
+status. The authenticated dashboard, editor, Connections, Executions, and
+authentication screens remain HTML/CSS application surfaces.
+
+- Use `MotionConfig reducedMotion="user"` and keep the server-rendered state
+  readable before client hydration. Do not begin an information-bearing region
+  at zero opacity, translated off-screen, or blurred.
+- Three.js scenes live in client-only landing feature islands. Semantic HTML
+  and CSS are the fallback when WebGL is unavailable, JavaScript fails, or
+  reduced motion is requested.
+- Mount bounded scenes only near their viewport. The owner-approved page-long
+  landing ribbon uses one fixed stage while the document is visible; pause,
+  reduced motion and hidden-tab state unmount it.
+- Cap the canvas DPR at 1.5, keep geometry/draw calls bounded, and do not add
+  post-processing, controls, remote models, texture downloads, or autoplay
+  video without a measured product need and an updated performance budget.
+- The current landing uses one procedural Catmull-Rom ribbon with Perlin-noise
+  GLSL filaments and analytic glow. A 2,048-entry local lookup field replaces
+  the offset strip so broad bends cannot self-intersect. GSAP ScrollTrigger
+  and Lenis share one ticker with manually advanced R3F; DPR is capped at 1.25
+  (0.5 on software rasterizers, with native-resolution DOM text). The owner's latest
+  brief explicitly supersedes the earlier hero-only/no-Lenis boundary.
+  A renderer failure/context loss falls back to SVG; pause/reduced-motion/hidden
+  tab removes the renderer, destroys Lenis and releases the owned trigger.
+- Route-scoped `features/marketing/landing.css` owns marketing composition;
+  reuse global brand tokens and the offline provider icons. Marketing-only
+  serif emphasis must not change app typography.
+- Never use a canvas as the only indicator of a live status, execution result,
+  or interaction. Every state remains textual and keyboard-accessible.
+- Motion fidelity requires temporal evidence: ordered source sequences,
+  separation of scroll from autonomous light movement, and a browser recording.
+  Static screenshots and passing E2E tests alone do not establish similarity.
+
+The public landing information architecture and its explicit clean-room
+boundaries are recorded in `docs/22-public-landing-v2.md`. Treat that document
+as the route-level contract before expanding the landing; do not import a
+third-party renderer, media asset, font, copy, or claimed pricing model.
 11. **Theme parity:** every new surface must be readable in both
     `data-theme="light"` and `data-theme="dark"`; do not use a hard-coded white
     or black background for product UI.
@@ -211,11 +253,10 @@ light-theme gray values.
 
 When Relay is purchased:
 
-1. inspect its actual token/typography/spacing manifest;
-2. compare it to this file and `design-system.css`;
+1. keep downloaded source and license material out of this public repository;
+2. inspect its token/typography/spacing manifest only if the licence permits;
 3. preserve workflow semantics, credential boundaries, and execution safety;
-4. map its components into these semantic tokens instead of scattering template
-   values through feature CSS;
-5. visually review auth, dashboard, editor, credential, execution, and error
-   states at desktop widths;
+4. map reusable principles into semantic Fluxora tokens instead of scattering
+   template values through feature CSS;
+5. visually review the landing before app surfaces at desktop widths;
 6. run `npm run verify` and record any intentional deviations here.

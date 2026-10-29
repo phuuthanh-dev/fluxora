@@ -100,7 +100,7 @@ export function ExecutionsDashboard() {
       } catch (reason) {
         if (!active) return;
         const message = reason instanceof Error ? reason.message : "Unable to load execution history.";
-        if (message === "Sign in is required." || message === "Your session has expired.") router.replace("/");
+        if (message === "Sign in is required." || message === "Your session has expired.") router.replace("/login");
         else setError(message);
       }
     })();

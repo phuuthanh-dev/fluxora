@@ -23,6 +23,9 @@
 - Node configuration must use the strongest appropriate control: static selects for bounded enums, searchable resource pickers for provider-owned resources, and expression-aware hybrid inputs for runtime data. Avoid free-text fields when the provider can safely enumerate the value.
 - Provider resource pickers must load through an authenticated backend endpoint; the browser must never receive connector tokens or call provider APIs directly. Persist stable provider identifiers in workflow config, not display-only labels.
 - Avoid animation that obscures workflow status or makes execution feel slower.
+- When matching a motion reference, inspect temporal sequences and retain a
+  local browser recording. Separate autonomous motion from page scrolling;
+  screenshot review and passing E2E alone do not establish visual fidelity.
 - Desktop-first does not mean inaccessible: layouts must remain readable at narrower widths.
 
 ## Workflow semantics
