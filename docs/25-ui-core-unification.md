@@ -81,3 +81,9 @@ The inspector title is 16px with a 34px provider tile. Native single-select
 controls share an inset chevron (12px from the right, 40px reserved text area)
 through design-system.css; list/multiple selects and forced-colors retain native
 behavior. Do not replace these with another dropdown state machine for spacing.
+
+Header alignment correction (2026-10-29): BrandLockup uses a block flex row
+with unit line-height so inline baseline/descent space cannot lift the logo
+inside a navigation link. The 20px Gilroy wordmark has a 2px optical downward
+adjustment; the 28px mark and surrounding header heights stay unchanged. Keep
+this recipe shared rather than adding route-specific header padding offsets.

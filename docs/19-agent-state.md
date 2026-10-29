@@ -98,6 +98,9 @@ resource-picker foundation.
   directly below its toolbar/above saved cards. Full gate: 213 API / 23 web /
   82 E2E. Evidence: `.agent/reports/2026-10-29-auth-control-polish.md`.
   Local develop delivery only; this is not deployed or a new OAuth integration.
+  Subsequent owner-reported header alignment is also fixed in shared brand CSS:
+  inline baseline space removed and Gilroy optically aligned. Full gate remains
+  213 API / 23 web / 82 E2E; `.agent/reports/2026-10-29-header-brand-alignment.md`.
 
 - `L13.1` reopen / product experience (2026-10-29) — New owner-requested
   refinement complete locally: workflow-first dashboard, searchable saved

@@ -1,7 +1,8 @@
 /* Page composition only. Colors, control recipes and type scale live in design-system.css. */
-.brand-lockup { align-items: center; display: inline-flex; gap: 10px; white-space: nowrap; }
-.brand-lockup strong { font-size: var(--brand-size); font-weight: 600; letter-spacing: -.04em; }
-.brand-lockup svg { flex-shrink: 0; }
+.brand-lockup { align-items: center; display: flex; gap: 10px; line-height: 1; white-space: nowrap; }
+/* Gilroy's visible capitals sit above its line-box center; align the wordmark optically. */
+.brand-lockup strong { font-size: var(--brand-size); font-weight: 600; letter-spacing: -.04em; position: relative; top: 2px; }
+.brand-lockup svg { display: block; flex-shrink: 0; }
 
 /* Legacy overlay recipes inherit the active product theme, never their old navy palette. */
 :is(.dashboard-page, .editor-page) {
