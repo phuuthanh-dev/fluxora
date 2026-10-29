@@ -7,6 +7,7 @@ import { apiRequest } from "../api/api-client";
 import { Button, EmptyState, IconButton, PageHeader, Progress, SectionHeader, Skeleton, Status, Toolbar } from "../../components/ui";
 import { AppShellHeader } from "../app-shell/app-shell-header";
 import { SavedExecutionViews } from "./saved-execution-views";
+import { Disclosure } from "../../components/ui/disclosure";
 
 type WorkspaceSummary = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
 type ExecutionStatus = "QUEUED" | "RUNNING" | "WAITING_APPROVAL" | "SUCCEEDED" | "FAILED" | "CANCELLED";
@@ -148,7 +149,7 @@ export function ExecutionsDashboard() {
           description="Inspect the immutable workflow version, mode, status, and redacted failure detail for every run in this workspace."
           actions={<><Button variant="secondary" onClick={() => router.push("/dashboard")}><ArrowLeft size={15} /> Dashboard</Button><IconButton variant="secondary" label="Refresh execution history" onClick={() => void loadExecutions(workspaceId)} disabled={isLoading || !workspaceId}><RefreshCw className={isLoading ? "ui-spinner" : undefined} size={16} /></IconButton></>}
         />
-        {workspaceId && <details className="retention-summary"><summary>Execution retention</summary>{retention ? <div><p>{retention.enabled ? "Automatic cleanup is enabled." : "Automatic cleanup is disabled."}</p><p>Successful runs: {retention.successDays} days · Failed and cancelled runs: {retention.failedDays} days.</p><p>{retention.maxCount ? `The ${retention.maxCount.toLocaleString()} completed-run limit applies across the entire system, not just this workspace. Older runs may be removed sooner if the limit is exceeded.` : "No system-wide completed-run count limit is configured."}</p><p>Queued, running, and waiting runs are not removed by retention cleanup.</p></div> : <p>{retentionError ? "Retention settings could not be loaded." : "Loading retention settings…"}</p>}</details>}
+        {workspaceId && <Disclosure className="retention-summary" summary="Execution retention">{retention ? <div><p>{retention.enabled ? "Automatic cleanup is enabled." : "Automatic cleanup is disabled."}</p><p>Successful runs: {retention.successDays} days · Failed and cancelled runs: {retention.failedDays} days.</p><p>{retention.maxCount ? `The ${retention.maxCount.toLocaleString()} completed-run limit applies across the entire system, not just this workspace. Older runs may be removed sooner if the limit is exceeded.` : "No system-wide completed-run count limit is configured."}</p><p>Queued, running, and waiting runs are not removed by retention cleanup.</p></div> : <p>{retentionError ? "Retention settings could not be loaded." : "Loading retention settings…"}</p>}</Disclosure>}
         {workspaceId && <SavedExecutionViews key={workspaceId} workspaceId={workspaceId} filter={filter} onSelect={changeFilter} />}
         {isLoading && executions.length === 0 ? <div className="executions-loading" aria-busy="true"><Skeleton /><Skeleton /><Skeleton /><Progress label="Loading execution history" /></div> : null}
         {!isLoading && error ? <Status tone="error" className="executions-error"><CircleAlert size={17} /><span>{error}</span><Button variant="ghost" onClick={() => void loadExecutions(workspaceId)}>Retry</Button></Status> : null}

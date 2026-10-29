@@ -123,6 +123,15 @@ CI runs the same gate for every pull request and push to `main`.
 
 ## External-boundary rule
 
+Latest owner follow-up to L12.3/L13.1 (2026-10-29): shared GSAP disclosures fix
+FAQ height/scroll jumps; menu/dialog/inspector/progress and landing interactions
+reuse the motion layer. No-JS, reduced-motion, keyboard, both product themes,
+resize/reversal and active WebGL coverage pass. Ribbon layout changes reuse
+GPU resources/Lenis and morph the field without remapping scroll by page height.
+Full default verify passed: 213 API, 23 web, 72 E2E. Evidence:
+`.agent/reports/2026-10-29-shared-gsap-motion.md`. Local-only delivery, not a
+deployment or broad device-performance qualification.
+
 Owner follow-up to L12.3/L6.1 (2026-10-29): homepage reading sizes, footer and
 GSAP reveal lifecycle are improved; eight official GreenSock skills are pinned
 globally and in the repository. Local qualification covers 213 API, 23 web and

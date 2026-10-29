@@ -96,6 +96,7 @@ export function LoginForm() {
               <small>{githubAvailable ? "Continue securely" : "Configure server"}</small>
             </Button>
           </div>
+          <p className="auth-legal">By using Fluxora, you agree to the <Link href="/terms">Terms of use</Link>. Read how we handle your data in our <Link href="/privacy">Privacy policy</Link>. <Link href="/support">Need help?</Link></p>
           <p className="auth-switch">{mode === "login" ? "New here?" : "Already have an account?"} <button onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); }} type="button">{mode === "login" ? "Create an account" : "Sign in"}</button></p>
         </div>
       </section>

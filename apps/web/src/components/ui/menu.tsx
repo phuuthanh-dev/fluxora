@@ -3,6 +3,7 @@
 import { ChevronDown } from "lucide-react";
 import { flushSync } from "react-dom";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useSurfaceMotion } from "./ui-motion";
 
 type MenuProps = {
   label: string;
@@ -18,6 +19,8 @@ export function Menu({ label, children, trigger, className, contentClassName }: 
   const contentId = useId();
   const pendingFocusRef = useRef<"first" | "last" | null>(null);
   const [open, setOpen] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  useSurfaceMotion(contentRef, open);
 
   const menuItems = () => Array.from(detailsRef.current?.querySelectorAll<HTMLElement>(
     '.ui-menu__content button:not([disabled]), .ui-menu__content [href], .ui-menu__content [tabindex]:not([tabindex="-1"])',
@@ -106,6 +109,7 @@ export function Menu({ label, children, trigger, className, contentClassName }: 
         {trigger ?? <><span>{label}</span><ChevronDown size={14} aria-hidden="true" /></>}
       </summary>
       <div
+        ref={contentRef}
         id={contentId}
         className={["ui-menu__content", contentClassName].filter(Boolean).join(" ")}
         role="menu"

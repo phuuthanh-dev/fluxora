@@ -1,5 +1,8 @@
+import { privateMetadata } from "../../../features/public-site/site";
 import { Suspense } from "react";
 import { ConnectionsDashboard } from "@/features/credentials/connections-dashboard";
+
+export const metadata = privateMetadata;
 
 export default function ConnectionsPage() {
   return (

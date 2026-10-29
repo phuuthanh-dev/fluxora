@@ -55,6 +55,7 @@ import { manualTriggerTestData } from "./test-data";
 import { NodeIcon } from "./node-icon";
 import { NodeLibrary, type NodeLibraryHandle } from "./node-library";
 import { Button, Dialog, Field, IconButton, Menu, Select, Status, useDialogFocus } from "../../components/ui";
+import { useSurfaceMotion } from "../../components/ui/ui-motion";
 import { AppShellHeader } from "../app-shell/app-shell-header";
 import { ExecutionDetailsPanel, type ApiExecution } from "./execution-observability";
 import { ResourcePicker } from "./resource-picker";
@@ -628,6 +629,8 @@ function WorkflowLibraryPanel({ initialWorkspaces, activeWorkflowId, activeWorks
 function NodeInspector({ node, execution, credentials, workspaceId, onResolveApproval, onDebugNode, onOpenWebhook, webhookContext, isDebugging, isDrawerOpen, onCloseDrawer }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null; credentials: CredentialSummary[]; workspaceId: string; onResolveApproval: (approvalId: string, decision: "approved" | "rejected") => void; onDebugNode: (node: WorkflowCanvasNode) => void; onOpenWebhook: () => void; webhookContext: "published" | "different" | "draft" | "other-draft"; isDebugging: boolean; isDrawerOpen: boolean; onCloseDrawer: () => void }) {
   const updateNodeData = useWorkflowEditorStore((state) => state.updateNodeData);
   const inspectorRef = useDialogFocus<HTMLElement>({ active: isDrawerOpen, trapFocus: true, onClose: onCloseDrawer, restoreFocus: false });
+
+  useSurfaceMotion(inspectorRef, isDrawerOpen);
 
   const drawerProps = isDrawerOpen ? { "aria-label": "Node inspector", "aria-modal": true, role: "dialog" as const, tabIndex: -1 } : {};
 

@@ -926,9 +926,19 @@
       ]
     },
     {
-      "id": "apps/web/src/app/dashboard/connections/page.tsx",
+      "id": "apps/web/src/app/contact/page.tsx",
       "boundary": "web",
       "internalImports": [],
+      "externalImports": [
+        "next/navigation"
+      ]
+    },
+    {
+      "id": "apps/web/src/app/dashboard/connections/page.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/public-site/site.ts"
+      ],
       "externalImports": [
         "@/features/credentials/connections-dashboard",
         "react"
@@ -937,7 +947,9 @@
     {
       "id": "apps/web/src/app/dashboard/executions/page.tsx",
       "boundary": "web",
-      "internalImports": [],
+      "internalImports": [
+        "apps/web/src/features/public-site/site.ts"
+      ],
       "externalImports": [
         "@/features/dashboard/executions-dashboard",
         "react"
@@ -946,7 +958,9 @@
     {
       "id": "apps/web/src/app/dashboard/page.tsx",
       "boundary": "web",
-      "internalImports": [],
+      "internalImports": [
+        "apps/web/src/features/public-site/site.ts"
+      ],
       "externalImports": [
         "@/features/dashboard/workflow-dashboard"
       ]
@@ -954,7 +968,9 @@
     {
       "id": "apps/web/src/app/editor/page.tsx",
       "boundary": "web",
-      "internalImports": [],
+      "internalImports": [
+        "apps/web/src/features/public-site/site.ts"
+      ],
       "externalImports": [
         "@/features/workflow/workflow-editor"
       ]
@@ -962,7 +978,9 @@
     {
       "id": "apps/web/src/app/layout.tsx",
       "boundary": "web",
-      "internalImports": [],
+      "internalImports": [
+        "apps/web/src/features/public-site/site.ts"
+      ],
       "externalImports": [
         "next",
         "next/font/local",
@@ -972,17 +990,95 @@
     {
       "id": "apps/web/src/app/login/page.tsx",
       "boundary": "web",
-      "internalImports": [],
+      "internalImports": [
+        "apps/web/src/features/public-site/site.ts"
+      ],
       "externalImports": [
         "@/features/auth/login-form"
       ]
     },
     {
+      "id": "apps/web/src/app/not-found.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/public-site/public-shell.tsx"
+      ],
+      "externalImports": [
+        "next/link"
+      ]
+    },
+    {
+      "id": "apps/web/src/app/opengraph-image.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/brand/fluxora-mark.tsx"
+      ],
+      "externalImports": [
+        "next/og"
+      ]
+    },
+    {
       "id": "apps/web/src/app/page.tsx",
       "boundary": "web",
-      "internalImports": [],
+      "internalImports": [
+        "apps/web/src/features/public-site/site.ts"
+      ],
       "externalImports": [
         "@/features/marketing/landing-page"
+      ]
+    },
+    {
+      "id": "apps/web/src/app/privacy/page.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/public-site/public-shell.tsx",
+        "apps/web/src/features/public-site/site.ts"
+      ],
+      "externalImports": [
+        "next/link"
+      ]
+    },
+    {
+      "id": "apps/web/src/app/robots.ts",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/public-site/site.ts"
+      ],
+      "externalImports": [
+        "next"
+      ]
+    },
+    {
+      "id": "apps/web/src/app/sitemap.ts",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/public-site/site.ts"
+      ],
+      "externalImports": [
+        "next"
+      ]
+    },
+    {
+      "id": "apps/web/src/app/support/page.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/public-site/public-shell.tsx",
+        "apps/web/src/features/public-site/site.ts"
+      ],
+      "externalImports": [
+        "lucide-react",
+        "next/link"
+      ]
+    },
+    {
+      "id": "apps/web/src/app/terms/page.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/public-site/public-shell.tsx",
+        "apps/web/src/features/public-site/site.ts"
+      ],
+      "externalImports": [
+        "next/link"
       ]
     },
     {
@@ -1021,7 +1117,18 @@
       "id": "apps/web/src/components/ui/dialog.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/ui-motion.ts",
         "apps/web/src/components/ui/use-dialog-focus.ts"
+      ],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/components/ui/disclosure.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/ui/ui-motion.ts"
       ],
       "externalImports": [
         "react"
@@ -1066,7 +1173,9 @@
     {
       "id": "apps/web/src/components/ui/menu.tsx",
       "boundary": "web",
-      "internalImports": [],
+      "internalImports": [
+        "apps/web/src/components/ui/ui-motion.ts"
+      ],
       "externalImports": [
         "lucide-react",
         "react",
@@ -1084,8 +1193,13 @@
     {
       "id": "apps/web/src/components/ui/progress.tsx",
       "boundary": "web",
-      "internalImports": [],
-      "externalImports": []
+      "internalImports": [
+        "apps/web/src/components/ui/ui-motion.ts"
+      ],
+      "externalImports": [
+        "gsap",
+        "react"
+      ]
     },
     {
       "id": "apps/web/src/components/ui/section-header.tsx",
@@ -1124,6 +1238,15 @@
       "boundary": "web",
       "internalImports": [],
       "externalImports": [
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/components/ui/ui-motion.ts",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "gsap",
         "react"
       ]
     },
@@ -1207,6 +1330,7 @@
       "id": "apps/web/src/features/dashboard/executions-dashboard.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/disclosure.tsx",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/app-shell/app-shell-header.tsx",
         "apps/web/src/features/dashboard/saved-execution-views.tsx"
@@ -1221,6 +1345,7 @@
       "id": "apps/web/src/features/dashboard/saved-execution-views.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/disclosure.tsx",
         "apps/web/src/features/api/api-client.ts"
       ],
       "externalImports": [
@@ -1231,6 +1356,7 @@
       "id": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/disclosure.tsx",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/app-shell/app-shell-header.tsx",
         "apps/web/src/features/workflow/node-catalog.ts",
@@ -1247,11 +1373,12 @@
       "id": "apps/web/src/features/marketing/landing-demo.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/ui-motion.ts",
+        "apps/web/src/features/marketing/landing-motion.tsx",
         "apps/web/src/features/workflow/node-icon.tsx"
       ],
       "externalImports": [
         "lucide-react",
-        "motion/react",
         "react"
       ]
     },
@@ -1274,6 +1401,8 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/components/brand/brand-lockup.tsx",
+        "apps/web/src/components/ui/disclosure.tsx",
+        "apps/web/src/components/ui/ui-motion.ts",
         "apps/web/src/features/marketing/landing-motion.tsx"
       ],
       "externalImports": [
@@ -1289,7 +1418,6 @@
       "externalImports": [
         "gsap",
         "gsap/ScrollTrigger",
-        "motion/react",
         "react"
       ]
     },
@@ -1305,6 +1433,7 @@
         "apps/web/src/features/marketing/landing-scenes.tsx",
         "apps/web/src/features/marketing/landing-sections.tsx",
         "apps/web/src/features/marketing/landing-showcase.tsx",
+        "apps/web/src/features/public-site/site.ts",
         "apps/web/src/features/workflow/node-icon.tsx"
       ],
       "externalImports": [
@@ -1358,6 +1487,8 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/components/brand/fluxora-mark.tsx",
+        "apps/web/src/components/ui/ui-motion.ts",
+        "apps/web/src/features/marketing/landing-motion.tsx",
         "apps/web/src/features/workflow/node-icon.tsx"
       ],
       "externalImports": [
@@ -1380,6 +1511,27 @@
         "lenis/dist/lenis.css",
         "react",
         "three"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/public-site/public-shell.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/brand/brand-lockup.tsx",
+        "apps/web/src/features/public-site/site.ts"
+      ],
+      "externalImports": [
+        "lucide-react",
+        "next/link",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/public-site/site.ts",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "next"
       ]
     },
     {
@@ -1520,6 +1672,7 @@
       "id": "apps/web/src/features/workflow/workflow-editor.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/ui-motion.ts",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/app-shell/app-shell-header.tsx",
         "apps/web/src/features/credentials/credential-panel.tsx",
@@ -2420,12 +2573,88 @@
       "to": "apps/api/src/database/prisma.service.ts"
     },
     {
+      "from": "apps/web/src/app/dashboard/connections/page.tsx",
+      "to": "apps/web/src/features/public-site/site.ts"
+    },
+    {
+      "from": "apps/web/src/app/dashboard/executions/page.tsx",
+      "to": "apps/web/src/features/public-site/site.ts"
+    },
+    {
+      "from": "apps/web/src/app/dashboard/page.tsx",
+      "to": "apps/web/src/features/public-site/site.ts"
+    },
+    {
+      "from": "apps/web/src/app/editor/page.tsx",
+      "to": "apps/web/src/features/public-site/site.ts"
+    },
+    {
+      "from": "apps/web/src/app/layout.tsx",
+      "to": "apps/web/src/features/public-site/site.ts"
+    },
+    {
+      "from": "apps/web/src/app/login/page.tsx",
+      "to": "apps/web/src/features/public-site/site.ts"
+    },
+    {
+      "from": "apps/web/src/app/not-found.tsx",
+      "to": "apps/web/src/features/public-site/public-shell.tsx"
+    },
+    {
+      "from": "apps/web/src/app/opengraph-image.tsx",
+      "to": "apps/web/src/components/brand/fluxora-mark.tsx"
+    },
+    {
+      "from": "apps/web/src/app/page.tsx",
+      "to": "apps/web/src/features/public-site/site.ts"
+    },
+    {
+      "from": "apps/web/src/app/privacy/page.tsx",
+      "to": "apps/web/src/features/public-site/public-shell.tsx"
+    },
+    {
+      "from": "apps/web/src/app/privacy/page.tsx",
+      "to": "apps/web/src/features/public-site/site.ts"
+    },
+    {
+      "from": "apps/web/src/app/robots.ts",
+      "to": "apps/web/src/features/public-site/site.ts"
+    },
+    {
+      "from": "apps/web/src/app/sitemap.ts",
+      "to": "apps/web/src/features/public-site/site.ts"
+    },
+    {
+      "from": "apps/web/src/app/support/page.tsx",
+      "to": "apps/web/src/features/public-site/public-shell.tsx"
+    },
+    {
+      "from": "apps/web/src/app/support/page.tsx",
+      "to": "apps/web/src/features/public-site/site.ts"
+    },
+    {
+      "from": "apps/web/src/app/terms/page.tsx",
+      "to": "apps/web/src/features/public-site/public-shell.tsx"
+    },
+    {
+      "from": "apps/web/src/app/terms/page.tsx",
+      "to": "apps/web/src/features/public-site/site.ts"
+    },
+    {
       "from": "apps/web/src/components/brand/brand-lockup.tsx",
       "to": "apps/web/src/components/brand/fluxora-mark.tsx"
     },
     {
       "from": "apps/web/src/components/ui/dialog.tsx",
+      "to": "apps/web/src/components/ui/ui-motion.ts"
+    },
+    {
+      "from": "apps/web/src/components/ui/dialog.tsx",
       "to": "apps/web/src/components/ui/use-dialog-focus.ts"
+    },
+    {
+      "from": "apps/web/src/components/ui/disclosure.tsx",
+      "to": "apps/web/src/components/ui/ui-motion.ts"
     },
     {
       "from": "apps/web/src/components/ui/index.ts",
@@ -2480,6 +2709,14 @@
       "to": "apps/web/src/components/ui/use-dialog-focus.ts"
     },
     {
+      "from": "apps/web/src/components/ui/menu.tsx",
+      "to": "apps/web/src/components/ui/ui-motion.ts"
+    },
+    {
+      "from": "apps/web/src/components/ui/progress.tsx",
+      "to": "apps/web/src/components/ui/ui-motion.ts"
+    },
+    {
       "from": "apps/web/src/features/app-shell/app-shell-header.tsx",
       "to": "apps/web/src/components/brand/brand-lockup.tsx"
     },
@@ -2529,6 +2766,10 @@
     },
     {
       "from": "apps/web/src/features/dashboard/executions-dashboard.tsx",
+      "to": "apps/web/src/components/ui/disclosure.tsx"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/executions-dashboard.tsx",
       "to": "apps/web/src/features/api/api-client.ts"
     },
     {
@@ -2541,7 +2782,15 @@
     },
     {
       "from": "apps/web/src/features/dashboard/saved-execution-views.tsx",
+      "to": "apps/web/src/components/ui/disclosure.tsx"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/saved-execution-views.tsx",
       "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
+      "to": "apps/web/src/components/ui/disclosure.tsx"
     },
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
@@ -2558,6 +2807,14 @@
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
       "to": "apps/web/src/features/workflow/workflow-api.ts"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-demo.tsx",
+      "to": "apps/web/src/components/ui/ui-motion.ts"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-demo.tsx",
+      "to": "apps/web/src/features/marketing/landing-motion.tsx"
     },
     {
       "from": "apps/web/src/features/marketing/landing-demo.tsx",
@@ -2578,6 +2835,14 @@
     {
       "from": "apps/web/src/features/marketing/landing-interactions.tsx",
       "to": "apps/web/src/components/brand/brand-lockup.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-interactions.tsx",
+      "to": "apps/web/src/components/ui/disclosure.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-interactions.tsx",
+      "to": "apps/web/src/components/ui/ui-motion.ts"
     },
     {
       "from": "apps/web/src/features/marketing/landing-interactions.tsx",
@@ -2617,6 +2882,10 @@
     },
     {
       "from": "apps/web/src/features/marketing/landing-page.tsx",
+      "to": "apps/web/src/features/public-site/site.ts"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-page.tsx",
       "to": "apps/web/src/features/workflow/node-icon.tsx"
     },
     {
@@ -2645,6 +2914,14 @@
     },
     {
       "from": "apps/web/src/features/marketing/landing-showcase.tsx",
+      "to": "apps/web/src/components/ui/ui-motion.ts"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-showcase.tsx",
+      "to": "apps/web/src/features/marketing/landing-motion.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-showcase.tsx",
       "to": "apps/web/src/features/workflow/node-icon.tsx"
     },
     {
@@ -2654,6 +2931,14 @@
     {
       "from": "apps/web/src/features/marketing/landing-three-scenes.tsx",
       "to": "apps/web/src/features/marketing/landing-ribbon-shader.ts"
+    },
+    {
+      "from": "apps/web/src/features/public-site/public-shell.tsx",
+      "to": "apps/web/src/components/brand/brand-lockup.tsx"
+    },
+    {
+      "from": "apps/web/src/features/public-site/public-shell.tsx",
+      "to": "apps/web/src/features/public-site/site.ts"
     },
     {
       "from": "apps/web/src/features/workflow/auto-layout.ts",
@@ -2718,6 +3003,10 @@
     {
       "from": "apps/web/src/features/workflow/workflow-api.ts",
       "to": "apps/web/src/features/workflow/workflow-graph-schema.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/components/ui/ui-motion.ts"
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",

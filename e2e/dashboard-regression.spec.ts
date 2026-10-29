@@ -47,6 +47,43 @@ async function signUpAndDashboard(page: import("@playwright/test").Page, email: 
   await expect(page).toHaveURL(/\/dashboard$/);
 }
 
+test("execution disclosure reverses safely and stays keyboard accessible in both themes", async ({ page }) => {
+  await signUpAndDashboard(page, `disclosure-${Date.now()}@example.test`);
+  const content = page.locator("#dashboard-execution-content");
+  await expect(content).toBeHidden();
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
+    await page.getByRole("button", { name: "Expand execution center" }).press("Enter");
+    await expect(content).toBeVisible();
+    await expect.poll(() => content.evaluate(el => el.style.height)).toBe("");
+    const samples = await page.locator(".dashboard-execution-toggle").evaluate(async (button) => {
+      const panel = document.getElementById("dashboard-execution-content")!;
+      const heights = [panel.getBoundingClientRect().height];
+      (button as HTMLButtonElement).click();
+      const start = performance.now();
+      while (performance.now() - start < 450) {
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+        heights.push(panel.getBoundingClientRect().height);
+      }
+      return heights;
+    });
+    expect(samples.some(height => height > 2 && height < samples[0] - 2)).toBe(true);
+    await expect(content).toBeHidden();
+    expect(await content.evaluate(el => el.inert)).toBe(true);
+    const trigger = page.getByRole("button", { name: "Expand execution center" });
+    await expect(trigger).toBeFocused();
+    // A quick second keypress cancels expansion without stale inline height.
+    await trigger.press("Space");
+    await page.getByRole("button", { name: "Collapse execution center" }).press("Space");
+    await expect(content).toBeHidden();
+    await expect.poll(() => content.evaluate(el => el.style.height)).toBe("");
+  }
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.getByRole("button", { name: "Expand execution center" }).click();
+  await expect(content).toBeVisible();
+  await expect(content).not.toHaveAttribute("data-animating", "true");
+});
+
 test("runtime panel shows checking state then ready state after sign-in", async ({ page }) => {
   const email = `regression-rt-${Date.now()}@example.test`;
 
@@ -441,7 +478,8 @@ test("workflow cards expose rename, duplicate, archive, and guarded delete actio
   await expect(page.getByRole("heading", { name: "Execution center" })).toBeVisible();
   const executionCenterToggle = page.getByRole("button", { name: "Expand execution center" });
   await expect(executionCenterToggle).toHaveAttribute("aria-expanded", "false");
-  await expect(page.getByText("Recent runs", { exact: true })).toHaveCount(0);
+  // Kept mounted for reversible height motion, but hidden and inert when shut.
+  await expect(page.getByText("Recent runs", { exact: true })).toBeHidden();
   await executionCenterToggle.click();
   await expect(page.getByText("Recent runs", { exact: true })).toBeVisible();
   await expect(page.getByText("Succeeded", { exact: true })).toBeVisible();

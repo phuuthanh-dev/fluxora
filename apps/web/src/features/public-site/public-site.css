@@ -1,0 +1,43 @@
+.public-site { min-height: 100svh; background: var(--brand-void); color: var(--ink); font-family: var(--font-ui); padding: 0 var(--page-gutter); }
+.public-site a { color: inherit; text-decoration: none; }
+.public-site a:focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; border-radius: 3px; }
+.public-nav,.public-main,.public-footer { width: min(1120px,100%); margin-inline: auto; }
+.public-nav { min-height: 80px; display:flex; align-items:center; justify-content:space-between; gap:24px; border-bottom:1px solid var(--line); }
+.public-nav nav,.public-footer nav { display:flex; gap:26px; align-items:center; flex-wrap:wrap; font-size:14px; }
+.public-signin { display:inline-flex; align-items:center; gap:12px; padding:11px 18px; border:1px solid var(--line); border-radius:999px; }
+.public-intro { padding:64px 0 48px; max-width:760px; }
+.public-back { display:inline-flex; align-items:center; gap:9px; color:var(--text-tertiary)!important; font-size:14px; margin-bottom:40px; }
+.public-eyebrow { color:var(--text-accent); font:12px var(--font-mono); letter-spacing:.12em; text-transform:uppercase; margin:0 0 18px; }
+.public-intro h1 { font-size:clamp(36px,5vw,64px); font-weight:500; letter-spacing:-.045em; line-height:1.08; margin:0 0 22px; }
+.public-lead { color:var(--text-secondary); font-size:18px; line-height:1.65; max-width:620px; margin:0; }
+.public-body { padding-bottom:80px; }
+.public-body--document { display:grid; grid-template-columns:220px minmax(0,1fr); gap:64px; border-top:1px solid var(--line); padding-top:36px; }
+.public-toc { align-self:start; position:sticky; top:32px; font-size:13px; }
+.public-toc > span { font:11px var(--font-mono); letter-spacing:.1em; color:var(--text-tertiary); }
+.public-toc nav { display:grid; gap:14px; padding:22px 0; }
+.public-toc a:hover,.public-footer a:hover,.public-nav a:hover { color:var(--text-accent); }
+.public-toc p { color:var(--text-tertiary); line-height:1.8; border-top:1px solid var(--line); padding-top:20px; }
+.public-toc time { display:block; }
+.public-content { min-width:0; }
+.public-section { scroll-margin-top:32px; margin-bottom:36px; padding-bottom:28px; border-bottom:1px solid var(--line); }
+.public-section:last-child { border:0; margin-bottom:0; }
+.public-section h2 { font-size:23px; font-weight:600; letter-spacing:-.025em; margin:0 0 18px; }
+.public-section p,.public-section li { color:var(--text-secondary); font-size:16px; line-height:1.8; }
+.public-section p { margin:0 0 16px; }
+.public-section ul,.public-section ol { padding-left:22px; margin:16px 0; }
+.public-section li + li { margin-top:10px; }
+.public-section strong { color:var(--ink); font-weight:600; }
+.public-section a,.public-contact a { color:var(--text-accent); text-decoration:underline; text-underline-offset:4px; overflow-wrap:anywhere; }
+.public-support-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+.public-support-card { border:1px solid var(--line); border-radius:20px; padding:32px; background:var(--panel); }
+.public-support-card > svg { color:var(--text-accent); margin-bottom:24px; }
+.public-support-card h2 { font-size:24px; margin:0 0 12px; font-weight:600; }
+.public-support-card p { color:var(--text-secondary); font-size:16px; line-height:1.7; }
+.public-support-link { display:inline-flex; align-items:center; gap:12px; font-size:15px; color:var(--text-accent)!important; margin-top:18px; overflow-wrap:anywhere; max-width:100%; }
+.public-contact { margin:32px 0; border-left:2px solid var(--accent); padding:6px 0 6px 24px; font-size:16px; line-height:1.8; color:var(--text-secondary); }
+.public-contact strong { color:var(--ink); }
+.public-footer { display:flex; align-items:center; justify-content:space-between; gap:24px; padding:28px 0; border-top:1px solid var(--line); color:var(--text-tertiary); font-size:13px; }
+.public-footer nav a { display:inline-flex; align-items:center; gap:5px; }
+.public-skip { position:fixed; top:-80px; z-index:100; background:var(--accent); color:var(--text-on-accent)!important; padding:14px; }
+.public-skip:focus { top:12px; }
+@media(max-width:700px) { .public-body--document { grid-template-columns:1fr; gap:32px; } .public-toc { position:static; } .public-toc nav { grid-template-columns:1fr 1fr; } .public-toc p { display:none; } .public-intro { padding:36px 0; } .public-back { margin-bottom:32px; } .public-support-grid { grid-template-columns:1fr; } .public-support-card { padding:24px; } .public-footer { align-items:flex-start; flex-direction:column; } .public-nav nav { gap:14px; } .public-signin { padding:10px 13px; } }

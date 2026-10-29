@@ -45,8 +45,8 @@ If a request conflicts with the specification, call out the conflict and propose
 
 ### GSAP animation work
 
-- For landing animation changes, read `docs/22-public-landing-v2.md` and
-  `docs/26-gsap-workflow.md`, then the relevant official skills under
+- For UI animation changes, read `docs/26-gsap-workflow.md` (and
+  `docs/22-public-landing-v2.md` for marketing), then the relevant official skills under
   `.agents/skills/`. Use `gsap-core`, `gsap-react` and `gsap-scrolltrigger` for
   React scroll work; add `gsap-timeline` and `gsap-performance` for choreography
   and optimization. Load plugins/utils/frameworks only when needed.

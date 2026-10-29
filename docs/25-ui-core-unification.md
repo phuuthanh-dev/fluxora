@@ -51,6 +51,10 @@ routes.
    navy/purple control and overlay values migrate to semantic tokens in place.
 5. `landing.css` owns marketing composition only. No second UI library is added;
    Tailwind v4 and the existing typed primitives remain the foundation.
+6. `components/ui/ui-motion.ts` owns reusable GSAP interaction motion, and
+   `disclosure.tsx` owns native/controlled collapsible content. Menu, Dialog,
+   Progress, execution panels and inspector reuse them. New interaction motion
+   must follow `26-gsap-workflow.md`, including keyboard/reduced-motion cleanup.
 
 Future routes should reuse PageHeader, SectionHeader, Toolbar, Button, Field,
 Select, Menu, Dialog, Status and the shared app shell. Add a token only for a

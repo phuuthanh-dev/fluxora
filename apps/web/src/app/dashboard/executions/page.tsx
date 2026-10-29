@@ -1,5 +1,8 @@
+import { privateMetadata } from "../../../features/public-site/site";
 import { Suspense } from "react";
 import { ExecutionsDashboard } from "@/features/dashboard/executions-dashboard";
+
+export const metadata = privateMetadata;
 
 export default function ExecutionsPage() {
   return (

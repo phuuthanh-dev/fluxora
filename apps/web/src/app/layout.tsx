@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import localFont from "next/font/local";
+import { publicSite } from "../features/public-site/site";
 import "./globals.css";
 import "./product-shell.css";
 
@@ -19,6 +20,7 @@ const gilroy = localFont({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(publicSite.origin),
   title: "Fluxora — Visual workflow automation",
   description: "Build dependable automations from visual workflows.",
 };

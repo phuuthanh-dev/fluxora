@@ -9,12 +9,8 @@ import {
   Workflow,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import {
-  motion,
-  useMotionValue,
-  useReducedMotion,
-  useSpring,
-} from "motion/react";
+import { usePointerTilt } from "../../components/ui/ui-motion";
+import { useLandingEffects } from "./landing-motion";
 import { NodeIcon, type NodeIconName } from "../workflow/node-icon";
 
 const steps: {
@@ -62,11 +58,9 @@ export function LandingDemo() {
       "M410 113C422 113 422 185 435 185",
     ],
   });
-  const reduceMotion = useReducedMotion();
-  const pointerX = useMotionValue(0);
-  const pointerY = useMotionValue(0);
-  const rotateY = useSpring(pointerX, { stiffness: 100, damping: 24 });
-  const rotateX = useSpring(pointerY, { stiffness: 100, damping: 24 });
+  const root = useRef<HTMLDivElement>(null);
+  const { paused } = useLandingEffects();
+  usePointerTilt(root, paused);
   const running = step > 0 && step < 4;
 
   useEffect(() => setReady(true), []);
@@ -105,33 +99,9 @@ export function LandingDemo() {
   }, [step, running]);
 
   return (
-    <motion.div
+    <div
       className="landing-demo"
-      style={
-        !ready || reduceMotion
-          ? undefined
-          : { rotateX, rotateY, transformPerspective: 1400 }
-      }
-      onPointerMove={(event) => {
-        if (reduceMotion || event.pointerType !== "mouse") return;
-        // Keep interactive controls still; decorative tilt must not chase a click.
-        if (event.target instanceof Element && event.target.closest(".landing-demo__toolbar")) {
-          pointerX.set(0);
-          pointerY.set(0);
-          return;
-        }
-        const bounds = event.currentTarget.getBoundingClientRect();
-        pointerX.set(((event.clientX - bounds.left) / bounds.width - 0.5) * 5);
-        pointerY.set(((event.clientY - bounds.top) / bounds.height - 0.5) * -4);
-      }}
-      onPointerLeave={() => {
-        pointerX.set(0);
-        pointerY.set(0);
-      }}
-      onFocusCapture={() => {
-        pointerX.set(0);
-        pointerY.set(0);
-      }}
+      ref={root}
       aria-label="Interactive sample workflow"
       data-demo-step={step}
     >
@@ -226,7 +196,7 @@ export function LandingDemo() {
         <button
           className="landing-button landing-button--small"
           disabled={!ready}
-          onClick={() => setStep(running ? 0 : reduceMotion ? 4 : 1)}
+          onClick={() => setStep(running ? 0 : paused || window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 4 : 1)}
         >
           {running ? (
             <Square size={12} />
@@ -248,6 +218,6 @@ export function LandingDemo() {
           JavaScript to play the sample.
         </p>
       </noscript>
-    </motion.div>
+    </div>
   );
 }

@@ -73,6 +73,7 @@ one of these IDs or explicitly reopen a completed ledger slice.
 
 | ID | Outcome | Status | Owner/evidence boundary |
 |---|---|---|---|
+| `PUBLIC-READY-1` | Public privacy, terms, support and search metadata; release via develop → main | planned | Owner authorized completion and release on 2026-10-29; public contact email approved |
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
 | `LIVE-1` | Validate one explicitly approved real Steam → Google Chat run plus configured OAuth callbacks | pending | Steam → Google Chat/Discord/Telegram is proven after credential rotation; Google Drive and any additional OAuth callback/write semantics remain separate owner-approved checks |
 | `RELEASE-REPAIR-1` | Repair and prove production application bootstrap after the GitHub webhook adapter DI regression | operator-gated | Local no-I/O app boot and full quality gate passed; PR review/merge and post-deploy application health evidence remain required, with no provider credential or live webhook needed |
@@ -91,6 +92,19 @@ resource-picker foundation.
 
 ## Recently closed slices
 
+- `UI-MOTION-1` / `L12.3` / `L13.1` (2026-10-29) — Owner-reported FAQ jump
+  corrected with reversible shared GSAP disclosures, independent answers,
+  hidden/inert resting state and persistent ribbon resources. Page-height
+  changes now morph the existing field over 600ms while preserving Lenis,
+  shader time and absolute scroll coordinates. Shared
+  menu/dialog/inspector/progress, execution panels, hero tilt and product tabs
+  now use the documented motion layer. Unused Motion package removed; dark
+  Account menu first-frame contrast corrected. Full default verify passed:
+  213 API, 23 web, 72 E2E (3.3m E2E). Evidence:
+  `.agent/reports/2026-10-29-shared-gsap-motion.md`. This is local delivery;
+  no remote push or deployment. Do not repeat this migration without a new
+  concrete regression or owner request. Native-device performance and owner
+  visual acceptance are distinct from passing Chromium tests.
 - `L12.3` / `L6.1` readability and GSAP skills follow-up (2026-10-29) —
   Public type/footer readability and scoped GSAP section reveals are implemented.
   Eight official skills are pinned in user/project skill directories, with MIT

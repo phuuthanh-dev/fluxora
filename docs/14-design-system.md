@@ -125,12 +125,13 @@ migrated incrementally without changing component APIs.
 
 ## Public landing motion and WebGL
 
-Motion and WebGL are progressive decoration for the public marketing route
-only. They must never gate copy, navigation, calls to action, or product
-status. The authenticated dashboard, editor, Connections, Executions, and
-authentication screens remain HTML/CSS application surfaces.
+Scroll choreography and WebGL are progressive decoration for the public
+marketing route only. Short GSAP motion now enhances shared product menus,
+dialogs, disclosures and progress (owner request, 2026-10-29). It must never
+gate copy, focus, navigation, actions or product status. Authenticated routes
+retain native scrolling and semantic HTML controls. See `26-gsap-workflow.md`.
 
-- Use `MotionConfig reducedMotion="user"` and keep the server-rendered state
+- Use scoped GSAP media preferences and keep the server-rendered state
   readable before client hydration. Do not begin an information-bearing region
   at zero opacity, translated off-screen, or blurred.
 - Three.js scenes live in client-only landing feature islands. Semantic HTML

@@ -774,7 +774,7 @@
 .landing-showcase__content {
   min-height: 342px;
   padding: 30px;
-  animation: landing-content-in 0.35s ease-out;
+
 }
 .landing-showcase__title {
   align-items: center;
@@ -1348,13 +1348,17 @@
 }
 .landing-faq__item summary svg {
   color: var(--marketing-muted);
-  transition: transform 0.25s;
+  flex-shrink: 0;
+  stroke: currentColor;
+  stroke-width: 1.5;
 }
-.landing-faq__item[open] summary svg {
+.landing-faq__item[data-expanded="true"] summary svg,
+.landing-faq__item:not([data-expanded])[open] summary svg {
   color: var(--relay-lime);
-  transform: rotate(45deg);
 }
-.landing-faq__item > p {
+.landing-faq__item[data-expanded="true"] .landing-faq__vertical,
+.landing-faq__item:not([data-expanded])[open] .landing-faq__vertical { visibility: hidden; }
+.landing-faq__item p {
   color: var(--marketing-muted);
   font-size: 16px;
   line-height: 1.8;
@@ -1450,16 +1454,7 @@
 .landing-footer__bottom a {
   color: var(--marketing-muted);
 }
-@keyframes landing-content-in {
-  from {
-    opacity: 0.5;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
+
 @media (min-width: 1500px) {
   .landing-hero {
     min-height: 800px;

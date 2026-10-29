@@ -11,7 +11,7 @@ for (const width of [375, 768, 1440]) {
     for (const [selector, minimum] of [
       [".landing-eyebrow", 12],
       [".landing-faq__item summary", 18],
-      [".landing-faq__item > p", 16],
+      [".landing-faq__item p", 16],
       [".landing-case > p", 15],
       [".landing-footer nav a", 14],
       [".landing-footer__bottom", 12],

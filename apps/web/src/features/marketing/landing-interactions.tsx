@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Menu, Plus, X } from "lucide-react";
+import { ArrowRight, Menu, X } from "lucide-react";
 import { useRef, useState, type CSSProperties } from "react";
 import { BrandLockup } from "../../components/brand/brand-lockup";
-import { LandingReveal } from "./landing-motion";
+import { LandingReveal, useLandingEffects } from "./landing-motion";
+import { Disclosure } from "../../components/ui/disclosure";
+import { useSurfaceMotion } from "../../components/ui/ui-motion";
 
 const links = [
   { href: "#product", label: "Product" },
@@ -38,6 +40,10 @@ const faqItems = [
 export function LandingNavigation() {
   const menu = useRef<HTMLDetailsElement>(null);
   const trigger = useRef<HTMLElement>(null);
+  const panel = useRef<HTMLElement>(null);
+  const [open, setOpen] = useState(false);
+  const { paused } = useLandingEffects();
+  useSurfaceMotion(panel, open && !paused);
   return (
     <header className="landing-nav landing-container">
       <Link className="landing-brand" href="#top" aria-label="Fluxora home">
@@ -57,6 +63,7 @@ export function LandingNavigation() {
         <details
           className="landing-nav__mobile"
           ref={menu}
+          onToggle={(event) => setOpen(event.currentTarget.open)}
           onKeyDown={(event) => {
             if (event.key === "Escape" && menu.current) {
               menu.current.open = false;
@@ -68,7 +75,7 @@ export function LandingNavigation() {
             <Menu size={20} className="landing-menu-open" />
             <X size={20} className="landing-menu-close" />
           </summary>
-          <nav aria-label="Mobile navigation">
+          <nav ref={panel} aria-label="Mobile navigation">
             {links.map((link) => (
               <a
                 href={link.href}
@@ -156,6 +163,7 @@ export function LandingUsageMeter() {
 }
 
 export function LandingFaq() {
+  const { paused } = useLandingEffects();
   return (
     <section
       className="landing-faq landing-container"
@@ -170,22 +178,22 @@ export function LandingFaq() {
           <em>connect the dots.</em>
         </h2>
       </LandingReveal>
-      <LandingReveal className="landing-faq__items" delay={0.1}>
+      <div className="landing-faq__items">
         {faqItems.map((item, index) => (
-          <details
+          <Disclosure
             className="landing-faq__item"
             key={item.question}
-            name="landing-faq"
-            open={index === 0}
-          >
-            <summary>
+            defaultOpen={index === 0}
+            paused={paused}
+            summary={<>
               <span>{item.question}</span>
-              <Plus size={18} />
-            </summary>
+              <svg className="landing-faq__toggle" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M3 9h12" /><path className="landing-faq__vertical" d="M9 3v12" /></svg>
+            </>}
+          >
             <p>{item.answer}</p>
-          </details>
+          </Disclosure>
         ))}
-      </LandingReveal>
+      </div>
     </section>
   );
 }

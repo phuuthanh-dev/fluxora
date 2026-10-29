@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { publicLinks } from "../public-site/site";
 import {
   ArrowDown,
   ArrowRight,
@@ -329,6 +330,7 @@ export function LandingPage() {
           <nav aria-label="Footer">
             <a href="#product">Product</a>
             <a href="#faq">FAQ</a>
+            {publicLinks.map(link => <Link key={link.href} href={link.href}>{link.label}</Link>)}
             <a href="https://github.com/phuuthanh-dev/workflow-automation">GitHub</a>
             <Link href="/login">
               Sign in <ArrowRight size={13} />

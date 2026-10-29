@@ -3,19 +3,19 @@ import {
   DataTexture,
   FloatType,
   LinearFilter,
-  PlaneGeometry,
   RGBAFormat,
   Vector3,
 } from "three";
 
 export type LightWaypoint = { x: number; y: number; z: number };
+export type RibbonField = { values: Float32Array; minY: number; maxY: number };
 
 /**
  * Project a Catmull-Rom spine into a small GPU lookup field. A broad offset mesh
  * self-intersects inside tight bends; the implicit field has no overlapping
  * triangles or diagonal UV seams, even where the light fans out.
  */
-export function createLightRibbon(
+export function createRibbonField(
   points: LightWaypoint[],
   viewportWidth: number,
 ) {
@@ -89,15 +89,24 @@ export function createLightRibbon(
     values[index * 4 + 2] = width / weight;
     values[index * 4 + 3] = pressure / weight;
   }
-  const texture = new DataTexture(values, size, 1, RGBAFormat, FloatType);
+  return { values, minY: first.y, maxY: last.y };
+}
+
+/** One allocation per renderer lifetime; layout changes only upload new values. */
+export function createRibbonTexture(field: RibbonField) {
+  const texture = new DataTexture(field.values, field.values.length / 4, 1, RGBAFormat, FloatType);
   texture.minFilter = LinearFilter;
   texture.magFilter = LinearFilter;
   texture.generateMipmaps = false;
   texture.needsUpdate = true;
-  return {
-    geometry: new PlaneGeometry(2, 2),
-    texture,
-    minY: first.y,
-    maxY: last.y,
-  };
+  return texture;
+}
+
+/** Interpolate both coordinates and their range, preserving the current frame at t=0. */
+export function blendRibbonField(output: RibbonField, from: RibbonField, to: RibbonField, progress: number) {
+  for (let index = 0; index < output.values.length; index++) {
+    output.values[index] = from.values[index]! + (to.values[index]! - from.values[index]!) * progress;
+  }
+  output.minY = from.minY + (to.minY - from.minY) * progress;
+  output.maxY = from.maxY + (to.maxY - from.maxY) * progress;
 }

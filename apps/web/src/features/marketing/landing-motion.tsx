@@ -2,7 +2,6 @@
 
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { MotionConfig } from "motion/react";
 import {
   createContext,
   useContext,
@@ -27,7 +26,7 @@ export function LandingMotionProvider({ children }: { children: ReactNode }) {
     <LandingEffectsContext.Provider
       value={{ paused, togglePaused: () => setPaused((value) => !value) }}
     >
-      <MotionConfig reducedMotion="user">{children}</MotionConfig>
+      {children}
     </LandingEffectsContext.Provider>
   );
 }
@@ -53,7 +52,7 @@ export function LandingReveal({
     gsap.registerPlugin(ScrollTrigger);
     const media = gsap.matchMedia();
     media.add("(prefers-reduced-motion: no-preference)", () => {
-      const targets = element.matches(".landing-faq__items, .landing-footer")
+      const targets = element.matches(".landing-footer")
         ? Array.from(element.children)
         : element;
       gsap.fromTo(
