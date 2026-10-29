@@ -6,6 +6,7 @@ import {
   Component,
   useCallback,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -50,7 +51,11 @@ export function LandingLightStream() {
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
   const [paused, setPaused] = useState(false);
-  const onReady = useCallback(() => setReady(true), []);
+  const hasStarted = useRef(false);
+  const onReady = useCallback(() => {
+    hasStarted.current = true;
+    setReady(true);
+  }, []);
   const onFailure = useCallback(() => setFailed(true), []);
 
   useEffect(() => {
@@ -117,7 +122,11 @@ export function LandingLightStream() {
         </svg>
         {enabled ? (
           <SceneBoundary onFailure={onFailure}>
-            <LightStreamScene onReady={onReady} onFailure={onFailure} />
+            <LightStreamScene
+              onReady={onReady}
+              onFailure={onFailure}
+              playIntro={!hasStarted.current}
+            />
           </SceneBoundary>
         ) : null}
       </div>

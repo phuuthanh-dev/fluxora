@@ -134,8 +134,10 @@ authentication screens remain HTML/CSS application surfaces.
   post-processing, controls, remote models, texture downloads, or autoplay
   video without a measured product need and an updated performance budget.
 - The current landing uses one procedural Catmull-Rom ribbon with Perlin-noise
-  GLSL filaments and analytic glow. GSAP ScrollTrigger and Lenis share one
-  ticker with manually advanced R3F; DPR is capped at 1.25. The owner's latest
+  GLSL filaments and analytic glow. A 2,048-entry local lookup field replaces
+  the offset strip so broad bends cannot self-intersect. GSAP ScrollTrigger
+  and Lenis share one ticker with manually advanced R3F; DPR is capped at 1.25
+  (0.5 on software rasterizers, with native-resolution DOM text). The owner's latest
   brief explicitly supersedes the earlier hero-only/no-Lenis boundary.
   A renderer failure/context loss falls back to SVG; pause/reduced-motion/hidden
   tab removes the renderer, destroys Lenis and releases the owned trigger.
@@ -144,6 +146,9 @@ authentication screens remain HTML/CSS application surfaces.
   serif emphasis must not change app typography.
 - Never use a canvas as the only indicator of a live status, execution result,
   or interaction. Every state remains textual and keyboard-accessible.
+- Motion fidelity requires temporal evidence: ordered source sequences,
+  separation of scroll from autonomous light movement, and a browser recording.
+  Static screenshots and passing E2E tests alone do not establish similarity.
 
 The public landing information architecture and its explicit clean-room
 boundaries are recorded in `docs/22-public-landing-v2.md`. Treat that document

@@ -1,13 +1,20 @@
 import {
-  BufferGeometry,
   CatmullRomCurve3,
-  Float32BufferAttribute,
+  DataTexture,
+  FloatType,
+  LinearFilter,
+  PlaneGeometry,
+  RGBAFormat,
   Vector3,
 } from "three";
 
 export type LightWaypoint = { x: number; y: number; z: number };
 
-/** World coordinates use ten units per viewport width, independent of device DPR. */
+/**
+ * Project a Catmull-Rom spine into a small GPU lookup field. A broad offset mesh
+ * self-intersects inside tight bends; the implicit field has no overlapping
+ * triangles or diagonal UV seams, even where the light fans out.
+ */
 export function createLightRibbon(
   points: LightWaypoint[],
   viewportWidth: number,
@@ -24,51 +31,73 @@ export function createLightRibbon(
     false,
     "centripetal",
   );
-  // A page-long curve needs a denser arc-length table than Three's default:
-  // otherwise narrow filaments visibly kink around the section bends.
-  curve.arcLengthDivisions = Math.max(2048, points.length * 128);
+  curve.arcLengthDivisions = 4096;
   curve.updateArcLengths();
   const length = curve.getLength();
-  const segments = Math.min(
-    6144,
-    Math.max(1536, Math.ceil((length * viewportWidth) / 40)),
-  );
-  const positions: number[] = [];
-  const normals: number[] = [];
-  const uvs: number[] = [];
-  const indices: number[] = [];
-  for (let index = 0; index <= segments; index++) {
-    const progress = index / segments;
+  const samples = Array.from({ length: 4097 }, (_, index) => {
+    const progress = index / 4096;
     const center = curve.getPointAt(progress);
-    const tangent = curve.getTangentAt(progress);
-    const normal = new Vector3(-tangent.y, tangent.x, 0).normalize();
-    const width = 0.8 + 0.7 * Math.pow(0.5 + 0.5 * Math.sin(progress * 24), 2);
-    for (const side of [-1, 1]) {
-      positions.push(
-        center.x + normal.x * side * width,
-        center.y + normal.y * side * width,
-        center.z,
-      );
-      normals.push(normal.x, normal.y, 0);
-      uvs.push((side + 1) / 2, progress * length);
-    }
-    if (index < segments) {
-      const vertex = index * 2;
-      indices.push(
-        vertex,
-        vertex + 1,
-        vertex + 2,
-        vertex + 1,
-        vertex + 3,
-        vertex + 2,
-      );
-    }
+    return { x: center.x, y: -center.y, arc: progress * length };
+  }).sort((a, b) => a.y - b.y);
+  const first = samples[0]!,
+    last = samples[samples.length - 1]!;
+  const size = 2048,
+    values = new Float32Array(size * 4);
+  let cursor = 0;
+  for (let index = 0; index < size; index++) {
+    const y = first.y + ((last.y - first.y) * index) / (size - 1);
+    while (cursor < samples.length - 2 && samples[cursor + 1]!.y < y) cursor++;
+    const a = samples[cursor]!,
+      b = samples[cursor + 1]!;
+    const mix = Math.min(
+      1,
+      Math.max(0, (y - a.y) / Math.max(0.0001, b.y - a.y)),
+    );
+    values[index * 4] = a.x + (b.x - a.x) * mix;
+    values[index * 4 + 1] = a.arc + (b.arc - a.arc) * mix;
   }
-  const geometry = new BufferGeometry();
-  geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
-  geometry.setAttribute("aAcross", new Float32BufferAttribute(normals, 3));
-  geometry.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
-  geometry.setIndex(indices);
-  geometry.computeBoundingSphere();
-  return geometry;
+  const step = (last.y - first.y) / (size - 1);
+  for (let index = 0; index < size; index++) {
+    const before = Math.max(0, index - 4),
+      after = Math.min(size - 1, index + 4);
+    const x = values[index * 4]!,
+      left = values[before * 4]!,
+      right = values[after * 4]!;
+    const slope = (right - left) / Math.max(step, (after - before) * step);
+    const curvature =
+      Math.abs(right - 2 * x + left) /
+      Math.pow(4 * step, 2) /
+      Math.pow(1 + slope * slope, 1.5);
+    const pressure = 1 - Math.exp(-curvature * 2.0);
+    values[index * 4 + 2] = 2.8 - pressure * 1.7;
+    values[index * 4 + 3] = pressure;
+  }
+  // Smooth the envelope independently of the centerline so width never snaps
+  // at spline joins (Catmull-Rom has continuous tangent, not curvature).
+  const envelope = values.slice();
+  for (let index = 0; index < size; index++) {
+    let width = 0,
+      pressure = 0,
+      weight = 0;
+    for (let offset = -12; offset <= 12; offset++) {
+      const sample = Math.min(size - 1, Math.max(0, index + offset));
+      const w = 13 - Math.abs(offset);
+      width += envelope[sample * 4 + 2]! * w;
+      pressure += envelope[sample * 4 + 3]! * w;
+      weight += w;
+    }
+    values[index * 4 + 2] = width / weight;
+    values[index * 4 + 3] = pressure / weight;
+  }
+  const texture = new DataTexture(values, size, 1, RGBAFormat, FloatType);
+  texture.minFilter = LinearFilter;
+  texture.magFilter = LinearFilter;
+  texture.generateMipmaps = false;
+  texture.needsUpdate = true;
+  return {
+    geometry: new PlaneGeometry(2, 2),
+    texture,
+    minY: first.y,
+    maxY: last.y,
+  };
 }

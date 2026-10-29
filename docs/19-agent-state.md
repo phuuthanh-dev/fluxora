@@ -116,6 +116,14 @@ resource-picker foundation.
   acceptance and verification live in
   `.agent/reports/2026-10-29-landing-art-direction.md`. Local changes do not imply
   a PR, deployment or qualification of real provider integrations.
+- `L12.3` motion fidelity correction (2026-10-29) — Owner feedback rejected the
+  thin-wire approximation. Temporal review separates the autonomous entrance
+  from scrolling; a broad implicit ribbon field replaces the offset mesh,
+  adds converging/diverging filaments, soft focus and drifting light, and
+  preserves the existing cleanup/fallback boundary. Current evidence is
+  `.agent/reports/2026-10-29-ribbon-motion-fidelity.md`. Visual acceptance by
+  the owner remains distinct from functional test results; do not claim Relay
+  equivalence from static frames or tests alone.
 
 ## Non-negotiable loop
 

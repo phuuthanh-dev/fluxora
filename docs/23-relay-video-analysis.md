@@ -3,9 +3,22 @@
 ## Evidence
 
 Owner-provided `relay-4ee0729d77.mp4`: 1920 × 1366, 30 fps, 10.433 seconds.
-Reviewed a one-second contact sheet and individual frames at 3.3, 4.3, 5.4,
-6.4, 7.4 and 9.4 seconds. The file records page UI and a cursor, rather than an
-isolated background video.
+The initial review used a one-second contact sheet and isolated frames. That
+was insufficient to establish motion fidelity, as the owner correctly pointed
+out. The correction reviews ordered 8 fps sequences over 1–3, 3–5 and 6–8 s,
+and measures all 313 decoded frames at the source's 30 fps. It estimates white
+text's vertical displacement separately from lime-color coverage, rather than
+treating light movement as page scrolling. The file records page UI and a
+cursor, rather than an isolated background video.
+
+In the measured hero region, from 1.0 to approximately 1.73 s the estimated
+text displacement is zero while lime coverage rises from about 0.1% to 51%.
+These are region/threshold-specific diagnostics, not a reconstructed motion
+curve or a claim of the original renderer's internals. They support a distinct
+time-driven light entrance before sustained scrolling. The visual sequences
+also show narrow convergence at the hero bend, a broad fan, a blue inner family,
+soft lower-page focus and drifting particles. The previous narrow, evenly
+spaced wires missed those properties.
 
 The video establishes visual behavior, not the original source, exact library
 versions or render pipeline. The supplied brief names Three.js/shaders/Lenis.
@@ -30,17 +43,33 @@ footer or responsive behavior.
 
 ## Reconstruction
 
-The ribbon is a real 3D Catmull-Rom mesh with a noise-displaced vertex shader.
-The fragment shader combines 24 filaments, travelling highlights and broad
-analytic glow; it avoids downloaded media and expensive full-screen bloom
-passes. Camera travel follows ScrollTrigger progress across measured sections.
+The corrected ribbon samples a Catmull-Rom spine into a 2,048-entry float
+lookup texture and renders an implicit light field in one full-screen draw.
+This replaces the broad offset mesh, which self-intersected inside tight bends.
+The width envelope is smoothed independently of the spine. The fragment shader
+combines 36 nonuniform filaments, time-driven entrance, travelling highlights,
+Perlin billowing, a blue inner family, drifting motes and soft lower-page focus.
+Only five neighboring filaments are evaluated per pixel. Glow is analytical;
+there is no downloaded background video or multipass bloom pipeline.
+
+The scene follows the existing ScrollTrigger/Lenis camera progress and uses a
+manual orthographic camera so pixel-ratio changes cannot reset its projection.
+The document-descending spine is intentionally a single-valued field in page Y.
 
 One GSAP ticker advances Lenis and the R3F scene, with no second canvas RAF
 or interval timer. Native touch scrolling is retained. Pause/reduced motion,
 context loss, route exit and hidden-tab cleanup are explicit boundaries.
 
-This reproduces the observed visual behavior with maintainable Fluxora code;
-it is not a claim that Relay internally uses these exact formulas.
+This is an iterative approximation of the observed choreography. Passing E2E
+tests proves behavior and fallback handling, not visual equivalence to Relay.
+The owner has not yet accepted the corrected motion's fidelity. No original
+source inspection or human-equivalent uninterrupted video playback is implied.
+
+Local motion evidence is recorded from the browser, including the initial
+stationary hero and scrolling through sections, at
+`/tmp/fluxora-motion-preview/final/fluxora-ribbon-motion.mp4`.
+The measurement scratch data is `/tmp/relay-motion-measure.json`. These are
+temporary development artifacts, not assets included in the site or repository.
 
 ## Primary technical references
 

@@ -177,6 +177,34 @@ test("scroll decoration stays behind content and can be paused across sections",
   await expect(page.locator("html")).not.toHaveClass(/lenis/);
 });
 
+test("ribbon keeps painting motion when the page stays still", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 960, height: 720 });
+  await page.goto("/");
+  const supported = await page.evaluate(() => {
+    const gl = document.createElement("canvas").getContext("webgl2");
+    gl?.getExtension("WEBGL_lose_context")?.loseContext();
+    return Boolean(gl);
+  });
+  test.skip(
+    !supported,
+    "Renderer motion requires WebGL; fallback has separate coverage",
+  );
+  await expect(page.locator(".landing-scene")).toHaveAttribute(
+    "data-scene-state",
+    "running",
+  );
+  // Observe beyond the 2.6s intro: a rendered canvas alone does not prove idle flow.
+  await page.waitForTimeout(3000);
+  const canvas = page.locator(".landing-scene canvas");
+  const first = await canvas.screenshot();
+  await expect
+    .poll(async () => first.equals(await canvas.screenshot()))
+    .toBe(false);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+});
+
 test("daily view changes clearly labelled sample counts and keeps the new sections readable", async ({
   page,
 }) => {

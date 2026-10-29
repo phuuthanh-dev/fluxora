@@ -42,7 +42,7 @@ customer count, testimonial, success-rate or pricing claim may be invented.
 - `landing-scenes.tsx`: lazy renderer, SVG fallback, pause/visibility/preference.
 - `landing-three-scenes.tsx`: page measurement, Lenis/ScrollTrigger ownership,
   orthographic camera and shared ticker.
-- `landing-ribbon-geometry.ts`: Catmull-Rom spline and bounded ribbon geometry.
+- `landing-ribbon-geometry.ts`: Catmull-Rom spine, smoothed width field and small GPU lookup texture.
 - `landing-ribbon-shader.ts`: local Perlin gradient noise, moving filaments,
   bright packets and analytic soft glow.
 - `landing.css`: route-scoped layout; superseded global landing CSS is removed.
@@ -54,10 +54,19 @@ under their existing design system.
 ## Rendering and lifecycle contract
 
 One fixed canvas sits behind content and never receives pointer events.
-A ribbon follows measured section waypoints, with screen-scaled tessellation
-bounded to 1,536–6,144 segments and a dense arc-length lookup for smooth bends.
-It is rendered in one draw call with 24 shader filaments. DPR is capped at 1.25. Glow is calculated in
-the shader instead of a multi-pass bloom framebuffer pipeline.
+A document-descending Catmull-Rom spine follows measured section waypoints.
+A 2,048-entry float texture stores center, arc length, width and convergence;
+one full-screen quad draws the light field without offset-mesh self-intersection.
+There are 36 filaments, evaluated through the five nearest neighbors per pixel.
+The hero has a 2.6-second time-driven entrance independent of page scrolling;
+lower sections use softer focus. Initial geometry/texture compilation precedes
+the ready state. Pause/resume does not replay the entrance.
+
+DPR is capped at 1.25 and reduced to 0.5 on identified software rasterizers;
+this local check is never stored or sent anywhere. DOM text keeps native pixel
+density. The camera projection is manual and remains stable across density
+changes. Missing float-texture filtering falls back to the SVG. Glow is
+calculated in the shader instead of a multi-pass bloom framebuffer pipeline.
 
 A landing-owned GSAP ticker advances Lenis and R3F. R3F uses
 `frameloop="never"`; Lenis uses `autoRaf: false`. ScrollTrigger scrubs camera
@@ -66,7 +75,7 @@ No global ticker FPS or lag-smoothing setting is modified.
 
 Pause, hidden-tab state, reduced-motion preference and WebGL failure remove the
 renderer. Cleanup removes the ticker callback, kills only this page's tween and
-trigger, destroys Lenis and disposes geometry. Leaving the landing restores
+trigger, destroys Lenis and disposes geometry and texture. Leaving the landing restores
 native scrolling. Touch scrolling remains native; section anchors preserve
 their real URLs and offset below navigation.
 
@@ -81,7 +90,8 @@ no-WebGL/context-loss/reduced-motion recovery; pause/resume and restored native
 scrolling; keyboard tabs; calculator assumptions; sample-day selection; desktop,
 tablet and mobile overflow; no-JavaScript navigation and FAQ.
 
-Inspect actual desktop/mobile frames in addition to tests. Run the full
+Inspect ordered motion sequences and a browser recording in addition to stills
+and tests. Verify idle light changes while page scroll stays at zero. Run the full
 repository gate before commit. Local verification does not imply deployment,
 provider validation, exact equivalence to Relay's undisclosed source, or a
 universal frame-rate guarantee.

@@ -1,69 +1,96 @@
-// Gradient-noise interpolation with a quintic fade (Perlin technique).
-// Local GLSL implementation; no remote textures or shader source.
+// Locally authored gradient noise and analytic light; no external texture/video.
 const noise = `
+  float hash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
   vec2 gradient(vec2 p) {
-    float angle = fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453) * 6.283185;
-    return vec2(cos(angle), sin(angle));
+    float a = hash(p)*6.283185;
+    return vec2(cos(a),sin(a));
   }
   float perlin(vec2 p) {
-    vec2 cell = floor(p), f = fract(p);
-    vec2 fade = f*f*f*(f*(f*6.0-15.0)+10.0);
-    float a = dot(gradient(cell), f);
-    float b = dot(gradient(cell+vec2(1.0,0.0)), f-vec2(1.0,0.0));
-    float c = dot(gradient(cell+vec2(0.0,1.0)), f-vec2(0.0,1.0));
-    float d = dot(gradient(cell+vec2(1.0,1.0)), f-vec2(1.0,1.0));
-    return mix(mix(a,b,fade.x), mix(c,d,fade.x), fade.y);
+    vec2 c=floor(p), f=fract(p), fade=f*f*f*(f*(f*6.0-15.0)+10.0);
+    return mix(mix(dot(gradient(c),f),dot(gradient(c+vec2(1,0)),f-vec2(1,0)),fade.x),
+      mix(dot(gradient(c+vec2(0,1)),f-vec2(0,1)),dot(gradient(c+vec2(1,1)),f-vec2(1,1)),fade.x),fade.y);
   }
 `;
 
 export const ribbonVertexShader = `
-  attribute vec3 aAcross;
-  uniform float uTime;
-  uniform float uProgress;
   varying vec2 vUv;
-  varying float vDepth;
-  ${noise}
   void main() {
-    vUv = uv;
-    vec3 p = position;
-    float drift = perlin(vec2(uv.y * .36, uTime * .10)) * .15;
-    p += aAcross * drift;
-    p.z += sin(uv.y * .4 + uTime * .2) * .18;
-    vDepth = .7 + .3 * clamp((p.z + 1.0) / 2.0, 0.0, 1.0);
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+    vUv=uv;
+    gl_Position=vec4(position.xy,0.0,1.0);
   }
 `;
 
 export const ribbonFragmentShader = `
   precision highp float;
   uniform float uTime;
-  uniform float uProgress;
+  uniform float uHead;
+  uniform float uHeroEnd;
   uniform vec2 uResolution;
+  uniform sampler2D uPath;
+  uniform vec2 uPathRange;
+  uniform float uViewportHeight;
+  uniform float uScroll;
   varying vec2 vUv;
-  varying float vDepth;
   ${noise}
   void main() {
-    vec3 light = vec3(0.0);
-    float billow = perlin(vec2(vUv.y * .28, uTime * .08)) * .055;
-    float spread = .24 + .12 * sin(vUv.y * .3 + uProgress * 2.0);
-    for (int i = 0; i < 24; i++) {
-      float n = float(i);
-      float strand = .5 + (n / 23.0 - .5) * spread
-        + billow + sin(vUv.y * (.8 + n*.007) + n + uTime*.15) * .012;
-      float d = abs(vUv.x - strand);
-      float aa = max(fwidth(vUv.x), .0006);
-      float core = 1.0 - smoothstep(.0005, .0005 + aa, d);
-      float glow = exp(-d*d / .00007);
-      float bloom = exp(-d*d / .0018);
-      float packet = pow(.5 + .5*sin(vUv.y*3.5-uTime*1.6+n*.4), 24.0);
-      vec3 tint = mod(n, 7.0) < 1.0 ? vec3(.20,.57,.79) : vec3(.69,1.0,.13);
-      light += tint * (core*(.18+packet*.24) + glow*.035 + bloom*.007);
+    float worldY=uScroll+(1.0-vUv.y)*uViewportHeight;
+    float pathY=clamp((worldY-uPathRange.x)/(uPathRange.y-uPathRange.x),0.0,1.0);
+    vec4 path=texture2D(uPath,vec2(pathY,.5));
+    float previousX=texture2D(uPath,vec2(pathY-.0005,.5)).r;
+    float nextX=texture2D(uPath,vec2(pathY+.0005,.5)).r;
+    float slope=(nextX-previousX)/(.001*(uPathRange.y-uPathRange.x));
+    float drift=sin(path.g*.23+uTime*.12)*.09+sin(path.g*.41-uTime*.17)*.035;
+    float distance=((vUv.x-.5)*10.0-path.r-drift)/sqrt(1.0+min(slope*slope,12.0));
+    vec2 flow=vec2(.5+distance/(2.0*path.b),path.g);
+    vec3 envelope=vec3(path.b,path.a,worldY);
+    float reveal=1.0-smoothstep(uHead-.9,uHead+.9,flow.y);
+    if(reveal<.001) discard;
+    float depth=smoothstep(uHeroEnd*.8,uHeroEnd*1.28,envelope.z);
+    float billow=perlin(vec2(flow.y*.32,uTime*.10))*.04;
+    float span=.54+.05*sin(flow.y*.31-uTime*.19);
+    float aa=max(fwidth(flow.x),.00045);
+    vec3 light=vec3(0.0);
+    // Evaluate only neighboring filaments at this fragment, not all 36.
+    float nearest=floor(((flow.x-.5-billow)/span+.5)*35.0);
+    for(int i=-2;i<=2;i++) {
+      float n=nearest+float(i);
+      if(n<0.0 || n>35.0) continue;
+      float seed=hash(vec2(n,4.0));
+      float offset=(n/35.0-.5)*span+(seed-.5)*.006;
+      float wave=sin(flow.y*(.30+seed*.24)-uTime*(.10+seed*.08)+n*1.73)*.008;
+      float weave=sin(flow.y*.75-uTime*.21+n*.47)*.005;
+      float strand=.5+offset+billow+wave+weave;
+      float d=abs(flow.x-strand);
+      float softness=mix(.00035+seed*.0005,.009+seed*.006,depth);
+      float core=exp(-pow(d/(softness+aa),2.0));
+      float halo=exp(-pow(d/(.012+depth*.025),2.0));
+      // Blue stays in a small inner family instead of repeating every nth wire.
+      float blue=1.0-smoothstep(.02,.08,abs(n/35.0-.58));
+      vec3 tint=mix(vec3(.72,1.0,.20),vec3(.22,.66,1.0),blue*.85);
+      float packet=pow(.5+.5*sin(flow.y*1.8-uTime*1.15+seed*6.28),12.0);
+      float energy=mix(.28,.035,depth)*(1.0+envelope.y*2.0)*(.25+.75*seed);
+      light+=tint*(core*energy*(.65+packet*.65)+halo*.012);
     }
-    float edge = smoothstep(0.0,.2,vUv.x) * smoothstep(0.0,.2,1.0-vUv.x);
-    float screenX = gl_FragCoord.x / uResolution.x;
-    float readingMask = mix(.55,1.0,smoothstep(.12,.48,abs(screenX-.5)));
-    light *= edge * readingMask * vDepth;
-    float alpha = clamp(max(max(light.r,light.g),light.b), 0.0, .72);
-    gl_FragColor = vec4(clamp(light / max(alpha,.001),0.0,1.0),alpha);
+    // A broad atmospheric envelope gives the ribbon volume; the inner bend pools light.
+    float axis=flow.x-.5-billow;
+    float pool=exp(-axis*axis/.045);
+    light+=vec3(.59,.85,.20)*pool*(.18+envelope.y*.30);
+    // Sparse drifting motes and soft bokeh share the ribbon's coordinate system.
+    vec2 cellUV=vec2(flow.x*44.0,(flow.y-uTime*.36)*2.4);
+    vec2 cell=floor(cellUV), local=fract(cellUV)-.5;
+    float seed=hash(cell);
+    float radius=mix(.035,.23,hash(cell+7.2));
+    float particle=exp(-dot(local,local)/(radius*radius));
+    float probability=step(.91,seed);
+    light+=mix(vec3(.62,.95,.23),vec3(.16,.52,.78),step(.96,seed))
+      *particle*probability*.20*exp(-axis*axis/.13);
+    float screenX=gl_FragCoord.x/uResolution.x;
+    float readingMask=mix(.72,1.0,smoothstep(.18,.46,abs(screenX-.5)));
+    float edge=smoothstep(0.0,.16,flow.x)*smoothstep(0.0,.16,1.0-flow.x);
+    light*=readingMask*edge*reveal;
+    // Tone mapping preserves lime detail at the pinch instead of clipping to neon white.
+    light=1.0-exp(-light*1.20);
+    float alpha=clamp(max(max(light.r,light.g),light.b),0.0,.88);
+    gl_FragColor=vec4(light/max(alpha,.001),alpha);
   }
 `;
