@@ -51,3 +51,10 @@
 - Update product spec when behavior changes; update architecture when system boundaries change.
 - New runtime node work must document its credential type, supported operations, output schema, retry policy, and mock fixture.
 - New connector fields must document whether they are static, provider-enumerated, runtime-expression, or intentionally free-form, and must reuse the shared catalog field contract before adding a provider-specific inspector branch.
+
+## Git branch policy
+
+The remote repository keeps only `main` and `develop`. Work is committed on
+local task branches, merged into local `develop`, verified, and then pushed as
+`origin/develop`. Production changes use one pull request from `develop` to
+`main`; task branches are never pushed or opened as pull requests.
