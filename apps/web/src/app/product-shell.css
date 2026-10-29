@@ -55,11 +55,23 @@
 
 /* Authentication shares the landing identity and the product's accessible controls. */
 .auth-page { background: var(--canvas); display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto 1fr; min-height: 100svh; }
-.auth-navigation { align-items: center; background: var(--panel); border-bottom: 1px solid var(--line); display: flex; grid-column: 1 / -1; justify-content: space-between; min-height: var(--header-height); padding: 12px var(--page-gutter); }
-.auth-navigation a { color: var(--ink); text-decoration: none; }
+.auth-navigation {
+  align-items: center;
+  background: linear-gradient(90deg, var(--brand-void) 0 50%, var(--panel) 50% 100%);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: space-between;
+  min-height: var(--header-height);
+  padding: 12px var(--page-gutter);
+}
+.auth-navigation > a { color: var(--marketing-text); text-decoration: none; }
 .auth-navigation__actions { align-items: center; display: flex; gap: 24px; }
-.auth-navigation__actions > a { color: var(--text-secondary); font-size: 13px; }
+.auth-navigation__actions > a { color: var(--ink); font-size: 13px; font-weight: 600; }
 .auth-navigation__actions > a:hover { color: var(--text-accent); }
+.auth-navigation .theme-toggle { background: color-mix(in srgb, var(--panel) 88%, transparent); border-color: var(--line); color: var(--ink); }
+.auth-navigation .theme-toggle:hover:not(:disabled) { background: var(--surface-raised); border-color: var(--text-tertiary); }
+[data-theme="dark"] .auth-navigation { background: var(--brand-void); }
 .auth-showcase { --provider-steam: #8fc9ed; --provider-google-chat: #73dca5; background: radial-gradient(ellipse at 10% 75%, var(--marketing-glow), transparent 65%), var(--brand-void); border-right: 1px solid var(--line); color: var(--marketing-text); display: flex; flex-direction: column; justify-content: center; padding: clamp(32px, 5vw, 80px); }
 .auth-showcase__copy, .auth-flow-preview { max-width: 480px; width: 100%; margin-inline: auto; }
 .auth-showcase .auth-eyebrow { color: var(--marketing-muted); font: 11px/1.6 var(--font-mono); letter-spacing: .08em; margin: 0 0 24px; }
@@ -125,6 +137,8 @@
 }
 @media (max-width: 700px) {
   .auth-page { grid-template-columns: 1fr; }
+  .auth-navigation { background: var(--panel); }
+  .auth-navigation > a { color: var(--ink); }
   .auth-navigation__actions { gap: 14px; }
   .auth-field input { font-size: 16px; }
   .auth-showcase { display: none; }
