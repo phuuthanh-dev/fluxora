@@ -57,10 +57,16 @@ One fixed canvas sits behind content and never receives pointer events.
 A document-descending Catmull-Rom spine follows measured section waypoints.
 A 2,048-entry float texture stores center, arc length, width and convergence;
 one full-screen quad draws the light field without offset-mesh self-intersection.
-There are 36 filaments, evaluated through the five nearest neighbors per pixel.
+There are 48 filaments, evaluated through the five nearest neighbors per pixel.
 The hero has a 2.6-second time-driven entrance independent of page scrolling;
-lower sections use softer focus. Initial geometry/texture compilation precedes
-the ready state. Pause/resume does not replay the entrance.
+fine cores retain their definition through the lower sections. Depth changes
+the separate halo rather than blurring the cores. Two bounded particle fields
+use hashed positions, different speeds and sizes, with local derivative-based
+stretch correction to keep pinpoints round at bends. The ribbon keeps its lime
+hue, with particle accents in icy white,
+mint, blue, gold and violet as requested by the owner. The central reading area
+attenuates the light more below the hero. Initial geometry/texture compilation
+precedes the ready state. Pause/resume does not replay the entrance.
 
 DPR is capped at 1.25 and reduced to 0.5 on identified software rasterizers;
 this local check is never stored or sent anywhere. DOM text keeps native pixel

@@ -124,6 +124,12 @@ resource-picker foundation.
   `.agent/reports/2026-10-29-ribbon-motion-fidelity.md`. Visual acceptance by
   the owner remains distinct from functional test results; do not claim Relay
   equivalence from static frames or tests alone.
+- `L12.3` detail/color refinement (2026-10-29) — The owner requested sharper
+  lower sections and more particles in varied bright colors. The existing
+  shader now retains 48 fine cores with separate glow and two multicolor
+  particle fields. Native-GPU preview and full verify passed (213 API, 23 web,
+  55 E2E). Latest evidence: `.agent/reports/2026-10-29-ribbon-detail.md`.
+  Owner visual acceptance remains pending; no push or deployment is implied.
 
 ## Non-negotiable loop
 

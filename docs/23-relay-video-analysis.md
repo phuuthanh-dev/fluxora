@@ -47,8 +47,16 @@ The corrected ribbon samples a Catmull-Rom spine into a 2,048-entry float
 lookup texture and renders an implicit light field in one full-screen draw.
 This replaces the broad offset mesh, which self-intersected inside tight bends.
 The width envelope is smoothed independently of the spine. The fragment shader
-combines 36 nonuniform filaments, time-driven entrance, travelling highlights,
-Perlin billowing, a blue inner family, drifting motes and soft lower-page focus.
+combines 48 nonuniform filaments, time-driven entrance, travelling highlights,
+Perlin billowing, a blue inner family and two layers of drifting particles.
+After reviewing the motion correction, the owner requested more detail below
+the hero. Fine cores now remain sharp independently of the soft halo; the prior
+depth-driven core blur is superseded. Particle positions are jittered and their
+local screen-space footprint is corrected at bends. This is an owner-directed
+adaptation, not a claim that Relay uses the same particle construction.
+The owner's additional request adds icy white, mint, blue, gold and violet
+particle accents while retaining the lime ribbon. Positions and colors stay
+stable per particle; the two fields drift at different speeds.
 Only five neighboring filaments are evaluated per pixel. Glow is analytical;
 there is no downloaded background video or multipass bloom pipeline.
 
@@ -70,6 +78,10 @@ stationary hero and scrolling through sections, at
 `/tmp/fluxora-motion-preview/final/fluxora-ribbon-motion.mp4`.
 The measurement scratch data is `/tmp/relay-motion-measure.json`. These are
 temporary development artifacts, not assets included in the site or repository.
+
+The subsequent detail/color refinement is recorded in
+`../previews/fluxora-ribbon-detail-multicolor-2026-10-29.mp4` and tracked by
+`.agent/reports/2026-10-29-ribbon-detail.md`.
 
 ## Primary technical references
 

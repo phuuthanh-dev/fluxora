@@ -32,6 +32,36 @@ export const ribbonFragmentShader = `
   uniform float uScroll;
   varying vec2 vUv;
   ${noise}
+  vec3 motes(vec2 flow,vec2 gridScale,float speed,float salt,float density,float size) {
+    vec2 grid=vec2(flow.x,flow.y-uTime*speed)*gridScale;
+    vec2 cell=floor(grid), within=fract(grid);
+    float seed=hash(cell+salt);
+    vec2 center=.22+.56*vec2(hash(cell+salt+3.1),hash(cell+salt+9.7));
+    vec2 delta=within-center;
+    // Undo the curved field's local stretch so pinpoints stay round at bends.
+    // Derivatives must be evaluated for every fragment, before the density mask.
+    vec2 dx=dFdx(grid),dy=dFdy(grid);
+    float determinant=dx.x*dy.y-dy.x*dx.y;
+    vec2 pixelDelta=vec2(dy.y*delta.x-dy.x*delta.y,dx.x*delta.y-dx.y*delta.x)
+      /max(abs(determinant),.000001);
+    float radius=mix(.7,1.45,hash(cell+salt+17.0))*size*clamp(uResolution.x/1440.0,.6,2.0);
+    float d=length(pixelDelta)/radius;
+    float core=exp(-d*d);
+    float halo=exp(-d*d*.10);
+    float twinkle=.75+.25*sin(uTime*(.6+seed*.5)+seed*6.283185);
+    float border=smoothstep(0.0,.12,within.x)*smoothstep(0.0,.12,1.0-within.x)
+      *smoothstep(0.0,.12,within.y)*smoothstep(0.0,.12,1.0-within.y);
+    // Stable colors per particle; lime leads, with icy and warm light accents.
+    float color=hash(cell+salt+23.0);
+    vec3 tint=vec3(.80,1.0,.32);
+    tint=mix(tint,vec3(.88,.97,1.0),step(.40,color));
+    tint=mix(tint,vec3(.20,1.0,.75),step(.52,color));
+    tint=mix(tint,vec3(.24,.68,1.0),step(.68,color));
+    tint=mix(tint,vec3(1.0,.78,.34),step(.82,color));
+    tint=mix(tint,vec3(.74,.50,1.0),step(.92,color));
+    return (mix(tint,vec3(1.0),.12)*core*.70+tint*halo*.055)
+      *twinkle*border*step(1.0-density,seed);
+  }
   void main() {
     float worldY=uScroll+(1.0-vUv.y)*uViewportHeight;
     float pathY=clamp((worldY-uPathRange.x)/(uPathRange.y-uPathRange.x),0.0,1.0);
@@ -50,42 +80,38 @@ export const ribbonFragmentShader = `
     float span=.54+.05*sin(flow.y*.31-uTime*.19);
     float aa=max(fwidth(flow.x),.00045);
     vec3 light=vec3(0.0);
-    // Evaluate only neighboring filaments at this fragment, not all 36.
-    float nearest=floor(((flow.x-.5-billow)/span+.5)*35.0);
+    // Evaluate only neighboring filaments at this fragment, not all 48.
+    float nearest=floor(((flow.x-.5-billow)/span+.5)*47.0);
     for(int i=-2;i<=2;i++) {
       float n=nearest+float(i);
-      if(n<0.0 || n>35.0) continue;
+      if(n<0.0 || n>47.0) continue;
       float seed=hash(vec2(n,4.0));
-      float offset=(n/35.0-.5)*span+(seed-.5)*.006;
-      float wave=sin(flow.y*(.30+seed*.24)-uTime*(.10+seed*.08)+n*1.73)*.008;
-      float weave=sin(flow.y*.75-uTime*.21+n*.47)*.005;
+      float offset=(n/47.0-.5)*span+(seed-.5)*.004;
+      float wave=sin(flow.y*(.30+seed*.24)-uTime*(.10+seed*.08)+n*1.73)*.006;
+      float weave=sin(flow.y*.75-uTime*.21+n*.47)*.004;
       float strand=.5+offset+billow+wave+weave;
       float d=abs(flow.x-strand);
-      float softness=mix(.00035+seed*.0005,.009+seed*.006,depth);
-      float core=exp(-pow(d/(softness+aa),2.0));
-      float halo=exp(-pow(d/(.012+depth*.025),2.0));
+      // Depth changes the glow, never dissolves the fine filament core.
+      float coreWidth=(.00045+seed*.00055)*mix(1.0,1.2,depth);
+      float core=exp(-pow(d/(coreWidth+aa*.7),2.0));
+      float halo=exp(-pow(d/(.009+depth*.005),2.0));
       // Blue stays in a small inner family instead of repeating every nth wire.
-      float blue=1.0-smoothstep(.02,.08,abs(n/35.0-.58));
+      float blue=1.0-smoothstep(.02,.08,abs(n/47.0-.58));
       vec3 tint=mix(vec3(.72,1.0,.20),vec3(.22,.66,1.0),blue*.85);
       float packet=pow(.5+.5*sin(flow.y*1.8-uTime*1.15+seed*6.28),12.0);
-      float energy=mix(.28,.035,depth)*(1.0+envelope.y*2.0)*(.25+.75*seed);
-      light+=tint*(core*energy*(.65+packet*.65)+halo*.012);
+      float energy=mix(.28,.24,depth)*(1.0+envelope.y*1.4)*(.3+.7*seed);
+      light+=tint*(core*energy*(.65+packet*.65)+halo*.010);
     }
     // A broad atmospheric envelope gives the ribbon volume; the inner bend pools light.
     float axis=flow.x-.5-billow;
     float pool=exp(-axis*axis/.045);
-    light+=vec3(.59,.85,.20)*pool*(.18+envelope.y*.30);
-    // Sparse drifting motes and soft bokeh share the ribbon's coordinate system.
-    vec2 cellUV=vec2(flow.x*44.0,(flow.y-uTime*.36)*2.4);
-    vec2 cell=floor(cellUV), local=fract(cellUV)-.5;
-    float seed=hash(cell);
-    float radius=mix(.035,.23,hash(cell+7.2));
-    float particle=exp(-dot(local,local)/(radius*radius));
-    float probability=step(.91,seed);
-    light+=mix(vec3(.62,.95,.23),vec3(.16,.52,.78),step(.96,seed))
-      *particle*probability*.20*exp(-axis*axis/.13);
+    light+=vec3(.59,.85,.20)*pool*(.12+envelope.y*.22);
+    // Two staggered fields: plentiful fine sparks, fewer larger drifting motes.
+    // Hashed positions break the grid; independent speeds provide depth.
+    light+=(motes(flow,vec2(66.0,6.0),.28,2.0,.28,1.0)
+      +motes(flow,vec2(32.0,3.4),.46,41.0,.23,1.8))*exp(-axis*axis/.12);
     float screenX=gl_FragCoord.x/uResolution.x;
-    float readingMask=mix(.72,1.0,smoothstep(.18,.46,abs(screenX-.5)));
+    float readingMask=mix(mix(.72,.58,depth),1.0,smoothstep(.18,.46,abs(screenX-.5)));
     float edge=smoothstep(0.0,.16,flow.x)*smoothstep(0.0,.16,1.0-flow.x);
     light*=readingMask*edge*reveal;
     // Tone mapping preserves lime detail at the pinch instead of clipping to neon white.
