@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { ArrowRight, Check, Clock3, Eye, EyeOff, LoaderCircle } from "lucide-react";
+import { ArrowRight, Check, CircleHelp, Clock3, Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { apiUrl } from "../api/api-client";
 import { ThemeToggle } from "../theme/theme-toggle";
 import { Button, Field, IconButton } from "../../components/ui";
@@ -69,7 +69,10 @@ export function LoginForm({ mode = "login" }: { mode?: AuthMode }) {
     <main className="auth-page">
       <header className="auth-navigation">
         <Link href="/" aria-label="Fluxora home"><BrandLockup /></Link>
-        <div className="auth-navigation__actions"><Link href="/support">Need help?</Link><ThemeToggle /></div>
+        <div className="auth-navigation__actions">
+          <Link className="auth-navigation__support" href="/support"><CircleHelp size={16} aria-hidden="true" />Need help?</Link>
+          <div className="auth-navigation__theme"><ThemeToggle /></div>
+        </div>
       </header>
       <section className="auth-showcase" aria-label="Product introduction">
         <div className="auth-showcase__copy">

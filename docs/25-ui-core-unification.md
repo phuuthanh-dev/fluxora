@@ -87,3 +87,11 @@ with unit line-height so inline baseline/descent space cannot lift the logo
 inside a navigation link. The 20px Gilroy wordmark has a 2px optical downward
 adjustment; the 28px mark and surrounding header heights stay unchanged. Keep
 this recipe shared rather than adding route-specific header padding offsets.
+
+Auth header correction (2026-10-29): the owner rejected both a header split
+into light/dark halves and an inset showcase experiment. Restore the auth body
+layout from `ddaa9e9`; style only `.auth-navigation` as one continuous semantic
+panel with a subtle bottom border, a support link and a circular theme control.
+Keep its logo, layout breakpoints and form behavior shared and unchanged.
+Functional test passes do not establish visual acceptance: review rendered
+light/dark screenshots before handoff. PR #45 stays draft pending owner review.

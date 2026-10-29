@@ -204,6 +204,15 @@ resource-picker foundation.
   55 E2E). Latest evidence: `.agent/reports/2026-10-29-ribbon-detail.md`.
   Owner visual acceptance remains pending; no push or deployment is implied.
 
+## Latest auth-header correction
+
+- `L13.1` (2026-10-29): owner rejected the split-color header and inset showcase
+  experiment. Auth body restored to `ddaa9e9`; only auth navigation styling and
+  header controls differ. Full verify passed (213 API, 23 web, 82 E2E), and all
+  12 route/theme/viewport screenshots were reviewed. See
+  `.agent/reports/2026-10-29-auth-header-composition.md`. Local develop only;
+  PR #45 remains draft. Owner visual acceptance and release remain pending.
+
 ## Non-negotiable loop
 
 ```text

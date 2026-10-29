@@ -1,0 +1,48 @@
+# Auth header correction
+
+## Outcome
+
+- Status: complete (local implementation; owner visual acceptance pending).
+- Restored the original auth body and replaced the rejected split header with
+  one theme-aware surface, compact support link and circular theme control.
+
+## Commit and scope
+
+- Base: `41ae79e446f2fb91f3b0afd26eb2bd14385ee7f3`.
+- Implementation: this local change on `codex/auth-header-composition`, then
+  fast-forward into local `develop`.
+- Scope respected: yes; diff against `ddaa9e9` affects auth header CSS/markup
+  only. No auth behavior, provider, database or deployment changes.
+
+## Acceptance criteria
+
+| Criterion | Evidence | Status |
+|---|---|---|
+| One continuous header in light/dark | 12 rendered screenshots inspected | pass |
+| Original body/form/breakpoints | Diff against `ddaa9e9` | pass |
+| Operable auth and responsive header | Existing auth-polish and ui-core coverage | pass |
+| No premature release | PR #45 remains draft; local correction only | pass |
+
+## Validation receipts
+
+| Command/review | Result | Evidence |
+|---|---|---|
+| agent:task:check | pass | L13.1 explicit owner reopen |
+| Focused auth E2E | pass | 4 tests; `/tmp/fluxora-auth-header-only-focused.log` |
+| npm run verify | pass | 213 API, 23 web, 82 E2E; `/tmp/fluxora-auth-header-only-verify.log` |
+| git diff --check | pass | No whitespace errors |
+| Visual review | pass for layout/legibility | Login/register × light/dark × 1440/768/390; `../previews/auth-header-only-2026-10-29/` |
+
+## Files changed
+
+- `apps/web/src/app/product-shell.css`: header-only styling; remove split gradient.
+- `apps/web/src/features/auth/login-form.tsx`: header help icon and control group.
+- `docs/25-ui-core-unification.md`, `docs/19-agent-state.md`: owner correction and evidence.
+- Matching task contract and this report.
+
+## Risks and follow-up
+
+Owner review is still required before release. Functional passes do not imply
+visual approval. The original dark introduction/light form composition is
+intentionally preserved; do not reintroduce split-header or inset-panel designs.
+No push, merge to main, deployment or real provider qualification was performed.
