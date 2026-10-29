@@ -105,7 +105,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
   });
   const [credentials, setCredentials] = useState<CredentialSummary[]>([]);
   const formRef = useRef<HTMLFormElement>(null);
-  const [createOpen, setCreateOpen] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -366,6 +366,39 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
         <label className="credential-search"><Search size={16} aria-hidden="true" /><input type="search" aria-label="Search connections" placeholder="Search name or app" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
         <Button variant={createOpen ? "secondary" : "primary"} type="button" aria-expanded={createOpen} aria-controls="credential-create-content" onClick={toggleCreate}>{createOpen ? <ChevronUp size={15} /> : <Plus size={15} />}{createOpen ? "Hide new connection" : "New connection"}</Button>
       </div>
+      <Collapse open={createOpen} id="credential-create-content" className="credential-create">
+      <form ref={formRef} onSubmit={submit} className="credential-form" aria-label="New connection">
+        <div className="credential-form__title"><h3>New connection</h3><p>Choose an app and add its authorization details.</p></div>
+        <Field label="Provider" className="credential-form__field">
+          <Select aria-label="Provider" value={provider} onChange={(event) => changeProvider(event.target.value as CredentialProvider)}>
+            <option value="GOOGLE">Google Drive / Sheets</option>
+            <option value="STEAM">Steam</option>
+            <option value="GOOGLE_CHAT_WEBHOOK">Google Chat webhook</option>
+            <option value="DISCORD_WEBHOOK">Discord webhook</option>
+            <option value="TELEGRAM_BOT">Telegram bot</option>
+            <option value="SMTP">SMTP email</option>
+            <option value="GITHUB">GitHub connector</option>
+            <option value="HTTP">HTTP</option>
+          </Select>
+        </Field>
+        <Field label="Connection name" className="credential-form__field">
+          <input aria-label="Connection name" value={label} onChange={(event) => { setLabel(event.target.value); setCreateError(null); }} />
+        </Field>
+        {provider === "GOOGLE" ? (
+          <div className="credential-form__oauth-helper">
+            <span>For Google Drive and Sheets, use a managed OAuth connection.</span>
+            <button type="button" className="credential-form__oauth-link" onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google/connect`); }}>
+              Connect Google <ArrowUpRight size={13} aria-hidden="true" />
+            </button>
+          </div>
+        ) : null}
+        <p className="credential-form__hint" aria-live="polite">{credentialPresets[provider].hint}</p>
+        <CredentialSecretFields provider={provider} value={data} onChange={(value) => { setData(value); setJsonError(null); setCreateError(null); }} />
+        {jsonError && <p className="credential-form__error" role="alert">{jsonError}</p>}
+        {createError && <p className="credential-form__error" role="alert">{createError}</p>}
+        <Button variant="primary" className="run-button" type="submit" disabled={isSaving}>{isSaving ? "Encrypting…" : "Encrypt & save"}</Button>
+      </form>
+      </Collapse>
       {loading ? <div className="credential-list-loading" aria-busy="true" aria-label="Loading connections"><Skeleton /><Skeleton /></div> : loadError ? <Status tone="error" role="alert">{loadError}<Button variant="ghost" onClick={() => void load()}>Retry connections</Button></Status> : visibleCredentials.length === 0 ? <EmptyState icon={<KeyRound size={22} />} title={query ? "No matching connections" : "Your connections will appear here"} description={query ? "Try another app or connection name." : "Add an app once, then select it in any compatible workflow node."} action={query ? <Button variant="ghost" onClick={() => setQuery("")}>Clear search</Button> : undefined} /> : (
       <ul className="credential-list">
         {visibleCredentials.map((credential) => {
@@ -486,39 +519,6 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
         })}
       </ul>
       )}
-      <Collapse open={createOpen} id="credential-create-content">
-      <form ref={formRef} onSubmit={submit} className="credential-form" aria-label="New connection">
-        <div className="credential-form__title"><h3>New connection</h3><p>Choose an app and add its authorization details.</p></div>
-        <Field label="Provider" className="credential-form__field">
-          <Select aria-label="Provider" value={provider} onChange={(event) => changeProvider(event.target.value as CredentialProvider)}>
-            <option value="GOOGLE">Google Drive / Sheets</option>
-            <option value="STEAM">Steam</option>
-            <option value="GOOGLE_CHAT_WEBHOOK">Google Chat webhook</option>
-            <option value="DISCORD_WEBHOOK">Discord webhook</option>
-            <option value="TELEGRAM_BOT">Telegram bot</option>
-            <option value="SMTP">SMTP email</option>
-            <option value="GITHUB">GitHub connector</option>
-            <option value="HTTP">HTTP</option>
-          </Select>
-        </Field>
-        <Field label="Connection name" className="credential-form__field">
-          <input aria-label="Connection name" value={label} onChange={(event) => { setLabel(event.target.value); setCreateError(null); }} />
-        </Field>
-        {provider === "GOOGLE" ? (
-          <div className="credential-form__oauth-helper">
-            <span>For Google Drive and Sheets, use a managed OAuth connection.</span>
-            <button type="button" className="credential-form__oauth-link" onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google/connect`); }}>
-              Connect Google <ArrowUpRight size={13} aria-hidden="true" />
-            </button>
-          </div>
-        ) : null}
-        <p className="credential-form__hint" aria-live="polite">{credentialPresets[provider].hint}</p>
-        <CredentialSecretFields provider={provider} value={data} onChange={(value) => { setData(value); setJsonError(null); setCreateError(null); }} />
-        {jsonError && <p className="credential-form__error" role="alert">{jsonError}</p>}
-        {createError && <p className="credential-form__error" role="alert">{createError}</p>}
-        <Button variant="primary" className="run-button" type="submit" disabled={isSaving}>{isSaving ? "Encrypting…" : "Encrypt & save"}</Button>
-      </form>
-      </Collapse>
       <Status tone="info" className="credential-panel__notice" aria-live="polite">
         <span className="credential-panel__notice-icon"><LockKeyhole size={15} aria-hidden="true" /></span>
         <span className="credential-panel__notice-copy">{notice}</span>

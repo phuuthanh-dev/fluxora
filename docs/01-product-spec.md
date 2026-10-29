@@ -194,3 +194,10 @@ reflect the actual connector scopes, retention and support capabilities. See
 
 ### Connection management usability (2026-10-29 refinement)
 The workspace connection center prioritizes saved accounts and name/provider search. New credentials use provider-labelled draft fields (masked secret input) with an explicit advanced JSON option; flexible HTTP authentication remains JSON. Exact IDs and additional JSON properties are preserved. This adds no provider calls or secret-read endpoint. Existing encrypted storage, OAuth management and dependency-aware rotation/deletion contracts remain unchanged.
+
+Authentication UI refinement (2026-10-29): `/login` and `/register` are dedicated
+routes backed by the same form and existing authentication endpoints. Both are
+noindex. Password visibility, pending/error feedback and configured social
+providers remain available in both themes. Connection creation expands directly
+below the connection toolbar, above saved connections, and preserves drafts when
+collapsed. This changes presentation only, not credential or auth semantics.

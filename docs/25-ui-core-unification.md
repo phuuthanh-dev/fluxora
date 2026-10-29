@@ -35,7 +35,7 @@ routes.
 | Route | Implementation |
 |---|---|
 | `/` | Shared BrandLockup, compact glass navigation, keyboard mobile menu, existing landing sections/motion |
-| `/login` | Shared branded navigation, responsive split layout, aligned fields, theme-aware OAuth/error states, accessible return to landing |
+| `/login`, `/register` | Shared branded navigation, responsive split layout, aligned fields, theme-aware OAuth/error states, accessible return to landing |
 | `/dashboard` | Shared PageHeader, aligned cards/stats/create area and restrained hierarchy; existing collapsed execution center retained |
 | `/dashboard/connections` | Theme-aware vault form/cards/menu, consistent spacing and readable OAuth links; no credential contract changes |
 | `/dashboard/executions` | Shared page framing, list heading/rows, filters and existing empty/error/loading states |
@@ -74,3 +74,10 @@ implied by local UI validation.
 ## Subsequent owner-requested refinement
 
 The 2026-10-29 workflow-first layout, searchable connections, guided draft-secret fields, shared dialog header and deterministic menu dismissal are documented in `28-product-experience.md`. This preserves the core above and records a concrete L13.1 reopen, rather than treating the prior UI unification as unfinished.
+
+Owner refinement, 2026-10-29: authentication now has dedicated routes sharing
+one form, 28px form headings, 15–16px inputs and labelled password visibility.
+The inspector title is 16px with a 34px provider tile. Native single-select
+controls share an inset chevron (12px from the right, 40px reserved text area)
+through design-system.css; list/multiple selects and forced-colors retain native
+behavior. Do not replace these with another dropdown state machine for spacing.

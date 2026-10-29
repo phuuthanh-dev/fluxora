@@ -99,7 +99,7 @@ Open:
 - API health: http://localhost:3001/api/v1/health
 - API readiness: http://localhost:3001/api/v1/health/ready
 
-The root page is the public landing page; sign in or register at `/login`. Registering creates a personal workspace and opens `/dashboard`. Local execution defaults to `EXECUTION_QUEUE_MODE=inline`, so the demo works without Redis or live provider credentials.
+The root page is the public landing page; sign in at `/login` or create an account at `/register`. Registering creates a personal workspace and opens `/dashboard`. Local execution defaults to `EXECUTION_QUEUE_MODE=inline`, so the demo works without Redis or live provider credentials.
 
 To run the Redis-backed worker path:
 

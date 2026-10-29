@@ -9,7 +9,7 @@ Owner authorization: complete and release public website, then refine the authen
 - `/support`: email for private issues, public GitHub issue link, safe reporting instructions and provider revocation link.
 - `/contact`: permanent redirect to `/support`.
 - Unmatched routes: branded 404 with navigation back to home/workspace.
-- `/robots.txt`, `/sitemap.xml`, `/opengraph-image`: public discovery/share assets; authenticated routes and login are noindex and absent from sitemap. Robots directives are not authorization controls.
+- `/robots.txt`, `/sitemap.xml`, `/opengraph-image`: public discovery/share assets; authenticated routes, `/login` and `/register` are noindex and absent from sitemap. Robots directives are not authorization controls.
 
 `features/public-site/site.ts` centralizes the public identity, approved contact, links and metadata. `PublicShell`/`PublicSection` reuse existing BrandLockup, semantic tokens and Gilroy. Public documents use server markup and native navigation without WebGL or a second animation layer. Each public page has its own canonical URL; the root layout does not accidentally canonicalize private pages to home.
 

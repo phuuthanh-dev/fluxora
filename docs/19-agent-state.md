@@ -91,6 +91,14 @@ resource-picker foundation.
 
 ## Recently closed slices
 
+- `L13.1` reopen / auth and control polish (2026-10-29) — Owner-requested
+  login/register visual follow-up is complete locally: dedicated `/register`
+  sharing the login form, password visibility and pending/error feedback,
+  16px inspector title, native-select chevron inset, and connection creation
+  directly below its toolbar/above saved cards. Full gate: 213 API / 23 web /
+  82 E2E. Evidence: `.agent/reports/2026-10-29-auth-control-polish.md`.
+  Local develop delivery only; this is not deployed or a new OAuth integration.
+
 - `L13.1` reopen / product experience (2026-10-29) — New owner-requested
   refinement complete locally: workflow-first dashboard, searchable saved
   connections and guided draft-secret fields, shared dialog headers,

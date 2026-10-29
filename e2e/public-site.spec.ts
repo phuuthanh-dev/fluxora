@@ -29,9 +29,10 @@ test("public routes expose only intended crawl metadata and working support path
   const xml = await sitemap.text();
   expect(sitemap.status()).toBe(200);
   for (const route of ["/", ...pages.map(item => item.path)]) expect(xml).toContain(`<loc>https://fluxora.io.vn${route}</loc>`);
-  expect(xml).not.toMatch(/dashboard|editor|login/);
+  expect(xml).not.toMatch(/dashboard|editor|login|register/);
   const robots = await (await request.get("/robots.txt")).text();
   expect(robots).toContain("Disallow: /dashboard");
+  expect(robots).toContain("Disallow: /register");
   expect(robots).toContain("Sitemap: https://fluxora.io.vn/sitemap.xml");
   const image = await request.get("/opengraph-image");
   expect(image.status()).toBe(200);

@@ -47,6 +47,15 @@ test("guided connection fields preserve JSON, mask secrets, search saved account
   await page.getByRole("button", { name: "Clear search" }).click();
   await expect(page.locator(".credential-card")).toHaveCount(1);
   await page.getByRole("button", { name: "New connection", exact: true }).click();
+  const toolbar = await page.locator(".credential-toolbar").boundingBox();
+  const form = await page.getByRole("form", { name: "New connection", exact: true }).boundingBox();
+  const cards = await page.locator(".credential-list").boundingBox();
+  expect(form!.y).toBeGreaterThanOrEqual(toolbar!.y + toolbar!.height);
+  expect(form!.y + form!.height).toBeLessThan(cards!.y);
+  await expect(page.getByLabel("Provider", { exact: true })).toBeFocused();
+  await expect(page.getByLabel("Provider", { exact: true })).toHaveCSS("padding-right", "40px");
+  await expect(page.getByLabel("Provider", { exact: true })).toHaveCSS("background-position", "calc(100% - 12px) 50%");
+
   await page.getByLabel("Provider", { exact: true }).selectOption("SMTP");
   await expect(page.getByLabel("Password", { exact: true })).toHaveAttribute("type", "password");
   await page.getByLabel("Transport").selectOption("465");
