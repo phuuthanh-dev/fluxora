@@ -263,7 +263,12 @@ test("workload estimate shows its assumptions and responds to keyboard input", a
   const range = page.getByRole("slider", {
     name: "Recurring tasks per workday",
   });
-  await range.fill("12");
+  await range.focus();
+  await page.keyboard.press("Home");
+  await page.keyboard.press("ArrowRight");
+  for (let index = 0; index < 10; index += 1) {
+    await page.keyboard.press("ArrowRight");
+  }
   await expect(range).toHaveAttribute(
     "aria-valuetext",
     "12 tasks per workday, 20.0 hours per month",
@@ -271,7 +276,6 @@ test("workload estimate shows its assumptions and responds to keyboard input", a
   await expect(page.locator(".landing-usage__readout output")).toHaveText(
     "20.0",
   );
-  await range.focus();
   await page.keyboard.press("ArrowRight");
   await expect(page.locator(".landing-usage__readout output")).toHaveText(
     "21.7",
