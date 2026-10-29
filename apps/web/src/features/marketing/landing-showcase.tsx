@@ -15,6 +15,8 @@ import {
 import { useRef, useState } from "react";
 import { FluxoraMark } from "../../components/brand/fluxora-mark";
 import { NodeIcon } from "../workflow/node-icon";
+import { useSurfaceMotion } from "../../components/ui/ui-motion";
+import { useLandingEffects } from "./landing-motion";
 
 const views = [
   {
@@ -39,6 +41,9 @@ const views = [
 export function LandingShowcase() {
   const [view, setView] = useState(0);
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
+  const panel = useRef<HTMLDivElement>(null);
+  const { paused } = useLandingEffects();
+  useSurfaceMotion(panel, !paused, view);
   return (
     <div className="landing-showcase">
       <div
@@ -82,6 +87,7 @@ export function LandingShowcase() {
       </div>
       <div
         className="landing-showcase__window"
+        ref={panel}
         id="landing-product-panel"
         role="tabpanel"
         aria-labelledby={`landing-tab-${view}`}

@@ -26,9 +26,15 @@ async function readable(locator: Locator, minimum = 4.5) {
       current = current.parentElement;
     }
     const values = [luminance(foreground), luminance(background)].sort((a, b) => a - b);
-    return (values[1] + .05) / (values[0] + .05);
+    return {
+      ratio: (values[1] + .05) / (values[0] + .05), foreground, background,
+      theme: document.documentElement.dataset.theme,
+      transition: getComputedStyle(element).transition,
+      surface: current?.className,
+      panelToken: current ? getComputedStyle(current).getPropertyValue("--panel") : "",
+    };
   });
-  expect(contrast).toBeGreaterThanOrEqual(minimum);
+  expect(contrast.ratio, JSON.stringify(contrast)).toBeGreaterThanOrEqual(minimum);
 }
 
 async function register(page: Page) {

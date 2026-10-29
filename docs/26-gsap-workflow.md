@@ -33,8 +33,9 @@ examples against installed versions; a skill is guidance, not executable proof.
 
 ## Fluxora implementation contract
 
-1. Keep marketing motion in the marketing feature. Gilroy, global theme tokens
-   and shared component roles remain the typography/design foundation.
+1. Keep scroll choreography, WebGL and Lenis in the marketing feature. The
+   owner's 2026-10-29 request extends short GSAP interaction motion to shared
+   product primitives. Gilroy and semantic tokens remain the design foundation.
 2. Run animation setup inside a client effect. Register plugins before use.
    Existing `useEffect` plus scoped `gsap.matchMedia` is sufficient; the React
    skill explicitly permits context cleanup without adding `@gsap/react`.
@@ -53,13 +54,60 @@ examples against installed versions; a skill is guidance, not executable proof.
    desktop sizes; exercise pause, preferences, route exit, no-JS and no-WebGL.
    Run the repository gate and record actual failures without weakening CI.
 
-## Application in the current slice
+## Shared motion ownership
 
-`LandingReveal` replaces its previous Motion reveal with scoped GSAP entrance
-tweens, with a 0.07s stagger for FAQ/footer groups. It uses one media context,
-client-side registration, transform/opacity and cleanup on preference/pause.
-The skill audit is bounded to that new implementation; the existing renderer
-and handoff stay within their separately tested lifecycle contracts.
+`components/ui/ui-motion.ts` owns short interaction timing and lifecycle:
+180ms surface entrance, 280ms progress interpolation, 320ms disclosure, with
+`power2.out`. Feature code uses these primitives instead of duplicating tweens.
+The unused `motion` package is removed; GSAP owns the former hero pointer tilt.
+
+| Surface | Owner and behavior |
+|---|---|
+| FAQ | Shared `Disclosure`; independent answers, measured height, reversible from the current frame; real +/− state |
+| Dashboard Execution Center | Shared controlled `Collapse`; mounted content becomes hidden/inert after close; no extra fetch on animation |
+| Saved execution views / retention | Native `details` enhanced by the same `Disclosure` |
+| Account, workflow, credential, editor menus | Shared `Menu` with 6px/opacity entrance; keyboard focus is immediate |
+| Credentials, workflow commands, execution dialogs | Shared `Dialog` entrance; existing focus trap and Escape remain owners |
+| Editor inspector drawer | Shared surface hook replaces its CSS entrance |
+| Progress | GSAP scale interpolation; indeterminate motion pauses offscreen/hidden tab, observes the stationary track |
+| Landing mobile menu / product tabs | Shared short surface hook; landing pause preference disables it |
+| Hero demo | Scoped GSAP quickTo pointer tilt; fine mouse pointers only; controls and keyboard reset tilt |
+| Section/footer entrances | `LandingReveal` with ScrollTrigger; footer groups retain 0.07s stagger |
+
+FAQ rows have no scroll-entry transforms or exclusive `details name` grouping:
+closing a preceding answer automatically used to move the clicked question.
+The disclosure keeps content measurable until closing completes, uses `hidden`
+at rest (closed native details can retain a nonzero measured box in Chromium),
+and restores automatic height after completion so text can wrap on resize.
+Inner ResizeObserver retargets active expansion; reversals release old tweens.
+Reduced motion, pause, unmount and preference changes settle to the desired
+state. Native details work without JavaScript; controlled product panels keep
+their normal React requirement. No action waits for an animation to finish.
+
+The first correction deferred a rebuild until disclosure completion. Owner
+visual feedback showed that this still produced a visible jump. The final
+contract keeps one Lenis instance, plane, material, clock and DataTexture for
+the renderer lifetime. Layout notifications are coalesced; after disclosure
+settles, a 600ms GSAP tween interpolates the existing 2,048-entry field and its
+coordinate range. Interruptions capture the last rendered field. No new GPU
+texture, buffer or shader program is allocated for this change.
+
+Ribbon scroll coordinates use absolute document pixels, not progress times
+the changing page height. Lenis smooths wheel input; ScrollTrigger continues
+to own section/pin choreography and refreshes after actual layout changes.
+Pause, hidden tab, renderer failure and route exit retain their existing cleanup.
+Do not tie runtime effect dependencies to measured page dimensions again.
+
+Regression lesson: stable DOM/scrollY alone does not establish background
+continuity. `ribbon-layout.spec.ts` instruments GPU resource allocation, path
+uniform interpolation, clock continuity and scroll-listener teardown across
+FAQ and viewport changes, with a recorded visual sequence. Lenis CSS class
+changes are not proof of instance teardown. No universal FPS claim is made.
+
+Keep CSS button feedback, focus rings, skeleton/spinner indicators, and React
+Flow canvas/edge interactions with their existing owners. Do not animate data
+tables or every rerender. Product scrolling stays native; do not bring the
+landing ribbon, Lenis or pinned sections into operational screens.
 
 Public body/FAQ/footer sizes and readability evidence are in
 `22-public-landing-v2.md` and the current slice report. Further options are SVG

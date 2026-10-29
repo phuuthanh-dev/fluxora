@@ -63,12 +63,22 @@ This is the execution order for the three-day MVP. It deliberately excludes clou
 | Landing motion and WebGL enhancement | Complete locally | The public landing uses Motion for restrained content polish and two lazy React Three Fiber islands for the hero/lifecycle visual language. Server-rendered content stays readable without JavaScript or WebGL; reduced motion, visibility, and viewport boundaries prevent decorative rendering from affecting product functionality. Focused fallback coverage, visual review, and the full quality gate passed. |
 | Clean-room public landing v2 | Complete locally; owner-directed visual revision | The owner reopened L12.3 after supplying the Relay video and approving the Catmull-Rom/GLSL/ScrollTrigger/Lenis brief. The revision adds a local workflow replay, keyboard product tabs, a continuous procedural ribbon, lime fold plate, reliability, sample daily activity, and workflow cases. The landing owns its scroll/render lifecycle; authenticated routes keep native scrolling. The later owner correction adds a dark outlined initial icon, scroll expansion/collapse, measured docking into the app diagram, reverse scrolling and fallback. See `docs/22-public-landing-v2.md` and `.agent/reports/2026-10-29-landing-card-handoff.md` (default verify: 213 API, 23 web, 62 E2E); ribbon evidence remains in `.agent/reports/2026-10-29-ribbon-detail.md`. Prior island-only exclusions are superseded. |
 
-The latest owner follow-up improves public typography and footer readability,
+The earlier owner follow-up improves public typography and footer readability,
 replaces section reveals with scoped GSAP, and installs eight pinned official
 GSAP skills globally and in `.agents/skills/`. Local qualification covers API
 213, web 23 and all 66 E2E across a full run plus targeted recovery. See
 `.agent/reports/2026-10-29-landing-readability-motion.md` for original failures,
 test synchronization corrections and the pending fresh CI boundary before PR.
+
+Latest local follow-up: shared GSAP interaction motion fixes the FAQ layout
+jump, independent collapse/expand, rapid reversal, and first-frame Account menu
+theme contrast. Existing menu/dialog/inspector/progress, dashboard disclosures,
+landing tilt/mobile menu/tabs reuse one layer; unused Motion is removed. The
+owner's follow-up also removes ribbon restarts on height changes: persistent
+GPU resources/Lenis, absolute scroll coordinates and a reversible 600ms field
+morph. Full default `npm run verify` passed (213 API, 23 web, 72 E2E). See
+`.agent/reports/2026-10-29-shared-gsap-motion.md` and `26-gsap-workflow.md` for
+scope and reuse rules. Local qualification does not imply a remote release.
 
 ## Milestone 1 — Product foundation
 

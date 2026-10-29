@@ -27,7 +27,7 @@ boundary. See `.agent/tasks/2026-10-29-landing-art-direction.md` and
    waiting approvals and execution feed.
 8. Practical workflow starting points instead of fictional customer metrics.
 9. A time calculator with explicit assumptions instead of unapproved pricing.
-10. Native FAQ disclosures, CTA and footer.
+10. Independent FAQ disclosures with GSAP height enhancement, CTA and footer.
 
 The sample never connects to providers. Sample data is labelled. No uptime,
 customer count, testimonial, success-rate or pricing claim may be invented.
@@ -41,7 +41,8 @@ customer count, testimonial, success-rate or pricing claim may be invented.
 - `landing-sections.tsx`: reliability, daily activity, workflow cases.
 - `landing-interactions.tsx`: native menu/FAQ and workload estimate.
 - `landing-motion.tsx`: scoped GSAP section entrances and shared pause state;
-  readable before hydration. MotionConfig remains for interactive islands.
+  readable before hydration. Shared UI motion also handles tilt/menu/tab/FAQ
+  enhancement; the former Motion dependency is removed.
 - `landing-scenes.tsx`: lazy renderer, SVG fallback, pause/visibility/preference.
 - `landing-three-scenes.tsx`: page measurement, Lenis/ScrollTrigger ownership,
   orthographic camera and shared ticker.
@@ -143,7 +144,8 @@ emphasis. The native serif may vary across operating systems.
 
 The shared LandingReveal now uses scoped GSAP/ScrollTrigger entrances (20px
 rise, 0.75s, power2.out), replacing Motion reveals without stacking effects.
-FAQ rows and footer groups stagger by 0.07s. Default markup is fully visible;
+Footer groups stagger by 0.07s. FAQ rows no longer have entry transforms because
+they compete with disclosure layout. Default markup is fully visible;
 pause, reduced-motion changes and route exit revert only the owned context.
 No extra RAF, Lenis instance, dependency or per-letter DOM splitting is added.
 The owner's official GSAP skills are installed globally and pinned under
@@ -152,6 +154,13 @@ matchMedia and moved the new reveal's registration into its client effect.
 See `26-gsap-workflow.md` for skill selection and maintenance.
 The reliability docking ancestors remain stable. FAQ uses a local dark reading
 surface over the ribbon. The footer keeps real links and adds the source repo.
+
+The subsequent FAQ correction uses the shared reversible height controller,
+independent native disclosures, and a real minus indicator. Layout changes now
+morph one persistent GPU path field instead of rebuilding geometry, texture or
+Lenis. Absolute pixel scroll coordinates prevent total page height from moving
+the current background. Pause/reduced-motion settles immediately, and native FAQ remains
+usable without JavaScript. See `26-gsap-workflow.md` for the shared contract.
 
 Potential later enhancements, subject to visual review: SVG connector stroke
 draw in the narrative; scroll-linked sample bars with fixed final values;
