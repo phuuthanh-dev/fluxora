@@ -98,4 +98,6 @@ in both modes; the form still follows the selected theme. Scope these token
 aliases to the header so its hover/focus states remain readable in light mode.
 Keep its logo, layout breakpoints and form behavior shared and unchanged.
 Functional test passes do not establish visual acceptance: review rendered
-light/dark screenshots before handoff. PR #45 stays draft pending owner review.
+light/dark screenshots before handoff. The owner subsequently authorized merging
+the correction; PR #45 already contains the earlier split-header change, so the
+corrected header releases through the next develop-to-main PR.

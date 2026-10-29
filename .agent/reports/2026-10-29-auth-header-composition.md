@@ -64,3 +64,12 @@ No push, merge to main, deployment or real provider qualification was performed.
   Receipt: `/tmp/fluxora-auth-brand-header-verify.log`.
 - Local develop integration only. PR #45 remains draft; owner visual acceptance
   and release are still pending.
+
+## Release handoff
+
+- The owner subsequently requested merge. Refreshed remote state shows PR #45
+  merged the earlier `41ae79e` revision; it does not contain corrections
+  `8e25593` and `4d2156c`.
+- Release the corrections through the next `develop` to `main` PR after its
+  checks pass. Earlier local-only/draft notes above describe implementation
+  time, not current authorization or remote state.
