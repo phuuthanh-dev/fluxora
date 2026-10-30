@@ -82,7 +82,9 @@ A document-descending Catmull-Rom spine follows measured section waypoints.
 A 2,048 × 2 float texture stores center/pinch and normal/turn radius. The full
 tier draws 36,000 seeded points and 44 filaments of 1,400 segments. Mobile/coarse
 pointer tiers draw 45% of the points and 60% of filaments. Identified software
-rasterizers use 25%/40% and a 25 FPS render ceiling; scroll input keeps its ticker.
+rasterizers use 8%/14%, disable bloom and cap rendering at 25 FPS; scroll input
+keeps its ticker. Headless screenshots from that tier cannot establish the
+appearance or performance of hardware rendering.
 The 35-degree perspective camera stays at z=6 with bounded pointer parallax.
 The 2.6-second entrance does not replay on pause/resume. Absolute scroll position
 moves the viewport through the field; accumulated scroll distance advances flow.
@@ -131,7 +133,8 @@ CSS supplies a sticky viewport and stable scroll space; a scoped ScrollTrigger
 maps scroll progress into the geometry. No additional ticker, smooth-scroll
 instance, animation package, canvas or provider request is introduced. The
 destination is measured again on refresh/resize/font readiness. Reliability
-cards have stable geometry rather than a competing entrance transform.
+cards have bounded reveal transforms; the handoff follows the destination via
+the existing GSAP ticker while nearby and removes its listener on cleanup.
 
 The default server-rendered statement and diagram are both readable. The
 scroll space is reserved before hydration only when scripting and motion are
