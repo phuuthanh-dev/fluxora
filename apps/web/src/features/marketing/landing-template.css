@@ -1036,3 +1036,7 @@
     gap: 20px 24px;
   }
 }
+
+/* The chart is the third Relay feature surface, sharing the row chrome. */
+.landing-chapter__visual:has(.landing-volume__chart) { padding: 0; }
+.landing-chapter__visual .landing-volume__chart { background: transparent; border: 0; width: 100%; }

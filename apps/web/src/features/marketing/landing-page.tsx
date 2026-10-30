@@ -29,9 +29,9 @@ import "./landing-template.css";
 
 const chapters = [
   {
-    title: "Start with a signal.",
-    text: "A schedule, a webhook, or a click. Give the everyday work a starting point.",
-    tag: "01 / TRIGGER",
+    title: "Follow every step.",
+    text: "See the input, the action, and the output in one clear execution trace.",
+    tag: "01 / TRACE",
     icon: <Sparkles size={20} />,
   },
   {
@@ -41,9 +41,9 @@ const chapters = [
     icon: <GitBranch size={20} />,
   },
   {
-    title: "Follow the whole story.",
-    text: "See what each node received, what it returned, and exactly where a run needs attention.",
-    tag: "03 / OBSERVE",
+    title: "See the work as it happens.",
+    text: "Follow each execution and find the details when a workflow needs your attention.",
+    tag: "03 / ACTIVITY",
     icon: <ScanLine size={20} />,
   },
 ];
@@ -188,13 +188,18 @@ export function LandingPage() {
                   </div>
                   <div className="landing-chapter__visual">
                   {chapter.tag.startsWith("01") ? (
-                    <div className="landing-chapter__example">
-                    <p>EXAMPLE · CHOOSE A STARTING POINT</p>
-                    <div className="landing-chapter__chips">
-                      <span>Schedule</span>
-                      <span>Webhook</span>
-                      <span>Manual</span>
-                    </div>
+                    <div className="landing-chapter__trace" aria-label="Illustrative execution trace">
+                      <p>EXAMPLE RUN · COMPLETED</p>
+                      {[
+                        { label: "Input", width: "76%" },
+                        { label: "Action", width: "54%" },
+                        { label: "Output", width: "32%" },
+                      ].map((item) => (
+                        <div className="landing-chapter__trace-row" key={item.label}>
+                          <span><Check size={13} /> {item.label}</span>
+                          <i aria-hidden="true"><b style={{ width: item.width }} /></i>
+                        </div>
+                      ))}
                     </div>
                   ) : null}
                   {chapter.tag.startsWith("02") ? (
@@ -214,18 +219,20 @@ export function LandingPage() {
                     </div>
                   ) : null}
                   {chapter.tag.startsWith("03") ? (
-                    <div className="landing-chapter__trace" aria-label="Illustrative execution trace">
-                      <p>EXAMPLE RUN · COMPLETED</p>
-                      {[
-                        { label: "Input", width: "76%" },
-                        { label: "Action", width: "54%" },
-                        { label: "Output", width: "32%" },
-                      ].map((item) => (
-                        <div className="landing-chapter__trace-row" key={item.label}>
-                          <span><Check size={13} /> {item.label}</span>
-                          <i aria-hidden="true"><b style={{ width: item.width }} /></i>
-                        </div>
-                      ))}
+                    <div className="landing-volume__chart" aria-label="Illustrative runs by day">
+                      <p className="landing-volume__caption">SAMPLE ACTIVITY · RUNS BY DAY</p>
+                      <div className="landing-volume__bars" aria-hidden="true">
+                        {[38, 52, 45, 70, 61, 86].map((height, index) => (
+                          <div className="landing-volume__column" key={index}>
+                            <span className="landing-volume__bar" style={{ height: `${height}%` }}>
+                              <img className="landing-volume__cube" src={`/relay/product/product-cube-${index + 1}.svg`} alt="" />
+                              <img className="landing-volume__cap" src={`/relay/product/product-cap-${index + 1}.svg`} alt="" />
+                            </span>
+                            <small>{["MON", "TUE", "WED", "THU", "FRI", "SAT"][index]}</small>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="landing-volume__note">Illustrative data, not live usage.</p>
                     </div>
                   ) : null}
                   </div>
@@ -233,28 +240,9 @@ export function LandingPage() {
               ))}
             </div>
           </section>
-          <section className="landing-volume landing-container" aria-labelledby="volume-heading">
-            <LandingReveal className="landing-volume__copy">
-              <p className="landing-eyebrow">03 — A CLEARER VIEW</p>
-              <h2 id="volume-heading">See the work as it happens.</h2>
-              <p>Follow each execution and find the details when a workflow needs your attention.</p>
-            </LandingReveal>
-            <LandingReveal className="landing-volume__chart">
-              <p className="landing-volume__caption">SAMPLE ACTIVITY · RUNS BY DAY</p>
-              <div className="landing-volume__bars" aria-hidden="true">
-                {[38, 52, 45, 70, 61, 86].map((height, index) => (
-                  <div className="landing-volume__column" key={index}>
-                    <span className="landing-volume__bar" style={{ height: `${height}%` }}>
-                      <img className="landing-volume__cube" src={`/relay/product/product-cube-${index + 1}.svg`} alt="" />
-                      <img className="landing-volume__cap" src={`/relay/product/product-cap-${index + 1}.svg`} alt="" />
-                    </span>
-                    <small>{["MON", "TUE", "WED", "THU", "FRI", "SAT"][index]}</small>
-                  </div>
-                ))}
-              </div>
-              <p className="landing-volume__note">Illustrative data, not live usage.</p>
-            </LandingReveal>
-          </section>
+          <LandingHandoff />
+          <LandingDailyView />
+          <LandingUseCases />
           <section
             className="landing-safety landing-container"
             aria-labelledby="safety-heading"
@@ -306,9 +294,6 @@ export function LandingPage() {
               ))}
             </LandingReveal>
           </section>
-          <LandingHandoff />
-          <LandingDailyView />
-          <LandingUseCases />
         </div>
         <LandingRunMeter />
         <LandingFaq />

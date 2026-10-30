@@ -123,6 +123,23 @@ test("feature rows alternate on desktop and stack on mobile", async ({ page }) =
   }
 });
 
+test("feature illustrations follow Relay order and stop when out of view", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await releaseIntro(page);
+  const rows = page.locator(".landing-chapter");
+  await expect(rows.nth(0).getByLabel("Illustrative execution trace")).toBeVisible();
+  await expect(rows.nth(1).getByLabel("Illustrative approval request")).toBeVisible();
+  await expect(rows.nth(2).getByLabel("Illustrative runs by day")).toBeVisible();
+  const chart = rows.nth(2).locator(".landing-chapter__visual");
+  await chart.scrollIntoViewIfNeeded();
+  await expect(chart).toHaveAttribute("data-motion", "playing");
+  await page.locator("#faq").scrollIntoViewIfNeeded();
+  await expect(chart).toHaveAttribute("data-motion", "paused");
+  await page.getByRole("button", { name: "Pause visual effects" }).click();
+  await expect(chart).not.toHaveAttribute("data-motion");
+});
+
 test("hero node copy stays inside its cards at desktop and mobile sizes", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   for (const width of [375, 768, 1440]) {

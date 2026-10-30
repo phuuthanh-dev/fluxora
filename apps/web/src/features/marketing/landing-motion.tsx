@@ -197,30 +197,29 @@ export function LandingReveal({
             scrollTrigger: { trigger: element, start: "top 85%", once: true },
           });
         }
-        if (element.classList.contains("landing-volume__chart")) {
-          gsap.fromTo(element.querySelectorAll(".landing-volume__cube"),
-            { scaleY: 0, opacity: 0 },
-            { scaleY: 1, opacity: 1, transformOrigin: "50% 100%", duration: 0.8, stagger: 0.12, ease: "back.out(1.3)", immediateRender: false,
-              scrollTrigger: { trigger: element, start: "top 85%", once: true } },
-          );
-          gsap.fromTo(element.querySelectorAll(".landing-volume__cap"),
-            { y: -26, opacity: 0 },
-            { y: 0, opacity: 1, duration: 0.6, stagger: 0.12, delay: 0.2, ease: "power2.out", immediateRender: false,
-              scrollTrigger: { trigger: element, start: "top 85%", once: true } },
-          );
+        if (element.classList.contains("landing-chapter")) {
+          const visual = element.querySelector<HTMLElement>(".landing-chapter__visual");
+          if (visual) {
+            // Each illustration owns one bounded loop and is inactive outside
+            // the viewport. The static, readable DOM remains the default.
+            const loop = gsap.timeline({ paused: true, repeat: -1, repeatDelay: 2.8, yoyo: true });
+            const bars = visual.querySelectorAll(".landing-chapter__trace-row b");
+            const approval = visual.querySelectorAll(".landing-chapter__approval > *");
+            const cubes = visual.querySelectorAll(".landing-volume__cube");
+            const caps = visual.querySelectorAll(".landing-volume__cap");
+            if (bars.length) loop.fromTo(bars, { scaleX: 0 }, { scaleX: 1, duration: 0.7, stagger: 0.2, ease: "power2.out", immediateRender: false });
+            if (approval.length) loop.fromTo(approval, { y: 10, opacity: 0 }, { y: 0, opacity: 1, duration: 0.55, stagger: 0.12, ease: "power2.out", immediateRender: false });
+            if (cubes.length) {
+              loop.fromTo(cubes, { scaleY: 0, opacity: 0 }, { scaleY: 1, opacity: 1, transformOrigin: "50% 100%", duration: 0.8, stagger: 0.12, ease: "back.out(1.3)", immediateRender: false }, 0)
+                .fromTo(caps, { y: -26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, stagger: 0.12, ease: "power2.out", immediateRender: false }, 0.2);
+            }
+            const show = () => { visual.dataset.motion = "playing"; loop.restart(); };
+            const hide = () => { visual.dataset.motion = "paused"; loop.pause(); };
+            const visibility = ScrollTrigger.create({ trigger: visual, start: "top 88%", end: "bottom top", onEnter: show, onEnterBack: show, onLeave: hide, onLeaveBack: hide, onRefresh: (self) => { if (self.isActive && !loop.isActive()) show(); } });
+            return () => { visibility.kill(); loop.kill(); delete visual.dataset.motion; };
+          }
         }
-        const traceBars = element.querySelectorAll(".landing-chapter__trace-row b");
-        if (traceBars.length) {
-          gsap.fromTo(traceBars, { scaleX: 0 }, {
-            scaleX: 1, duration: 0.7, stagger: 0.2, ease: "power2.out", immediateRender: false,
-            scrollTrigger: { trigger: element, start: "top 85%", once: true },
-          });
-        }
-        // Let the diagrams resolve after their enclosing glass card enters.
-        // These are decorative examples; the unanimated DOM remains readable.
-        const details = element.querySelectorAll(
-          ".landing-chapter__chips > span, .landing-chapter__route > span, .landing-showcase__workflows > article",
-        );
+        const details = element.querySelectorAll(".landing-showcase__workflows > article");
         if (details.length) {
           gsap.fromTo(details, { y: 12, opacity: 0 }, {
             y: 0, opacity: 1, duration: 0.55, stagger: 0.12,
@@ -228,14 +227,7 @@ export function LandingReveal({
             scrollTrigger: { trigger: element, start: "top 85%", once: true },
           });
         }
-        const approval = element.querySelectorAll(".landing-chapter__approval > *");
-        if (approval.length) {
-          gsap.fromTo(approval, { y: 10, opacity: 0 }, {
-            y: 0, opacity: 1, duration: 0.55, delay: 0.55, stagger: 0.12,
-            ease: "power2.out", immediateRender: false,
-            scrollTrigger: { trigger: element, start: "top 85%", once: true },
-          });
-        }
+
       },
       element,
     );
