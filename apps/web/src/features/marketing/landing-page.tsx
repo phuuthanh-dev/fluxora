@@ -178,25 +178,34 @@ export function LandingPage() {
                   className="landing-chapter"
                   key={chapter.tag}
                 >
-                  <div className="landing-chapter__top">
-                    <span>{chapter.tag}</span>
-                    {chapter.icon}
+                  <div className="landing-chapter__copy">
+                    <div className="landing-chapter__top">
+                      <span>{chapter.tag}</span>
+                      {chapter.icon}
+                    </div>
+                    <h3>{chapter.title}</h3>
+                    <p>{chapter.text}</p>
                   </div>
-                  <h3>{chapter.title}</h3>
-                  <p>{chapter.text}</p>
+                  <div className="landing-chapter__visual">
                   {chapter.tag.startsWith("01") ? (
+                    <div className="landing-chapter__example">
+                    <p>EXAMPLE · CHOOSE A STARTING POINT</p>
                     <div className="landing-chapter__chips">
                       <span>Schedule</span>
                       <span>Webhook</span>
                       <span>Manual</span>
                     </div>
+                    </div>
                   ) : null}
                   {chapter.tag.startsWith("02") ? (
+                    <div className="landing-chapter__example">
+                    <p>EXAMPLE · ROUTE A DECISION</p>
                     <div className="landing-chapter__route" aria-hidden="true">
                       <span>IF</span>
                       <i />
                       <span className="is-accent">YES → Continue</span>
                       <span>NO → Review</span>
+                    </div>
                     </div>
                   ) : null}
                   {chapter.tag.startsWith("03") ? (
@@ -214,6 +223,7 @@ export function LandingPage() {
                       ))}
                     </div>
                   ) : null}
+                  </div>
                 </LandingReveal>
               ))}
             </div>

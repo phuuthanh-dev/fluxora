@@ -31,8 +31,8 @@ test("integration rail and footer retain useful, truthful navigation when effect
   for (const metric of cardMetrics) {
     expect(metric.card[0]).toBeCloseTo(108, 0);
     expect(metric.card[1]).toBeCloseTo(98, 0);
-    expect(metric.icon?.[0]).toBeCloseTo(30, 0);
-    expect(metric.icon?.[1]).toBeCloseTo(30, 0);
+    expect(metric.icon?.[0]).toBeCloseTo(60, 0);
+    expect(metric.icon?.[1]).toBeCloseTo(60, 0);
   }
 
   await expect(integrations.getByText("Steam", { exact: true })).toBeVisible();
@@ -67,4 +67,23 @@ test("illustrative trace settles and remains visible when motion is paused", asy
   await page.getByRole("button", { name: "Pause visual effects" }).click();
   await expect(bars.last()).toHaveCSS("transform", "none");
   await expect(trace.getByText("Output")).toBeVisible();
+});
+
+test("feature rows alternate on desktop and stack on mobile", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  for (const width of [1440, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    const rows = page.locator(".landing-chapter");
+    await expect(rows).toHaveCount(3);
+    for (let index = 0; index < 3; index++) {
+      const row = rows.nth(index);
+      const copy = (await row.locator(".landing-chapter__copy").boundingBox())!;
+      const visual = (await row.locator(".landing-chapter__visual").boundingBox())!;
+      if (width === 375) expect(visual.y).toBeGreaterThan(copy.y + copy.height - 1);
+      else if (index === 1) expect(visual.x + visual.width).toBeLessThan(copy.x);
+      else expect(copy.x + copy.width).toBeLessThan(visual.x);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  }
 });

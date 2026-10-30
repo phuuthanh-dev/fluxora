@@ -122,6 +122,8 @@
   position: relative;
   z-index: 1;
   isolation: isolate;
+  /* The sticky blur must not paint over later sections when this slab exits. */
+  overflow: clip;
 }
 /* Bound the frosted layer to the viewport instead of rasterizing a page-tall blur. */
 .landing-frosted-slab::before {

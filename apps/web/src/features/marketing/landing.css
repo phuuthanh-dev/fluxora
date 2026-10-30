@@ -636,7 +636,6 @@ html:has(.landing-page):not(:has(.landing-loader[data-phase="draw"])) {
   padding: 12px;
 }
 .landing-integrations {
-  background: url("/relay/integrations/integrations-bloom.png") center / 930px auto no-repeat;
   align-items: center;
   border-block: 1px solid var(--landing-line);
   display: flex;
@@ -662,38 +661,40 @@ html:has(.landing-page):not(:has(.landing-loader[data-phase="draw"])) {
   position: relative;
 }
 .landing-integrations__rail {
-  background: linear-gradient(90deg, transparent, #c8f75152 16%, #c8f751a8 50%, #c8f75152 84%, transparent);
+  background: repeating-linear-gradient(90deg, #c8f75160 0 2px, transparent 2px 10px);
   height: 1px;
   left: 2%;
   pointer-events: none;
   position: absolute;
   right: 2%;
-  top: 15px;
+  top: 30px;
   transform-origin: center;
 }
 .landing-integration {
   align-items: center;
-  background: color-mix(in srgb, var(--marketing-void) 72%, transparent);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
   display: flex;
   flex-direction: column;
   gap: 9px;
   justify-content: center;
   min-height: 98px;
   min-width: 108px;
-  padding: 12px 9px;
+  padding: 0 4px;
   position: relative;
-  transition: background 0.24s ease, border-color 0.24s ease, color 0.24s ease;
   width: 108px;
 }
 .landing-integration > span:first-child {
   align-items: center;
+  background: linear-gradient(155deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, .025));
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 16px;
   display: inline-flex;
-  flex: 0 0 30px;
-  height: 30px;
+  flex: 0 0 60px;
+  height: 60px;
   justify-content: center;
-  width: 30px;
+  width: 60px;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  transition: border-color .24s ease, background .24s ease;
 }
 .landing-integration > span:first-child :is(svg, span) {
   display: block;
@@ -702,9 +703,9 @@ html:has(.landing-page):not(:has(.landing-loader[data-phase="draw"])) {
   max-width: 24px;
   width: 24px;
 }
-.landing-integration:hover {
-  background: color-mix(in srgb, var(--marketing-void) 90%, transparent);
-  border-color: #c8f75135;
+.landing-integration:hover > span:first-child {
+  background: rgba(200, 247, 81, .12);
+  border-color: #c8f75170;
 }
 .landing-integration > span:last-child {
   color: var(--marketing-muted);
@@ -723,11 +724,9 @@ html:has(.landing-page):not(:has(.landing-loader[data-phase="draw"])) {
 }
 .landing-product::before {
   background:
-    radial-gradient(circle at 50% 26%, rgba(10, 14, 11, 0.74), rgba(1, 2, 1, 0.92) 64%),
-    linear-gradient(rgba(1, 2, 1, 0.68), rgba(1, 2, 1, 0.78));
-  border-block: 1px solid rgba(243, 246, 236, 0.08);
+    radial-gradient(ellipse at 50% 38%, rgba(1, 2, 1, 0.8) 0%, rgba(1, 2, 1, 0.5) 47%, transparent 75%);
   content: "";
-  inset: 32px -5vw 22px;
+  inset: 0 -5vw;
   pointer-events: none;
   position: absolute;
   z-index: -1;
@@ -1234,6 +1233,71 @@ html:has(.landing-page):not(:has(.landing-loader[data-phase="draw"])) {
   display: block;
   height: 100%;
   transform-origin: left;
+}
+/* Relay-inspired feature rows: keep the real Fluxora copy and examples while
+   separating each explanation from its illustrative glass surface. */
+.landing-narrative {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 56px;
+}
+.landing-narrative__lead { position: static; }
+.landing-narrative__lead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, .7fr);
+  column-gap: clamp(32px, 7vw, 100px);
+  align-items: end;
+}
+.landing-narrative__lead > .landing-eyebrow,
+.landing-narrative__lead > h2 { grid-column: 1; }
+.landing-narrative__lead > p:not(.landing-eyebrow) { grid-column: 2; grid-row: 2; margin: 0 0 10px; }
+.landing-narrative__lead > .landing-text-link { grid-column: 1; justify-self: start; }
+.landing-narrative__lead > .landing-signal-mark { display: none; }
+.landing-narrative__chapters { border-left: 0; }
+.landing-chapter,
+.landing-chapter + .landing-chapter {
+  display: grid;
+  grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
+  align-items: center;
+  gap: clamp(32px, 6vw, 96px);
+  padding: 48px 0;
+}
+.landing-chapter::before { display: none; }
+.landing-chapter__copy { min-width: 0; }
+.landing-chapter__copy > p {
+  color: var(--marketing-muted);
+  font-size: 15px;
+  line-height: 1.65;
+  margin-top: 10px;
+  max-width: 380px;
+}
+.landing-chapter__visual {
+  align-content: center;
+  background: rgba(14, 15, 17, .6);
+  border: 1px solid var(--landing-line);
+  border-radius: 24px;
+  display: grid;
+  min-height: 220px;
+  min-width: 0;
+  padding: clamp(24px, 3vw, 40px);
+}
+.landing-chapter__example > p {
+  color: var(--landing-dim);
+  font: 11px var(--font-mono);
+  letter-spacing: .04em;
+  margin-bottom: 22px;
+}
+.landing-chapter:nth-child(even) .landing-chapter__copy { grid-column: 2; grid-row: 1; }
+.landing-chapter:nth-child(even) .landing-chapter__visual { grid-column: 1; grid-row: 1; }
+.landing-chapter__visual :is(.landing-chapter__chips, .landing-chapter__route, .landing-chapter__trace) { margin-top: 0; }
+.landing-chapter__route, .landing-chapter__chips { flex-wrap: wrap; }
+@media (max-width: 768px) {
+  .landing-narrative__lead { display: block; }
+  .landing-narrative__lead > p:not(.landing-eyebrow) { margin-top: 24px; }
+  .landing-narrative__chapters { margin-left: 0; }
+  .landing-chapter, .landing-chapter + .landing-chapter { grid-template-columns: minmax(0, 1fr); gap: 24px; padding: 32px 0; }
+  .landing-chapter:nth-child(even) .landing-chapter__copy,
+  .landing-chapter:nth-child(even) .landing-chapter__visual { grid-column: auto; grid-row: auto; }
+  .landing-chapter__visual { min-height: 160px; }
 }
 .landing-safety {
   background: radial-gradient(ellipse at 80% 40%, #c8f75106, transparent 60%);
@@ -2740,4 +2804,7 @@ html:has(.landing-page):not(:has(.landing-loader[data-phase="draw"])) {
   .landing-statement__plate {
     transform: none !important;
   }
+}
+@media (max-width: 1024px) {
+  .landing-chapter { padding-left: 0; }
 }

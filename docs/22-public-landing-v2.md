@@ -34,7 +34,8 @@ boundary. See `.agent/tasks/2026-10-29-landing-art-direction.md` and
 1. Hero with a local Schedule → Steam → Google Chat run/stop/replay sample.
 2. Offline provider icons using the existing product icon component.
 3. Product tabs: workflows, execution evidence, encrypted connections.
-4. Trigger → orchestrate → observe narrative, followed by the publish lifecycle.
+4. Trigger → orchestrate → observe narrative in three alternating feature rows,
+   with labelled illustrative surfaces, followed by the publish lifecycle.
 5. A dark, lime-outlined Fluxora badge that opens into a lime statement plate,
    folds back to a badge and docks in the following app diagram with scroll.
 6. Reliability: reusable encrypted connections and the actual API/queue/worker/

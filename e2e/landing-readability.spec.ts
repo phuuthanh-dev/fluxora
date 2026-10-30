@@ -90,6 +90,8 @@ test("frosted surfaces retain their standard backdrop filter after CSS compilati
   await page.goto("/");
   const slab = page.locator(".landing-frosted-slab");
   await expect.poll(() => slab.evaluate((element) => getComputedStyle(element, "::before").backdropFilter)).toBe("blur(12px)");
+  // A sticky blur may otherwise escape its parent and obscure the next section.
+  await expect(slab).toHaveCSS("overflow", "clip");
   await expect(page.locator(".landing-demo")).toHaveCSS("backdrop-filter", "blur(24px)");
   await page.evaluate(() => window.scrollTo(0, 400));
   await expect(page.locator(".landing-nav")).toHaveAttribute("data-scrolled", "true");
