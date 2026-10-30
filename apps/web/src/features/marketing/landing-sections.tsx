@@ -45,7 +45,7 @@ export function LandingReliability() {
         </p>
       </div>
       <div className="landing-reliability__grid">
-        <article className="landing-reliability__card">
+        <LandingReveal as="article" className="landing-reliability__card">
           <p className="landing-eyebrow">
             <LockKeyhole size={13} /> CONNECT ONCE. REUSE WITH INTENT.
           </p>
@@ -57,7 +57,6 @@ export function LandingReliability() {
           <div className="landing-runtime-hub" aria-hidden="true">
             <svg viewBox="0 0 360 210">
               <path d="M54 35L180 105L306 35M54 105H306M54 175L180 105L306 175" />
-              <circle cx="180" cy="105" r="75" />
             </svg>
             <span className="landing-runtime-hub__center">
               <FluxoraMark size={57} />
@@ -75,8 +74,8 @@ export function LandingReliability() {
             <span>Encrypted secrets</span>
             <span>Reusable credentials</span>
           </div>
-        </article>
-        <article className="landing-reliability__card">
+        </LandingReveal>
+        <LandingReveal as="article" className="landing-reliability__card" delay={0.1}>
           <p className="landing-eyebrow">
             <Server size={13} /> YOUR INFRASTRUCTURE. YOUR CONTROL.
           </p>
@@ -127,7 +126,7 @@ export function LandingReliability() {
             <span>Self-host with Docker</span>
             <span>Pinned versions</span>
           </div>
-        </article>
+        </LandingReveal>
       </div>
     </section>
   );

@@ -13,6 +13,10 @@ Owner authorization: complete and release public website, then refine the authen
 
 `features/public-site/site.ts` centralizes the public identity, approved contact, links and metadata. `PublicShell`/`PublicSection` reuse existing BrandLockup, semantic tokens and Gilroy. Public documents use server markup and native navigation without WebGL or a second animation layer. Each public page has its own canonical URL; the root layout does not accidentally canonicalize private pages to home.
 
+ACCOUNT-1 adds noindex `/settings/account`, `/forgot-password` and `/reset-password`
+routes, kept out of public discovery. Its privacy disclosure includes account
+recovery records and operator-configured security email. See `docs/29-account-recovery.md`.
+
 ## Truthfulness boundaries
 The current Google connector requests Drive and Sheets scopes; the policy must not claim it only accesses selected files. Login identities and connector tokens remain separate. Full-account deletion is a support process, not a newly implemented endpoint. Connection deletion can be blocked by dependencies. Provider revocation does not erase historic outputs. Execution retention is installation-configured, not a promised universal period. No SLA, certification, guaranteed regional residency or guaranteed backup policy is claimed.
 

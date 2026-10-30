@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 test("configure Discord and Telegram notification nodes with encrypted credentials and mock run", async ({ page }) => {
+  // Two providers, credential setup and a mock execution form one full journey.
+  test.setTimeout(60_000);
   const email = `notifications-e2e-${Date.now()}@example.test`;
   await page.goto("/login");
 

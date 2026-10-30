@@ -1,6 +1,15 @@
 # Implementation Plan
 
-This is the execution order for the three-day MVP. It deliberately excludes cloud/VPS deployment until the product works locally.
+The original three-day MVP sequence below is historical. Use `docs/19-agent-state.md`
+and the latest release receipt before proposing work: the application is already deployed.
+
+Completed local follow-up (2026-10-30): the owner supplied the official Relay reference
+and prioritized its existing assets. L12.3 now adopts its marketing fonts,
+palette, particle/filament shaders and 24 original decorative assets; see
+`docs/30-relay-reference-adoption.md` and `.agent/reports/2026-10-30-relay-template-completion.md` for validation. The expanded scope includes intro, hero board, square-first logo fold, frosted sections, run planner and footer; the local full gate passed with API 226/226, web 23/23 and 93/93 E2E.
+ACCOUNT-1 is already complete locally at `eae6b6e`; see
+`docs/29-account-recovery.md`. System SMTP activation remains separate from local
+implementation and does not reuse workflow connection secrets.
 
 ## Current state
 

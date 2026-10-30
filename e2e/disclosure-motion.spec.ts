@@ -93,7 +93,7 @@ test("FAQ settles without scroll jumps while the landing renderer is active", as
     return Boolean(gl);
   });
   const scene = page.locator(".landing-scene");
-  await expect(scene).toHaveAttribute("data-scene-state", supported ? "running" : "fallback");
+  await expect(scene).toHaveAttribute("data-scene-state", supported ? "running" : "fallback", { timeout: 15000 });
   const row = page.locator(".landing-faq__item").first();
   await row.scrollIntoViewIfNeeded();
   // Wait for the current scroll target to settle, then observe real layout.

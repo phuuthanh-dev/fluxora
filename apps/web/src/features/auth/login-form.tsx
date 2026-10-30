@@ -3,12 +3,11 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { ArrowRight, Check, CircleHelp, Clock3, Eye, EyeOff, LoaderCircle } from "lucide-react";
+import { ArrowRight, Check, Clock3, Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { apiUrl } from "../api/api-client";
-import { ThemeToggle } from "../theme/theme-toggle";
+import { AuthNavigation } from "./auth-navigation";
 import { Button, Field, IconButton } from "../../components/ui";
 import { useSurfaceMotion } from "../../components/ui/ui-motion";
-import { BrandLockup } from "../../components/brand/brand-lockup";
 import { OAuthProviderIcon } from "../../components/brand/oauth-provider-icon";
 import { NodeIcon } from "../workflow/node-icon";
 
@@ -24,6 +23,7 @@ export function LoginForm({ mode = "login" }: { mode?: AuthMode }) {
   const [showPassword, setShowPassword] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [passwordChanged, setPasswordChanged] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [providers, setProviders] = useState<{ google: boolean; github: boolean } | null>(null);
   const isRegister = mode === "register";
@@ -31,6 +31,7 @@ export function LoginForm({ mode = "login" }: { mode?: AuthMode }) {
 
   useEffect(() => {
     const controller = new AbortController();
+    setPasswordChanged(new URLSearchParams(window.location.search).get("passwordChanged") === "1");
     const authError = new URLSearchParams(window.location.search).get("authError");
     if (authError === "google_cancelled" || authError === "github_cancelled") setError(`${authError.startsWith("google") ? "Google" : "GitHub"} sign-in was cancelled. You can try again when ready.`);
     if (authError === "google_failed" || authError === "github_failed") setError(`${authError.startsWith("google") ? "Google" : "GitHub"} sign-in could not be completed. Please try again.`);
@@ -67,13 +68,7 @@ export function LoginForm({ mode = "login" }: { mode?: AuthMode }) {
 
   return (
     <main className="auth-page">
-      <header className="auth-navigation">
-        <Link href="/" aria-label="Fluxora home"><BrandLockup /></Link>
-        <div className="auth-navigation__actions">
-          <Link className="auth-navigation__support" href="/support"><CircleHelp size={16} aria-hidden="true" />Need help?</Link>
-          <div className="auth-navigation__theme"><ThemeToggle /></div>
-        </div>
-      </header>
+      <AuthNavigation />
       <section className="auth-showcase" aria-label="Product introduction">
         <div className="auth-showcase__copy">
           <p className="auth-eyebrow">LESS REPETITION. MORE POSSIBILITY.</p>
@@ -96,6 +91,7 @@ export function LoginForm({ mode = "login" }: { mode?: AuthMode }) {
           <p className="auth-eyebrow">{isRegister ? "GET STARTED" : "WELCOME BACK"}</p>
           <h1 id="auth-title">{isRegister ? "Create your workspace" : "Sign in to your workspace"}</h1>
           <p className="auth-subtitle">{isRegister ? "Start with an account. Build your first workflow at your own pace." : "Pick up where you left off. Your workflows are waiting."}</p>
+          {!isRegister && passwordChanged && <p className="account-notice" role="status">Password updated. Sign in with your new password.</p>}
           <form onSubmit={submit} aria-busy={isSubmitting}>
             {isRegister && <Field label="Name" className="auth-field"><input name="displayName" autoComplete="name" value={displayName} onChange={event => setDisplayName(event.target.value)} disabled={isSubmitting} placeholder="Your name" /></Field>}
             <Field label="Email" className="auth-field"><input name="email" autoComplete="email" type="email" required value={email} onChange={event => setEmail(event.target.value)} disabled={isSubmitting} placeholder="you@example.com" /></Field>
@@ -107,6 +103,7 @@ export function LoginForm({ mode = "login" }: { mode?: AuthMode }) {
               </div>
             </div>
             {isRegister && <p id="auth-password-help" className="auth-help">Use at least 12 characters for your password.</p>}
+            {!isRegister && <p className="auth-recovery-link"><Link href="/forgot-password">Forgot password?</Link></p>}
             {error && <p className="auth-error" role="alert">{error}</p>}
             <Button variant="primary" className="auth-submit" type="submit" disabled={isSubmitting}>
               {isSubmitting ? <><LoaderCircle className="ui-spinner" size={17} aria-hidden="true" />{isRegister ? "Creating account…" : "Signing in…"}</> : <>{isRegister ? "Create account" : "Sign in"}<ArrowRight size={17} aria-hidden="true" /></>}

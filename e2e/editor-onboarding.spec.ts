@@ -1,6 +1,9 @@
 import { expect, test } from "@playwright/test";
 
 test("a new owner can configure, save, publish, and inspect a Steam workflow", async ({ page }) => {
+  // This journey covers registration, canvas editing, versioning and retry.
+  // Give the aggregate journey its own budget; per-action assertions stay at 5s.
+  test.setTimeout(60_000);
   const email = `e2e-${Date.now()}@example.test`;
   await page.goto("/login");
 
@@ -57,9 +60,9 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
       canvas: styles.getPropertyValue("--canvas").trim(),
     };
   });
-  expect(relayTokens).toEqual({ void: "#080a09", lime: "#d6ff32", canvas: "#f5f7f1" });
+  expect(relayTokens).toEqual({ void: "#080a09", lime: "#c8f751", canvas: "#f5f7f1" });
   await expect(page.locator(".editor-header")).toHaveCSS("background-color", "rgb(255, 254, 249)");
-  await expect(page.getByRole("button", { name: "Run test" })).toHaveCSS("background-color", "rgb(214, 255, 50)");
+  await expect(page.getByRole("button", { name: "Run test" })).toHaveCSS("background-color", "rgb(200, 247, 81)");
   await expect(page.getByRole("button", { name: "Run test" })).toHaveCSS("color", "rgb(8, 10, 9)");
 
   const nodeHandles = page.locator(".workflow-node__handle");

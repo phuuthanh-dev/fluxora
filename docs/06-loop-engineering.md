@@ -32,6 +32,7 @@ CI runs the same gate for every pull request and push to `main`.
 
 | Loop | Outcome | Status | Proof required |
 |---|---|---:|---|
+| L14.1 | Account settings and password recovery (ACCOUNT-1) | Complete locally | Own profile/session management, current-password change, atomic one-use reset, encrypted system SMTP outbox; isolated PostgreSQL security/concurrency proof and full verify passed: 226 API, 23 web, 86 E2E. All 12 new route/theme/viewport screenshots reviewed. System email remains opt-in and unqualified for real delivery. See docs/29 and account-recovery report. |
 | L13.1 | Landing/product UI core unification | Complete locally | Compact glass landing header, shared brand/page hierarchy and theme-aware shell/forms/overlays across all six existing routes. Native visual review, responsive/contrast regression and full verify passed: 213 API, 23 web, 58 E2E. See docs/25 and the UI-core report; no publication implied. |
 | L0 | Repeatable repository quality gate and CI | Complete | `npm run verify` passed locally; GitHub Actions checks the same gate |
 | L1 | Authenticated owner can create, save, reload, and publish a workflow | Complete | HTTP and browser checks passed locally |
@@ -122,6 +123,18 @@ CI runs the same gate for every pull request and push to `main`.
 | L12.3 | Clean-room public landing v2 and owner-directed visual revision | Complete locally | Reopened by the owner's Relay video/technical brief. Includes an original interactive sample, product tabs, Catmull-Rom/Perlin ribbon, GSAP ScrollTrigger + Lenis, fold plate, reliability, sample weekday dashboard, workflow cases and explicit-assumption calculator. Scroll/render ownership, reduced motion, context loss, no-JS/WebGL and responsive paths are covered. The ribbon detail evidence is `.agent/reports/2026-10-29-ribbon-detail.md`. The subsequent owner-requested icon → plate → collapse → diagram handoff is recorded in `.agent/reports/2026-10-29-landing-card-handoff.md` (default verify: 213 API, 23 web, 62 E2E). These supersede the initial island-only boundary and test counts; owner visual acceptance remains separate. |
 
 ## External-boundary rule
+
+Owner follow-up to L12.3 (2026-10-30): newly supplied official Relay reference
+supersedes video-only inference. Landing-only Inter/Instrument Serif/Fragment
+Mono, #c8f751, supplied particle/filament shaders and 24 original assets are
+implemented. The expanded owner request adds the bounded loading sequence, hero
+board/boot/packets, square-first fold, frosted sections, run planner and two-panel
+footer; local verification passed with API 226/226, web 23/23 and 93/93 E2E, with evidence in `.agent/reports/2026-10-30-relay-template-completion.md`. The full 83-asset bundle and original document remain private;
+only used artwork is packaged, with source/byte/hash provenance. Existing
+Fluxora identity, product typography, FAQ reflow and statement handoff remain.
+Current validation and delivery evidence:
+`.agent/reports/2026-10-30-relay-reference-adoption.md`; implementation contract:
+`docs/30-relay-reference-adoption.md`. No new remote release is implied.
 
 Latest owner follow-up to L12.3/L13.1 (2026-10-29): shared GSAP disclosures fix
 FAQ height/scroll jumps; menu/dialog/inspector/progress and landing interactions

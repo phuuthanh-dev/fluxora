@@ -1,5 +1,22 @@
 # Architecture
 
+## Account security extension (ACCOUNT-1)
+
+AuthModule owns profile/session management, current-password changes and email recovery.
+AccountController validates requests, enforces same-origin JSON mutations and rate limits,
+and returns stable errors without logging raw database/transport exceptions. AccountService
+uses the existing User/Session/AuditLog models plus PasswordReset and AccountMail.
+Password mutation and reset consumption lock the user row and commit together with
+session/token invalidation and audit. Password login takes the same lock and rechecks
+the verified password hash before creating a session, closing the old-password login race.
+
+AccountMailService polls a durable PostgreSQL outbox in the API process, separate from
+workflow execution and workspace credentials. A row is claimed before dispatch; its
+message is encrypted with the existing vault, scrubbed after an attempt, and uncertain
+dispatches are not retried automatically. SMTP remains opt-in through installation
+configuration. No new Redis queue, workflow node or provider credential type is introduced.
+Retention, activation and known boundaries: `docs/29-account-recovery.md`.
+
 ## System shape
 
 ```text

@@ -27,16 +27,28 @@ export function usePointerTilt(ref: RefObject<HTMLElement | null>, paused = fals
     if (!element || paused) return;
     const media = gsap.matchMedia();
     media.add("(prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine)", () => {
-      gsap.set(element, { transformPerspective: 1400 });
-      const x = gsap.quickTo(element, "rotationX", { duration: 0.45, ease: uiMotion.ease });
-      const y = gsap.quickTo(element, "rotationY", { duration: 0.45, ease: uiMotion.ease });
-      const reset = () => { x(0); y(0); };
+      element.dataset.pointerDepth = "active";
+      gsap.set(element, {
+        transformPerspective: 1400,
+        transformOrigin: "50% 50%",
+        "--landing-depth-x": 0,
+        "--landing-depth-y": 0,
+      });
+      const x = gsap.quickTo(element, "rotationX", { duration: 0.5, ease: "power3.out" });
+      const y = gsap.quickTo(element, "rotationY", { duration: 0.5, ease: "power3.out" });
+      const depthX = gsap.quickTo(element, "--landing-depth-x", { duration: 0.5, ease: "power3.out" });
+      const depthY = gsap.quickTo(element, "--landing-depth-y", { duration: 0.5, ease: "power3.out" });
+      const reset = () => { x(0); y(0); depthX(0); depthY(0); };
       const move = (event: PointerEvent) => {
         if (event.pointerType !== "mouse") return;
         if (event.target instanceof Element && event.target.closest("button, a, input")) { reset(); return; }
         const bounds = element.getBoundingClientRect();
-        y(((event.clientX - bounds.left) / bounds.width - 0.5) * 5);
-        x(((event.clientY - bounds.top) / bounds.height - 0.5) * -4);
+        const pointerX = Math.max(-1, Math.min(1, ((event.clientX - bounds.left) / bounds.width - 0.5) * 2));
+        const pointerY = Math.max(-1, Math.min(1, ((event.clientY - bounds.top) / bounds.height - 0.5) * 2));
+        y(pointerX * 8);
+        x(pointerY * -7);
+        depthX(pointerX);
+        depthY(pointerY);
       };
       element.addEventListener("pointermove", move);
       element.addEventListener("pointerleave", reset);
@@ -45,6 +57,7 @@ export function usePointerTilt(ref: RefObject<HTMLElement | null>, paused = fals
         element.removeEventListener("pointermove", move);
         element.removeEventListener("pointerleave", reset);
         element.removeEventListener("focusin", reset);
+        delete element.dataset.pointerDepth;
       };
     }, element);
     return () => media.revert();

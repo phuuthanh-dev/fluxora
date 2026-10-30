@@ -35,7 +35,8 @@ examples against installed versions; a skill is guidance, not executable proof.
 
 1. Keep scroll choreography, WebGL and Lenis in the marketing feature. The
    owner's 2026-10-29 request extends short GSAP interaction motion to shared
-   product primitives. Gilroy and semantic tokens remain the design foundation.
+   product primitives. Gilroy and semantic tokens remain the product foundation;
+   official Relay marketing typography is scoped to the landing.
 2. Run animation setup inside a client effect. Register plugins before use.
    Existing `useEffect` plus scoped `gsap.matchMedia` is sufficient; the React
    skill explicitly permits context cleanup without adding `@gsap/react`.
@@ -47,7 +48,7 @@ examples against installed versions; a skill is guidance, not executable proof.
    the existing handoff's measured geometry; optimization is separate work.
 5. Keep readable server markup, reduced-motion and pause paths. The first
    reveal frame remains readable; do not hide focusable controls with opacity 0.
-6. Preserve one GSAP/Lenis/R3F ticker. Refresh after actual layout changes, not
+6. Preserve one GSAP/Lenis/Three.js ticker. Refresh after actual layout changes, not
    on each animation frame. Do not add another smooth-scroll owner or global
    tween defaults to implement one section.
 7. Verify the affected motion in an ordered recording and at mobile/tablet/
@@ -125,3 +126,56 @@ open and its summary click is controlled by React; native delayed `toggle`
 events must not reopen a menu after Escape. The existing surface hook receives
 the open state and cleans up on close. Repeated keyboard dismissal and actual
 menu absence are asserted in product-experience E2E.
+
+## Relay template completion (2026-10-30)
+The supplied intro, board boot and packet loops use scoped GSAP timelines;
+no second RAF/spring library is added. Intro release is bounded, skippable and
+restores overflow/inert on every exit. Hero packets stop offscreen/hidden/paused.
+Frosted layers must be viewport-bounded to avoid document-sized filter rasters.
+Statement motion clips a square-first shell while keeping copy at natural scale;
+run-planner digits retain an accessible textual output. See docs/30.
+
+## P0–P2 finishing contract (2026-10-30)
+
+The landing's final Relay-informed pass remains deliberately small: the Product
+section receives a dark reading veil whenever the lime stream passes behind it;
+the navigation begins optically light and becomes a bounded frosted plate after
+the hero threshold; and the desktop cursor/hero depth are fine-pointer-only.
+The integration rail is a single scoped GSAP timeline (rail first, then app
+icons), while reliability cards use existing `LandingReveal` entries. The footer
+continues to use its existing reveal owner and adds only CSS fine-pointer
+elevation, so it remains fully static for touch and reduced motion.
+
+The visible sample pauses longer at its first active node. That is product
+feedback, not network latency: its browser scenario is explicitly `test.slow()`
+and gives the final illustrative status a 15-second assertion budget without
+relaxing any product/API journey. Cursor exit uses a related-target-aware
+`mouseout` listener; all new cursor/rail work reverts through the existing
+`gsap.matchMedia` context. Do not use nested `gsap.context` inside that media
+context or add an additional ticker.
+
+The integration rail's decorative signal uses a scoped GSAP timeline and
+ScrollTrigger to pause while offscreen. Pause, reduced motion and unmount
+revert its styles and remove the trigger; inventory labels remain visible.
+
+The intro must be the first visible frame in the server HTML, then dismiss only
+after its client-side readiness choreography; otherwise visitors see a static
+landing flash before the GSAP sequence starts. The no-JavaScript path explicitly
+hides that loader. Integration inventory uses a fixed icon slot and card rhythm.
+Never stretch or repeat a narrow decorative source slice across a section: the
+Relay accent is a small vertical element, not a full-width background.
+
+Prewarm the decorative Three scene and prepare the hero GSAP timeline behind
+the intro overlay. Start the hero timeline when the lime plate begins to fold,
+or immediately when the visitor skips the intro. `introReady` remains an interaction guard (for example, the sample
+run button), not a mount gate for those first-viewport visual systems. Mounting
+the canvas and hero timelines only as the overlay disappears produces a second,
+false “reload” beat. Scroll-pinned and offscreen section geometry remains
+gated until the intro completes, because it must measure the final document
+geometry.
+
+The statement dock reads fresh geometry on native scroll and schedules one
+coalesced follow-up frame for sticky mobile layout. That is a bounded layout
+settle; cancel it on cleanup. During docking, the existing GSAP ticker follows
+the destination while its section reveal moves. An IntersectionObserver gates
+those per-frame geometry reads to the nearby viewport; both are removed on cleanup.

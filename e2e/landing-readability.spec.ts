@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 
 test.use({ video: process.env.LANDING_RECORD_VIDEO ? "on" : "off" });
 
@@ -23,6 +25,10 @@ for (const width of [375, 768, 1440]) {
       expect(Math.min(...sizes), selector).toBeGreaterThanOrEqual(minimum);
     }
     await expect(page.locator("body")).toHaveCSS("font-family", /gilroy/i);
+    await expect(page.locator(".landing-page")).toHaveCSS("font-family", /Inter/);
+    await expect(page.locator("h1 em")).toHaveCSS("font-family", /Instrument Serif/);
+    await expect(page.locator(".landing-eyebrow").first()).toHaveCSS("font-family", /Fragment Mono/);
+    expect(await page.locator(".landing-page").evaluate(el => getComputedStyle(el).getPropertyValue("--relay-lime").trim())).toBe("#c8f751");
     const footer = page.getByRole("contentinfo", { name: "Fluxora footer" });
     await footer.scrollIntoViewIfNeeded();
     await expect(footer.getByRole("link", { name: "GitHub" })).toHaveAttribute("href", "https://github.com/phuuthanh-dev/workflow-automation");
@@ -64,4 +70,44 @@ test("GSAP section entrances respect pause and preference changes", async ({ pag
   await page.locator("header").getByRole("link", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.locator(".landing-reveal")).toHaveCount(0);
+});
+
+
+test("nested section titles reveal and remain readable with motion disabled", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator(".landing-loader")).toBeHidden({ timeout: 8000 });
+  const title = page.locator("#daily-heading");
+  await title.scrollIntoViewIfNeeded();
+  await expect.poll(() => title.evaluate((element) => element.style.clipPath)).toContain("inset");
+  await expect(title).toHaveCSS("opacity", "1");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(title).toHaveCSS("opacity", "1");
+  await expect(title).toHaveCSS("clip-path", "none");
+});
+
+test("frosted surfaces retain their standard backdrop filter after CSS compilation", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  const slab = page.locator(".landing-frosted-slab");
+  await expect.poll(() => slab.evaluate((element) => getComputedStyle(element, "::before").backdropFilter)).toBe("blur(12px)");
+  // A sticky blur may otherwise escape its parent and obscure the next section.
+  await expect(slab).toHaveCSS("overflow", "clip");
+  await expect(page.locator(".landing-demo")).toHaveCSS("backdrop-filter", "blur(24px)");
+  await page.evaluate(() => window.scrollTo(0, 400));
+  await expect(page.locator(".landing-nav")).toHaveAttribute("data-scrolled", "true");
+  await expect(page.locator(".landing-nav")).toHaveCSS("backdrop-filter", "blur(22px)");
+});
+
+test("Relay artwork is local and intact", async ({ request }) => {
+  const manifest = JSON.parse(await readFile("apps/web/public/relay/manifest.json", "utf8")) as {
+    assets: { path: string; sha256: string; bytes: number }[];
+  };
+  expect(manifest.assets.length).toBeGreaterThan(0);
+  for (const asset of manifest.assets) {
+    const response = await request.get(`/relay/${asset.path}`);
+    expect(response.ok(), asset.path).toBe(true);
+    const bytes = await response.body();
+    expect(bytes.length, asset.path).toBe(asset.bytes);
+    expect(createHash("sha256").update(bytes).digest("hex"), asset.path).toBe(asset.sha256);
+  }
 });

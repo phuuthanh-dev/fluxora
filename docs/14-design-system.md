@@ -10,16 +10,15 @@ surfaces, execution views, and future routes.
 
 ## Intent
 
-The product uses the purchased Relay prompt as a visual reference for its
-public landing: near-black surfaces, lime energy, engineered spacing, and
-quiet movement. The Fluxora implementation is clean-room code: the purchased
-source has not been imported, extracted from the preview, or committed to this
-public repository. These values remain an intentional Fluxora adaptation, not
-a claim of pixel-perfect or proprietary Relay tokens.
+The public landing now adopts the owner-supplied Relay reconstruction specification
+and selected original artwork. Inter, Instrument Serif italic and Fragment Mono
+are bundled for this route, with #c8f751 lime. The original paid document and full
+asset package remain private. See `30-relay-reference-adoption.md` for provenance,
+choreography and deliberate adaptations; this is not a pixel-perfect claim.
 
 The landing stays deliberately dark. Authenticated pages, including the shell,
 command surfaces and overlays, follow the selected light/dark theme. They share
-the landing's brand, Gilroy family, lime action hierarchy and spacing rhythm,
+the landing's brand, lime action hierarchy and spacing rhythm; the product retains Gilroy,
 with a compact scale for work. Marketing display typography and WebGL remain
 exclusive to the landing.
 
@@ -59,7 +58,7 @@ only when it is a provider brand color or a clearly documented semantic state.
 | Dark border | `--relay-surface-border` | `#303a32` |
 | Dark text | `--relay-text` | `#f3f6ec` |
 | Muted dark text | `--relay-muted` | `#9aa596` |
-| Primary lime | `--relay-lime` | `#d6ff32`, primary action and focus |
+| Primary lime | `--relay-lime` | `#c8f751`, primary action and focus |
 | Strong lime | `--relay-lime-strong` | `#b8ed00`, icon/link emphasis |
 | Soft lime | `--relay-lime-soft` | `#efffc4`, selected/soft background |
 | Canvas | `--canvas` | `#f5f7f1`, graph and dashboard background |
@@ -143,14 +142,13 @@ retain native scrolling and semantic HTML controls. See `26-gsap-workflow.md`.
 - Cap the canvas DPR at 1.5, keep geometry/draw calls bounded, and do not add
   post-processing, controls, remote models, texture downloads, or autoplay
   video without a measured product need and an updated performance budget.
-- The current landing uses one procedural Catmull-Rom ribbon with Perlin-noise
-  GLSL filaments and analytic glow. A 2,048-entry local lookup field replaces
-  the offset strip so broad bends cannot self-intersect. GSAP ScrollTrigger
-  and Lenis share one ticker with manually advanced R3F; DPR is capped at 1.25
-  (0.5 on software rasterizers, with native-resolution DOM text). The owner's latest
-  brief explicitly supersedes the earlier hero-only/no-Lenis boundary.
-  A renderer failure/context loss falls back to SVG; pause/reduced-motion/hidden
-  tab removes the renderer, destroys Lenis and releases the owned trigger.
+- The official-reference landing (2026-10-30) uses 36,000 seeded particles,
+  44 spline filaments and bounded bloom, with reduced mobile/software tiers.
+  A 2,048 × 2 float texture morphs in place during layout changes. GSAP, Lenis
+  and the Three.js composer share one ticker; R3F no longer owns the scene.
+  DPR caps are 1.35/1.2/.5; details and provenance live in
+  `docs/30-relay-reference-adoption.md`. Pause/reduced-motion/hidden-tab and
+  renderer failure retain the semantic/SVG fallback and dispose owned resources.
 - Route-scoped `features/marketing/landing.css` owns marketing composition;
   reuse global brand tokens and the offline provider icons. Marketing-only
   serif emphasis must not change app typography.
@@ -160,10 +158,11 @@ retain native scrolling and semantic HTML controls. See `26-gsap-workflow.md`.
   separation of scroll from autonomous light movement, and a browser recording.
   Static screenshots and passing E2E tests alone do not establish similarity.
 
-The public landing information architecture and its explicit clean-room
+The public landing information architecture and its official-source adoption
 boundaries are recorded in `docs/22-public-landing-v2.md`. Treat that document
-as the route-level contract before expanding the landing; do not import a
-third-party renderer, media asset, font, copy, or claimed pricing model.
+as the route-level contract before expanding the landing. Selected owner-supplied
+Relay assets/fonts/shaders are explicitly allowed under the 2026-10-30 adoption
+scope; this does not permit invented product claims or unrelated imports.
 11. **Theme parity:** every new surface must be readable in both
     `data-theme="light"` and `data-theme="dark"`; do not use a hard-coded white
     or black background for product UI.
@@ -260,7 +259,7 @@ light-theme gray values.
 
 ## Purchased-template migration checklist
 
-When Relay is purchased:
+For future additions to the purchased Relay adoption:
 
 1. keep downloaded source and license material out of this public repository;
 2. inspect its token/typography/spacing manifest only if the licence permits;

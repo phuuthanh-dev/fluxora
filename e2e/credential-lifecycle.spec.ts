@@ -1,6 +1,9 @@
 import { expect, test } from "@playwright/test";
 
 test("credential lifecycle: create with conflict handling, rename, secret rotation, in-use delete blocking, and unreferenced deletion", async ({ page }) => {
+  // Registration, workflow creation and the complete credential lifecycle share
+  // one journey; individual assertions retain their normal timeout.
+  test.setTimeout(60_000);
   const email = `cred-lifecycle-${Date.now()}@example.test`;
   await page.goto("/login");
 

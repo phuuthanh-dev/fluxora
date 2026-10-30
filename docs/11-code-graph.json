@@ -67,6 +67,57 @@
       ]
     },
     {
+      "id": "apps/api/src/auth/account-mail.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential-vault.service.ts",
+        "apps/api/src/database/prisma.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "nodemailer"
+      ]
+    },
+    {
+      "id": "apps/api/src/auth/account-request.guard.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@nestjs/common",
+        "express"
+      ]
+    },
+    {
+      "id": "apps/api/src/auth/account.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/account-mail.service.ts",
+        "apps/api/src/auth/account-request.guard.ts",
+        "apps/api/src/auth/account.service.ts",
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "express"
+      ]
+    },
+    {
+      "id": "apps/api/src/auth/account.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/account-mail.service.ts",
+        "apps/api/src/database/prisma.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client",
+        "argon2",
+        "node:crypto",
+        "node:timers/promises"
+      ]
+    },
+    {
       "id": "apps/api/src/auth/auth-rate-limit.guard.ts",
       "boundary": "api",
       "internalImports": [],
@@ -99,10 +150,15 @@
       "id": "apps/api/src/auth/auth.module.ts",
       "boundary": "api",
       "internalImports": [
+        "apps/api/src/auth/account-mail.service.ts",
+        "apps/api/src/auth/account-request.guard.ts",
+        "apps/api/src/auth/account.controller.ts",
+        "apps/api/src/auth/account.service.ts",
         "apps/api/src/auth/auth-rate-limit.guard.ts",
         "apps/api/src/auth/auth.controller.ts",
         "apps/api/src/auth/auth.service.ts",
-        "apps/api/src/auth/authentication.guard.ts"
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/credentials/credential-vault.service.ts"
       ],
       "externalImports": [
         "@nestjs/common"
@@ -976,6 +1032,15 @@
       ]
     },
     {
+      "id": "apps/web/src/app/forgot-password/page.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/auth/password-recovery.tsx",
+        "apps/web/src/features/public-site/site.ts"
+      ],
+      "externalImports": []
+    },
+    {
       "id": "apps/web/src/app/layout.tsx",
       "boundary": "web",
       "internalImports": [
@@ -1049,6 +1114,15 @@
       ]
     },
     {
+      "id": "apps/web/src/app/reset-password/page.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/auth/password-recovery.tsx",
+        "apps/web/src/features/public-site/site.ts"
+      ],
+      "externalImports": []
+    },
+    {
       "id": "apps/web/src/app/robots.ts",
       "boundary": "web",
       "internalImports": [
@@ -1057,6 +1131,15 @@
       "externalImports": [
         "next"
       ]
+    },
+    {
+      "id": "apps/web/src/app/settings/account/page.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/auth/account-settings.tsx",
+        "apps/web/src/features/public-site/site.ts"
+      ],
+      "externalImports": []
     },
     {
       "id": "apps/web/src/app/sitemap.ts",
@@ -1291,20 +1374,69 @@
       ]
     },
     {
-      "id": "apps/web/src/features/auth/login-form.tsx",
+      "id": "apps/web/src/features/auth/account-settings.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/api/api-client.ts",
+        "apps/web/src/features/app-shell/app-shell-header.tsx",
+        "apps/web/src/features/auth/password-field.tsx"
+      ],
+      "externalImports": [
+        "lucide-react",
+        "next/link",
+        "next/navigation",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/auth/auth-navigation.tsx",
       "boundary": "web",
       "internalImports": [
         "apps/web/src/components/brand/brand-lockup.tsx",
+        "apps/web/src/features/theme/theme-toggle.tsx"
+      ],
+      "externalImports": [
+        "lucide-react",
+        "next/link"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/auth/login-form.tsx",
+      "boundary": "web",
+      "internalImports": [
         "apps/web/src/components/brand/oauth-provider-icon.tsx",
         "apps/web/src/components/ui/ui-motion.ts",
         "apps/web/src/features/api/api-client.ts",
-        "apps/web/src/features/theme/theme-toggle.tsx",
+        "apps/web/src/features/auth/auth-navigation.tsx",
         "apps/web/src/features/workflow/node-icon.tsx"
       ],
       "externalImports": [
         "lucide-react",
         "next/link",
         "next/navigation",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/auth/password-field.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "lucide-react",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/auth/password-recovery.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/api/api-client.ts",
+        "apps/web/src/features/auth/auth-navigation.tsx",
+        "apps/web/src/features/auth/password-field.tsx"
+      ],
+      "externalImports": [
+        "lucide-react",
+        "next/link",
         "react"
       ]
     },
@@ -1407,8 +1539,28 @@
         "apps/web/src/features/workflow/node-icon.tsx"
       ],
       "externalImports": [
+        "gsap",
         "lucide-react",
         "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/marketing/landing-fold.ts",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
+      "id": "apps/web/src/features/marketing/landing-footer.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/brand/fluxora-mark.tsx",
+        "apps/web/src/features/marketing/landing-motion.tsx",
+        "apps/web/src/features/public-site/site.ts"
+      ],
+      "externalImports": [
+        "lucide-react",
+        "next/link"
       ]
     },
     {
@@ -1416,8 +1568,22 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/components/brand/fluxora-mark.tsx",
+        "apps/web/src/features/marketing/landing-fold.ts",
         "apps/web/src/features/marketing/landing-motion.tsx",
         "apps/web/src/features/marketing/landing-sections.tsx"
+      ],
+      "externalImports": [
+        "gsap",
+        "gsap/ScrollTrigger",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/marketing/landing-integrations.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/marketing/landing-motion.tsx",
+        "apps/web/src/features/workflow/node-icon.tsx"
       ],
       "externalImports": [
         "gsap",
@@ -1441,9 +1607,22 @@
       ]
     },
     {
+      "id": "apps/web/src/features/marketing/landing-intro.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/brand/fluxora-mark.tsx"
+      ],
+      "externalImports": [
+        "gsap",
+        "react"
+      ]
+    },
+    {
       "id": "apps/web/src/features/marketing/landing-motion.tsx",
       "boundary": "web",
-      "internalImports": [],
+      "internalImports": [
+        "apps/web/src/features/marketing/landing-intro.tsx"
+      ],
       "externalImports": [
         "gsap",
         "gsap/ScrollTrigger",
@@ -1456,16 +1635,22 @@
       "internalImports": [
         "apps/web/src/components/brand/fluxora-mark.tsx",
         "apps/web/src/features/marketing/landing-demo.tsx",
+        "apps/web/src/features/marketing/landing-footer.tsx",
         "apps/web/src/features/marketing/landing-handoff.tsx",
+        "apps/web/src/features/marketing/landing-integrations.tsx",
         "apps/web/src/features/marketing/landing-interactions.tsx",
         "apps/web/src/features/marketing/landing-motion.tsx",
+        "apps/web/src/features/marketing/landing-run-meter.tsx",
         "apps/web/src/features/marketing/landing-scenes.tsx",
         "apps/web/src/features/marketing/landing-sections.tsx",
-        "apps/web/src/features/marketing/landing-showcase.tsx",
-        "apps/web/src/features/public-site/site.ts",
-        "apps/web/src/features/workflow/node-icon.tsx"
+        "apps/web/src/features/marketing/landing-showcase.tsx"
       ],
       "externalImports": [
+        "@fontsource/fragment-mono/400.css",
+        "@fontsource/instrument-serif/400-italic.css",
+        "@fontsource/inter/400.css",
+        "@fontsource/inter/500.css",
+        "@fontsource/inter/600.css",
         "lucide-react",
         "next/link"
       ]
@@ -1483,6 +1668,19 @@
       "boundary": "web",
       "internalImports": [],
       "externalImports": []
+    },
+    {
+      "id": "apps/web/src/features/marketing/landing-run-meter.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/marketing/landing-motion.tsx"
+      ],
+      "externalImports": [
+        "gsap",
+        "lucide-react",
+        "next/link",
+        "react"
+      ]
     },
     {
       "id": "apps/web/src/features/marketing/landing-scenes.tsx",
@@ -1526,20 +1724,32 @@
       ]
     },
     {
+      "id": "apps/web/src/features/marketing/landing-stream-particles.ts",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "three"
+      ]
+    },
+    {
       "id": "apps/web/src/features/marketing/landing-three-scenes.tsx",
       "boundary": "web",
       "internalImports": [
         "apps/web/src/features/marketing/landing-ribbon-geometry.ts",
-        "apps/web/src/features/marketing/landing-ribbon-shader.ts"
+        "apps/web/src/features/marketing/landing-ribbon-shader.ts",
+        "apps/web/src/features/marketing/landing-stream-particles.ts"
       ],
       "externalImports": [
-        "@react-three/fiber",
         "gsap",
         "gsap/ScrollTrigger",
         "lenis",
         "lenis/dist/lenis.css",
         "react",
-        "three"
+        "three",
+        "three/addons/postprocessing/EffectComposer.js",
+        "three/addons/postprocessing/OutputPass.js",
+        "three/addons/postprocessing/RenderPass.js",
+        "three/addons/postprocessing/UnrealBloomPass.js"
       ]
     },
     {
@@ -1830,6 +2040,42 @@
       "to": "apps/api/src/execution/execution.module.ts"
     },
     {
+      "from": "apps/api/src/auth/account-mail.service.ts",
+      "to": "apps/api/src/credentials/credential-vault.service.ts"
+    },
+    {
+      "from": "apps/api/src/auth/account-mail.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/auth/account.controller.ts",
+      "to": "apps/api/src/auth/account-mail.service.ts"
+    },
+    {
+      "from": "apps/api/src/auth/account.controller.ts",
+      "to": "apps/api/src/auth/account-request.guard.ts"
+    },
+    {
+      "from": "apps/api/src/auth/account.controller.ts",
+      "to": "apps/api/src/auth/account.service.ts"
+    },
+    {
+      "from": "apps/api/src/auth/account.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/auth/account.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/auth/account.service.ts",
+      "to": "apps/api/src/auth/account-mail.service.ts"
+    },
+    {
+      "from": "apps/api/src/auth/account.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
       "from": "apps/api/src/auth/auth.controller.ts",
       "to": "apps/api/src/auth/auth-rate-limit.guard.ts"
     },
@@ -1863,6 +2109,22 @@
     },
     {
       "from": "apps/api/src/auth/auth.module.ts",
+      "to": "apps/api/src/auth/account-mail.service.ts"
+    },
+    {
+      "from": "apps/api/src/auth/auth.module.ts",
+      "to": "apps/api/src/auth/account-request.guard.ts"
+    },
+    {
+      "from": "apps/api/src/auth/auth.module.ts",
+      "to": "apps/api/src/auth/account.controller.ts"
+    },
+    {
+      "from": "apps/api/src/auth/auth.module.ts",
+      "to": "apps/api/src/auth/account.service.ts"
+    },
+    {
+      "from": "apps/api/src/auth/auth.module.ts",
       "to": "apps/api/src/auth/auth-rate-limit.guard.ts"
     },
     {
@@ -1876,6 +2138,10 @@
     {
       "from": "apps/api/src/auth/auth.module.ts",
       "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/auth/auth.module.ts",
+      "to": "apps/api/src/credentials/credential-vault.service.ts"
     },
     {
       "from": "apps/api/src/auth/auth.service.ts",
@@ -2618,6 +2884,14 @@
       "to": "apps/web/src/features/public-site/site.ts"
     },
     {
+      "from": "apps/web/src/app/forgot-password/page.tsx",
+      "to": "apps/web/src/features/auth/password-recovery.tsx"
+    },
+    {
+      "from": "apps/web/src/app/forgot-password/page.tsx",
+      "to": "apps/web/src/features/public-site/site.ts"
+    },
+    {
       "from": "apps/web/src/app/layout.tsx",
       "to": "apps/web/src/features/public-site/site.ts"
     },
@@ -2650,7 +2924,23 @@
       "to": "apps/web/src/features/public-site/site.ts"
     },
     {
+      "from": "apps/web/src/app/reset-password/page.tsx",
+      "to": "apps/web/src/features/auth/password-recovery.tsx"
+    },
+    {
+      "from": "apps/web/src/app/reset-password/page.tsx",
+      "to": "apps/web/src/features/public-site/site.ts"
+    },
+    {
       "from": "apps/web/src/app/robots.ts",
+      "to": "apps/web/src/features/public-site/site.ts"
+    },
+    {
+      "from": "apps/web/src/app/settings/account/page.tsx",
+      "to": "apps/web/src/features/auth/account-settings.tsx"
+    },
+    {
+      "from": "apps/web/src/app/settings/account/page.tsx",
       "to": "apps/web/src/features/public-site/site.ts"
     },
     {
@@ -2766,8 +3056,24 @@
       "to": "apps/web/src/features/theme/theme-toggle.tsx"
     },
     {
-      "from": "apps/web/src/features/auth/login-form.tsx",
+      "from": "apps/web/src/features/auth/account-settings.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/auth/account-settings.tsx",
+      "to": "apps/web/src/features/app-shell/app-shell-header.tsx"
+    },
+    {
+      "from": "apps/web/src/features/auth/account-settings.tsx",
+      "to": "apps/web/src/features/auth/password-field.tsx"
+    },
+    {
+      "from": "apps/web/src/features/auth/auth-navigation.tsx",
       "to": "apps/web/src/components/brand/brand-lockup.tsx"
+    },
+    {
+      "from": "apps/web/src/features/auth/auth-navigation.tsx",
+      "to": "apps/web/src/features/theme/theme-toggle.tsx"
     },
     {
       "from": "apps/web/src/features/auth/login-form.tsx",
@@ -2783,11 +3089,23 @@
     },
     {
       "from": "apps/web/src/features/auth/login-form.tsx",
-      "to": "apps/web/src/features/theme/theme-toggle.tsx"
+      "to": "apps/web/src/features/auth/auth-navigation.tsx"
     },
     {
       "from": "apps/web/src/features/auth/login-form.tsx",
       "to": "apps/web/src/features/workflow/node-icon.tsx"
+    },
+    {
+      "from": "apps/web/src/features/auth/password-recovery.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/auth/password-recovery.tsx",
+      "to": "apps/web/src/features/auth/auth-navigation.tsx"
+    },
+    {
+      "from": "apps/web/src/features/auth/password-recovery.tsx",
+      "to": "apps/web/src/features/auth/password-field.tsx"
     },
     {
       "from": "apps/web/src/features/credentials/connections-dashboard.tsx",
@@ -2882,8 +3200,24 @@
       "to": "apps/web/src/features/workflow/node-icon.tsx"
     },
     {
+      "from": "apps/web/src/features/marketing/landing-footer.tsx",
+      "to": "apps/web/src/components/brand/fluxora-mark.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-footer.tsx",
+      "to": "apps/web/src/features/marketing/landing-motion.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-footer.tsx",
+      "to": "apps/web/src/features/public-site/site.ts"
+    },
+    {
       "from": "apps/web/src/features/marketing/landing-handoff.tsx",
       "to": "apps/web/src/components/brand/fluxora-mark.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-handoff.tsx",
+      "to": "apps/web/src/features/marketing/landing-fold.ts"
     },
     {
       "from": "apps/web/src/features/marketing/landing-handoff.tsx",
@@ -2892,6 +3226,14 @@
     {
       "from": "apps/web/src/features/marketing/landing-handoff.tsx",
       "to": "apps/web/src/features/marketing/landing-sections.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-integrations.tsx",
+      "to": "apps/web/src/features/marketing/landing-motion.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-integrations.tsx",
+      "to": "apps/web/src/features/workflow/node-icon.tsx"
     },
     {
       "from": "apps/web/src/features/marketing/landing-interactions.tsx",
@@ -2910,6 +3252,14 @@
       "to": "apps/web/src/features/marketing/landing-motion.tsx"
     },
     {
+      "from": "apps/web/src/features/marketing/landing-intro.tsx",
+      "to": "apps/web/src/components/brand/fluxora-mark.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-motion.tsx",
+      "to": "apps/web/src/features/marketing/landing-intro.tsx"
+    },
+    {
       "from": "apps/web/src/features/marketing/landing-page.tsx",
       "to": "apps/web/src/components/brand/fluxora-mark.tsx"
     },
@@ -2919,7 +3269,15 @@
     },
     {
       "from": "apps/web/src/features/marketing/landing-page.tsx",
+      "to": "apps/web/src/features/marketing/landing-footer.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-page.tsx",
       "to": "apps/web/src/features/marketing/landing-handoff.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-page.tsx",
+      "to": "apps/web/src/features/marketing/landing-integrations.tsx"
     },
     {
       "from": "apps/web/src/features/marketing/landing-page.tsx",
@@ -2928,6 +3286,10 @@
     {
       "from": "apps/web/src/features/marketing/landing-page.tsx",
       "to": "apps/web/src/features/marketing/landing-motion.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-page.tsx",
+      "to": "apps/web/src/features/marketing/landing-run-meter.tsx"
     },
     {
       "from": "apps/web/src/features/marketing/landing-page.tsx",
@@ -2942,12 +3304,8 @@
       "to": "apps/web/src/features/marketing/landing-showcase.tsx"
     },
     {
-      "from": "apps/web/src/features/marketing/landing-page.tsx",
-      "to": "apps/web/src/features/public-site/site.ts"
-    },
-    {
-      "from": "apps/web/src/features/marketing/landing-page.tsx",
-      "to": "apps/web/src/features/workflow/node-icon.tsx"
+      "from": "apps/web/src/features/marketing/landing-run-meter.tsx",
+      "to": "apps/web/src/features/marketing/landing-motion.tsx"
     },
     {
       "from": "apps/web/src/features/marketing/landing-scenes.tsx",
@@ -2992,6 +3350,10 @@
     {
       "from": "apps/web/src/features/marketing/landing-three-scenes.tsx",
       "to": "apps/web/src/features/marketing/landing-ribbon-shader.ts"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-three-scenes.tsx",
+      "to": "apps/web/src/features/marketing/landing-stream-particles.ts"
     },
     {
       "from": "apps/web/src/features/public-site/public-shell.tsx",

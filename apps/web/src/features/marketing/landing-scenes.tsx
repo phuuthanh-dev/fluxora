@@ -84,6 +84,8 @@ export function LandingLightStream() {
     };
   }, []);
 
+  // Start the one expensive visual scene behind the loader. Mounting it only
+  // after intro completion made the reveal look like the page had reloaded.
   const enabled = supported && documentVisible && !failed && !paused;
   useEffect(() => {
     if (!enabled) setReady(false);
@@ -108,8 +110,8 @@ export function LandingLightStream() {
         >
           <defs>
             <linearGradient id="stream-fallback-edge">
-              <stop stopColor="#d6ff32" stopOpacity="0" />
-              <stop offset=".5" stopColor="#d6ff32" stopOpacity=".35" />
+              <stop stopColor="#c8f751" stopOpacity="0" />
+              <stop offset=".5" stopColor="#c8f751" stopOpacity=".35" />
               <stop offset="1" stopColor="#90d9c0" stopOpacity=".05" />
             </linearGradient>
           </defs>

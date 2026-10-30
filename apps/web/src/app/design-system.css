@@ -8,7 +8,7 @@
   --relay-surface-border: #303a32;
   --relay-text: #f3f6ec;
   --relay-muted: #9aa596;
-  --relay-lime: #d6ff32;
+  --relay-lime: #c8f751;
   --relay-lime-strong: #b8ed00;
   --relay-lime-soft: #efffc4;
   --font-ui: var(--font-fluxora-gilroy), Arial, sans-serif;
@@ -123,10 +123,10 @@
   --marketing-surface: var(--brand-surface);
   --marketing-surface-raised: #141b15;
   --marketing-border: #2d3a2f;
-  --marketing-grid: rgba(214, 255, 50, 0.09);
+  --marketing-grid: rgba(200, 247, 81, 0.09);
   --marketing-text: #f3f6ec;
   --marketing-muted: #a8b3a4;
-  --marketing-glow: rgba(214, 255, 50, 0.18);
+  --marketing-glow: rgba(200, 247, 81, 0.18);
 }
 
 [data-theme="dark"] {
@@ -143,7 +143,7 @@
   --relay-surface-border: #2d3a2f;
   --relay-text: #f3f6ec;
   --relay-muted: #a8b3a4;
-  --relay-lime: #d6ff32;
+  --relay-lime: #c8f751;
   --relay-lime-strong: #c6f21b;
   --relay-lime-soft: #2c3b0b;
   --font-ui: var(--font-fluxora-gilroy), Arial, sans-serif;

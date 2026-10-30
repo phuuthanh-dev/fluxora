@@ -1,6 +1,6 @@
 "use client";
 
-import { History, LayoutDashboard, LogOut, PlugZap } from "lucide-react";
+import { History, LayoutDashboard, LogOut, PlugZap, Settings } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiRequest, apiUrl } from "../api/api-client";
@@ -17,7 +17,7 @@ type AppShellHeaderProps = {
   workspaces: AppShellWorkspace[];
   workspaceId: string;
   onWorkspaceChange: (workspaceId: string) => void;
-  active: "dashboard" | "connections" | "executions" | "editor";
+  active: "dashboard" | "connections" | "executions" | "editor" | "account";
 };
 
 function providerLabel(provider: Identity["provider"]) {
@@ -36,6 +36,7 @@ export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, act
   const [identities, setIdentities] = useState<Identity[]>([]);
   const [providers, setProviders] = useState<ProviderStatus>({ google: false, github: false, steam: false });
   const [unlinking, setUnlinking] = useState<Identity["provider"] | null>(null);
+  const [identityError, setIdentityError] = useState<string | null>(null);
 
   useEffect(() => {
     let activeRequest = true;
@@ -58,9 +59,12 @@ export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, act
   };
   const unlink = async (provider: Identity["provider"]) => {
     setUnlinking(provider);
+    setIdentityError(null);
     try {
       const response = await apiRequest<{ identities: Identity[] }>(`/auth/identities/${provider.toLowerCase()}`, { method: "DELETE" });
       setIdentities(response.identities);
+    } catch (reason) {
+      setIdentityError(reason instanceof Error ? reason.message : "Could not unlink this account.");
     } finally {
       setUnlinking(null);
     }
@@ -82,6 +86,8 @@ export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, act
         <ThemeToggle />
         <Menu label="Account" trigger={<span className={`app-shell-avatar app-shell-avatar--${user?.avatarColor ?? "lime"}`} aria-hidden="true">{avatarInitials(user)}</span>} className="app-shell-account-menu">
           <p className="app-shell-account-menu__user">{user?.displayName ?? user?.email ?? "Your account"}</p>
+          <Button variant="ghost" onClick={() => router.push(`/settings/account?workspace=${encodeURIComponent(workspaceId)}`)}><Settings size={14} /> Account settings</Button>
+          {identityError && <p role="alert">{identityError}</p>}
           {identities.length ? identities.map((identity) => <div key={identity.provider}><span>{providerLabel(identity.provider)}{identity.provider === "STEAM" ? " linked" : ""}</span><Button variant="ghost" disabled={unlinking === identity.provider} onClick={() => void unlink(identity.provider)}>{unlinking === identity.provider ? "Unlinking…" : "Unlink"}</Button></div>) : <p>No external identities linked.</p>}
           {!identities.some((identity) => identity.provider === "STEAM") && <Button variant="ghost" disabled={!providers.steam} onClick={() => window.location.assign(`${apiUrl}/auth/steam/connect`)}>{providers.steam ? "Link Steam" : "Steam setup"}</Button>}
           <hr className="app-shell-account-menu__divider" />

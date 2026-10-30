@@ -2,111 +2,107 @@ import {
   CatmullRomCurve3,
   DataTexture,
   FloatType,
-  LinearFilter,
+  NearestFilter,
   RGBAFormat,
   Vector3,
 } from "three";
 
-export type LightWaypoint = { x: number; y: number; z: number };
-export type RibbonField = { values: Float32Array; minY: number; maxY: number };
+export const SPINE_SAMPLES = 2048;
+export type LightWaypoint = { x: number; y: number; z: number; pinch?: number };
+export type RibbonField = { values: Float32Array; length: number };
 
-/**
- * Project a Catmull-Rom spine into a small GPU lookup field. A broad offset mesh
- * self-intersects inside tight bends; the implicit field has no overlapping
- * triangles or diagonal UV seams, even where the light fans out.
- */
+/** Document-space spine and transported normal/turn radius; fixed-size GPU storage. */
 export function createRibbonField(
   points: LightWaypoint[],
-  viewportWidth: number,
-) {
+  unit = 1,
+): RibbonField {
   const curve = new CatmullRomCurve3(
-    points.map(
-      (point) =>
-        new Vector3(
-          (point.x - 0.5) * 10,
-          (-point.y / viewportWidth) * 10,
-          point.z,
-        ),
-    ),
+    points.map((p) => new Vector3(p.x, p.y, p.z)),
     false,
     "centripetal",
   );
   curve.arcLengthDivisions = 4096;
   curve.updateArcLengths();
-  const length = curve.getLength();
-  const samples = Array.from({ length: 4097 }, (_, index) => {
-    const progress = index / 4096;
-    const center = curve.getPointAt(progress);
-    return { x: center.x, y: -center.y, arc: progress * length };
-  }).sort((a, b) => a.y - b.y);
-  const first = samples[0]!,
-    last = samples[samples.length - 1]!;
-  const size = 2048,
-    values = new Float32Array(size * 4);
-  let cursor = 0;
-  for (let index = 0; index < size; index++) {
-    const y = first.y + ((last.y - first.y) * index) / (size - 1);
-    while (cursor < samples.length - 2 && samples[cursor + 1]!.y < y) cursor++;
-    const a = samples[cursor]!,
-      b = samples[cursor + 1]!;
-    const mix = Math.min(
-      1,
-      Math.max(0, (y - a.y) / Math.max(0.0001, b.y - a.y)),
+  const length = Math.max(1, curve.getLength());
+  const samples = curve.getSpacedPoints(SPINE_SAMPLES - 1);
+  const angles = samples.map((_, i) => {
+    const tangent = curve.getTangentAt(i / (SPINE_SAMPLES - 1));
+    return Math.atan2(tangent.y, tangent.x);
+  });
+  const radius = angles.map((_, i) => {
+    const delta =
+      angles[Math.min(SPINE_SAMPLES - 1, i + 12)]! -
+      angles[Math.max(0, i - 12)]!;
+    const turn = Math.abs(Math.atan2(Math.sin(delta), Math.cos(delta)));
+    return Math.min(
+      1e4,
+      (24 * length) / (SPINE_SAMPLES - 1) / Math.max(1e-4, turn) / unit,
     );
-    values[index * 4] = a.x + (b.x - a.x) * mix;
-    values[index * 4 + 1] = a.arc + (b.arc - a.arc) * mix;
-  }
-  const step = (last.y - first.y) / (size - 1);
-  for (let index = 0; index < size; index++) {
-    const before = Math.max(0, index - 4),
-      after = Math.min(size - 1, index + 4);
-    const x = values[index * 4]!,
-      left = values[before * 4]!,
-      right = values[after * 4]!;
-    const slope = (right - left) / Math.max(step, (after - before) * step);
-    const curvature =
-      Math.abs(right - 2 * x + left) /
-      Math.pow(4 * step, 2) /
-      Math.pow(1 + slope * slope, 1.5);
-    const pressure = 1 - Math.exp(-curvature * 2.0);
-    values[index * 4 + 2] = 2.8 - pressure * 1.7;
-    values[index * 4 + 3] = pressure;
-  }
-  // Smooth the envelope independently of the centerline so width never snaps
-  // at spline joins (Catmull-Rom has continuous tangent, not curvature).
-  const envelope = values.slice();
-  for (let index = 0; index < size; index++) {
-    let width = 0,
-      pressure = 0,
-      weight = 0;
-    for (let offset = -12; offset <= 12; offset++) {
-      const sample = Math.min(size - 1, Math.max(0, index + offset));
-      const w = 13 - Math.abs(offset);
-      width += envelope[sample * 4 + 2]! * w;
-      pressure += envelope[sample * 4 + 3]! * w;
-      weight += w;
+  });
+  const filter = (input: number[], reach: number, min: boolean) =>
+    input.map((_, i) => {
+      const start = Math.max(0, i - reach),
+        end = Math.min(input.length - 1, i + reach);
+      let value = min ? Infinity : 0;
+      for (let j = start; j <= end; j++)
+        value = min ? Math.min(value, input[j]!) : value + input[j]!;
+      return min ? value : value / (end - start + 1);
+    });
+  const held = filter(filter(filter(radius, 28, true), 48, false), 48, false);
+  const peaks = points
+    .filter((p) => p.pinch)
+    .map((p) => {
+      let nearest = 0,
+        distance = Infinity;
+      samples.forEach((s, i) => {
+        const d = Math.hypot(s.x - p.x, s.y - p.y);
+        if (d < distance) {
+          distance = d;
+          nearest = i;
+        }
+      });
+      return { index: nearest, value: p.pinch! };
+    });
+  const values = new Float32Array(SPINE_SAMPLES * 8);
+  samples.forEach((p, i) => {
+    let pinch = 0;
+    for (const peak of peaks) {
+      const d =
+        (((i - peak.index) / (SPINE_SAMPLES - 1)) * length) / (300 * unit);
+      pinch = Math.max(pinch, peak.value * Math.exp(-d * d));
     }
-    values[index * 4 + 2] = width / weight;
-    values[index * 4 + 3] = pressure / weight;
-  }
-  return { values, minY: first.y, maxY: last.y };
+    values.set([p.x, p.y, p.z, pinch], i * 4);
+    values.set(
+      [-Math.sin(angles[i]!), Math.cos(angles[i]!), held[i]!, 0],
+      (SPINE_SAMPLES + i) * 4,
+    );
+  });
+  return { values, length };
 }
 
-/** One allocation per renderer lifetime; layout changes only upload new values. */
 export function createRibbonTexture(field: RibbonField) {
-  const texture = new DataTexture(field.values, field.values.length / 4, 1, RGBAFormat, FloatType);
-  texture.minFilter = LinearFilter;
-  texture.magFilter = LinearFilter;
+  const texture = new DataTexture(
+    field.values,
+    SPINE_SAMPLES,
+    2,
+    RGBAFormat,
+    FloatType,
+  );
+  texture.minFilter = texture.magFilter = NearestFilter;
   texture.generateMipmaps = false;
   texture.needsUpdate = true;
   return texture;
 }
 
-/** Interpolate both coordinates and their range, preserving the current frame at t=0. */
-export function blendRibbonField(output: RibbonField, from: RibbonField, to: RibbonField, progress: number) {
-  for (let index = 0; index < output.values.length; index++) {
-    output.values[index] = from.values[index]! + (to.values[index]! - from.values[index]!) * progress;
-  }
-  output.minY = from.minY + (to.minY - from.minY) * progress;
-  output.maxY = from.maxY + (to.maxY - from.maxY) * progress;
+/** Retarget from the last displayed frame, including interrupted layout morphs. */
+export function blendRibbonField(
+  output: RibbonField,
+  from: RibbonField,
+  to: RibbonField,
+  progress: number,
+) {
+  for (let i = 0; i < output.values.length; i++)
+    output.values[i] =
+      from.values[i]! + (to.values[i]! - from.values[i]!) * progress;
+  output.length = from.length + (to.length - from.length) * progress;
 }

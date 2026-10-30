@@ -53,7 +53,10 @@ for (const width of [1440, 375]) {
     if (process.env.LANDING_RECORD_VIDEO) await page.screenshot({ path: info.outputPath("initial-icon.png") });
     const small = (await plate.boundingBox())!;
     await seek(page, 0.3);
-    await expect.poll(async () => (await plate.boundingBox())!.width).toBeGreaterThan(width === 1440 ? 1000 : 330);
+    // The viewport may reserve a scrollbar; compare with the actual content
+    // width rather than assuming the full device width is available.
+    const hostWidth = (await host.boundingBox())!.width;
+    await expect.poll(async () => (await plate.boundingBox())!.width).toBeGreaterThan(width === 1440 ? 1000 : hostWidth * 0.9);
     const expanded = (await plate.boundingBox())!;
     expect(expanded.width).toBeGreaterThan(small.width * 2);
     expect(expanded.height).toBeGreaterThan(450);
@@ -63,11 +66,16 @@ for (const width of [1440, 375]) {
     if (process.env.LANDING_RECORD_VIDEO) await page.screenshot({ path: info.outputPath("expanded.png") });
     await seek(page, 0.6);
     await expect(copy).toHaveCSS("opacity", "0");
-    await expect.poll(async () => (await plate.boundingBox())!.width).toBeLessThan(expanded.width * 0.6);
+    // The supplied fold now passes through a square instead of scaling the rectangle.
+    await expect.poll(async () => Math.abs((await plate.boundingBox())!.width - (await plate.boundingBox())!.height)).toBeLessThan(1);
+    expect((await plate.boundingBox())!.width).toBeLessThan(expanded.width);
+    expect((await plate.boundingBox())!.width).toBeGreaterThan(80);
     expect((await mark.boundingBox())!.width).toBeGreaterThanOrEqual(68);
     await seek(page, 0.705);
     await expect.poll(async () => Math.abs((await plate.boundingBox())!.width - 80)).toBeLessThan(1);
-    await expect(page.locator(".landing-statement__grid")).toHaveCSS("opacity", "0");
+    // Scroll offsets are rounded to physical pixels, so the sampled progress
+    // can sit fractionally before the end of the fade on small viewports.
+    await expect.poll(async () => Number(await page.locator(".landing-statement__grid").evaluate((element) => getComputedStyle(element).opacity))).toBeLessThan(0.01);
     if (process.env.LANDING_RECORD_VIDEO) await page.screenshot({ path: info.outputPath("collapsed.png") });
     if (width === 1440) {
       for (const progress of [0.8, 0.85, 0.9, 0.95]) {

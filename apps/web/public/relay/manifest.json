@@ -1,0 +1,150 @@
+{
+  "source": "Owner-supplied GetLayers Relay specification, 2026-10-30",
+  "usage": "Selected original artwork for the Fluxora landing; not a standalone template distribution.",
+  "assets": [
+    {
+      "path": "backdrop/backdrop-dot-field-768.svg",
+      "bytes": 33582,
+      "sha256": "f40aeae2c7a84afe0afa6fa7ef65c418ec4ce9380e7812bb648ec1985681bd83",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/backdrop/backdrop-dot-field-768.svg"
+    },
+    {
+      "path": "backdrop/backdrop-dot-field.svg",
+      "bytes": 112387,
+      "sha256": "bf32d904e1c0996305a6f8cd9e7275557397383faac709cd188e7ec06b632e65",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/backdrop/backdrop-dot-field.svg"
+    },
+    {
+      "path": "backdrop/backdrop-specks-and-marks.svg",
+      "bytes": 10116,
+      "sha256": "95cccc0bb5dc2f77ab82683c2c0b86e7450ce6a10db62039eb4c1e96fc20f61e",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/backdrop/backdrop-specks-and-marks.svg"
+    },
+    {
+      "path": "backdrop/field-texture.svg",
+      "bytes": 693,
+      "sha256": "39feea81c32bc805dc9e07952678ba79fbdaefb28f6dd852e7d1cc59aa8eed64",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/backdrop/field-texture.svg"
+    },
+    {
+      "path": "footer/footer-aurora-blue.png",
+      "bytes": 38848,
+      "sha256": "67b4762ab604aabdea69b03ec49e8d1e82380218bb2bb45a0cdb0e2a4abbc2bf",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/footer/footer-aurora-blue.png"
+    },
+    {
+      "path": "footer/footer-aurora-violet.png",
+      "bytes": 27934,
+      "sha256": "e92c0d6cdda4add27219fcef6caa3212cba9e3569add2aa2471b09dec788ca4b",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/footer/footer-aurora-violet.png"
+    },
+    {
+      "path": "footer/footer-bloom.png",
+      "bytes": 31614,
+      "sha256": "99bdadb5da45d14a19e3bd90e5a3b0ede993b687f11e3b6f7443ae0d2aca5571",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/footer/footer-bloom.png"
+    },
+    {
+      "path": "hero/hero-canvas-grid.svg",
+      "bytes": 581,
+      "sha256": "8d3bb24aa000f7668be18196dc5d3a1c35449d5704e52ce1783c13bbc439355f",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/hero/hero-canvas-grid.svg"
+    },
+    {
+      "path": "hero/hero-field-mark.svg",
+      "bytes": 399,
+      "sha256": "ab40697fccb2ca0e73f3f7c8f8f410b53ac5d0b3d5fd3c197b1816afd3c02ab6",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/hero/hero-field-mark.svg"
+    },
+    {
+      "path": "hero/hero-port.svg",
+      "bytes": 258,
+      "sha256": "c92480fe23817487a816108d76e6b467ce3911607ae1a08c62b35355a9f4dfe0",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/hero/hero-port.svg"
+    },
+    {
+      "path": "hero/hero-tool-add.svg",
+      "bytes": 290,
+      "sha256": "2a88abb9edc84a5047ff27efbd87dc8ad1e0045a413fda843cea9d4354e867e4",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/hero/hero-tool-add.svg"
+    },
+    {
+      "path": "hero/hero-tool-extra.svg",
+      "bytes": 331,
+      "sha256": "17379eb326ad1fbe15a516b4f0cdf0968528784255bb5560d60bedd60710636e",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/hero/hero-tool-extra.svg"
+    },
+    {
+      "path": "hero/hero-tool-redirect.svg",
+      "bytes": 339,
+      "sha256": "43698793b2da174668c7887e7dd8e28980379462372d5ad6d3ae552630f33402",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/hero/hero-tool-redirect.svg"
+    },
+    {
+      "path": "hero/hero-tool-select.svg",
+      "bytes": 273,
+      "sha256": "a0c5c486eb5c18556be1f80bef6f9e864ed08e948986b408eafbdc32270d4d5e",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/hero/hero-tool-select.svg"
+    },
+    {
+      "path": "hero/hero-window-bloom.webp",
+      "bytes": 66266,
+      "sha256": "c29598a4a2b0aae026c54054fe2a920c9d66ce5190d177d978beb8365e8777af",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/hero/hero-window-bloom.webp"
+    },
+    {
+      "path": "integrations/integrations-bloom.png",
+      "bytes": 75527,
+      "sha256": "ea568883cf1f681166e09754689d1123ed3e4e5291b32b5dfc4d1e088203d20a",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/integrations/integrations-bloom.png"
+    },
+    {
+      "path": "pricing/pricing-knob.svg",
+      "bytes": 1346,
+      "sha256": "3c7c68a91214290d316f62d3fff22466784a62907dbb9e14153e03d72ff88d2a",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/pricing/pricing-knob.svg"
+    },
+    {
+      "path": "product/product-accent.png",
+      "bytes": 510,
+      "sha256": "8b5356c747c413177e9ac09cbaf74e459a8484852d2c2763b475f03f4a649cdd",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/product/product-accent.png"
+    },
+    {
+      "path": "proof/proof-bloom-left.png",
+      "bytes": 26371,
+      "sha256": "6e3124b5d77c35be1049c7208448b146242656335d69396163e11c3d95ff5a49",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/proof/proof-bloom-left.png"
+    },
+    {
+      "path": "proof/proof-bloom-right.png",
+      "bytes": 26438,
+      "sha256": "a4e6d7ed602969b50879bf573d6525b42969cba8b5e3ec99a1aea18cfd49318b",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/proof/proof-bloom-right.png"
+    },
+    {
+      "path": "scale/scale-core-glow.png",
+      "bytes": 124935,
+      "sha256": "536671ff5af9591ca96cf3733a344c11c180b60abf5dd506eb8d2f40aea15578",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/scale/scale-core-glow.png"
+    },
+    {
+      "path": "scale/scale-orbit-inner.png",
+      "bytes": 4172,
+      "sha256": "b697f019aa983fa83186d12c2ca52f6dfdc65868af35a514a2f62d6fa5250485",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/scale/scale-orbit-inner.png"
+    },
+    {
+      "path": "scale/scale-orbit-outer.png",
+      "bytes": 5531,
+      "sha256": "6b3cf45c5d35b7668e816b69f5512ee4fbb16447fdbcd9d905cec3807e627f7d",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/scale/scale-orbit-outer.png"
+    },
+    {
+      "path": "signals/signals-halo.svg",
+      "bytes": 655,
+      "sha256": "fd2e80ac46d124e9c77de553420546af195a116154b4cd1b2a3ec5290cc7ddb3",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/signals/signals-halo.svg"
+    }
+  ]
+}
