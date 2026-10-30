@@ -58,7 +58,23 @@ export function LandingIntegrations() {
           },
           0.12,
         );
-      return () => timeline.kill();
+      const packet = element.querySelector<HTMLElement>(".landing-integrations__packet");
+      const travel = gsap.fromTo(packet, { x: 0, autoAlpha: 0 }, {
+        x: () => Math.max(0, (rail?.clientWidth ?? 0) - 8),
+        autoAlpha: 1, duration: 5, ease: "none", repeat: -1,
+        repeatDelay: 0.6, paused: true, invalidateOnRefresh: true,
+      });
+      const visibility = ScrollTrigger.create({
+        trigger: element,
+        start: "top bottom",
+        end: "bottom top",
+        onEnter: () => travel.play(),
+        onEnterBack: () => travel.play(),
+        onLeave: () => travel.pause(),
+        onLeaveBack: () => travel.pause(),
+        onRefresh: (self) => self.isActive ? travel.play() : travel.pause(),
+      });
+      return () => { visibility.kill(); travel.kill(); timeline.kill(); };
     }, element);
     return () => media.revert();
   }, [introReady, paused]);
@@ -76,7 +92,7 @@ export function LandingIntegrations() {
         <strong>New possibilities.</strong>
       </p>
       <div className="landing-integrations__apps">
-        <i className="landing-integrations__rail" aria-hidden="true" />
+        <i className="landing-integrations__rail" aria-hidden="true"><span className="landing-integrations__packet" /></i>
         {apps.map((app) => (
           <span className="landing-integration" data-integration key={app.name}>
             <NodeIcon name={app.icon} size={24} />

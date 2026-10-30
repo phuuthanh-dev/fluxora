@@ -154,6 +154,10 @@ relaxing any product/API journey. Cursor exit uses a related-target-aware
 `gsap.matchMedia` context. Do not use nested `gsap.context` inside that media
 context or add an additional ticker.
 
+The integration rail's decorative signal uses a scoped GSAP timeline and
+ScrollTrigger to pause while offscreen. Pause, reduced motion and unmount
+revert its styles and remove the trigger; inventory labels remain visible.
+
 The intro must be the first visible frame in the server HTML, then dismiss only
 after its client-side readiness choreography; otherwise visitors see a static
 landing flash before the GSAP sequence starts. The no-JavaScript path explicitly

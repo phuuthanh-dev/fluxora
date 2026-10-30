@@ -53,6 +53,21 @@ test("integration choreography is enhancement-only for reduced motion", async ({
   await integrations.scrollIntoViewIfNeeded();
   await expect(integrations.locator("[data-integration]")).toHaveCount(6);
   await expect(integrations.locator(".landing-integrations__rail")).toHaveCSS("transform", "none");
+  await expect(integrations.locator(".landing-integrations__packet")).toHaveCSS("opacity", "0");
+});
+
+test("integration signal travels while visible and stops when effects pause", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await releaseIntro(page);
+  const rail = page.locator(".landing-integrations");
+  await rail.scrollIntoViewIfNeeded();
+  const packet = rail.locator(".landing-integrations__packet");
+  await expect(packet).toBeVisible();
+  const first = (await packet.boundingBox())!.x;
+  await expect.poll(async () => Math.abs((await packet.boundingBox())!.x - first)).toBeGreaterThan(10);
+  await page.getByRole("button", { name: "Pause visual effects" }).click();
+  await expect(packet).toHaveCSS("opacity", "0");
 });
 
 test("illustrative trace settles and remains visible when motion is paused", async ({ page }) => {
