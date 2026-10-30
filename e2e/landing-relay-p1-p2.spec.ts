@@ -2,7 +2,12 @@ import { expect, test } from "@playwright/test";
 
 async function releaseIntro(page: import("@playwright/test").Page) {
   const skip = page.getByRole("button", { name: "Skip intro" });
-  if (await skip.isVisible()) await skip.click();
+  if (await skip.isVisible()) {
+    // Reduced motion can release and unmount the intro between visibility
+    // check and click; the hidden assertion still catches a stuck overlay.
+    await skip.click({ timeout: 1000 }).catch(() => {});
+  }
+  await expect(page.locator(".landing-loader")).toBeHidden({ timeout: 8000 });
 }
 
 test("integration rail and footer retain useful, truthful navigation when effects pause", async ({ page }) => {

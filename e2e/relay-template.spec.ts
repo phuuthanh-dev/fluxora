@@ -92,14 +92,15 @@ test("hero packets pause offscreen and reduced motion keeps the alternate sample
     { timeout: 8_000 },
   );
   const packet = page.locator(".landing-demo__packet");
+  await expect(page.locator(".landing-demo")).toHaveAttribute("data-flow", "playing");
   await expect.poll(() => packet.getAttribute("transform")).not.toBeNull();
   const before = await packet.getAttribute("transform");
-  await expect.poll(() => packet.getAttribute("transform")).not.toBe(before);
+  await expect.poll(() => packet.getAttribute("transform"), { intervals: [50], timeout: 7000 }).not.toBe(before);
   // Verify a later lap too: the packet must not get stuck at the end after
   // the first timeline cycle completes.
   await page.waitForTimeout(2200);
   const later = await packet.getAttribute("transform");
-  await expect.poll(() => packet.getAttribute("transform"), { timeout: 7000 }).not.toBe(later);
+  await expect.poll(() => packet.getAttribute("transform"), { intervals: [50], timeout: 7000 }).not.toBe(later);
   await page.locator("#usage").scrollIntoViewIfNeeded();
   await expect(page.locator(".landing-demo")).toHaveAttribute(
     "data-flow",
