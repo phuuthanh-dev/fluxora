@@ -62,8 +62,9 @@ export function LandingIntegrations() {
       const travel = gsap.fromTo(packet, { x: 0, autoAlpha: 0 }, {
         x: () => Math.max(0, (rail?.clientWidth ?? 0) - 8),
         autoAlpha: 1, duration: 5, ease: "none", repeat: -1,
-        repeatDelay: 0.6, paused: true, invalidateOnRefresh: true,
+        repeatDelay: 0.6, paused: true,
       });
+      let railWidth = rail?.clientWidth ?? 0;
       const visibility = ScrollTrigger.create({
         trigger: element,
         start: "top bottom",
@@ -72,7 +73,15 @@ export function LandingIntegrations() {
         onEnterBack: () => travel.play(),
         onLeave: () => travel.pause(),
         onLeaveBack: () => travel.pause(),
-        onRefresh: (self) => self.isActive ? travel.play() : travel.pause(),
+        onRefresh: (self) => {
+          const width = rail?.clientWidth ?? 0;
+          if (width !== railWidth) {
+            railWidth = width;
+            travel.invalidate();
+          }
+          if (self.isActive) travel.play();
+          else travel.pause();
+        },
       });
       return () => { visibility.kill(); travel.kill(); timeline.kill(); };
     }, element);

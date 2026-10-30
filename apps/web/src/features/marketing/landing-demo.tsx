@@ -229,14 +229,15 @@ export function LandingDemo() {
           repeat: -1,
           repeatDelay: 1.2,
           paused: true,
+          onRepeat: () => {
+            trip++;
+            if (trip % 2 === 0) setFeedOffset((value) => value + 1);
+          },
         });
-        cycle.to(play, {
+        cycle.fromTo(play, { t: 0 }, {
           t: 1,
           duration: 0.72,
           ease: "sine.inOut",
-          onStart: () => {
-            play.t = 0;
-          },
           onUpdate: () => {
             const branch = trip % 3 === 2 ? 1 : 0;
             const first = branch,
@@ -255,11 +256,6 @@ export function LandingDemo() {
               Math.min(1, play.t / 0.08, (1 - play.t) / 0.04),
             );
             packet.style.color = branch ? "#9ba0a6" : "#c8f751";
-          },
-          onComplete: () => {
-            trip++;
-            play.t = 0;
-            if (trip % 2 === 0) setFeedOffset((value) => value + 1);
           },
         });
         const sync = () => {
