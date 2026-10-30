@@ -674,7 +674,7 @@ html:has(.landing-page):not(:has(.landing-loader[data-phase="draw"])) {
 .landing-integration {
   align-items: center;
   background: color-mix(in srgb, var(--marketing-void) 72%, transparent);
-  border: 1px solid transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   display: flex;
   flex-direction: column;
