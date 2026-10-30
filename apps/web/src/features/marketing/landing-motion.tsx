@@ -211,6 +211,18 @@ export function LandingReveal({
             scrollTrigger: { trigger: element, start: "top 85%", once: true },
           });
         }
+        // Let the diagrams resolve after their enclosing glass card enters.
+        // These are decorative examples; the unanimated DOM remains readable.
+        const details = element.querySelectorAll(
+          ".landing-chapter__chips > span, .landing-chapter__route > span, .landing-showcase__workflows > article",
+        );
+        if (details.length) {
+          gsap.fromTo(details, { y: 12, opacity: 0 }, {
+            y: 0, opacity: 1, duration: 0.55, stagger: 0.12,
+            ease: "power2.out", immediateRender: false,
+            scrollTrigger: { trigger: element, start: "top 85%", once: true },
+          });
+        }
       },
       element,
     );

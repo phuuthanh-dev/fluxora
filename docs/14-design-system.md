@@ -58,7 +58,7 @@ only when it is a provider brand color or a clearly documented semantic state.
 | Dark border | `--relay-surface-border` | `#303a32` |
 | Dark text | `--relay-text` | `#f3f6ec` |
 | Muted dark text | `--relay-muted` | `#9aa596` |
-| Primary lime | `--relay-lime` | `#d6ff32`, primary action and focus |
+| Primary lime | `--relay-lime` | `#c8f751`, primary action and focus |
 | Strong lime | `--relay-lime-strong` | `#b8ed00`, icon/link emphasis |
 | Soft lime | `--relay-lime-soft` | `#efffc4`, selected/soft background |
 | Canvas | `--canvas` | `#f5f7f1`, graph and dashboard background |

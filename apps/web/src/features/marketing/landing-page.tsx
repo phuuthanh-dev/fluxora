@@ -157,10 +157,10 @@ export function LandingPage() {
                 <br />
                 <em>already done.</em>
               </h2>
-              <p>
-                Keep the logic out of your head and in a workflow everyone can
-                follow.
-              </p>
+              <div className="landing-narrative__aside">
+                <p>Turn a recurring task into a clear sequence you can inspect, adjust, and run again.</p>
+                <p>Choose a trigger, connect your apps, and follow each result in the execution history.</p>
+              </div>
               <a className="landing-text-link" href="/login">
                 Build your first workflow <ArrowRight size={17} />
               </a>

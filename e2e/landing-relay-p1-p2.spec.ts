@@ -102,3 +102,23 @@ test("feature rows alternate on desktop and stack on mobile", async ({ page }) =
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   }
 });
+
+test("hero node copy stays inside its cards at desktop and mobile sizes", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  for (const width of [375, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    const nodes = page.locator(".landing-demo-node");
+    await expect(nodes).toHaveCount(4);
+    for (const node of await nodes.all()) {
+      const overflow = await node.evaluate((card) => {
+        const bounds = card.getBoundingClientRect();
+        return [...card.querySelectorAll("strong, p")].some((text) => {
+          const box = text.getBoundingClientRect();
+          return box.right > bounds.right + 1 || box.bottom > bounds.bottom + 1;
+        });
+      });
+      expect(overflow).toBe(false);
+    }
+  }
+});

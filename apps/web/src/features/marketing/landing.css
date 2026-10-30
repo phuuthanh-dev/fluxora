@@ -44,6 +44,8 @@ html:has(.landing-page):not(:has(.landing-loader[data-phase="draw"])) {
 .landing-page :where(h1, h2, h3, h4, p) {
   margin: 0;
 }
+.landing-page :where(h1, h2, h3, h4) { text-wrap: balance; }
+.landing-page :where(p) { text-wrap: pretty; }
 .landing-page :where(a, button, summary, input):focus-visible {
   outline: 2px solid var(--relay-lime);
   outline-offset: 5px;
@@ -1260,7 +1262,9 @@ html:has(.landing-page):not(:has(.landing-loader[data-phase="draw"])) {
 }
 .landing-narrative__lead > .landing-eyebrow,
 .landing-narrative__lead > h2 { grid-column: 1; }
-.landing-narrative__lead > p:not(.landing-eyebrow) { grid-column: 2; grid-row: 2; margin: 0 0 10px; }
+.landing-narrative__aside { grid-column: 2; grid-row: 2; align-self: end; max-width: 400px; padding-bottom: 10px; }
+.landing-narrative__aside p { color: var(--marketing-muted); font-size: 16px; line-height: 1.65; }
+.landing-narrative__aside p + p { margin-top: 12px; }
 .landing-narrative__lead > .landing-text-link { grid-column: 1; justify-self: start; }
 .landing-narrative__lead > .landing-signal-mark { display: none; }
 .landing-narrative__chapters { border-left: 0; }
@@ -1303,7 +1307,7 @@ html:has(.landing-page):not(:has(.landing-loader[data-phase="draw"])) {
 .landing-chapter__route, .landing-chapter__chips { flex-wrap: wrap; }
 @media (max-width: 768px) {
   .landing-narrative__lead { display: block; }
-  .landing-narrative__lead > p:not(.landing-eyebrow) { margin-top: 24px; }
+  .landing-narrative__aside { margin-top: 24px; }
   .landing-narrative__chapters { margin-left: 0; }
   .landing-chapter, .landing-chapter + .landing-chapter { grid-template-columns: minmax(0, 1fr); gap: 24px; padding: 32px 0; }
   .landing-chapter:nth-child(even) .landing-chapter__copy,
