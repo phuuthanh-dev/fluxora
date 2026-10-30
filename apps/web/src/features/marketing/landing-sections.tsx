@@ -57,7 +57,6 @@ export function LandingReliability() {
           <div className="landing-runtime-hub" aria-hidden="true">
             <svg viewBox="0 0 360 210">
               <path d="M54 35L180 105L306 35M54 105H306M54 175L180 105L306 175" />
-              <circle cx="180" cy="105" r="75" />
             </svg>
             <span className="landing-runtime-hub__center">
               <FluxoraMark size={57} />

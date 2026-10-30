@@ -31,6 +31,16 @@ const healthcheckScript = readFileSync(healthcheck, "utf8");
 const pruneImagesScript = readFileSync(pruneImages, "utf8");
 const pruneGhcrScript = readFileSync(pruneGhcrVersions, "utf8");
 
+test("standalone web image includes the local landing artwork", () => {
+  const runtime = webDockerfile.split("AS runtime", 2)[1] ?? "";
+  assert.match(runtime, /COPY --from=build \/app\/apps\/web\/public \.\/apps\/web\/public/);
+  const manifest = JSON.parse(readFileSync(resolve(root, "apps/web/public/relay/manifest.json"), "utf8"));
+  assert.ok(manifest.assets.length > 0);
+  for (const asset of manifest.assets) {
+    assert.equal(readFileSync(resolve(root, "apps/web/public/relay", asset.path)).length, asset.bytes);
+  }
+});
+
 const sha = "0123456789abcdef0123456789abcdef01234567";
 
 test("deployment accepts only a full lowercase commit SHA", () => {

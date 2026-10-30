@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowRight, Menu, X } from "lucide-react";
-import { useRef, useState, type CSSProperties } from "react";
+import { useRef, useState } from "react";
 import { BrandLockup } from "../../components/brand/brand-lockup";
 import { LandingReveal, useLandingEffects } from "./landing-motion";
 import { Disclosure } from "../../components/ui/disclosure";
@@ -11,7 +11,7 @@ import { useSurfaceMotion } from "../../components/ui/ui-motion";
 const links = [
   { href: "#product", label: "Product" },
   { href: "#narrative", label: "How it works" },
-  { href: "#usage", label: "Your time back" },
+  { href: "#usage", label: "Plan your runs" },
   { href: "#faq", label: "FAQ" },
 ];
 const faqItems = [
@@ -95,73 +95,6 @@ export function LandingNavigation() {
   );
 }
 
-export function LandingUsageMeter() {
-  const [tasks, setTasks] = useState(5);
-  // A transparent planning calculation, not measured customer savings or pricing.
-  const hours = (tasks * 5 * 20) / 60;
-  const percentage = ((tasks - 1) / 19) * 100;
-  return (
-    <section
-      className="landing-usage landing-container"
-      id="usage"
-      aria-labelledby="usage-heading"
-    >
-      <LandingReveal className="landing-usage__intro">
-        <p className="landing-eyebrow">04 — SMALL TASKS. REAL TIME.</p>
-        <h2 id="usage-heading">
-          What would you do
-          <br />
-          with <em>that time back?</em>
-        </h2>
-        <p>
-          The five-minute tasks add up. Move a few off your list and make room
-          for the work you care about.
-        </p>
-      </LandingReveal>
-      <LandingReveal className="landing-usage__panel">
-        <div className="landing-usage__readout">
-          <span>TIME SPENT ON REPEAT TASKS</span>
-          <div>
-            <output htmlFor="landing-tasks">{hours.toFixed(1)}</output>
-            <span>
-              hours
-              <br />a month
-            </span>
-          </div>
-        </div>
-        <div className="landing-usage__bars" aria-hidden="true">
-          {Array.from({ length: 40 }, (_, index) => (
-            <i className={index < tasks * 2 ? "is-filled" : ""} key={index} />
-          ))}
-        </div>
-        <label htmlFor="landing-tasks">
-          Recurring tasks per workday <output>{tasks}</output>
-        </label>
-        <input
-          id="landing-tasks"
-          type="range"
-          min="1"
-          max="20"
-          step="1"
-          value={tasks}
-          onChange={(event) => setTasks(Number(event.target.value))}
-          style={{ "--meter-fill": `${percentage}%` } as CSSProperties}
-          aria-valuetext={`${tasks} tasks per workday, ${hours.toFixed(1)} hours per month`}
-        />
-        <div className="landing-usage__scale">
-          <span>1 task</span>
-          <span>20 tasks</span>
-        </div>
-        <p className="landing-usage__assumption">
-          Planning estimate: 5 minutes per task × 20 workdays.
-          <br />
-          Actual time saved depends on your workflow.
-        </p>
-      </LandingReveal>
-    </section>
-  );
-}
-
 export function LandingFaq() {
   const { paused } = useLandingEffects();
   return (
@@ -185,10 +118,21 @@ export function LandingFaq() {
             key={item.question}
             defaultOpen={index === 0}
             paused={paused}
-            summary={<>
-              <span>{item.question}</span>
-              <svg className="landing-faq__toggle" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M3 9h12" /><path className="landing-faq__vertical" d="M9 3v12" /></svg>
-            </>}
+            summary={
+              <>
+                <span>{item.question}</span>
+                <svg
+                  className="landing-faq__toggle"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 18 18"
+                  aria-hidden="true"
+                >
+                  <path d="M3 9h12" />
+                  <path className="landing-faq__vertical" d="M9 3v12" />
+                </svg>
+              </>
+            }
           >
             <p>{item.answer}</p>
           </Disclosure>

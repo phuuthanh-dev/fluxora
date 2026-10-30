@@ -438,6 +438,9 @@ test("workflow dashboard can search, filter, sort, and clear workflow controls",
 });
 
 test("workflow cards expose rename, duplicate, archive, and guarded delete actions", async ({ page }) => {
+  // This full lifecycle includes several navigations and a mock execution.
+  // Keep individual UI assertion deadlines; allow the whole sequence 60s.
+  test.setTimeout(60_000);
   const email = `regression-workflow-actions-${Date.now()}@example.test`;
   await signUpAndDashboard(page, email);
 

@@ -1,11 +1,27 @@
+## Official-reference adoption — 2026-10-30
+
+The owner supplied the official Relay reconstruction specification and approved
+adopting its marketing fonts, palette, GLSL stream and bounded bloom pipeline.
+This supersedes the clean-room/no-import/no-postprocessing constraint below
+for this landing-only slice. Product Gilroy, shared product semantics and
+authenticated scrolling remain unchanged. Original email/prompt stay private.
+Fluxora retains truthful product copy and working legal/support routes.
+The same owner request extends adoption to a bounded ring/flood/fold intro,
+four-node hero board with boot/packets/feed, square-first statement fold,
+viewport-bounded frosted slab, run-volume planner and two-panel footer.
+The planner reuses the pricing composition but does not invent a paid product.
+See docs/30 for the current 24-asset manifest and motion contract.
+See `30-relay-reference-adoption.md` for scope and provenance.
+
 # Fluxora public landing — visual and interaction contract
 
 ## Current direction
 
 The public root introduces Fluxora and leads into `/login`. The purchased Relay
 reference supplies the dark/lime direction, serif emphasis, glass surfaces and
-scroll choreography. Fluxora owns the code and procedural assets in this repo.
-No template video, remote texture or 3D model is required at runtime.
+scroll choreography. Selected supplied artwork is bundled locally with provenance;
+it is not relicensed as a standalone template. No third-party asset CDN,
+template video or 3D model is required at runtime.
 
 The owner reopened `L12.3` for stronger visual fidelity, supplied the Relay
 MP4, and then explicitly approved Three.js, custom GLSL noise, Catmull-Rom,
@@ -45,47 +61,45 @@ customer count, testimonial, success-rate or pricing claim may be invented.
   enhancement; the former Motion dependency is removed.
 - `landing-scenes.tsx`: lazy renderer, SVG fallback, pause/visibility/preference.
 - `landing-three-scenes.tsx`: page measurement, Lenis/ScrollTrigger ownership,
-  orthographic camera and shared ticker.
-- `landing-ribbon-geometry.ts`: Catmull-Rom spine, smoothed width field and small GPU lookup texture.
-- `landing-ribbon-shader.ts`: local Perlin gradient noise, moving filaments,
-  bright packets and analytic soft glow.
+  perspective camera, bounded bloom composer and shared ticker.
+- `landing-ribbon-geometry.ts`: Catmull-Rom spine, normals/turn radius and fixed-size GPU lookup texture.
+- `landing-stream-particles.ts`: seeded particle/filament buffer generation.
+- `landing-ribbon-shader.ts`: supplied Relay GLSL adapted for local uniforms.
+- `public/relay/manifest.json`: exact sources and hashes of bundled vendor artwork.
 - `landing.css`: route-scoped layout; superseded global landing CSS is removed.
 
-Reuse global brand tokens, Gilroy and offline provider icons. Georgia supplies
-marketing-only serif emphasis. Authenticated product typography and themes stay
-under their existing design system.
+Use landing-scoped Inter, Instrument Serif italic and Fragment Mono with the
+official #c8f751 lime. Fonts are bundled through Fontsource; product Gilroy,
+shared semantics and offline provider icons remain unchanged.
 
 ## Rendering and lifecycle contract
 
 One fixed canvas sits behind content and never receives pointer events.
 A document-descending Catmull-Rom spine follows measured section waypoints.
-A 2,048-entry float texture stores center, arc length, width and convergence;
-one full-screen quad draws the light field without offset-mesh self-intersection.
-There are 48 filaments, evaluated through the five nearest neighbors per pixel.
-The hero has a 2.6-second time-driven entrance independent of page scrolling;
-fine cores retain their definition through the lower sections. Depth changes
-the separate halo rather than blurring the cores. Two bounded particle fields
-use hashed positions, different speeds and sizes, with local derivative-based
-stretch correction to keep pinpoints round at bends. The ribbon keeps its lime
-hue, with particle accents in icy white,
-mint, blue, gold and violet as requested by the owner. The central reading area
-attenuates the light more below the hero. Initial geometry/texture compilation
-precedes the ready state. Pause/resume does not replay the entrance.
+A 2,048 × 2 float texture stores center/pinch and normal/turn radius. The full
+tier draws 36,000 seeded points and 44 filaments of 1,400 segments. Mobile/coarse
+pointer tiers draw 45% of the points and 60% of filaments. Identified software
+rasterizers use 25%/40% and a 25 FPS render ceiling; scroll input keeps its ticker.
+The 35-degree perspective camera stays at z=6 with bounded pointer parallax.
+The 2.6-second entrance does not replay on pause/resume. Absolute scroll position
+moves the viewport through the field; accumulated scroll distance advances flow.
 
-DPR is capped at 1.25 and reduced to 0.5 on identified software rasterizers;
-this local check is never stored or sent anywhere. DOM text keeps native pixel
-density. The camera projection is manual and remains stable across density
-changes. Missing float-texture filtering falls back to the SVG. Glow is
-calculated in the shader instead of a multi-pass bloom framebuffer pipeline.
+UnrealBloomPass uses strength .68, radius .57 and threshold .07 followed by
+OutputPass. DPR is capped at 1.35 full / 1.2 mobile / .5 software; low-tier bloom
+is half resolution. DOM text remains native resolution. Renderer detection is
+local and never stored or sent. No user-agent/crawler performance bypass exists.
+The composer is compiled/prewarmed before reporting readiness. Hardware FPS is
+not claimed from headless test results.
 
-A landing-owned GSAP ticker advances Lenis and R3F. R3F uses
-`frameloop="never"`; Lenis uses `autoRaf: false`. ScrollTrigger scrubs camera
-travel; the shader continues a slow time-driven flow between scrolls.
+A landing-owned GSAP ticker advances Lenis (`autoRaf: false`) and the Three.js
+composer. React Three Fiber no longer owns this scene. Original decorative
+artwork supplies hero/grid/bloom, integration glow, runtime orbits, proof lighting
+and footer auroras, all from the local `/relay/` bundle.
 No global ticker FPS or lag-smoothing setting is modified.
 
 Pause, hidden-tab state, reduced-motion preference and WebGL failure remove the
 renderer. Cleanup removes the ticker callback, kills only this page's tween and
-trigger, destroys Lenis and disposes geometry and texture. Leaving the landing restores
+trigger, destroys Lenis and disposes geometry, materials, texture, passes, composer and renderer. Leaving the landing restores
 native scrolling. Touch scrolling remains native; section anchors preserve
 their real URLs and offset below navigation.
 
@@ -139,7 +153,8 @@ Public explanatory copy is 15–16px, FAQ questions 18px and answers 16px.
 Section labels and footer metadata are at least 12px; footer navigation is
 14px. Compact illustrative UI uses an 11px floor instead of 6–9px. Mobile
 coordinate decoration is hidden and node description space increases. Gilroy
-remains the primary family; Georgia italic is explicitly limited to display
+remains the product family; the 2026-10-30 official reference moves marketing to
+Inter and Instrument Serif italic, explicitly limited to display
 emphasis. The native serif may vary across operating systems.
 
 The shared LandingReveal now uses scoped GSAP/ScrollTrigger entrances (20px

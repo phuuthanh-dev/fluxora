@@ -13,9 +13,11 @@ routes.
 
 ## Visual contract
 
-- Use the existing Fluxora mark, Gilroy family and lime accent everywhere.
+- Use the existing Fluxora mark, Gilroy family and product lime across the app.
+  The owner-approved 2026-10-30 landing exception uses the official Relay fonts,
+  #c8f751 palette and selected local artwork; see `30-relay-reference-adoption.md`.
 - Landing navigation is a 64px inset glass bar with a 12px sticky offset;
-  mobile keeps an accessible menu in a 60px bar. The ribbon is unchanged.
+  mobile keeps an accessible menu in a 60px bar. The official-reference stream and template choreography remain exclusive to the landing (docs/30).
 - Workspace navigation is a compact theme-aware bar. Workspace selection,
   navigation, theme and the rightmost account menu keep their existing roles.
 - Dashboard, Connections and Executions share PageHeader, content width and

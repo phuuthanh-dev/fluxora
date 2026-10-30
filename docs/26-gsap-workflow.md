@@ -35,7 +35,8 @@ examples against installed versions; a skill is guidance, not executable proof.
 
 1. Keep scroll choreography, WebGL and Lenis in the marketing feature. The
    owner's 2026-10-29 request extends short GSAP interaction motion to shared
-   product primitives. Gilroy and semantic tokens remain the design foundation.
+   product primitives. Gilroy and semantic tokens remain the product foundation;
+   official Relay marketing typography is scoped to the landing.
 2. Run animation setup inside a client effect. Register plugins before use.
    Existing `useEffect` plus scoped `gsap.matchMedia` is sufficient; the React
    skill explicitly permits context cleanup without adding `@gsap/react`.
@@ -47,7 +48,7 @@ examples against installed versions; a skill is guidance, not executable proof.
    the existing handoff's measured geometry; optimization is separate work.
 5. Keep readable server markup, reduced-motion and pause paths. The first
    reveal frame remains readable; do not hide focusable controls with opacity 0.
-6. Preserve one GSAP/Lenis/R3F ticker. Refresh after actual layout changes, not
+6. Preserve one GSAP/Lenis/Three.js ticker. Refresh after actual layout changes, not
    on each animation frame. Do not add another smooth-scroll owner or global
    tween defaults to implement one section.
 7. Verify the affected motion in an ordered recording and at mobile/tablet/
@@ -125,3 +126,11 @@ open and its summary click is controlled by React; native delayed `toggle`
 events must not reopen a menu after Escape. The existing surface hook receives
 the open state and cleans up on close. Repeated keyboard dismissal and actual
 menu absence are asserted in product-experience E2E.
+
+## Relay template completion (2026-10-30)
+The supplied intro, board boot and packet loops use scoped GSAP timelines;
+no second RAF/spring library is added. Intro release is bounded, skippable and
+restores overflow/inert on every exit. Hero packets stop offscreen/hidden/paused.
+Frosted layers must be viewport-bounded to avoid document-sized filter rasters.
+Statement motion clips a square-first shell while keeping copy at natural scale;
+run-planner digits retain an accessible textual output. See docs/30.

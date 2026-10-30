@@ -124,6 +124,18 @@ CI runs the same gate for every pull request and push to `main`.
 
 ## External-boundary rule
 
+Owner follow-up to L12.3 (2026-10-30): newly supplied official Relay reference
+supersedes video-only inference. Landing-only Inter/Instrument Serif/Fragment
+Mono, #c8f751, supplied particle/filament shaders and 24 original assets are
+implemented. The expanded owner request adds the bounded loading sequence, hero
+board/boot/packets, square-first fold, frosted sections, run planner and two-panel
+footer; local verification passed with API 226/226, web 23/23 and 93/93 E2E, with evidence in `.agent/reports/2026-10-30-relay-template-completion.md`. The full 83-asset bundle and original document remain private;
+only used artwork is packaged, with source/byte/hash provenance. Existing
+Fluxora identity, product typography, FAQ reflow and statement handoff remain.
+Current validation and delivery evidence:
+`.agent/reports/2026-10-30-relay-reference-adoption.md`; implementation contract:
+`docs/30-relay-reference-adoption.md`. No new remote release is implied.
+
 Latest owner follow-up to L12.3/L13.1 (2026-10-29): shared GSAP disclosures fix
 FAQ height/scroll jumps; menu/dialog/inspector/progress and landing interactions
 reuse the motion layer. No-JS, reduced-motion, keyboard, both product themes,

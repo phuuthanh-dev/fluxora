@@ -1,122 +1,151 @@
-// Locally authored gradient noise and analytic light; no external texture/video.
-const noise = `
-  float hash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
-  vec2 gradient(vec2 p) {
-    float a = hash(p)*6.283185;
-    return vec2(cos(a),sin(a));
+// Adapted from the owner-supplied GetLayers Relay specification, 2026-10-30.
+// Provenance and intentional Fluxora differences: docs/30-relay-reference-adoption.md.
+
+export const spinePrelude = `
+  uniform sampler2D uCurve;
+  uniform float uHalfH, uCamZ, uPx, uLen;
+  uniform vec3 uView; // half viewport width, half height (CSS px), scrollY
+  vec4 curveRow(float u, float row) {
+    float x = clamp(u, 0.0, 1.0) * 2047.0;
+    float i = floor(x);
+    float v = (row + 0.5) / 2.0;
+    vec4 a = texture2D(uCurve, vec2((i + 0.5) / 2048.0, v));
+    vec4 b = texture2D(uCurve, vec2((min(i + 1.0, 2047.0) + 0.5) / 2048.0, v));
+    return mix(a, b, x - i);
   }
-  float perlin(vec2 p) {
-    vec2 c=floor(p), f=fract(p), fade=f*f*f*(f*(f*6.0-15.0)+10.0);
-    return mix(mix(dot(gradient(c),f),dot(gradient(c+vec2(1,0)),f-vec2(1,0)),fade.x),
-      mix(dot(gradient(c+vec2(0,1)),f-vec2(0,1)),dot(gradient(c+vec2(1,1)),f-vec2(1,1)),fade.x),fade.y);
+  // a point offset from the spine: o.x across it (design px), o.y in depth
+  vec3 onSpine(float u, vec2 o) {
+    vec4 p = curveRow(u, 0.0);
+    vec2 n = curveRow(u, 1.0).xy;
+    vec2 page = p.xy + n * o.x * uPx * uView.y;
+    return vec3(
+      (page.x - uView.x) / uView.y,
+      (uView.y - (page.y - uView.z)) / uView.y,
+      p.z + o.y * uPx
+    );
+  }
+  uniform float uTurnHold, uBreath, uBreathWave, uBreathSpeed, uTimeS;
+  // stream radius at u (design px): pinched, breathing, held under the turn
+  float widthAt(float u, float pinch, float narrow, float wide) {
+    float a = u * uLen;
+    float swell = 1.0 + uBreath * sin(a / uBreathWave * 6.2831 - uTimeS * uBreathSpeed);
+    float w = mix(wide, narrow, pinch) * swell;
+    // a soft min: a hard one kinks the outer strands where it takes over
+    float r = max(curveRow(u, 1.0).z * uTurnHold, 1.0);
+    return w * r / pow(pow(w, 4.0) + pow(r, 4.0), 0.25);
+  }
+  vec3 toWorld(vec3 s) {
+    float k = (uCamZ - s.z) / uCamZ;
+    return vec3(s.x * uHalfH * k, s.y * uHalfH * k, s.z);
   }
 `;
 
-export const ribbonVertexShader = `
-  varying vec2 vUv;
+export const pointsVertex = `
+  attribute float aU;
+  attribute float aSeed;
+  attribute float aSize;
+  attribute float aKind;
+  attribute vec2 aOff;
+  uniform float uTime, uFlow, uScrollU, uRevealPx, uFadeIn, uFadeOut, uSpread,
+    uSpreadEnds, uSpray, uBokeh, uDust, uWobble, uSize, uScale, uFocal, uDof,
+    uDofSize, uTwinkle, uHeat, uAltShare;
+  uniform vec3 uColMain, uColAlt, uColCore, uColDeep, uColSpark;
+  varying vec3 vColor;
+  varying float vBlur;
   void main() {
-    vUv=uv;
-    gl_Position=vec4(position.xy,0.0,1.0);
+    float ph = aSeed * 6.2831;
+    // stream (0) and spray (1) ride at speed; bokeh (2) and dust (3) drift
+    float speed = (aKind < 1.5 ? 1.0 : 0.3) * (0.65 + 0.7 * fract(aSeed * 7.13));
+    float u = fract(aU + uTime * uFlow * speed + uScrollU);
+    float pinch = curveRow(u, 0.0).w;
+    float spread = widthAt(u, pinch, uSpread, uSpreadEnds);
+    if (aKind > 2.5) spread *= uDust;
+    else if (aKind > 1.5) spread *= uBokeh;
+    else if (aKind > 0.5) spread *= uSpray;
+    vec2 o = aOff * spread
+      + vec2(sin(uTime * 0.7 + ph), cos(uTime * 0.6 + ph * 1.3)) * uWobble;
+    vec3 s = onSpine(u, o);
+    s.z += position.z; // bokeh sits toward the camera, dust away from it
+    float a = u * uLen;
+    float fade = smoothstep(0.0, uFadeIn, a) * smoothstep(uLen, uLen - uFadeOut, a)
+      * smoothstep(uRevealPx, uRevealPx - 220.0, a);
+    float heat = pinch * (aKind < 1.5 ? 1.0 : 0.3);
+    // a share of the motes carry the second hue
+    vec3 hue = fract(aSeed * 3.77) < uAltShare ? uColAlt : uColMain;
+    vec3 base = mix(uColDeep, hue, 0.55 + 0.45 * fract(aSeed * 5.31));
+    vec4 mv = modelViewMatrix * vec4(toWorld(s), 1.0);
+    float depth = -mv.z;
+    float blur = clamp(abs(depth - (uCamZ - uFocal)) * uDof, 0.0, 1.0);
+    if (aKind > 1.5 && aKind < 2.5) blur = max(blur, 0.8);
+    vBlur = blur;
+    float tw = 0.55 + 0.45 * sin(uTime * uTwinkle + ph);
+    vec3 c = mix(base, uColCore, clamp(heat * 0.85, 0.0, 1.0)) * (1.0 + heat * uHeat);
+    if (fract(aSeed * 13.7) < 0.05) c = uColSpark * 1.3;
+    // a blurred mote spreads the same light over a bigger disc
+    float spreadOut = 1.0 + blur * uDofSize;
+    vColor = c * fade * tw / (spreadOut * spreadOut);
+    gl_PointSize = uSize * aSize * uScale * (uCamZ / depth) * spreadOut;
+    gl_Position = projectionMatrix * mv;
   }
 `;
 
-export const ribbonFragmentShader = `
-  precision highp float;
-  uniform float uTime;
-  uniform float uHead;
-  uniform float uHeroEnd;
-  uniform vec2 uResolution;
-  uniform sampler2D uPath;
-  uniform vec2 uPathRange;
-  uniform float uViewportHeight;
-  uniform float uScroll;
-  varying vec2 vUv;
-  ${noise}
-  vec3 motes(vec2 flow,vec2 gridScale,float speed,float salt,float density,float size) {
-    vec2 grid=vec2(flow.x,flow.y-uTime*speed)*gridScale;
-    vec2 cell=floor(grid), within=fract(grid);
-    float seed=hash(cell+salt);
-    vec2 center=.22+.56*vec2(hash(cell+salt+3.1),hash(cell+salt+9.7));
-    vec2 delta=within-center;
-    // Undo the curved field's local stretch so pinpoints stay round at bends.
-    // Derivatives must be evaluated for every fragment, before the density mask.
-    vec2 dx=dFdx(grid),dy=dFdy(grid);
-    float determinant=dx.x*dy.y-dy.x*dx.y;
-    vec2 pixelDelta=vec2(dy.y*delta.x-dy.x*delta.y,dx.x*delta.y-dx.y*delta.x)
-      /max(abs(determinant),.000001);
-    float radius=mix(.7,1.45,hash(cell+salt+17.0))*size*clamp(uResolution.x/1440.0,.6,2.0);
-    float d=length(pixelDelta)/radius;
-    float core=exp(-d*d);
-    float halo=exp(-d*d*.10);
-    float twinkle=.75+.25*sin(uTime*(.6+seed*.5)+seed*6.283185);
-    float border=smoothstep(0.0,.12,within.x)*smoothstep(0.0,.12,1.0-within.x)
-      *smoothstep(0.0,.12,within.y)*smoothstep(0.0,.12,1.0-within.y);
-    // Stable colors per particle; lime leads, with icy and warm light accents.
-    float color=hash(cell+salt+23.0);
-    vec3 tint=vec3(.80,1.0,.32);
-    tint=mix(tint,vec3(.88,.97,1.0),step(.40,color));
-    tint=mix(tint,vec3(.20,1.0,.75),step(.52,color));
-    tint=mix(tint,vec3(.24,.68,1.0),step(.68,color));
-    tint=mix(tint,vec3(1.0,.78,.34),step(.82,color));
-    tint=mix(tint,vec3(.74,.50,1.0),step(.92,color));
-    return (mix(tint,vec3(1.0),.12)*core*.70+tint*halo*.055)
-      *twinkle*border*step(1.0-density,seed);
-  }
+export const pointsFragment = `
+  uniform float uBright;
+  varying vec3 vColor;
+  varying float vBlur;
   void main() {
-    float worldY=uScroll+(1.0-vUv.y)*uViewportHeight;
-    float pathY=clamp((worldY-uPathRange.x)/(uPathRange.y-uPathRange.x),0.0,1.0);
-    vec4 path=texture2D(uPath,vec2(pathY,.5));
-    float previousX=texture2D(uPath,vec2(pathY-.0005,.5)).r;
-    float nextX=texture2D(uPath,vec2(pathY+.0005,.5)).r;
-    float slope=(nextX-previousX)/(.001*(uPathRange.y-uPathRange.x));
-    float drift=sin(path.g*.23+uTime*.12)*.09+sin(path.g*.41-uTime*.17)*.035;
-    float distance=((vUv.x-.5)*10.0-path.r-drift)/sqrt(1.0+min(slope*slope,12.0));
-    vec2 flow=vec2(.5+distance/(2.0*path.b),path.g);
-    vec3 envelope=vec3(path.b,path.a,worldY);
-    float reveal=1.0-smoothstep(uHead-.9,uHead+.9,flow.y);
-    if(reveal<.001) discard;
-    float depth=smoothstep(uHeroEnd*.8,uHeroEnd*1.28,envelope.z);
-    float billow=perlin(vec2(flow.y*.32,uTime*.10))*.04;
-    float span=.54+.05*sin(flow.y*.31-uTime*.19);
-    float aa=max(fwidth(flow.x),.00045);
-    vec3 light=vec3(0.0);
-    // Evaluate only neighboring filaments at this fragment, not all 48.
-    float nearest=floor(((flow.x-.5-billow)/span+.5)*47.0);
-    for(int i=-2;i<=2;i++) {
-      float n=nearest+float(i);
-      if(n<0.0 || n>47.0) continue;
-      float seed=hash(vec2(n,4.0));
-      float offset=(n/47.0-.5)*span+(seed-.5)*.004;
-      float wave=sin(flow.y*(.30+seed*.24)-uTime*(.10+seed*.08)+n*1.73)*.006;
-      float weave=sin(flow.y*.75-uTime*.21+n*.47)*.004;
-      float strand=.5+offset+billow+wave+weave;
-      float d=abs(flow.x-strand);
-      // Depth changes the glow, never dissolves the fine filament core.
-      float coreWidth=(.00045+seed*.00055)*mix(1.0,1.2,depth);
-      float core=exp(-pow(d/(coreWidth+aa*.7),2.0));
-      float halo=exp(-pow(d/(.009+depth*.005),2.0));
-      // Blue stays in a small inner family instead of repeating every nth wire.
-      float blue=1.0-smoothstep(.02,.08,abs(n/47.0-.58));
-      vec3 tint=mix(vec3(.72,1.0,.20),vec3(.22,.66,1.0),blue*.85);
-      float packet=pow(.5+.5*sin(flow.y*1.8-uTime*1.15+seed*6.28),12.0);
-      float energy=mix(.28,.24,depth)*(1.0+envelope.y*1.4)*(.3+.7*seed);
-      light+=tint*(core*energy*(.65+packet*.65)+halo*.010);
-    }
-    // A broad atmospheric envelope gives the ribbon volume; the inner bend pools light.
-    float axis=flow.x-.5-billow;
-    float pool=exp(-axis*axis/.045);
-    light+=vec3(.59,.85,.20)*pool*(.12+envelope.y*.22);
-    // Two staggered fields: plentiful fine sparks, fewer larger drifting motes.
-    // Hashed positions break the grid; independent speeds provide depth.
-    light+=(motes(flow,vec2(66.0,6.0),.28,2.0,.28,1.0)
-      +motes(flow,vec2(32.0,3.4),.46,41.0,.23,1.8))*exp(-axis*axis/.12);
-    float screenX=gl_FragCoord.x/uResolution.x;
-    float readingMask=mix(mix(.72,.58,depth),1.0,smoothstep(.18,.46,abs(screenX-.5)));
-    float edge=smoothstep(0.0,.16,flow.x)*smoothstep(0.0,.16,1.0-flow.x);
-    light*=readingMask*edge*reveal;
-    // Tone mapping preserves lime detail at the pinch instead of clipping to neon white.
-    light=1.0-exp(-light*1.20);
-    float alpha=clamp(max(max(light.r,light.g),light.b),0.0,.88);
-    gl_FragColor=vec4(light/max(alpha,.001),alpha);
+    float r = length(gl_PointCoord - 0.5) * 2.0;
+    if (r > 1.0) discard;
+    // sharp glint in focus, soft rimmed disc out of it
+    float glint = exp(-r * r * 6.0);
+    float disc = smoothstep(1.0, 0.6, r) * 0.5
+      + smoothstep(0.5, 0.92, r) * (1.0 - smoothstep(0.9, 1.0, r)) * 0.55;
+    gl_FragColor = vec4(vColor * mix(glint, disc, vBlur) * uBright, 1.0);
+  }
+`;
+
+export const linesVertex = `
+  attribute float aU;
+  attribute vec4 aStrand; // x normal offset, y depth offset, z phase, w end
+  uniform float uTime, uRevealPx, uFadeIn, uFadeOut, uSpread, uSpreadEnds,
+    uLineSpread, uLineWavelength, uLineWaveAmp, uLineWaveSpeed, uPulseGain,
+    uLineBase, uHeat, uAltStrands;
+  uniform vec3 uColMain, uColAlt, uColCore, uColDeep;
+  varying vec3 vColor;
+  varying vec3 vPulse;
+  varying float vA;
+  varying float vPhase;
+  void main() {
+    float u = aU;
+    float a = u * uLen;
+    float pinch = curveRow(u, 0.0).w;
+    float spread = widthAt(u, pinch, uSpread, uSpreadEnds) * uLineSpread;
+    float wave = sin(a / uLineWavelength * 6.2831 + aStrand.z + uTime * uLineWaveSpeed) * uLineWaveAmp;
+    vec3 s = onSpine(u, vec2(aStrand.x + wave, aStrand.y) * spread);
+    float fade = smoothstep(0.0, uFadeIn, a) * smoothstep(uLen * aStrand.w, uLen * aStrand.w - uFadeOut, a)
+      * smoothstep(uRevealPx, uRevealPx - 260.0, a);
+    // a share of the strands run in the second hue
+    vec3 hue = fract(aStrand.z * 1.618) < uAltStrands ? uColAlt : uColMain;
+    vec3 c = mix(mix(uColDeep, hue, 0.75), uColCore, pinch * 0.6);
+    vColor = c * fade * uLineBase * (1.0 + pinch * uHeat);
+    vPulse = c * fade * uPulseGain;
+    // the pulse is placed per fragment from the arc length — per vertex it
+    // hopped from vertex to vertex
+    vA = a;
+    vPhase = aStrand.z;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(toWorld(s), 1.0);
+  }
+`;
+
+export const linesFragment = `
+  uniform float uBright, uPulseSpacing, uPulseShift, uPulseSharp;
+  varying vec3 vColor;
+  varying vec3 vPulse;
+  varying float vA;
+  varying float vPhase;
+  void main() {
+    float p = fract((vA - uPulseShift) / uPulseSpacing + vPhase) - 0.5;
+    float pulse = exp(-p * p * uPulseSharp * uPulseSharp);
+    gl_FragColor = vec4((vColor + vPulse * pulse) * uBright, 1.0);
   }
 `;

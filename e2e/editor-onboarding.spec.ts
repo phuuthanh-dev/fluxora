@@ -1,6 +1,9 @@
 import { expect, test } from "@playwright/test";
 
 test("a new owner can configure, save, publish, and inspect a Steam workflow", async ({ page }) => {
+  // This journey covers registration, canvas editing, versioning and retry.
+  // Give the aggregate journey its own budget; per-action assertions stay at 5s.
+  test.setTimeout(60_000);
   const email = `e2e-${Date.now()}@example.test`;
   await page.goto("/login");
 

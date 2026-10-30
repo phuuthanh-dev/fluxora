@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { publicLinks } from "../public-site/site";
+import { LandingFooter } from "./landing-footer";
 import {
   ArrowDown,
   ArrowRight,
@@ -13,19 +13,19 @@ import { FluxoraMark } from "../../components/brand/fluxora-mark";
 import { NodeIcon, type NodeIconName } from "../workflow/node-icon";
 import { LandingDemo } from "./landing-demo";
 import { LandingHandoff } from "./landing-handoff";
-import {
-  LandingFaq,
-  LandingNavigation,
-  LandingUsageMeter,
-} from "./landing-interactions";
+import { LandingFaq, LandingNavigation } from "./landing-interactions";
+import { LandingRunMeter } from "./landing-run-meter";
 import { LandingMotionProvider, LandingReveal } from "./landing-motion";
 import { LandingLightStream } from "./landing-scenes";
-import {
-  LandingDailyView,
-  LandingUseCases,
-} from "./landing-sections";
+import { LandingDailyView, LandingUseCases } from "./landing-sections";
 import { LandingShowcase } from "./landing-showcase";
+import "@fontsource/inter/400.css";
+import "@fontsource/inter/500.css";
+import "@fontsource/inter/600.css";
+import "@fontsource/instrument-serif/400-italic.css";
+import "@fontsource/fragment-mono/400.css";
 import "./landing.css";
+import "./landing-template.css";
 
 const apps: { name: string; icon: NodeIconName }[] = [
   { name: "GitHub", icon: "github" },
@@ -60,6 +60,7 @@ export function LandingPage() {
   return (
     <LandingMotionProvider>
       <main className="landing-page" id="top">
+        <div className="landing-backdrop" aria-hidden="true" />
         <LandingLightStream />
         <a className="landing-skip" href="#product">
           Skip to product
@@ -133,215 +134,175 @@ export function LandingPage() {
           </div>
           <span className="landing-integrations__more">+ HTTP & more</span>
         </section>
-        <section
-          className="landing-product landing-container"
-          id="product"
-          aria-labelledby="product-heading"
-        >
-          <LandingReveal className="landing-section-intro">
-            <p className="landing-eyebrow">01 — THE BIG PICTURE</p>
-            <h2 id="product-heading">
-              Less tab switching.
-              <br />
-              <span>More things clicking.</span>
-            </h2>
-            <p>
-              One place to build the workflow, understand the run,
-              <br className="landing-desktop-break" /> and keep the next step
-              moving.
-            </p>
-          </LandingReveal>
-          <LandingReveal>
-            <LandingShowcase />
-          </LandingReveal>
-          <div className="landing-product__footnotes">
-            <span>
-              <GitBranch size={15} /> Visual, connected logic
-            </span>
-            <span>
-              <ScanLine size={15} /> Inspectable input & output
-            </span>
-            <span>
-              <LockKeyhole size={15} /> Encrypted connections
-            </span>
-          </div>
-        </section>
-        <section
-          className="landing-narrative landing-container"
-          id="narrative"
-          aria-labelledby="narrative-heading"
-        >
-          <LandingReveal className="landing-narrative__lead">
-            <p className="landing-eyebrow">
-              02 — A LITTLE STRUCTURE. A LOT OF FLOW.
-            </p>
-            <h2 id="narrative-heading">
-              From “I do this
-              <br />
-              every day” to
-              <br />
-              <em>already done.</em>
-            </h2>
-            <p>
-              Keep the logic out of your head and in a workflow everyone can
-              follow.
-            </p>
-            <a className="landing-text-link" href="/login">
-              Build your first workflow <ArrowRight size={17} />
-            </a>
-            <div className="landing-signal-mark" aria-hidden="true">
-              <span />
-              <span />
-              <FluxoraMark size={60} />
-              <span />
+        <div className="landing-frosted-slab">
+          <section
+            className="landing-product landing-container"
+            id="product"
+            aria-labelledby="product-heading"
+          >
+            <LandingReveal className="landing-section-intro">
+              <p className="landing-eyebrow">01 — THE BIG PICTURE</p>
+              <h2 id="product-heading">
+                Less tab switching.
+                <br />
+                <span>More things clicking.</span>
+              </h2>
+              <p>
+                One place to build the workflow, understand the run,
+                <br className="landing-desktop-break" /> and keep the next step
+                moving.
+              </p>
+            </LandingReveal>
+            <LandingReveal>
+              <LandingShowcase />
+            </LandingReveal>
+            <div className="landing-product__footnotes">
+              <span>
+                <GitBranch size={15} /> Visual, connected logic
+              </span>
+              <span>
+                <ScanLine size={15} /> Inspectable input & output
+              </span>
+              <span>
+                <LockKeyhole size={15} /> Encrypted connections
+              </span>
             </div>
-          </LandingReveal>
-          <div className="landing-narrative__chapters">
-            {chapters.map((chapter) => (
-              <LandingReveal
-                as="article"
-                className="landing-chapter"
-                key={chapter.tag}
-              >
-                <div className="landing-chapter__top">
-                  <span>{chapter.tag}</span>
-                  {chapter.icon}
-                </div>
-                <h3>{chapter.title}</h3>
-                <p>{chapter.text}</p>
-                {chapter.tag.startsWith("01") ? (
-                  <div className="landing-chapter__chips">
-                    <span>Schedule</span>
-                    <span>Webhook</span>
-                    <span>Manual</span>
-                  </div>
-                ) : null}
-                {chapter.tag.startsWith("02") ? (
-                  <div className="landing-chapter__route" aria-hidden="true">
-                    <span>IF</span>
-                    <i />
-                    <span className="is-accent">YES → Continue</span>
-                    <span>NO → Review</span>
-                  </div>
-                ) : null}
-                {chapter.tag.startsWith("03") ? (
-                  <div className="landing-chapter__trace">
-                    <span>
-                      <Check size={13} /> Input
-                    </span>
-                    <i />
-                    <span>
-                      <Check size={13} /> Action
-                    </span>
-                    <i />
-                    <span>
-                      <Check size={13} /> Output
-                    </span>
-                  </div>
-                ) : null}
-              </LandingReveal>
-            ))}
-          </div>
-        </section>
-        <section
-          className="landing-safety landing-container"
-          aria-labelledby="safety-heading"
-        >
-          <LandingReveal className="landing-safety__copy">
-            <p className="landing-eyebrow">03 — CONFIDENCE IS BUILT IN</p>
-            <h2 id="safety-heading">
-              Test the idea.
-              <br />
-              <span>Then trust the process.</span>
-            </h2>
-            <p>
-              A place to experiment. A clear moment to publish. A record of what
-              actually ran.
-            </p>
-          </LandingReveal>
-          <LandingReveal
-            className="landing-safety__steps"
-            ariaLabel="Workflow lifecycle"
+          </section>
+          <section
+            className="landing-narrative landing-container"
+            id="narrative"
+            aria-labelledby="narrative-heading"
           >
-            {[
-              [
-                "01",
-                "Build & test",
-                "Try your logic with sample data.",
-                "DRAFT",
-              ],
-              [
-                "02",
-                "Publish a version",
-                "Keep the running version intact.",
-                "PINNED",
-              ],
-              [
-                "03",
-                "Go live, deliberately",
-                "Confirm before making real changes.",
-                "LIVE",
-              ],
-            ].map(([number, title, copy, tag]) => (
-              <div key={number}>
-                <span>{number}</span>
-                <div>
-                  <h3>{title}</h3>
-                  <p>{copy}</p>
-                </div>
-                <small>{tag}</small>
+            <LandingReveal className="landing-narrative__lead">
+              <p className="landing-eyebrow">
+                02 — A LITTLE STRUCTURE. A LOT OF FLOW.
+              </p>
+              <h2 id="narrative-heading">
+                From “I do this
+                <br />
+                every day” to
+                <br />
+                <em>already done.</em>
+              </h2>
+              <p>
+                Keep the logic out of your head and in a workflow everyone can
+                follow.
+              </p>
+              <a className="landing-text-link" href="/login">
+                Build your first workflow <ArrowRight size={17} />
+              </a>
+              <div className="landing-signal-mark" aria-hidden="true">
+                <span />
+                <span />
+                <FluxoraMark size={60} />
+                <span />
               </div>
-            ))}
-          </LandingReveal>
-        </section>
-        <LandingHandoff />
-        <LandingDailyView />
-        <LandingUseCases />
-        <LandingUsageMeter />
-        <LandingFaq />
-        <section
-          className="landing-cta landing-container"
-          aria-labelledby="cta-heading"
-        >
-          <div className="landing-cta__orbit" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-          </div>
-          <FluxoraMark size={44} />
-          <p className="landing-eyebrow">YOUR NEXT GOOD HABIT</p>
-          <h2 id="cta-heading">
-            Let the work <em>flow.</em>
-          </h2>
-          <p>Start with one task you would rather not do twice.</p>
-          <Link
-            className="landing-button landing-button--primary"
-            href="/login"
+            </LandingReveal>
+            <div className="landing-narrative__chapters">
+              {chapters.map((chapter) => (
+                <LandingReveal
+                  as="article"
+                  className="landing-chapter"
+                  key={chapter.tag}
+                >
+                  <div className="landing-chapter__top">
+                    <span>{chapter.tag}</span>
+                    {chapter.icon}
+                  </div>
+                  <h3>{chapter.title}</h3>
+                  <p>{chapter.text}</p>
+                  {chapter.tag.startsWith("01") ? (
+                    <div className="landing-chapter__chips">
+                      <span>Schedule</span>
+                      <span>Webhook</span>
+                      <span>Manual</span>
+                    </div>
+                  ) : null}
+                  {chapter.tag.startsWith("02") ? (
+                    <div className="landing-chapter__route" aria-hidden="true">
+                      <span>IF</span>
+                      <i />
+                      <span className="is-accent">YES → Continue</span>
+                      <span>NO → Review</span>
+                    </div>
+                  ) : null}
+                  {chapter.tag.startsWith("03") ? (
+                    <div className="landing-chapter__trace">
+                      <span>
+                        <Check size={13} /> Input
+                      </span>
+                      <i />
+                      <span>
+                        <Check size={13} /> Action
+                      </span>
+                      <i />
+                      <span>
+                        <Check size={13} /> Output
+                      </span>
+                    </div>
+                  ) : null}
+                </LandingReveal>
+              ))}
+            </div>
+          </section>
+          <section
+            className="landing-safety landing-container"
+            aria-labelledby="safety-heading"
           >
-            Build something useful <ArrowRight size={17} />
-          </Link>
-        </section>
-        <LandingReveal as="footer" className="landing-footer landing-container" ariaLabel="Fluxora footer">
-          <Link className="landing-brand" href="#top">
-            <FluxoraMark size={26} />
-            <strong>Fluxora</strong>
-          </Link>
-          <p>A clearer way to keep work moving.</p>
-          <nav aria-label="Footer">
-            <a href="#product">Product</a>
-            <a href="#faq">FAQ</a>
-            {publicLinks.map(link => <Link key={link.href} href={link.href}>{link.label}</Link>)}
-            <a href="https://github.com/phuuthanh-dev/workflow-automation">GitHub</a>
-            <Link href="/login">
-              Sign in <ArrowRight size={13} />
-            </Link>
-          </nav>
-          <div className="landing-footer__bottom">
-            <span>© {new Date().getFullYear()} Fluxora</span>
-            <span>MADE FOR THE WORK IN BETWEEN.</span>
-            <a href="#top">Back to top ↑</a>
-          </div>
-        </LandingReveal>
+            <LandingReveal className="landing-safety__copy">
+              <p className="landing-eyebrow">03 — CONFIDENCE IS BUILT IN</p>
+              <h2 id="safety-heading">
+                Test the idea.
+                <br />
+                <span>Then trust the process.</span>
+              </h2>
+              <p>
+                A place to experiment. A clear moment to publish. A record of
+                what actually ran.
+              </p>
+            </LandingReveal>
+            <LandingReveal
+              className="landing-safety__steps"
+              ariaLabel="Workflow lifecycle"
+            >
+              {[
+                [
+                  "01",
+                  "Build & test",
+                  "Try your logic with sample data.",
+                  "DRAFT",
+                ],
+                [
+                  "02",
+                  "Publish a version",
+                  "Keep the running version intact.",
+                  "PINNED",
+                ],
+                [
+                  "03",
+                  "Go live, deliberately",
+                  "Confirm before making real changes.",
+                  "LIVE",
+                ],
+              ].map(([number, title, copy, tag]) => (
+                <div key={number}>
+                  <span>{number}</span>
+                  <div>
+                    <h3>{title}</h3>
+                    <p>{copy}</p>
+                  </div>
+                  <small>{tag}</small>
+                </div>
+              ))}
+            </LandingReveal>
+          </section>
+          <LandingHandoff />
+          <LandingDailyView />
+          <LandingUseCases />
+        </div>
+        <LandingRunMeter />
+        <LandingFaq />
+        <LandingFooter />
       </main>
     </LandingMotionProvider>
   );

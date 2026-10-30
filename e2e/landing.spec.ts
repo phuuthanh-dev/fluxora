@@ -10,7 +10,7 @@ test("public landing leads to the existing login without changing the auth bound
   await expect(
     page.getByRole("link", { name: "Start in Fluxora" }),
   ).toHaveAttribute("href", "/login");
-  await expect(page.locator(".landing-demo-node")).toHaveCount(3);
+  await expect(page.locator(".landing-demo-node")).toHaveCount(4);
   await page.getByRole("link", { name: "Start in Fluxora" }).click();
   await expect(page).toHaveURL(/\/login$/);
   await expect(
@@ -60,7 +60,7 @@ test("reduced motion removes WebGL and makes sample results immediate", async ({
   await page.goto("/");
   await expect(page.locator(".landing-page")).toHaveCSS(
     "background-color",
-    "rgb(5, 7, 6)",
+    "rgb(0, 0, 0)",
   );
   await expect(page.locator(".landing-demo")).toHaveCSS("transform", "none");
   await expect(page.locator(".landing-scene canvas")).toHaveCount(0);
@@ -109,15 +109,23 @@ test("WebGL reacts to motion preferences and recovers visually from context loss
     return Boolean(gl);
   });
   if (supported) {
-    await expect(page.locator(".landing-scene canvas")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Run sample", exact: true })).toBeEnabled({ timeout: 8_000 });
+    await expect(page.locator(".landing-scene canvas")).toBeVisible({ timeout: 15_000 });
+    await page.locator(".landing-scene canvas").evaluate((canvas) => {
+      Object.assign(window, { retiredLandingContext: (canvas as HTMLCanvasElement).getContext("webgl2") });
+    });
     await page.emulateMedia({ reducedMotion: "reduce" });
     await expect(page.locator(".landing-scene canvas")).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() =>
+      (window as unknown as { retiredLandingContext: WebGL2RenderingContext }).retiredLandingContext.isContextLost(),
+    )).toBe(true);
     await expect(page.locator("html")).not.toHaveClass(/lenis/);
     await page.emulateMedia({ reducedMotion: "no-preference" });
-    await expect(page.locator(".landing-scene canvas")).toBeVisible();
+    await expect(page.locator(".landing-scene canvas")).toBeVisible({ timeout: 15_000 });
     await expect(page.locator(".landing-scene")).toHaveAttribute(
       "data-scene-state",
       "running",
+      { timeout: 15_000 },
     );
     await page.locator(".landing-scene canvas").evaluate((canvas) => {
       canvas.dispatchEvent(new Event("webglcontextlost", { cancelable: true }));
@@ -157,7 +165,7 @@ test("scroll decoration stays behind content and can be paused across sections",
   await expect(
     page.getByRole("button", { name: "Pause visual effects" }),
   ).toBeVisible();
-  await expect(page.locator("html")).toHaveClass(/lenis/);
+  await expect(page.locator("html")).toHaveClass(/lenis/, { timeout: 15_000 });
   await page.mouse.wheel(0, 450);
   await expect
     .poll(() => page.evaluate(() => window.scrollY))
@@ -194,11 +202,16 @@ test("ribbon keeps painting motion when the page stays still", async ({
     !supported,
     "Renderer motion requires WebGL; fallback has separate coverage",
   );
+  // The bounded intro precedes lazy shader startup. Observe both readiness
+  // boundaries before testing idle animation; pixel/scroll assertions stay strict.
+  await expect(page.getByRole("button", { name: "Run sample", exact: true })).toBeEnabled({ timeout: 8_000 });
+  await expect(page.locator(".landing-loader")).toBeHidden();
   await expect(page.locator(".landing-scene")).toHaveAttribute(
     "data-scene-state",
     "running",
+    { timeout: 15_000 },
   );
-  // Observe beyond the 2.6s intro: a rendered canvas alone does not prove idle flow.
+  // Observe beyond the stream reveal: a canvas alone does not prove idle flow.
   await page.waitForTimeout(3000);
   const canvas = page.locator(".landing-scene canvas");
   const first = await canvas.screenshot();
@@ -240,6 +253,7 @@ test("product tabs support arrow keys, Home and End with consistent panels", asy
   page,
 }) => {
   await page.goto("/");
+  await expect(page.getByRole("button", { name: "Run sample", exact: true })).toBeEnabled({ timeout: 8_000 });
   const build = page.getByRole("tab", { name: "Build visually" });
   await build.focus();
   await page.keyboard.press("ArrowRight");
@@ -259,33 +273,20 @@ test("product tabs support arrow keys, Home and End with consistent panels", asy
   await expect(page.getByRole("tabpanel")).toContainText("Steam daily report");
 });
 
-test("workload estimate shows its assumptions and responds to keyboard input", async ({
-  page,
-}) => {
+test("run planner responds to keyboard input without implying paid entitlements", async ({ page }) => {
   await page.goto("/");
-  const range = page.getByRole("slider", {
-    name: "Recurring tasks per workday",
-  });
+  // The intro deliberately makes main inert until readiness; focus only once
+  // the same interactive boundary available to a visitor has opened.
+  await expect(page.getByRole("button", { name: "Run sample", exact: true })).toBeEnabled({ timeout: 8_000 });
+  const range = page.getByRole("slider", { name: "How many runs do you expect a month?" });
   await range.focus();
   await page.keyboard.press("Home");
-  await page.keyboard.press("ArrowRight");
-  for (let index = 0; index < 10; index += 1) {
-    await page.keyboard.press("ArrowRight");
-  }
-  await expect(range).toHaveAttribute(
-    "aria-valuetext",
-    "12 tasks per workday, 20.0 hours per month",
-  );
-  await expect(page.locator(".landing-usage__readout output")).toHaveText(
-    "20.0",
-  );
-  await page.keyboard.press("ArrowRight");
-  await expect(page.locator(".landing-usage__readout output")).toHaveText(
-    "21.7",
-  );
-  await expect(
-    page.getByText("Planning estimate: 5 minutes per task × 20 workdays."),
-  ).toBeVisible();
+  await expect(range).toHaveAttribute("aria-valuetext", "3,000 runs per month, Personal routines planning profile");
+  await expect(page.locator(".landing-run-planner__result h3")).toHaveText("Personal routines");
+  await page.keyboard.press("End");
+  await expect(range).toHaveAttribute("aria-valuetext", "300,000 runs per month, Higher volume planning profile");
+  await expect(page.locator(".landing-run-card.is-lit")).toContainText("Higher volume");
+  await expect(page.locator(".landing-run-planner__note")).toContainText("not a capacity guarantee or a paid plan");
 });
 
 for (const width of [375, 768, 1440]) {

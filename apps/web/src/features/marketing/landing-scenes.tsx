@@ -52,7 +52,7 @@ export function LandingLightStream() {
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
   const [interactive, setInteractive] = useState(false);
-  const { paused, togglePaused } = useLandingEffects();
+  const { paused, togglePaused, introReady } = useLandingEffects();
   const hasStarted = useRef(false);
   const onReady = useCallback(() => {
     hasStarted.current = true;
@@ -84,7 +84,8 @@ export function LandingLightStream() {
     };
   }, []);
 
-  const enabled = supported && documentVisible && !failed && !paused;
+  const enabled =
+    supported && documentVisible && !failed && !paused && introReady;
   useEffect(() => {
     if (!enabled) setReady(false);
   }, [enabled]);
@@ -108,8 +109,8 @@ export function LandingLightStream() {
         >
           <defs>
             <linearGradient id="stream-fallback-edge">
-              <stop stopColor="#d6ff32" stopOpacity="0" />
-              <stop offset=".5" stopColor="#d6ff32" stopOpacity=".35" />
+              <stop stopColor="#c8f751" stopOpacity="0" />
+              <stop offset=".5" stopColor="#c8f751" stopOpacity=".35" />
               <stop offset="1" stopColor="#90d9c0" stopOpacity=".05" />
             </linearGradient>
           </defs>

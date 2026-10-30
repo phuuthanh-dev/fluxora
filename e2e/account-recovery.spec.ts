@@ -30,7 +30,9 @@ test("account settings persist a profile, revoke another session and change the 
     await expect(page.locator("main").getByRole("alert")).toHaveText("Your current password is incorrect.");
     await page.getByLabel("Current password", { exact: true }).fill(password);
     await page.getByRole("button", { name: "Update password & sign out" }).click();
-    await expect(page).toHaveURL(/\/login\?passwordChanged=1/);
+    // The successful mutation invalidates the session before the client route
+    // finishes loading. Keep the auth checks below; allow that navigation 15s.
+    await expect(page).toHaveURL(/\/login\?passwordChanged=1/, { timeout: 15_000 });
     await expect(page.locator(".account-notice")).toContainText("Password updated");
     expect((await page.request.get(`${api}/auth/me`)).status()).toBe(401);
     await page.getByLabel("Email", { exact: true }).fill(email);

@@ -63,7 +63,10 @@ for (const width of [1440, 375]) {
     if (process.env.LANDING_RECORD_VIDEO) await page.screenshot({ path: info.outputPath("expanded.png") });
     await seek(page, 0.6);
     await expect(copy).toHaveCSS("opacity", "0");
-    await expect.poll(async () => (await plate.boundingBox())!.width).toBeLessThan(expanded.width * 0.6);
+    // The supplied fold now passes through a square instead of scaling the rectangle.
+    await expect.poll(async () => Math.abs((await plate.boundingBox())!.width - (await plate.boundingBox())!.height)).toBeLessThan(1);
+    expect((await plate.boundingBox())!.width).toBeLessThan(expanded.width);
+    expect((await plate.boundingBox())!.width).toBeGreaterThan(80);
     expect((await mark.boundingBox())!.width).toBeGreaterThanOrEqual(68);
     await seek(page, 0.705);
     await expect.poll(async () => Math.abs((await plate.boundingBox())!.width - 80)).toBeLessThan(1);

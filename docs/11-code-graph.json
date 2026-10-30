@@ -1539,8 +1539,28 @@
         "apps/web/src/features/workflow/node-icon.tsx"
       ],
       "externalImports": [
+        "gsap",
         "lucide-react",
         "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/marketing/landing-fold.ts",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
+      "id": "apps/web/src/features/marketing/landing-footer.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/brand/fluxora-mark.tsx",
+        "apps/web/src/features/marketing/landing-motion.tsx",
+        "apps/web/src/features/public-site/site.ts"
+      ],
+      "externalImports": [
+        "lucide-react",
+        "next/link"
       ]
     },
     {
@@ -1548,6 +1568,7 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/components/brand/fluxora-mark.tsx",
+        "apps/web/src/features/marketing/landing-fold.ts",
         "apps/web/src/features/marketing/landing-motion.tsx",
         "apps/web/src/features/marketing/landing-sections.tsx"
       ],
@@ -1573,9 +1594,22 @@
       ]
     },
     {
+      "id": "apps/web/src/features/marketing/landing-intro.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/brand/fluxora-mark.tsx"
+      ],
+      "externalImports": [
+        "gsap",
+        "react"
+      ]
+    },
+    {
       "id": "apps/web/src/features/marketing/landing-motion.tsx",
       "boundary": "web",
-      "internalImports": [],
+      "internalImports": [
+        "apps/web/src/features/marketing/landing-intro.tsx"
+      ],
       "externalImports": [
         "gsap",
         "gsap/ScrollTrigger",
@@ -1588,16 +1622,22 @@
       "internalImports": [
         "apps/web/src/components/brand/fluxora-mark.tsx",
         "apps/web/src/features/marketing/landing-demo.tsx",
+        "apps/web/src/features/marketing/landing-footer.tsx",
         "apps/web/src/features/marketing/landing-handoff.tsx",
         "apps/web/src/features/marketing/landing-interactions.tsx",
         "apps/web/src/features/marketing/landing-motion.tsx",
+        "apps/web/src/features/marketing/landing-run-meter.tsx",
         "apps/web/src/features/marketing/landing-scenes.tsx",
         "apps/web/src/features/marketing/landing-sections.tsx",
         "apps/web/src/features/marketing/landing-showcase.tsx",
-        "apps/web/src/features/public-site/site.ts",
         "apps/web/src/features/workflow/node-icon.tsx"
       ],
       "externalImports": [
+        "@fontsource/fragment-mono/400.css",
+        "@fontsource/instrument-serif/400-italic.css",
+        "@fontsource/inter/400.css",
+        "@fontsource/inter/500.css",
+        "@fontsource/inter/600.css",
         "lucide-react",
         "next/link"
       ]
@@ -1615,6 +1655,19 @@
       "boundary": "web",
       "internalImports": [],
       "externalImports": []
+    },
+    {
+      "id": "apps/web/src/features/marketing/landing-run-meter.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/marketing/landing-motion.tsx"
+      ],
+      "externalImports": [
+        "gsap",
+        "lucide-react",
+        "next/link",
+        "react"
+      ]
     },
     {
       "id": "apps/web/src/features/marketing/landing-scenes.tsx",
@@ -1658,20 +1711,32 @@
       ]
     },
     {
+      "id": "apps/web/src/features/marketing/landing-stream-particles.ts",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "three"
+      ]
+    },
+    {
       "id": "apps/web/src/features/marketing/landing-three-scenes.tsx",
       "boundary": "web",
       "internalImports": [
         "apps/web/src/features/marketing/landing-ribbon-geometry.ts",
-        "apps/web/src/features/marketing/landing-ribbon-shader.ts"
+        "apps/web/src/features/marketing/landing-ribbon-shader.ts",
+        "apps/web/src/features/marketing/landing-stream-particles.ts"
       ],
       "externalImports": [
-        "@react-three/fiber",
         "gsap",
         "gsap/ScrollTrigger",
         "lenis",
         "lenis/dist/lenis.css",
         "react",
-        "three"
+        "three",
+        "three/addons/postprocessing/EffectComposer.js",
+        "three/addons/postprocessing/OutputPass.js",
+        "three/addons/postprocessing/RenderPass.js",
+        "three/addons/postprocessing/UnrealBloomPass.js"
       ]
     },
     {
@@ -3122,8 +3187,24 @@
       "to": "apps/web/src/features/workflow/node-icon.tsx"
     },
     {
+      "from": "apps/web/src/features/marketing/landing-footer.tsx",
+      "to": "apps/web/src/components/brand/fluxora-mark.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-footer.tsx",
+      "to": "apps/web/src/features/marketing/landing-motion.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-footer.tsx",
+      "to": "apps/web/src/features/public-site/site.ts"
+    },
+    {
       "from": "apps/web/src/features/marketing/landing-handoff.tsx",
       "to": "apps/web/src/components/brand/fluxora-mark.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-handoff.tsx",
+      "to": "apps/web/src/features/marketing/landing-fold.ts"
     },
     {
       "from": "apps/web/src/features/marketing/landing-handoff.tsx",
@@ -3150,12 +3231,24 @@
       "to": "apps/web/src/features/marketing/landing-motion.tsx"
     },
     {
+      "from": "apps/web/src/features/marketing/landing-intro.tsx",
+      "to": "apps/web/src/components/brand/fluxora-mark.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-motion.tsx",
+      "to": "apps/web/src/features/marketing/landing-intro.tsx"
+    },
+    {
       "from": "apps/web/src/features/marketing/landing-page.tsx",
       "to": "apps/web/src/components/brand/fluxora-mark.tsx"
     },
     {
       "from": "apps/web/src/features/marketing/landing-page.tsx",
       "to": "apps/web/src/features/marketing/landing-demo.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-page.tsx",
+      "to": "apps/web/src/features/marketing/landing-footer.tsx"
     },
     {
       "from": "apps/web/src/features/marketing/landing-page.tsx",
@@ -3171,6 +3264,10 @@
     },
     {
       "from": "apps/web/src/features/marketing/landing-page.tsx",
+      "to": "apps/web/src/features/marketing/landing-run-meter.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-page.tsx",
       "to": "apps/web/src/features/marketing/landing-scenes.tsx"
     },
     {
@@ -3183,11 +3280,11 @@
     },
     {
       "from": "apps/web/src/features/marketing/landing-page.tsx",
-      "to": "apps/web/src/features/public-site/site.ts"
+      "to": "apps/web/src/features/workflow/node-icon.tsx"
     },
     {
-      "from": "apps/web/src/features/marketing/landing-page.tsx",
-      "to": "apps/web/src/features/workflow/node-icon.tsx"
+      "from": "apps/web/src/features/marketing/landing-run-meter.tsx",
+      "to": "apps/web/src/features/marketing/landing-motion.tsx"
     },
     {
       "from": "apps/web/src/features/marketing/landing-scenes.tsx",
@@ -3232,6 +3329,10 @@
     {
       "from": "apps/web/src/features/marketing/landing-three-scenes.tsx",
       "to": "apps/web/src/features/marketing/landing-ribbon-shader.ts"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-three-scenes.tsx",
+      "to": "apps/web/src/features/marketing/landing-stream-particles.ts"
     },
     {
       "from": "apps/web/src/features/public-site/public-shell.tsx",

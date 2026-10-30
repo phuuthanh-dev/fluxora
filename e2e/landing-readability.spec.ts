@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 
 test.use({ video: process.env.LANDING_RECORD_VIDEO ? "on" : "off" });
 
@@ -23,6 +25,10 @@ for (const width of [375, 768, 1440]) {
       expect(Math.min(...sizes), selector).toBeGreaterThanOrEqual(minimum);
     }
     await expect(page.locator("body")).toHaveCSS("font-family", /gilroy/i);
+    await expect(page.locator(".landing-page")).toHaveCSS("font-family", /Inter/);
+    await expect(page.locator("h1 em")).toHaveCSS("font-family", /Instrument Serif/);
+    await expect(page.locator(".landing-eyebrow").first()).toHaveCSS("font-family", /Fragment Mono/);
+    expect(await page.locator(".landing-page").evaluate(el => getComputedStyle(el).getPropertyValue("--relay-lime").trim())).toBe("#c8f751");
     const footer = page.getByRole("contentinfo", { name: "Fluxora footer" });
     await footer.scrollIntoViewIfNeeded();
     await expect(footer.getByRole("link", { name: "GitHub" })).toHaveAttribute("href", "https://github.com/phuuthanh-dev/workflow-automation");
@@ -64,4 +70,21 @@ test("GSAP section entrances respect pause and preference changes", async ({ pag
   await page.locator("header").getByRole("link", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.locator(".landing-reveal")).toHaveCount(0);
+});
+
+
+test("Relay artwork is local, intact and used by the landing", async ({ request }) => {
+  const manifest = JSON.parse(await readFile("apps/web/public/relay/manifest.json", "utf8")) as {
+    assets: { path: string; sha256: string; bytes: number }[];
+  };
+  const css = (await Promise.all(["landing.css", "landing-template.css"].map(name => readFile(`apps/web/src/features/marketing/${name}`, "utf8")))).join("\n");
+  expect(manifest.assets.length).toBeGreaterThan(0);
+  for (const asset of manifest.assets) {
+    expect(css).toContain(`/relay/${asset.path}`);
+    const response = await request.get(`/relay/${asset.path}`);
+    expect(response.ok(), asset.path).toBe(true);
+    const bytes = await response.body();
+    expect(bytes.length, asset.path).toBe(asset.bytes);
+    expect(createHash("sha256").update(bytes).digest("hex"), asset.path).toBe(asset.sha256);
+  }
 });

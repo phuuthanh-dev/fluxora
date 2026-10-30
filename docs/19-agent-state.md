@@ -10,7 +10,13 @@ PR #46 merged develop → main at `3ee77fc4d1b8976282b8ec72ad2044d09c798ea8`.
 Main quality run `40911982815` and deploy run `40913079403` succeeded; public login
 and API readiness returned 200. The full-width dark auth header is already shipped.
 This supersedes older pending-release statements below; do not repeat that work.
-ACCOUNT-1 starts from this commit and is a local-only account/recovery slice.
+ACCOUNT-1 was implemented locally at `eae6b6e` after this release; it has not
+been deployed. The current owner-approved L12.3 follow-up adopts the newly
+supplied Relay reference and original assets on local
+`codex/relay-reference-adoption`. Local validation passed: API 226/226, web
+23/23 and 93/93 E2E; see `.agent/reports/2026-10-30-relay-template-completion.md`
+(expanded intro/hero/fold/background/planner/footer request). Do not restart the
+completed account work or earlier video-based landing reconstruction.
 
 ## How to use it
 
