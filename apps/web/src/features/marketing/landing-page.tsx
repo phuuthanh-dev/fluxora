@@ -10,9 +10,9 @@ import {
   Sparkles,
 } from "lucide-react";
 import { FluxoraMark } from "../../components/brand/fluxora-mark";
-import { NodeIcon, type NodeIconName } from "../workflow/node-icon";
 import { LandingDemo } from "./landing-demo";
 import { LandingHandoff } from "./landing-handoff";
+import { LandingIntegrations } from "./landing-integrations";
 import { LandingFaq, LandingNavigation } from "./landing-interactions";
 import { LandingRunMeter } from "./landing-run-meter";
 import { LandingMotionProvider, LandingReveal } from "./landing-motion";
@@ -27,14 +27,6 @@ import "@fontsource/fragment-mono/400.css";
 import "./landing.css";
 import "./landing-template.css";
 
-const apps: { name: string; icon: NodeIconName }[] = [
-  { name: "GitHub", icon: "github" },
-  { name: "Google Drive", icon: "google-drive" },
-  { name: "Google Sheets", icon: "google-sheets" },
-  { name: "Discord", icon: "discord" },
-  { name: "Telegram", icon: "telegram" },
-  { name: "Steam", icon: "steam" },
-];
 const chapters = [
   {
     title: "Start with a signal.",
@@ -114,26 +106,7 @@ export function LandingPage() {
             <span>VISUAL BY DESIGN. OPEN BY NATURE.</span>
           </div>
         </section>
-        <section
-          className="landing-integrations landing-container"
-          id="integrations"
-          aria-label="Available integrations"
-        >
-          <p>
-            Familiar tools.
-            <br />
-            <strong>New possibilities.</strong>
-          </p>
-          <div>
-            {apps.map((app) => (
-              <span className="landing-integration" key={app.name}>
-                <NodeIcon name={app.icon} size={24} />
-                <span>{app.name}</span>
-              </span>
-            ))}
-          </div>
-          <span className="landing-integrations__more">+ HTTP & more</span>
-        </section>
+        <LandingIntegrations />
         <div className="landing-frosted-slab">
           <section
             className="landing-product landing-container"
@@ -244,6 +217,25 @@ export function LandingPage() {
                 </LandingReveal>
               ))}
             </div>
+          </section>
+          <section className="landing-volume landing-container" aria-labelledby="volume-heading">
+            <LandingReveal className="landing-volume__copy">
+              <p className="landing-eyebrow">03 — A CLEARER VIEW</p>
+              <h2 id="volume-heading">See the work as it happens.</h2>
+              <p>Follow each execution and find the details when a workflow needs your attention.</p>
+            </LandingReveal>
+            <LandingReveal className="landing-volume__chart">
+              <p className="landing-volume__caption">SAMPLE ACTIVITY · RUNS BY DAY</p>
+              <div className="landing-volume__bars" aria-hidden="true">
+                {[38, 52, 45, 70, 61, 86].map((height, index) => (
+                  <div className="landing-volume__column" key={index}>
+                    <span className="landing-volume__bar" style={{ height: `${height}%` }} />
+                    <small>{["MON", "TUE", "WED", "THU", "FRI", "SAT"][index]}</small>
+                  </div>
+                ))}
+              </div>
+              <p className="landing-volume__note">Illustrative data, not live usage.</p>
+            </LandingReveal>
           </section>
           <section
             className="landing-safety landing-container"

@@ -52,7 +52,7 @@ export function LandingLightStream() {
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
   const [interactive, setInteractive] = useState(false);
-  const { paused, togglePaused, introReady } = useLandingEffects();
+  const { paused, togglePaused } = useLandingEffects();
   const hasStarted = useRef(false);
   const onReady = useCallback(() => {
     hasStarted.current = true;
@@ -84,8 +84,9 @@ export function LandingLightStream() {
     };
   }, []);
 
-  const enabled =
-    supported && documentVisible && !failed && !paused && introReady;
+  // Start the one expensive visual scene behind the loader. Mounting it only
+  // after intro completion made the reveal look like the page had reloaded.
+  const enabled = supported && documentVisible && !failed && !paused;
   useEffect(() => {
     if (!enabled) setReady(false);
   }, [enabled]);

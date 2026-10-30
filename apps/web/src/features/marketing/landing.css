@@ -1,4 +1,14 @@
 /* Public marketing: official Relay reference roles; product tokens remain unchanged. */
+/* The opening intro fills the viewport. Reserve scrollbar space only as the
+   intro closes, while its overlay still conceals the layout adjustment. */
+html:has(.landing-page):not(:has(.landing-loader[data-phase="draw"])) {
+  scrollbar-gutter: stable;
+}
+@media (scripting: enabled) {
+  html:has(.landing-loader[data-phase="draw"]) {
+    overflow: hidden;
+  }
+}
 .landing-page {
   --relay-lime: #c8f751;
   --relay-lime-strong: #c8f751;
@@ -104,19 +114,32 @@
 }
 .landing-nav {
   align-items: center;
-  border: 1px solid var(--landing-line);
+  border: 1px solid transparent;
   border-radius: var(--radius-lg);
   display: flex;
   gap: 24px;
   min-height: var(--header-height);
+  left: 50%;
   margin-top: 0;
   padding: 10px 16px;
-  position: sticky;
+  position: fixed;
   top: 12px;
-  background: color-mix(in srgb, var(--marketing-void) 82%, transparent);
-  backdrop-filter: blur(20px);
-  box-shadow: 0 8px 32px #0002;
-  z-index: 20;
+  transform: translateX(-50%);
+  background: transparent;
+  box-shadow: none;
+  transition:
+    background-color 0.28s ease,
+    border-color 0.28s ease,
+    box-shadow 0.28s ease,
+    backdrop-filter 0.28s ease;
+  z-index: 40;
+}
+.landing-nav[data-scrolled="true"] {
+  background: color-mix(in srgb, var(--marketing-void) 94%, transparent);
+  border-color: var(--landing-line);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  box-shadow: 0 8px 32px #0005;
 }
 .landing-brand {
   align-items: center;
@@ -353,6 +376,8 @@
   width: 32px;
 }
 .landing-demo {
+  --landing-depth-x: 0;
+  --landing-depth-y: 0;
   background: linear-gradient(145deg, #171c17f5, #090d0bf7);
   border: 1px solid #85936b4a;
   border-radius: 15px;
@@ -362,6 +387,32 @@
   min-width: 0;
   overflow: hidden;
   position: relative;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.landing-demo[data-pointer-depth="active"] .landing-demo__chrome,
+.landing-demo[data-pointer-depth="active"] .landing-demo__heading {
+  transform: translate3d(
+    calc(var(--landing-depth-x) * 7px),
+    calc(var(--landing-depth-y) * 5px),
+    18px
+  );
+}
+.landing-demo[data-pointer-depth="active"] .landing-demo__canvas {
+  transform: translate3d(
+    calc(var(--landing-depth-x) * 13px),
+    calc(var(--landing-depth-y) * 9px),
+    30px
+  );
+}
+.landing-demo[data-pointer-depth="active"] .landing-demo__feed,
+.landing-demo[data-pointer-depth="active"] .landing-demo__toolbar,
+.landing-demo[data-pointer-depth="active"] .landing-demo__console {
+  transform: translate3d(
+    calc(var(--landing-depth-x) * 4px),
+    calc(var(--landing-depth-y) * 3px),
+    10px
+  );
 }
 .landing-demo__chrome {
   align-items: center;
@@ -608,12 +659,52 @@
   flex: 1;
   gap: 25px;
   justify-content: space-around;
+  position: relative;
+}
+.landing-integrations__rail {
+  background: linear-gradient(90deg, transparent, #c8f75152 16%, #c8f751a8 50%, #c8f75152 84%, transparent);
+  height: 1px;
+  left: 2%;
+  pointer-events: none;
+  position: absolute;
+  right: 2%;
+  top: 15px;
+  transform-origin: center;
 }
 .landing-integration {
   align-items: center;
+  background: color-mix(in srgb, var(--marketing-void) 72%, transparent);
+  border: 1px solid transparent;
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
   gap: 9px;
+  justify-content: center;
+  min-height: 98px;
+  min-width: 108px;
+  padding: 12px 9px;
+  position: relative;
+  transition: background 0.24s ease, border-color 0.24s ease, color 0.24s ease;
+  width: 108px;
+}
+.landing-integration > span:first-child {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 30px;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+.landing-integration > span:first-child :is(svg, span) {
+  display: block;
+  height: 24px;
+  max-height: 24px;
+  max-width: 24px;
+  width: 24px;
+}
+.landing-integration:hover {
+  background: color-mix(in srgb, var(--marketing-void) 90%, transparent);
+  border-color: #c8f75135;
 }
 .landing-integration > span:last-child {
   color: var(--marketing-muted);
@@ -626,7 +717,26 @@
   white-space: nowrap;
 }
 .landing-product {
+  isolation: isolate;
+  position: relative;
   padding-block: 125px 90px;
+}
+.landing-product::before {
+  background:
+    radial-gradient(circle at 50% 26%, rgba(10, 14, 11, 0.74), rgba(1, 2, 1, 0.92) 64%),
+    linear-gradient(rgba(1, 2, 1, 0.68), rgba(1, 2, 1, 0.78));
+  border-block: 1px solid rgba(243, 246, 236, 0.08);
+  content: "";
+  inset: 32px -5vw 22px;
+  pointer-events: none;
+  position: absolute;
+  z-index: -1;
+}
+.landing-product .landing-section-intro h2 > span {
+  color: rgba(243, 246, 236, 0.76);
+}
+.landing-product .landing-section-intro > p:last-child {
+  color: rgba(215, 223, 209, 0.88);
 }
 .landing-section-intro {
   text-align: center;
@@ -1251,6 +1361,40 @@
   color: var(--marketing-muted);
 }
 
+.landing-cursor {
+  display: none;
+}
+@media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
+  .landing-cursor {
+    align-items: center;
+    border: 1px solid var(--relay-lime);
+    border-radius: 999px;
+    display: grid;
+    height: 28px;
+    justify-content: center;
+    left: 0;
+    mix-blend-mode: screen;
+    pointer-events: none;
+    position: fixed;
+    top: 0;
+    translate: -50% -50%;
+    width: 28px;
+    will-change: transform, opacity;
+    z-index: 60;
+  }
+  .landing-cursor i {
+    background: var(--relay-lime);
+    border-radius: inherit;
+    height: 5px;
+    opacity: 0.16;
+    transition: opacity 0.16s ease;
+    width: 5px;
+  }
+  .landing-cursor[data-interactive="true"] i {
+    opacity: 0.32;
+  }
+}
+
 @media (min-width: 1500px) {
   .landing-hero {
     min-height: 800px;
@@ -1359,6 +1503,9 @@
   .landing-integrations > div {
     justify-content: space-between;
     width: 100%;
+  }
+  .landing-integrations__rail {
+    display: none;
   }
   .landing-showcase__content {
     padding: 22px;
@@ -1588,6 +1735,10 @@
   }
   .landing-integration {
     gap: 8px;
+    min-height: 82px;
+    min-width: 0;
+    padding: 10px 6px;
+    width: auto;
   }
   .landing-integration > span:last-child {
     font-size: 12px;

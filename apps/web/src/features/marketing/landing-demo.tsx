@@ -71,7 +71,7 @@ export function LandingDemo() {
     paths: ["", "", "", ""],
   });
   const { paused, introReady } = useLandingEffects();
-  usePointerTilt(root, paused || !introReady);
+  usePointerTilt(root, paused);
   const route = [0, cached ? 2 : 1, 3];
   const running = step > 0 && step < 4;
   useEffect(() => setReady(true), []);
@@ -111,13 +111,17 @@ export function LandingDemo() {
       setStep(4);
       return;
     }
-    const timer = setTimeout(() => setStep((value) => value + 1), 900);
+    // Hold the first active node long enough for both a person and assistive
+    // technology to register that a run started. The following steps remain
+    // brisk so the illustrative sequence completes without becoming a demo.
+    const dwell = step === 1 ? 1800 : 900;
+    const timer = setTimeout(() => setStep((value) => value + 1), dwell);
     return () => clearTimeout(timer);
   }, [step, running, paused]);
 
   useEffect(() => {
     const host = root.current;
-    if (!host || !introReady || paused) return;
+    if (!host || paused) return;
     const media = gsap.matchMedia();
     media.add(
       "(prefers-reduced-motion: no-preference)",
@@ -192,11 +196,11 @@ export function LandingDemo() {
       host.closest(".landing-hero")!,
     );
     return () => media.revert();
-  }, [introReady, paused]);
+  }, [paused]);
 
   useEffect(() => {
     const host = root.current;
-    if (!host || !introReady || paused || !connections.paths[0]) return;
+    if (!host || paused || !connections.paths[0]) return;
     const media = gsap.matchMedia();
     media.add(
       "(prefers-reduced-motion: no-preference)",
@@ -271,7 +275,7 @@ export function LandingDemo() {
       host,
     );
     return () => media.revert();
-  }, [introReady, paused, connections]);
+  }, [paused, connections]);
 
   useEffect(() => {
     if (!feedOffset || paused) return;

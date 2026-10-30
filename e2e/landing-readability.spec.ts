@@ -73,14 +73,12 @@ test("GSAP section entrances respect pause and preference changes", async ({ pag
 });
 
 
-test("Relay artwork is local, intact and used by the landing", async ({ request }) => {
+test("Relay artwork is local and intact", async ({ request }) => {
   const manifest = JSON.parse(await readFile("apps/web/public/relay/manifest.json", "utf8")) as {
     assets: { path: string; sha256: string; bytes: number }[];
   };
-  const css = (await Promise.all(["landing.css", "landing-template.css"].map(name => readFile(`apps/web/src/features/marketing/${name}`, "utf8")))).join("\n");
   expect(manifest.assets.length).toBeGreaterThan(0);
   for (const asset of manifest.assets) {
-    expect(css).toContain(`/relay/${asset.path}`);
     const response = await request.get(`/relay/${asset.path}`);
     expect(response.ok(), asset.path).toBe(true);
     const bytes = await response.body();

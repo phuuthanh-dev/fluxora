@@ -134,3 +134,42 @@ restores overflow/inert on every exit. Hero packets stop offscreen/hidden/paused
 Frosted layers must be viewport-bounded to avoid document-sized filter rasters.
 Statement motion clips a square-first shell while keeping copy at natural scale;
 run-planner digits retain an accessible textual output. See docs/30.
+
+## P0–P2 finishing contract (2026-10-30)
+
+The landing's final Relay-informed pass remains deliberately small: the Product
+section receives a dark reading veil whenever the lime stream passes behind it;
+the navigation begins optically light and becomes a bounded frosted plate after
+the hero threshold; and the desktop cursor/hero depth are fine-pointer-only.
+The integration rail is a single scoped GSAP timeline (rail first, then app
+icons), while reliability cards use existing `LandingReveal` entries. The footer
+continues to use its existing reveal owner and adds only CSS fine-pointer
+elevation, so it remains fully static for touch and reduced motion.
+
+The visible sample pauses longer at its first active node. That is product
+feedback, not network latency: its browser scenario is explicitly `test.slow()`
+and gives the final illustrative status a 15-second assertion budget without
+relaxing any product/API journey. Cursor exit uses a related-target-aware
+`mouseout` listener; all new cursor/rail work reverts through the existing
+`gsap.matchMedia` context. Do not use nested `gsap.context` inside that media
+context or add an additional ticker.
+
+The intro must be the first visible frame in the server HTML, then dismiss only
+after its client-side readiness choreography; otherwise visitors see a static
+landing flash before the GSAP sequence starts. The no-JavaScript path explicitly
+hides that loader. Integration inventory uses a fixed icon slot and card rhythm.
+Never stretch or repeat a narrow decorative source slice across a section: the
+Relay accent is a small vertical element, not a full-width background.
+
+Prewarm the decorative Three scene and hero GSAP timelines behind the intro
+overlay. `introReady` remains an interaction guard (for example, the sample
+run button), not a mount gate for those first-viewport visual systems. Mounting
+the canvas and hero timelines only as the overlay disappears produces a second,
+false “reload” beat. Scroll-pinned and offscreen section geometry remains
+gated until the intro completes, because it must measure the final document
+geometry.
+
+The statement dock reads fresh geometry on native scroll and schedules one
+coalesced follow-up frame for sticky mobile layout. That is a bounded layout
+settle; cancel it on cleanup. During docking, the existing GSAP ticker follows
+the destination while its section reveal moves, and is removed on cleanup.

@@ -1579,6 +1579,19 @@
       ]
     },
     {
+      "id": "apps/web/src/features/marketing/landing-integrations.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/marketing/landing-motion.tsx",
+        "apps/web/src/features/workflow/node-icon.tsx"
+      ],
+      "externalImports": [
+        "gsap",
+        "gsap/ScrollTrigger",
+        "react"
+      ]
+    },
+    {
       "id": "apps/web/src/features/marketing/landing-interactions.tsx",
       "boundary": "web",
       "internalImports": [
@@ -1624,13 +1637,13 @@
         "apps/web/src/features/marketing/landing-demo.tsx",
         "apps/web/src/features/marketing/landing-footer.tsx",
         "apps/web/src/features/marketing/landing-handoff.tsx",
+        "apps/web/src/features/marketing/landing-integrations.tsx",
         "apps/web/src/features/marketing/landing-interactions.tsx",
         "apps/web/src/features/marketing/landing-motion.tsx",
         "apps/web/src/features/marketing/landing-run-meter.tsx",
         "apps/web/src/features/marketing/landing-scenes.tsx",
         "apps/web/src/features/marketing/landing-sections.tsx",
-        "apps/web/src/features/marketing/landing-showcase.tsx",
-        "apps/web/src/features/workflow/node-icon.tsx"
+        "apps/web/src/features/marketing/landing-showcase.tsx"
       ],
       "externalImports": [
         "@fontsource/fragment-mono/400.css",
@@ -3215,6 +3228,14 @@
       "to": "apps/web/src/features/marketing/landing-sections.tsx"
     },
     {
+      "from": "apps/web/src/features/marketing/landing-integrations.tsx",
+      "to": "apps/web/src/features/marketing/landing-motion.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-integrations.tsx",
+      "to": "apps/web/src/features/workflow/node-icon.tsx"
+    },
+    {
       "from": "apps/web/src/features/marketing/landing-interactions.tsx",
       "to": "apps/web/src/components/brand/brand-lockup.tsx"
     },
@@ -3256,6 +3277,10 @@
     },
     {
       "from": "apps/web/src/features/marketing/landing-page.tsx",
+      "to": "apps/web/src/features/marketing/landing-integrations.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-page.tsx",
       "to": "apps/web/src/features/marketing/landing-interactions.tsx"
     },
     {
@@ -3277,10 +3302,6 @@
     {
       "from": "apps/web/src/features/marketing/landing-page.tsx",
       "to": "apps/web/src/features/marketing/landing-showcase.tsx"
-    },
-    {
-      "from": "apps/web/src/features/marketing/landing-page.tsx",
-      "to": "apps/web/src/features/workflow/node-icon.tsx"
     },
     {
       "from": "apps/web/src/features/marketing/landing-run-meter.tsx",

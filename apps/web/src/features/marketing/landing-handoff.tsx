@@ -132,25 +132,49 @@ export function LandingHandoff() {
       };
 
       measure();
+      const currentProgress = () => {
+        const start = host.getBoundingClientRect().top + window.scrollY;
+        const target = dock.getBoundingClientRect();
+        const liveEnd =
+          target.top + window.scrollY + target.height / 2 - height * 0.64;
+        return clamp((window.scrollY - start) / (liveEnd - start));
+      };
       const trigger = ScrollTrigger.create({
         trigger: host,
         start: "top top",
         end: () => end,
         onRefreshInit: measure,
-        onRefresh: (self) => paint(self.progress),
-        onUpdate: (self) => paint(self.progress),
+        onRefresh: () => paint(currentProgress()),
+        onUpdate: () => paint(currentProgress()),
       });
       // At progress=1 the badge continues moving with its destination in the
-      // document. ScrollTrigger stops onUpdate at its endpoints, so keep this
-      // lightweight scroll listener; there is no additional RAF/ticker.
-      const onScroll = () => paint(trigger.progress);
+      // document. ScrollTrigger stops onUpdate at its endpoints, so use the
+      // current document geometry. One coalesced follow-up frame lets sticky
+      // mobile layout settle; it is not a second ticker.
+      let settleFrame = 0;
+      const onScroll = () => {
+        paint(currentProgress());
+        cancelAnimationFrame(settleFrame);
+        settleFrame = requestAnimationFrame(() => {
+          if (!disposed) paint(currentProgress());
+        });
+      };
       window.addEventListener("scroll", onScroll, { passive: true });
+      // The destination itself can animate after scrolling stops. Follow it
+      // on GSAP's existing ticker while this stage is in the docking range.
+      const followDock = () => {
+        const progress = currentProgress();
+        if (progress >= 0.7 && stage.getBoundingClientRect().bottom > 0) paint(progress);
+      };
+      gsap.ticker.add(followDock);
       paint(trigger.progress);
       void document.fonts.ready.then(() => {
         if (!disposed) ScrollTrigger.refresh();
       });
       return () => {
         disposed = true;
+        cancelAnimationFrame(settleFrame);
+        gsap.ticker.remove(followDock);
         window.removeEventListener("scroll", onScroll);
         trigger.kill();
         delete host.dataset.handoff;

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowRight, Menu, X } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BrandLockup } from "../../components/brand/brand-lockup";
 import { LandingReveal, useLandingEffects } from "./landing-motion";
 import { Disclosure } from "../../components/ui/disclosure";
@@ -42,10 +42,30 @@ export function LandingNavigation() {
   const trigger = useRef<HTMLElement>(null);
   const panel = useRef<HTMLElement>(null);
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const { paused } = useLandingEffects();
   useSurfaceMotion(panel, open && !paused);
+  useEffect(() => {
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      setScrolled(window.scrollY > 56);
+    };
+    const requestUpdate = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", requestUpdate, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", requestUpdate);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, []);
   return (
-    <header className="landing-nav landing-container">
+    <header
+      className="landing-nav landing-container"
+      data-scrolled={scrolled}
+    >
       <Link className="landing-brand" href="#top" aria-label="Fluxora home">
         <BrandLockup />
       </Link>

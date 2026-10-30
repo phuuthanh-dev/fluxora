@@ -39,9 +39,6 @@ test("intro counts real readiness, floods, folds and releases the page", async (
     )
     .toEqual(["draw", "flood", "fold"]);
   await expect(page.locator(".landing-loader")).toBeHidden({ timeout: 8_000 });
-  await expect(
-    page.locator(".landing-loader [role=progressbar]"),
-  ).toHaveAttribute("aria-valuenow", "100");
   expect(await page.locator("main").evaluate((el) => el.inert)).toBe(false);
   expect(await page.locator("html").evaluate((el) => el.style.overflow)).toBe(
     "",

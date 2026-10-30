@@ -12,14 +12,6 @@ export function LandingIntro({ onComplete }: { onComplete: () => void }) {
     const host = root.current;
     if (!host) return;
     const reduced = matchMedia("(prefers-reduced-motion: reduce)");
-    if (
-      reduced.matches ||
-      scrollY > 48 ||
-      (location.hash && location.hash !== "#top")
-    ) {
-      onComplete();
-      return;
-    }
     const main = document.querySelector<HTMLElement>(".landing-page");
     const previousInert = main?.inert ?? false;
     const previousOverflow = document.documentElement.style.overflow;
@@ -49,6 +41,14 @@ export function LandingIntro({ onComplete }: { onComplete: () => void }) {
       onComplete();
     };
     skip.current = release;
+    if (
+      reduced.matches ||
+      scrollY > 48 ||
+      (location.hash && location.hash !== "#top")
+    ) {
+      release();
+      return;
+    }
     host.hidden = false;
     host.dataset.phase = "draw";
     if (main) main.inert = true;
@@ -74,6 +74,9 @@ export function LandingIntro({ onComplete }: { onComplete: () => void }) {
     const close = () => {
       if (closing || disposed || finished) return;
       closing = true;
+      // Restore the scrollbar while the intro still covers the page, so its
+      // appearance does not coincide with revealing the landing content.
+      document.documentElement.style.overflow = previousOverflow;
       host.dataset.phase = "flood";
       closingTimeline = gsap.timeline({ defaults: { ease: "power2.inOut" } });
       closingTimeline
@@ -162,44 +165,60 @@ export function LandingIntro({ onComplete }: { onComplete: () => void }) {
     };
   }, [onComplete]);
   return (
-    <div ref={root} className="landing-loader" hidden data-phase="draw">
-      <div className="landing-loader__stage" />
-      <svg
-        className="landing-loader__ring"
-        width="100%"
-        height="100%"
-        aria-hidden="true"
-      >
-        <rect
-          data-loader-ring
-          x="8"
-          y="8"
+    <>
+      <div ref={root} className="landing-loader" data-phase="draw">
+        <div className="landing-loader__stage" />
+        <svg
+          className="landing-loader__ring"
           width="100%"
           height="100%"
-          style={{ width: "calc(100% - 16px)", height: "calc(100% - 16px)" }}
-          rx="24"
-          pathLength="100"
-        />
-      </svg>
-      <div className="landing-loader__flood" />
-      <div className="landing-loader__plate" />
-      <span className="landing-loader__mark">
-        <FluxoraMark size={76} />
-      </span>
-      <div
-        className="landing-loader__status"
-        role="progressbar"
-        aria-label="Loading Fluxora"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={4}
-      >
-        <span>PREPARING FLUXORA</span>
-        <output aria-hidden="true">4%</output>
+          aria-hidden="true"
+        >
+          <rect
+            data-loader-ring
+            x="8"
+            y="8"
+            width="100%"
+            height="100%"
+            style={{
+              width: "calc(100% - 16px)",
+              height: "calc(100% - 16px)",
+            }}
+            rx="24"
+            pathLength="100"
+          />
+        </svg>
+        <div className="landing-loader__flood" />
+        <div className="landing-loader__plate" />
+        <span className="landing-loader__mark">
+          <FluxoraMark size={76} />
+        </span>
+        <div
+          className="landing-loader__status"
+          role="progressbar"
+          aria-label="Loading Fluxora"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={4}
+        >
+          <span>PREPARING FLUXORA</span>
+          <output aria-hidden="true">4%</output>
+        </div>
+        <button
+          className="landing-loader__skip"
+          onClick={() => {
+            // Dismiss synchronously as well as stopping the timeline. This is
+            // intentionally fail-open if a browser is between flood/fold frames.
+            root.current!.hidden = true;
+            skip.current();
+          }}
+        >
+          Skip intro
+        </button>
       </div>
-      <button className="landing-loader__skip" onClick={() => skip.current()}>
-        Skip intro
-      </button>
-    </div>
+      <noscript>
+        <style>{`.landing-loader{display:none!important}.landing-page{visibility:visible!important}`}</style>
+      </noscript>
+    </>
   );
 }

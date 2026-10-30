@@ -59,6 +59,9 @@ customer count, testimonial, success-rate or pricing claim may be invented.
 - `landing-motion.tsx`: scoped GSAP section entrances and shared pause state;
   readable before hydration. Shared UI motion also handles tilt/menu/tab/FAQ
   enhancement; the former Motion dependency is removed.
+- `landing-integrations.tsx`: local supported-app inventory and its single
+  scoped signal-rail entrance; the server-rendered list remains readable with
+  JavaScript or motion disabled.
 - `landing-scenes.tsx`: lazy renderer, SVG fallback, pause/visibility/preference.
 - `landing-three-scenes.tsx`: page measurement, Lenis/ScrollTrigger ownership,
   perspective camera, bounded bloom composer and shared ticker.
@@ -186,6 +189,12 @@ Browser coverage must include the login boundary; local sample and no API calls;
 no-WebGL/context-loss/reduced-motion recovery; pause/resume and restored native
 scrolling; keyboard tabs; calculator assumptions; sample-day selection; desktop,
 tablet and mobile overflow; no-JavaScript navigation and FAQ.
+
+The 2026-10-30 P0–P2 follow-up additionally checks the transparent-to-frosted
+navigation boundary, Product reading contrast over the lime stream, fine-pointer
+cursor/depth opt-in, integration inventory/rail and real footer links under
+pause/reduced-motion. No effect is a requirement for reading, navigation or
+sign-in.
 
 Inspect ordered motion sequences and a browser recording in addition to stills
 and tests. Verify idle light changes while page scroll stays at zero. Run the full

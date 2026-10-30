@@ -21,6 +21,10 @@ test("public landing leads to the existing login without changing the auth bound
 test("sample run progresses, stops and replays locally without contacting an API", async ({
   page,
 }) => {
+  // This deliberately waits through a visible, human-paced three-step motion.
+  // Keep the proof resilient when browser rendering is slowed by WebGL or a
+  // busy local development machine; it is not a request/response latency SLO.
+  test.slow();
   // Keep the whole sample visible so automatic scrolling cannot consume its
   // short running state while the decorative scene settles on a busy runner.
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -43,6 +47,7 @@ test("sample run progresses, stops and replays locally without contacting an API
   await page.getByRole("button", { name: "Run sample", exact: true }).click();
   await expect(page.locator(".landing-demo").getByRole("status")).toHaveText(
     "Sample complete. Three steps, one clear trail.",
+    { timeout: 15_000 },
   );
   await expect(page.locator(".landing-demo-node.is-done")).toHaveCount(3);
   await page.getByRole("button", { name: "Replay sample" }).click();
