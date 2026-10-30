@@ -1198,11 +1198,22 @@ html:has(.landing-page):not(:has(.landing-loader[data-phase="draw"])) {
   color: var(--relay-lime);
 }
 .landing-chapter__trace {
-  align-items: center;
-  display: flex;
+  display: grid;
+  gap: 10px;
   margin-top: 22px;
 }
-.landing-chapter__trace > span {
+.landing-chapter__trace > p {
+  color: var(--landing-dim);
+  font: 10px var(--font-mono);
+  letter-spacing: .04em;
+}
+.landing-chapter__trace-row {
+  align-items: center;
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  gap: 12px;
+}
+.landing-chapter__trace-row > span {
   align-items: center;
   color: var(--marketing-muted);
   display: flex;
@@ -1212,11 +1223,17 @@ html:has(.landing-page):not(:has(.landing-loader[data-phase="draw"])) {
 .landing-chapter__trace svg {
   color: var(--relay-lime);
 }
-.landing-chapter__trace i {
-  background: var(--landing-line);
-  height: 1px;
-  margin: 0 12px;
-  width: 25px;
+.landing-chapter__trace-row > i {
+  background: #ffffff0d;
+  border-radius: 3px;
+  height: 6px;
+  overflow: hidden;
+}
+.landing-chapter__trace-row b {
+  background: linear-gradient(90deg, #789b27, var(--relay-lime));
+  display: block;
+  height: 100%;
+  transform-origin: left;
 }
 .landing-safety {
   background: radial-gradient(ellipse at 80% 40%, #c8f75106, transparent 60%);

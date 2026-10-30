@@ -200,18 +200,18 @@ export function LandingPage() {
                     </div>
                   ) : null}
                   {chapter.tag.startsWith("03") ? (
-                    <div className="landing-chapter__trace">
-                      <span>
-                        <Check size={13} /> Input
-                      </span>
-                      <i />
-                      <span>
-                        <Check size={13} /> Action
-                      </span>
-                      <i />
-                      <span>
-                        <Check size={13} /> Output
-                      </span>
+                    <div className="landing-chapter__trace" aria-label="Illustrative execution trace">
+                      <p>EXAMPLE RUN · COMPLETED</p>
+                      {[
+                        { label: "Input", width: "76%" },
+                        { label: "Action", width: "54%" },
+                        { label: "Output", width: "32%" },
+                      ].map((item) => (
+                        <div className="landing-chapter__trace-row" key={item.label}>
+                          <span><Check size={13} /> {item.label}</span>
+                          <i aria-hidden="true"><b style={{ width: item.width }} /></i>
+                        </div>
+                      ))}
                     </div>
                   ) : null}
                 </LandingReveal>

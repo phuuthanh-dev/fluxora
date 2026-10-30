@@ -204,6 +204,13 @@ export function LandingReveal({
               scrollTrigger: { trigger: element, start: "top 85%", once: true } },
           );
         }
+        const traceBars = element.querySelectorAll(".landing-chapter__trace-row b");
+        if (traceBars.length) {
+          gsap.fromTo(traceBars, { scaleX: 0 }, {
+            scaleX: 1, duration: 0.7, stagger: 0.2, ease: "power2.out", immediateRender: false,
+            scrollTrigger: { trigger: element, start: "top 85%", once: true },
+          });
+        }
       },
       element,
     );

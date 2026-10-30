@@ -54,3 +54,17 @@ test("integration choreography is enhancement-only for reduced motion", async ({
   await expect(integrations.locator("[data-integration]")).toHaveCount(6);
   await expect(integrations.locator(".landing-integrations__rail")).toHaveCSS("transform", "none");
 });
+
+test("illustrative trace settles and remains visible when motion is paused", async ({ page }) => {
+  await page.goto("/");
+  await releaseIntro(page);
+  const trace = page.getByLabel("Illustrative execution trace");
+  await trace.scrollIntoViewIfNeeded();
+  await expect(trace.getByText("EXAMPLE RUN · COMPLETED")).toBeVisible();
+  const bars = trace.locator(".landing-chapter__trace-row b");
+  await expect(bars).toHaveCount(3);
+  await expect(bars.last()).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, 0)");
+  await page.getByRole("button", { name: "Pause visual effects" }).click();
+  await expect(bars.last()).toHaveCSS("transform", "none");
+  await expect(trace.getByText("Output")).toBeVisible();
+});
