@@ -137,8 +137,8 @@ html:has(.landing-page):not(:has(.landing-loader[data-phase="draw"])) {
 .landing-nav[data-scrolled="true"] {
   background: color-mix(in srgb, var(--marketing-void) 94%, transparent);
   border-color: var(--landing-line);
-  backdrop-filter: blur(22px);
   -webkit-backdrop-filter: blur(22px);
+  backdrop-filter: blur(22px);
   box-shadow: 0 8px 32px #0005;
 }
 .landing-brand {

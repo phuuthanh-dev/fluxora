@@ -102,6 +102,11 @@ artwork supplies hero/grid/bloom, integration glow, runtime orbits, proof lighti
 and footer auroras, all from the local `/relay/` bundle.
 No global ticker FPS or lag-smoothing setting is modified.
 
+Declare `-webkit-backdrop-filter` before the standard `backdrop-filter` on
+glass surfaces. The CSS compiler can otherwise retain only the prefixed form,
+which Chromium drops. `landing-readability.spec.ts` checks computed blur on the
+slab, hero and scrolled navigation after compilation.
+
 Pause, hidden-tab state, reduced-motion preference and WebGL failure remove the
 renderer. Cleanup removes the ticker callback, kills only this page's tween and
 trigger, destroys Lenis and disposes geometry, materials, texture, passes, composer and renderer. Leaving the landing restores

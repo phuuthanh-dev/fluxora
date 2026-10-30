@@ -134,8 +134,8 @@
   z-index: -1;
   pointer-events: none;
   background: rgba(8, 9, 10, 0.22);
-  backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 .landing-daily {
   background: url("/relay/signals/signals-halo.svg") 85% 55%/420px auto
@@ -172,8 +172,8 @@
   border: 1px solid #ffffff21;
   border-radius: 28px;
   background: rgba(12, 13, 14, 0.64);
-  backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
   box-shadow:
     0 24px 80px #0006,
     inset 1px 1px 0 #c8f75125;
@@ -265,8 +265,8 @@
   border: 1px solid #ffffff24;
   border-radius: 16px;
   background: rgba(22, 23, 26, 0.78);
-  backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   box-shadow: 0 10px 22px -4px #0008;
   transform: none;
   bottom: auto;
@@ -497,8 +497,8 @@
   border-radius: 30px;
   padding: 36px;
   gap: 36px;
-  backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
 }
 .landing-run-planner__control label {
   display: block;
@@ -603,8 +603,8 @@
   border: 1px solid #ffffff12;
   border-radius: 28px;
   background: rgba(14, 15, 17, 0.52);
-  backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
   transition:
     border-color 0.4s,
     box-shadow 0.4s;

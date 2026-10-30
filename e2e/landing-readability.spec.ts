@@ -85,6 +85,17 @@ test("nested section titles reveal and remain readable with motion disabled", as
   await expect(title).toHaveCSS("clip-path", "none");
 });
 
+test("frosted surfaces retain their standard backdrop filter after CSS compilation", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  const slab = page.locator(".landing-frosted-slab");
+  await expect.poll(() => slab.evaluate((element) => getComputedStyle(element, "::before").backdropFilter)).toBe("blur(12px)");
+  await expect(page.locator(".landing-demo")).toHaveCSS("backdrop-filter", "blur(24px)");
+  await page.evaluate(() => window.scrollTo(0, 400));
+  await expect(page.locator(".landing-nav")).toHaveAttribute("data-scrolled", "true");
+  await expect(page.locator(".landing-nav")).toHaveCSS("backdrop-filter", "blur(22px)");
+});
+
 test("Relay artwork is local and intact", async ({ request }) => {
   const manifest = JSON.parse(await readFile("apps/web/public/relay/manifest.json", "utf8")) as {
     assets: { path: string; sha256: string; bytes: number }[];
