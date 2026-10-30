@@ -9,8 +9,8 @@ parity therefore remains unverified without the original runnable implementation
 | --- | --- | --- |
 | Preloader | readiness counter, lime flood and logo fold | implemented with fail-open, skip and reduced-motion paths; exact timing and visuals require side-by-side review |
 | Hero board | refund example, staged nodes, paths and feed | staged Fluxora workflow example and packets; node content and geometry differ |
-| Integration rail | travelling packet activates each app | responsive tiles and travelling signal; per-tile activation choreography differs |
-| Product feature rows | waterfall, approval and six isometric bars animate on entry | illustrative trigger, decision and trace cards plus sample bar chart; card internals and looping sequences differ |
+| Integration rail | travelling packet activates each app | responsive tiles and travelling signal with active-tile highlight; exact timing and activation positions differ |
+| Product feature rows | waterfall, approval and six isometric bars animate on entry | illustrative trigger, approval and trace cards plus sample chart using original cube and cap SVGs; card order, timing and looping sequences differ |
 | Text reveals | rise and blur with a soft left-to-right mask | section and text reveals on scroll; timings/mask are approximations |
 | Statement handoff | lime plate opens, closes and docks into runtime | reversible scroll handoff and Fluxora glyph; geometry differs |
 | Daily view, proof, pricing | animated sample dashboard, named proof and paid pricing meter | labelled examples and planning meter, with no fictional customers, pricing or capacity claims |

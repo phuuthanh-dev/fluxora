@@ -198,9 +198,14 @@ export function LandingReveal({
           });
         }
         if (element.classList.contains("landing-volume__chart")) {
-          gsap.fromTo(element.querySelectorAll(".landing-volume__bar"),
+          gsap.fromTo(element.querySelectorAll(".landing-volume__cube"),
             { scaleY: 0, opacity: 0 },
-            { scaleY: 1, opacity: 1, duration: 0.8, stagger: 0.09, ease: "power3.out", immediateRender: false,
+            { scaleY: 1, opacity: 1, transformOrigin: "50% 100%", duration: 0.8, stagger: 0.12, ease: "back.out(1.3)", immediateRender: false,
+              scrollTrigger: { trigger: element, start: "top 85%", once: true } },
+          );
+          gsap.fromTo(element.querySelectorAll(".landing-volume__cap"),
+            { y: -26, opacity: 0 },
+            { y: 0, opacity: 1, duration: 0.6, stagger: 0.12, delay: 0.2, ease: "power2.out", immediateRender: false,
               scrollTrigger: { trigger: element, start: "top 85%", once: true } },
           );
         }
@@ -219,6 +224,14 @@ export function LandingReveal({
         if (details.length) {
           gsap.fromTo(details, { y: 12, opacity: 0 }, {
             y: 0, opacity: 1, duration: 0.55, stagger: 0.12,
+            ease: "power2.out", immediateRender: false,
+            scrollTrigger: { trigger: element, start: "top 85%", once: true },
+          });
+        }
+        const approval = element.querySelectorAll(".landing-chapter__approval > *");
+        if (approval.length) {
+          gsap.fromTo(approval, { y: 10, opacity: 0 }, {
+            y: 0, opacity: 1, duration: 0.55, delay: 0.55, stagger: 0.12,
             ease: "power2.out", immediateRender: false,
             scrollTrigger: { trigger: element, start: "top 85%", once: true },
           });

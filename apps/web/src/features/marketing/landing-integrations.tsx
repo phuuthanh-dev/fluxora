@@ -59,10 +59,22 @@ export function LandingIntegrations() {
           0.12,
         );
       const packet = element.querySelector<HTMLElement>(".landing-integrations__packet");
+      let activeIndex = -1;
+      const setActive = (index: number) => {
+        if (index === activeIndex) return;
+        items.forEach((item, position) => {
+          if (position === index) item.dataset.signal = "active";
+          else delete item.dataset.signal;
+        });
+        activeIndex = index;
+      };
       const travel = gsap.fromTo(packet, { x: 0, autoAlpha: 0 }, {
         x: () => Math.max(0, (rail?.clientWidth ?? 0) - 8),
         autoAlpha: 1, duration: 5, ease: "none", repeat: -1,
         repeatDelay: 0.6, paused: true,
+        onUpdate: function () {
+          setActive(Math.min(items.length - 1, Math.floor(this.progress() * items.length)));
+        },
       });
       let railWidth = rail?.clientWidth ?? 0;
       const visibility = ScrollTrigger.create({
@@ -83,7 +95,7 @@ export function LandingIntegrations() {
           else travel.pause();
         },
       });
-      return () => { visibility.kill(); travel.kill(); timeline.kill(); };
+      return () => { visibility.kill(); travel.kill(); timeline.kill(); setActive(-1); };
     }, element);
     return () => media.revert();
   }, [introReady, paused]);

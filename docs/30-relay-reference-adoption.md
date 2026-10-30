@@ -30,14 +30,14 @@ pixel-perfect reconstruction or a deployable service.
 - One renderer/material/buffer set per scene lifetime. Each effect owns its canvas and explicitly releases its context on cleanup, including React Strict Mode replay. The unused R3F dependency is removed. Layout reflows morph curve data; actual viewport resize may resize render targets.
 - Pause/reduced motion/hidden tab use the established semantic/SVG fallback. No crawler-specific performance shortcuts.
 - Bloom is bounded by tier and DPR. No remote assets or provider calls at runtime.
-- Owner explicitly requested prioritizing supplied artwork. All 83 manifest assets were retrieved privately; only 24 used decorative assets (589,396 bytes) are bundled in `apps/web/public/relay/`, with source URLs, byte sizes and SHA-256 in `manifest.json`. Provider icons and Fluxora identity remain unchanged.
+- Owner explicitly requested prioritizing supplied artwork. All 83 manifest assets were retrieved privately; selected decorative assets are bundled in `apps/web/public/relay/`, with source URLs, byte sizes and SHA-256 in `manifest.json`. Provider icons and Fluxora identity remain unchanged.
 - Vendor assets retain their original bytes; they are not relicensed as independently reusable open-source artwork. The private source document/email/full asset bundle are not tracked.
 
 ## Packaging
 The web Docker runtime copies `apps/web/public` beside its standalone server.
 The first standalone production-build smoke returned HTTP 200 for the landing and the initial
 12 bundled images; each served SHA-256 matched the supplier bytes. The expanded
-24-file manifest is covered by the asset-integrity browser check. Deployment
+manifest is covered by the asset-integrity browser check. Deployment
 contract coverage guards this copy step. This is a local packaging check, not
 an assertion that a new Docker image has been built or deployed remotely.
 

@@ -69,10 +69,25 @@ test("integration signal travels while visible and stops when effects pause", as
   await rail.scrollIntoViewIfNeeded();
   const packet = rail.locator(".landing-integrations__packet");
   await expect(packet).toBeVisible();
+  await expect.poll(() => rail.locator('[data-signal="active"]').count()).toBe(1);
   const first = (await packet.boundingBox())!.x;
   await expect.poll(async () => Math.abs((await packet.boundingBox())!.x - first)).toBeGreaterThan(10);
   await page.getByRole("button", { name: "Pause visual effects" }).click();
   await expect(packet).toHaveCSS("opacity", "0");
+  await expect(rail.locator('[data-signal="active"]')).toHaveCount(0);
+});
+
+test("illustrative approval and Relay chart artwork remain readable with reduced motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  const approval = page.getByLabel("Illustrative approval request");
+  await approval.scrollIntoViewIfNeeded();
+  await expect(approval.getByText("Waiting for review")).toBeVisible();
+  const chart = page.locator(".landing-volume__chart");
+  await chart.scrollIntoViewIfNeeded();
+  await expect(chart.locator(".landing-volume__cube")).toHaveCount(6);
+  await expect(chart.locator(".landing-volume__cap")).toHaveCount(6);
+  await expect(chart.locator(".landing-volume__cube").first()).toHaveCSS("transform", "none");
 });
 
 test("illustrative trace settles and remains visible when motion is paused", async ({ page }) => {

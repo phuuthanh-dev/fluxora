@@ -206,6 +206,11 @@ export function LandingPage() {
                       <span className="is-accent">YES → Continue</span>
                       <span>NO → Review</span>
                     </div>
+                    <div className="landing-chapter__approval" aria-label="Illustrative approval request">
+                      <div className="landing-chapter__approval-head"><span>F</span><strong>Fluxora</strong><small>APPROVAL REQUEST · SAMPLE</small></div>
+                      <p>Ready to send this update? Review the details before the workflow continues.</p>
+                      <div aria-hidden="true"><span>Approve</span><span>Hold</span><small>Waiting for review</small></div>
+                    </div>
                     </div>
                   ) : null}
                   {chapter.tag.startsWith("03") ? (
@@ -239,7 +244,10 @@ export function LandingPage() {
               <div className="landing-volume__bars" aria-hidden="true">
                 {[38, 52, 45, 70, 61, 86].map((height, index) => (
                   <div className="landing-volume__column" key={index}>
-                    <span className="landing-volume__bar" style={{ height: `${height}%` }} />
+                    <span className="landing-volume__bar" style={{ height: `${height}%` }}>
+                      <img className="landing-volume__cube" src={`/relay/product/product-cube-${index + 1}.svg`} alt="" />
+                      <img className="landing-volume__cap" src={`/relay/product/product-cap-${index + 1}.svg`} alt="" />
+                    </span>
                     <small>{["MON", "TUE", "WED", "THU", "FRI", "SAT"][index]}</small>
                   </div>
                 ))}
