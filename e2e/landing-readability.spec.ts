@@ -73,6 +73,18 @@ test("GSAP section entrances respect pause and preference changes", async ({ pag
 });
 
 
+test("nested section titles reveal and remain readable with motion disabled", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator(".landing-loader")).toBeHidden({ timeout: 8000 });
+  const title = page.locator("#daily-heading");
+  await title.scrollIntoViewIfNeeded();
+  await expect.poll(() => title.evaluate((element) => element.style.clipPath)).toContain("inset");
+  await expect(title).toHaveCSS("opacity", "1");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(title).toHaveCSS("opacity", "1");
+  await expect(title).toHaveCSS("clip-path", "none");
+});
+
 test("Relay artwork is local and intact", async ({ request }) => {
   const manifest = JSON.parse(await readFile("apps/web/public/relay/manifest.json", "utf8")) as {
     assets: { path: string; sha256: string; bytes: number }[];

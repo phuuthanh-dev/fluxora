@@ -178,7 +178,9 @@ export function LandingReveal({
         );
         // Give each heading and its supporting copy its own focus-in, as in
         // Relay, while retaining the enclosing section's softer rise.
-        const text = element.querySelectorAll(":scope > h2, :scope > p:not(.landing-eyebrow)");
+        const text = element.querySelectorAll(
+          ":scope > h2, :scope > div > h2, :scope > p:not(.landing-eyebrow)",
+        );
         if (text.length) {
           gsap.fromTo(text,
             { opacity: 0, filter: "blur(8px)", clipPath: "inset(0 100% 0 0)" },
