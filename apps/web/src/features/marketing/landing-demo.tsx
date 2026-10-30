@@ -9,7 +9,7 @@ import {
   Square,
   Workflow,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePointerTilt } from "../../components/ui/ui-motion";
 import { useLandingEffects } from "./landing-motion";
 import { NodeIcon, type NodeIconName } from "../workflow/node-icon";
@@ -70,7 +70,8 @@ export function LandingDemo() {
     height: 350,
     paths: ["", "", "", ""],
   });
-  const { paused, introReady } = useLandingEffects();
+  const { paused, introReady, introRevealing } = useLandingEffects();
+  const bootTimeline = useRef<gsap.core.Timeline | null>(null);
   usePointerTilt(root, paused);
   const route = [0, cached ? 2 : 1, 3];
   const running = step > 0 && step < 4;
@@ -119,7 +120,7 @@ export function LandingDemo() {
     return () => clearTimeout(timer);
   }, [step, running, paused]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const host = root.current;
     if (!host || paused) return;
     const media = gsap.matchMedia();
@@ -129,6 +130,7 @@ export function LandingDemo() {
         const hero = host.closest(".landing-hero")!;
         host.dataset.boot = "booting";
         const boot = gsap.timeline({
+          paused: true,
           defaults: { ease: "power2.out", duration: 0.65 },
           onComplete: () => {
             host.dataset.boot = "ready";
@@ -188,7 +190,11 @@ export function LandingDemo() {
             { opacity: 1, stagger: 0.07, clearProps: "opacity" },
             0.8,
           );
+        boot.progress(0);
+        bootTimeline.current = boot;
+        if (introRevealing) boot.play();
         return () => {
+          bootTimeline.current = null;
           boot.kill();
           delete host.dataset.boot;
         };
@@ -197,6 +203,10 @@ export function LandingDemo() {
     );
     return () => media.revert();
   }, [paused]);
+
+  useEffect(() => {
+    if (introRevealing) bootTimeline.current?.play();
+  }, [introRevealing]);
 
   useEffect(() => {
     const host = root.current;

@@ -5,7 +5,7 @@ import { useLayoutEffect, useRef } from "react";
 import { FluxoraMark } from "../../components/brand/fluxora-mark";
 
 /** Relay's ring → inward flood → square/tile fold, with bounded fail-open loading. */
-export function LandingIntro({ onComplete }: { onComplete: () => void }) {
+export function LandingIntro({ onComplete, onReveal }: { onComplete: () => void; onReveal: () => void }) {
   const root = useRef<HTMLDivElement>(null);
   const skip = useRef(() => {});
   useLayoutEffect(() => {
@@ -87,6 +87,7 @@ export function LandingIntro({ onComplete }: { onComplete: () => void }) {
         .call(() => {
           host.dataset.phase = "fold";
           paintFold();
+          onReveal();
         })
         .to(fold, { value: 1, duration: 1, onUpdate: paintFold })
         .call(release);
@@ -163,7 +164,7 @@ export function LandingIntro({ onComplete }: { onComplete: () => void }) {
       reduced.removeEventListener("change", preference);
       restore();
     };
-  }, [onComplete]);
+  }, [onComplete, onReveal]);
   return (
     <>
       <div ref={root} className="landing-loader" data-phase="draw">

@@ -161,8 +161,9 @@ hides that loader. Integration inventory uses a fixed icon slot and card rhythm.
 Never stretch or repeat a narrow decorative source slice across a section: the
 Relay accent is a small vertical element, not a full-width background.
 
-Prewarm the decorative Three scene and hero GSAP timelines behind the intro
-overlay. `introReady` remains an interaction guard (for example, the sample
+Prewarm the decorative Three scene and prepare the hero GSAP timeline behind
+the intro overlay. Start the hero timeline when the lime plate begins to fold,
+or immediately when the visitor skips the intro. `introReady` remains an interaction guard (for example, the sample
 run button), not a mount gate for those first-viewport visual systems. Mounting
 the canvas and hero timelines only as the overlay disappears produces a second,
 false “reload” beat. Scroll-pinned and offscreen section geometry remains

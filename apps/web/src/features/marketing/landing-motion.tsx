@@ -16,6 +16,7 @@ import { LandingIntro } from "./landing-intro";
 const LandingEffectsContext = createContext({
   paused: false,
   introReady: false,
+  introRevealing: false,
   togglePaused: () => {},
 });
 
@@ -26,16 +27,19 @@ export function useLandingEffects() {
 export function LandingMotionProvider({ children }: { children: ReactNode }) {
   const [paused, setPaused] = useState(false);
   const [introReady, setIntroReady] = useState(false);
-  const releaseIntro = useCallback(() => setIntroReady(true), []);
+  const [introRevealing, setIntroRevealing] = useState(false);
+  const revealIntro = useCallback(() => setIntroRevealing(true), []);
+  const releaseIntro = useCallback(() => { setIntroRevealing(true); setIntroReady(true); }, []);
   return (
     <LandingEffectsContext.Provider
       value={{
         paused,
         introReady,
+        introRevealing,
         togglePaused: () => setPaused((value) => !value),
       }}
     >
-      {!introReady ? <LandingIntro onComplete={releaseIntro} /> : null}
+      {!introReady ? <LandingIntro onReveal={revealIntro} onComplete={releaseIntro} /> : null}
       <LandingCursor />
       {children}
     </LandingEffectsContext.Provider>
