@@ -161,8 +161,15 @@ export function LandingHandoff() {
       };
       window.addEventListener("scroll", onScroll, { passive: true });
       // The destination itself can animate after scrolling stops. Follow it
-      // on GSAP's existing ticker while this stage is in the docking range.
+      // on GSAP's existing ticker only near the visible handoff.
+      let nearViewport = false;
+      const visibility = new IntersectionObserver(
+        ([entry]) => { nearViewport = Boolean(entry?.isIntersecting); },
+        { rootMargin: "100% 0px" },
+      );
+      visibility.observe(host);
       const followDock = () => {
+        if (!nearViewport) return;
         const progress = currentProgress();
         if (progress >= 0.7 && stage.getBoundingClientRect().bottom > 0) paint(progress);
       };
@@ -173,6 +180,7 @@ export function LandingHandoff() {
       });
       return () => {
         disposed = true;
+        visibility.disconnect();
         cancelAnimationFrame(settleFrame);
         gsap.ticker.remove(followDock);
         window.removeEventListener("scroll", onScroll);

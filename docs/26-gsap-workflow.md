@@ -173,4 +173,5 @@ geometry.
 The statement dock reads fresh geometry on native scroll and schedules one
 coalesced follow-up frame for sticky mobile layout. That is a bounded layout
 settle; cancel it on cleanup. During docking, the existing GSAP ticker follows
-the destination while its section reveal moves, and is removed on cleanup.
+the destination while its section reveal moves. An IntersectionObserver gates
+those per-frame geometry reads to the nearby viewport; both are removed on cleanup.
