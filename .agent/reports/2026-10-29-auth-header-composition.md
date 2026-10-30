@@ -73,3 +73,10 @@ No push, merge to main, deployment or real provider qualification was performed.
 - Release the corrections through the next `develop` to `main` PR after its
   checks pass. Earlier local-only/draft notes above describe implementation
   time, not current authorization or remote state.
+
+### Release confirmed 2026-10-30
+
+PR #46 merged the corrections at `3ee77fc4d1b8976282b8ec72ad2044d09c798ea8`.
+Main quality run `40911982815` and production deploy `40913079403` succeeded;
+public login and API readiness returned 200. This closes the release handoff
+above. Future account work starts from this merged state.

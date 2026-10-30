@@ -88,6 +88,41 @@ model User {
   identities      AuthIdentity[]
   auditLogs       AuditLog[]
   executionViews  ExecutionSavedView[]
+  passwordResets  PasswordReset[]
+  accountMail     AccountMail[]
+}
+
+model PasswordReset {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+enum AccountMailState {
+  PENDING
+  SENDING
+  SENT
+  FAILED
+}
+
+model AccountMail {
+  id               String           @id @default(uuid())
+  userId           String
+  kind             String
+  encryptedPayload String?
+  state            AccountMailState @default(PENDING)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  expiresAt        DateTime
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([state, createdAt])
 }
 
 model AuthIdentity {

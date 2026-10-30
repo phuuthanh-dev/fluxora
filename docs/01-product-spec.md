@@ -23,6 +23,8 @@ The Steam profile is public. The Steam node returns every field available throug
 - Data model: multiple workspaces and memberships must exist now.
 - Authorization: only the owner role is active in MVP; role schema and audit logs prepare future expansion.
 - Google and GitHub identity sign-in are production-preparation requirements. The two providers share the external-identity model but use independent OAuth callbacks and credentials.
+- Owner-approved ACCOUNT-1 (2026-10-30): `/settings/account` edits the display name, changes the password with current-password verification, and lists/revokes the user's active sessions. Email is read-only; existing identity links remain separate from workflow connections.
+- `/forgot-password` and `/reset-password` use operator-configured system email, not workspace SMTP credentials. Links expire in 30 minutes, work once, and invalidate outstanding links and all sessions. Passwordless social accounts may set a password by verifying access to their account email. No automatic sign-in follows recovery. See `docs/29-account-recovery.md` for security, configuration and activation boundaries.
 
 ## 4. MVP feature scope
 
@@ -50,11 +52,12 @@ The Steam profile is public. The Steam node returns every field available throug
 | Action | Google Drive | List/search file metadata and upload/download text assets. |
 | Action | Google Sheets | Read ranges, append rows, update ranges. |
 | Action | HTTP Request | Generic REST request with structured response. |
+| Action | SMTP Email | Dedicated encrypted SMTP credential, TLS-only submission and normalized delivery result; real-provider qualification remains separate. |
 | Approval | Approval | Pause, notify by Chat/webhook with an app link, then resume after UI approve/reject. |
 
 ### UI/schema-only nodes
 
-- Email, including the configuration form and validation label `Not available in MVP`.
+- Gmail OAuth, attachments and inbound email remain unavailable; SMTP Email is executable (EMAIL-SMTP-1).
 - Google Chat OAuth credential mode.
 - OpenAI, Gemini, MongoDB, remaining GitHub operations, Facebook Meta, Instagram.
 

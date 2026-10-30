@@ -4,6 +4,14 @@ This file is the compact, machine-checked handoff point for the next coding
 loop. It prevents an agent from proposing implementation work that is already
 complete in the delivery ledger.
 
+## Current release snapshot — 2026-10-30
+
+PR #46 merged develop → main at `3ee77fc4d1b8976282b8ec72ad2044d09c798ea8`.
+Main quality run `40911982815` and deploy run `40913079403` succeeded; public login
+and API readiness returned 200. The full-width dark auth header is already shipped.
+This supersedes older pending-release statements below; do not repeat that work.
+ACCOUNT-1 starts from this commit and is a local-only account/recovery slice.
+
 ## How to use it
 
 Before planning or proposing a goal, run:
@@ -46,6 +54,14 @@ evidence only; it does not substitute for future provider-specific smoke tests.
 
 ## Closed follow-up slices
 
+- `ACCOUNT-1` / `L14.1` (2026-10-30) — Account settings, name/password changes,
+  owner-scoped session revocation and one-use email recovery implemented locally.
+  Full verify: 226 API, 23 web, 86 E2E. Additive migration applied locally;
+  encrypted system-mail outbox is opt-in, independent of workspace SMTP.
+  No real mail, push or deployment. Activation still needs an operator-configured
+  sender and explicitly authorized delivery qualification. See docs/29 and
+  `.agent/reports/2026-10-30-account-recovery.md`; do not reimplement this slice.
+
 - `P2-1` — GitHub connector vertical slices complete locally through the current acceptance boundary: separate encrypted connector credential, mock/live-guarded Create Issue, readiness, retry/error classification, idempotency, Add Label, Add Comment, Merge Pull Request, Issue opened, Pull request opened, Push, and Workflow run completed. No real provider smoke is implied; that remains owner-approved external validation.
 - `WEBHOOK-REG-1` — Per-workflow GitHub signing secrets and compact editor guidance implemented locally; `npm run verify` passed (154 API, 19 web, 30 Playwright). Migration has not been applied and real delivery remains unverified.
 - `GH-UX-2` — Bounded GitHub repository pagination, manual/expression fallback, and recoverable picker states implemented locally; `npm run verify` passed with 31 Playwright tests. Provider calls in tests were mocked.
@@ -74,8 +90,7 @@ one of these IDs or explicitly reopen a completed ledger slice.
 | ID | Outcome | Status | Owner/evidence boundary |
 |---|---|---|---|
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
-| `LIVE-1` | Validate one explicitly approved real Steam → Google Chat run plus configured OAuth callbacks | pending | Steam → Google Chat/Discord/Telegram is proven after credential rotation; Google Drive and any additional OAuth callback/write semantics remain separate owner-approved checks |
-| `RELEASE-REPAIR-1` | Repair and prove production application bootstrap after the GitHub webhook adapter DI regression | operator-gated | Local no-I/O app boot and full quality gate passed; PR review/merge and post-deploy application health evidence remain required, with no provider credential or live webhook needed |
+| `CONNECTOR-LIVE-2` | Remaining GitHub actions, Google refresh/write and SMTP delivery qualification | deferred | Issue #37; the earlier Steam notification run and bootstrap repair are complete, not new implementation goals |
 
 ## Closed boundary
 
@@ -215,9 +230,7 @@ resource-picker foundation.
   the auth header now uses the landing's dark marketing palette in both modes.
   Body layout and theme selection remain unchanged. Repeated full verify passed
   (213 API, 23 web, 82 E2E); rendered contrast and keyboard focus also passed.
-  The owner has now authorized merge. Refreshed GitHub state shows PR #45 was
-  already merged at the earlier split-header revision; the two local correction
-  commits require the next develop-to-main PR and its passing CI before merge.
+  The final corrections shipped in PR #46; see the current release snapshot above.
 
 ## Non-negotiable loop
 

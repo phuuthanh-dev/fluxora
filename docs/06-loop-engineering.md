@@ -32,6 +32,7 @@ CI runs the same gate for every pull request and push to `main`.
 
 | Loop | Outcome | Status | Proof required |
 |---|---|---:|---|
+| L14.1 | Account settings and password recovery (ACCOUNT-1) | Complete locally | Own profile/session management, current-password change, atomic one-use reset, encrypted system SMTP outbox; isolated PostgreSQL security/concurrency proof and full verify passed: 226 API, 23 web, 86 E2E. All 12 new route/theme/viewport screenshots reviewed. System email remains opt-in and unqualified for real delivery. See docs/29 and account-recovery report. |
 | L13.1 | Landing/product UI core unification | Complete locally | Compact glass landing header, shared brand/page hierarchy and theme-aware shell/forms/overlays across all six existing routes. Native visual review, responsive/contrast regression and full verify passed: 213 API, 23 web, 58 E2E. See docs/25 and the UI-core report; no publication implied. |
 | L0 | Repeatable repository quality gate and CI | Complete | `npm run verify` passed locally; GitHub Actions checks the same gate |
 | L1 | Authenticated owner can create, save, reload, and publish a workflow | Complete | HTTP and browser checks passed locally |

@@ -1,6 +1,11 @@
 # Implementation Plan
 
-This is the execution order for the three-day MVP. It deliberately excludes cloud/VPS deployment until the product works locally.
+The original three-day MVP sequence below is historical. Use `docs/19-agent-state.md`
+and the latest release receipt before proposing work: the application is already deployed.
+
+Current follow-up (2026-10-30): ACCOUNT-1 adds account settings and email recovery;
+see `docs/29-account-recovery.md`. System SMTP activation is separate from local
+implementation and does not reuse workflow connection secrets.
 
 ## Current state
 

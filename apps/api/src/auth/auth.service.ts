@@ -81,14 +81,14 @@ export class AuthService {
     }
 
     const token = this.createSessionToken();
-    await this.prisma.session.create({
-      data: {
-        userId: user.id,
-        tokenHash: this.hashSessionToken(token),
-        expiresAt: new Date(Date.now() + SESSION_DURATION_MS),
-      },
+    await this.prisma.$transaction(async tx => {
+      // Serialize with password changes so an old-password login cannot survive a reset.
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${user.id} FOR UPDATE`;
+      const current = await tx.user.findUnique({ where: { id: user.id }, select: { passwordHash: true } });
+      if (current?.passwordHash !== user.passwordHash) throw new UnauthorizedException({ code: "INVALID_CREDENTIALS", message: "Email or password is incorrect." });
+      await tx.session.create({ data: { userId: user.id, tokenHash: this.hashSessionToken(token), expiresAt: new Date(Date.now() + SESSION_DURATION_MS) } });
+      await tx.auditLog.create({ data: { actorId: user.id, action: "auth.logged_in", targetType: "user", targetId: user.id } });
     });
-    await this.prisma.auditLog.create({ data: { actorId: user.id, action: "auth.logged_in", targetType: "user", targetId: user.id } });
     return { token, user: this.toAuthenticatedUser(user) };
   }
 

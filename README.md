@@ -1,5 +1,8 @@
 # Fluxora
 
+Account settings are available from the avatar menu. Password recovery uses
+separate, opt-in system SMTP configuration; see [account setup and activation](docs/29-account-recovery.md).
+
 > A visual workflow automation platform for connecting everyday services, running dependable jobs, and inspecting every execution.
 
 [![Quality gate](https://github.com/phuuthanh-dev/workflow-automation/actions/workflows/quality.yml/badge.svg?branch=main)](https://github.com/phuuthanh-dev/workflow-automation/actions/workflows/quality.yml)
