@@ -34,9 +34,21 @@ copying decorative behaviour or fictional template copy.
 ## Motion follow-up in progress — 2026-10-31
 
 - Product now precedes statement and uses Relay's trace → approval → chart order. A separate Fluxora workspace preview remains after the daily view; lifecycle and FAQ are intentional additions.
-- Integration highlighting uses measured tile centers; the reference uses additional rail gradient and responsive artwork not yet reproduced.
+- Integration highlighting and the rail gradient follow measured tile centers; the reference's responsive rail composition and exact gradient remain different.
 - Approval typing, chart cap glow, daily heatmap/gauge/feed/recovery and plan-card content are staged. Their exact per-frame spring behaviour and resets have not been verified against the reference.
 - The video is a 10.43-second, 1920 × 1366 capture; it helps validate order and appearance but does not reveal source state or prove timing parity. Desktop and mobile comparison is still required after final implementation.
+
+## Requirement audit
+
+| Requirement | Current evidence | Status and limits |
+| --- | --- | --- |
+| Section ordering and composition | `landing-page.tsx`, order E2E and desktop captures | Core Relay sequence is present; additional Fluxora preview, lifecycle and FAQ remain. |
+| Supplied assets | Local `/relay/` assets and artwork-integrity E2E | Used for the board, chart, backgrounds and footer; not every asset in the reference manifest is used. |
+| Choreography and loop stability | `landing-motion.tsx`, handoff/demo/integration components, motion E2E | Implemented and exercised; exact visual timing and geometry remain unproven against the short recording. |
+| Fluxora identity and factual copy | Landing components and planner assertions | Fluxora logo/content and original fonts retained; pricing and customer statistics are illustrative or omitted. |
+| Responsive and reduced motion | 375/768/1440 Chromium E2E, no-JS and reduced-motion tests, 375px capture | Verified within those cases; mobile rail intentionally differs and mobile Relay video evidence is absent. |
+| Automated quality gate | `/tmp/fluxora-verify-post-navigation.log`, `test-results/.last-run.json` at the successful run | Default local verify passed 119/119 E2E after the test fix; this is not production or isolated CI qualification. |
+| Unproven differences | Tables and notes in this document | Recorded; exact 1:1 must not be claimed from these sources. |
 
 ## Reference motion beats and Fluxora implementation — 2026-10-31
 
