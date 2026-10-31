@@ -64,9 +64,9 @@ from Relay Inter, Instrument Serif and Fragment Mono.
 
 - Latest full default `npm run verify`: passed, including 119 Chromium E2E cases, workspace tests, typechecks and production builds. It ran after the earlier unsuccessful attempts documented below. This establishes the automated gate for the current implementation, not frame-exact Relay parity.
 - After the most recent changes, the five targeted Chromium cases for the hero feed, hero port flashes, runtime hub, daily gauge and planner feature text passed. These cases verify selected behaviour, not visual 1:1 parity or the whole product.
-- The latest full `npm run verify` passed workspace unit tests, typechecks and application builds, but did not pass the complete E2E phase. Under high machine load it recorded timeouts in editor sign-up and account recovery, and the run was interrupted; 114 E2E cases did not run.
-- The editor case subsequently passed alone. The account recovery case exceeded the normal 30-second test limit alone, then passed in 42 seconds with a diagnostic 90-second limit. This is not a passing default quality gate and does not establish the root cause. Repeat the unmodified full gate under stable machine conditions before treating the current changes as verified.
-- A later default verify again passed unit tests, typechecks and builds but recorded two five-second registration-navigation timeouts and one 30-second execution-history timeout; it was interrupted after 21 E2E passes, leaving 94 cases unrun. The three focused integration-rail cases subsequently passed, including reduced motion, pause and preserving the lap on return. The full gate remains unverified.
+- An earlier `npm run verify` passed workspace unit tests, typechecks and application builds, but did not pass the complete E2E phase. Under high machine load it recorded timeouts in editor sign-up and account recovery, and the run was interrupted; 114 E2E cases did not run.
+- The editor case subsequently passed alone. The account recovery case exceeded the normal 30-second test limit alone, then passed in 42 seconds with a diagnostic 90-second limit. That diagnostic run did not establish the root cause or pass the default gate; the later full successful run is recorded above.
+- A subsequent attempt passed unit tests, typechecks and builds but recorded two five-second registration-navigation timeouts and one 30-second execution-history timeout; it was interrupted after 21 E2E passes, leaving 94 cases unrun. The three focused integration-rail cases subsequently passed, and the later full successful run is recorded above.
 - After adding the moving rail gradient, its focused test exceeded the default 30-second limit once; a diagnostic run with a 90-second limit passed in 47.9 seconds. This shows the assertions could complete in that run, but is not a passing default-gate result or proof that load was the sole cause.
 
 ## Rendered comparison boundaries — 2026-10-31
@@ -93,5 +93,5 @@ or complete responsive coverage.
 
 Playwright currently reuses existing local web/API servers outside CI. Its local
 results depend on those running processes and the configured local database, so
-the repeatable, default full gate still needs a stable environment and must not be
-treated as equivalent to an isolated CI run without further evidence.
+the successful local default gate must not be treated as equivalent to an
+isolated CI run without further evidence.
