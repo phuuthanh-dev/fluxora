@@ -8,4 +8,4 @@ The owner requested a separate test file and authorized live provider testing us
 - The workflow was deactivated after the tests. The test file and workflow were retained for review; no existing user workflow was edited.
 - This confirms one live upload and one download, not expiry/refresh, all scopes, all Google Drive operations, Google Sheets, or production deployment.
 - The file picker initially showed a loading state, so manual ID entry was used for the download run. When revisited after the run, the list loaded and displayed the newly created test file. No persistent picker failure was established.
-- No SMTP credential was visible in the selected workspace. GitHub action and Google Sheets live tests remain outstanding.
+- No SMTP credential was visible in the selected workspace. GitHub action and Google Sheets live tests were performed subsequently; see their separate reports.
