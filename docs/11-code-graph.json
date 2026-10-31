@@ -1646,11 +1646,6 @@
         "apps/web/src/features/marketing/landing-showcase.tsx"
       ],
       "externalImports": [
-        "@fontsource/fragment-mono/400.css",
-        "@fontsource/instrument-serif/400-italic.css",
-        "@fontsource/inter/400.css",
-        "@fontsource/inter/500.css",
-        "@fontsource/inter/600.css",
         "lucide-react",
         "next/link"
       ]
@@ -1704,6 +1699,8 @@
         "apps/web/src/features/workflow/node-icon.tsx"
       ],
       "externalImports": [
+        "gsap",
+        "gsap/ScrollTrigger",
         "lucide-react",
         "next/link",
         "react"

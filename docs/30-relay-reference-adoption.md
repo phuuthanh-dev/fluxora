@@ -22,7 +22,7 @@ pixel-perfect reconstruction or a deployable service.
 | Footer | Two original-style panels, Fluxora CTA and actual privacy/terms/support/source links |
 
 ## Rendering budget and deviations
-- Landing fonts only: Inter, Instrument Serif italic, Fragment Mono, bundled locally. Product retains Gilroy.
+- Owner-selected typography: original Fluxora Gilroy UI, Georgia italic accents and system monospace; this intentionally differs from the Relay reference.
 - Marketing lime #c8f751; secondary hues #52c8ff and #eaff9e.
 - Supplied spline/particle/filament GLSL is adapted behind the existing lazy scene boundary.
 - 36,000 points / 44 filaments full tier; 45% points / 60% filaments mobile tier. Software rendering uses 8% points / 14% filaments with 240 segments per filament, no multipass bloom, DPR .5 and a 25 FPS draw ceiling while scroll input keeps its ticker. Detection uses actual GL renderer capabilities, never user agent or test markers.

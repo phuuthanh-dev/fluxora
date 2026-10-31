@@ -137,7 +137,7 @@ export function LandingRunMeter() {
       </LandingReveal>
       <LandingReveal className="landing-run-planner__meter">
         <div className="landing-run-planner__control">
-          <p className="landing-eyebrow">PLAN THE REPETITION</p>
+          <p className="landing-eyebrow" data-relay-type>PLAN THE REPETITION</p>
           <label htmlFor="landing-runs">
             How many runs do you expect a month?
           </label>
@@ -153,9 +153,9 @@ export function LandingRunMeter() {
             style={{ "--run-fill": `${position / 2}%` } as CSSProperties}
           />
           <div className="landing-run-planner__stops" aria-hidden="true">
-            <span>3,000</span>
-            <span>30,000</span>
-            <span>300,000</span>
+            <span data-relay-type>3,000</span>
+            <span data-relay-type>30,000</span>
+            <span data-relay-type>300,000</span>
           </div>
           <p className="landing-run-planner__note">
             A planning guide, not a capacity guarantee or a paid plan. Actual
@@ -163,7 +163,7 @@ export function LandingRunMeter() {
           </p>
         </div>
         <div className="landing-run-planner__result">
-          <p className="landing-eyebrow">YOUR WORKLOAD</p>
+          <p className="landing-eyebrow" data-relay-type>YOUR WORKLOAD</p>
           <h3>{profiles[selected].name}</h3>
           <RollingRuns value={runs} />
           <output htmlFor="landing-runs" className="sr-only">
@@ -194,7 +194,7 @@ export function LandingRunMeter() {
               }}
               onPointerLeave={() => setHovered(null)}
             >
-              <p className="landing-eyebrow">{profile.label}</p>
+              <p className="landing-eyebrow" data-relay-type>{profile.label}</p>
               <h3>{profile.name}</h3>
               <p>{profile.copy}</p>
               <ul>

@@ -25,9 +25,9 @@ for (const width of [375, 768, 1440]) {
       expect(Math.min(...sizes), selector).toBeGreaterThanOrEqual(minimum);
     }
     await expect(page.locator("body")).toHaveCSS("font-family", /gilroy/i);
-    await expect(page.locator(".landing-page")).toHaveCSS("font-family", /Inter/);
-    await expect(page.locator("h1 em")).toHaveCSS("font-family", /Instrument Serif/);
-    await expect(page.locator(".landing-eyebrow").first()).toHaveCSS("font-family", /Fragment Mono/);
+    await expect(page.locator(".landing-page")).toHaveCSS("font-family", /gilroy/i);
+    await expect(page.locator("h1 em")).toHaveCSS("font-family", /Georgia/);
+    await expect(page.locator(".landing-eyebrow").first()).toHaveCSS("font-family", /monospace/);
     expect(await page.locator(".landing-page").evaluate(el => getComputedStyle(el).getPropertyValue("--relay-lime").trim())).toBe("#c8f751");
     const footer = page.getByRole("contentinfo", { name: "Fluxora footer" });
     await footer.scrollIntoViewIfNeeded();
@@ -78,11 +78,10 @@ test("nested section titles reveal and remain readable with motion disabled", as
   await expect(page.locator(".landing-loader")).toBeHidden({ timeout: 8000 });
   const title = page.locator("#daily-heading");
   await title.scrollIntoViewIfNeeded();
-  await expect.poll(() => title.evaluate((element) => element.style.clipPath)).toContain("inset");
   await expect(title).toHaveCSS("opacity", "1");
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(title).toHaveCSS("opacity", "1");
-  await expect(title).toHaveCSS("clip-path", "none");
+  await expect(title).toHaveCSS("mask-image", "none");
 });
 
 test("frosted surfaces retain their standard backdrop filter after CSS compilation", async ({ page }) => {
@@ -109,5 +108,36 @@ test("Relay artwork is local and intact", async ({ request }) => {
     const bytes = await response.body();
     expect(bytes.length, asset.path).toBe(asset.bytes);
     expect(createHash("sha256").update(bytes).digest("hex"), asset.path).toBe(asset.sha256);
+  }
+});
+
+test("landing paragraphs and headings avoid single-word final lines", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  for (const width of [375, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    await expect(page.locator(".landing-loader")).toBeHidden();
+    const orphans = await page.locator(".landing-page :is(h1,h2,h3,p)").evaluateAll((elements) => {
+      return elements.flatMap((element) => {
+        // Explicitly marked-up headings have intentional line breaks; only
+        // inspect simple text blocks whose wrapping is controlled by CSS.
+        if (element.children.length || !element.firstChild || element.firstChild.nodeType !== Node.TEXT_NODE) return [];
+        const node = element.firstChild;
+        const words = [...(node.textContent ?? "").matchAll(/\S+/g)];
+        if (words.length < 3) return [];
+        const rows = new Map<number, number>();
+        for (const word of words) {
+          const range = document.createRange();
+          range.setStart(node, word.index!);
+          range.setEnd(node, word.index! + word[0].length);
+          const rect = range.getBoundingClientRect();
+          if (rect.width === 0) continue;
+          const row = Math.round(rect.top);
+          rows.set(row, (rows.get(row) ?? 0) + 1);
+        }
+        return rows.size > 1 && [...rows.values()].at(-1) === 1 ? [element.textContent?.trim()] : [];
+      });
+    });
+    expect(orphans, `viewport ${width}px`).toEqual([]);
   }
 });
