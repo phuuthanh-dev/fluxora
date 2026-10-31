@@ -192,7 +192,7 @@ export function LandingPage() {
                     <div className="landing-volume__chart" aria-label="Illustrative runs by day">
                       <p className="landing-volume__caption">SAMPLE ACTIVITY · RUNS BY DAY</p>
                       <div className="landing-volume__bars" aria-hidden="true">
-                        {[38, 52, 45, 70, 61, 86].map((height, index) => (
+                        {[42, 50, 59, 68, 77, 86].map((height, index) => (
                           <div className="landing-volume__column" key={index}>
                             <span className="landing-volume__bar" style={{ height: `${height}%` }}>
                               <img className="landing-volume__cube" src={`/relay/product/product-cube-${index + 1}.svg`} alt="" loading="lazy" />

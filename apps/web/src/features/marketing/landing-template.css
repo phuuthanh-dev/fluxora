@@ -160,6 +160,7 @@
 .landing-volume__cap { position: absolute; width: 79%; height: auto; left: 10.5%; top: -8px; }
 .landing-volume__column:last-child .landing-volume__bar { filter: drop-shadow(0 0 18px rgba(200,247,81,.2)); }
 .landing-volume__column small { color: var(--marketing-muted); font: 11px/1 monospace; }
+.landing-volume__column:last-child small { color: var(--relay-lime); }
 .landing-volume__note { margin-top: 24px; }
 
 .landing-demo {
