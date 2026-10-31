@@ -234,6 +234,9 @@ test("chart completes before its hold and rewinds without an empty-frame pause",
   await expect(chart).toHaveAttribute("data-motion", "playing");
   const lastCube = chart.locator(".landing-volume__cube").last();
   await expect(lastCube).toHaveCSS("opacity", "1", { timeout: 4000 });
+  const glow = chart.locator(".landing-volume__glow");
+  await expect.poll(async () => Number(await glow.evaluate((el) => getComputedStyle(el).opacity)), { timeout: 5000, intervals: [50] }).toBeGreaterThan(0.1);
+  await expect(chart.locator(".landing-volume__cap").last()).toHaveCSS("opacity", "1");
   // A layout refresh while the chart is holding must not restart the loop.
   await page.setViewportSize({ width: 1439, height: 900 });
   await page.waitForTimeout(400);

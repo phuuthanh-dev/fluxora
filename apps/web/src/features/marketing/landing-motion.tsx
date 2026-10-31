@@ -49,12 +49,15 @@ function relayLoop(animation: gsap.core.Timeline, playSeconds: number, prepare: 
   // Preserve the absolute offsets of individual beats even when the last
   // visible tween finishes before Relay's specified play duration.
   animation.to({}, { duration: 0.001 }, playSeconds - 0.001);
+  // Never squeeze a longer child sequence into the nominal play window: doing
+  // so silently moves all of its cues earlier and can cut short the ending.
+  const resolvedPlaySeconds = Math.max(playSeconds, animation.duration());
   const paint = () => {
     animation.progress(state.progress);
     if (state.progress <= 0.0001) prepare();
   };
   return gsap.timeline({ paused: true, repeat: -1 })
-    .fromTo(state, { progress: 0 }, { progress: 1, duration: playSeconds, ease: "none", onUpdate: paint, immediateRender: false })
+    .fromTo(state, { progress: 0 }, { progress: 1, duration: resolvedPlaySeconds, ease: "none", onUpdate: paint, immediateRender: false })
     .to(state, { progress: 1, duration: 2.8, ease: "none" })
     .to(state, { progress: 0, duration: 1.6, ease: "sine.inOut", onUpdate: paint });
 }
@@ -427,7 +430,9 @@ export function LandingReveal({
             if (cubes.length) {
               animation.fromTo(cubes, { scaleY: 0, opacity: 0 }, { scaleY: 1, opacity: 1, transformOrigin: "50% 100%", duration: 0.8, stagger: 0.12, ease: relaySpring(390, 20.8, 0.8), immediateRender: false }, 0.24)
                 .fromTo(caps, { y: -26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, stagger: 0.12, ease: relaySpring(280, 32, 0.6), immediateRender: false }, 0.448);
-              if (glow) animation.fromTo(glow, { opacity: 0, scale: 0.8 }, { opacity: 0.8, scale: 1.25, duration: 0.28, ease: "power2.inOut", repeat: 1, yoyo: true, immediateRender: false }, 1.5);
+              // Last cap finishes at 0.448 + 5 × 0.12 + 0.6 = 1.648s;
+              // Relay's glow starts 304ms after it lands.
+              if (glow) animation.fromTo(glow, { opacity: 0, scale: 0.8 }, { opacity: 0.8, scale: 1.25, duration: 0.28, ease: "power2.inOut", repeat: 1, yoyo: true, immediateRender: false }, 1.952);
             }
             const prepare = () => {
               if (bars.length) {
