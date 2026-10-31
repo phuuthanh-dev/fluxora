@@ -349,6 +349,12 @@ function requiredEnv(name: "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET") {
 }
 
 function validateCredentialPayload(provider: CredentialProvider, data: Record<string, unknown>) {
+  if (provider === CredentialProvider.GEMINI || provider === CredentialProvider.OPENAI) {
+    if (typeof data.apiKey !== "string" || !data.apiKey.trim() || data.apiKey.length > 512 || /[\r\n]/.test(data.apiKey)) {
+      throw new BadRequestException({ code: "INVALID_INPUT", message: "API key must be a non-empty string of at most 512 characters." });
+    }
+    return;
+  }
   if (provider !== CredentialProvider.SMTP) return;
   try {
     validateSmtpCredentialData(data);

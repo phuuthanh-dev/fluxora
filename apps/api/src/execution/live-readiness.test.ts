@@ -21,6 +21,8 @@ test("live readiness derives credential requirements from executable node types"
       { id: "github-workflow-trigger", type: "trigger.github.workflow-run-completed", position: { x: 1, y: 10 }, config: { credentialId: "github-workflow-trigger-cred" } },
       { id: "http", type: "action.http-request", position: { x: 2, y: 0 }, config: { credentialId: "http-credential" } },
       { id: "email", type: "action.email", position: { x: 2, y: 1 }, config: { credentialId: "smtp-credential" } },
+      { id: "gemini", type: "action.gemini", position: { x: 2, y: 2 }, config: { credentialId: "gemini-credential" } },
+      { id: "openai", type: "action.openai", position: { x: 2, y: 3 }, config: { credentialId: "openai-credential" } },
       { id: "approval", type: "approval.request", position: { x: 3, y: 0 }, config: { notificationProvider: "http_webhook", notificationCredentialId: "approval-webhook" } },
     ],
     edges: [],
@@ -40,6 +42,8 @@ test("live readiness derives credential requirements from executable node types"
     { nodeId: "github-workflow-trigger", provider: CredentialProvider.GITHUB, credentialId: "github-workflow-trigger-cred" },
     { nodeId: "http", provider: CredentialProvider.HTTP, credentialId: "http-credential" },
     { nodeId: "email", provider: CredentialProvider.SMTP, credentialId: "smtp-credential" },
+    { nodeId: "gemini", provider: CredentialProvider.GEMINI, credentialId: "gemini-credential" },
+    { nodeId: "openai", provider: CredentialProvider.OPENAI, credentialId: "openai-credential" },
     { nodeId: "approval", provider: CredentialProvider.HTTP, credentialId: "approval-webhook" },
   ]);
 });

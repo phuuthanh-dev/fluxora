@@ -44,8 +44,8 @@ test("node library separates core nodes from app operations", () => {
 });
 
 test("search can discover a planned node without opening the roadmap filter", () => {
-  const results = nodeCatalog.filter((node) => matchesNodeLibraryFilter(node, "all", "OpenAI"));
-  assert.deepEqual(results.map((node) => node.type), ["action.openai"]);
+  const results = nodeCatalog.filter((node) => matchesNodeLibraryFilter(node, "all", "MongoDB"));
+  assert.deepEqual(results.map((node) => node.type), ["action.mongodb"]);
 });
 
 test("provider nodes declare reusable inspector fields in the catalog", () => {

@@ -14,6 +14,8 @@ import { parseWorkflowGraph } from "../workflows/workflow-graph";
 import { liveCredentialRequirements } from "./live-readiness";
 import { executionRetentionPolicy } from "./retention-policy";
 import { executeSmtpEmail } from "./smtp-email";
+import { executeGeminiText } from "./gemini-text";
+import { executeOpenAIText } from "./openai-text";
 
 type RunMode = "mock" | "live";
 export type ExecutionTriageFilter = "ALL" | "ATTENTION" | "IN_PROGRESS" | "FAILED" | "SUCCEEDED";
@@ -610,6 +612,12 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
   }
   if (node.type === "action.email") {
     return executeSmtpEmail(config, mode, workspaceId, credentials);
+  }
+  if (node.type === "action.gemini") {
+    return executeGeminiText(config, mode, workspaceId, credentials);
+  }
+  if (node.type === "action.openai") {
+    return executeOpenAIText(config, mode, workspaceId, credentials);
   }
   if (node.type === "action.github") {
     return executeGitHubCreateIssue(config, mode, workspaceId, credentials);

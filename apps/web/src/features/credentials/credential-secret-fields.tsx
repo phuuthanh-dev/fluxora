@@ -12,6 +12,8 @@ const fields: Partial<Record<CredentialProvider, SecretField[]>> = {
   DISCORD_WEBHOOK: [{ key: "webhookUrl", label: "Webhook URL", secret: true }],
   TELEGRAM_BOT: [{ key: "botToken", label: "Bot token", secret: true }],
   GITHUB: [{ key: "token", label: "GitHub token", secret: true }],
+  GEMINI: [{ key: "apiKey", label: "Gemini API key", secret: true }],
+  OPENAI: [{ key: "apiKey", label: "OpenAI API key", secret: true }],
   SMTP: [{ key: "host", label: "SMTP host" }, { key: "username", label: "Username" }, { key: "password", label: "Password", secret: true }, { key: "from", label: "Sender address", hint: "An address or sender identity accepted by your SMTP provider." }],
 };
 

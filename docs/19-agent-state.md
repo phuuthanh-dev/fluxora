@@ -96,7 +96,10 @@ one of these IDs or explicitly reopen a completed ledger slice.
 | ID | Outcome | Status | Owner/evidence boundary |
 |---|---|---|---|
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
-| `CONNECTOR-LIVE-2` | Remaining GitHub actions, Google refresh/write and SMTP delivery qualification | deferred | Issue #37; the earlier Steam notification run and bootstrap repair are complete, not new implementation goals |
+| `CONNECTOR-LIVE-2` | Remaining Google, GitHub and SMTP live qualification | pending | Drive upload/read, Sheets append/read/update, and GitHub create issue/comment/label succeeded on owner-approved test resources. Google refresh, GitHub PR merge and SMTP delivery remain unverified; SMTP is deferred by owner. See the 2026-10-31 connector reports. |
+| `AI-GEMINI-1` | Gemini text generation with workspace credential, model discovery and execution | pending | Implemented and verified locally; owner deferred real-provider testing. Migration applied only to local database. |
+| `AI-OPENAI-1` | OpenAI text generation with workspace credential, model discovery and execution | pending | Implemented and verified locally; owner deferred real-provider testing. Migration applied only to local database. |
+| `EDITOR-QUALIFICATION-1` | Audit credential status, picker, validation and mock/live node-debug UX | planned | Reuse completed editor work; implement only evidenced gaps |
 
 ## Closed boundary
 

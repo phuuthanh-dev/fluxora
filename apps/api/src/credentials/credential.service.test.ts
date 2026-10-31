@@ -62,6 +62,13 @@ type HttpErrorShape = {
   };
 };
 
+test("Gemini connection rejects empty or malformed keys before storage", async () => {
+  const service = new CredentialService({} as never, { requireOwner: async () => {} } as never, {} as never);
+  for (const apiKey of ["", "   ", "bad\nkey", "x".repeat(513)]) {
+    await assert.rejects(service.create("ws-1", "user-1", { provider: "GEMINI", label: "Gemini", data: { apiKey } }), (error: unknown) => (error as HttpErrorShape).response?.code === "INVALID_INPUT");
+  }
+});
+
 test("create rejects duplicate label with CREDENTIAL_LABEL_CONFLICT", async () => {
   const prisma = {
     credential: {

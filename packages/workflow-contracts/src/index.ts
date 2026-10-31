@@ -61,6 +61,8 @@ export const executableWorkflowNodeTypes = [
   "action.google-sheets",
   "action.http-request",
   "action.email",
+  "action.gemini",
+  "action.openai",
   "approval.request",
   "action.github",
   "action.github.add-label",
