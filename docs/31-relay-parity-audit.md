@@ -63,7 +63,8 @@ from Relay Inter, Instrument Serif and Fragment Mono.
 
 ## Local verification evidence — 2026-10-31
 
-- Latest full default `npm run verify`: passed, including 119 Chromium E2E cases, workspace tests, typechecks and production builds. It ran after the earlier unsuccessful attempts documented below. This establishes the automated gate for the current implementation, not frame-exact Relay parity.
+- Latest full default `npm run verify` after the chart timing change: workspace tests, typechecks and builds passed; E2E finished with 118 passed and one failure. The failed editor keyboard-navigation case timed out while its registration form was still pending; it passed when rerun alone with the default limit (2.5 seconds). The full gate therefore did not pass on this revision, and the isolated rerun does not prove its root cause.
+- The previous full default `npm run verify` passed all 119 Chromium E2E cases, workspace tests, typechecks and production builds before the subsequent chart proportion and timing changes. Neither result proves frame-exact Relay parity.
 - After the most recent changes, the five targeted Chromium cases for the hero feed, hero port flashes, runtime hub, daily gauge and planner feature text passed. These cases verify selected behaviour, not visual 1:1 parity or the whole product.
 - An earlier `npm run verify` passed workspace unit tests, typechecks and application builds, but did not pass the complete E2E phase. Under high machine load it recorded timeouts in editor sign-up and account recovery, and the run was interrupted; 114 E2E cases did not run.
 - The editor case subsequently passed alone. The account recovery case exceeded the normal 30-second test limit alone, then passed in 42 seconds with a diagnostic 90-second limit. That diagnostic run did not establish the root cause or pass the default gate; the later full successful run is recorded above.
