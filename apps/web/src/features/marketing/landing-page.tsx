@@ -113,7 +113,7 @@ export function LandingPage() {
                 A LITTLE STRUCTURE. A LOT OF FLOW.
               </p>
               <h2 id="narrative-heading">
-                From “I do this
+                From “I do this{" "}
                 <br />
                 every day” to
                 <br />

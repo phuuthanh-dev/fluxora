@@ -41,10 +41,10 @@ function relaySpring(tension: number, friction: number, seconds: number) {
 }
 
 // Play once, hold the resolved frame, then rewind slowly enough to remain legible.
-// Relay specifies 800ms for product cards; Fluxora deliberately uses 1600ms
-// because the shorter return looked abrupt during interactive review.
+// Relay specifies 800ms for product cards; Fluxora deliberately uses a longer
+// rewind because the spring-based child tweens settle for much of the timeline.
 // A separate playhead avoids yoyo/repeatDelay holding the empty reset frame.
-function relayLoop(animation: gsap.core.Timeline, playSeconds: number, prepare: () => void) {
+function relayLoop(animation: gsap.core.Timeline, playSeconds: number, prepare: () => void, chartBars?: NodeListOf<HTMLElement>) {
   const state = { progress: 0 };
   // Preserve the absolute offsets of individual beats even when the last
   // visible tween finishes before Relay's specified play duration.
@@ -56,10 +56,23 @@ function relayLoop(animation: gsap.core.Timeline, playSeconds: number, prepare: 
     animation.progress(state.progress);
     if (state.progress <= 0.0001) prepare();
   };
-  return gsap.timeline({ paused: true, repeat: -1 })
+  const loop = gsap.timeline({ paused: true, repeat: -1 })
     .fromTo(state, { progress: 0 }, { progress: 1, duration: resolvedPlaySeconds, ease: "none", onUpdate: paint, immediateRender: false })
-    .to(state, { progress: 1, duration: 2.8, ease: "none" })
-    .to(state, { progress: 0, duration: 1.6, ease: "sine.inOut", onUpdate: paint });
+    .to(state, { progress: 1, duration: 2.8, ease: "none" });
+  if (chartBars?.length) {
+    // A settled spring barely changes until its final frames when reversed.
+    // Collapse the outer bars independently, then reset the hidden inner art.
+    loop.to(chartBars, { scaleY: 0, opacity: 0, transformOrigin: "50% 100%", duration: 2.4, stagger: { each: 0.12, from: "end" }, ease: "sine.inOut" })
+      .call(() => {
+        state.progress = 0;
+        animation.progress(0);
+        prepare();
+        gsap.set(chartBars, { clearProps: "opacity,transform,transformOrigin" });
+      });
+  } else {
+    loop.to(state, { progress: 0, duration: 6.4, ease: "sine.inOut", onUpdate: paint });
+  }
+  return loop;
 }
 
 export function useLandingEffects() {
@@ -451,7 +464,8 @@ export function LandingReveal({
               if (caps.length) gsap.set(caps, { y: -26, opacity: 0 });
               if (glow) gsap.set(glow, { opacity: 0, scale: 0.8 });
             };
-            const loop = relayLoop(animation, approval.length ? 4.472 : 2.072, prepare);
+            const chartBars = visual.querySelectorAll<HTMLElement>(".landing-volume__bar");
+            const loop = relayLoop(animation, approval.length ? 4.472 : 2.072, prepare, chartBars);
             let inView = false;
             let started = false;
             const show = () => {
@@ -473,6 +487,7 @@ export function LandingReveal({
             return () => {
               document.removeEventListener("visibilitychange", syncVisibility);
               visibility.kill(); loop.kill(); animation.kill();
+              gsap.set(chartBars, { clearProps: "opacity,transform,transformOrigin" });
               const touched = visual.querySelectorAll(".landing-chapter__trace-row b, .landing-chapter__trace-row svg, .landing-chapter__approval > *, .landing-chapter__approval-details > div, .landing-volume__cube, .landing-volume__cap, .landing-volume__glow");
               gsap.set(touched, { clearProps: "opacity,transform" });
               gsap.set(visual.querySelectorAll(".landing-chapter__trace-row svg path"), { clearProps: "strokeDasharray,strokeDashoffset" });

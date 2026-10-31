@@ -61,6 +61,28 @@ test("integration choreography is enhancement-only for reduced motion", async ({
   await expect(integrations.locator(".landing-integrations__packet")).toHaveCSS("opacity", "0");
 });
 
+test("mobile integration rail keeps all providers reachable with a keyboard", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await releaseIntro(page);
+  const rail = page.getByRole("region", { name: "Supported integrations; scroll horizontally to see more" });
+  await rail.scrollIntoViewIfNeeded();
+  await expect(rail.locator("[data-integration]")).toHaveCount(6);
+  await expect(page.getByText("Swipe to see all apps →")).toBeVisible();
+  expect(await rail.evaluate((element) => element.scrollWidth)).toBeGreaterThan(await rail.evaluate((element) => element.clientWidth));
+  await rail.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect.poll(() => rail.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+  await rail.getByText("Steam", { exact: true }).scrollIntoViewIfNeeded();
+  const lastIsWithinRail = await rail.evaluate((element) => {
+    const tile = element.querySelectorAll("[data-integration]")[5]!.getBoundingClientRect();
+    const bounds = element.getBoundingClientRect();
+    return tile.left >= bounds.left && tile.right <= bounds.right;
+  });
+  expect(lastIsWithinRail).toBe(true);
+});
+
 test("integration signal travels while visible and stops when effects pause", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
@@ -124,6 +146,21 @@ test("illustrative approval and Relay chart artwork remain readable with reduced
   await expect(chart.locator(".landing-volume__cube")).toHaveCount(6);
   await expect(chart.locator(".landing-volume__cap")).toHaveCount(6);
   await expect(chart.locator(".landing-volume__cube").first()).toHaveCSS("transform", "none");
+});
+
+test("chart bars pass through a gradual collapse before the next cycle", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await releaseIntro(page);
+  const chart = page.locator(".landing-chapter__visual").nth(2);
+  await chart.scrollIntoViewIfNeeded();
+  await expect(chart).toHaveAttribute("data-motion", "playing");
+  const bar = chart.locator(".landing-volume__bar").last();
+  await expect.poll(async () => bar.evaluate((element) => {
+    const transform = getComputedStyle(element).transform;
+    const scale = transform === "none" ? 1 : new DOMMatrix(transform).d;
+    return scale > 0.15 && scale < 0.8;
+  }), { timeout: 12000, intervals: [100] }).toBe(true);
 });
 
 test("illustrative trace settles and remains visible when motion is paused", async ({ page }) => {

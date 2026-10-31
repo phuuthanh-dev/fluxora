@@ -182,9 +182,20 @@ test("editor loading surface follows the selected light and dark theme", async (
 
   let releaseLoad!: () => void;
   const loadGate = new Promise<void>((resolve) => { releaseLoad = resolve; });
+  let markLoadIntercepted!: () => void;
+  const loadIntercepted = new Promise<void>((resolve) => { markLoadIntercepted = resolve; });
   await page.route("**/workflows/*", async (route) => {
     const pathname = new URL(route.request().url()).pathname;
-    if (route.request().method() === "GET" && /\/workflows\/[^/]+$/.test(pathname)) await loadGate;
+    if (route.request().method() === "GET" && /\/workflows\/[^/]+$/.test(pathname)) {
+      // Complete the real API request before delaying delivery to the page.
+      // This keeps the loading state deterministic without leaving a request
+      // suspended in the browser's network stack across theme assertions.
+      const response = await route.fetch();
+      markLoadIntercepted();
+      await loadGate;
+      await route.fulfill({ response });
+      return;
+    }
     await route.continue();
   });
 
@@ -194,6 +205,7 @@ test("editor loading surface follows the selected light and dark theme", async (
   await page.goto(`/editor?workflow=${encodeURIComponent(workflowId!)}`, { waitUntil: "domcontentloaded" });
   const loadingCard = page.locator(".editor-loading__card");
   await expect(loadingCard).toBeVisible();
+  await loadIntercepted;
   await expect(loadingCard).toHaveAttribute("role", "status");
   await expect(loadingCard).toHaveCSS("background-color", "rgb(255, 254, 249)");
 

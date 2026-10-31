@@ -106,8 +106,7 @@ export function LandingIntegrations() {
       let started = false;
       const show = () => {
         inView = true;
-        // The mobile layout wraps tiles into a grid and hides the horizontal
-        // rail. Do not light unrelated tiles with an invisible packet.
+        // A hidden rail should never light unrelated tiles during a resize.
         if (!rail || getComputedStyle(rail).display === "none") {
           travel.pause();
           setActive(-1);
@@ -163,7 +162,7 @@ export function LandingIntegrations() {
         <br />
         <strong>New possibilities.</strong>
       </p>
-      <div className="landing-integrations__apps">
+      <div className="landing-integrations__apps" role="region" aria-label="Supported integrations; scroll horizontally to see more" tabIndex={0}>
         <i className="landing-integrations__rail" aria-hidden="true"><span className="landing-integrations__packet" /></i>
         {apps.map((app) => (
           <span className="landing-integration" data-integration key={app.name}>
@@ -172,6 +171,7 @@ export function LandingIntegrations() {
           </span>
         ))}
       </div>
+      <span className="landing-integrations__swipe">Swipe to see all apps →</span>
       <span className="landing-integrations__more">+ HTTP &amp; more</span>
     </section>
   );
