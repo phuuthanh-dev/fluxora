@@ -148,21 +148,6 @@ test("illustrative approval and Relay chart artwork remain readable with reduced
   await expect(chart.locator(".landing-volume__cube").first()).toHaveCSS("transform", "none");
 });
 
-test("chart bars pass through a gradual collapse before the next cycle", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/");
-  await releaseIntro(page);
-  const chart = page.locator(".landing-chapter__visual").nth(2);
-  await chart.scrollIntoViewIfNeeded();
-  await expect(chart).toHaveAttribute("data-motion", "playing");
-  const bar = chart.locator(".landing-volume__bar").last();
-  await expect.poll(async () => bar.evaluate((element) => {
-    const transform = getComputedStyle(element).transform;
-    const scale = transform === "none" ? 1 : new DOMMatrix(transform).d;
-    return scale > 0.15 && scale < 0.8;
-  }), { timeout: 12000, intervals: [100] }).toBe(true);
-});
-
 test("illustrative trace settles and remains visible when motion is paused", async ({ page }) => {
   await page.goto("/");
   await releaseIntro(page);
@@ -278,8 +263,15 @@ test("chart completes before its hold and rewinds without an empty-frame pause",
   await page.setViewportSize({ width: 1439, height: 900 });
   await page.waitForTimeout(400);
   await expect(lastCube).toHaveCSS("opacity", "1");
-  await page.waitForTimeout(1800);
+  await page.waitForTimeout(600);
   await expect(lastCube).toHaveCSS("opacity", "1");
+  // The outer bar must visibly pass through intermediate sizes on its return.
+  const lastBar = chart.locator(".landing-volume__bar").last();
+  await expect.poll(async () => lastBar.evaluate((element) => {
+    const transform = getComputedStyle(element).transform;
+    const scale = transform === "none" ? 1 : new DOMMatrix(transform).d;
+    return scale > 0.15 && scale < 0.8;
+  }), { timeout: 5000, intervals: [100] }).toBe(true);
   await expect.poll(async () => Number(await lastCube.evaluate((el) => getComputedStyle(el).opacity)), { timeout: 5000, intervals: [50] }).toBeLessThan(0.9);
   await expect.poll(async () => Number(await lastCube.evaluate((el) => getComputedStyle(el).opacity)), { timeout: 5000, intervals: [50] }).toBeGreaterThan(0.1);
 });
@@ -378,6 +370,7 @@ test("hero node copy stays inside its cards at desktop and mobile sizes", async 
   for (const width of [375, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/");
+    await page.evaluate(() => document.fonts.ready);
     const nodes = page.locator(".landing-demo-node");
     await expect(nodes).toHaveCount(4);
     for (const node of await nodes.all()) {

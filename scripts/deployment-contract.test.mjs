@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { qualityCommands } from "./workspace-quality-policy.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const validator = resolve(root, "infra/scripts/validate-image-tag.sh");
@@ -176,10 +177,13 @@ test("scope preserves product verification when a docs commit follows a cancelle
 });
 
 test("verification and operational retention contracts avoid redundant work", () => {
+  assert.deepEqual(qualityCommands({ typecheck: "tsc --noEmit", lint: "tsc --noEmit" }), ["typecheck"]);
+  assert.deepEqual(qualityCommands({ typecheck: "tsc --noEmit", lint: "eslint ." }), ["typecheck", "lint"]);
+  assert.deepEqual(qualityCommands({ typecheck: "tsc", lint: "tsc", prelint: "node prepare.js" }), ["typecheck", "lint"]);
+  assert.deepEqual(qualityCommands({ lint: "eslint ." }), ["lint"]);
   assert.match(rootPackage.scripts.verify, /build:contracts/);
   assert.match(rootPackage.scripts.verify, /test:workspaces/);
-  assert.match(rootPackage.scripts.verify, /lint:workspaces/);
-  assert.match(rootPackage.scripts.verify, /typecheck:workspaces/);
+  assert.match(rootPackage.scripts.verify, /quality:workspaces/);
   assert.match(rootPackage.scripts.verify, /build:apps/);
   assert.match(deployScript, /check-disk-space\.sh/);
   assert.match(healthcheckScript, /health\/ready/);
