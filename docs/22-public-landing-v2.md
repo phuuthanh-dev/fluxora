@@ -72,9 +72,9 @@ customer count, testimonial, success-rate or pricing claim may be invented.
 - `public/relay/manifest.json`: exact sources and hashes of bundled vendor artwork.
 - `landing.css`: route-scoped layout; superseded global landing CSS is removed.
 
-Use landing-scoped Inter, Instrument Serif italic and Fragment Mono with the
-official #c8f751 lime. Fonts are bundled through Fontsource; product Gilroy,
-shared semantics and offline provider icons remain unchanged.
+Use the original Fluxora typography: Gilroy UI, Georgia italic accents and
+system monospace telemetry, with the official #c8f751 lime. This restores the
+owner-selected font system while retaining shared semantics and provider icons.
 
 ## Rendering and lifecycle contract
 

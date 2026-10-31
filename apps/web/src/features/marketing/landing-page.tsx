@@ -19,19 +19,14 @@ import { LandingMotionProvider, LandingReveal } from "./landing-motion";
 import { LandingLightStream } from "./landing-scenes";
 import { LandingDailyView, LandingUseCases } from "./landing-sections";
 import { LandingShowcase } from "./landing-showcase";
-import "@fontsource/inter/400.css";
-import "@fontsource/inter/500.css";
-import "@fontsource/inter/600.css";
-import "@fontsource/instrument-serif/400-italic.css";
-import "@fontsource/fragment-mono/400.css";
 import "./landing.css";
 import "./landing-template.css";
 
 const chapters = [
   {
-    title: "Start with a signal.",
-    text: "A schedule, a webhook, or a click. Give the everyday work a starting point.",
-    tag: "01 / TRIGGER",
+    title: "Follow every step.",
+    text: "See the input, the action, and the output in one clear execution trace.",
+    tag: "01 / TRACE",
     icon: <Sparkles size={20} />,
   },
   {
@@ -41,9 +36,9 @@ const chapters = [
     icon: <GitBranch size={20} />,
   },
   {
-    title: "Follow the whole story.",
-    text: "See what each node received, what it returned, and exactly where a run needs attention.",
-    tag: "03 / OBSERVE",
+    title: "See the work as it happens.",
+    text: "Follow each execution and find the details when a workflow needs your attention.",
+    tag: "03 / ACTIVITY",
     icon: <ScanLine size={20} />,
   },
 ];
@@ -109,12 +104,123 @@ export function LandingPage() {
         <LandingIntegrations />
         <div className="landing-frosted-slab">
           <section
-            className="landing-product landing-container"
+            className="landing-narrative landing-container"
             id="product"
+            aria-labelledby="narrative-heading"
+          >
+            <LandingReveal className="landing-narrative__lead">
+              <p className="landing-eyebrow">
+                A LITTLE STRUCTURE. A LOT OF FLOW.
+              </p>
+              <h2 id="narrative-heading">
+                From “I do this{" "}
+                <br />
+                every day” to
+                <br />
+                <em>already done.</em>
+              </h2>
+              <div className="landing-narrative__aside">
+                <p>Turn a recurring task into a clear sequence you can inspect, adjust, and run again.</p>
+                <p>Choose a trigger, connect your apps, and follow each result in the execution history.</p>
+              </div>
+              <a className="landing-text-link" href="/login">
+                Build your first workflow <ArrowRight size={17} />
+              </a>
+              <div className="landing-signal-mark" aria-hidden="true">
+                <span />
+                <span />
+                <FluxoraMark size={60} />
+                <span />
+              </div>
+            </LandingReveal>
+            <div className="landing-narrative__chapters" id="narrative">
+              {chapters.map((chapter) => (
+                <LandingReveal
+                  as="article"
+                  className="landing-chapter"
+                  key={chapter.tag}
+                >
+                  <div className="landing-chapter__copy">
+                    <div className="landing-chapter__top">
+                      <span>{chapter.tag}</span>
+                      {chapter.icon}
+                    </div>
+                    <h3>{chapter.title}</h3>
+                    <p>{chapter.text}</p>
+                  </div>
+                  <div className="landing-chapter__visual">
+                  {chapter.tag.startsWith("01") ? (
+                    <div className="landing-chapter__trace" aria-label="Illustrative execution trace">
+                      <p><span className="landing-chapter__trace-title">EXAMPLE RUN · COMPLETED</span></p>
+                      {[
+                        { label: "Input", width: "76%", time: "120 ms" },
+                        { label: "Action", width: "54%", time: "8 ms" },
+                        { label: "Condition", width: "32%", time: "1 ms" },
+                        { label: "Output", width: "44%", time: "Ready" },
+                      ].map((item) => (
+                        <div className="landing-chapter__trace-row" key={item.label}>
+                          <span><Check size={13} /> {item.label}</span>
+                          <i aria-hidden="true"><b style={{ width: item.width }} /></i>
+                          <small>{item.time.endsWith(" ms") ? <><span data-trace-count={parseInt(item.time, 10)}>{parseInt(item.time, 10)}</span> ms</> : item.time}</small>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                  {chapter.tag.startsWith("02") ? (
+                    <div className="landing-chapter__example">
+                    <p>EXAMPLE · ROUTE A DECISION</p>
+                    <div className="landing-chapter__route" aria-hidden="true">
+                      <span>IF</span>
+                      <i />
+                      <span className="is-accent">YES → Continue</span>
+                      <span>NO → Review</span>
+                    </div>
+                    <div className="landing-chapter__approval" aria-label="Illustrative approval request">
+                      <div className="landing-chapter__typing" aria-hidden="true"><span /><span /><span /></div>
+                      <div className="landing-chapter__approval-head"><span>F</span><strong>Fluxora</strong><small>APPROVAL REQUEST · SAMPLE</small></div>
+                      <p>Ready to send this update? Review the details before the workflow continues.</p>
+                      <dl className="landing-chapter__approval-details">
+                        <div><dt>workflow</dt><dd>Steam daily report</dd></div>
+                        <div><dt>destination</dt><dd>Google Chat</dd></div>
+                        <div><dt>decision</dt><dd>Review before sending</dd></div>
+                      </dl>
+                      <div aria-hidden="true"><span>Approve</span><span>Hold</span><small>Waiting for review</small></div>
+                    </div>
+                    </div>
+                  ) : null}
+                  {chapter.tag.startsWith("03") ? (
+                    <div className="landing-volume__chart" aria-label="Illustrative runs by day">
+                      <p className="landing-volume__caption">SAMPLE ACTIVITY · RUNS BY DAY</p>
+                      <div className="landing-volume__bars" aria-hidden="true">
+                        {[42, 50, 59, 68, 77, 86].map((height, index) => (
+                          <div className="landing-volume__column" key={index}>
+                            <span className="landing-volume__bar" style={{ height: `${height}%` }}>
+                              <img className="landing-volume__cube" src={`/relay/product/product-cube-${index + 1}.svg`} alt="" loading="lazy" />
+                              {index === 5 ? <img className="landing-volume__glow" src="/relay/product/product-cap-glow.svg" alt="" loading="lazy" /> : null}
+                              <img className="landing-volume__cap" src={`/relay/product/product-cap-${index + 1}.svg`} alt="" loading="lazy" />
+                            </span>
+                            <small>{["MON", "TUE", "WED", "THU", "FRI", "SAT"][index]}</small>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="landing-volume__note">Illustrative data, not live usage.</p>
+                    </div>
+                  ) : null}
+                  </div>
+                  <span className="landing-chapter__rule" aria-hidden="true" />
+                </LandingReveal>
+              ))}
+            </div>
+          </section>
+          <LandingHandoff />
+          <LandingDailyView />
+          <section
+            className="landing-product landing-container"
+            id="workspace-preview"
             aria-labelledby="product-heading"
           >
             <LandingReveal className="landing-section-intro">
-              <p className="landing-eyebrow">01 — THE BIG PICTURE</p>
+              <p className="landing-eyebrow">THE BIG PICTURE</p>
               <h2 id="product-heading">
                 Less tab switching.
                 <br />
@@ -141,118 +247,13 @@ export function LandingPage() {
               </span>
             </div>
           </section>
-          <section
-            className="landing-narrative landing-container"
-            id="narrative"
-            aria-labelledby="narrative-heading"
-          >
-            <LandingReveal className="landing-narrative__lead">
-              <p className="landing-eyebrow">
-                02 — A LITTLE STRUCTURE. A LOT OF FLOW.
-              </p>
-              <h2 id="narrative-heading">
-                From “I do this
-                <br />
-                every day” to
-                <br />
-                <em>already done.</em>
-              </h2>
-              <div className="landing-narrative__aside">
-                <p>Turn a recurring task into a clear sequence you can inspect, adjust, and run again.</p>
-                <p>Choose a trigger, connect your apps, and follow each result in the execution history.</p>
-              </div>
-              <a className="landing-text-link" href="/login">
-                Build your first workflow <ArrowRight size={17} />
-              </a>
-              <div className="landing-signal-mark" aria-hidden="true">
-                <span />
-                <span />
-                <FluxoraMark size={60} />
-                <span />
-              </div>
-            </LandingReveal>
-            <div className="landing-narrative__chapters">
-              {chapters.map((chapter) => (
-                <LandingReveal
-                  as="article"
-                  className="landing-chapter"
-                  key={chapter.tag}
-                >
-                  <div className="landing-chapter__copy">
-                    <div className="landing-chapter__top">
-                      <span>{chapter.tag}</span>
-                      {chapter.icon}
-                    </div>
-                    <h3>{chapter.title}</h3>
-                    <p>{chapter.text}</p>
-                  </div>
-                  <div className="landing-chapter__visual">
-                  {chapter.tag.startsWith("01") ? (
-                    <div className="landing-chapter__example">
-                    <p>EXAMPLE · CHOOSE A STARTING POINT</p>
-                    <div className="landing-chapter__chips">
-                      <span>Schedule</span>
-                      <span>Webhook</span>
-                      <span>Manual</span>
-                    </div>
-                    </div>
-                  ) : null}
-                  {chapter.tag.startsWith("02") ? (
-                    <div className="landing-chapter__example">
-                    <p>EXAMPLE · ROUTE A DECISION</p>
-                    <div className="landing-chapter__route" aria-hidden="true">
-                      <span>IF</span>
-                      <i />
-                      <span className="is-accent">YES → Continue</span>
-                      <span>NO → Review</span>
-                    </div>
-                    </div>
-                  ) : null}
-                  {chapter.tag.startsWith("03") ? (
-                    <div className="landing-chapter__trace" aria-label="Illustrative execution trace">
-                      <p>EXAMPLE RUN · COMPLETED</p>
-                      {[
-                        { label: "Input", width: "76%" },
-                        { label: "Action", width: "54%" },
-                        { label: "Output", width: "32%" },
-                      ].map((item) => (
-                        <div className="landing-chapter__trace-row" key={item.label}>
-                          <span><Check size={13} /> {item.label}</span>
-                          <i aria-hidden="true"><b style={{ width: item.width }} /></i>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                  </div>
-                </LandingReveal>
-              ))}
-            </div>
-          </section>
-          <section className="landing-volume landing-container" aria-labelledby="volume-heading">
-            <LandingReveal className="landing-volume__copy">
-              <p className="landing-eyebrow">03 — A CLEARER VIEW</p>
-              <h2 id="volume-heading">See the work as it happens.</h2>
-              <p>Follow each execution and find the details when a workflow needs your attention.</p>
-            </LandingReveal>
-            <LandingReveal className="landing-volume__chart">
-              <p className="landing-volume__caption">SAMPLE ACTIVITY · RUNS BY DAY</p>
-              <div className="landing-volume__bars" aria-hidden="true">
-                {[38, 52, 45, 70, 61, 86].map((height, index) => (
-                  <div className="landing-volume__column" key={index}>
-                    <span className="landing-volume__bar" style={{ height: `${height}%` }} />
-                    <small>{["MON", "TUE", "WED", "THU", "FRI", "SAT"][index]}</small>
-                  </div>
-                ))}
-              </div>
-              <p className="landing-volume__note">Illustrative data, not live usage.</p>
-            </LandingReveal>
-          </section>
+          <LandingUseCases />
           <section
             className="landing-safety landing-container"
             aria-labelledby="safety-heading"
           >
             <LandingReveal className="landing-safety__copy">
-              <p className="landing-eyebrow">03 — CONFIDENCE IS BUILT IN</p>
+              <p className="landing-eyebrow">CONFIDENCE IS BUILT IN</p>
               <h2 id="safety-heading">
                 Test the idea.
                 <br />
@@ -298,9 +299,6 @@ export function LandingPage() {
               ))}
             </LandingReveal>
           </section>
-          <LandingHandoff />
-          <LandingDailyView />
-          <LandingUseCases />
         </div>
         <LandingRunMeter />
         <LandingFaq />

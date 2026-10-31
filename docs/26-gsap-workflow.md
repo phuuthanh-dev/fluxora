@@ -179,3 +179,15 @@ coalesced follow-up frame for sticky mobile layout. That is a bounded layout
 settle; cancel it on cleanup. During docking, the existing GSAP ticker follows
 the destination while its section reveal moves. An IntersectionObserver gates
 those per-frame geometry reads to the nearby viewport; both are removed on cleanup.
+
+## Relay section choreography (2026-10-31)
+
+Product feature illustrations follow trace → approval → chart, then the
+statement/reliability handoff. Their owned timelines and the daily-view timeline
+pause when offscreen or when the document is hidden, and revert through the
+existing motion provider for pause, reduced motion and unmount. Typing labels
+and the focus mask enhance readable server-rendered text without replacing it.
+Integration signal positions use cached tile geometry and are remeasured after
+layout refresh; never read layout on every animation tick. The run-planner card
+shell stays in place while its content enters. Keep sample values and approval
+states visibly labelled as illustrative.

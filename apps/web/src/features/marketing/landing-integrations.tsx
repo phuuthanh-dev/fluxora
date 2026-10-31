@@ -44,46 +44,108 @@ export function LandingIntegrations() {
         .fromTo(
           rail,
           { scaleX: 0, autoAlpha: 0.28 },
-          { scaleX: 1, autoAlpha: 1, duration: 0.72 },
+          { scaleX: 1, autoAlpha: 1, duration: 1.76, ease: "power1.inOut" },
         )
         .fromTo(
           items,
-          { y: 16, scale: 0.94, autoAlpha: 0 },
+          { y: 16, scale: 0.8, autoAlpha: 0 },
           {
             y: 0,
             scale: 1,
             autoAlpha: 1,
             duration: 0.48,
-            stagger: 0.07,
+            stagger: 1.76 / Math.max(1, items.length),
           },
-          0.12,
+          0.08,
         );
       const packet = element.querySelector<HTMLElement>(".landing-integrations__packet");
-      const travel = gsap.fromTo(packet, { x: 0, autoAlpha: 0 }, {
-        x: () => Math.max(0, (rail?.clientWidth ?? 0) - 8),
-        autoAlpha: 1, duration: 5, ease: "none", repeat: -1,
-        repeatDelay: 0.6, paused: true,
-      });
-      let railWidth = rail?.clientWidth ?? 0;
+      let activeIndex = -1;
+      const setActive = (index: number) => {
+        if (index === activeIndex) return;
+        items.forEach((item, position) => {
+          if (position === index) item.dataset.signal = "active";
+          else delete item.dataset.signal;
+        });
+        activeIndex = index;
+      };
+      // Cache layout only on refresh. The active tile is selected by the
+      // packet's actual position, rather than an even division of the rail.
+      let centers: number[] = [];
+      let railWidth = 0;
+      const measure = () => {
+        railWidth = rail?.clientWidth ?? 0;
+        const origin = rail?.offsetLeft ?? 0;
+        centers = Array.from(items, (item) => item.offsetLeft + item.offsetWidth / 2 - origin - 3.5);
+      };
+      measure();
+      const position = { x: 0 };
+      const setPacketX = packet ? gsap.quickSetter(packet, "x", "px") : () => {};
+      const travel = gsap.timeline({ repeat: -1, paused: true });
+      travel.fromTo(position, { x: () => centers[0] ?? 0 }, {
+        x: () => centers.at(-1) ?? 0,
+        duration: 5.6,
+        ease: (t: number) => t < 0.18 ? t * t / (0.36 * 0.91) : (t - 0.09) / 0.91,
+        onUpdate: () => {
+          setPacketX(position.x);
+          if (rail && railWidth > 0) {
+            const peak = Math.max(0, Math.min(100, (position.x + 3.5) / railWidth * 100));
+            rail.style.setProperty("--rail-head", `${peak}%`);
+          }
+          let nearest = -1;
+          let distance = Infinity;
+          centers.forEach((center, index) => {
+            const current = Math.abs(center - position.x);
+            if (current < distance) { distance = current; nearest = index; }
+          });
+          setActive(nearest);
+        },
+      }, 0.03).fromTo(packet, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.36, ease: "none" }, 0.03)
+        .to(packet, { autoAlpha: 0, duration: 0.36, ease: "none" }, 5.83)
+        .to({}, { duration: 0.02 });
+      let inView = false;
+      let started = false;
+      const show = () => {
+        inView = true;
+        // A hidden rail should never light unrelated tiles during a resize.
+        if (!rail || getComputedStyle(rail).display === "none") {
+          travel.pause();
+          setActive(-1);
+          return;
+        }
+        if (!document.hidden) {
+          if (!started) { started = true; travel.restart(); }
+          else travel.resume();
+        }
+      };
+      const hide = () => { inView = false; travel.pause(); setActive(-1); };
+      const syncVisibility = () => {
+        if (!inView || document.hidden) travel.pause();
+        else if (rail && getComputedStyle(rail).display !== "none") {
+          if (!started) show();
+          else travel.resume();
+        }
+      };
+      document.addEventListener("visibilitychange", syncVisibility);
       const visibility = ScrollTrigger.create({
         trigger: element,
-        start: "top bottom",
+        start: "top 88%",
         end: "bottom top",
-        onEnter: () => travel.play(),
-        onEnterBack: () => travel.play(),
-        onLeave: () => travel.pause(),
-        onLeaveBack: () => travel.pause(),
+        onEnter: show,
+        onEnterBack: show,
+        onLeave: hide,
+        onLeaveBack: hide,
         onRefresh: (self) => {
           const width = rail?.clientWidth ?? 0;
           if (width !== railWidth) {
-            railWidth = width;
-            travel.invalidate();
+            const elapsed = travel.totalTime();
+            measure();
+            travel.invalidate().totalTime(elapsed, true);
           }
-          if (self.isActive) travel.play();
-          else travel.pause();
+          if (self.isActive) show();
+          else if (inView) hide();
         },
       });
-      return () => { visibility.kill(); travel.kill(); timeline.kill(); };
+      return () => { document.removeEventListener("visibilitychange", syncVisibility); visibility.kill(); travel.kill(); timeline.kill(); rail?.style.removeProperty("--rail-head"); setActive(-1); };
     }, element);
     return () => media.revert();
   }, [introReady, paused]);
@@ -100,7 +162,7 @@ export function LandingIntegrations() {
         <br />
         <strong>New possibilities.</strong>
       </p>
-      <div className="landing-integrations__apps">
+      <div className="landing-integrations__apps" role="region" aria-label="Supported integrations; scroll horizontally to see more" tabIndex={0}>
         <i className="landing-integrations__rail" aria-hidden="true"><span className="landing-integrations__packet" /></i>
         {apps.map((app) => (
           <span className="landing-integration" data-integration key={app.name}>
@@ -109,6 +171,7 @@ export function LandingIntegrations() {
           </span>
         ))}
       </div>
+      <span className="landing-integrations__swipe">Swipe to see all apps →</span>
       <span className="landing-integrations__more">+ HTTP &amp; more</span>
     </section>
   );

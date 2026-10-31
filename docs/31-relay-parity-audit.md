@@ -9,16 +9,111 @@ parity therefore remains unverified without the original runnable implementation
 | --- | --- | --- |
 | Preloader | readiness counter, lime flood and logo fold | implemented with fail-open, skip and reduced-motion paths; exact timing and visuals require side-by-side review |
 | Hero board | refund example, staged nodes, paths and feed | staged Fluxora workflow example and packets; node content and geometry differ |
-| Integration rail | travelling packet activates each app | responsive tiles and travelling signal; per-tile activation choreography differs |
-| Product feature rows | waterfall, approval and six isometric bars animate on entry | illustrative trigger, decision and trace cards plus sample bar chart; card internals and looping sequences differ |
-| Text reveals | rise and blur with a soft left-to-right mask | section and text reveals on scroll; timings/mask are approximations |
+| Integration rail | travelling packet activates each app and lights the dashed rail | responsive tiles, packet and moving gradient follow measured positions, with Relay-inspired lap timing; responsive composition and exact gradient remain different |
+| Product feature rows | waterfall, approval and six isometric bars animate on entry | trace, approval and sample chart using original cube and cap SVGs now appear in Relay order and loop while visible; detailed content, timing and reset choreography remain approximate |
+| Text reveals | rise and blur with a soft left-to-right mask | section and text reveals use a soft mask sweep; timing and spring curves are approximations |
 | Statement handoff | lime plate opens, closes and docks into runtime | reversible scroll handoff and Fluxora glyph; geometry differs |
-| Daily view, proof, pricing | animated sample dashboard, named proof and paid pricing meter | labelled examples and planning meter, with no fictional customers, pricing or capacity claims |
+| Runtime hub | four app packets, counter-rotating orbits and breathing glow | six Fluxora app packets, supplied orbit/glow assets and visibility-aware motion; geometry and app count differ |
+| Daily view, proof, pricing | animated sample dashboard, scroll-drifting proof blooms and paid pricing meter | five illustrative dashboard widgets, scroll-drifting original blooms, honest use cases and a planning meter; Fluxora does not claim Relay customer results, pricing or capacity |
 | Slab and background | frost across product through proof, streamed background | bounded frost and particle stream; shader and rendering performance are adapted |
 | Color | `#c8f751` primary lime | primary Relay token now shared by app and landing; contrast-specific and provider colors remain semantic variants |
-| Typography | Inter, Instrument Serif, Fragment Mono | same landing roles; product uses its existing UI font |
+| Typography | Inter, Instrument Serif, Fragment Mono | owner-selected original Fluxora Gilroy UI, Georgia serif and system monospace |
+| Footer | supplied auroras and separately staged panel copy, CTA and links | local aurora assets and staged Fluxora content; geometry and fine-grained timing require visual comparison |
 
 Claims about visual parity need a comparison at matching scroll positions and
 viewport sizes on real hardware. Reduced motion, pause, keyboard access, readable
 server-rendered content and accurate product descriptions take precedence over
 copying decorative behaviour or fictional template copy.
+
+## Order audit — 2026-10-31
+
+- Relay: hero → integrations → product (trace, approval, chart) → statement → scale → signals → proof → pricing → footer.
+- Fluxora: hero → integrations → product (trace, approval, chart) → statement/reliability → daily view → workspace preview → use cases → lifecycle → run planner → FAQ → footer. The preview, lifecycle and FAQ remain Fluxora additions; the reference does not establish 1:1 section parity.
+- Card animations now repeat while visible and stop offscreen; timing, counters, fine-grained typing and reset choreography still differ. The visible Fluxora examples do not imply real runs or published pricing.
+
+## Motion follow-up in progress — 2026-10-31
+
+- Product now precedes statement and uses Relay's trace → approval → chart order. A separate Fluxora workspace preview remains after the daily view; lifecycle and FAQ are intentional additions.
+- Integration highlighting and the rail gradient follow measured tile centers; the reference's responsive rail composition and exact gradient remain different.
+- Approval typing, chart cap glow, daily heatmap/gauge/feed/recovery and plan-card content are staged. Their exact per-frame spring behaviour and resets have not been verified against the reference.
+- The video is a 10.43-second, 1920 × 1366 capture; it helps validate order and appearance but does not reveal source state or prove timing parity. Desktop and mobile comparison is still required after final implementation.
+
+## Requirement audit
+
+| Requirement | Current evidence | Status and limits |
+| --- | --- | --- |
+| Section ordering and composition | `landing-page.tsx`, order E2E and desktop captures | Core Relay sequence is present; additional Fluxora preview, lifecycle and FAQ remain. |
+| Supplied assets | Local `/relay/` assets and artwork-integrity E2E | Used for the board, chart, backgrounds and footer; not every asset in the reference manifest is used. |
+| Choreography and loop stability | `landing-motion.tsx`, handoff/demo/integration components, motion E2E | Implemented and exercised; exact visual timing and geometry remain unproven against the short recording. |
+| Fluxora identity and factual copy | Landing components and planner assertions | Fluxora logo/content and original fonts retained; pricing and customer statistics are illustrative or omitted. |
+| Responsive and reduced motion | 375/768/1440 Chromium E2E, no-JS and reduced-motion tests, 375px capture | Verified within those cases; mobile rail includes six instead of four tiles and mobile Relay video evidence is absent. |
+| Automated quality gate | `/tmp/fluxora-quality-accelerated.log`, `test-results/.last-run.json` | Default local verify passed 120/120 E2E after combining overlapping chart checks; this is not production or isolated CI qualification. |
+| Unproven differences | Tables and notes in this document | Recorded; exact 1:1 must not be claimed from these sources. |
+
+## Reference motion beats and Fluxora implementation — 2026-10-31
+
+| Element | Relay specification | Fluxora mapping / limitation |
+| --- | --- | --- |
+| Feature title and body | rise 24px; focus from 8px blur with a soft left-to-right mask; title +70ms, body +140ms | rise and soft mask implemented; GSAP eases approximate the documented spring, and nested paragraphs require individual review |
+| Trace | four spans start at 360/760/920/1040ms, checks draw later, run label types | Fluxora's sample label types, four bars grow, numeric sample timings count up, and check strokes draw independently; illustrative content and exact timing differ |
+| Approval | typing dots at 240ms, message at 1160ms, fields 1360ms onward, play length 4472ms | dots, sample message and fields staged; waiting-minute count is intentionally not invented |
+| Chart | six ascending bars start 240ms + 120ms each, caps 208ms later; glow after final cap; nominal play length 2072ms | original local SVGs, ascending illustrative proportions, staged caps and glow. The specified cap timing plus glow exceeds 2072ms with the current tween durations, so Fluxora lets the sequence finish rather than compressing it; exact curve needs reference comparison |
+| Card loop | resolve → hold 2800ms → rewind 800ms; disarm offscreen | explicit separate playhead replaces yoyo hold on the empty frame; refresh no longer restarts an active visible loop |
+| Daily widgets | staggered widget entry, diagonal heatmap wave, synchronized ring draw and numeric count, feed and curves; pause offscreen | sample widgets stage and loop, with ring and count sharing a timing curve; geometry and data are Fluxora examples, not Relay metrics |
+| Run meter | keyboard range, text types on entry, rolling digits, active card and staggered feature checks | Fluxora planning range retains accessible native input; card checks draw and feature lines focus in; no fictional commercial price |
+| Hero board and text | fixed boot sequence, packet, port flashes and a new feed row sliding above the previous rows, scroll/visibility gating | Fluxora stages the board, routes the packet with port flashes and slides the illustrative feed downward; source video must be compared frame by frame before claiming timing parity |
+
+Owner requested the pre-Relay Fluxora typography: Gilroy UI, Georgia serif accents,
+and system monospace telemetry. Typography is therefore an intentional deviation
+from Relay Inter, Instrument Serif and Fragment Mono.
+
+- Proof blooms use the supplied local artwork and drift in opposite directions with scroll, reverting for paused and reduced-motion modes. This follows the reference mechanism without its fictional testimonials or customer metrics.
+- Fluxora pauses a visible illustration's playhead when it leaves the viewport and resumes it on return, preventing an abrupt restart during short reverse scrolls. Relay describes resetting after a card is fully offscreen; this is an intentional behavioural difference requested to address the reported jitter. The trace and chart use calculated easing based on the specified spring tension and friction; timing and visual fidelity still need comparison against a running reference.
+- The integration rail likewise preserves its lap on refresh, resize and short departures instead of restarting from the first app; the source describes restarting when fully offscreen. This follows the owner's request to avoid abrupt resets.
+- At narrow widths Fluxora keeps all six supported integrations on a horizontally scrollable single rail, with readable wrapped labels. Relay's 390px frame shows four selected tiles, so the interaction and total number remain intentionally different.
+- The owner requested a quicker cycle: product cards hold for 1800ms (Relay specifies 2800ms); trace and approval rewind over 4200ms, while chart bars collapse over 1100ms each with a 120ms reverse stagger. Daily widgets retain their 2800ms hold and 6400ms return. This differs from Relay's 800ms product-card return and individual daily widget timings.
+
+## Local verification evidence — 2026-10-31
+
+- The latest default `npm run verify` passed, including 120/120 Chromium E2E cases, after the owner-directed timing and workspace-check changes. The previous 121-case suite had two overlapping chart tests; the remaining case retains the intermediate-collapse, hold and replay checks.
+- Latest default `npm run verify` passed: workspace checks and production builds followed by 121/121 Chromium E2E cases. This local run reused configured development servers and does not prove production behaviour, frame-exact Relay parity, or low-frame-rate smoothness on all hardware.
+- The latest full `npm run verify` completed with 120/121 E2E passing. All landing cases passed, as did the revised editor-loading case; execution-history navigation timed out once. The execution-history case subsequently passed three isolated repetitions, which does not establish its cause or turn the full run into a pass.
+- The latest full `npm run verify` completed with 119/121 E2E passing. The chart-collapse, mobile rail, 375px template and ribbon morph cases passed in that run. The editor-loading test again timed out waiting for the workflow request to finish, and the workflow-card test timed out during registration before reaching the card. Thus the full gate remains failed. Waiting for the intercepted request made the loading test pass in isolation but did not stabilize it in the full run.
+- The subsequent full `npm run verify` completed with 115/121 E2E passing, so the gate did not pass. Two editor accessibility cases timed out during registration, one editor-loading case remained in its loading state, the newly added chart-collapse case timed out, the 375px template case timed out, and the ribbon case did not reach `running`. The chart case was then adjusted to wait for its motion owner and passed in isolation; that does not establish a passing full gate or explain the other failures.
+- Follow-up isolated runs: both editor accessibility cases and the 375px template case passed; the editor-loading case again timed out after its gated request was released. The ribbon case reached a running WebGL scene but failed its maximum frame-to-frame morph-step assertion (0.535 versus 0.45); high machine load was observed, but its causal role is unproven. These results do not replace a successful full gate.
+- A further isolated ribbon run passed with the default test settings. The editor-loading test failed again at the same post-release heading assertion; its cause remains under investigation. A single ribbon pass does not explain the preceding morph-step failure or prove smoothness under load.
+- The most recent completed default `npm run verify` passed 119/119 E2E, workspace tests, lint, typechecks and builds, before the subsequent mobile rail, heading and slower-return edits. Those later edits still need the final gate. In the preceding attempt, the editor loading-card test began its 5-second assertion before navigation reached DOMContentLoaded; its trace showed no loading card in the still-loading document. The test now waits for DOMContentLoaded while retaining the gated workflow request and passed both alone and in the subsequent full gate.
+- An earlier full verify after the chart timing change passed workspace tests, typechecks and builds but finished with 118 E2E passes and one failure. The failed editor keyboard-navigation case timed out while its registration form was still pending; it passed when rerun alone with the default limit (2.5 seconds). The isolated rerun does not prove its root cause.
+- The previous full default `npm run verify` passed all 119 Chromium E2E cases, workspace tests, typechecks and production builds before the subsequent chart proportion and timing changes. Neither result proves frame-exact Relay parity.
+- After the most recent changes, the five targeted Chromium cases for the hero feed, hero port flashes, runtime hub, daily gauge and planner feature text passed. These cases verify selected behaviour, not visual 1:1 parity or the whole product.
+- An earlier `npm run verify` passed workspace unit tests, typechecks and application builds, but did not pass the complete E2E phase. Under high machine load it recorded timeouts in editor sign-up and account recovery, and the run was interrupted; 114 E2E cases did not run.
+- The editor case subsequently passed alone. The account recovery case exceeded the normal 30-second test limit alone, then passed in 42 seconds with a diagnostic 90-second limit. That diagnostic run did not establish the root cause or pass the default gate; the later full successful run is recorded above.
+- A subsequent attempt passed unit tests, typechecks and builds but recorded two five-second registration-navigation timeouts and one 30-second execution-history timeout; it was interrupted after 21 E2E passes, leaving 94 cases unrun. The three focused integration-rail cases subsequently passed, and the later full successful run is recorded above.
+- After adding the moving rail gradient, its focused test exceeded the default 30-second limit once; a diagnostic run with a 90-second limit passed in 47.9 seconds. This shows the assertions could complete in that run, but is not a passing default-gate result or proof that load was the sole cause.
+
+## Rendered comparison boundaries — 2026-10-31
+
+The reference contact sheet was extracted from the supplied 10.43-second video;
+desktop Fluxora screenshots were captured at 1440 × 900 after the intro. These
+captures establish structure and appearance at individual moments, not matching
+scroll coordinates, frame timing, live pointer motion or mobile parity.
+
+| Area checked | Evidence from captures | Remaining evidence or discrepancy |
+| --- | --- | --- |
+| Hero | Both use a left headline, glass workflow board on the right, dark field and lime stream. The trigger is intentionally outside the board in Relay on desktop. | Fluxora has its own icons, extra interaction controls and workflow; frame-by-frame entrance and packet path remain unverified. |
+| Product | Alternating text/card rows and a trace → approval → chart sequence exist in Fluxora. | The supplied video briefly shows the trace and chart, not a full loop for each card; detailed spring and reset parity is unproven. |
+| Statement and runtime | Both transition to a bright plate followed by a central app hub. | Fluxora uses its own mark and six applications; exact FLIP trajectory and reference timing are unverified. |
+| Daily view | Both have a two-card first row and three-card second row at desktop width. | Fluxora's sample data, selected-day control and widget content differ; mobile reference frames were not supplied. |
+| Closing sections | Fluxora has an interactive run planner and footer. | Relay's pricing and customer metrics cannot be asserted for Fluxora; the planner and use-case content are intentional substitutions. |
+
+At 375 × 812 with `prefers-reduced-motion: reduce`, locally rendered hero,
+daily-view and planner captures showed a single-column layout, readable sample
+content, a resting gauge and visible controls. The reference video does not
+show a mobile frame, so these captures establish Fluxora's rendered state rather
+than a mobile Relay comparison; screenshots alone do not prove keyboard access
+or complete responsive coverage.
+
+Playwright currently reuses existing local web/API servers outside CI. Its local
+results depend on those running processes and the configured local database, so
+the successful local default gate must not be treated as equivalent to an
+isolated CI run without further evidence.

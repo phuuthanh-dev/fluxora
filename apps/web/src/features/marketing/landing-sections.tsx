@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import {
   ArrowRight,
   Check,
@@ -11,10 +13,10 @@ import {
   Server,
   ShieldCheck,
 } from "lucide-react";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { FluxoraMark } from "../../components/brand/fluxora-mark";
 import { NodeIcon, type NodeIconName } from "../workflow/node-icon";
-import { LandingReveal } from "./landing-motion";
+import { LandingReveal, useLandingEffects } from "./landing-motion";
 
 const hubApps: NodeIconName[] = [
   "google",
@@ -24,6 +26,62 @@ const hubApps: NodeIconName[] = [
   "google-drive",
   "discord",
 ];
+
+const hubPoints = [[54, 35], [306, 35], [54, 105], [306, 105], [54, 175], [306, 175]] as const;
+
+function RuntimeHub() {
+  const root = useRef<HTMLDivElement>(null);
+  const { paused, introReady } = useLandingEffects();
+  useLayoutEffect(() => {
+    const element = root.current;
+    if (!element || paused || !introReady) return;
+    const media = gsap.matchMedia();
+    media.add("(prefers-reduced-motion: no-preference)", () => {
+      const packets = [...element.querySelectorAll<SVGCircleElement>(".landing-runtime-hub__packet")];
+      const phase = { value: 0 };
+      const flow = gsap.to(phase, {
+        value: 1, duration: 1.92, ease: "none", repeat: -1, paused: true,
+        onUpdate: () => packets.forEach((packet, index) => {
+          const progress = (phase.value + index / packets.length) % 1;
+          const [x, y] = hubPoints[index]!;
+          packet.setAttribute("cx", String(x + (180 - x) * progress));
+          packet.setAttribute("cy", String(y + (105 - y) * progress));
+          packet.style.opacity = String(Math.min(1, progress / 0.15, (1 - progress) / 0.15));
+        }),
+      });
+      const inner = gsap.to(element.querySelector(".landing-runtime-hub__orbit--inner"), { rotation: -360, duration: 32, repeat: -1, ease: "none", paused: true });
+      const outer = gsap.to(element.querySelector(".landing-runtime-hub__orbit--outer"), { rotation: 360, duration: 32, repeat: -1, ease: "none", paused: true });
+      const breath = gsap.to(element.querySelector(".landing-runtime-hub__glow"), { scale: 1.06, opacity: 0.7, duration: 1.92, repeat: -1, yoyo: true, ease: "sine.inOut", paused: true });
+      const animations = [flow, inner, outer, breath];
+      let visible = false;
+      const sync = () => animations.forEach((animation) => visible && !document.hidden ? animation.resume() : animation.pause());
+      const observer = new IntersectionObserver(([entry]) => { visible = !!entry?.isIntersecting; sync(); }, { rootMargin: "0px 0px -12% 0px" });
+      observer.observe(element);
+      document.addEventListener("visibilitychange", sync);
+      return () => {
+        observer.disconnect();
+        document.removeEventListener("visibilitychange", sync);
+        animations.forEach((animation) => animation.kill());
+        packets.forEach((packet) => { packet.style.opacity = "0"; });
+      };
+    }, element);
+    return () => media.revert();
+  }, [paused, introReady]);
+  return (
+    <div ref={root} className="landing-runtime-hub" aria-hidden="true">
+      <span className="landing-runtime-hub__glow" />
+      <span className="landing-runtime-hub__orbit landing-runtime-hub__orbit--inner" />
+      <span className="landing-runtime-hub__orbit landing-runtime-hub__orbit--outer" />
+      <svg viewBox="0 0 360 210">
+        <path d="M54 35L180 105L306 35M54 105H306M54 175L180 105L306 175" />
+        {hubPoints.map(([x, y], index) => <circle className="landing-runtime-hub__packet" key={index} cx={x} cy={y} r="3" />)}
+      </svg>
+      <span className="landing-runtime-hub__center"><FluxoraMark size={57} /></span>
+      {hubApps.map((icon, index) => <span className={`landing-runtime-hub__app landing-runtime-hub__app--${index}`} key={icon}><NodeIcon name={icon} size={22} /></span>)}
+    </div>
+  );
+}
+
 export function LandingReliability() {
   return (
     <section
@@ -54,22 +112,7 @@ export function LandingReliability() {
             Keep encrypted connections separate from your workflow logic.
             Inspect each step through the same input and output view.
           </p>
-          <div className="landing-runtime-hub" aria-hidden="true">
-            <svg viewBox="0 0 360 210">
-              <path d="M54 35L180 105L306 35M54 105H306M54 175L180 105L306 175" />
-            </svg>
-            <span className="landing-runtime-hub__center">
-              <FluxoraMark size={57} />
-            </span>
-            {hubApps.map((icon, index) => (
-              <span
-                className={`landing-runtime-hub__app landing-runtime-hub__app--${index}`}
-                key={icon}
-              >
-                <NodeIcon name={icon} size={22} />
-              </span>
-            ))}
-          </div>
+          <RuntimeHub />
           <div className="landing-reliability__tags">
             <span>Encrypted secrets</span>
             <span>Reusable credentials</span>
@@ -170,7 +213,7 @@ export function LandingDailyView() {
       <LandingReveal className="landing-daily__grid">
         <div className="landing-daily__activity">
           <div className="landing-daily__top">
-            <span>THIS WEEK, RUN BY RUN</span>
+            <span data-relay-type>THIS WEEK, RUN BY RUN</span>
             <label>
               Preview day
               <select
@@ -239,7 +282,7 @@ export function LandingDailyView() {
           </div>
         </div>
         <div className="landing-daily__gauge">
-          <span className="landing-eyebrow">SAMPLE COMPLETION</span>
+          <span className="landing-eyebrow" data-relay-type>SAMPLE COMPLETION</span>
           <div>
             <svg viewBox="0 0 140 140" aria-hidden="true">
               <circle cx="70" cy="70" r="58" />
@@ -251,9 +294,9 @@ export function LandingDailyView() {
                 strokeDasharray={`${percentage} 100`}
               />
             </svg>
-            <strong>
-              {percentage}
-              <small>%</small>
+            <strong aria-label={`${percentage}%`}>
+              <span className="landing-daily__gauge-value" data-value={percentage} aria-hidden="true">{percentage}</span>
+              <small aria-hidden="true">%</small>
             </strong>
           </div>
           <p>
@@ -277,8 +320,15 @@ export function LandingDailyView() {
           </div>
           <p>Pause at a decision. Resume with context.</p>
         </div>
+        <div className="landing-daily__recovery">
+          <p className="landing-eyebrow" data-relay-type>WHEN A STEP NEEDS ATTENTION</p>
+          <svg viewBox="0 0 220 60" aria-hidden="true" preserveAspectRatio="none">
+            <path d="M2 48 C30 48 32 38 56 38 S86 45 108 25 S141 44 164 20 S194 16 218 8" pathLength="100" />
+          </svg>
+          <p>Retry a step, follow its error branch, and inspect the result.</p>
+        </div>
         <div className="landing-daily__feed">
-          <p className="landing-eyebrow">A CLEAR EXECUTION TRAIL</p>
+          <p className="landing-eyebrow" data-relay-type>A CLEAR EXECUTION TRAIL</p>
           {[
             {
               icon: "steam" as const,
@@ -346,11 +396,30 @@ const cases = [
   },
 ];
 export function LandingUseCases() {
+  const root = useRef<HTMLElement>(null);
+  const { paused, introReady } = useLandingEffects();
+  useLayoutEffect(() => {
+    const section = root.current;
+    if (!section || paused || !introReady) return;
+    gsap.registerPlugin(ScrollTrigger);
+    const media = gsap.matchMedia();
+    media.add("(prefers-reduced-motion: no-preference)", () => {
+      const bloom = section.querySelectorAll(".landing-cases__bloom > span");
+      gsap.fromTo(bloom, { y: (index: number) => index === 0 ? -40 : 40 }, {
+        y: (index: number) => index === 0 ? 40 : -40,
+        ease: "none", immediateRender: false,
+        scrollTrigger: { trigger: section, start: "top bottom", end: "bottom top", scrub: true },
+      });
+    }, section);
+    return () => media.revert();
+  }, [paused, introReady]);
   return (
     <section
+      ref={root}
       className="landing-cases landing-container"
       aria-labelledby="cases-heading"
     >
+      <div className="landing-cases__bloom" aria-hidden="true"><span /><span /></div>
       <LandingReveal className="landing-split-heading">
         <div>
           <p className="landing-eyebrow">START WITH SOMETHING FAMILIAR</p>
@@ -375,7 +444,7 @@ export function LandingUseCases() {
           >
             <div className="landing-case__index">
               <span>{item.number}</span>
-              <small>{item.category}</small>
+              <small data-relay-type>{item.category}</small>
             </div>
             <div className="landing-case__flow" aria-hidden="true">
               {item.icons.map((icon, index) => (

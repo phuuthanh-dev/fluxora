@@ -22,7 +22,7 @@ goal from conversation history alone.
 1. Prisma schema validation
 2. Prisma Client generation from that schema
 3. Unit and integration tests
-4. TypeScript checks
+4. Workspace type checks and distinct lint commands (identical commands with no distinct npm lifecycle run once)
 5. Production build
 6. Playwright browser E2E
 

@@ -22,7 +22,7 @@ pixel-perfect reconstruction or a deployable service.
 | Footer | Two original-style panels, Fluxora CTA and actual privacy/terms/support/source links |
 
 ## Rendering budget and deviations
-- Landing fonts only: Inter, Instrument Serif italic, Fragment Mono, bundled locally. Product retains Gilroy.
+- Owner-selected typography: original Fluxora Gilroy UI, Georgia italic accents and system monospace; this intentionally differs from the Relay reference.
 - Marketing lime #c8f751; secondary hues #52c8ff and #eaff9e.
 - Supplied spline/particle/filament GLSL is adapted behind the existing lazy scene boundary.
 - 36,000 points / 44 filaments full tier; 45% points / 60% filaments mobile tier. Software rendering uses 8% points / 14% filaments with 240 segments per filament, no multipass bloom, DPR .5 and a 25 FPS draw ceiling while scroll input keeps its ticker. Detection uses actual GL renderer capabilities, never user agent or test markers.
@@ -30,14 +30,14 @@ pixel-perfect reconstruction or a deployable service.
 - One renderer/material/buffer set per scene lifetime. Each effect owns its canvas and explicitly releases its context on cleanup, including React Strict Mode replay. The unused R3F dependency is removed. Layout reflows morph curve data; actual viewport resize may resize render targets.
 - Pause/reduced motion/hidden tab use the established semantic/SVG fallback. No crawler-specific performance shortcuts.
 - Bloom is bounded by tier and DPR. No remote assets or provider calls at runtime.
-- Owner explicitly requested prioritizing supplied artwork. All 83 manifest assets were retrieved privately; only 24 used decorative assets (589,396 bytes) are bundled in `apps/web/public/relay/`, with source URLs, byte sizes and SHA-256 in `manifest.json`. Provider icons and Fluxora identity remain unchanged.
+- Owner explicitly requested prioritizing supplied artwork. All 83 manifest assets were retrieved privately; selected decorative assets are bundled in `apps/web/public/relay/`, with source URLs, byte sizes and SHA-256 in `manifest.json`. Provider icons and Fluxora identity remain unchanged.
 - Vendor assets retain their original bytes; they are not relicensed as independently reusable open-source artwork. The private source document/email/full asset bundle are not tracked.
 
 ## Packaging
 The web Docker runtime copies `apps/web/public` beside its standalone server.
 The first standalone production-build smoke returned HTTP 200 for the landing and the initial
 12 bundled images; each served SHA-256 matched the supplier bytes. The expanded
-24-file manifest is covered by the asset-integrity browser check. Deployment
+manifest is covered by the asset-integrity browser check. Deployment
 contract coverage guards this copy step. This is a local packaging check, not
 an assertion that a new Docker image has been built or deployed remotely.
 

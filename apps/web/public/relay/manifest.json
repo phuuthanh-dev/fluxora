@@ -111,6 +111,84 @@
       "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/product/product-accent.png"
     },
     {
+      "path": "product/product-cap-1.svg",
+      "bytes": 178,
+      "sha256": "33dc65ca9fedcf48cfb9b2bdc3561cb41cc39c3cbf62152f2e5c22b8f2adfa72",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/product/product-cap-1.svg"
+    },
+    {
+      "path": "product/product-cap-2.svg",
+      "bytes": 178,
+      "sha256": "33dc65ca9fedcf48cfb9b2bdc3561cb41cc39c3cbf62152f2e5c22b8f2adfa72",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/product/product-cap-2.svg"
+    },
+    {
+      "path": "product/product-cap-3.svg",
+      "bytes": 178,
+      "sha256": "33dc65ca9fedcf48cfb9b2bdc3561cb41cc39c3cbf62152f2e5c22b8f2adfa72",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/product/product-cap-3.svg"
+    },
+    {
+      "path": "product/product-cap-4.svg",
+      "bytes": 178,
+      "sha256": "33dc65ca9fedcf48cfb9b2bdc3561cb41cc39c3cbf62152f2e5c22b8f2adfa72",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/product/product-cap-4.svg"
+    },
+    {
+      "path": "product/product-cap-5.svg",
+      "bytes": 178,
+      "sha256": "33dc65ca9fedcf48cfb9b2bdc3561cb41cc39c3cbf62152f2e5c22b8f2adfa72",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/product/product-cap-5.svg"
+    },
+    {
+      "path": "product/product-cap-6.svg",
+      "bytes": 159,
+      "sha256": "c0b31d74b672cb43aff9625d088ada89fbec24b28d1831cf75ae7eebeef00840",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/product/product-cap-6.svg"
+    },
+    {
+      "path": "product/product-cap-glow.svg",
+      "bytes": 368,
+      "sha256": "c54fa68144eb21fc8748ead10883386c365088d4ca469e7bae1e455e2cec39f0",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/product/product-cap-glow.svg"
+    },
+    {
+      "path": "product/product-cube-1.svg",
+      "bytes": 1051,
+      "sha256": "229c51acca2fddf0a0569cd82647d364255af0063846e61406ec86fae9b3deec",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/product/product-cube-1.svg"
+    },
+    {
+      "path": "product/product-cube-2.svg",
+      "bytes": 1047,
+      "sha256": "73b03ed24c3064cc3b80985927f87cddf7012b44f0fcd4cf3e12975aa0e22032",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/product/product-cube-2.svg"
+    },
+    {
+      "path": "product/product-cube-3.svg",
+      "bytes": 1053,
+      "sha256": "1ff2ef20a09b231da4ad273eb4f1eb37dc1ce89a30b205b58a4d9e9a32d1b24f",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/product/product-cube-3.svg"
+    },
+    {
+      "path": "product/product-cube-4.svg",
+      "bytes": 1053,
+      "sha256": "9f9e9891cb1db7bff8615d93fa5a70b9a5fe42f99810ff161f03620f098d4050",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/product/product-cube-4.svg"
+    },
+    {
+      "path": "product/product-cube-5.svg",
+      "bytes": 1047,
+      "sha256": "52d5a443a1638abc9246ea60cae5152d5040bf181d55b68db7264296f3a3f349",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/product/product-cube-5.svg"
+    },
+    {
+      "path": "product/product-cube-6.svg",
+      "bytes": 1053,
+      "sha256": "0ef3ba0641861cb4c89ead2fa56a5475e1c754e860feef9103f782b621f12c8a",
+      "source": "https://storage.getlayers.ai/assets/relay-4ee0729d77/product/product-cube-6.svg"
+    },
+    {
       "path": "proof/proof-bloom-left.png",
       "bytes": 26371,
       "sha256": "6e3124b5d77c35be1049c7208448b146242656335d69396163e11c3d95ff5a49",

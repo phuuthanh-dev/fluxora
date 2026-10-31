@@ -32,7 +32,7 @@ test("Product keeps a dark reading surface when the lime stream passes beneath i
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   await expect(page.locator(".landing-loader")).toBeHidden();
-  const product = page.locator("#product");
+  const product = page.locator("#workspace-preview");
   await product.scrollIntoViewIfNeeded();
   await expect(product.locator("h2")).toHaveCSS("color", "rgb(255, 255, 255)");
   const surface = await product.evaluate((element) => {

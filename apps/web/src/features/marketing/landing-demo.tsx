@@ -22,25 +22,25 @@ const nodes: {
 }[] = [
   {
     title: "Every morning",
-    detail: "08:00 · scheduled",
+    detail: "08:00",
     icon: "schedule",
     kind: "TRIGGER",
   },
   {
     title: "Steam snapshot",
-    detail: "Read public activity",
+    detail: "Activity",
     icon: "steam",
     kind: "FRESH ACTIVITY",
   },
   {
     title: "Saved summary",
-    detail: "Use a sample sheet",
+    detail: "Sheet",
     icon: "google-sheets",
     kind: "SAVED REPORT",
   },
   {
     title: "Team update",
-    detail: "Google Chat",
+    detail: "Chat",
     icon: "google-chat",
     kind: "ACTION",
   },
@@ -95,11 +95,17 @@ export function LandingDemo() {
           ? `M${x} ${y}C${x} ${(y + ny) / 2} ${nx} ${(y + ny) / 2} ${nx} ${ny}`
           : `M${x} ${y}C${(x + nx) / 2} ${y} ${(x + nx) / 2} ${ny} ${nx} ${ny}`;
       });
-      setConnections({
-        width: canvas.clientWidth,
-        height: canvas.clientHeight,
-        paths,
-      });
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      // ResizeObserver may report the same sizes repeatedly as fonts, layout
+      // and effects settle. Preserve the object identity unless geometry has
+      // actually changed so the running packet timeline is not restarted.
+      setConnections((previous) =>
+        previous.width === width && previous.height === height &&
+        previous.paths.every((path, index) => path === paths[index])
+          ? previous
+          : { width, height, paths },
+      );
     };
     const observer = new ResizeObserver(measure);
     observer.observe(canvas);
@@ -148,6 +154,18 @@ export function LandingDemo() {
               clearProps: "transform,opacity,filter",
             },
             0,
+          )
+          .fromTo(
+            hero.querySelector(".landing-hero__copy h1"),
+            { "--hero-focus": "0%", maskImage: "linear-gradient(90deg, black calc(var(--hero-focus) - 40%), transparent var(--hero-focus))" },
+            { "--hero-focus": "140%", duration: 0.9, ease: "power2.out", clearProps: "maskImage,--hero-focus" },
+            0.07,
+          )
+          .fromTo(
+            hero.querySelector(".landing-hero__copy > .landing-eyebrow"),
+            { clipPath: "inset(0 100% 0 0)" },
+            { clipPath: "inset(0 0% 0 0)", duration: 0.9, ease: "steps(28)", clearProps: "clipPath" },
+            0.12,
           )
           .fromTo(
             host.querySelector(".landing-demo__canvas"),
@@ -210,7 +228,7 @@ export function LandingDemo() {
 
   useEffect(() => {
     const host = root.current;
-    if (!host || paused || !connections.paths[0]) return;
+    if (!host || paused || !introReady || !connections.paths[0]) return;
     const media = gsap.matchMedia();
     media.add(
       "(prefers-reduced-motion: no-preference)",
@@ -225,10 +243,25 @@ export function LandingDemo() {
           visible = false;
         const play = { t: 0 };
         const lengths = paths.map((path) => path.getTotalLength());
+        const flashes = [...host.querySelectorAll<HTMLElement>(".landing-demo-node__flash")];
         const cycle = gsap.timeline({
           repeat: -1,
-          repeatDelay: 1.2,
+          repeatDelay: 0.784,
           paused: true,
+          onUpdate: () => {
+            const branch = trip % 3 === 2 ? 1 : 0;
+            const fraction = lengths[branch]! / (lengths[branch]! + lengths[branch + 2]!);
+            const branchTime = Math.acos(1 - 2 * fraction) / Math.PI * 0.72;
+            const times = [0, branch === 0 ? branchTime : -1, branch === 1 ? branchTime : -1, 0.72];
+            const elapsed = cycle.time();
+            flashes.forEach((flash, index) => {
+              const since = elapsed - times[index]!;
+              const strength = times[index]! >= 0 && since >= 0 && since <= 0.416
+                ? (1 - since / 0.416) ** 2 : 0;
+              flash.style.opacity = String(strength * 0.85);
+              flash.style.transform = `scale(${1 + (1 - strength) * 1.4})`;
+            });
+          },
           onRepeat: () => {
             trip++;
             if (trip % 2 === 0) setFeedOffset((value) => value + 1);
@@ -258,6 +291,9 @@ export function LandingDemo() {
             packet.style.color = branch ? "#9ba0a6" : "#c8f751";
           },
         });
+        // Keep the playhead alive for the last port's halo, without changing
+        // the reference's 1.92-second trip cadence.
+        cycle.to({}, { duration: 0.416 });
         const sync = () => {
           const playing = visible && !document.hidden;
           host.dataset.flow = playing ? "playing" : "paused";
@@ -275,13 +311,14 @@ export function LandingDemo() {
           observer.disconnect();
           document.removeEventListener("visibilitychange", sync);
           packet.style.opacity = "0";
+          flashes.forEach((flash) => { flash.style.opacity = "0"; flash.style.transform = ""; });
           delete host.dataset.flow;
         };
       },
       host,
     );
     return () => media.revert();
-  }, [paused, connections]);
+  }, [paused, introReady, connections]);
 
   useEffect(() => {
     if (!feedOffset || paused) return;
@@ -291,17 +328,15 @@ export function LandingDemo() {
     media.add(
       "(prefers-reduced-motion: no-preference)",
       () => {
-        gsap.fromTo(
-          host.querySelectorAll(".landing-demo__feed-row"),
-          { y: -12, opacity: 0.4 },
-          {
-            y: 0,
-            opacity: 1,
-            duration: 0.45,
-            stagger: 0.04,
-            clearProps: "transform,opacity",
-          },
-        );
+        const rows = host.querySelectorAll<HTMLElement>(".landing-demo__feed-row");
+        const pitch = rows[0]?.offsetHeight ?? 28;
+        const shift = gsap.timeline({ defaults: { duration: 0.6, ease: "power2.out" } });
+        shift.fromTo(rows, { y: -pitch }, { y: 0, clearProps: "transform" }, 0)
+          .fromTo(rows[0]!, { opacity: 0 }, { opacity: 1, clearProps: "opacity" }, 0);
+        const previousDot = rows[1]?.querySelector("i");
+        if (previousDot) shift.fromTo(previousDot, { backgroundColor: "#c8f751" }, {
+          backgroundColor: "#9ba0a6", clearProps: "backgroundColor",
+        }, 0);
       },
       host,
     );
@@ -381,7 +416,7 @@ export function LandingDemo() {
               className={`landing-demo-node landing-demo-node--${index} ${stage && step === stage ? "is-running" : stage && step > stage ? "is-done" : ""}`}
               key={node.title}
             >
-              <span className="landing-demo-node__port landing-demo-node__port--in" />
+              <span className="landing-demo-node__port landing-demo-node__port--in">{index !== 0 ? <i className="landing-demo-node__flash" /> : null}</span>
               <div className="landing-demo-node__icon">
                 <NodeIcon name={node.icon} size={22} />
                 {stage && step > stage ? (
@@ -393,7 +428,7 @@ export function LandingDemo() {
               <small>{node.kind}</small>
               <strong>{node.title}</strong>
               <p>{node.detail}</p>
-              <span className="landing-demo-node__port landing-demo-node__port--out" />
+              <span className="landing-demo-node__port landing-demo-node__port--out">{index === 0 ? <i className="landing-demo-node__flash" /> : null}</span>
             </div>
           );
         })}
@@ -408,10 +443,11 @@ export function LandingDemo() {
         <span className="landing-demo__feed-label">
           LAST RUNS · SAMPLE DATA
         </span>
-        {[0, 1, 2].map((i) => {
-          const item = feed[(feedOffset + i) % feed.length]!;
+        <div className="landing-demo__feed-list">
+        {[0, 1, 2, 3].map((i) => {
+          const item = feed[((i - feedOffset) % feed.length + feed.length) % feed.length]!;
           return (
-            <div className="landing-demo__feed-row" key={`${feedOffset}-${i}`}>
+            <div className="landing-demo__feed-row" key={`${feedOffset}-${i}`} aria-hidden={i === 3 ? true : undefined}>
               <i />
               <span>{item[0]}</span>
               <span>{item[1]}</span>
@@ -419,6 +455,7 @@ export function LandingDemo() {
             </div>
           );
         })}
+        </div>
       </div>
       <div className="landing-demo__console">
         <p role="status" aria-live="polite">
