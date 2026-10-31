@@ -62,7 +62,7 @@ export type NodeSelectOption = { value: string; label: string };
 type NodeFieldVisibilityValue = string | number | boolean;
 export type NodeFieldVisibility = { visibleWhen?: { key: string; equals: NodeFieldVisibilityValue | readonly NodeFieldVisibilityValue[] } };
 
-export type NodeResource = "github-repository" | "google-file" | "google-spreadsheet";
+export type NodeResource = "github-repository" | "google-file" | "google-spreadsheet" | "gemini-model" | "openai-model";
 
 /**
  * Declarative fields that the inspector can render without growing another
@@ -504,11 +504,14 @@ export const nodeCatalog: NodeDefinition[] = [
     operationLabel: "Generate text",
     operationKind: "action",
     icon: "openai",
-    available: false,
-    defaultConfig: { credentialId: "", model: "gpt-4.1-mini", prompt: "" },
+    available: true,
+    defaultConfig: { credentialId: "", model: "", prompt: "", maxOutputTokens: 1024, timeoutMs: 30000 },
     configurationFields: [
-      { kind: "text", key: "model", label: "Model" },
+      { kind: "credential", key: "credentialId", label: "OpenAI credential", providers: ["OPENAI"] },
+      { kind: "resource", key: "model", label: "Model", resource: "openai-model", credentialKey: "credentialId", placeholder: "Search OpenAI models" },
       { kind: "textarea", key: "prompt", label: "Prompt" },
+      { kind: "number", key: "maxOutputTokens", label: "Max output tokens", fallbackValue: 1024 },
+      { kind: "number", key: "timeoutMs", label: "Timeout (ms)", fallbackValue: 30000 },
     ],
   },
   {
@@ -522,11 +525,14 @@ export const nodeCatalog: NodeDefinition[] = [
     operationLabel: "Generate text",
     operationKind: "action",
     icon: "gemini",
-    available: false,
-    defaultConfig: { credentialId: "", model: "gemini-2.5-flash", prompt: "" },
+    available: true,
+    defaultConfig: { credentialId: "", model: "gemini-2.5-flash", prompt: "", maxOutputTokens: 1024, timeoutMs: 30000 },
     configurationFields: [
-      { kind: "text", key: "model", label: "Model" },
+      { kind: "credential", key: "credentialId", label: "Gemini credential", providers: ["GEMINI"] },
+      { kind: "resource", key: "model", label: "Model", resource: "gemini-model", credentialKey: "credentialId", placeholder: "Search Gemini models" },
       { kind: "textarea", key: "prompt", label: "Prompt" },
+      { kind: "number", key: "maxOutputTokens", label: "Max output tokens", fallbackValue: 1024 },
+      { kind: "number", key: "timeoutMs", label: "Timeout (ms)", fallbackValue: 30000 },
     ],
   },
   {

@@ -31,7 +31,7 @@ test("rejects an edge whose branch does not match its source node", () => {
 });
 
 test("keeps schema-only connector nodes importable while marking them unavailable", () => {
-  for (const type of ["action.google-chat.oauth", "action.openai", "action.gemini", "action.mongodb", "action.facebook-meta", "action.instagram"]) {
+  for (const type of ["action.google-chat.oauth", "action.mongodb", "action.facebook-meta", "action.instagram"]) {
     const definition = getNodeDefinition(type);
     assert.ok(definition);
     assert.equal(definition.available, false);
@@ -44,6 +44,22 @@ test("keeps schema-only connector nodes importable while marking them unavailabl
   const graph = parseWorkflowCanvasGraph({ nodes: [{ id: "email", type: "workflowNode" as const, position: { x: 0, y: 0 }, data: createNodeData(email) }], edges: [] });
   assert.equal(graph.nodes[0]?.data.config.subject, "");
   assert.ok(nodeCatalog.length > 10);
+});
+
+test("Gemini generation uses a dedicated credential and model picker", () => {
+  const gemini = getNodeDefinition("action.gemini");
+  assert.equal(gemini?.available, true);
+  assert.equal(isExecutableWorkflowNodeType("action.gemini"), true);
+  assert.deepEqual(gemini?.configurationFields?.[0], { kind: "credential", key: "credentialId", label: "Gemini credential", providers: ["GEMINI"] });
+  assert.equal(gemini?.configurationFields?.find((field) => field.key === "model")?.kind, "resource");
+});
+
+test("OpenAI generation uses a dedicated credential and model picker", () => {
+  const definition = getNodeDefinition("action.openai");
+  assert.equal(definition?.available, true);
+  assert.equal(isExecutableWorkflowNodeType("action.openai"), true);
+  assert.deepEqual(definition?.configurationFields?.[0], { kind: "credential", key: "credentialId", label: "OpenAI credential", providers: ["OPENAI"] });
+  assert.equal(definition?.configurationFields?.find((field) => field.key === "model")?.kind, "resource");
 });
 
 test("GitHub Create Issue is executable with a separate connector credential", () => {

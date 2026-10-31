@@ -132,8 +132,8 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await page.getByRole("button", { name: "Communication", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Apps & services" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Manual trigger/ })).toHaveCount(0);
-  await page.getByLabel("Search apps and operations").fill("OpenAI");
-  await expect(page.getByRole("button", { name: /OpenAI.*Planned/ })).toHaveAttribute("aria-disabled", "true");
+  await page.getByLabel("Search apps and operations").fill("MongoDB");
+  await expect(page.getByRole("button", { name: /MongoDB.*Planned/ })).toHaveAttribute("aria-disabled", "true");
   await page.getByRole("button", { name: "Clear filters" }).click();
 
   await page.getByRole("button", { name: /Open Telegram/ }).click();
@@ -302,11 +302,11 @@ test("node library and editor menus support keyboard-only navigation", async ({ 
   await page.locator(".canvas-region").click({ position: { x: 400, y: 180 } });
   await page.keyboard.press("/");
   await expect(search).toBeFocused();
-  await search.fill("OpenAI");
-  const plannedOpenAi = page.getByRole("button", { name: /OpenAI.*Planned, unavailable/ });
-  await expect(plannedOpenAi).toHaveAttribute("aria-disabled", "true");
-  await plannedOpenAi.focus();
-  await expect(plannedOpenAi).toBeFocused();
+  await search.fill("MongoDB");
+  const plannedMongo = page.getByRole("button", { name: /MongoDB.*Planned, unavailable/ });
+  await expect(plannedMongo).toHaveAttribute("aria-disabled", "true");
+  await plannedMongo.focus();
+  await expect(plannedMongo).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(search).toHaveValue("");
   await expect(search).toBeFocused();

@@ -81,7 +81,19 @@ function isGitHubWebhookTrigger(nodeType: string) {
 }
 
 function providerLabel(provider: CredentialProvider) {
-  return provider === "GOOGLE_CHAT_WEBHOOK" ? "Google Chat" : provider === "DISCORD_WEBHOOK" ? "Discord" : provider === "TELEGRAM_BOT" ? "Telegram" : provider === "GOOGLE" ? "Google" : provider === "GITHUB" ? "GitHub" : provider === "STEAM" ? "Steam" : "HTTP";
+  const labels: Record<CredentialProvider, string> = {
+    GOOGLE_CHAT_WEBHOOK: "Google Chat",
+    DISCORD_WEBHOOK: "Discord",
+    TELEGRAM_BOT: "Telegram",
+    GOOGLE: "Google",
+    GITHUB: "GitHub",
+    STEAM: "Steam",
+    SMTP: "SMTP email",
+    GEMINI: "Gemini",
+    OPENAI: "OpenAI",
+    HTTP: "HTTP",
+  };
+  return labels[provider];
 }
 
 function reasonLabel(reason: LiveReadinessRequirement["reason"]) {

@@ -232,7 +232,7 @@ test("editor text, controls, and provider icons meet contrast targets in both th
       3,
     );
     await page.getByRole("button", { name: "Roadmap" }).click();
-    await expectContrast(page.locator(".palette-app").filter({ hasText: "OpenAI" }).locator("svg"), 3);
+    await expectContrast(page.locator(".palette-app").filter({ hasText: "MongoDB" }).locator("svg"), 3);
     await page.getByRole("button", { name: "All", exact: true }).click();
     await expectContrast(page.locator(".palette-app").filter({ hasText: "GitHub" }).locator("svg"), 3);
     await page.getByRole("button", { name: "Collapse node palette" }).click();

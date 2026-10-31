@@ -11,7 +11,7 @@ import "./credentials.css";
 import { CredentialSecretFields } from "./credential-secret-fields";
 import { NodeIcon, type NodeIconName } from "../workflow/node-icon";
 
-const providerIcons: Record<CredentialProvider, NodeIconName> = { GOOGLE: "google", STEAM: "steam", GOOGLE_CHAT_WEBHOOK: "google-chat", HTTP: "http", DISCORD_WEBHOOK: "discord", TELEGRAM_BOT: "telegram", GITHUB: "github", SMTP: "email" };
+const providerIcons: Record<CredentialProvider, NodeIconName> = { GOOGLE: "google", STEAM: "steam", GOOGLE_CHAT_WEBHOOK: "google-chat", HTTP: "http", DISCORD_WEBHOOK: "discord", TELEGRAM_BOT: "telegram", GITHUB: "github", SMTP: "email", GEMINI: "gemini", OPENAI: "openai" };
 
 type CredentialPreset = {
   label: string;
@@ -20,6 +20,16 @@ type CredentialPreset = {
 };
 
 const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
+  OPENAI: {
+    label: "OpenAI API",
+    data: '{\n  "apiKey": ""\n}',
+    hint: "Enter your OpenAI API key. API usage may incur charges on your OpenAI account.",
+  },
+  GEMINI: {
+    label: "Gemini API",
+    data: '{\n  "apiKey": ""\n}',
+    hint: "Enter your Gemini API key. This connection is separate from Google account sign-in.",
+  },
   GOOGLE: {
     label: "Google account",
     data: '{\n  "accessToken": ""\n}',
@@ -81,6 +91,8 @@ function credentialProviderLabel(provider: CredentialProvider) {
     TELEGRAM_BOT: "Telegram bot",
     GITHUB: "GitHub",
     SMTP: "SMTP email",
+    GEMINI: "Gemini",
+    OPENAI: "OpenAI",
   };
 
   return labels[provider];
@@ -181,6 +193,8 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
       TELEGRAM_BOT: "Telegram",
       GITHUB: "GitHub",
       SMTP: "SMTP email",
+      GEMINI: "Gemini",
+      OPENAI: "OpenAI",
     };
     setNotice(`${providerLabels[nextProvider] ?? nextProvider} credential template loaded.`);
   };
@@ -378,6 +392,8 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
             <option value="TELEGRAM_BOT">Telegram bot</option>
             <option value="SMTP">SMTP email</option>
             <option value="GITHUB">GitHub connector</option>
+            <option value="GEMINI">Gemini API</option>
+            <option value="OPENAI">OpenAI API</option>
             <option value="HTTP">HTTP</option>
           </Select>
         </Field>

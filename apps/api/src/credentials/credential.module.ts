@@ -9,10 +9,12 @@ import { GitHubResourceController } from "./github-resource.controller";
 import { GitHubResourceService } from "./github-resource.service";
 import { GoogleResourceController } from "./google-resource.controller";
 import { GoogleResourceService } from "./google-resource.service";
+import { GeminiResourceController } from "./gemini-resource.controller";
+import { OpenAIResourceController } from "./openai-resource.controller";
 
 @Module({
   imports: [AuthModule, WorkspaceModule],
-  controllers: [CredentialController, GoogleOAuthController, GitHubResourceController, GoogleResourceController],
+  controllers: [CredentialController, GoogleOAuthController, GitHubResourceController, GoogleResourceController, GeminiResourceController, OpenAIResourceController],
   providers: [CredentialService, CredentialVaultService, GitHubResourceService, GoogleResourceService],
   exports: [CredentialService, CredentialVaultService],
 })

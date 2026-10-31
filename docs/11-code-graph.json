@@ -261,11 +261,13 @@
         "apps/api/src/credentials/credential-vault.service.ts",
         "apps/api/src/credentials/credential.controller.ts",
         "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/credentials/gemini-resource.controller.ts",
         "apps/api/src/credentials/github-resource.controller.ts",
         "apps/api/src/credentials/github-resource.service.ts",
         "apps/api/src/credentials/google-oauth.controller.ts",
         "apps/api/src/credentials/google-resource.controller.ts",
         "apps/api/src/credentials/google-resource.service.ts",
+        "apps/api/src/credentials/openai-resource.controller.ts",
         "apps/api/src/workspaces/workspace.module.ts"
       ],
       "externalImports": [
@@ -280,6 +282,20 @@
         "apps/api/src/database/prisma.service.ts",
         "apps/api/src/execution/smtp-email.ts",
         "apps/api/src/workspaces/workspace.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/gemini-resource.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/gemini-text.ts"
       ],
       "externalImports": [
         "@nestjs/common",
@@ -343,6 +359,20 @@
       ],
       "externalImports": [
         "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/openai-resource.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/openai-text.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client"
       ]
     },
     {
@@ -448,9 +478,11 @@
         "apps/api/src/database/prisma.service.ts",
         "apps/api/src/execution/execution-events.service.ts",
         "apps/api/src/execution/expression.ts",
+        "apps/api/src/execution/gemini-text.ts",
         "apps/api/src/execution/http-credential.ts",
         "apps/api/src/execution/live-readiness.ts",
         "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/openai-text.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
         "apps/api/src/execution/redaction.ts",
         "apps/api/src/execution/retention-policy.ts",
@@ -471,6 +503,19 @@
       "internalImports": [],
       "externalImports": [
         "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/gemini-text.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-json.ts"
+      ],
+      "externalImports": [
+        "@prisma/client"
       ]
     },
     {
@@ -499,6 +544,19 @@
       ]
     },
     {
+      "id": "apps/api/src/execution/openai-text.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-json.ts"
+      ],
+      "externalImports": [
+        "@prisma/client"
+      ]
+    },
+    {
       "id": "apps/api/src/execution/outbound-url-policy.ts",
       "boundary": "api",
       "internalImports": [],
@@ -506,6 +564,14 @@
         "node:dns/promises",
         "node:net"
       ]
+    },
+    {
+      "id": "apps/api/src/execution/provider-json.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts"
+      ],
+      "externalImports": []
     },
     {
       "id": "apps/api/src/execution/redaction.ts",
@@ -2194,6 +2260,10 @@
     },
     {
       "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/gemini-resource.controller.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
       "to": "apps/api/src/credentials/github-resource.controller.ts"
     },
     {
@@ -2214,6 +2284,10 @@
     },
     {
       "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/openai-resource.controller.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
       "to": "apps/api/src/workspaces/workspace.module.ts"
     },
     {
@@ -2231,6 +2305,22 @@
     {
       "from": "apps/api/src/credentials/credential.service.ts",
       "to": "apps/api/src/workspaces/workspace.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/gemini-resource.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/gemini-resource.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/gemini-resource.controller.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/gemini-resource.controller.ts",
+      "to": "apps/api/src/execution/gemini-text.ts"
     },
     {
       "from": "apps/api/src/credentials/github-resource.controller.ts",
@@ -2275,6 +2365,22 @@
     {
       "from": "apps/api/src/credentials/google-resource.service.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/openai-resource.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/openai-resource.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/openai-resource.controller.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/openai-resource.controller.ts",
+      "to": "apps/api/src/execution/openai-text.ts"
     },
     {
       "from": "apps/api/src/database/prisma.module.ts",
@@ -2374,6 +2480,10 @@
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/gemini-text.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/execution/http-credential.ts"
     },
     {
@@ -2383,6 +2493,10 @@
     {
       "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/openai-text.ts"
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
@@ -2409,8 +2523,44 @@
       "to": "apps/api/src/workflows/workflow-graph.ts"
     },
     {
+      "from": "apps/api/src/execution/gemini-text.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/gemini-text.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/gemini-text.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/gemini-text.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
       "from": "apps/api/src/execution/node-failure.ts",
       "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/openai-text.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/openai-text.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/openai-text.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/openai-text.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/execution/provider-json.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
     },
     {
       "from": "apps/api/src/execution/smtp-email.ts",

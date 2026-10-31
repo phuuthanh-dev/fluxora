@@ -53,13 +53,15 @@ The Steam profile is public. The Steam node returns every field available throug
 | Action | Google Sheets | Read ranges, append rows, update ranges. |
 | Action | HTTP Request | Generic REST request with structured response. |
 | Action | SMTP Email | Dedicated encrypted SMTP credential, TLS-only submission and normalized delivery result; real-provider qualification remains separate. |
+| Action | Gemini Generate Text | Dedicated workspace API-key connection, model discovery, prompt and bounded output, with mock and confirmed live modes. |
+| Action | OpenAI Generate Text | Dedicated workspace API-key connection, model discovery and Responses API text output, with mock and confirmed live modes. |
 | Approval | Approval | Pause, notify by Chat/webhook with an app link, then resume after UI approve/reject. |
 
 ### UI/schema-only nodes
 
 - Gmail OAuth, attachments and inbound email remain unavailable; SMTP Email is executable (EMAIL-SMTP-1).
 - Google Chat OAuth credential mode.
-- OpenAI, Gemini, MongoDB, remaining GitHub operations, Facebook Meta, Instagram.
+- MongoDB, remaining GitHub operations, Facebook Meta, Instagram.
 
 ### Explicitly out of scope
 
@@ -147,6 +149,8 @@ Action nodes support timeout, retry with exponential backoff, and an error edge.
 - GitHub `Issue opened`, `Pull request opened`, `Push`, and `Workflow run completed` verify `X-Hub-Signature-256` against the raw body using the endpoint registration's signing secret, then filter the configured event and action before execution. Legacy endpoints continue using the connector's `webhookSecret` until rotated. GitHub account-login OAuth is never used for verification.
 - Google Chat MVP: incoming webhook URL credential.
 - Generic HTTP: API key, bearer token, basic auth, or headers.
+- Gemini: a dedicated encrypted workspace API key, separate from Google sign-in and Drive OAuth. The server lists up to 100 text-generation models and the editor retains a manual model ID/expression fallback. Output length and request timeout are bounded; retries follow the shared failure policy. Provider calls occur only in confirmed live execution.
+- OpenAI: a separate encrypted workspace API key. The server lists up to 100 models available to that key; the provider's list does not guarantee Responses API text compatibility. Manual model ID/expression fallback is available. Execution uses the Responses API with `store: false`, bounded output and timeout, and the same live confirmation boundary.
 - All credential values are encrypted at rest and never returned to the client after save.
 - Credential lifecycle: Workspace owners can rename credentials or rotate secret payloads while preserving their immutable ID, provider, and node bindings. Existing secrets cannot be exported or viewed; rotation requires a full replacement payload. Google OAuth credentials direct owners to reconnect via OAuth.
 - Safe deletion & conflict handling: Duplicate `(workspaceId, provider, label)` combinations are rejected with a stable conflict error. Deletion is blocked with a stable `CREDENTIAL_IN_USE` error whenever the credential is referenced by a workflow's current draft or published version, or by an active (queued, running, waiting) execution. Historic versions without active executions do not permanently prevent cleanup.

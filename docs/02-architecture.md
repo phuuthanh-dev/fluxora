@@ -19,6 +19,21 @@ Retention, activation and known boundaries: `docs/29-account-recovery.md`.
 
 ## System shape
 
+Gemini text generation is a server-side node adapter with a separate `GEMINI`
+vault provider and an owner-authorized model-list endpoint. The editor stores
+model identifiers and prompt configuration, never the API key. Mock runs do not
+read credentials or call Google; live execution uses the existing published
+version and readiness/confirmation gates. The additive enum migration must run
+before using the new credential provider. Provider qualification remains separate
+from mock and transport tests.
+
+OpenAI uses an independent `OPENAI` vault provider and owner-authorized model
+list endpoint. Its Responses API adapter disables response storage, extracts
+only assistant text, and returns sanitized incomplete or refusal failures. Its
+additive provider enum migration is independent of Gemini. Provider retries may
+incur repeated usage when an earlier response was lost; live qualification is a
+separate controlled operator action.
+
 ```text
 Next.js web app
   ↕ REST + realtime status

@@ -34,6 +34,8 @@ enum CredentialProvider {
   TELEGRAM_BOT
   GITHUB
   SMTP
+  GEMINI
+  OPENAI
 }
 
 // Provider writes can succeed even when the response is lost. Pending and
