@@ -188,7 +188,10 @@ test("editor loading surface follows the selected light and dark theme", async (
     await route.continue();
   });
 
-  const navigation = page.goto(`/editor?workflow=${encodeURIComponent(workflowId!)}`);
+  // Wait for the document to exist before timing the loading-card assertion.
+  // The workflow request remains gated, so DOM readiness does not skip the
+  // loading state even when navigation is slow under local machine load.
+  await page.goto(`/editor?workflow=${encodeURIComponent(workflowId!)}`, { waitUntil: "domcontentloaded" });
   const loadingCard = page.locator(".editor-loading__card");
   await expect(loadingCard).toBeVisible();
   await expect(loadingCard).toHaveAttribute("role", "status");
@@ -198,7 +201,6 @@ test("editor loading surface follows the selected light and dark theme", async (
   await expect(loadingCard).toHaveCSS("background-color", "rgb(17, 23, 18)");
 
   releaseLoad();
-  await navigation;
   await expect(page.getByRole("heading", { name: "Steam daily report" })).toBeVisible();
 });
 
