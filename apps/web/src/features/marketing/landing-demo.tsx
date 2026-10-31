@@ -28,19 +28,19 @@ const nodes: {
   },
   {
     title: "Steam snapshot",
-    detail: "Public activity",
+    detail: "Activity",
     icon: "steam",
     kind: "FRESH ACTIVITY",
   },
   {
     title: "Saved summary",
-    detail: "Sample sheet",
+    detail: "Sheet",
     icon: "google-sheets",
     kind: "SAVED REPORT",
   },
   {
     title: "Team update",
-    detail: "Google Chat",
+    detail: "Chat",
     icon: "google-chat",
     kind: "ACTION",
   },

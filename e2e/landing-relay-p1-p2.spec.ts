@@ -369,7 +369,7 @@ test("hero node copy stays inside its cards at desktop and mobile sizes", async 
   await page.emulateMedia({ reducedMotion: "reduce" });
   for (const width of [375, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
-    await page.goto("/");
+    await page.goto("/", { waitUntil: "domcontentloaded" });
     await page.evaluate(() => document.fonts.ready);
     const nodes = page.locator(".landing-demo-node");
     await expect(nodes).toHaveCount(4);
