@@ -38,7 +38,8 @@
 For the isolated run, only URL/port literals in Playwright config and six E2E
 files were temporarily redirected; those edits were reverted after the test.
 The product source was unchanged during that run. Node v23.7.0 was used locally;
-GitHub CI uses Node 22. The dedicated PostgreSQL database remains local.
+GitHub CI uses Node 22. The dedicated PostgreSQL test database was removed
+after the owner requested cleanup; no production database was touched.
 
 ## Files changed
 
