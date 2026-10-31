@@ -39,8 +39,14 @@ export class GoogleOAuthController {
     });
     if (!tokenResponse.ok) throw new BadRequestException({ code: "GOOGLE_OAUTH_TOKEN_FAILED", message: "Google token exchange failed." });
     const tokens = await tokenResponse.json() as Record<string, unknown>;
-    if (typeof tokens.access_token !== "string") throw new BadRequestException({ code: "GOOGLE_OAUTH_TOKEN_FAILED", message: "Google did not return an access token." });
-    await this.credentials.upsertGoogleOAuth(verified.workspaceId, verified.userId, { accessToken: tokens.access_token, refreshToken: tokens.refresh_token, expiresAt: typeof tokens.expires_in === "number" ? new Date(Date.now() + tokens.expires_in * 1000).toISOString() : undefined });
+    if (typeof tokens.access_token !== "string" || !/^\S+$/.test(tokens.access_token)) throw new BadRequestException({ code: "GOOGLE_OAUTH_TOKEN_FAILED", message: "Google did not return a usable access token." });
+    if (typeof tokens.refresh_token !== "string" || !/^\S+$/.test(tokens.refresh_token)) {
+      throw new BadRequestException({ code: "GOOGLE_OAUTH_REFRESH_TOKEN_MISSING", message: "Google did not return a refresh token. Try connecting again; any existing connection was not changed." });
+    }
+    if (typeof tokens.expires_in !== "number" || !Number.isFinite(tokens.expires_in) || tokens.expires_in <= 0 || !Number.isFinite(new Date(Date.now() + tokens.expires_in * 1000).getTime())) {
+      throw new BadRequestException({ code: "GOOGLE_OAUTH_TOKEN_FAILED", message: "Google did not return a usable token expiry. Any existing connection was not changed." });
+    }
+    await this.credentials.upsertGoogleOAuth(verified.workspaceId, verified.userId, { accessToken: tokens.access_token, refreshToken: tokens.refresh_token, expiresAt: new Date(Date.now() + tokens.expires_in * 1000).toISOString() });
     response.redirect(`${process.env.WEB_ORIGIN ?? "http://localhost:3000"}/editor?connected=google`);
   }
 }
