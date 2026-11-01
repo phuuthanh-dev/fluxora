@@ -22,7 +22,7 @@ test("Vercel setup chooses account and project and clears the previous project",
   await expect(page.getByLabel("Vercel connection")).toHaveValue("vercel-1");
   const team = page.getByRole("group", { name: "Account or team" }).getByRole("combobox");
   const project = page.getByRole("group", { name: "Project" }).getByRole("combobox");
-  await expect(team.getByRole("option", { name: "Team" })).toHaveAttribute("value", "team_abc");
+  await expect(team.getByRole("option", { name: "Team", exact: true })).toHaveAttribute("value", "team_abc");
   await expect(project).toHaveValue("prj_abc");
   await team.selectOption("team_abc");
   await expect(project).toHaveValue("");
