@@ -63,7 +63,7 @@ export type NodeSelectOption = { value: string; label: string };
 type NodeFieldVisibilityValue = string | number | boolean;
 export type NodeFieldVisibility = { visibleWhen?: { key: string; equals: NodeFieldVisibilityValue | readonly NodeFieldVisibilityValue[] } };
 
-export type NodeResource = "github-repository" | "google-file" | "google-spreadsheet" | "google-calendar" | "google-calendar-event" | "gmail-label" | "gemini-model" | "openai-model" | "google-chat-space" | "mongodb-database" | "mongodb-collection" | "postgres-schema" | "postgres-table";
+export type NodeResource = "github-repository" | "google-file" | "google-spreadsheet" | "google-calendar" | "google-calendar-event" | "gmail-label" | "gemini-model" | "openai-model" | "google-chat-space" | "mongodb-database" | "mongodb-collection" | "postgres-schema" | "postgres-table" | "trello-board" | "trello-list";
 
 /**
  * Declarative fields that the inspector can render without growing another
@@ -118,6 +118,7 @@ export const appCatalog: AppDefinition[] = [
   { id: "gemini", label: "Gemini", description: "Generate content with Google Gemini.", icon: "gemini", category: "ai", aliases: ["google ai", "llm"] },
   { id: "mongodb", label: "MongoDB", description: "Find and insert documents in a database.", icon: "mongodb", category: "data", aliases: ["database", "documents"] },
   { id: "notion", label: "Notion", description: "Find pages shared with your integration.", icon: "notion", category: "productivity", aliases: ["pages", "notes"] },
+  { id: "trello", label: "Trello", description: "Organize work with boards, lists, and cards.", icon: "trello", category: "productivity", aliases: ["kanban", "cards", "boards"] },
   { id: "rss", label: "RSS", description: "Read items from a public RSS or Atom feed.", icon: "rss", category: "data", aliases: ["feed", "atom", "news"] },
   { id: "postgres", label: "PostgreSQL", description: "Read rows from a PostgreSQL database.", icon: "postgres", category: "data", aliases: ["sql", "database"] },
   { id: "github", label: "GitHub", description: "Automate repositories, issues, and pull requests.", icon: "github", category: "developer-devops", aliases: ["git", "pull request", "issues"] },
@@ -692,6 +693,18 @@ export const nodeCatalog: NodeDefinition[] = [
     configurationFields: [
       { kind: "text", key: "url", label: "Public feed URL (no secrets)" },
       { kind: "number", key: "limit", label: "Maximum items (1–100)", fallbackValue: 20 },
+    ],
+  },
+  {
+    type: "action.trello.create-card", label: "Trello card", description: "Create a card in a selected Trello list.",
+    category: "action", libraryGroup: "productivity", appId: "trello", operationId: "create-card", operationLabel: "Create card", operationKind: "action", icon: "trello", available: true,
+    defaultConfig: { credentialId: "", boardId: "", listId: "", title: "", description: "" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Trello connection", providers: ["TRELLO"] },
+      { kind: "resource", key: "boardId", label: "Board", resource: "trello-board", credentialKey: "credentialId", placeholder: "Search boards" },
+      { kind: "resource", key: "listId", label: "List", resource: "trello-list", credentialKey: "credentialId", dependencyKey: "boardId", placeholder: "Search lists" },
+      { kind: "text", key: "title", label: "Card title" },
+      { kind: "textarea", key: "description", label: "Description (optional)" },
     ],
   },
   {

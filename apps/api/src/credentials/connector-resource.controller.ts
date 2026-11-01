@@ -5,12 +5,31 @@ import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { listMongoCollections, listMongoDatabases } from "../execution/mongodb-find";
 import { listGoogleChatSpaces } from "../execution/google-chat-oauth";
 import { listPostgresSchemas, listPostgresTables, validatePostgresCredential } from "../execution/postgres-read";
+import { listTrelloBoards, listTrelloLists } from "../execution/trello";
 import { CredentialService } from "./credential.service";
 
 @Controller("workspaces/:workspaceId/credentials/:credentialId")
 @UseGuards(AuthenticationGuard)
 export class ConnectorResourceController {
   constructor(@Inject(CredentialService) private readonly credentials: CredentialService) {}
+
+  @Get("trello/boards")
+  async trelloBoards(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.TRELLO);
+    try { return await listTrelloBoards(credential); }
+    catch { throw new BadRequestException({ code: "TRELLO_BOARDS_UNAVAILABLE", message: "Boards could not be loaded. Check your Trello connection or enter a board ID manually." }); }
+  }
+
+  @Get("trello/lists")
+  async trelloLists(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Query("board") board: string | undefined, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.TRELLO);
+    try { return await listTrelloLists(credential, board ?? ""); }
+    catch { throw new BadRequestException({ code: "TRELLO_LISTS_UNAVAILABLE", message: "Lists could not be loaded. Check your board and connection or enter a list ID manually." }); }
+  }
 
   @Get("postgres/schemas")
   async postgresSchemas(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Req() request: AuthenticatedRequest) {

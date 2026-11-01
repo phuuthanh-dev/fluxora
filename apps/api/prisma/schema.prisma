@@ -42,6 +42,7 @@ enum CredentialProvider {
   GMAIL
   GOOGLE_CALENDAR
   GOOGLE_CHAT_OAUTH
+  TRELLO
 }
 
 // Provider writes can succeed even when the response is lost. Pending and

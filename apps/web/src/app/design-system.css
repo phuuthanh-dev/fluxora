@@ -85,6 +85,7 @@
   --provider-mongodb: #208a3d;
   --provider-notion: #222a25;
   --provider-rss: #a34b00;
+  --provider-trello: #0755a7;
   --provider-postgres: #235c88;
   --provider-github: #181717;
   --provider-facebook: #075bdf;
@@ -209,6 +210,7 @@
   --provider-mongodb: #88d99a;
   --provider-notion: #f4f5f0;
   --provider-rss: #ffad5c;
+  --provider-trello: #8abfff;
   --provider-postgres: #80bce7;
   --provider-github: #f3f6ec;
   --provider-facebook: #9bbcff;

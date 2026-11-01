@@ -17,7 +17,10 @@ local fake-DNS rebinding test confirms it does not reach a loopback server.
 This does not qualify SMTP/database transports or constitute a complete SSRF
 security review. No live provider call or full release gate was performed.
 
-Trello, Sentry, Reddit, Uptime Kuma, Vercel and Supabase have provider notes in
-`docs/34-app-expansion.md` only; no connector or credentials have been built for
-them. The category grouping is the start of UI/UX work, not a full redesign.
+Trello Create Card now has a distinct vault credential and guided board/list
+pickers, with a pre-write list membership check and non-retryable uncertain write
+errors. Local migration and browser/full verification remain pending. Re-running
+after an interrupted worker can still duplicate a card. Sentry, Reddit, Uptime
+Kuma, Vercel and Supabase have provider notes only. The category grouping is the
+start of UI/UX work, not a full redesign.
 No changes were pushed, merged or deployed.

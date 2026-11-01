@@ -16,6 +16,7 @@ const fields: Partial<Record<CredentialProvider, SecretField[]>> = {
   TELEGRAM_BOT: [{ key: "botToken", label: "Bot token", secret: true }],
   GITHUB: [{ key: "token", label: "GitHub token", secret: true }],
   NOTION: [{ key: "token", label: "Notion integration token", secret: true, hint: "Share the pages you want to access with this integration in Notion." }],
+  TRELLO: [{ key: "apiKey", label: "Trello API key", secret: true }, { key: "token", label: "Trello token", secret: true, hint: "Grant your token access to the boards you want to use." }],
   POSTGRES: [{ key: "host", label: "PostgreSQL host", hint: "Public hostname with a trusted TLS certificate." }, { key: "database", label: "Database name" }, { key: "username", label: "Database user" }, { key: "password", label: "Database password", secret: true }],
   GEMINI: [{ key: "apiKey", label: "Gemini API key", secret: true }],
   OPENAI: [{ key: "apiKey", label: "OpenAI API key", secret: true }],

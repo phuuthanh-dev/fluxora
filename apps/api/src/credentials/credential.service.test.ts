@@ -136,6 +136,18 @@ test("create validates SMTP credentials before encrypting them", async () => {
   );
 });
 
+test("Trello rejects invalid credentials before encryption without revealing them", async () => {
+  const service = new CredentialService({} as never, { requireOwner: async () => {} } as never, {} as never);
+  await assert.rejects(() => service.create("ws-1", "user-1", {
+    provider: "TRELLO", label: "Trello", data: { apiKey: "valid-key", token: 'invalid"secret' },
+  }), (err: unknown) => {
+    const error = err as HttpErrorShape;
+    assert.equal(error.response?.code, "INVALID_INPUT");
+    assert.ok(!(error.response?.message ?? "").includes("secret"));
+    return true;
+  });
+});
+
 test("create allows manual Google credentials including names that contain OAuth", async () => {
   const prisma = {
     credential: {
