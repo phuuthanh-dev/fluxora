@@ -11,8 +11,9 @@ complete in the delivery ledger.
   live and production qualification remains. See `.agent/reports/2026-11-01-notion-postgres.md`.
 - Draft PR #57 adds Gmail read and polling trigger, grouped email connection
   choices and Google Calendar operations. Full isolated verification and its
-  GitHub quality gate passed on `d1d4dcd`; real Gmail/Calendar access, Google
-  scope approval and production deployment remain separate. A follow-up review
+  GitHub quality gate passed on `d1d4dcd`; limited local Gmail/Calendar live
+  checks later succeeded, while Google scope approval, broader qualification
+  and production deployment remain separate. A follow-up review
   fixed a queue-recovery edge case involving approval and passed isolated
   verification; see the associated report. Gmail Pub/Sub is not implemented.
 - Do not repeat the completed MongoDB live insert qualification.
@@ -147,8 +148,8 @@ one of these IDs or explicitly reopen a completed ledger slice.
 | `EDITOR-QUALIFICATION-1` | Audit credential status, picker, validation and mock/live node-debug UX | planned | Reuse completed editor work; implement only evidenced gaps |
 | `NOTION-1` | Add Notion connector with user-owned credential and guided page operations | pending | Search pages implemented in PR #56; live search qualified once locally. More operations and production qualification remain. |
 | `POSTGRES-1` | Add PostgreSQL connector with user-owned credential and guided operations | pending | Select rows implemented in PR #56; live qualification and further operations remain. |
-| `GMAIL-1` | Add Gmail read operations and a durable new-message trigger with a separate owner-authorized Google connection | pending | Implementation and isolated full verify passed; live mailbox qualification, restricted-scope approval and release remain. Pub/Sub push is not implemented. See `.agent/reports/2026-11-01-gmail-trigger-calendar-expansion.md`. |
-| `CALENDAR-1` | Add Google Calendar connection and actions | pending | Guided calendar/event pickers and event operations passed the isolated gate; consent configuration, owner-approved live qualification and release remain. A Calendar trigger is not implemented. |
+| `GMAIL-1` | Add Gmail read operations and a durable new-message trigger with a separate owner-authorized Google connection | pending | Isolated verify passed; one Gmail Read and one controlled history-filtered trigger probe succeeded locally against a test email. Unmodified multi-message polling, restricted-scope approval and release remain. Pub/Sub push is not implemented. See `.agent/reports/2026-11-01-gmail-trigger-calendar-expansion.md`. |
+| `CALENDAR-1` | Add Google Calendar connection and actions | pending | Picker plus one local create/get/update/delete sequence succeeded against a test event. List-events, availability, public scope approval and release remain; a Calendar trigger is not implemented. See the Gmail/Calendar report. |
 | `EMAIL-UX-1` | Group Gmail and SMTP connection choices in the UI | pending | Grouped in the implementation; Gmail and SMTP keep separate providers and nodes. Isolated full verify passed; release remains. |
 
 ## Closed boundary

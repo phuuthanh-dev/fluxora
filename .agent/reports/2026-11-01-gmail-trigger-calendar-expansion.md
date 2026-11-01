@@ -11,9 +11,10 @@
   delete and availability. Creation uses stable IDs for retries. Event picker
   returns up to 50 upcoming events; manual ID/expression remains available.
   Calendar trigger is not implemented.
-- The additive checkpoint migration has not been applied to the user's database.
-- Real Gmail/Calendar provider access, public scope approval and production
-  deployment are separate from synthetic tests.
+- The additive checkpoint migration was subsequently applied to the local
+  database for the owner-authorized checks below; production was not changed.
+- Public scope approval and production deployment are separate from synthetic
+  tests and the limited live checks below.
 
 ## Verification
 
@@ -21,9 +22,9 @@
   PostgreSQL, Redis and separate application ports: 311 API tests, 30 web tests
   and 137 Playwright tests. The integration suite includes a lost Redis job and
   recovery using the real isolated database and queue.
-- Gmail and Calendar provider responses were mocked. No live mailbox or
-  calendar was accessed; OAuth scope approval, real-provider behavior and
-  production stability are not established by these tests.
+- In that automated gate, Gmail and Calendar provider responses were mocked.
+  The separate owner-authorized live checks below do not establish public OAuth
+  scope approval, sustained behavior or production stability.
 - Filters use message state at polling time; receipt retention has no automatic
   cleanup yet. Reset or replacing a trigger can discard pending messages and
   requires explicit acknowledgement.
@@ -39,5 +40,28 @@
   browser tests; only test ports differed from the checked-in configuration.
 - Read-only Cloud Console review on 2026-11-01 showed verified branding, data
   access under review, and declared Drive/Sheets scopes. Gmail and Calendar
-  scopes were not present in the displayed scope list. No Cloud changes or
-  live Gmail/Calendar calls were made in this review.
+  scopes were not present in the displayed scope list at the time of review.
+
+## Owner-authorized local provider checks — 2026-11-01
+
+- Applied the three additive Gmail/Calendar migrations to the local `workflow`
+  database; the owner authorized enabling Gmail API and Google Calendar API in
+  the Fluxora Cloud project and authorized separate OAuth connections. This
+  does not constitute Google verification for public Gmail/Calendar scopes.
+- One local live Calendar workflow created, read, updated and deleted the same
+  clearly labelled event on the owner's primary calendar without attendees;
+  each node succeeded and delete returned `deleted: true`. The test workflow
+  was deactivated. Event listing action and availability remain unqualified;
+  the calendar picker did list calendars successfully.
+- The owner asked for a self-addressed test email. Gmail Read returned exactly
+  that one message through a bounded query; the test workflow was deactivated.
+- A live Gmail Trigger probe read real Gmail history and executed the trigger
+  and condition for the designated test message. Another new message existed
+  in the same history page, so this one-off probe filtered the returned IDs
+  before the application's poll read message contents. The other message was
+  not read. This validates a controlled path, not unmodified multi-message
+  polling or production reliability. A second self-addressed test message was
+  sent to attempt an unmodified poll, but the history also contained other new
+  messages, so the poll was not performed. Both test emails were left in the
+  mailbox. The trigger workflow was deactivated and the global local scheduler
+  stayed disabled.
