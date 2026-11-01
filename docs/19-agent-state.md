@@ -41,6 +41,9 @@ complete in the delivery ledger.
   MongoDB SRV uses guarded direct seed selection, not full replica-set failover;
   real insert, private hosts, update/delete and deployment remain open. See
   `.agent/reports/2026-11-01-mongodb-srv.md` and the original connector report.
+- MongoDB connection setup and simple Find filters have guided controls; complex
+  queries remain editable as JSON. See
+  `.agent/reports/2026-11-01-mongodb-guided-config.md`.
 
 The older snapshots below describe their dates and must not be read as current.
 

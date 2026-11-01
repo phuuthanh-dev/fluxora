@@ -1967,6 +1967,22 @@
       "externalImports": []
     },
     {
+      "id": "apps/web/src/features/workflow/mongodb-filter-field.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/workflow/mongodb-filter.ts"
+      ],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/workflow/mongodb-filter.ts",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
       "id": "apps/web/src/features/workflow/node-catalog.ts",
       "boundary": "web",
       "internalImports": [
@@ -2057,6 +2073,7 @@
         "apps/web/src/features/workflow/execution-observability.tsx",
         "apps/web/src/features/workflow/expression-suggestions.ts",
         "apps/web/src/features/workflow/graph-validation.ts",
+        "apps/web/src/features/workflow/mongodb-filter-field.tsx",
         "apps/web/src/features/workflow/node-catalog.ts",
         "apps/web/src/features/workflow/node-icon.tsx",
         "apps/web/src/features/workflow/node-library.tsx",
@@ -3697,6 +3714,10 @@
       "to": "apps/web/src/features/workflow/node-catalog.ts"
     },
     {
+      "from": "apps/web/src/features/workflow/mongodb-filter-field.tsx",
+      "to": "apps/web/src/features/workflow/mongodb-filter.ts"
+    },
+    {
       "from": "apps/web/src/features/workflow/node-catalog.ts",
       "to": "apps/web/src/features/credentials/credential-types.ts"
     },
@@ -3771,6 +3792,10 @@
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",
       "to": "apps/web/src/features/workflow/graph-validation.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/mongodb-filter-field.tsx"
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",

@@ -6,20 +6,45 @@ import type { CredentialService } from "../credentials/credential.service";
 import { isBlockedAddress } from "./outbound-url-policy";
 import { NodeFailure } from "./node-failure";
 
-type MongoConnection = { host: string; port: number; username: string; password: string; authDatabase: string };
+type MongoConnection = { host: string; port: number; username: string; password: string; authDatabase: string; connectionMode?: "auto" | "direct" | "srv"; writeConcern?: "majority" | number; appName?: string };
 type Document = Record<string, unknown>;
 
 function readConnection(data: Record<string, unknown>): MongoConnection {
+  if (data.configurationType !== undefined && !["values", "connectionString"].includes(String(data.configurationType))) throw new NodeFailure("CREDENTIAL_INVALID", "Choose a supported MongoDB configuration type.", false);
+  if (data.configurationType === "connectionString") {
+    try {
+      if (typeof data.connectionString !== "string" || data.connectionString.length > 4096) throw new Error();
+      const url = new URL(data.connectionString);
+      if (!["mongodb:", "mongodb+srv:"].includes(url.protocol) || url.hash || !url.username || !url.password) throw new Error();
+      const options = new Set<string>();
+      for (const [key] of url.searchParams) {
+        if (options.has(key) || !["authSource", "retryWrites", "w", "appName", "tls"].includes(key)) throw new Error();
+        options.add(key);
+      }
+      const tls = url.searchParams.get("tls");
+      const retryWrites = url.searchParams.get("retryWrites");
+      if ((tls !== null && tls !== "true") || (retryWrites !== null && !["true", "false"].includes(retryWrites))) throw new Error();
+      const w = url.searchParams.get("w");
+      if (w !== null && w !== "majority" && !/^[1-9]\d{0,2}$/.test(w)) throw new Error();
+      const appName = url.searchParams.get("appName");
+      if (appName !== null && (!appName || appName.length > 128)) throw new Error();
+      if (url.protocol === "mongodb+srv:" && url.port) throw new Error();
+      const authDatabase = url.searchParams.get("authSource") || decodeURIComponent(url.pathname.slice(1)) || "admin";
+      const connection = readConnection({ host: url.hostname, port: url.port ? Number(url.port) : 27017, username: decodeURIComponent(url.username), password: decodeURIComponent(url.password), authDatabase, connectionMode: url.protocol === "mongodb+srv:" ? "srv" : "direct" });
+      return { ...connection, ...(w === null ? {} : { writeConcern: w === "majority" ? "majority" : Number(w) }), ...(appName === null ? {} : { appName }) };
+    } catch { throw new NodeFailure("CREDENTIAL_INVALID", "Invalid or unsupported MongoDB connection string. Use a single public host, TLS and supported options.", false); }
+  }
   const host = typeof data.host === "string" ? data.host.trim().toLowerCase() : "";
   const port = data.port === undefined ? 27017 : data.port;
   const username = typeof data.username === "string" ? data.username : "";
   const password = typeof data.password === "string" ? data.password : "";
   const authDatabase = typeof data.authDatabase === "string" ? data.authDatabase : "admin";
+  const connectionMode = data.connectionMode === undefined ? "auto" : data.connectionMode;
   if (!host || host.length > 253 || isIP(host) || host === "localhost" || host.endsWith(".localhost") || !/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{1,62}$/.test(host)
     || typeof port !== "number" || !Number.isInteger(port) || port < 1 || port > 65535
     || !username.trim() || username.length > 256 || !password || password.length > 1024
-    || !validDatabase(authDatabase)) throw new NodeFailure("CREDENTIAL_INVALID", "Enter a public MongoDB host, valid port, username, password and authentication database.", false);
-  return { host, port, username, password, authDatabase };
+    || !validDatabase(authDatabase) || !["auto", "direct", "srv"].includes(String(connectionMode))) throw new NodeFailure("CREDENTIAL_INVALID", "Enter a public MongoDB host, valid port, username, password and authentication database.", false);
+  return { host, port, username, password, authDatabase, connectionMode: connectionMode as MongoConnection["connectionMode"] };
 }
 
 export function validateMongoCredential(data: Record<string, unknown>) { readConnection(data); }
@@ -46,6 +71,8 @@ export function createMongoClient(connection: MongoConnection, selectionTimeoutM
     auth: { username: connection.username, password: connection.password },
     authSource: connection.authDatabase, tls: true, directConnection: true,
     lookup: guardedMongoLookup(), autoSelectFamily: false, retryWrites: false,
+    ...(connection.writeConcern !== undefined ? { writeConcern: { w: connection.writeConcern } } : {}),
+    ...(connection.appName ? { appName: connection.appName } : {}),
     maxPoolSize: 1, serverSelectionTimeoutMS: selectionTimeoutMs, connectTimeoutMS: selectionTimeoutMs, socketTimeoutMS: 20_000,
   });
 }
@@ -69,11 +96,14 @@ export async function createResolvedMongoClient(connection: MongoConnection, dep
   client: typeof createMongoClient;
   dnsTimeoutMs?: number;
 } = { lookup: dnsLookup, srv: resolveSrv, client: createMongoClient }): Promise<MongoClient> {
-  try {
-    await boundedDns(dependencies.lookup(connection.host, { all: true, verbatim: true }), dependencies.dnsTimeoutMs ?? 4_000);
-    return dependencies.client(connection);
-  } catch (error) {
-    if (!error || typeof error !== "object" || !("code" in error) || error.code !== "ENOTFOUND") throw error;
+  if (connection.connectionMode === "direct") return dependencies.client(connection);
+  if (connection.connectionMode !== "srv") {
+    try {
+      await boundedDns(dependencies.lookup(connection.host, { all: true, verbatim: true }), dependencies.dnsTimeoutMs ?? 4_000);
+      return dependencies.client(connection);
+    } catch (error) {
+      if (!error || typeof error !== "object" || !("code" in error) || error.code !== "ENOTFOUND") throw error;
+    }
   }
   const labels = connection.host.split(".");
   if (labels.length < 3) throw new NodeFailure("MONGODB_ERROR", "MongoDB SRV hostname is invalid.", false);

@@ -77,6 +77,7 @@ export type NodeConfigurationField =
   | ({ kind: "select"; key: string; label: string; options: NodeSelectOption[] } & NodeFieldVisibility)
   | ({ kind: "key-value"; key: string; label: string; keyPlaceholder?: string; valuePlaceholder?: string } & NodeFieldVisibility)
   | ({ kind: "table"; key: string; label: string } & NodeFieldVisibility)
+  | ({ kind: "mongo-filter"; key: string; label: string } & NodeFieldVisibility)
   | ({ kind: "resource"; key: string; label: string; resource: NodeResource; credentialKey: string; dependencyKey?: string; placeholder?: string } & NodeFieldVisibility);
 
 export const categoryOrder: WorkflowNodeCategory[] = ["trigger", "condition", "action", "approval"];
@@ -552,7 +553,7 @@ export const nodeCatalog: NodeDefinition[] = [
       { kind: "credential", key: "credentialId", label: "MongoDB credential", providers: ["MONGODB"] },
       { kind: "resource", key: "database", label: "Database", resource: "mongodb-database", credentialKey: "credentialId", placeholder: "Search databases" },
       { kind: "resource", key: "collection", label: "Collection", resource: "mongodb-collection", credentialKey: "credentialId", dependencyKey: "database", placeholder: "Search collections" },
-      { kind: "textarea", key: "filter", label: "Filter (JSON)" },
+      { kind: "mongo-filter", key: "filter", label: "Filter documents" },
       { kind: "number", key: "limit", label: "Maximum documents (1–100)", fallbackValue: 20 },
     ],
   },

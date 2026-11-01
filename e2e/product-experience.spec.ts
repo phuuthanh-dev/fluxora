@@ -77,6 +77,21 @@ test("guided connection fields preserve JSON, mask secrets, search saved account
   await expect(page.locator(".credential-form")).not.toBeVisible();
 });
 
+test("MongoDB credential shows fields appropriate to the selected connection type", async ({ page }) => {
+  await register(page);
+  await page.getByRole("button", { name: "Connections", exact: true }).click();
+  await page.getByLabel("Provider", { exact: true }).selectOption("MONGODB");
+  await expect(page.getByLabel("MongoDB host")).toBeVisible();
+  await page.getByLabel("Connection type").selectOption("srv");
+  await expect(page.getByLabel("Port", { exact: true })).toHaveCount(0);
+  await page.getByLabel("Configuration type").selectOption("connectionString");
+  await expect(page.getByLabel("MongoDB host")).toHaveCount(0);
+  await expect(page.getByLabel("Connection string")).toHaveAttribute("type", "password");
+  await page.getByLabel("Configuration type").selectOption("values");
+  await page.getByLabel("Connection type").selectOption("direct");
+  await expect(page.getByLabel("Port", { exact: true })).toBeVisible();
+});
+
 test("workflow list precedes creation, menus fully dismiss and dialogs restore focus", async ({ page }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 1440, height: 1000 });

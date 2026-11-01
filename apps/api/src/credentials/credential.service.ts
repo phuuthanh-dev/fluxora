@@ -366,7 +366,7 @@ function requiredEnv(name: "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET") {
 
 function validateCredentialPayload(provider: CredentialProvider, data: Record<string, unknown>) {
   if (provider === CredentialProvider.MONGODB) {
-    try { validateMongoCredential(data); } catch { throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a public MongoDB host, port, username, password and authentication database." }); }
+    try { validateMongoCredential(data); } catch { throw new BadRequestException({ code: "INVALID_INPUT", message: data.configurationType === "connectionString" ? "Enter a supported MongoDB connection string with one public host, credentials and TLS. Check its options." : "Enter a public MongoDB host, port, username, password and authentication database." }); }
     return;
   }
   if (provider === CredentialProvider.GOOGLE_CHAT_OAUTH) {

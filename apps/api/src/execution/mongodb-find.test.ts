@@ -21,6 +21,26 @@ test("MongoDB credentials require a hostname and bounded safe fields", () => {
   assert.throws(() => validateMongoCredential({ ...connection, port: 65536 }));
 });
 
+test("MongoDB connection strings accept supported TLS options and reject unsupported or unsafe variants", () => {
+  validateMongoCredential({ configurationType: "connectionString", connectionString: "mongodb+srv://user:synthetic%40password@cluster.example.com/?retryWrites=true&w=majority&appName=Fluxora" });
+  for (const connectionString of ["mongodb://user:secret@127.0.0.1/", "mongodb://user:secret@mongo.example.com/?tls=false", "mongodb+srv://user:secret@cluster.example.com/?replicaSet=other", "mongodb://user:secret@mongo.example.com/?w=0", "mongodb+srv://user:secret@cluster.example.com:1234/"]) {
+    assert.throws(() => validateMongoCredential({ configurationType: "connectionString", connectionString }), (error: unknown) => error instanceof Error && !error.message.includes("secret"));
+  }
+});
+
+test("MongoDB string credentials normalize into guarded driver settings without exposing the string", async () => {
+  let seen: Record<string, unknown> | undefined;
+  const cursor = { limit() { return this; }, batchSize() { return this; }, async *[Symbol.asyncIterator]() {} };
+  const client = { connect: async () => {}, close: async () => {}, db: () => ({ collection: () => ({ find: () => cursor }) }) };
+  const credentials = { readForExecution: async () => ({ configurationType: "connectionString", connectionString: "mongodb+srv://user:synthetic%40password@cluster.example.com/?authSource=admin&retryWrites=true&w=majority&appName=Fluxora" }) };
+  const result = await executeMongoFind({ ...config, credentialId: "mongo" }, "live", "workspace", credentials as never, ((data: Record<string, unknown>) => { seen = data; return client; }) as never);
+  assert.equal(seen?.host, "cluster.example.com");
+  assert.equal(seen?.connectionMode, "srv");
+  assert.equal(seen?.writeConcern, "majority");
+  assert.equal(seen?.appName, "Fluxora");
+  assert.ok(!JSON.stringify(result).includes("synthetic"));
+});
+
 test("MongoDB driver uses direct TLS, guarded DNS and disables implicit write retries", async () => {
   const client = createMongoClient(connection);
   assert.equal(client.options.directConnection, true);
@@ -70,6 +90,12 @@ test("MongoDB SRV selects a writable guarded direct seed and closes non-primary 
   assert.equal(result, primary);
   assert.equal(closedSecondary, true);
   assert.deepEqual(calls, [{ host: "node1.example.com", port: 27017 }, { host: "node2.example.com", port: 27018 }]);
+});
+
+test("Explicit SRV mode uses SRV records without treating the cluster as a direct host", async () => {
+  const primary = { connect: async () => {}, close: async () => {}, db: () => ({ command: async () => ({ isWritablePrimary: true }) }) };
+  const dependencies = { lookup: () => { throw new Error("unexpected A lookup"); }, srv: async () => [{ name: "node.example.com", port: 27017, priority: 0, weight: 1 }], client: () => primary };
+  assert.equal(await createResolvedMongoClient({ ...connection, host: "cluster.example.com", connectionMode: "srv" }, dependencies as never), primary);
 });
 
 test("MongoDB SRV rejects untrusted names and IP literals before creating a client", async () => {

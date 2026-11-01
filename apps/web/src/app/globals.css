@@ -122,6 +122,14 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px soli
 .config-field span { color: var(--text-secondary); display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; }
 .config-field input, .config-field select, .config-field textarea { background: var(--surface-inset); border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--ink); font-size: 13px; outline: none; padding: 9px 10px; resize: vertical; width: 100%; min-height: var(--control-height); }
 .config-field input:focus, .config-field select:focus, .config-field textarea:focus { border-color: var(--focus-ring); box-shadow: none; outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.mongo-filter__heading, .mongo-filter__row-heading, .mongo-filter__actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.mongo-filter__heading strong, .mongo-filter__row-heading strong { color: var(--ink); font-size: 13px; }
+.mongo-filter small { color: var(--text-secondary); display: block; font-size: 12px; line-height: 1.5; margin: 8px 0; }
+.mongo-filter small[role="alert"] { color: var(--danger); }
+.mongo-filter small[role="status"] { color: var(--warning); }
+.mongo-filter__condition { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-sm); display: grid; gap: 10px; margin: 10px 0; padding: 12px; }
+.mongo-filter__condition .ui-field { min-width: 0; }
+.mongo-filter__actions { justify-content: flex-start; margin-top: 10px; }
 .credential-field small, .resource-picker small { color: var(--muted); display: block; font-size: 12px; line-height: 1.4; margin-top: 4px; }
 .inspector-note { background: color-mix(in srgb, var(--text-accent) 7%, var(--panel)); border: 1px solid var(--line); border-radius: 8px; color: var(--text-secondary); display: grid; font-size: 12px; gap: 4px; line-height: 1.5; margin-top: 14px; padding: 11px 12px; }
 .inspector-note strong { color: var(--ink); font-size: 12px; font-weight: 700; }

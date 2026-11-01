@@ -47,7 +47,10 @@ export function CredentialSecretFields({ provider, value, onChange, replacement 
       </Field>
       {!payload && <p className="credential-secret-fields__help">Correct the JSON object before switching back to fields.</p>}
     </> : <div className="credential-secret-fields__grid">
-      {fields[provider]?.map((field) => <Field key={field.key} label={field.label} hint={field.hint}>
+      {provider === "MONGODB" && <Field label="Configuration type"><Select aria-label="Configuration type" value={payload?.configurationType === "connectionString" ? "connectionString" : "values"} onChange={(event) => update("configurationType", event.target.value)}><option value="values">Separate fields</option><option value="connectionString">Connection string</option></Select></Field>}
+      {provider === "MONGODB" && payload?.configurationType !== "connectionString" && <Field label="Connection type" hint="Auto-detect supports existing connections. Atlas/SRV obtains host and port from DNS."><Select aria-label="Connection type" value={typeof payload?.connectionMode === "string" ? payload.connectionMode : "auto"} onChange={(event) => update("connectionMode", event.target.value)}><option value="auto">Auto-detect</option><option value="srv">Atlas / SRV cluster</option><option value="direct">Single server</option></Select></Field>}
+      {provider === "MONGODB" && payload?.configurationType === "connectionString" && <Field label="Connection string" hint="Use a single public host with TLS. Supported options: authSource, retryWrites, w, appName and tls. Automatic write retries remain disabled."><input aria-label="Connection string" type="password" autoComplete="new-password" spellCheck={false} value={typeof payload?.connectionString === "string" ? payload.connectionString : ""} onChange={(event) => update("connectionString", event.target.value)} /></Field>}
+      {(provider !== "MONGODB" || payload?.configurationType !== "connectionString") && fields[provider]?.map((field) => <Field key={field.key} label={field.label} hint={field.hint}>
         <input aria-label={field.label} type={field.secret ? "password" : "text"} autoComplete={field.secret ? "new-password" : "off"} spellCheck={false} value={typeof payload?.[field.key] === "string" ? payload[field.key] as string : ""} onChange={(event) => update(field.key, event.target.value)} />
       </Field>)}
       {provider === "SMTP" && <Field label="Transport">
@@ -56,7 +59,7 @@ export function CredentialSecretFields({ provider, value, onChange, replacement 
           {payload?.port !== 587 && payload?.port !== 465 && <option value={String(payload?.port)}>Current value · {String(payload?.port)}</option>}
         </Select>
       </Field>}
-      {provider === "MONGODB" && <Field label="Port" hint="Used for direct hosts; SRV clusters supply their own ports."><input aria-label="Port" type="number" min={1} max={65535} value={typeof payload?.port === "number" ? payload.port : 27017} onChange={(event) => update("port", Number(event.target.value))} /></Field>}
+      {provider === "MONGODB" && payload?.configurationType !== "connectionString" && payload?.connectionMode !== "srv" && <Field label="Port" hint="Used for direct hosts; SRV clusters supply their own ports."><input aria-label="Port" type="number" min={1} max={65535} value={typeof payload?.port === "number" ? payload.port : 27017} onChange={(event) => update("port", Number(event.target.value))} /></Field>}
     </div>}
   </div>;
 }

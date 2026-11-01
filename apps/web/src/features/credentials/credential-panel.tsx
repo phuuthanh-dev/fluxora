@@ -20,7 +20,7 @@ type CredentialPreset = {
 };
 
 const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
-  MONGODB: { label: "MongoDB", data: '{\n  "host": "",\n  "port": 27017,\n  "username": "",\n  "password": "",\n  "authDatabase": "admin"\n}', hint: "Connect to a public TLS-enabled server or an SRV cluster hostname. Enter the hostname only, without a connection-string prefix." },
+  MONGODB: { label: "MongoDB", data: '{\n  "host": "",\n  "port": 27017,\n  "username": "",\n  "password": "",\n  "authDatabase": "admin"\n}', hint: "Connect to a public TLS-enabled MongoDB server or SRV cluster using fields or a connection string." },
   GOOGLE_CHAT_OAUTH: { label: "Google Chat manual token", data: '{\n  "accessToken": ""\n}', hint: "Connect Google Chat separately from Drive and Sheets. Manual access tokens are short-lived." },
   OPENAI: {
     label: "OpenAI API",
