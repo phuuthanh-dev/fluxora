@@ -81,6 +81,8 @@
   --provider-openai: #412991;
   --provider-gemini: #6d5190;
   --provider-mongodb: #208a3d;
+  --provider-notion: #222a25;
+  --provider-postgres: #235c88;
   --provider-github: #181717;
   --provider-facebook: #075bdf;
   --provider-instagram: #c13584;
@@ -200,6 +202,8 @@
   --provider-openai: #d1b1ff;
   --provider-gemini: #d3b7fa;
   --provider-mongodb: #88d99a;
+  --provider-notion: #f4f5f0;
+  --provider-postgres: #80bce7;
   --provider-github: #f3f6ec;
   --provider-facebook: #9bbcff;
   --provider-instagram: #ffb0c0;

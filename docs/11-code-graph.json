@@ -240,7 +240,8 @@
         "apps/api/src/auth/authentication.guard.ts",
         "apps/api/src/credentials/credential.service.ts",
         "apps/api/src/execution/google-chat-oauth.ts",
-        "apps/api/src/execution/mongodb-find.ts"
+        "apps/api/src/execution/mongodb-find.ts",
+        "apps/api/src/execution/postgres-read.ts"
       ],
       "externalImports": [
         "@nestjs/common",
@@ -297,6 +298,7 @@
         "apps/api/src/credentials/credential-vault.service.ts",
         "apps/api/src/database/prisma.service.ts",
         "apps/api/src/execution/mongodb-find.ts",
+        "apps/api/src/execution/postgres-read.ts",
         "apps/api/src/execution/smtp-email.ts",
         "apps/api/src/workspaces/workspace.service.ts"
       ],
@@ -501,8 +503,10 @@
         "apps/api/src/execution/live-readiness.ts",
         "apps/api/src/execution/mongodb-find.ts",
         "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/notion-search.ts",
         "apps/api/src/execution/openai-text.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/postgres-read.ts",
         "apps/api/src/execution/redaction.ts",
         "apps/api/src/execution/retention-policy.ts",
         "apps/api/src/execution/retry-policy.ts",
@@ -591,6 +595,19 @@
       ]
     },
     {
+      "id": "apps/api/src/execution/notion-search.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-json.ts"
+      ],
+      "externalImports": [
+        "@prisma/client"
+      ]
+    },
+    {
       "id": "apps/api/src/execution/openai-text.ts",
       "boundary": "api",
       "internalImports": [
@@ -607,6 +624,41 @@
       "id": "apps/api/src/execution/outbound-url-policy.ts",
       "boundary": "api",
       "internalImports": [],
+      "externalImports": [
+        "node:dns/promises",
+        "node:net"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/postgres-read.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/postgres-select-query.ts",
+        "apps/api/src/execution/postgres-target.ts"
+      ],
+      "externalImports": [
+        "@prisma/client",
+        "pg",
+        "pg-query-stream"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/postgres-select-query.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/execution/postgres-target.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts"
+      ],
       "externalImports": [
         "node:dns/promises",
         "node:net"
@@ -2353,6 +2405,10 @@
       "to": "apps/api/src/execution/mongodb-find.ts"
     },
     {
+      "from": "apps/api/src/credentials/connector-resource.controller.ts",
+      "to": "apps/api/src/execution/postgres-read.ts"
+    },
+    {
       "from": "apps/api/src/credentials/credential.controller.ts",
       "to": "apps/api/src/auth/authenticated-request.ts"
     },
@@ -2427,6 +2483,10 @@
     {
       "from": "apps/api/src/credentials/credential.service.ts",
       "to": "apps/api/src/execution/mongodb-find.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.service.ts",
+      "to": "apps/api/src/execution/postgres-read.ts"
     },
     {
       "from": "apps/api/src/credentials/credential.service.ts",
@@ -2634,11 +2694,19 @@
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/notion-search.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/execution/openai-text.ts"
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/postgres-read.ts"
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
@@ -2709,6 +2777,22 @@
       "to": "apps/api/src/execution/outbound-url-policy.ts"
     },
     {
+      "from": "apps/api/src/execution/notion-search.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notion-search.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notion-search.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notion-search.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
       "from": "apps/api/src/execution/openai-text.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
     },
@@ -2723,6 +2807,34 @@
     {
       "from": "apps/api/src/execution/openai-text.ts",
       "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/execution/postgres-read.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/postgres-read.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/postgres-read.ts",
+      "to": "apps/api/src/execution/postgres-select-query.ts"
+    },
+    {
+      "from": "apps/api/src/execution/postgres-read.ts",
+      "to": "apps/api/src/execution/postgres-target.ts"
+    },
+    {
+      "from": "apps/api/src/execution/postgres-select-query.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/postgres-target.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/postgres-target.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
     },
     {
       "from": "apps/api/src/execution/provider-json.ts",

@@ -72,6 +72,13 @@ test("OpenAI generation uses a dedicated credential and model picker", () => {
   assert.equal(definition?.configurationFields?.find((field) => field.key === "model")?.kind, "resource");
 });
 
+test("Notion page search has its own connection and search operation", () => {
+  const notion = getNodeDefinition("action.notion.search-pages");
+  assert.equal(notion?.available, true);
+  assert.equal(notion?.operationKind, "search");
+  assert.deepEqual(notion?.configurationFields?.[0], { kind: "credential", key: "credentialId", label: "Notion credential", providers: ["NOTION"] });
+});
+
 test("GitHub Create Issue is executable with a separate connector credential", () => {
   const definition = getNodeDefinition("action.github");
   assert.ok(definition);

@@ -95,6 +95,8 @@ function providerLabel(provider: CredentialProvider) {
     GEMINI: "Gemini",
     OPENAI: "OpenAI",
     MONGODB: "MongoDB",
+    NOTION: "Notion",
+    POSTGRES: "PostgreSQL",
     GOOGLE_CHAT_OAUTH: "Google Chat OAuth",
     HTTP: "HTTP",
   };

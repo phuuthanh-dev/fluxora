@@ -4,12 +4,31 @@ import { AuthenticationGuard } from "../auth/authentication.guard";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { listMongoCollections, listMongoDatabases } from "../execution/mongodb-find";
 import { listGoogleChatSpaces } from "../execution/google-chat-oauth";
+import { listPostgresSchemas, listPostgresTables, validatePostgresCredential } from "../execution/postgres-read";
 import { CredentialService } from "./credential.service";
 
 @Controller("workspaces/:workspaceId/credentials/:credentialId")
 @UseGuards(AuthenticationGuard)
 export class ConnectorResourceController {
   constructor(@Inject(CredentialService) private readonly credentials: CredentialService) {}
+
+  @Get("postgres/schemas")
+  async postgresSchemas(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.POSTGRES);
+    try { return await listPostgresSchemas(validatePostgresCredential(credential)); }
+    catch { throw new BadRequestException({ code: "POSTGRES_SCHEMAS_UNAVAILABLE", message: "Schemas could not be loaded. Check your connection or enter a schema manually." }); }
+  }
+
+  @Get("postgres/tables")
+  async postgresTables(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Query("schema") schema: string | undefined, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.POSTGRES);
+    try { return await listPostgresTables(validatePostgresCredential(credential), schema ?? ""); }
+    catch { throw new BadRequestException({ code: "POSTGRES_TABLES_UNAVAILABLE", message: "Tables could not be loaded. Check permissions or enter a table manually." }); }
+  }
 
   @Get("mongodb/databases")
   async mongoDatabases(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Req() request: AuthenticatedRequest) {

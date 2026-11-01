@@ -23,6 +23,8 @@ test("live readiness derives credential requirements from executable node types"
       { id: "email", type: "action.email", position: { x: 2, y: 1 }, config: { credentialId: "smtp-credential" } },
       { id: "gemini", type: "action.gemini", position: { x: 2, y: 2 }, config: { credentialId: "gemini-credential" } },
       { id: "openai", type: "action.openai", position: { x: 2, y: 3 }, config: { credentialId: "openai-credential" } },
+      { id: "notion", type: "action.notion.search-pages", position: { x: 2, y: 4 }, config: { credentialId: "notion-credential" } },
+      { id: "postgres", type: "action.postgres.select", position: { x: 2, y: 5 }, config: { credentialId: "postgres-credential" } },
       { id: "approval", type: "approval.request", position: { x: 3, y: 0 }, config: { notificationProvider: "http_webhook", notificationCredentialId: "approval-webhook" } },
     ],
     edges: [],
@@ -44,6 +46,8 @@ test("live readiness derives credential requirements from executable node types"
     { nodeId: "email", provider: CredentialProvider.SMTP, credentialId: "smtp-credential" },
     { nodeId: "gemini", provider: CredentialProvider.GEMINI, credentialId: "gemini-credential" },
     { nodeId: "openai", provider: CredentialProvider.OPENAI, credentialId: "openai-credential" },
+    { nodeId: "notion", provider: CredentialProvider.NOTION, credentialId: "notion-credential" },
+    { nodeId: "postgres", provider: CredentialProvider.POSTGRES, credentialId: "postgres-credential" },
     { nodeId: "approval", provider: CredentialProvider.HTTP, credentialId: "approval-webhook" },
   ]);
 });
