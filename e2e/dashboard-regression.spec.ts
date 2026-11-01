@@ -383,7 +383,7 @@ test("execution history has a dedicated page and opens immutable execution detai
 
 test("execution center loads stable cursor pages without losing existing runs", async ({ page }) => {
   const email = `regression-execution-pages-${Date.now()}@example.test`;
-  let pageRequest = 0;
+  const requestedCursors: Array<string | null> = [];
   const execution = (id: string, workflowName: string, createdAt: string) => ({
     id,
     workflowId: "workflow-1",
@@ -397,10 +397,12 @@ test("execution center loads stable cursor pages without losing existing runs", 
     error: null,
   });
   await page.route("**/workspaces/*/executions?*", async (route) => {
-    pageRequest++;
+    const cursor = new URL(route.request().url()).searchParams.get("cursor");
+    requestedCursors.push(cursor);
+    expect(cursor === null || cursor === "execution-new").toBe(true);
     await route.fulfill({
       contentType: "application/json",
-      body: JSON.stringify(pageRequest === 1
+      body: JSON.stringify(cursor === null
         ? { executions: [execution("execution-new", "Newest report", "2026-10-25T10:31:00.000Z")], nextCursor: "execution-new" }
         : { executions: [execution("execution-old", "Older report", "2026-10-25T10:30:00.000Z")], nextCursor: null }),
     });
@@ -413,6 +415,7 @@ test("execution center loads stable cursor pages without losing existing runs", 
   await expect(page.getByText("Older report", { exact: true })).toBeVisible();
   await expect(page.getByText("Newest report", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Load more runs" })).toHaveCount(0);
+  expect(requestedCursors).toContain("execution-new");
 });
 
 test("workflow dashboard can search, filter, sort, and clear workflow controls", async ({ page }) => {
