@@ -100,6 +100,7 @@ function providerLabel(provider: CredentialProvider) {
     SENTRY: "Sentry",
     VERCEL: "Vercel",
     SUPABASE: "Supabase",
+    REDDIT: "Reddit",
     POSTGRES: "PostgreSQL",
     GOOGLE_CHAT_OAUTH: "Google Chat OAuth",
     GMAIL: "Gmail",

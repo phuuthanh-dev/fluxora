@@ -123,6 +123,7 @@ export const appCatalog: AppDefinition[] = [
   { id: "vercel", label: "Vercel", description: "Inspect project deployments.", icon: "vercel", category: "developer-devops", aliases: ["deployment", "hosting", "projects"] },
   { id: "supabase", label: "Supabase", description: "Read rows from a Supabase project.", icon: "supabase", category: "data", aliases: ["database", "postgres", "tables"] },
   { id: "uptime-kuma", label: "Uptime Kuma", description: "Start a workflow from a monitor alert.", icon: "uptime-kuma", category: "developer-devops", aliases: ["uptime", "monitoring", "alert"] },
+  { id: "reddit", label: "Reddit", description: "Read posts from a public community.", icon: "reddit", category: "social", aliases: ["subreddit", "posts", "community"] },
   { id: "rss", label: "RSS", description: "Read items from a public RSS or Atom feed.", icon: "rss", category: "data", aliases: ["feed", "atom", "news"] },
   { id: "postgres", label: "PostgreSQL", description: "Read rows from a PostgreSQL database.", icon: "postgres", category: "data", aliases: ["sql", "database"] },
   { id: "github", label: "GitHub", description: "Automate repositories, issues, and pull requests.", icon: "github", category: "developer-devops", aliases: ["git", "pull request", "issues"] },
@@ -737,6 +738,17 @@ export const nodeCatalog: NodeDefinition[] = [
       { kind: "resource", key: "team", label: "Account or team", resource: "vercel-team", credentialKey: "credentialId", placeholder: "Search teams" },
       { kind: "resource", key: "project", label: "Project", resource: "vercel-project", credentialKey: "credentialId", dependencyKey: "team", placeholder: "Search projects" },
       { kind: "number", key: "limit", label: "Maximum deployments (1–100)", fallbackValue: 20 },
+    ],
+  },
+  {
+    type: "action.reddit.list-posts", label: "Reddit posts", description: "Read recent or popular posts from a public community.",
+    category: "action", libraryGroup: "developer-data", appId: "reddit", operationId: "list-posts", operationLabel: "List posts", operationKind: "search", icon: "reddit", available: true,
+    defaultConfig: { credentialId: "", subreddit: "", sort: "new", limit: 20 },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Reddit connection", providers: ["REDDIT"] },
+      { kind: "text", key: "subreddit", label: "Public community (e.g. technology)" },
+      { kind: "select", key: "sort", label: "Sort posts", options: [{ value: "new", label: "Newest" }, { value: "hot", label: "Popular" }] },
+      { kind: "number", key: "limit", label: "Maximum posts (1–100)", fallbackValue: 20 },
     ],
   },
   {

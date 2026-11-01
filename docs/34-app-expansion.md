@@ -22,7 +22,7 @@ need appropriate authentication and delivery reconciliation.
 | RSS | Read a bounded RSS/Atom feed; consider trigger separately | Public feed only; bounded response, rejects DTDs, and limits XML nesting. Never put a secret in a URL. | Executable locally; targeted checks passed, browser/full verification and real-provider qualification pending |
 | Trello | Create card; select board and list | Owner's API key and token; first 100 accessible open boards/lists, manual ID fallback; list membership checked before write | Implemented locally; synthetic checks only; migration, browser/full verification and real-provider qualification pending |
 | Sentry | List issues for a project | User token with organization/issue read scopes and Global/US/DE region; first page picker with manual slug fallback | Implemented locally; synthetic checks only; migration, browser/full verification and real-provider qualification pending |
-| Reddit | Read/search posts | OAuth and Reddit API eligibility/terms; avoid assuming unrestricted access | Planned |
+| Reddit | List recent or popular posts in a public community | Owner-provided approved app ID/secret and username; app-only OAuth; Reddit eligibility and terms apply | Implemented locally; synthetic checks only; migration, browser/full verification and real-provider qualification pending |
 | Uptime Kuma | Receive monitor alerts via dedicated webhook trigger | Requires `x-workflow-secret` in Uptime Kuma webhook additional headers; normalized payload, no internal management API | Implemented locally; synthetic checks only; browser/full verification and real-provider qualification pending |
 | Vercel | List deployments for a selected project | Owner token; personal/team and project picker; first page with manual ID fallback | Implemented locally; synthetic checks only; migration, browser/full verification and real-provider qualification pending |
 | Supabase | Read rows through the Data API | User's project reference and API key; secret key bypasses RLS; schema discovery can be denied | Implemented locally; synthetic checks only; migration, browser/full verification and real-provider qualification pending |
@@ -66,10 +66,17 @@ and does not prevent replay; Kuma does not provide a delivery ID in this path.
 Custom payloads, automatic registration, monitor administration and live
 qualification are not implemented. Reference: [Uptime Kuma 2.5 webhook source](https://github.com/louislam/uptime-kuma/blob/2.5.X/server/notification-providers/webhook.js).
 
+Reddit List Posts uses app-only OAuth, with an in-memory token and a descriptive
+User-Agent. It reads bounded public post metadata, which can be retained in
+execution history. User-based OAuth, private communities, publishing, triggers
+and automatic content removal are not implemented. Reddit API approval, data
+retention/deletion obligations and provider terms require review before release.
+
 ## Primary references
 
 - [Trello authorization](https://developer.atlassian.com/cloud/trello/guides/rest-api/authorization/)
 - [Sentry authentication](https://docs.sentry.io/api/auth/) and [organization issues](https://docs.sentry.io/api/events/list-an-organizations-issues/)
+- [Reddit OAuth application flow](https://github.com/reddit-archive/reddit/wiki/OAuth2) and [Reddit listing API](https://www.reddit.com/dev/api/)
 - [Reddit Data API terms](https://redditinc.com/policies/data-api-terms)
 - [Uptime Kuma internal API warning](https://github.com/louislam/uptime-kuma/wiki/Internal-API)
 - [Vercel REST API](https://vercel.com/docs/rest-api) and [webhooks](https://vercel.com/docs/webhooks)

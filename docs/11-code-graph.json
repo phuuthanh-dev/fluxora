@@ -547,6 +547,7 @@
         "apps/api/src/execution/outbound-url-policy.ts",
         "apps/api/src/execution/postgres-read.ts",
         "apps/api/src/execution/redaction.ts",
+        "apps/api/src/execution/reddit.ts",
         "apps/api/src/execution/retention-policy.ts",
         "apps/api/src/execution/retry-policy.ts",
         "apps/api/src/execution/rss-read.ts",
@@ -763,6 +764,19 @@
       "boundary": "api",
       "internalImports": [],
       "externalImports": []
+    },
+    {
+      "id": "apps/api/src/execution/reddit.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-json.ts"
+      ],
+      "externalImports": [
+        "@prisma/client"
+      ]
     },
     {
       "id": "apps/api/src/execution/retention-policy.ts",
@@ -2963,6 +2977,10 @@
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/reddit.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/execution/retention-policy.ts"
     },
     {
@@ -3152,6 +3170,22 @@
     {
       "from": "apps/api/src/execution/provider-json.ts",
       "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/reddit.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/reddit.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/reddit.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/reddit.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
     },
     {
       "from": "apps/api/src/execution/rss-read.ts",

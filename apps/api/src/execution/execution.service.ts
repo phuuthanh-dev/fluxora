@@ -23,6 +23,7 @@ import { executeTrelloCreateCard } from "./trello";
 import { executeSentryListIssues } from "./sentry";
 import { executeVercelListDeployments } from "./vercel";
 import { executeSupabaseSelect } from "./supabase";
+import { executeRedditListPosts } from "./reddit";
 import { executePostgresSelect } from "./postgres-read";
 import { executeGmailRead } from "./gmail-read";
 import { executeGoogleCalendar, executeGoogleCalendarAvailability, executeGoogleCalendarCreate, executeGoogleCalendarEvent } from "./google-calendar";
@@ -682,6 +683,7 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
   if (node.type === "action.sentry.list-issues") return executeSentryListIssues(config, mode, workspaceId, credentials);
   if (node.type === "action.vercel.list-deployments") return executeVercelListDeployments(config, mode, workspaceId, credentials);
   if (node.type === "action.supabase.select") return executeSupabaseSelect(config, mode, workspaceId, credentials);
+  if (node.type === "action.reddit.list-posts") return executeRedditListPosts(config, mode, workspaceId, credentials);
   if (node.type === "action.postgres.select") {
     return executePostgresSelect(config, mode, workspaceId, credentials);
   }

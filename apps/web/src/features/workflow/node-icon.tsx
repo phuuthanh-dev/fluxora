@@ -32,6 +32,7 @@ import {
   SiVercel,
   SiSupabase,
   SiUptimekuma,
+  SiReddit,
 } from "react-icons/si";
 import { BsOpenai } from "react-icons/bs";
 
@@ -63,6 +64,7 @@ export type NodeIconName =
   | "vercel"
   | "supabase"
   | "uptime-kuma"
+  | "reddit"
   | "postgres"
   | "github"
   | "facebook"
@@ -99,6 +101,7 @@ export function NodeIcon({ name, size = 18, className = "" }: { name: NodeIconNa
       case "sentry": return <SiSentry {...props} />;
       case "vercel": return <SiVercel {...props} />;
       case "supabase": return <SiSupabase {...props} />;
+      case "reddit": return <SiReddit {...props} />;
       case "uptime-kuma": return <SiUptimekuma {...props} />;
       case "postgres": return <SiPostgresql {...props} />;
       case "github": return <SiGithub {...props} />;
