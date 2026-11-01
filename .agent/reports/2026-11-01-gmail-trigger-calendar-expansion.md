@@ -65,3 +65,24 @@
   messages, so the poll was not performed. Both test emails were left in the
   mailbox. The trigger workflow was deactivated and the global local scheduler
   stayed disabled.
+
+## Follow-up: real Gmail history and draft handling
+
+- After the owner authorized one additional message, a normal poll initially
+  stopped with `GMAIL_MESSAGE_MISSING`. Gmail history showed that this record
+  was a draft created while composing the self-addressed test email; Gmail had
+  removed that draft after sending. The initial execution displayed by the
+  probe was from an earlier run and was not evidence of a successful new poll.
+- Gmail history parsing now excludes additions whose event metadata has the
+  `DRAFT` label, while retaining sent/received additions and the explicit
+  missing-message error for other messages. Targeted unit tests cover a draft
+  that later appears as a non-draft message.
+- For the test workflow only, the local checkpoint's error state was cleared
+  without changing its saved history position; then it was reactivated. A
+  targeted invocation of the unchanged scheduler poll used real Gmail data,
+  created one new successful execution, matched the test subject and left the
+  checkpoint `READY`. The workflow was deactivated afterwards; the global local
+  scheduler remained off. The full `npm run verify` gate passed in an isolated
+  copy with 313 API, 30 web and 137 browser tests; only test ports differed from
+  the checked-in configuration. No production deployment or public OAuth
+  approval is implied.

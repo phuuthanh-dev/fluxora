@@ -370,6 +370,8 @@ preserves the cursor and receipts for the same node and credential; changing or
 removing the trigger requires explicit acknowledgement of a possible gap.
 Polling intervals are selectable (one, five, 15 or 60 minutes), with 10, 25 or
 50 messages per check; a backlog continues on later checks. Sender, subject and
-label filters are evaluated using the message state when polled. Delivery receipts
-currently have no automatic retention cleanup. Polling is not instant; Pub/Sub
+label filters are evaluated using the message state when polled. History additions
+marked `DRAFT` are skipped before fetching message content: Gmail can remove a
+draft when it is sent. A missing non-draft message still requires review. Delivery
+receipts currently have no automatic retention cleanup. Polling is not instant; Pub/Sub
 push and real-mailbox qualification remain separate work.
