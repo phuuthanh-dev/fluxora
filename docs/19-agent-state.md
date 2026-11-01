@@ -9,9 +9,11 @@ complete in the delivery ledger.
 - `APP-EXPANSION-1` on local `codex/connector-catalog-expansion` adds one scoped
   operation each for RSS, Trello, Sentry, Reddit, Uptime Kuma, Vercel and
   Supabase. Grouped app discovery and connection-provider search are implemented;
-  focused checks and proof boundaries are in `.agent/reports/2026-11-01-app-expansion-progress.md`
-  and `docs/34-app-expansion.md`. Full verification, real-provider qualification,
-  production migrations and release are pending; do not describe these as shipped.
+  `npm run verify` passed against disposable services (143 Playwright passed;
+  340 API tests passed and 1 skipped). Proof boundaries are in
+  `.agent/reports/2026-11-01-app-expansion-progress.md` and `docs/34-app-expansion.md`.
+  Real-provider qualification, production migrations and release are pending;
+  do not describe these as shipped.
 
 - PR #56 (`develop` → `main`) merged at `bd2519d`; it includes Notion search
   and PostgreSQL select. Notion search was qualified once locally; broader

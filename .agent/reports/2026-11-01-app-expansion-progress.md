@@ -9,8 +9,7 @@ connection-time DNS checks were added. It does not implement a trigger.
 
 Evidence so far: targeted API tests 63/63, including RSS, DNS rebinding and
 existing GitHub/notification behavior; web unit tests 31/31; API and
-web typechecks passed. Browser checks and the full `npm run verify` remain for
-the end of the goal. No real RSS feed or other provider was called.
+web typechecks passed. No real RSS feed or other provider was called.
 
 The HTTP dispatcher now validates resolved addresses on socket connection; a
 local fake-DNS rebinding test confirms it does not reach a loopback server.
@@ -34,6 +33,15 @@ passed. API approval and data-retention/deletion review remain release blockers.
 Node discovery groups apps by category and keeps search, operation counts, keyboard
 navigation, favorites and recent actions. The new-connection form groups providers
 and adds app search while preserving its current selection when filtered out.
-A browser test for the new search is included; visual and full-gate verification
-remain pending. Broader product-wide redesign is outside this connector slice.
+A browser test for the new search covers both themes and preserved selection.
+Broader product-wide redesign is outside this connector slice.
 No changes were pushed, merged or deployed.
+
+Verification completed on the local branch using disposable PostgreSQL and Redis:
+all 30 migrations applied there, `npm run verify` passed, API tests 340 passed
+and 1 Gmail integration test was skipped by its opt-in flag, web unit tests
+31 passed, and Playwright 143 passed. An earlier full run had one signup timeout
+and one ambiguous Vercel test locator; the two passed individually after the
+locator fix and the complete gate subsequently passed. These checks do not
+prove provider access or production operation. Production migrations, data
+backup/rollback readiness, provider approval and live qualification remain open.
