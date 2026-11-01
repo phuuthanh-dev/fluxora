@@ -108,6 +108,23 @@ Execution detail is owner-scoped and derived from the immutable workflow version
 
 ## Connector architecture
 
+### Gmail read slice — in progress
+
+Gmail uses a separate owner-scoped, encrypted `GMAIL` connection; its OAuth
+consent requests `gmail.readonly` and does not replace Drive or Chat. That scope
+is restricted and production access depends on Google review. The local Read
+messages action exposes Inbox/Unread/All and optional Gmail query, returns at
+most ten message headers, snippets and bounded plain-text bodies, and does not
+load attachments. Results can be stored in execution history; explain this in
+the connection UI. Mock runs never access credentials or mailboxes.
+
+The new-message trigger is not implemented or exposed. It requires a durable
+per-version mailbox checkpoint, concurrency-safe leasing, idempotent
+enqueue/recovery, initial activation semantics, handling expired Gmail history
+and lossless pagination before it can be advertised as reliable. A recurring
+schedule plus Read messages is not a new-message trigger and must not be
+described as one. No Gmail cloud scopes have been configured by this slice.
+
 ### Work in progress: Notion and PostgreSQL — 2026-11-01
 
 The owner requested both connectors. On the local development branch, a Notion

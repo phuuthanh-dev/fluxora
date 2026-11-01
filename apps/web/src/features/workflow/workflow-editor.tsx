@@ -98,6 +98,7 @@ function providerLabel(provider: CredentialProvider) {
     NOTION: "Notion",
     POSTGRES: "PostgreSQL",
     GOOGLE_CHAT_OAUTH: "Google Chat OAuth",
+    GMAIL: "Gmail",
     HTTP: "HTTP",
   };
   return labels[provider];

@@ -39,6 +39,7 @@ enum CredentialProvider {
   MONGODB
   NOTION
   POSTGRES
+  GMAIL
   GOOGLE_CHAT_OAUTH
 }
 

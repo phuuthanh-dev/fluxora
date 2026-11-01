@@ -11,7 +11,7 @@ import "./credentials.css";
 import { CredentialSecretFields } from "./credential-secret-fields";
 import { NodeIcon, type NodeIconName } from "../workflow/node-icon";
 
-const providerIcons: Record<CredentialProvider, NodeIconName> = { GOOGLE: "google", STEAM: "steam", GOOGLE_CHAT_WEBHOOK: "google-chat", GOOGLE_CHAT_OAUTH: "google-chat", MONGODB: "mongodb", NOTION: "notion", POSTGRES: "postgres", HTTP: "http", DISCORD_WEBHOOK: "discord", TELEGRAM_BOT: "telegram", GITHUB: "github", SMTP: "email", GEMINI: "gemini", OPENAI: "openai" };
+const providerIcons: Record<CredentialProvider, NodeIconName> = { GOOGLE: "google", STEAM: "steam", GOOGLE_CHAT_WEBHOOK: "google-chat", GOOGLE_CHAT_OAUTH: "google-chat", GMAIL: "gmail", MONGODB: "mongodb", NOTION: "notion", POSTGRES: "postgres", HTTP: "http", DISCORD_WEBHOOK: "discord", TELEGRAM_BOT: "telegram", GITHUB: "github", SMTP: "email", GEMINI: "gemini", OPENAI: "openai" };
 
 type CredentialPreset = {
   label: string;
@@ -20,6 +20,7 @@ type CredentialPreset = {
 };
 
 const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
+  GMAIL: { label: "Gmail manual token", data: '{\n  "accessToken": ""\n}', hint: "Connect Gmail separately from Google sign-in and Drive. Reading requires Gmail access." },
   NOTION: { label: "Notion", data: '{\n  "token": ""\n}', hint: "Use your Notion integration token and share the pages with the integration." },
   POSTGRES: { label: "PostgreSQL", data: '{\n  "host": "",\n  "port": 5432,\n  "database": "",\n  "username": "",\n  "password": ""\n}', hint: "Connect to a public PostgreSQL host using a trusted TLS certificate. Private networks are not currently supported." },
   MONGODB: { label: "MongoDB", data: '{\n  "host": "",\n  "port": 27017,\n  "username": "",\n  "password": "",\n  "authDatabase": "admin"\n}', hint: "Connect to a public TLS-enabled MongoDB server or SRV cluster using fields or a connection string." },
@@ -101,6 +102,7 @@ function credentialProviderLabel(provider: CredentialProvider) {
     NOTION: "Notion",
     POSTGRES: "PostgreSQL",
     GOOGLE_CHAT_OAUTH: "Google Chat OAuth",
+    GMAIL: "Gmail",
   };
 
   return labels[provider];
@@ -207,6 +209,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
       NOTION: "Notion",
       POSTGRES: "PostgreSQL",
       GOOGLE_CHAT_OAUTH: "Google Chat OAuth",
+      GMAIL: "Gmail",
     };
     setNotice(`${providerLabels[nextProvider] ?? nextProvider} credential template loaded.`);
   };
@@ -410,6 +413,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
             <option value="NOTION">Notion</option>
             <option value="POSTGRES">PostgreSQL</option>
             <option value="GOOGLE_CHAT_OAUTH">Google Chat OAuth</option>
+            <option value="GMAIL">Gmail</option>
             <option value="HTTP">HTTP</option>
           </Select>
         </Field>
@@ -425,6 +429,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
           </div>
         ) : null}
         {provider === "GOOGLE_CHAT_OAUTH" ? <div className="credential-form__oauth-helper"><span>Google Chat asks to list your spaces and send messages on your behalf. This connection is separate from Drive and Sheets.</span><button type="button" className="credential-form__oauth-link" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google-chat/connect`)}>Connect Google Chat <ArrowUpRight size={13} aria-hidden="true" /></button></div> : null}
+        {provider === "GMAIL" ? <div className="credential-form__oauth-helper"><span>Gmail requests read-only access to your mailbox. Message contents may appear in workflow execution history. This connection is separate from Google sign-in and Drive.</span><button type="button" className="credential-form__oauth-link" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/gmail/connect`)}>Connect Gmail <ArrowUpRight size={13} aria-hidden="true" /></button></div> : null}
         <p className="credential-form__hint" aria-live="polite">{credentialPresets[provider].hint}</p>
         <CredentialSecretFields provider={provider} value={data} onChange={(value) => { setData(value); setJsonError(null); setCreateError(null); }} />
         {jsonError && <p className="credential-form__error" role="alert">{jsonError}</p>}
@@ -468,7 +473,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
                     variant="ghost"
                     type="button"
                     className="ghost-button credential-panel__oauth"
-                    onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/${credential.provider === "GOOGLE_CHAT_OAUTH" ? "google-chat" : "google"}/connect`); }}
+                    onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/${credential.provider === "GOOGLE_CHAT_OAUTH" ? "google-chat" : credential.provider === "GMAIL" ? "gmail" : "google"}/connect`); }}
                   >
                     Reconnect Google
                   </Button>
