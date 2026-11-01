@@ -329,9 +329,9 @@ test("node library and editor menus support keyboard-only navigation", async ({ 
   await expect(coreFilter).toHaveAttribute("aria-pressed", "true");
   await allFilter.click();
 
-  const googleChatApp = page.getByRole("button", { name: /Open Google Chat/ });
-  await googleChatApp.focus();
-  await page.keyboard.press("ArrowDown");
+  const emailApp = page.getByRole("button", { name: /Open Email/ });
+  await emailApp.focus();
+  await page.keyboard.press("ArrowUp");
   const discordApp = page.getByRole("button", { name: /Open Discord/ });
   await expect(discordApp).toBeFocused();
   await page.keyboard.press("Enter");
