@@ -1967,9 +1967,18 @@
       "externalImports": []
     },
     {
+      "id": "apps/web/src/features/workflow/inspector-drafts.ts",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/workflow/mongodb-filter.ts"
+      ],
+      "externalImports": []
+    },
+    {
       "id": "apps/web/src/features/workflow/mongodb-filter-field.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/features/workflow/inspector-drafts.ts",
         "apps/web/src/features/workflow/mongodb-filter.ts"
       ],
       "externalImports": [
@@ -2073,7 +2082,9 @@
         "apps/web/src/features/workflow/execution-observability.tsx",
         "apps/web/src/features/workflow/expression-suggestions.ts",
         "apps/web/src/features/workflow/graph-validation.ts",
+        "apps/web/src/features/workflow/inspector-drafts.ts",
         "apps/web/src/features/workflow/mongodb-filter-field.tsx",
+        "apps/web/src/features/workflow/mongodb-filter.ts",
         "apps/web/src/features/workflow/node-catalog.ts",
         "apps/web/src/features/workflow/node-icon.tsx",
         "apps/web/src/features/workflow/node-library.tsx",
@@ -3714,6 +3725,14 @@
       "to": "apps/web/src/features/workflow/node-catalog.ts"
     },
     {
+      "from": "apps/web/src/features/workflow/inspector-drafts.ts",
+      "to": "apps/web/src/features/workflow/mongodb-filter.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/mongodb-filter-field.tsx",
+      "to": "apps/web/src/features/workflow/inspector-drafts.ts"
+    },
+    {
       "from": "apps/web/src/features/workflow/mongodb-filter-field.tsx",
       "to": "apps/web/src/features/workflow/mongodb-filter.ts"
     },
@@ -3795,7 +3814,15 @@
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/inspector-drafts.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
       "to": "apps/web/src/features/workflow/mongodb-filter-field.tsx"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/mongodb-filter.ts"
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",

@@ -24,26 +24,17 @@ complete in the delivery ledger.
   Vietnam time. The prior isolated restore was on 2026-10-28; no recent off-host
   copy or restore evidence is available. Do not infer the cause of the reported
   missing workflows or credentials from health checks alone.
-- `EDITOR-QUALIFICATION-1` follow-up adds missing-refresh recovery UX and
-  clarifies the already-approved broad scopes; see its task/report. It is on
-  `develop` in open PR #53, whose quality gate passed. It is not on `main` or
-  deployed as of this snapshot.
-- Workflow archive recovery is complete locally on top of PR #53: owners can
-  list and restore archived workflows without reactivating them. Its isolated
-  local gate passed (243 API, 25 web and 128 E2E tests); it is not deployed.
-  See `.agent/reports/2026-11-01-workflow-archive-recovery.md`.
-- Workspace activity overview is complete locally: an owner-scoped 24-hour
-  snapshot counts retained test and live executions by current status. Its
-  isolated gate passed (245 API, 25 web and 129 E2E); it is not deployed.
-  See `.agent/reports/2026-11-01-workspace-activity-overview.md`.
-- MongoDB Find/Insert and Google Chat OAuth are implemented locally. One real
-  Chat message and MongoDB SRV list/Find passed with owner authorization.
-  MongoDB SRV uses guarded direct seed selection, not full replica-set failover;
-  real insert, private hosts, update/delete and deployment remain open. See
-  `.agent/reports/2026-11-01-mongodb-srv.md` and the original connector report.
-- MongoDB connection setup and simple Find filters have guided controls; complex
-  queries remain editable as JSON. See
-  `.agent/reports/2026-11-01-mongodb-guided-config.md`.
+- PR #53 and PR #54 were merged. PR #54 merge `354bd4d` passed main quality
+  run `41279760082` and production deploy `41280351220`. This release includes
+  archive recovery, workspace activity, MongoDB Find/Insert, Google Chat OAuth
+  and guided MongoDB connection/filter controls.
+- With owner approval, one tagged draft document was inserted and read back in
+  an owner-designated MongoDB collection; the test workflow was deactivated. The document was
+  left in place. This qualifies one operation, not replica failover, private
+  hosts, sustained behavior or update/delete. See `docs/20-connector-audit.md`.
+- Shared inspector pending-edit safety is in progress on local branch
+  `codex/guided-filter-safety`, not yet released. Track its final verification
+  in `.agent/tasks/2026-11-01-inspector-pending-edits.md`.
 
 The older snapshots below describe their dates and must not be read as current.
 

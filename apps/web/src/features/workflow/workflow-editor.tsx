@@ -60,6 +60,8 @@ import { AppShellHeader } from "../app-shell/app-shell-header";
 import { ExecutionDetailsPanel, type ApiExecution } from "./execution-observability";
 import { ResourcePicker } from "./resource-picker";
 import { MongoFilterField } from "./mongodb-filter-field";
+import type { InspectorDraft, InspectorDraftKind, StagedText, UpdateInspectorDraft } from "./inspector-drafts";
+import type { MongoFilterRow } from "./mongodb-filter";
 
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNode };
 
@@ -222,13 +224,15 @@ function TableField({ label, value, onChange }: { label: string; value: unknown;
   );
 }
 
-function NodeConfigurationFields({ fields, config, credentials, workspaceId, allowExpressions, onChange }: {
+function NodeConfigurationFields({ fields, config, credentials, workspaceId, allowExpressions, onChange, draft, onDraftChange }: {
   fields: NodeConfigurationField[];
   config: Record<string, unknown>;
   credentials: CredentialSummary[];
   workspaceId: string;
   allowExpressions: boolean;
   onChange: (key: string, value: unknown) => void;
+  draft: InspectorDraft;
+  onDraftChange: UpdateInspectorDraft;
 }) {
   return <>
     {fields.map((field) => {
@@ -254,7 +258,7 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, all
       if (field.kind === "table") {
         return <TableField key={field.key} label={field.label} value={config[field.key]} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       }
-      if (field.kind === "mongo-filter") return <MongoFilterField key={field.key} value={value} onChange={(nextValue) => onChange(field.key, nextValue)} />;
+      if (field.kind === "mongo-filter") return <MongoFilterField key={field.key} value={value} draft={draft.filter} onDraftChange={(next) => onDraftChange("filter", next)} rawDraft={draft.filterRaw} onRawDraftChange={(next) => onDraftChange("filterRaw", next)} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       return <ConfigField
         key={field.key}
         label={field.label}
@@ -325,41 +329,45 @@ function ResultView({ value }: { value: unknown }) {
   );
 }
 
-function JsonConfigEditor({ config, onApply }: { config: Record<string, unknown>; onApply: (config: Record<string, unknown>) => void }) {
-  const [text, setText] = useState(() => JSON.stringify(config, null, 2));
+function JsonConfigEditor({ config, onApply, draft, onDraftChange, otherPending }: { config: Record<string, unknown>; onApply: (config: Record<string, unknown>) => void; draft?: StagedText; onDraftChange: (draft: StagedText | undefined) => void; otherPending: boolean }) {
+  const baseline = JSON.stringify(config, null, 2);
+  const text = draft?.text ?? baseline;
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => { setText(JSON.stringify(config, null, 2)); }, [config]);
 
   const apply = () => {
     try {
+      if (otherPending) throw new Error("Apply or discard the other pending edits for this node first.");
+      if (draft && draft.baseline !== baseline) throw new Error("Configuration changed elsewhere. Discard this edit and try again to avoid overwriting it.");
       const parsed: unknown = JSON.parse(text);
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Configuration must be a JSON object.");
       onApply(parsed as Record<string, unknown>);
+      onDraftChange(undefined);
       setError(null);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Configuration is not valid JSON.");
     }
   };
 
-  return <section className="json-config-editor"><div className="section-label">JSON CONFIGURATION</div><textarea value={text} onChange={(event) => setText(event.target.value)} rows={7} aria-label="Node JSON configuration" /><button className="ghost-button" type="button" onClick={apply}>Apply JSON</button>{error && <p role="alert">{error}</p>}</section>;
+  return <section className="json-config-editor"><div className="section-label">JSON CONFIGURATION</div><textarea value={text} onChange={(event) => onDraftChange(event.target.value === baseline ? undefined : { text: event.target.value, baseline: draft?.baseline ?? baseline })} rows={7} aria-label="Node JSON configuration" /><button className="ghost-button" type="button" onClick={apply}>Apply JSON</button>{draft && <button className="ghost-button" type="button" onClick={() => { onDraftChange(undefined); setError(null); }}>Discard JSON changes</button>}{error && <p role="alert">{error}</p>}</section>;
 }
 
-function TestDataEditor({ value, onApply }: { value: unknown; onApply: (value: Record<string, unknown>) => void }) {
-  const [text, setText] = useState(() => JSON.stringify(value ?? {}, null, 2));
+function TestDataEditor({ value, onApply, draft, onDraftChange }: { value: unknown; onApply: (value: Record<string, unknown>) => void; draft?: StagedText; onDraftChange: (draft: StagedText | undefined) => void }) {
+  const baseline = JSON.stringify(value ?? {}, null, 2);
+  const text = draft?.text ?? baseline;
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => { setText(JSON.stringify(value ?? {}, null, 2)); }, [value]);
   const apply = () => {
     try {
+      if (draft && draft.baseline !== baseline) throw new Error("Test data changed elsewhere. Discard this edit and try again.");
       const parsed: unknown = JSON.parse(text);
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Test data must be a JSON object.");
       onApply(parsed as Record<string, unknown>);
+      onDraftChange(undefined);
       setError(null);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Test data is not valid JSON.");
     }
   };
-  return <section className="json-config-editor"><div className="section-label">TEST DATA FOR MOCK RUN</div><textarea value={text} onChange={(event) => setText(event.target.value)} rows={6} aria-label="Manual trigger test data" /><button className="ghost-button" type="button" onClick={apply}>Apply test data</button>{error && <p role="alert">{error}</p>}</section>;
+  return <section className="json-config-editor"><div className="section-label">TEST DATA FOR MOCK RUN</div><textarea value={text} onChange={(event) => onDraftChange(event.target.value === baseline ? undefined : { text: event.target.value, baseline: draft?.baseline ?? baseline })} rows={6} aria-label="Manual trigger test data" /><button className="ghost-button" type="button" onClick={apply}>Apply test data</button>{draft && <button className="ghost-button" type="button" onClick={() => { onDraftChange(undefined); setError(null); }}>Discard test data changes</button>}{error && <p role="alert">{error}</p>}</section>;
 }
 
 function ExpressionSuggestions({ suggestions }: { suggestions: string[] }) {
@@ -643,7 +651,7 @@ function WorkflowLibraryPanel({ initialWorkspaces, activeWorkflowId, activeWorks
   return <Dialog label="Workflow library" className="workflow-library" modal={false} onClose={onClose}><div className="credential-panel__heading"><div><p className="section-label">WORKSPACE LIBRARY</p><h2>Workflows</h2></div><button className="icon-button" type="button" aria-label="Close workflow library" onClick={onClose}>×</button></div><label className="workflow-library__field"><span>Workspace</span><select value={workspaceId} onChange={(event) => switchWorkspace(event.target.value)}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</select></label><div className="workflow-library__create"><input value={newWorkspaceName} onChange={(event) => setNewWorkspaceName(event.target.value)} placeholder="New workspace name" /><button className="ghost-button" type="button" onClick={() => void createWorkspace()} disabled={isSaving || !newWorkspaceName.trim()}>Create workspace</button></div><div className="workflow-library__list">{workflows.map((candidate) => <button key={candidate.id} className={candidate.id === activeWorkflowId ? "workflow-library__item workflow-library__item--active" : "workflow-library__item"} type="button" onClick={() => onOpen(candidate)}><strong>{candidate.name}</strong><span>{candidate.published ? `Published v${candidate.published.version}` : "Draft only"}</span></button>)}</div><div className="workflow-library__new"><p className="section-label">CREATE WORKFLOW</p><input value={newWorkflowName} onChange={(event) => setNewWorkflowName(event.target.value)} aria-label="New workflow name" /><div><button className="run-button" type="button" onClick={() => void createWorkflow()} disabled={isSaving || !workspaceId || !newWorkflowName.trim()}>{isSaving && !lastCreateTemplate ? "Creating…" : "Start blank"}</button><button className="ghost-button" type="button" onClick={() => void createWorkflow("steam-daily-report")} disabled={isSaving || !workspaceId}>{isSaving && lastCreateTemplate ? "Creating…" : "Use Steam template"}</button></div>{createError && <p className="workflow-library__error" role="alert">{createError} <button type="button" className="ghost-button" onClick={() => void createWorkflow(lastCreateTemplate)}>Retry</button></p>}</div>{isLoadingWorkflows && <p className="workflow-library__notice" aria-live="polite">Loading workflows…</p>}{loadError && <p className="workflow-library__notice workflow-library__notice--error" role="alert">{loadError} <button type="button" className="ghost-button" onClick={() => void loadWorkflows(workspaceId)}>Retry</button></p>}{!isLoadingWorkflows && !loadError && <p className="workflow-library__notice">{notice}</p>}</Dialog>;
 }
 
-function NodeInspector({ node, execution, credentials, workspaceId, onResolveApproval, onDebugNode, onOpenWebhook, webhookContext, isDebugging, isDrawerOpen, onCloseDrawer }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null; credentials: CredentialSummary[]; workspaceId: string; onResolveApproval: (approvalId: string, decision: "approved" | "rejected") => void; onDebugNode: (node: WorkflowCanvasNode) => void; onOpenWebhook: () => void; webhookContext: "published" | "different" | "draft" | "other-draft"; isDebugging: boolean; isDrawerOpen: boolean; onCloseDrawer: () => void }) {
+function NodeInspector({ node, execution, credentials, workspaceId, onResolveApproval, onDebugNode, onOpenWebhook, webhookContext, isDebugging, isDrawerOpen, onCloseDrawer, draft, onDraftChange, hasPending }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null; credentials: CredentialSummary[]; workspaceId: string; onResolveApproval: (approvalId: string, decision: "approved" | "rejected") => void; onDebugNode: (node: WorkflowCanvasNode) => void; onOpenWebhook: () => void; webhookContext: "published" | "different" | "draft" | "other-draft"; isDebugging: boolean; isDrawerOpen: boolean; onCloseDrawer: () => void; draft: InspectorDraft; onDraftChange: UpdateInspectorDraft; hasPending: boolean }) {
   const updateNodeData = useWorkflowEditorStore((state) => state.updateNodeData);
   const inspectorRef = useDialogFocus<HTMLElement>({ active: isDrawerOpen, trapFocus: true, onClose: onCloseDrawer, restoreFocus: false });
 
@@ -688,8 +696,8 @@ function NodeInspector({ node, execution, credentials, workspaceId, onResolveApp
         />
       </InspectorSection>
       <InspectorSection title="Configuration">
-      {definition?.configurationFields && <NodeConfigurationFields key={node.id} fields={definition.configurationFields} config={node.data.config} credentials={credentials} workspaceId={workspaceId} allowExpressions={!node.data.nodeType.startsWith("trigger.")} onChange={updateConfig} />}
-      {node.data.nodeType === "trigger.manual" && <TestDataEditor value={node.data.config.testData} onApply={(testData) => updateConfig("testData", testData)} />}
+      {definition?.configurationFields && <NodeConfigurationFields key={node.id} fields={definition.configurationFields} config={node.data.config} credentials={credentials} workspaceId={workspaceId} allowExpressions={!node.data.nodeType.startsWith("trigger.")} onChange={updateConfig} draft={draft} onDraftChange={onDraftChange} />}
+      {node.data.nodeType === "trigger.manual" && <TestDataEditor key={node.id} value={node.data.config.testData} onApply={(testData) => updateConfig("testData", testData)} draft={draft.testData} onDraftChange={(next) => onDraftChange("testData", next)} />}
       {node.data.nodeType === "trigger.cron" && (
         <>
           <ConfigField label="Cron expression" value={readConfigText(node.data.config, "expression")} onChange={(value) => updateConfig("expression", value)} />
@@ -764,7 +772,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, onResolveApp
       <InspectorSection title="Test & debug">
         <section className="node-debug-panel">
           <div><p className="section-label">NODE DEBUG</p><p>Runs only this node with mock providers. No live request or downstream node will run.</p></div>
-          <Button variant="secondary" className="node-debug-panel__button" disabled={!definition?.available || node.data.nodeType === "approval.request" || isDebugging} title={node.data.nodeType === "approval.request" ? "Approval nodes are tested in a full workflow run." : undefined} onClick={() => onDebugNode(node)}><Play size={14} />{isDebugging ? "Running node…" : "Run node"}</Button>
+          <Button variant="secondary" className="node-debug-panel__button" disabled={!definition?.available || node.data.nodeType === "approval.request" || isDebugging || hasPending} title={hasPending ? "Apply or discard pending edits first." : node.data.nodeType === "approval.request" ? "Approval nodes are tested in a full workflow run." : undefined} onClick={() => onDebugNode(node)}><Play size={14} />{isDebugging ? "Running node…" : "Run node"}</Button>
         </section>
         <section className="input-preview">
           <div className="section-label">INPUT PREVIEW</div>
@@ -772,7 +780,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, onResolveApp
         </section>
       </InspectorSection>
       <InspectorSection title="Advanced">
-        <JsonConfigEditor config={node.data.config} onApply={(config) => updateNodeData(node.id, { config })} />
+        <JsonConfigEditor key={node.id} config={node.data.config} onApply={(config) => updateNodeData(node.id, { config })} draft={draft.json} onDraftChange={(next) => onDraftChange("json", next)} otherPending={draft.filter !== undefined || draft.filterRaw !== undefined || draft.testData !== undefined} />
         <ExpressionSuggestions suggestions={suggestions} />
       </InspectorSection>
       {nodeExecution && (
@@ -807,6 +815,7 @@ export function WorkflowEditor() {
   const [minimapOpen, setMinimapOpen] = useState(true);
   const [inspectorDrawerOpen, setInspectorDrawerOpen] = useState(false);
   const [workflow, setWorkflow] = useState<ApiWorkflow | null>(null);
+  const [inspectorDrafts, setInspectorDrafts] = useState<Record<string, InspectorDraft>>({});
   const [execution, setExecution] = useState<ApiExecution | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -851,6 +860,8 @@ export function WorkflowEditor() {
   const loadGraph = useWorkflowEditorStore((state) => state.loadGraph);
   const issues = useMemo(() => validateWorkflowGraph(nodes, edges), [nodes, edges]);
   const selectedNode = nodes.find((node) => node.id === selectedNodeId);
+  const pendingNode = nodes.find((node) => Object.keys(inspectorDrafts[node.id] ?? {}).length > 0);
+  const hasPending = Boolean(pendingNode);
   const publishedNodes = workflow?.published?.graph.nodes ?? [];
   const publishedWebhook = publishedNodes.find((node) => isGitHubWebhookTrigger(node.type)) ?? publishedNodes.find((node) => node.type === "trigger.webhook");
   const draftWebhook = nodes.find((node) => isGitHubWebhookTrigger(node.data.nodeType)) ?? nodes.find((node) => node.data.nodeType === "trigger.webhook");
@@ -858,6 +869,35 @@ export function WorkflowEditor() {
   const webhookTrigger = publishedWebhook ? { type: publishedWebhook.type, config: publishedWebhook.config } : draftWebhook ? { type: draftWebhook.data.nodeType, config: draftWebhook.data.config } : null;
   const isNarrowEditorLayout = useNarrowEditorLayout();
   const isInspectorDrawerOpen = isNarrowEditorLayout && inspectorDrawerOpen;
+
+  const setInspectorDraft = (nodeId: string, kind: InspectorDraftKind, value: MongoFilterRow[] | StagedText | undefined) => {
+    setInspectorDrafts((current) => {
+      const draft = { ...current[nodeId] };
+      if (value === undefined) delete draft[kind];
+      else if (kind === "filter" && Array.isArray(value)) draft.filter = value;
+      else if (kind === "filterRaw" && !Array.isArray(value)) draft.filterRaw = value;
+      else if (kind === "json" && !Array.isArray(value)) draft.json = value;
+      else if (kind === "testData" && !Array.isArray(value)) draft.testData = value;
+      const next = { ...current };
+      if (Object.keys(draft).length) next[nodeId] = draft;
+      else delete next[nodeId];
+      return next;
+    });
+  };
+  const reviewPending = () => {
+    if (!pendingNode) return;
+    selectNode(pendingNode.id);
+    if (isNarrowEditorLayout) setInspectorDrawerOpen(true);
+    setNotice(`Apply or discard edits in ${pendingNode.data.label} before continuing.`);
+  };
+  const allowNavigation = () => { if (!hasPending) return true; reviewPending(); return false; };
+
+  useEffect(() => {
+    if (!hasPending) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [hasPending]);
 
   const closeInspectorDrawer = () => {
     setInspectorDrawerOpen(false);
@@ -992,6 +1032,7 @@ export function WorkflowEditor() {
   };
 
   const openWorkflow = (nextWorkflow: ApiWorkflow) => {
+    if (!allowNavigation()) return;
     const graph = nextWorkflow.draft?.graph ?? nextWorkflow.published?.graph;
     if (!graph) {
       setNotice("The selected workflow has no editable version.");
@@ -1080,17 +1121,17 @@ export function WorkflowEditor() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+      if (hasPending || !(event.metaKey || event.ctrlKey) || event.altKey || event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
       if (event.key.toLowerCase() === "c" && selectedNodeId) { event.preventDefault(); copyNode(selectedNodeId); }
       if (event.key.toLowerCase() === "v" && copiedNodeId) { event.preventDefault(); pasteNode(); }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [copiedNodeId, selectedNodeId]);
+  }, [copiedNodeId, selectedNodeId, hasPending]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!selectedNodeId || event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+      if (!selectedNodeId || hasPending || event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
       if (event.key === "Delete" || event.key === "Backspace") {
         event.preventDefault();
         deleteNode(selectedNodeId);
@@ -1099,7 +1140,7 @@ export function WorkflowEditor() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [deleteNode, selectedNodeId]);
+  }, [deleteNode, selectedNodeId, hasPending]);
 
   const onDragStart = (event: DragEvent<HTMLButtonElement>, definition: NodeDefinition) => {
     event.dataTransfer.setData("application/workflow-node", definition.type);
@@ -1116,6 +1157,7 @@ export function WorkflowEditor() {
   };
 
   const exportGraph = () => {
+    if (!allowNavigation()) return;
     const data = JSON.stringify(parseWorkflowCanvasGraph({ nodes, edges }), null, 2);
     const url = URL.createObjectURL(new Blob([data], { type: "application/json" }));
     const anchor = document.createElement("a");
@@ -1127,6 +1169,7 @@ export function WorkflowEditor() {
   };
 
   const importGraph = async (event: ChangeEvent<HTMLInputElement>) => {
+    if (!allowNavigation()) { event.target.value = ""; return; }
     const file = event.target.files?.[0];
     if (!file) return;
     try {
@@ -1142,6 +1185,7 @@ export function WorkflowEditor() {
 
   const saveDraft = async (operation: "saving" | "publishing" | "running" | "debugging" = "saving", keepProgress = false): Promise<boolean> => {
     if (!workflow) return false;
+    if (!allowNavigation()) return false;
     const errors = issues.filter((issue) => issue.severity === "error");
     if (errors.length) {
       setNotice("Resolve graph errors before saving this draft.");
@@ -1248,6 +1292,7 @@ export function WorkflowEditor() {
   };
 
   const openLivePanel = () => {
+    if (!allowNavigation()) return;
     if (!workflow?.published) {
       setNotice("Publish the workflow before going live.");
       return;
@@ -1353,7 +1398,7 @@ export function WorkflowEditor() {
 
   return (
     <main className="editor-page">
-      <AppShellHeader workspaces={workspaces} workspaceId={workflow?.workspaceId ?? ""} onWorkspaceChange={(nextWorkspaceId) => router.push(`/dashboard?workspace=${encodeURIComponent(nextWorkspaceId)}`)} active="editor" />
+      <AppShellHeader workspaces={workspaces} workspaceId={workflow?.workspaceId ?? ""} onWorkspaceChange={(nextWorkspaceId) => router.push(`/dashboard?workspace=${encodeURIComponent(nextWorkspaceId)}`)} onBeforeNavigate={allowNavigation} active="editor" />
       <header className="editor-header editor-toolbar">
         <div className="editor-header__title">
           <div>
@@ -1362,37 +1407,38 @@ export function WorkflowEditor() {
           </div>
         </div>
         <div className="editor-header__actions">
-          <Button variant="ghost" className="ghost-button" onClick={() => router.push(`/dashboard?workspace=${encodeURIComponent(workflow?.workspaceId ?? "")}`)}>Back to dashboard</Button>
+          <Button variant="ghost" className="ghost-button" onClick={() => { if (allowNavigation()) router.push(`/dashboard?workspace=${encodeURIComponent(workflow?.workspaceId ?? "")}`); }}>Back to dashboard</Button>
           <ActionMenu label="Edit">
-            <button type="button" onClick={undo} disabled={historyIndex === 0}><ChevronLeft size={15} /> Undo</button>
-            <button type="button" onClick={redo} disabled={historyIndex === history.length - 1}>Redo <ChevronRight size={15} /></button>
+            <button type="button" onClick={undo} disabled={hasPending || historyIndex === 0}><ChevronLeft size={15} /> Undo</button>
+            <button type="button" onClick={redo} disabled={hasPending || historyIndex === history.length - 1}>Redo <ChevronRight size={15} /></button>
             <button type="button" onClick={arrangeGraph}><LayoutDashboard size={15} /> Auto layout</button>
             <span className="action-menu__divider" />
-            <button type="button" onClick={() => copyNode()} disabled={!selectedNodeId}>Copy selected node</button>
-            <button type="button" onClick={pasteNode} disabled={!copiedNodeId}>Paste node</button>
+            <button type="button" onClick={() => copyNode()} disabled={!selectedNodeId || hasPending}>Copy selected node</button>
+            <button type="button" onClick={pasteNode} disabled={!copiedNodeId || hasPending}>Paste node</button>
           </ActionMenu>
           <ActionMenu label="Manage">
-            <button type="button" onClick={() => setLibraryOpen(true)} disabled={!workflow}>Workflows</button>
+            <button type="button" onClick={() => setLibraryOpen(true)} disabled={!workflow || hasPending}>Workflows</button>
             <button type="button" onClick={() => void openHistory()} disabled={!workflow}><History size={15} /> Version history</button>
             <button type="button" onClick={() => setCredentialsOpen(true)} disabled={!workflow}><KeyRound size={15} /> Credentials</button>
             {webhookTrigger && <button type="button" onClick={() => setWebhookOpen(true)} disabled={!workflow}>Webhook endpoint</button>}
             {workflow?.isActive && <button type="button" onClick={() => setActivationOpen(true)} disabled={isSaving}>Deactivate workflow</button>}
             <span className="action-menu__divider" />
-            <button type="button" onClick={exportGraph}><Download size={15} /> Export JSON</button>
-            <button type="button" onClick={() => inputRef.current?.click()}><Upload size={15} /> Import JSON</button>
-            <button type="button" onClick={() => void cloneWorkflow()} disabled={!workflow}>Clone workflow</button>
+            <button type="button" onClick={exportGraph} disabled={hasPending}><Download size={15} /> Export JSON</button>
+            <button type="button" onClick={() => inputRef.current?.click()} disabled={hasPending}><Upload size={15} /> Import JSON</button>
+            <button type="button" onClick={() => void cloneWorkflow()} disabled={!workflow || hasPending}>Clone workflow</button>
           </ActionMenu>
           <input ref={inputRef} className="visually-hidden" type="file" accept="application/json" onChange={importGraph} />
-          <Button variant="secondary" className="save-button" onClick={() => void saveDraft()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "saving" ? <LoaderCircle className="ui-spinner" size={16} /> : <Save size={16} />} {activeOperation === "saving" ? "Saving…" : "Save draft"}</Button>
-          <Button variant="ghost" className="ghost-button" onClick={() => void publish()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "publishing" ? <LoaderCircle className="ui-spinner" size={16} /> : <Check size={16} />} {activeOperation === "publishing" ? "Publishing…" : "Publish"}</Button>
-          <Button variant="primary" className="run-button" onClick={() => void runTest()} disabled={!workflow || isSaving || activeOperation === "cloning"}>{activeOperation === "running" ? <LoaderCircle className="ui-spinner" size={16} /> : <Play size={16} />} {activeOperation === "running" ? "Starting…" : "Run test"}</Button>
-          <Button variant="secondary" className="go-live-button" onClick={openLivePanel} disabled={!workflow?.published || isSaving} title={!workflow?.published ? "Publish this workflow before going live" : isSaving ? "Wait for the current operation to finish" : undefined}>{activeOperation === "live" || activeOperation === "activating" ? <LoaderCircle className="ui-spinner" size={16} /> : null} {workflow?.isActive ? "Run live" : "Go live"}</Button>
+          <Button variant="secondary" className="save-button" onClick={() => void saveDraft()} disabled={!workflow || isSaving || hasPending || activeOperation === "cloning"}>{activeOperation === "saving" ? <LoaderCircle className="ui-spinner" size={16} /> : <Save size={16} />} {activeOperation === "saving" ? "Saving…" : "Save draft"}</Button>
+          <Button variant="ghost" className="ghost-button" onClick={() => void publish()} disabled={!workflow || isSaving || hasPending || activeOperation === "cloning"}>{activeOperation === "publishing" ? <LoaderCircle className="ui-spinner" size={16} /> : <Check size={16} />} {activeOperation === "publishing" ? "Publishing…" : "Publish"}</Button>
+          <Button variant="primary" className="run-button" onClick={() => void runTest()} disabled={!workflow || isSaving || hasPending || activeOperation === "cloning"}>{activeOperation === "running" ? <LoaderCircle className="ui-spinner" size={16} /> : <Play size={16} />} {activeOperation === "running" ? "Starting…" : "Run test"}</Button>
+          <Button variant="secondary" className="go-live-button" onClick={openLivePanel} disabled={!workflow?.published || isSaving || hasPending} title={hasPending ? "Apply or discard pending edits first." : !workflow?.published ? "Publish this workflow before going live" : isSaving ? "Wait for the current operation to finish" : undefined}>{activeOperation === "live" || activeOperation === "activating" ? <LoaderCircle className="ui-spinner" size={16} /> : null} {workflow?.isActive ? "Run live" : "Go live"}</Button>
           {execution && ["QUEUED", "RUNNING", "WAITING_APPROVAL"].includes(execution.status) && <button className="ghost-button" type="button" onClick={() => void cancelExecution()}>Cancel run</button>}
-          {execution?.status === "FAILED" && <Button variant="ghost" className="ghost-button" disabled={isSaving} onClick={() => setRetryConfirmOpen(true)}><RotateCcw size={15} /> Retry {execution.mode === "live" ? "live" : "test"}</Button>}
+          {execution?.status === "FAILED" && <Button variant="ghost" className="ghost-button" disabled={isSaving || hasPending} onClick={() => setRetryConfirmOpen(true)}><RotateCcw size={15} /> Retry {execution.mode === "live" ? "live" : "test"}</Button>}
           {execution && <Button variant="ghost" className="ghost-button" onClick={() => setExecutionDetailsOpen(true)}><History size={15} /> Run details</Button>}
         </div>
       </header>
       {progressLabel && <div className="editor-progress" role="status" aria-live="polite"><LoaderCircle className="ui-spinner" size={14} /> <span>{progressLabel}…</span><i /></div>}
+      {hasPending && <div className="editor-pending" role="status">Unapplied node edits — apply or discard them before saving or running. <button type="button" onClick={reviewPending}>Review edits</button></div>}
       {executionLinkId && execution && <section className="execution-detail-banner" aria-label="Execution detail"><div><p className="section-label">EXECUTION DETAIL</p><strong>Execution detail</strong><span>{execution.mode === "live" ? "Live run" : "Test run"} · Version {execution.workflowVersion} · {execution.status.toLowerCase()}</span></div><div className="execution-detail-banner__actions"><Button variant="secondary" onClick={() => setExecutionDetailsOpen(true)}><History size={14} /> Timeline</Button><Button variant="secondary" className="execution-detail-banner__return" onClick={() => { setExecution(null); router.replace(`/editor?workflow=${encodeURIComponent(execution.workflowId)}`); }}>Return to workflow</Button></div></section>}
 
       <div className={paletteOpen ? "editor-shell" : "editor-shell editor-shell--palette-closed"}>
@@ -1414,7 +1460,7 @@ export function WorkflowEditor() {
             nodes={nodes}
             edges={edges}
             nodeTypes={nodeTypes}
-            onNodesChange={applyNodesChange}
+            onNodesChange={(changes) => applyNodesChange(hasPending ? changes.filter((change) => change.type !== "remove") : changes)}
             onEdgesChange={applyEdgesChange}
             onConnect={handleConnect}
             onConnectStart={startConnection}
@@ -1440,12 +1486,12 @@ export function WorkflowEditor() {
           </button>
         </section>
         {isInspectorDrawerOpen && <button className="inspector-backdrop" type="button" aria-label="Dismiss node inspector" onClick={closeInspectorDrawer} />}
-        <NodeInspector node={selectedNode} execution={execution} credentials={credentials} workspaceId={workflow?.workspaceId ?? ""} onResolveApproval={resolveApproval} onDebugNode={(node) => void runNodeDebug(node)} onOpenWebhook={() => { if (isNarrowEditorLayout) setInspectorDrawerOpen(false); setWebhookOpen(true); }} webhookContext={webhookContext} isDebugging={activeOperation === "debugging"} isDrawerOpen={isInspectorDrawerOpen} onCloseDrawer={closeInspectorDrawer} />
+        <NodeInspector node={selectedNode} execution={execution} credentials={credentials} workspaceId={workflow?.workspaceId ?? ""} onResolveApproval={resolveApproval} onDebugNode={(node) => void runNodeDebug(node)} onOpenWebhook={() => { if (isNarrowEditorLayout) setInspectorDrawerOpen(false); setWebhookOpen(true); }} webhookContext={webhookContext} isDebugging={activeOperation === "debugging"} isDrawerOpen={isInspectorDrawerOpen} onCloseDrawer={closeInspectorDrawer} draft={selectedNode ? inspectorDrafts[selectedNode.id] ?? {} : {}} onDraftChange={(kind, value) => { if (selectedNode) setInspectorDraft(selectedNode.id, kind, value); }} hasPending={hasPending} />
       </div>
       {contextMenu && <div className="node-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} role="menu" onMouseLeave={() => setContextMenu(null)}>
-        <button type="button" onClick={() => { copyNode(contextMenu.nodeId); setContextMenu(null); }}>Copy node</button>
-        <button type="button" onClick={() => { duplicateNode(contextMenu.nodeId); setContextMenu(null); setNotice("Node duplicated."); }}>Duplicate</button>
-        <button className="node-context-menu__danger" type="button" onClick={() => { deleteNode(contextMenu.nodeId); setContextMenu(null); setNotice("Node and its connections removed."); }}>Delete</button>
+        <button type="button" disabled={hasPending} onClick={() => { copyNode(contextMenu.nodeId); setContextMenu(null); }}>Copy node</button>
+        <button type="button" disabled={hasPending} onClick={() => { duplicateNode(contextMenu.nodeId); setContextMenu(null); setNotice("Node duplicated."); }}>Duplicate</button>
+        <button className="node-context-menu__danger" type="button" disabled={hasPending} onClick={() => { deleteNode(contextMenu.nodeId); setContextMenu(null); setNotice("Node and its connections removed."); }}>Delete</button>
       </div>}
       {historyOpen && <WorkflowHistoryPanel versions={versions} loading={versionsLoading} onClose={() => setHistoryOpen(false)} />}
       {validationOpen && <GraphValidationPanel issues={issues} onClose={() => setValidationOpen(false)} />}

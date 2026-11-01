@@ -11,6 +11,38 @@ already production-ready. `available: false` is an intentional product
 boundary: the node can remain visible for roadmap discovery, but cannot be
 added or executed as an MVP runtime node.
 
+## Follow-up: guided configuration across apps — 2026-11-01
+
+PR #54 has been merged and deployed. A single owner-approved MongoDB Insert and
+Find readback succeeded locally in an owner-designated collection; the tagged draft test document
+remains there and the workflow is inactive. This supersedes older MongoDB live
+qualification and deployment statements in the table below; it is not evidence
+of sustained or production runtime behavior.
+
+The shared inspector pending-edit change is local and not released: it retains
+unapplied visual MongoDB conditions, advanced filter JSON, node configuration
+JSON and manual test data when switching nodes, and blocks operations that would
+otherwise use stale configuration. It does not replace provider-specific guided
+fields. Preserve complex raw inputs and expressions whenever visual controls
+cannot represent them losslessly.
+
+| Area | Existing control and remaining work |
+|---|---|
+| MongoDB | Database/collection pickers and guided simple Find conditions exist. Insert still requires document JSON; add a typed field builder with lossless advanced JSON fallback. No automatic sampling of customer documents. |
+| GitHub | Repository picker exists. Add credential-scoped issue/PR and label pickers where permissions allow, with pagination and manual/expression fallback. |
+| Google Sheets / Drive | Spreadsheet and selected Drive file pickers exist. Improve sheet/tab and column mapping, and offer guided Drive search; retain A1 range and advanced query entry. |
+| Google Chat / Discord / Telegram | Chat OAuth can select available named spaces. Discord webhook URLs determine the destination; embeds and mention rules still need guided editors. Telegram requires a chat ID; do not promise a complete bot chat list. |
+| Steam / SMTP | Steam ID and email recipients remain manual; add contextual guidance and recipient validation before considering extra discovery permissions. |
+| Gemini / OpenAI | Model selection and manual fallback exist; explain model and input requirements, with expression mapping. Owner deferred OpenAI live qualification. |
+| HTTP / scheduling | HTTP method and headers have controls, but arbitrary body can need code. Offer structured JSON only where lossless. Provide schedule presets while preserving advanced cron and timezone. |
+| Meta / Instagram | Catalog placeholders only; define operations, authorization and app review before enabling. |
+
+Prioritize reusable field components and provider-backed discovery with explicit
+loading, empty, access-denied and manual fallback states. A connector is not
+qualified merely because its configuration UI renders. Align with n8n's
+[credential-scoped label selector](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.gmail/message-operations/)
+and [data mapping UI](https://docs.n8n.io/data/data-mapping/data-mapping-ui/).
+
 ## Architecture decision
 
 Fluxora follows the mature automation-platform model:
@@ -75,7 +107,7 @@ provider qualification, not a larger UI taxonomy.
 | Email SMTP | `Send email` — action | Implemented with deterministic mock and guarded live transport | `SMTP`, encrypted hostname, TLS submission port, username, password and From address | SMTP credential selector; To/Cc/Bcc, subject, plain-text/HTML body and Reply-to fields; recipients stay on the node | One owner-approved Gmail submission reached its intended inbox; sustained and production delivery are unverified. No attachments, inbound mail, bulk sending, Gmail OAuth or vendor presets |
 | OpenAI | `Generate text` — action | Implemented and verified locally | `OPENAI`, encrypted API key | Model discovery and prompt configuration | Real-provider testing deferred by owner; production behavior unverified |
 | Gemini | `Generate text` — action | Implemented and verified locally | `GEMINI`, encrypted API key | Model discovery and prompt configuration | One owner-approved local model generation succeeded; other models and production behavior remain unverified |
-| MongoDB | `Find documents` and `Insert document` actions | Direct TLS and bounded SRV seed selection implemented locally | `MONGODB` encrypted connection; fields or limited connection string | Database/collection pickers, guided Find conditions, advanced JSON and bounded results | Owner-approved SRV list and Find succeeded; live insert, mid-operation replica failover, private hosts, unsupported URI options and update/delete remain unqualified or unsupported |
+| MongoDB | `Find documents` and `Insert document` actions | Direct TLS and bounded SRV seed selection deployed in PR #54 | `MONGODB` encrypted connection; fields or limited connection string | Database/collection pickers, guided Find conditions, advanced JSON and bounded results | Owner-approved local SRV list, Find, Insert and readback succeeded once; mid-operation replica failover, private hosts, unsupported URI options, update/delete and sustained production use remain unqualified or unsupported |
 | GitHub | Triggers: issue opened, PR opened, push, workflow run completed; actions: create issue, add label, add comment, merge PR | Implemented; signed trigger delivery, guarded action calls, and feature-flagged managed webhook lifecycle with recorded-identity reconciliation | `GITHUB`, workspace connector token; separate from GitHub account login | Authenticated paginated repository picker; optional repository trigger filter; merge method select; published-version webhook setup | Reconciliation is locally tested and never claims unknown hooks; live webhook/action qualification and owner/operator proof remain gated |
 | Facebook Meta | `Manage content` — action | Roadmap/schema-only | No runtime credential contract yet | Operation placeholder only | Must define Meta OAuth/page-token model, asset/resource pickers and executor before enabling |
 | Instagram | `Manage content` — action | Roadmap/schema-only | No runtime credential contract yet | Operation placeholder only | Must define Meta/Instagram account/media model, OAuth and executor before enabling |

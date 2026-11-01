@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("MongoDB and Chat configure provider-scoped resources with manual fallback", async ({ page }) => {
   const graph = { nodes: [
+    { id: "manual", type: "trigger.manual", position: { x: 10, y: 500 }, config: {} },
     { id: "mongo", type: "action.mongodb", position: { x: 100, y: 100 }, config: { credentialId: "mongo-1", database: "sample", collection: "items", operation: "find", filter: "{}", limit: 20 } },
     { id: "mongo-insert", type: "action.mongodb.insert", position: { x: 100, y: 350 }, config: { credentialId: "mongo-1", database: "sample", collection: "items", document: '{"name":"sample"}' } },
     { id: "chat", type: "action.google-chat.oauth", position: { x: 450, y: 100 }, config: { credentialId: "chat-1", space: "spaces/abc", message: "Hello" } },
@@ -28,21 +29,58 @@ test("MongoDB and Chat configure provider-scoped resources with manual fallback"
   await collection.getByRole("button", { name: /Enter value or expression/ }).click();
   await expect(collection.getByLabel("Collection value")).toHaveValue("items");
   await page.getByRole("button", { name: "Add condition" }).click();
+  await expect(page.getByRole("button", { name: "Run test" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Publish", exact: true })).toBeDisabled();
   await page.getByLabel("Condition 1 field").fill("count");
+  await page.locator(".react-flow__node").filter({ hasText: "Insert document" }).click();
+  await expect(page.getByRole("button", { name: "Run node" })).toBeDisabled();
+  await page.getByRole("navigation", { name: "Workspace navigation" }).getByRole("button", { name: "Dashboard" }).click();
+  await expect(page).toHaveURL(/\/editor/);
+  await page.getByRole("button", { name: "Review edits" }).click();
+  await expect(page.getByLabel("Condition 1 field")).toHaveValue("count");
   await page.getByLabel("Condition 1 operator").selectOption("gte");
   await page.getByLabel("Condition 1 value type").selectOption("number");
   await page.getByLabel("Condition 1 value", { exact: true }).fill("3");
   await page.getByRole("button", { name: "Apply conditions" }).click();
+  await expect(page.getByRole("button", { name: "Run test" })).toBeEnabled();
   await page.getByRole("button", { name: "Edit JSON" }).click();
   await expect(page.getByLabel("Filter (JSON)")).toHaveValue('{"count":{"$gte":3}}');
+  await page.getByLabel("Filter (JSON)").fill('{invalid');
+  await page.getByRole("button", { name: "Apply filter JSON" }).click();
+  await expect(page.getByText("Enter valid JSON for the filter.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Run test" })).toBeDisabled();
   await page.getByLabel("Filter (JSON)").fill('{"$or":[{"count":1},{"count":2}]}');
   await expect(page.getByRole("button", { name: "Use visual builder" })).toBeDisabled();
   await page.locator(".react-flow__node").filter({ hasText: "Insert document" }).click();
   await expect(page.getByLabel("Document (JSON)")).toHaveValue('{"name":"sample"}');
   await page.locator(".react-flow__node").filter({ hasText: "Find documents" }).click();
   await expect(page.getByLabel("Filter (JSON)")).toHaveValue('{"$or":[{"count":1},{"count":2}]}');
+  await expect(page.getByRole("button", { name: "Run test" })).toBeDisabled();
+  await page.getByRole("button", { name: "Apply filter JSON" }).click();
+  await expect(page.getByRole("button", { name: "Run test" })).toBeEnabled();
   await page.locator(".react-flow__node").filter({ hasText: "Send OAuth message" }).click();
   await expect(page.getByLabel("Google Chat credential")).toHaveValue("chat-1");
   const space = page.getByRole("group", { name: "Space" });
   await expect(space.getByRole("option", { name: "Team" })).toHaveAttribute("value", "spaces/abc");
+  await page.getByLabel("Node JSON configuration").fill('{"message":"pending"}');
+  await expect(page.getByRole("button", { name: "Save draft" })).toBeDisabled();
+  await page.locator(".react-flow__node").filter({ hasText: "Find documents" }).click();
+  await page.getByRole("button", { name: "Review edits" }).click();
+  await expect(page.getByLabel("Node JSON configuration")).toHaveValue('{"message":"pending"}');
+  await page.getByRole("button", { name: "Discard JSON changes" }).click();
+  await expect(page.getByRole("button", { name: "Save draft" })).toBeEnabled();
+  await page.getByLabel("Node JSON configuration").fill('{"message":"stale edit"}');
+  await page.getByLabel("Message template").fill("Changed separately");
+  await page.getByRole("button", { name: "Apply JSON" }).click();
+  await expect(page.getByText("Configuration changed elsewhere.", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Discard JSON changes" }).click();
+  await expect(page.getByLabel("Message template")).toHaveValue("Changed separately");
+  await page.locator(".react-flow__node").filter({ hasText: "Manual trigger" }).click();
+  await page.getByLabel("Manual trigger test data").fill('{"example":true}');
+  await expect(page.getByRole("button", { name: "Run test" })).toBeDisabled();
+  await page.locator(".react-flow__node").filter({ hasText: "Send OAuth message" }).click();
+  await page.getByRole("button", { name: "Review edits" }).click();
+  await expect(page.getByLabel("Manual trigger test data")).toHaveValue('{"example":true}');
+  await page.getByRole("button", { name: "Apply test data" }).click();
+  await expect(page.getByRole("button", { name: "Run test" })).toBeEnabled();
 });
