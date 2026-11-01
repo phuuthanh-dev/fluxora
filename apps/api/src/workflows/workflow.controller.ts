@@ -14,6 +14,11 @@ export class WorkflowController {
     return { workflows: await this.workflows.list(workspaceId, requireUserId(request)) };
   }
 
+  @Get("workspaces/:workspaceId/workflows/archived")
+  async listArchived(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest) {
+    return { workflows: await this.workflows.listArchived(workspaceId, requireUserId(request)) };
+  }
+
   @Get("workflow-templates")
   async listTemplates() {
     return { templates: this.workflows.listTemplates() };
@@ -74,6 +79,11 @@ export class WorkflowController {
   @Post("workflows/:workflowId/archive")
   async archive(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
     return { workflow: await this.workflows.archive(workflowId, requireUserId(request)) };
+  }
+
+  @Post("workflows/:workflowId/restore")
+  async restore(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return { workflow: await this.workflows.restore(workflowId, requireUserId(request)) };
   }
 
   @Delete("workflows/:workflowId")

@@ -72,13 +72,34 @@ provider qualification, not a larger UI taxonomy.
 | Google Drive | `Manage files` — action: list, search, upload text, download text | Implemented for configured operations | `GOOGLE`, OAuth or manual compatible credential | Operation select; download uses authenticated text-file picker; upload-only name/text fields are conditional | Live OAuth scopes, shared-drive edge cases, and provider smoke remain owner-gated |
 | Google Sheets | `Read or write rows` — action: read, append, update | Implemented | `GOOGLE` | Spreadsheet picker, operation select, range, and reusable table editor for rows/columns | Live OAuth/resource qualification remains owner-gated; richer expression mapping is a follow-up, not a blocker for current MVP |
 | HTTP | `Make API request` — action | Implemented with SSRF policy, timeout and retry classification | Optional `HTTP` API-key/bearer/basic/header credential | Method select, URL, body, timeout; **headers were previously hidden in Advanced JSON and are closed by this slice with a key/value editor** | Production allowlist/egress policy and provider-specific API behavior remain deployment/operator concerns |
-| Email SMTP | `Send email` — action | Implemented with deterministic mock and guarded live transport | `SMTP`, encrypted hostname, TLS submission port, username, password and From address | SMTP credential selector; To/Cc/Bcc, subject, plain-text/HTML body and Reply-to fields; recipients stay on the node | No owner-approved SMTP sandbox/live delivery yet; no attachments, inbound mail, bulk sending, Gmail OAuth or vendor presets in this MVP connector |
-| OpenAI | `Generate text` — action | Roadmap/schema-only | No runtime credential contract yet | Model/prompt placeholder; model is currently free text | Must define API-key credential, model enum/resource behavior, token/error policy and executor before enabling |
-| Gemini | `Generate text` — action | Roadmap/schema-only | No runtime credential contract yet | Model/prompt placeholder; model is currently free text | Must define Google AI credential/scopes, model selection and executor before enabling |
+| Email SMTP | `Send email` — action | Implemented with deterministic mock and guarded live transport | `SMTP`, encrypted hostname, TLS submission port, username, password and From address | SMTP credential selector; To/Cc/Bcc, subject, plain-text/HTML body and Reply-to fields; recipients stay on the node | One owner-approved Gmail submission reached its intended inbox; sustained and production delivery are unverified. No attachments, inbound mail, bulk sending, Gmail OAuth or vendor presets |
+| OpenAI | `Generate text` — action | Implemented and verified locally | `OPENAI`, encrypted API key | Model discovery and prompt configuration | Real-provider testing deferred by owner; production behavior unverified |
+| Gemini | `Generate text` — action | Implemented and verified locally | `GEMINI`, encrypted API key | Model discovery and prompt configuration | One owner-approved local model generation succeeded; other models and production behavior remain unverified |
 | MongoDB | `Query documents` — action | Roadmap/schema-only | No runtime credential contract yet | Database, collection and operation placeholders; operation is currently free text | Must define connection credential, safe query model, operation enum, limits and executor before enabling |
 | GitHub | Triggers: issue opened, PR opened, push, workflow run completed; actions: create issue, add label, add comment, merge PR | Implemented; signed trigger delivery, guarded action calls, and feature-flagged managed webhook lifecycle with recorded-identity reconciliation | `GITHUB`, workspace connector token; separate from GitHub account login | Authenticated paginated repository picker; optional repository trigger filter; merge method select; published-version webhook setup | Reconciliation is locally tested and never claims unknown hooks; live webhook/action qualification and owner/operator proof remain gated |
 | Facebook Meta | `Manage content` — action | Roadmap/schema-only | No runtime credential contract yet | Operation placeholder only | Must define Meta OAuth/page-token model, asset/resource pickers and executor before enabling |
 | Instagram | `Manage content` — action | Roadmap/schema-only | No runtime credential contract yet | Operation placeholder only | Must define Meta/Instagram account/media model, OAuth and executor before enabling |
+
+### MongoDB implementation research — 2026-11-01
+
+[n8n's MongoDB node](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.mongodb/)
+separates document operations such as find, insert, update and delete from
+its [MongoDB credential](https://docs.n8n.io/integrations/builtin/credentials/mongodb/),
+which supports a connection string or individual connection values. For a
+first Fluxora slice, prefer one encrypted workspace credential and a clearly
+labelled Find documents operation with bounded results and execution time;
+add writes separately once their failure and retry semantics are reviewed.
+Use provider-backed database/collection selectors where permissions permit,
+with manual/expression fallback and an explicit loading/error state.
+
+MongoDB connection strings and replica discovery can cause connections to
+multiple hosts; validating only the initial hostname is not sufficient to prove
+that every connection respects Fluxora's outbound network boundary. Before
+enabling runtime, establish a driver-compatible egress enforcement design,
+credential/error redaction, TLS, resource limits, and deterministic mock and
+integration coverage. Do not label the existing roadmap node executable until
+that vertical slice is complete. The [MongoDB driver connection options](https://www.mongodb.com/docs/drivers/node/current/connect/connection-options/)
+describe separate connection, server-selection, socket and operation timeouts.
 
 ## Contract findings
 
@@ -136,7 +157,9 @@ not part of that run because it is currently disconnected from the graph. The
 full evidence is recorded in
 [`2026-10-28-live-provider-smoke.md`](../.agent/reports/2026-10-28-live-provider-smoke.md).
 
-SMTP Email is code-qualified but has no provider smoke yet. It accepts only
+SMTP Email is code-qualified; one owner-approved Gmail message reached the
+intended inbox, as recorded in the 2026-11-01 snapshot in `19-agent-state.md`.
+This does not establish sustained or production deliverability. It accepts only
 public DNS hostnames, port 465 with TLS or 587 with required STARTTLS, enforces
 certificate validation, caps connection/message inputs, never logs SMTP debug
 traffic, and redacts credential/provider failure detail. The intentional

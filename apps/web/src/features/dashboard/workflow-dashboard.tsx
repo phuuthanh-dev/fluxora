@@ -10,6 +10,7 @@ import type { ApiWorkflow } from "../workflow/workflow-api";
 import { Button, Dialog, DialogHeader, IconButton, Menu, PageHeader, Select, Status, Toolbar } from "../../components/ui";
 import { AppShellHeader } from "../app-shell/app-shell-header";
 import { Collapse } from "../../components/ui/disclosure";
+import { ArchivedWorkflows } from "./archived-workflows";
 
 type WorkspaceSummary = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
 type RuntimeStatus = { status: "ready" | "degraded"; checks: { database: "ready" | "unavailable"; queue: { status: "ready" | "unavailable"; mode: "inline" | "redis"; configuredWorkerConcurrency: number; waiting: number; active: number; delayed: number; failed: number } } };
@@ -58,6 +59,7 @@ export function WorkflowDashboard() {
   const [workflowActionName, setWorkflowActionName] = useState("");
   const [workflowActionError, setWorkflowActionError] = useState<string | null>(null);
   const [workflowActionLoading, setWorkflowActionLoading] = useState(false);
+  const [archiveRevision, setArchiveRevision] = useState(0);
   const activeWorkspaceIdRef = useRef("");
   const abortControllerRef = useRef<AbortController | null>(null);
   const workflowNameInputRef = useRef<HTMLInputElement>(null);
@@ -241,6 +243,7 @@ export function WorkflowDashboard() {
       } else if (type === "archive") {
         await apiRequest(`/workflows/${workflow.id}/archive`, { method: "POST" });
         setWorkflows((current) => current.filter((candidate) => candidate.id !== workflow.id));
+        setArchiveRevision((current) => current + 1);
         setNotice("Workflow archived.");
       } else {
         await apiRequest(`/workflows/${workflow.id}`, { method: "DELETE" });
@@ -335,6 +338,11 @@ export function WorkflowDashboard() {
           <p className="dashboard-workflow-summary" role="status" aria-live="polite">{workflows.length === 0 ? "No workflows yet" : `Showing ${visibleWorkflows.length} of ${workflows.length} workflow${workflows.length === 1 ? "" : "s"}`}</p>
           {workflows.length === 0 ? <FirstWorkflowGuide templates={templates} isCreating={isCreating} workspaceId={workspaceId} onUseTemplate={(slug) => void createWorkflow(slug)} onCreateBlank={focusWorkflowCreate} /> : visibleWorkflows.length === 0 ? <div className="dashboard-empty dashboard-empty--filtered"><FolderKanban size={26} /><h3>No workflows match these filters</h3><p>Try a different search or clear the current filters.</p><Button variant="ghost" onClick={() => { setWorkflowQuery(""); setWorkflowStatus("ALL"); setWorkflowSort("UPDATED"); }}>Clear workflow filters</Button></div> : <div className="workflow-card-grid">{visibleWorkflows.map((workflow) => <article key={workflow.id} className="workflow-card"><div className="workflow-card__status"><span className={workflow.isActive ? "workflow-status workflow-status--live" : "workflow-status"}>{workflow.isActive ? `Live · v${workflow.published?.version ?? "—"}` : workflow.published ? `Published · v${workflow.published.version}` : "Draft"}</span><div className="workflow-card__meta"><span className="workflow-card__updated">Updated {new Date(workflow.updatedAt ?? Date.now()).toLocaleDateString()}</span><Menu label={`Workflow actions for ${workflow.name}`} trigger={<MoreVertical size={16} aria-hidden="true" />} className="workflow-card__menu"><div className="workflow-card__menu-list"><button type="button" onClick={() => openWorkflowAction("rename", workflow)}><Pencil size={14} />Rename</button><button type="button" onClick={() => openWorkflowAction("duplicate", workflow)}><Copy size={14} />Duplicate</button><button type="button" onClick={() => openWorkflowAction("archive", workflow)}><Archive size={14} />Archive</button><button type="button" className="workflow-card__delete" onClick={() => openWorkflowAction("delete", workflow)}><Trash2 size={14} />Delete permanently</button></div></Menu></div></div><div className="workflow-card__title"><h3>{workflow.name}</h3></div><p>{workflow.description || "No description yet. Open the editor to configure this workflow."}</p><footer><span>{workflow.draft?.graph.nodes.length ?? workflow.published?.graph.nodes.length ?? 0} nodes</span><Button variant="ghost" className="workflow-card__open" onClick={() => router.push(`/editor?workflow=${encodeURIComponent(workflow.id)}`)}>Open editor <ArrowRight size={15} /></Button></footer></article>)}</div>}
         </section>
+        {workspaceId ? <ArchivedWorkflows key={workspaceId} workspaceId={workspaceId} revision={archiveRevision} onRestored={(workflow) => {
+          if (activeWorkspaceIdRef.current !== workflow.workspaceId) return;
+          setWorkflows((current) => [workflow, ...current.filter((candidate) => candidate.id !== workflow.id)]);
+          setNotice("Workflow restored and remains inactive.");
+        }} /> : null}
         <section id="workflow-create" className="dashboard-create"><div><p className="section-label">CREATE</p><h2>Start a workflow</h2><p>Use a blank canvas or the Steam daily report template.</p></div><div className="dashboard-create__actions"><input ref={workflowNameInputRef} aria-label="New workflow name" value={workflowName} onChange={(event) => setWorkflowName(event.target.value)} /><Button variant="secondary" className="dashboard-secondary-button" onClick={() => void createWorkflow()} disabled={isCreating || !workspaceId || !workflowName.trim()}>{isCreating && lastCreateTemplate === undefined ? "Creating…" : "Blank workflow"}</Button><Button variant="primary" className="dashboard-primary-button" onClick={() => void createWorkflow("steam-daily-report")} disabled={isCreating || !workspaceId}>{isCreating && lastCreateTemplate === "steam-daily-report" ? "Creating…" : "Use Steam template"}</Button></div>{createError && <Status tone="error" className="dashboard-create__error"><span>{createError}</span><Button variant="ghost" className="dashboard-create__retry" onClick={() => void createWorkflow(lastCreateTemplate)} disabled={isCreating}>Retry</Button></Status>}</section>
         <section className="dashboard-workspace-create"><div><p className="section-label">WORKSPACE</p><h2>Create another workspace</h2></div><form onSubmit={createWorkspace}><input aria-label="New workspace name" value={workspaceName} onChange={(event) => setWorkspaceName(event.target.value)} placeholder="e.g. Personal automations" /><Button variant="secondary" className="dashboard-secondary-button" disabled={isCreating || !workspaceName.trim()} type="submit">Create workspace</Button></form></section>
       </section>

@@ -25,8 +25,13 @@ complete in the delivery ledger.
   copy or restore evidence is available. Do not infer the cause of the reported
   missing workflows or credentials from health checks alone.
 - `EDITOR-QUALIFICATION-1` follow-up adds missing-refresh recovery UX and
-  clarifies the already-approved broad scopes locally; see its task/report.
-  This local follow-up has not been pushed or deployed.
+  clarifies the already-approved broad scopes; see its task/report. It is on
+  `develop` in open PR #53, whose quality gate passed. It is not on `main` or
+  deployed as of this snapshot.
+- Workflow archive recovery is complete locally on top of PR #53: owners can
+  list and restore archived workflows without reactivating them. Its isolated
+  local gate passed (243 API, 25 web and 128 E2E tests); it is not deployed.
+  See `.agent/reports/2026-11-01-workflow-archive-recovery.md`.
 
 The older snapshots below describe their dates and must not be read as current.
 

@@ -1554,6 +1554,19 @@
       "externalImports": []
     },
     {
+      "id": "apps/web/src/features/dashboard/archived-workflows.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/ui/disclosure.tsx",
+        "apps/web/src/features/api/api-client.ts",
+        "apps/web/src/features/workflow/workflow-api.ts"
+      ],
+      "externalImports": [
+        "lucide-react",
+        "react"
+      ]
+    },
+    {
       "id": "apps/web/src/features/dashboard/executions-dashboard.tsx",
       "boundary": "web",
       "internalImports": [
@@ -1586,6 +1599,7 @@
         "apps/web/src/components/ui/disclosure.tsx",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/app-shell/app-shell-header.tsx",
+        "apps/web/src/features/dashboard/archived-workflows.tsx",
         "apps/web/src/features/workflow/node-catalog.ts",
         "apps/web/src/features/workflow/workflow-api.ts"
       ],
@@ -3291,6 +3305,18 @@
       "to": "apps/web/src/features/credentials/credential-types.ts"
     },
     {
+      "from": "apps/web/src/features/dashboard/archived-workflows.tsx",
+      "to": "apps/web/src/components/ui/disclosure.tsx"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/archived-workflows.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/archived-workflows.tsx",
+      "to": "apps/web/src/features/workflow/workflow-api.ts"
+    },
+    {
       "from": "apps/web/src/features/dashboard/executions-dashboard.tsx",
       "to": "apps/web/src/components/ui/disclosure.tsx"
     },
@@ -3325,6 +3351,10 @@
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
       "to": "apps/web/src/features/app-shell/app-shell-header.tsx"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
+      "to": "apps/web/src/features/dashboard/archived-workflows.tsx"
     },
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",

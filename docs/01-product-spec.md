@@ -84,6 +84,9 @@ The Steam profile is public. The Steam node returns every field available throug
 - A workflow has Draft and Published versions. Published versions are immutable.
 - Export/import graph JSON, clone workflow, and create from template.
 - The public root route is a product landing page. The dashboard is the authenticated control-plane home: it lists workflows in the selected workspace, distinguishes draft-only from published workflows, and opens or creates workflows without an editor modal.
+- Owners can view archived workflows in their workspace and restore them with
+  draft, published versions and execution history intact. A restored workflow
+  remains inactive until explicitly activated again.
 - The graph must be acyclic in MVP.
 
 ## 6. Data mapping and expressions

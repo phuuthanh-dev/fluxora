@@ -28,6 +28,16 @@ export class WorkflowService {
     return workflows.map((workflow) => this.serialize(workflow));
   }
 
+  async listArchived(workspaceId: string, userId: string) {
+    await this.workspaces.requireOwner(workspaceId, userId);
+    const workflows = await this.prisma.workflow.findMany({
+      where: { workspaceId, archivedAt: { not: null } },
+      include: { draftVersion: true, publishedVersion: true },
+      orderBy: { updatedAt: "desc" },
+    });
+    return workflows.map((workflow) => this.serialize(workflow));
+  }
+
   listTemplates() {
     return systemWorkflowTemplates.map((template) => ({
       slug: template.slug,
@@ -198,6 +208,24 @@ export class WorkflowService {
       });
       await transaction.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "workflow.archived", targetType: "workflow", targetId: workflowId } });
       return archived;
+    });
+    return this.serialize(updated);
+  }
+
+  async restore(workflowId: string, userId: string) {
+    const workflow = await this.findOwned(workflowId, userId);
+    const updated = await this.prisma.$transaction(async (transaction) => {
+      const result = await transaction.workflow.updateMany({
+        where: { id: workflowId, archivedAt: { not: null } },
+        data: { archivedAt: null, isActive: false, activatedAt: null },
+      });
+      if (result.count !== 1) throw new ConflictException({ code: "WORKFLOW_NOT_ARCHIVED", message: "This workflow is not archived. Refresh the list and try again." });
+      const restored = await transaction.workflow.findUniqueOrThrow({
+        where: { id: workflowId },
+        include: { draftVersion: true, publishedVersion: true },
+      });
+      await transaction.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "workflow.restored", targetType: "workflow", targetId: workflowId } });
+      return restored;
     });
     return this.serialize(updated);
   }
