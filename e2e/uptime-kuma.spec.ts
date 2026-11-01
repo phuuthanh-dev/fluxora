@@ -22,6 +22,8 @@ test("Uptime Kuma setup explains the required header and pins registration", asy
   await page.getByRole("button", { name: "Configure webhook" }).click();
   const panel = page.getByRole("dialog", { name: "Webhook endpoint" });
   await expect(panel.getByText(/Additional Headers/)).toBeVisible();
+  await expect(panel.getByText('{"x-workflow-secret":"YOUR_SECRET"}', { exact: true })).toBeVisible();
+  await expect(panel.getByText(/Test button checks the connection without starting a workflow run/)).toBeVisible();
   await expect(panel.getByRole("checkbox")).toHaveCount(0);
   await panel.getByRole("button", { name: "Create registration" }).click();
   await expect(panel.getByText("synthetic-secret")).toBeVisible();

@@ -6,6 +6,14 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
+- The optional Supabase Management API table discovery change is implemented on
+  local branch `codex/connector-discovery-qualification`, not yet released or
+  qualified with a real Management API token. The isolated `npm run verify`
+  passed after the Uptime Kuma setup-copy change, including 144 E2E tests.
+  Uptime Kuma's upstream webhook sender passed an isolated HTTP contract
+  experiment using a minimal test superclass, but no complete Uptime Kuma
+  instance or live monitor has been tested. See `docs/35` for exact limits.
+
 - PR #60 merged as `2eebdbc` and PR #61 as `2cc2537`; their production
   deployments succeeded. The RSS CDATA fix passed a production live read of
   GitHub Changelog. Vercel's 403 team fallback and personal project picker were
