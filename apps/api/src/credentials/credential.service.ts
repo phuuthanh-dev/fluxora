@@ -1,4 +1,5 @@
 import { CredentialProvider, ExecutionStatus } from "@prisma/client";
+import { validatePostgresCredential } from "../execution/postgres-read";
 import { validateMongoCredential } from "../execution/mongodb-find";
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../database/prisma.service";
@@ -365,6 +366,14 @@ function requiredEnv(name: "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET") {
 }
 
 function validateCredentialPayload(provider: CredentialProvider, data: Record<string, unknown>) {
+  if (provider === CredentialProvider.POSTGRES) {
+    try { validatePostgresCredential(data); } catch { throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid PostgreSQL connection." }); }
+    return;
+  }
+  if (provider === CredentialProvider.NOTION) {
+    if (typeof data.token !== "string" || !data.token || data.token.length > 4096 || /\s/.test(data.token)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid Notion integration token." });
+    return;
+  }
   if (provider === CredentialProvider.MONGODB) {
     try { validateMongoCredential(data); } catch { throw new BadRequestException({ code: "INVALID_INPUT", message: data.configurationType === "connectionString" ? "Enter a supported MongoDB connection string with one public host, credentials and TLS. Check its options." : "Enter a public MongoDB host, port, username, password and authentication database." }); }
     return;

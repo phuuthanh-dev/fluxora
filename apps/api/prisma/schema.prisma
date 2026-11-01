@@ -37,6 +37,8 @@ enum CredentialProvider {
   GEMINI
   OPENAI
   MONGODB
+  NOTION
+  POSTGRES
   GOOGLE_CHAT_OAUTH
 }
 

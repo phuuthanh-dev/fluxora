@@ -20,6 +20,8 @@ import {
   SiGooglesheets,
   SiInstagram,
   SiMongodb,
+  SiNotion,
+  SiPostgresql,
   SiSteam,
   SiTelegram,
 } from "react-icons/si";
@@ -44,6 +46,8 @@ export type NodeIconName =
   | "openai"
   | "gemini"
   | "mongodb"
+  | "notion"
+  | "postgres"
   | "github"
   | "facebook"
   | "instagram";
@@ -71,6 +75,8 @@ export function NodeIcon({ name, size = 18, className = "" }: { name: NodeIconNa
       case "openai": return <BsOpenai {...props} />;
       case "gemini": return <Icon icon={googleGeminiIcon} {...multicolorProps} />;
       case "mongodb": return <SiMongodb {...props} />;
+      case "notion": return <SiNotion {...props} />;
+      case "postgres": return <SiPostgresql {...props} />;
       case "github": return <SiGithub {...props} />;
       case "facebook": return <SiFacebook {...props} />;
       case "instagram": return <SiInstagram {...props} />;

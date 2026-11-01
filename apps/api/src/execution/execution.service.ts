@@ -17,6 +17,8 @@ import { executeSmtpEmail } from "./smtp-email";
 import { executeGeminiText } from "./gemini-text";
 import { executeOpenAIText } from "./openai-text";
 import { executeMongoFind, executeMongoInsert } from "./mongodb-find";
+import { executeNotionSearch } from "./notion-search";
+import { executePostgresSelect } from "./postgres-read";
 import { executeGoogleChatOAuth } from "./google-chat-oauth";
 
 type RunMode = "mock" | "live";
@@ -637,6 +639,12 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
   }
   if (node.type === "action.mongodb.insert") {
     return executeMongoInsert(config, mode, workspaceId, credentials);
+  }
+  if (node.type === "action.notion.search-pages") {
+    return executeNotionSearch(config, mode, workspaceId, credentials);
+  }
+  if (node.type === "action.postgres.select") {
+    return executePostgresSelect(config, mode, workspaceId, credentials);
   }
   if (node.type === "action.gemini") {
     return executeGeminiText(config, mode, workspaceId, credentials);

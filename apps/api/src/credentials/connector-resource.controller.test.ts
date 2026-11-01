@@ -10,5 +10,7 @@ test("connector discovery checks workspace ownership before credential access", 
   await assert.rejects(controller.mongoDatabases("workspace", "mongo", request));
   await assert.rejects(controller.mongoCollections("workspace", "mongo", "db", request));
   await assert.rejects(controller.chatSpaces("workspace", "chat", request));
+  await assert.rejects(controller.postgresSchemas("workspace", "postgres", request));
+  await assert.rejects(controller.postgresTables("workspace", "postgres", "public", request));
   assert.equal(reads, 0);
 });
