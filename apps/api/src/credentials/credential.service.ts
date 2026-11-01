@@ -392,6 +392,10 @@ function requiredEnv(name: "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET") {
 }
 
 function validateCredentialPayload(provider: CredentialProvider, data: Record<string, unknown>) {
+  if (provider === CredentialProvider.SUPABASE) {
+    if (typeof data.projectRef !== "string" || !/^[a-z0-9]{10,40}$/.test(data.projectRef) || typeof data.apiKey !== "string" || !/^[A-Za-z0-9._-]{1,4096}$/.test(data.apiKey)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid Supabase project reference and API key." });
+    return;
+  }
   if (provider === CredentialProvider.VERCEL) {
     if (typeof data.token !== "string" || !/^[A-Za-z0-9._-]{1,512}$/.test(data.token)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid Vercel access token." });
     return;

@@ -11,7 +11,7 @@ import "./credentials.css";
 import { CredentialSecretFields } from "./credential-secret-fields";
 import { NodeIcon, type NodeIconName } from "../workflow/node-icon";
 
-const providerIcons: Record<CredentialProvider, NodeIconName> = { GOOGLE: "google", STEAM: "steam", GOOGLE_CHAT_WEBHOOK: "google-chat", GOOGLE_CHAT_OAUTH: "google-chat", GMAIL: "gmail", GOOGLE_CALENDAR: "google-calendar", MONGODB: "mongodb", NOTION: "notion", TRELLO: "trello", SENTRY: "sentry", VERCEL: "vercel", POSTGRES: "postgres", HTTP: "http", DISCORD_WEBHOOK: "discord", TELEGRAM_BOT: "telegram", GITHUB: "github", SMTP: "email", GEMINI: "gemini", OPENAI: "openai" };
+const providerIcons: Record<CredentialProvider, NodeIconName> = { GOOGLE: "google", STEAM: "steam", GOOGLE_CHAT_WEBHOOK: "google-chat", GOOGLE_CHAT_OAUTH: "google-chat", GMAIL: "gmail", GOOGLE_CALENDAR: "google-calendar", MONGODB: "mongodb", NOTION: "notion", TRELLO: "trello", SENTRY: "sentry", VERCEL: "vercel", SUPABASE: "supabase", POSTGRES: "postgres", HTTP: "http", DISCORD_WEBHOOK: "discord", TELEGRAM_BOT: "telegram", GITHUB: "github", SMTP: "email", GEMINI: "gemini", OPENAI: "openai" };
 
 type CredentialPreset = {
   label: string;
@@ -26,6 +26,7 @@ const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
   TRELLO: { label: "Trello", data: '{\n  "apiKey": "",\n  "token": ""\n}', hint: "Enter a Trello API key and user token with board read and write access." },
   SENTRY: { label: "Sentry", data: '{\n  "token": "",\n  "region": "global"\n}', hint: "Use a Sentry token with organization and issue read permissions. Issue titles may appear in execution history." },
   VERCEL: { label: "Vercel", data: '{\n  "token": ""\n}', hint: "Use your own Vercel access token. This connection reads projects and deployments available to that token." },
+  SUPABASE: { label: "Supabase", data: '{\n  "projectRef": "",\n  "apiKey": ""\n}', hint: "Connect to the Supabase Cloud Data API. Secret keys bypass Row Level Security; rows may appear in execution history." },
   POSTGRES: { label: "PostgreSQL", data: '{\n  "host": "",\n  "port": 5432,\n  "database": "",\n  "username": "",\n  "password": ""\n}', hint: "Connect to a public PostgreSQL host using a trusted TLS certificate. Private networks are not currently supported." },
   MONGODB: { label: "MongoDB", data: '{\n  "host": "",\n  "port": 27017,\n  "username": "",\n  "password": "",\n  "authDatabase": "admin"\n}', hint: "Connect to a public TLS-enabled MongoDB server or SRV cluster using fields or a connection string." },
   GOOGLE_CHAT_OAUTH: { label: "Google Chat manual token", data: '{\n  "accessToken": ""\n}', hint: "Connect Google Chat separately from Drive and Sheets. Manual access tokens are short-lived." },
@@ -107,6 +108,7 @@ function credentialProviderLabel(provider: CredentialProvider) {
     TRELLO: "Trello",
     SENTRY: "Sentry",
     VERCEL: "Vercel",
+    SUPABASE: "Supabase",
     POSTGRES: "PostgreSQL",
     GOOGLE_CHAT_OAUTH: "Google Chat OAuth",
     GMAIL: "Gmail",
@@ -218,6 +220,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
       TRELLO: "Trello",
       SENTRY: "Sentry",
       VERCEL: "Vercel",
+      SUPABASE: "Supabase",
       POSTGRES: "PostgreSQL",
       GOOGLE_CHAT_OAUTH: "Google Chat OAuth",
       GMAIL: "Gmail",
@@ -426,6 +429,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
             <option value="TRELLO">Trello</option>
             <option value="SENTRY">Sentry</option>
             <option value="VERCEL">Vercel</option>
+            <option value="SUPABASE">Supabase</option>
             <option value="POSTGRES">PostgreSQL</option>
             <option value="GOOGLE_CHAT_OAUTH">Google Chat OAuth</option>
             <option value="GOOGLE_CALENDAR">Google Calendar</option>
@@ -455,6 +459,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
         {provider === "TRELLO" ? <div className="credential-form__oauth-helper"><span>Create an API key for a Trello Power-Up, then authorize a token with access to the boards you need.</span><a className="credential-form__oauth-link" href="https://developer.atlassian.com/cloud/trello/guides/rest-api/authorization/" target="_blank" rel="noopener noreferrer">Trello setup guide <ArrowUpRight size={13} aria-hidden="true" /></a></div> : null}
         {provider === "SENTRY" ? <div className="credential-form__oauth-helper"><span>Create a Sentry authentication token with organization and issue read scopes.</span><a className="credential-form__oauth-link" href="https://docs.sentry.io/api/guides/create-auth-token/" target="_blank" rel="noopener noreferrer">Sentry setup guide <ArrowUpRight size={13} aria-hidden="true" /></a></div> : null}
         {provider === "VERCEL" ? <div className="credential-form__oauth-helper"><span>Create an access token for the personal account or team you want to use.</span><a className="credential-form__oauth-link" href="https://vercel.com/docs/rest-api" target="_blank" rel="noopener noreferrer">Vercel API guide <ArrowUpRight size={13} aria-hidden="true" /></a></div> : null}
+        {provider === "SUPABASE" ? <div className="credential-form__oauth-helper"><span>Find your project reference and API key in the Supabase dashboard. A secret key grants elevated access and bypasses Row Level Security.</span><a className="credential-form__oauth-link" href="https://supabase.com/docs/guides/getting-started/api-keys" target="_blank" rel="noopener noreferrer">Supabase key guide <ArrowUpRight size={13} aria-hidden="true" /></a></div> : null}
         <p className="credential-form__hint" aria-live="polite">{credentialPresets[provider].hint}</p>
         <CredentialSecretFields provider={provider} value={data} onChange={(value) => { setData(value); setJsonError(null); setCreateError(null); }} />
         {jsonError && <p className="credential-form__error" role="alert">{jsonError}</p>}

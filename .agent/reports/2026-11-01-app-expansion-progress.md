@@ -24,6 +24,8 @@ after an interrupted worker can still duplicate a card. Sentry List Issues has a
 separate token, selectable Cloud region, organization/project discovery and
 bounded issue metadata; targeted mocked tests passed. Vercel List Deployments
 uses a separate token and guided account/team and project pickers; targeted
-mocked tests passed. Reddit, Uptime Kuma and Supabase have provider notes only.
+mocks passed. Supabase Select Rows uses a separate Data API connection, an
+OpenAPI table picker with manual fallback, bounded public-schema reads and an
+explicit secret-key/RLS warning. Reddit and Uptime Kuma have provider notes only.
 The category grouping is the start of UI/UX work, not a full redesign.
 No changes were pushed, merged or deployed.

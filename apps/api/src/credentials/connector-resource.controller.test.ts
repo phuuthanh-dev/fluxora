@@ -18,5 +18,6 @@ test("connector discovery checks workspace ownership before credential access", 
   await assert.rejects(controller.sentryProjects("workspace", "sentry", "organization", request));
   await assert.rejects(controller.vercelTeams("workspace", "vercel", request));
   await assert.rejects(controller.vercelProjects("workspace", "vercel", "team", request));
+  await assert.rejects(controller.supabaseTables("workspace", "supabase", request));
   assert.equal(reads, 0);
 });

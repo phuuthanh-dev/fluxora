@@ -99,6 +99,7 @@ function providerLabel(provider: CredentialProvider) {
     TRELLO: "Trello",
     SENTRY: "Sentry",
     VERCEL: "Vercel",
+    SUPABASE: "Supabase",
     POSTGRES: "PostgreSQL",
     GOOGLE_CHAT_OAUTH: "Google Chat OAuth",
     GMAIL: "Gmail",
@@ -746,6 +747,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       if (key === "credentialId") { config.team = "personal"; config.project = ""; }
       else if (key === "team") config.project = "";
     }
+    if (node.data.nodeType === "action.supabase.select" && key === "credentialId" && node.data.config.credentialId !== value) config.table = "";
     updateNodeData(node.id, { config });
   };
   const suggestions = buildExpressionSuggestions(execution?.nodeExecutions.map((item) => ({ nodeId: item.nodeId, output: item.output })) ?? []);
@@ -769,6 +771,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       {definition?.configurationFields && <NodeConfigurationFields key={node.id} fields={definition.configurationFields} config={node.data.config} credentials={credentials} workspaceId={workspaceId} allowExpressions={!node.data.nodeType.startsWith("trigger.")} onChange={updateConfig} draft={draft} onDraftChange={onDraftChange} />}
       {node.data.nodeType === "action.trello.create-card" && <Status tone="info" className="inspector-note">Card creation can be duplicated if a run is repeated. If the result is uncertain, check Trello before retrying.</Status>}
       {node.data.nodeType === "action.sentry.list-issues" && <Status tone="info" className="inspector-note">Issue titles and metadata can be stored in execution history.</Status>}
+      {node.data.nodeType === "action.supabase.select" && <Status tone="info" className="inspector-note">Results may appear in execution history. Access depends on the connection key and your Supabase policies.</Status>}
       {node.data.nodeType === "trigger.gmail" && <GmailTriggerStatus workflowId={workflowId} nodeId={node.id} />}
       {node.data.nodeType === "trigger.manual" && <TestDataEditor key={node.id} value={node.data.config.testData} onApply={(testData) => updateConfig("testData", testData)} draft={draft.testData} onDraftChange={(next) => onDraftChange("testData", next)} />}
       {node.data.nodeType === "trigger.cron" && (

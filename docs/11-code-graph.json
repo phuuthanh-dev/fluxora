@@ -243,6 +243,7 @@
         "apps/api/src/execution/mongodb-find.ts",
         "apps/api/src/execution/postgres-read.ts",
         "apps/api/src/execution/sentry.ts",
+        "apps/api/src/execution/supabase.ts",
         "apps/api/src/execution/trello.ts",
         "apps/api/src/execution/vercel.ts"
       ],
@@ -551,6 +552,7 @@
         "apps/api/src/execution/rss-read.ts",
         "apps/api/src/execution/sentry.ts",
         "apps/api/src/execution/smtp-email.ts",
+        "apps/api/src/execution/supabase.ts",
         "apps/api/src/execution/trello.ts",
         "apps/api/src/execution/vercel.ts",
         "apps/api/src/workflows/workflow-graph.ts"
@@ -811,6 +813,19 @@
         "@prisma/client",
         "node:net",
         "nodemailer"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/supabase.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-json.ts"
+      ],
+      "externalImports": [
+        "@prisma/client"
       ]
     },
     {
@@ -2572,6 +2587,10 @@
     },
     {
       "from": "apps/api/src/credentials/connector-resource.controller.ts",
+      "to": "apps/api/src/execution/supabase.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/connector-resource.controller.ts",
       "to": "apps/api/src/execution/trello.ts"
     },
     {
@@ -2964,6 +2983,10 @@
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/supabase.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/execution/trello.ts"
     },
     {
@@ -3165,6 +3188,22 @@
     {
       "from": "apps/api/src/execution/smtp-email.ts",
       "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/supabase.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/supabase.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/supabase.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/supabase.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
     },
     {
       "from": "apps/api/src/execution/trello.ts",

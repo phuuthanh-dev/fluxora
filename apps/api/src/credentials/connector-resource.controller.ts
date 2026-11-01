@@ -8,12 +8,22 @@ import { listPostgresSchemas, listPostgresTables, validatePostgresCredential } f
 import { listTrelloBoards, listTrelloLists } from "../execution/trello";
 import { listSentryOrganizations, listSentryProjects } from "../execution/sentry";
 import { listVercelProjects, listVercelTeams } from "../execution/vercel";
+import { listSupabaseTables } from "../execution/supabase";
 import { CredentialService } from "./credential.service";
 
 @Controller("workspaces/:workspaceId/credentials/:credentialId")
 @UseGuards(AuthenticationGuard)
 export class ConnectorResourceController {
   constructor(@Inject(CredentialService) private readonly credentials: CredentialService) {}
+
+  @Get("supabase/tables")
+  async supabaseTables(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.SUPABASE);
+    try { return await listSupabaseTables(credential); }
+    catch { throw new BadRequestException({ code: "SUPABASE_TABLES_UNAVAILABLE", message: "Tables could not be listed. Supabase may restrict schema discovery for this key; enter the table name manually." }); }
+  }
 
   @Get("vercel/teams")
   async vercelTeams(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Req() request: AuthenticatedRequest) {

@@ -45,6 +45,7 @@ enum CredentialProvider {
   TRELLO
   SENTRY
   VERCEL
+  SUPABASE
 }
 
 // Provider writes can succeed even when the response is lost. Pending and

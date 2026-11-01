@@ -19,6 +19,7 @@ const fields: Partial<Record<CredentialProvider, SecretField[]>> = {
   TRELLO: [{ key: "apiKey", label: "Trello API key", secret: true }, { key: "token", label: "Trello token", secret: true, hint: "Grant your token access to the boards you want to use." }],
   SENTRY: [{ key: "token", label: "Sentry authentication token", secret: true, hint: "A token with organization and issue read permissions." }],
   VERCEL: [{ key: "token", label: "Vercel access token", secret: true, hint: "The token must have access to the projects you want to inspect." }],
+  SUPABASE: [{ key: "projectRef", label: "Supabase project reference", hint: "The project reference in your Supabase project URL, without https:// or .supabase.co." }, { key: "apiKey", label: "Supabase API key", secret: true, hint: "Secret keys bypass Row Level Security. Use a publishable key when its access is sufficient." }],
   POSTGRES: [{ key: "host", label: "PostgreSQL host", hint: "Public hostname with a trusted TLS certificate." }, { key: "database", label: "Database name" }, { key: "username", label: "Database user" }, { key: "password", label: "Database password", secret: true }],
   GEMINI: [{ key: "apiKey", label: "Gemini API key", secret: true }],
   OPENAI: [{ key: "apiKey", label: "OpenAI API key", secret: true }],
