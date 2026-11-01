@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ConnectorResourceController, trelloDiscoveryError } from "./connector-resource.controller";
+import { ConnectorResourceController, supabaseDiscoveryError, trelloDiscoveryError } from "./connector-resource.controller";
 import { NodeFailure } from "../execution/node-failure";
 
 test("Trello discovery guidance distinguishes permissions without leaking provider content", () => {
@@ -12,6 +12,18 @@ test("Trello discovery guidance distinguishes permissions without leaking provid
     assert.ok(!response.message.includes("private provider response"));
   }
   assert.match((trelloDiscoveryError(new Error("secret provider text"), "lists").getResponse() as { message: string }).message, /Check your connection/);
+});
+
+test("Supabase discovery guidance is actionable and excludes provider messages", () => {
+  for (const [status, code, expected] of [[401, "SUPABASE_TABLES_UNAVAILABLE", /API key/], [403, "SUPABASE_DISCOVERY_RESTRICTED", /denied schema discovery/], [429, "SUPABASE_TABLES_UNAVAILABLE", /rate limited/], [500, "SUPABASE_TABLES_UNAVAILABLE", /Check the connection/]] as const) {
+    const response = supabaseDiscoveryError(new NodeFailure("HTTP_ERROR", "private provider response", false, status)).getResponse() as { code: string; message: string };
+    assert.equal(response.code, code);
+    assert.match(response.message, expected);
+    assert.ok(!response.message.includes("private provider response"));
+  }
+  const unknown = supabaseDiscoveryError(new Error("secret provider text")).getResponse() as { message: string };
+  assert.match(unknown.message, /Check the connection/);
+  assert.ok(!unknown.message.includes("secret provider text"));
 });
 
 test("connector discovery checks workspace ownership before credential access", async () => {
