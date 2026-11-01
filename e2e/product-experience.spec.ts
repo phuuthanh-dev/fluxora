@@ -57,7 +57,7 @@ test("guided connection fields preserve JSON, mask secrets, search saved account
   await expect(page.getByRole("status").filter({ hasText: "1 app found" })).toBeVisible();
   await expect(page.getByLabel("Provider", { exact: true })).toHaveValue("GOOGLE");
   await page.getByLabel("Provider", { exact: true }).selectOption("REDDIT");
-  await expect(page.getByLabel("App client secret")).toHaveAttribute("type", "password");
+  await expect(page.getByLabel("App client secret", { exact: true })).toHaveAttribute("type", "password");
   await page.getByLabel("Find an app").fill("no matching provider");
   await expect(page.getByText("No apps found. Try another search.")).toBeVisible();
   await expect(page.getByLabel("Provider", { exact: true })).toHaveValue("REDDIT");
@@ -68,10 +68,10 @@ test("guided connection fields preserve JSON, mask secrets, search saved account
   await page.getByLabel("Provider", { exact: true }).selectOption("EMAIL");
   await expect(page.getByLabel("Email connection type")).toHaveValue("GMAIL");
   await expect(page.getByRole("button", { name: "Connect Gmail" })).toBeVisible();
-  await expect(page.getByLabel("Gmail access token")).toBeVisible();
+  await expect(page.getByLabel("Gmail access token", { exact: true })).toBeVisible();
   await page.getByLabel("Email connection type").selectOption("SMTP");
   await expect(page.getByLabel("SMTP host")).toBeVisible();
-  await expect(page.getByLabel("Gmail access token")).toHaveCount(0);
+  await expect(page.getByLabel("Gmail access token", { exact: true })).toHaveCount(0);
   await expect(page.getByLabel("Password", { exact: true })).toHaveAttribute("type", "password");
   await page.getByLabel("Transport").selectOption("465");
   await page.getByRole("button", { name: "Edit JSON", exact: true }).click();
@@ -101,7 +101,7 @@ test("MongoDB credential shows fields appropriate to the selected connection typ
   await expect(page.getByLabel("Port", { exact: true })).toHaveCount(0);
   await page.getByLabel("Configuration type").selectOption("connectionString");
   await expect(page.getByLabel("MongoDB host")).toHaveCount(0);
-  await expect(page.getByLabel("Connection string")).toHaveAttribute("type", "password");
+  await expect(page.getByLabel("Connection string", { exact: true })).toHaveAttribute("type", "password");
   await page.getByLabel("Configuration type").selectOption("values");
   await page.getByLabel("Connection type").selectOption("direct");
   await expect(page.getByLabel("Port", { exact: true })).toBeVisible();
