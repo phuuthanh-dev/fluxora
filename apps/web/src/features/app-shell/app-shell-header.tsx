@@ -18,6 +18,7 @@ type AppShellHeaderProps = {
   workspaceId: string;
   onWorkspaceChange: (workspaceId: string) => void;
   active: "dashboard" | "connections" | "executions" | "editor" | "account";
+  onBeforeNavigate?: () => boolean;
 };
 
 function providerLabel(provider: Identity["provider"]) {
@@ -30,7 +31,7 @@ function avatarInitials(user: User | null) {
   return words.length > 1 ? `${words[0]?.[0] ?? ""}${words.at(-1)?.[0] ?? ""}`.toLocaleUpperCase() : source.slice(0, 2).toLocaleUpperCase();
 }
 
-export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, active }: AppShellHeaderProps) {
+export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, active, onBeforeNavigate }: AppShellHeaderProps) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [identities, setIdentities] = useState<Identity[]>([]);
@@ -54,6 +55,7 @@ export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, act
   }, []);
 
   const logout = async () => {
+    if (onBeforeNavigate?.() === false) return;
     await apiRequest("/auth/logout", { method: "POST" }).catch(() => undefined);
     router.replace("/login");
   };
@@ -70,26 +72,27 @@ export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, act
     }
   };
   const navPath = (target: "dashboard" | "connections" | "executions") => target === "dashboard" ? `/dashboard?workspace=${encodeURIComponent(workspaceId)}` : `/dashboard/${target}?workspace=${encodeURIComponent(workspaceId)}`;
+  const navigate = (path: string) => { if (onBeforeNavigate?.() !== false) router.push(path); };
 
   return (
     <header className="app-shell-header">
-      <button className="app-shell-brand" type="button" aria-label="Fluxora home" onClick={() => router.push(navPath("dashboard"))}><BrandLockup /></button>
+      <button className="app-shell-brand" type="button" aria-label="Fluxora home" onClick={() => navigate(navPath("dashboard"))}><BrandLockup /></button>
       <div className="app-shell-navigation">
-        <label className="app-shell-workspace" htmlFor="app-shell-workspace"><span>Workspace</span><Select id="app-shell-workspace" value={workspaceId} disabled={workspaces.length === 0} onChange={(event) => onWorkspaceChange(event.target.value)}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</Select></label>
+        <label className="app-shell-workspace" htmlFor="app-shell-workspace"><span>Workspace</span><Select id="app-shell-workspace" value={workspaceId} disabled={workspaces.length === 0} onChange={(event) => { if (onBeforeNavigate?.() !== false) onWorkspaceChange(event.target.value); }}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</Select></label>
         <nav aria-label="Workspace navigation">
-          <Button variant="ghost" className={`app-shell-nav-link${active === "dashboard" ? " is-active" : ""}`} aria-current={active === "dashboard" ? "page" : undefined} onClick={() => router.push(navPath("dashboard"))}><LayoutDashboard size={15} /> Dashboard</Button>
-          <Button variant="ghost" className={`app-shell-nav-link${active === "connections" ? " is-active" : ""}`} aria-current={active === "connections" ? "page" : undefined} onClick={() => router.push(navPath("connections"))}><PlugZap size={15} /> Connections</Button>
-          <Button variant="ghost" className={`app-shell-nav-link${active === "executions" ? " is-active" : ""}`} aria-current={active === "executions" ? "page" : undefined} onClick={() => router.push(navPath("executions"))}><History size={15} /> Executions</Button>
+          <Button variant="ghost" className={`app-shell-nav-link${active === "dashboard" ? " is-active" : ""}`} aria-current={active === "dashboard" ? "page" : undefined} onClick={() => navigate(navPath("dashboard"))}><LayoutDashboard size={15} /> Dashboard</Button>
+          <Button variant="ghost" className={`app-shell-nav-link${active === "connections" ? " is-active" : ""}`} aria-current={active === "connections" ? "page" : undefined} onClick={() => navigate(navPath("connections"))}><PlugZap size={15} /> Connections</Button>
+          <Button variant="ghost" className={`app-shell-nav-link${active === "executions" ? " is-active" : ""}`} aria-current={active === "executions" ? "page" : undefined} onClick={() => navigate(navPath("executions"))}><History size={15} /> Executions</Button>
         </nav>
       </div>
       <div className="app-shell-account">
         <ThemeToggle />
         <Menu label="Account" trigger={<span className={`app-shell-avatar app-shell-avatar--${user?.avatarColor ?? "lime"}`} aria-hidden="true">{avatarInitials(user)}</span>} className="app-shell-account-menu">
           <p className="app-shell-account-menu__user">{user?.displayName ?? user?.email ?? "Your account"}</p>
-          <Button variant="ghost" onClick={() => router.push(`/settings/account?workspace=${encodeURIComponent(workspaceId)}`)}><Settings size={14} /> Account settings</Button>
+          <Button variant="ghost" onClick={() => navigate(`/settings/account?workspace=${encodeURIComponent(workspaceId)}`)}><Settings size={14} /> Account settings</Button>
           {identityError && <p role="alert">{identityError}</p>}
           {identities.length ? identities.map((identity) => <div key={identity.provider}><span>{providerLabel(identity.provider)}{identity.provider === "STEAM" ? " linked" : ""}</span><Button variant="ghost" disabled={unlinking === identity.provider} onClick={() => void unlink(identity.provider)}>{unlinking === identity.provider ? "Unlinking…" : "Unlink"}</Button></div>) : <p>No external identities linked.</p>}
-          {!identities.some((identity) => identity.provider === "STEAM") && <Button variant="ghost" disabled={!providers.steam} onClick={() => window.location.assign(`${apiUrl}/auth/steam/connect`)}>{providers.steam ? "Link Steam" : "Steam setup"}</Button>}
+          {!identities.some((identity) => identity.provider === "STEAM") && <Button variant="ghost" disabled={!providers.steam} onClick={() => { if (onBeforeNavigate?.() !== false) window.location.assign(`${apiUrl}/auth/steam/connect`); }}>{providers.steam ? "Link Steam" : "Steam setup"}</Button>}
           <hr className="app-shell-account-menu__divider" />
           <Button variant="ghost" className="app-shell-account-menu__sign-out" onClick={() => void logout()}><LogOut size={14} /> Sign out</Button>
         </Menu>
