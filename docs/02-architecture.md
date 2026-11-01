@@ -55,6 +55,12 @@ Every active execution owns a short lease. The runner renews it while progressin
 
 The web dashboard is the authenticated control plane: it selects a workspace, lists workflows, and routes into a workflow-scoped editor URL. The editor distinguishes a deterministic mock test run from a guarded live run. Live requests use only `publishedVersion`; the API remains the final authorization and version-pinning boundary.
 
+Workspace activity aggregates execution status in the API after owner
+authorization, scoped through the workflow version to the selected workspace.
+It counts retained test and live executions created within a rolling 24-hour
+window and returns no payloads or secrets. It is a refreshable snapshot, not a
+live stream or an all-time analytics store.
+
 ## Monorepo boundaries
 
 ```text

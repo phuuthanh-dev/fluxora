@@ -101,6 +101,19 @@ integration coverage. Do not label the existing roadmap node executable until
 that vertical slice is complete. The [MongoDB driver connection options](https://www.mongodb.com/docs/drivers/node/current/connect/connection-options/)
 describe separate connection, server-selection, socket and operation timeouts.
 
+### Google Chat OAuth research — 2026-11-01
+
+The existing Google OAuth connection requests Drive and Sheets scopes; it
+does not authorize Chat. Google's [Chat authorization guide](https://developers.google.com/workspace/chat/authenticate-authorize)
+lists `chat.messages.create` for posting as a user and `chat.spaces.readonly`
+for listing spaces. The user-authenticated account must be a member of the
+destination space. A Chat-specific authorization flow should request the
+minimum required scopes separately, preserve existing Drive/Sheets credentials,
+and use an authenticated server-proxied space picker with manual fallback.
+Provider configuration, consent, scope verification and actual message delivery
+are separate from local implementation; no existing Google consent settings
+were changed in this research.
+
 ## Contract findings
 
 ### Correct and production-safe enough for the current MVP boundary

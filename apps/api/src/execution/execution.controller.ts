@@ -53,6 +53,11 @@ export class ExecutionController {
     return page;
   }
 
+  @Get("workspaces/:workspaceId/execution-activity")
+  async activityForWorkspace(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest) {
+    return { activity: await this.executions.activityForWorkspace(workspaceId, requireUserId(request)) };
+  }
+
   @Get("workspaces/:workspaceId/execution-retention")
   async retention(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest) {
     return { retention: await this.executions.retentionForWorkspace(workspaceId, requireUserId(request)) };

@@ -173,6 +173,9 @@ No multi-approver routing, reminder schedule, or approval policy engine is inclu
 - Smooth but restrained graph and status animations.
 - Realtime execution updates using WebSocket or SSE.
 - The dashboard displays API runtime readiness, database/queue availability, configured worker concurrency, and active/queued work so a degraded production dependency is visible without reading logs.
+- The dashboard activity overview counts retained workspace executions created
+  in the preceding 24 hours, across test and live modes, with current status
+  counts and an explicit refresh. The recent-run list filters only loaded pages.
 - Input/output views: JSON tree, table, raw text.
 - Mock run mode uses fixtures and calls no third-party API.
 - **Go live** is available only after publish and always requires an explicit confirmation. The API also rejects unconfirmed live-run requests and checks that each runtime integration node references a compatible credential in the selected workspace. It executes the immutable published version, never the editable draft, and warns of real external side effects.

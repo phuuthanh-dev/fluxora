@@ -32,6 +32,11 @@ complete in the delivery ledger.
   list and restore archived workflows without reactivating them. Its isolated
   local gate passed (243 API, 25 web and 128 E2E tests); it is not deployed.
   See `.agent/reports/2026-11-01-workflow-archive-recovery.md`.
+- Workspace activity overview is complete locally: an owner-scoped 24-hour
+  snapshot counts retained test and live executions by current status. Its
+  isolated gate passed (245 API, 25 web and 129 E2E); it is not deployed.
+  MongoDB and Google Chat OAuth remain planned, not implemented by this slice.
+  See `.agent/reports/2026-11-01-workspace-activity-overview.md`.
 
 The older snapshots below describe their dates and must not be read as current.
 
