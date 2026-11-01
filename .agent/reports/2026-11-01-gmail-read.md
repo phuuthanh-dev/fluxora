@@ -19,6 +19,10 @@
 
 ## Validation
 
+- Correction: the final gate below ran on a temporary copy whose state document
+  did not include a subsequent edit in commit `3316e45`. That commit used
+  unsupported `partial` state values and therefore did not itself pass the
+  agent-state gate. The following work replaces these values with `pending`.
 - Final `npm run verify` passed in a separate temporary worktree and synthetic
   PostgreSQL database: 279 API tests, 30 web tests and 133 Playwright tests.
   The new enum migration ran only against the synthetic database.

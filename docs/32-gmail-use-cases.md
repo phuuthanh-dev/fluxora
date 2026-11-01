@@ -1,5 +1,19 @@
 # Gmail workflow ideas and next steps
 
+## Connection UX and n8n comparison
+
+The connection form groups both choices under Email: Gmail API for reading
+messages, and SMTP for sending mail. The selected method retains its own
+credential provider, encrypted data and compatible nodes, so existing SMTP
+and Gmail connections do not change. Gmail API is not an SMTP transport; SMTP
+does not provide inbox access. Gmail OAuth and SMTP do not automatically share
+permissions. Like n8n, Gmail and SMTP remain distinct nodes in the editor.
+The current Gmail action cannot send mail.
+
+References: [n8n Gmail](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.gmail/),
+[n8n Send Email](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.sendemail/),
+and [n8n Gmail Trigger](https://docs.n8n.io/integrations/builtin/trigger-nodes/n8n-nodes-base.gmailtrigger/).
+
 These are proposals, not features already delivered. Gmail reading requires a
 separate consent and may need Google restricted-scope verification.
 

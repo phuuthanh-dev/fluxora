@@ -399,13 +399,13 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
       <form ref={formRef} onSubmit={submit} className="credential-form" aria-label="New connection">
         <div className="credential-form__title"><h3>New connection</h3><p>Choose an app and add its authorization details.</p></div>
         <Field label="Provider" className="credential-form__field">
-          <Select aria-label="Provider" value={provider} onChange={(event) => changeProvider(event.target.value as CredentialProvider)}>
+          <Select aria-label="Provider" value={provider === "SMTP" || provider === "GMAIL" ? "EMAIL" : provider} onChange={(event) => changeProvider(event.target.value === "EMAIL" ? "GMAIL" : event.target.value as CredentialProvider)}>
             <option value="GOOGLE">Google Drive / Sheets</option>
             <option value="STEAM">Steam</option>
             <option value="GOOGLE_CHAT_WEBHOOK">Google Chat webhook</option>
             <option value="DISCORD_WEBHOOK">Discord webhook</option>
             <option value="TELEGRAM_BOT">Telegram bot</option>
-            <option value="SMTP">SMTP email</option>
+            <option value="EMAIL">Email</option>
             <option value="GITHUB">GitHub connector</option>
             <option value="GEMINI">Gemini API</option>
             <option value="OPENAI">OpenAI API</option>
@@ -413,10 +413,15 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
             <option value="NOTION">Notion</option>
             <option value="POSTGRES">PostgreSQL</option>
             <option value="GOOGLE_CHAT_OAUTH">Google Chat OAuth</option>
-            <option value="GMAIL">Gmail</option>
             <option value="HTTP">HTTP</option>
           </Select>
         </Field>
+        {provider === "SMTP" || provider === "GMAIL" ? <Field label="Connection type" className="credential-form__field">
+          <Select aria-label="Email connection type" value={provider} onChange={(event) => changeProvider(event.target.value as "GMAIL" | "SMTP")}>
+            <option value="GMAIL">Gmail API (read messages)</option>
+            <option value="SMTP">SMTP (send email)</option>
+          </Select>
+        </Field> : null}
         <Field label="Connection name" className="credential-form__field">
           <input aria-label="Connection name" value={label} onChange={(event) => { setLabel(event.target.value); setCreateError(null); }} />
         </Field>

@@ -146,9 +146,11 @@ one of these IDs or explicitly reopen a completed ledger slice.
 | `AI-GEMINI-1` | Gemini text generation with workspace credential, model discovery and execution | pending | Local live generation succeeded once with Gemini 3.1 Flash Lite; a 2.5 Flash request returned 404 and a 3.8 Flash request timed out. Causes, other models and sustained or production behavior remain unverified. See `.agent/reports/2026-10-31-gemini-live.md`. |
 | `AI-OPENAI-1` | OpenAI text generation with workspace credential, model discovery and execution | pending | Implemented and verified locally; owner deferred real-provider testing. Migration applied only to local database. |
 | `EDITOR-QUALIFICATION-1` | Audit credential status, picker, validation and mock/live node-debug UX | planned | Reuse completed editor work; implement only evidenced gaps |
-| `NOTION-1` | Add Notion connector with user-owned credential and guided page operations | partial | Search pages implemented in PR #56; live search qualified once locally. More operations and production qualification remain. |
-| `POSTGRES-1` | Add PostgreSQL connector with user-owned credential and guided operations | partial | Select rows implemented in PR #56; live qualification and further operations remain. |
-| `GMAIL-1` | Add Gmail read operations and a durable new-message trigger with a separate owner-authorized Google connection | partial | Read action implemented locally; trigger remains unimplemented. `gmail.readonly` is restricted; no Google Cloud changes or live mailbox access without specific owner action. |
+| `NOTION-1` | Add Notion connector with user-owned credential and guided page operations | pending | Search pages implemented in PR #56; live search qualified once locally. More operations and production qualification remain. |
+| `POSTGRES-1` | Add PostgreSQL connector with user-owned credential and guided operations | pending | Select rows implemented in PR #56; live qualification and further operations remain. |
+| `GMAIL-1` | Add Gmail read operations and a durable new-message trigger with a separate owner-authorized Google connection | pending | Read action implemented locally; trigger remains unimplemented. `gmail.readonly` is restricted; no Google Cloud changes or live mailbox access without specific owner action. |
+| `CALENDAR-1` | Add Google Calendar connection and actions | planned | Scope permissions separately, use guided calendar selection, test with synthetic data. |
+| `EMAIL-UX-1` | Group Gmail and SMTP connection choices in the UI | pending | Grouped locally; Gmail and SMTP keep separate providers and nodes. Typecheck and focused E2E passed; full gate not yet rerun. |
 
 ## Closed boundary
 
