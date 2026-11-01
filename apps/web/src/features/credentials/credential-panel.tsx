@@ -83,6 +83,15 @@ const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
   },
 };
 
+type ProviderOption = { value: CredentialProvider | "EMAIL"; label: string; keywords?: string };
+const providerGroups: { label: string; options: ProviderOption[] }[] = [
+  { label: "Communication", options: [{ value: "EMAIL", label: "Email", keywords: "gmail smtp" }, { value: "GOOGLE_CHAT_OAUTH", label: "Google Chat OAuth" }, { value: "GOOGLE_CHAT_WEBHOOK", label: "Google Chat webhook" }, { value: "DISCORD_WEBHOOK", label: "Discord webhook" }, { value: "TELEGRAM_BOT", label: "Telegram bot" }] },
+  { label: "Productivity", options: [{ value: "GOOGLE", label: "Google Drive / Sheets" }, { value: "GOOGLE_CALENDAR", label: "Google Calendar" }, { value: "NOTION", label: "Notion" }, { value: "TRELLO", label: "Trello" }] },
+  { label: "Developer & data", options: [{ value: "GITHUB", label: "GitHub connector" }, { value: "SENTRY", label: "Sentry" }, { value: "VERCEL", label: "Vercel" }, { value: "SUPABASE", label: "Supabase" }, { value: "MONGODB", label: "MongoDB" }, { value: "POSTGRES", label: "PostgreSQL" }, { value: "HTTP", label: "HTTP" }] },
+  { label: "AI", options: [{ value: "GEMINI", label: "Gemini API" }, { value: "OPENAI", label: "OpenAI API" }] },
+  { label: "Social & gaming", options: [{ value: "REDDIT", label: "Reddit" }, { value: "STEAM", label: "Steam" }] },
+];
+
 type ActiveAction = { credentialId: string; type: "rename" | "rotate" | "delete" };
 
 function requestErrorMessage(reason: unknown, fallback: string) {
@@ -141,6 +150,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
   const formRef = useRef<HTMLFormElement>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [providerQuery, setProviderQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const initializedRef = useRef(false);
@@ -195,7 +205,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
     setCreateOpen(!createOpen);
     if (!createOpen) window.requestAnimationFrame(() => {
       formRef.current?.scrollIntoView({ behavior: "auto", block: "nearest" });
-      formRef.current?.querySelector("select")?.focus({ preventScroll: true });
+      formRef.current?.querySelector<HTMLInputElement>('input[aria-label="Find an app"]')?.focus({ preventScroll: true });
     });
   };
 
@@ -223,7 +233,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
       SENTRY: "Sentry",
       VERCEL: "Vercel",
       SUPABASE: "Supabase",
-    REDDIT: "Reddit",
+      REDDIT: "Reddit",
       POSTGRES: "PostgreSQL",
       GOOGLE_CHAT_OAUTH: "Google Chat OAuth",
       GMAIL: "Gmail",
@@ -383,6 +393,11 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
   const isGoogleOAuth = (cred: CredentialSummary) =>
     cred.isManaged ?? (cred.provider === "GOOGLE" && cred.label === "Google OAuth");
 
+  const currentProvider = provider === "SMTP" || provider === "GMAIL" ? "EMAIL" : provider;
+  const matchingProviderGroups = providerGroups.map((group) => ({ ...group, options: group.options.filter((option) => `${option.label} ${option.keywords ?? ""}`.toLowerCase().includes(providerQuery.trim().toLowerCase())) })).filter((group) => group.options.length);
+  const currentIsMatching = matchingProviderGroups.some((group) => group.options.some((option) => option.value === currentProvider));
+  const currentProviderLabel = providerGroups.flatMap((group) => group.options).find((option) => option.value === currentProvider)?.label ?? currentProvider;
+  const providerMatchCount = matchingProviderGroups.reduce((count, group) => count + group.options.length, 0);
   const visibleCredentials = credentials.filter((credential) => `${credential.label} ${credentialProviderLabel(credential.provider)}`.toLowerCase().includes(query.trim().toLowerCase()));
 
   return (
@@ -416,30 +431,18 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
       <Collapse open={createOpen} id="credential-create-content" className="credential-create">
       <form ref={formRef} onSubmit={submit} className="credential-form" aria-label="New connection">
         <div className="credential-form__title"><h3>New connection</h3><p>Choose an app and add its authorization details.</p></div>
-        <Field label="Provider" className="credential-form__field">
-          <Select aria-label="Provider" value={provider === "SMTP" || provider === "GMAIL" ? "EMAIL" : provider} onChange={(event) => changeProvider(event.target.value === "EMAIL" ? "GMAIL" : event.target.value as CredentialProvider)}>
-            <option value="GOOGLE">Google Drive / Sheets</option>
-            <option value="STEAM">Steam</option>
-            <option value="GOOGLE_CHAT_WEBHOOK">Google Chat webhook</option>
-            <option value="DISCORD_WEBHOOK">Discord webhook</option>
-            <option value="TELEGRAM_BOT">Telegram bot</option>
-            <option value="EMAIL">Email</option>
-            <option value="GITHUB">GitHub connector</option>
-            <option value="GEMINI">Gemini API</option>
-            <option value="OPENAI">OpenAI API</option>
-            <option value="MONGODB">MongoDB</option>
-            <option value="NOTION">Notion</option>
-            <option value="TRELLO">Trello</option>
-            <option value="SENTRY">Sentry</option>
-            <option value="VERCEL">Vercel</option>
-            <option value="SUPABASE">Supabase</option>
-            <option value="REDDIT">Reddit</option>
-            <option value="POSTGRES">PostgreSQL</option>
-            <option value="GOOGLE_CHAT_OAUTH">Google Chat OAuth</option>
-            <option value="GOOGLE_CALENDAR">Google Calendar</option>
-            <option value="HTTP">HTTP</option>
-          </Select>
-        </Field>
+        <div className="credential-provider-picker">
+          <Field label="Find an app" className="credential-form__field">
+            <input type="search" aria-label="Find an app" placeholder="Search apps" value={providerQuery} onChange={(event) => setProviderQuery(event.target.value)} />
+          </Field>
+          <Field label="Provider" className="credential-form__field">
+            <Select aria-label="Provider" value={currentProvider} onChange={(event) => changeProvider(event.target.value === "EMAIL" ? "GMAIL" : event.target.value as CredentialProvider)}>
+              {!currentIsMatching && <optgroup label="Current selection"><option value={currentProvider}>{currentProviderLabel}</option></optgroup>}
+              {matchingProviderGroups.map((group) => <optgroup label={group.label} key={group.label}>{group.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</optgroup>)}
+            </Select>
+          </Field>
+          {providerQuery.trim() && <p className="credential-provider-picker__result" role="status">{providerMatchCount ? `${providerMatchCount} ${providerMatchCount === 1 ? "app" : "apps"} found. Select a provider below.` : "No apps found. Try another search."}</p>}
+        </div>
         {provider === "SMTP" || provider === "GMAIL" ? <Field label="Connection type" className="credential-form__field">
           <Select aria-label="Email connection type" value={provider} onChange={(event) => changeProvider(event.target.value as "GMAIL" | "SMTP")}>
             <option value="GMAIL">Gmail API (read messages)</option>

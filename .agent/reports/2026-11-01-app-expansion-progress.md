@@ -31,5 +31,9 @@ registration lifecycle with a required shared header and normalized payload;
 targeted mocked tests passed. Reddit List Posts uses an owner-provided approved
 app-only credential and returns bounded public metadata; targeted mocked tests
 passed. API approval and data-retention/deletion review remain release blockers.
-The category grouping is the start of UI/UX work, not a full redesign.
+Node discovery groups apps by category and keeps search, operation counts, keyboard
+navigation, favorites and recent actions. The new-connection form groups providers
+and adds app search while preserving its current selection when filtered out.
+A browser test for the new search is included; visual and full-gate verification
+remain pending. Broader product-wide redesign is outside this connector slice.
 No changes were pushed, merged or deployed.
