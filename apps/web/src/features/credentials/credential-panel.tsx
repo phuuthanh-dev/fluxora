@@ -11,7 +11,7 @@ import "./credentials.css";
 import { CredentialSecretFields } from "./credential-secret-fields";
 import { NodeIcon, type NodeIconName } from "../workflow/node-icon";
 
-const providerIcons: Record<CredentialProvider, NodeIconName> = { GOOGLE: "google", STEAM: "steam", GOOGLE_CHAT_WEBHOOK: "google-chat", GOOGLE_CHAT_OAUTH: "google-chat", MONGODB: "mongodb", HTTP: "http", DISCORD_WEBHOOK: "discord", TELEGRAM_BOT: "telegram", GITHUB: "github", SMTP: "email", GEMINI: "gemini", OPENAI: "openai" };
+const providerIcons: Record<CredentialProvider, NodeIconName> = { GOOGLE: "google", STEAM: "steam", GOOGLE_CHAT_WEBHOOK: "google-chat", GOOGLE_CHAT_OAUTH: "google-chat", MONGODB: "mongodb", NOTION: "notion", POSTGRES: "postgres", HTTP: "http", DISCORD_WEBHOOK: "discord", TELEGRAM_BOT: "telegram", GITHUB: "github", SMTP: "email", GEMINI: "gemini", OPENAI: "openai" };
 
 type CredentialPreset = {
   label: string;
@@ -20,6 +20,8 @@ type CredentialPreset = {
 };
 
 const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
+  NOTION: { label: "Notion", data: '{\n  "token": ""\n}', hint: "Use your Notion integration token and share the pages with the integration." },
+  POSTGRES: { label: "PostgreSQL", data: '{\n  "host": "",\n  "port": 5432,\n  "database": "",\n  "username": "",\n  "password": ""\n}', hint: "Connect to a public PostgreSQL host using a trusted TLS certificate. Private networks are not currently supported." },
   MONGODB: { label: "MongoDB", data: '{\n  "host": "",\n  "port": 27017,\n  "username": "",\n  "password": "",\n  "authDatabase": "admin"\n}', hint: "Connect to a public TLS-enabled MongoDB server or SRV cluster using fields or a connection string." },
   GOOGLE_CHAT_OAUTH: { label: "Google Chat manual token", data: '{\n  "accessToken": ""\n}', hint: "Connect Google Chat separately from Drive and Sheets. Manual access tokens are short-lived." },
   OPENAI: {
@@ -96,6 +98,8 @@ function credentialProviderLabel(provider: CredentialProvider) {
     GEMINI: "Gemini",
     OPENAI: "OpenAI",
     MONGODB: "MongoDB",
+    NOTION: "Notion",
+    POSTGRES: "PostgreSQL",
     GOOGLE_CHAT_OAUTH: "Google Chat OAuth",
   };
 
@@ -200,6 +204,8 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
       GEMINI: "Gemini",
       OPENAI: "OpenAI",
       MONGODB: "MongoDB",
+      NOTION: "Notion",
+      POSTGRES: "PostgreSQL",
       GOOGLE_CHAT_OAUTH: "Google Chat OAuth",
     };
     setNotice(`${providerLabels[nextProvider] ?? nextProvider} credential template loaded.`);
@@ -401,6 +407,8 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
             <option value="GEMINI">Gemini API</option>
             <option value="OPENAI">OpenAI API</option>
             <option value="MONGODB">MongoDB</option>
+            <option value="NOTION">Notion</option>
+            <option value="POSTGRES">PostgreSQL</option>
             <option value="GOOGLE_CHAT_OAUTH">Google Chat OAuth</option>
             <option value="HTTP">HTTP</option>
           </Select>

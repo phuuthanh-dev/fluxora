@@ -13,6 +13,8 @@ const fields: Partial<Record<CredentialProvider, SecretField[]>> = {
   DISCORD_WEBHOOK: [{ key: "webhookUrl", label: "Webhook URL", secret: true }],
   TELEGRAM_BOT: [{ key: "botToken", label: "Bot token", secret: true }],
   GITHUB: [{ key: "token", label: "GitHub token", secret: true }],
+  NOTION: [{ key: "token", label: "Notion integration token", secret: true, hint: "Share the pages you want to access with this integration in Notion." }],
+  POSTGRES: [{ key: "host", label: "PostgreSQL host", hint: "Public hostname with a trusted TLS certificate." }, { key: "database", label: "Database name" }, { key: "username", label: "Database user" }, { key: "password", label: "Database password", secret: true }],
   GEMINI: [{ key: "apiKey", label: "Gemini API key", secret: true }],
   OPENAI: [{ key: "apiKey", label: "OpenAI API key", secret: true }],
   MONGODB: [{ key: "host", label: "MongoDB host", hint: "Public server hostname or SRV cluster hostname, without mongodb:// or mongodb+srv://." }, { key: "username", label: "Database user" }, { key: "password", label: "Database password", secret: true }, { key: "authDatabase", label: "Authentication database" }],
@@ -60,6 +62,7 @@ export function CredentialSecretFields({ provider, value, onChange, replacement 
         </Select>
       </Field>}
       {provider === "MONGODB" && payload?.configurationType !== "connectionString" && payload?.connectionMode !== "srv" && <Field label="Port" hint="Used for direct hosts; SRV clusters supply their own ports."><input aria-label="Port" type="number" min={1} max={65535} value={typeof payload?.port === "number" ? payload.port : 27017} onChange={(event) => update("port", Number(event.target.value))} /></Field>}
+      {provider === "POSTGRES" && <Field label="Port"><input aria-label="Port" type="number" min={1} max={65535} value={typeof payload?.port === "number" ? payload.port : 5432} onChange={(event) => update("port", Number(event.target.value))} /></Field>}
     </div>}
   </div>;
 }

@@ -108,6 +108,24 @@ Execution detail is owner-scoped and derived from the immutable workflow version
 
 ## Connector architecture
 
+### Work in progress: Notion and PostgreSQL — 2026-11-01
+
+The owner requested both connectors. On the local development branch, a Notion
+integration-token credential and page-search operation are being implemented;
+only pages shared with that integration can be returned. This is not OAuth, nor
+does it create or modify pages. Its additive credential enum migration is not
+yet deployed. The PostgreSQL local slice includes its own credential,
+schema/table discovery, a parameterized select builder and a bounded TLS read
+node. The isolated TLS read and hostname-rejection checks, browser test and
+full gate passed. Neither connector has been qualified with a real owner
+credential or deployed; do not represent them as production-qualified.
+
+The initial PostgreSQL target boundary rejects private or mixed DNS answers and
+pins the selected public address while retaining the original TLS hostname. A
+separate supported design is needed for private databases, and the read path
+  was tested against an isolated server using a synthetic certificate.
+Provider data must not enter logs or tests with real credentials.
+
 Each integration supplies:
 
 - App manifest: stable app identity, label, icon, discovery category, and aliases.

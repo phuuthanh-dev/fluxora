@@ -23,6 +23,7 @@ export type NodeLibraryGroup =
   | "logic"
   | "communication"
   | "google-workspace"
+  | "productivity"
   | "developer-data"
   | "ai"
   | "social"
@@ -62,7 +63,7 @@ export type NodeSelectOption = { value: string; label: string };
 type NodeFieldVisibilityValue = string | number | boolean;
 export type NodeFieldVisibility = { visibleWhen?: { key: string; equals: NodeFieldVisibilityValue | readonly NodeFieldVisibilityValue[] } };
 
-export type NodeResource = "github-repository" | "google-file" | "google-spreadsheet" | "gemini-model" | "openai-model" | "google-chat-space" | "mongodb-database" | "mongodb-collection";
+export type NodeResource = "github-repository" | "google-file" | "google-spreadsheet" | "gemini-model" | "openai-model" | "google-chat-space" | "mongodb-database" | "mongodb-collection" | "postgres-schema" | "postgres-table";
 
 /**
  * Declarative fields that the inspector can render without growing another
@@ -113,6 +114,8 @@ export const appCatalog: AppDefinition[] = [
   { id: "openai", label: "OpenAI", description: "Generate and transform content with AI.", icon: "openai", category: "ai", aliases: ["gpt", "llm"] },
   { id: "gemini", label: "Gemini", description: "Generate content with Google Gemini.", icon: "gemini", category: "ai", aliases: ["google ai", "llm"] },
   { id: "mongodb", label: "MongoDB", description: "Find and insert documents in a database.", icon: "mongodb", category: "data", aliases: ["database", "documents"] },
+  { id: "notion", label: "Notion", description: "Find pages shared with your integration.", icon: "notion", category: "productivity", aliases: ["pages", "notes"] },
+  { id: "postgres", label: "PostgreSQL", description: "Read rows from a PostgreSQL database.", icon: "postgres", category: "data", aliases: ["sql", "database"] },
   { id: "github", label: "GitHub", description: "Automate repositories, issues, and pull requests.", icon: "github", category: "developer-devops", aliases: ["git", "pull request", "issues"] },
   { id: "facebook-meta", label: "Facebook Meta", description: "Publish and manage Facebook content.", icon: "facebook", category: "social", aliases: ["meta"] },
   { id: "instagram", label: "Instagram", description: "Publish and manage Instagram content.", icon: "instagram", category: "social", aliases: ["meta"] },
@@ -123,6 +126,7 @@ export const nodeLibraryGroups: Array<{ id: NodeLibraryGroup; label: string; des
   { id: "logic", label: "Flow control", description: "Branch and route incoming data" },
   { id: "communication", label: "Communication", description: "Send messages and notifications" },
   { id: "google-workspace", label: "Google Workspace", description: "Work with Google files, sheets, and chat" },
+  { id: "productivity", label: "Productivity", description: "Find and organize your work" },
   { id: "developer-data", label: "Developer & data", description: "Connect APIs, services, and databases" },
   { id: "ai", label: "AI", description: "Generate and transform content with AI" },
   { id: "social", label: "Social", description: "Automate social channels" },
@@ -534,6 +538,45 @@ export const nodeCatalog: NodeDefinition[] = [
       { kind: "textarea", key: "prompt", label: "Prompt" },
       { kind: "number", key: "maxOutputTokens", label: "Max output tokens", fallbackValue: 1024 },
       { kind: "number", key: "timeoutMs", label: "Timeout (ms)", fallbackValue: 30000 },
+    ],
+  },
+  {
+    type: "action.postgres.select",
+    label: "PostgreSQL rows",
+    description: "Read a bounded set of rows from a table.",
+    category: "action",
+    libraryGroup: "developer-data",
+    appId: "postgres",
+    operationId: "select-rows",
+    operationLabel: "Select rows",
+    operationKind: "search",
+    icon: "postgres",
+    available: true,
+    defaultConfig: { credentialId: "", schema: "public", table: "", limit: 20 },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "PostgreSQL credential", providers: ["POSTGRES"] },
+      { kind: "resource", key: "schema", label: "Schema", resource: "postgres-schema", credentialKey: "credentialId", placeholder: "Search schemas" },
+      { kind: "resource", key: "table", label: "Table", resource: "postgres-table", credentialKey: "credentialId", dependencyKey: "schema", placeholder: "Search tables" },
+      { kind: "number", key: "limit", label: "Maximum rows (1–100)", fallbackValue: 20 },
+    ],
+  },
+  {
+    type: "action.notion.search-pages",
+    label: "Notion pages",
+    description: "Find pages shared with your Notion integration.",
+    category: "action",
+    libraryGroup: "productivity",
+    appId: "notion",
+    operationId: "search-pages",
+    operationLabel: "Search pages",
+    operationKind: "search",
+    icon: "notion",
+    available: true,
+    defaultConfig: { credentialId: "", query: "", pageSize: 20 },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Notion credential", providers: ["NOTION"] },
+      { kind: "text", key: "query", label: "Page title contains (optional)" },
+      { kind: "number", key: "pageSize", label: "Maximum pages (1–100)", fallbackValue: 20 },
     ],
   },
   {
