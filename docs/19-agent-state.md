@@ -4,24 +4,40 @@ This file is the compact, machine-checked handoff point for the next coding
 loop. It prevents an agent from proposing implementation work that is already
 complete in the delivery ledger.
 
-## Latest verified snapshot — 2026-11-01
+## Latest verified snapshot — 2026-11-02
+
+- The optional Supabase Management API table discovery change is implemented on
+  local branch `codex/connector-discovery-qualification`, not yet released or
+  qualified with a real Management API token. The isolated `npm run verify`
+  passed after the Uptime Kuma setup-copy change, including 144 E2E tests.
+  Uptime Kuma's upstream webhook sender passed an isolated HTTP contract
+  experiment using a minimal test superclass, but no complete Uptime Kuma
+  instance or live monitor has been tested. See `docs/35` for exact limits.
+
+- PR #60 merged as `2eebdbc` and PR #61 as `2cc2537`; their production
+  deployments succeeded. The RSS CDATA fix passed a production live read of
+  GitHub Changelog. Vercel's 403 team fallback and personal project picker were
+  observed on production. Supabase's generic-discovery fallback retained the
+  test table and one subsequent production read succeeded; schema discovery
+  itself remains unavailable. Trello board discovery returned 401; its precise
+  authentication cause and live card creation remain open. See
+  `docs/35-connector-coverage-and-discovery.md` for scope and evidence.
 
 - PR #58 merged as `955c00c`; quality gate and production deploy succeeded.
   On 2026-11-01, the deployed web root and API liveness/readiness returned 200.
   Deploy logs show a local PostgreSQL backup and migration container completion;
   no recent restore or full workflow/credential audit is implied. Seven initial
   operations shipped; provider-specific live qualification remains outstanding.
-  A local public RSS test found CDATA doctype text was rejected; fix and proof
-  are tracked in `.agent/tasks/2026-11-01-rss-cdata-fix.md` and the associated
-  report. No conclusion about production fix until released.
+  The subsequent RSS fix and production verification are recorded above.
 - PR #56 (`develop` → `main`) merged at `bd2519d`; it includes Notion search
   and PostgreSQL select. Notion search was qualified once locally; broader
   live and production qualification remains. See `.agent/reports/2026-11-01-notion-postgres.md`.
-- Draft PR #57 adds Gmail read and polling trigger, grouped email connection
-  choices and Google Calendar operations. Full isolated verification and its
+- PR #57 merged as `2a2feb3` and its production deployment succeeded; it adds
+  Gmail read and polling trigger, grouped email connection choices and Google
+  Calendar operations. Full isolated verification and its
   GitHub quality gate passed on `d1d4dcd`; limited local Gmail/Calendar live
-  checks later succeeded, while Google scope approval, broader qualification
-  and production deployment remain separate. A follow-up review
+  checks later succeeded, while Google scope approval and broader qualification
+  remain separate. A follow-up review
   fixed a queue-recovery edge case involving approval and passed isolated
   verification; see the associated report. Gmail Pub/Sub is not implemented.
 - Do not repeat the completed MongoDB live insert qualification.
@@ -148,7 +164,9 @@ Owner follow-up in progress on `codex/connector-discovery-qualification`: see
 `.agent/tasks/2026-11-01-connector-qualification.md` and
 `docs/35-connector-coverage-and-discovery.md`. Production Sentry, Vercel and
 Supabase read evidence has been recorded; Trello board discovery remains
-unqualified. This is not a completion claim until final verification and release.
+unqualified. PRs #60 and #61 passed their local and GitHub gates and were
+deployed; this is not a completion claim for all connector operations or
+provider qualification.
 
 These are the only currently approved follow-up directions. A task must target
 one of these IDs or explicitly reopen a completed ledger slice.
@@ -163,9 +181,9 @@ one of these IDs or explicitly reopen a completed ledger slice.
 | `EDITOR-QUALIFICATION-1` | Audit credential status, picker, validation and mock/live node-debug UX | planned | Reuse completed editor work; implement only evidenced gaps |
 | `NOTION-1` | Add Notion connector with user-owned credential and guided page operations | pending | Search pages implemented in PR #56; live search qualified once locally. More operations and production qualification remain. |
 | `POSTGRES-1` | Add PostgreSQL connector with user-owned credential and guided operations | pending | Select rows implemented in PR #56; live qualification and further operations remain. |
-| `GMAIL-1` | Add Gmail read operations and a durable new-message trigger with a separate owner-authorized Google connection | pending | Gmail Read and one targeted unmodified local trigger poll succeeded against a test email after a draft-history fix; isolated full verify passed. Sustained polling, restricted-scope approval and release remain. Pub/Sub push is not implemented. See `.agent/reports/2026-11-01-gmail-trigger-calendar-expansion.md`. |
-| `CALENDAR-1` | Add Google Calendar connection and actions | pending | Picker plus one local create/get/update/delete sequence succeeded against a test event. List-events, availability, public scope approval and release remain; a Calendar trigger is not implemented. See the Gmail/Calendar report. |
-| `EMAIL-UX-1` | Group Gmail and SMTP connection choices in the UI | pending | Grouped in the implementation; Gmail and SMTP keep separate providers and nodes. Isolated full verify passed; release remains. |
+| `GMAIL-1` | Add Gmail read operations and a durable new-message trigger with a separate owner-authorized Google connection | pending | Released in PR #57. Gmail Read and one targeted local trigger poll succeeded against a test email; sustained polling and restricted-scope approval remain. Pub/Sub push is not implemented. See `.agent/reports/2026-11-01-gmail-trigger-calendar-expansion.md`. |
+| `CALENDAR-1` | Add Google Calendar connection and actions | pending | Released in PR #57. Picker plus one local create/get/update/delete sequence succeeded against a test event. Live list-events, availability and public scope approval remain; a Calendar trigger is not implemented. |
+| `EMAIL-UX-1` | Group Gmail and SMTP connection choices in the UI | pending | Released in PR #57; Gmail and SMTP keep separate providers and nodes. Further UX qualification remains separate. |
 
 ## Closed boundary
 

@@ -26,6 +26,9 @@ export function trelloDiscoveryError(error: unknown, resource: "boards" | "lists
 }
 
 export function supabaseDiscoveryError(error: unknown) {
+  if (error instanceof NodeFailure && error.code === "SUPABASE_MANAGEMENT_AUTH_FAILED") {
+    return new BadRequestException({ code: "SUPABASE_TABLES_UNAVAILABLE", message: "Supabase denied the management token. Check its project access and database read permission, or enter the table name manually." });
+  }
   if (error instanceof NodeFailure && (error.code === "SUPABASE_DISCOVERY_RESTRICTED" || error.statusCode === 403)) {
     return new BadRequestException({ code: "SUPABASE_DISCOVERY_RESTRICTED", message: "Supabase denied schema discovery. Publishable and anon keys can still read permitted rows; enter the table name manually." });
   }

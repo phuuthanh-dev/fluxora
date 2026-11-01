@@ -70,6 +70,25 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   await trelloCard.getByRole("button", { name: "Delete Trello visibility test" }).click();
   await trelloCard.getByRole("button", { name: "Confirm delete" }).click();
   await expect(trelloCard).toHaveCount(0);
+  // Optional management credentials are encrypted and never returned as hints.
+  await page.getByLabel("Provider").selectOption("SUPABASE");
+  await page.getByLabel("Connection name", { exact: true }).fill("Supabase discovery test");
+  await page.getByLabel("Supabase project reference").fill("abcdefghijklmnopqrst");
+  await page.getByLabel("Supabase API key", { exact: true }).fill("sb_publishable_synthetic_fixture");
+  const managementToken = "sbp_synthetic_discovery_token_12345678";
+  const managementInput = page.getByLabel("Management access token (optional)", { exact: true });
+  await expect(managementInput).toHaveAttribute("type", "password");
+  await managementInput.fill(managementToken);
+  const supabaseSave = page.waitForResponse((res) => res.request().method() === "POST" && res.url().includes("/credentials"));
+  await page.getByRole("button", { name: "Encrypt & save" }).click();
+  const supabasePayload = await (await supabaseSave).json();
+  expect(JSON.stringify(supabasePayload)).not.toContain(managementToken);
+  expect((supabasePayload.credential.hints ?? []).some((hint: { field: string }) => hint.field === "managementToken")).toBe(false);
+  const supabaseCard = page.locator("li.credential-card").filter({ hasText: "Supabase discovery test" });
+  await supabaseCard.getByLabel("Actions for Supabase discovery test actions").click();
+  await supabaseCard.getByRole("button", { name: "Delete Supabase discovery test" }).click();
+  await supabaseCard.getByRole("button", { name: "Confirm delete" }).click();
+  await expect(supabaseCard).toHaveCount(0);
   await page.getByLabel("Provider").selectOption("MONGODB");
   await page.getByLabel("Configuration type").selectOption("connectionString");
   await page.getByLabel("Connection string", { exact: true }).fill("mongodb+srv://example.test");
