@@ -63,7 +63,7 @@ export type NodeSelectOption = { value: string; label: string };
 type NodeFieldVisibilityValue = string | number | boolean;
 export type NodeFieldVisibility = { visibleWhen?: { key: string; equals: NodeFieldVisibilityValue | readonly NodeFieldVisibilityValue[] } };
 
-export type NodeResource = "github-repository" | "google-file" | "google-spreadsheet" | "google-calendar" | "google-calendar-event" | "gmail-label" | "gemini-model" | "openai-model" | "google-chat-space" | "mongodb-database" | "mongodb-collection" | "postgres-schema" | "postgres-table";
+export type NodeResource = "github-repository" | "google-file" | "google-spreadsheet" | "google-calendar" | "google-calendar-event" | "gmail-label" | "gemini-model" | "openai-model" | "google-chat-space" | "mongodb-database" | "mongodb-collection" | "postgres-schema" | "postgres-table" | "trello-board" | "trello-list" | "sentry-organization" | "sentry-project" | "vercel-team" | "vercel-project" | "supabase-table";
 
 /**
  * Declarative fields that the inspector can render without growing another
@@ -118,6 +118,13 @@ export const appCatalog: AppDefinition[] = [
   { id: "gemini", label: "Gemini", description: "Generate content with Google Gemini.", icon: "gemini", category: "ai", aliases: ["google ai", "llm"] },
   { id: "mongodb", label: "MongoDB", description: "Find and insert documents in a database.", icon: "mongodb", category: "data", aliases: ["database", "documents"] },
   { id: "notion", label: "Notion", description: "Find pages shared with your integration.", icon: "notion", category: "productivity", aliases: ["pages", "notes"] },
+  { id: "trello", label: "Trello", description: "Organize work with boards, lists, and cards.", icon: "trello", category: "productivity", aliases: ["kanban", "cards", "boards"] },
+  { id: "sentry", label: "Sentry", description: "Find issues in your monitored projects.", icon: "sentry", category: "developer-devops", aliases: ["errors", "monitoring", "issues"] },
+  { id: "vercel", label: "Vercel", description: "Inspect project deployments.", icon: "vercel", category: "developer-devops", aliases: ["deployment", "hosting", "projects"] },
+  { id: "supabase", label: "Supabase", description: "Read rows from a Supabase project.", icon: "supabase", category: "data", aliases: ["database", "postgres", "tables"] },
+  { id: "uptime-kuma", label: "Uptime Kuma", description: "Start a workflow from a monitor alert.", icon: "uptime-kuma", category: "developer-devops", aliases: ["uptime", "monitoring", "alert"] },
+  { id: "reddit", label: "Reddit", description: "Read posts from a public community.", icon: "reddit", category: "social", aliases: ["subreddit", "posts", "community"] },
+  { id: "rss", label: "RSS", description: "Read items from a public RSS or Atom feed.", icon: "rss", category: "data", aliases: ["feed", "atom", "news"] },
   { id: "postgres", label: "PostgreSQL", description: "Read rows from a PostgreSQL database.", icon: "postgres", category: "data", aliases: ["sql", "database"] },
   { id: "github", label: "GitHub", description: "Automate repositories, issues, and pull requests.", icon: "github", category: "developer-devops", aliases: ["git", "pull request", "issues"] },
   { id: "facebook-meta", label: "Facebook Meta", description: "Publish and manage Facebook content.", icon: "facebook", category: "social", aliases: ["meta"] },
@@ -188,6 +195,11 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "webhook",
     available: true,
     defaultConfig: { path: "steam-daily-report", secretRequired: true },
+  },
+  {
+    type: "trigger.uptime-kuma.alert", label: "Uptime Kuma alert", description: "Start when an Uptime Kuma monitor sends an alert.",
+    category: "trigger", libraryGroup: "developer-data", appId: "uptime-kuma", operationId: "monitor-alert", operationLabel: "Monitor alert", operationKind: "trigger", icon: "uptime-kuma", available: true,
+    defaultConfig: { path: "uptime-kuma-alert", secretRequired: true },
   },
   {
     type: "trigger.github.issue-opened",
@@ -681,6 +693,71 @@ export const nodeCatalog: NodeDefinition[] = [
       { kind: "credential", key: "credentialId", label: "PostgreSQL credential", providers: ["POSTGRES"] },
       { kind: "resource", key: "schema", label: "Schema", resource: "postgres-schema", credentialKey: "credentialId", placeholder: "Search schemas" },
       { kind: "resource", key: "table", label: "Table", resource: "postgres-table", credentialKey: "credentialId", dependencyKey: "schema", placeholder: "Search tables" },
+      { kind: "number", key: "limit", label: "Maximum rows (1–100)", fallbackValue: 20 },
+    ],
+  },
+  {
+    type: "action.rss.read", label: "Read RSS feed", description: "Read recent items from a public RSS or Atom feed.",
+    category: "action", libraryGroup: "developer-data", appId: "rss", operationId: "read-feed", operationLabel: "Read feed", operationKind: "search", icon: "rss", available: true,
+    defaultConfig: { url: "", limit: 20 },
+    configurationFields: [
+      { kind: "text", key: "url", label: "Public feed URL (no secrets)" },
+      { kind: "number", key: "limit", label: "Maximum items (1–100)", fallbackValue: 20 },
+    ],
+  },
+  {
+    type: "action.trello.create-card", label: "Trello card", description: "Create a card in a selected Trello list.",
+    category: "action", libraryGroup: "productivity", appId: "trello", operationId: "create-card", operationLabel: "Create card", operationKind: "action", icon: "trello", available: true,
+    defaultConfig: { credentialId: "", boardId: "", listId: "", title: "", description: "" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Trello connection", providers: ["TRELLO"] },
+      { kind: "resource", key: "boardId", label: "Board", resource: "trello-board", credentialKey: "credentialId", placeholder: "Search boards" },
+      { kind: "resource", key: "listId", label: "List", resource: "trello-list", credentialKey: "credentialId", dependencyKey: "boardId", placeholder: "Search lists" },
+      { kind: "text", key: "title", label: "Card title" },
+      { kind: "textarea", key: "description", label: "Description (optional)" },
+    ],
+  },
+  {
+    type: "action.sentry.list-issues", label: "Sentry issues", description: "Read issues from a Sentry project.",
+    category: "action", libraryGroup: "developer-data", appId: "sentry", operationId: "list-issues", operationLabel: "List issues", operationKind: "search", icon: "sentry", available: true,
+    defaultConfig: { credentialId: "", organization: "", project: "", status: "unresolved", limit: 20 },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Sentry connection", providers: ["SENTRY"] },
+      { kind: "resource", key: "organization", label: "Organization", resource: "sentry-organization", credentialKey: "credentialId", placeholder: "Search organizations" },
+      { kind: "resource", key: "project", label: "Project", resource: "sentry-project", credentialKey: "credentialId", dependencyKey: "organization", placeholder: "Search projects" },
+      { kind: "select", key: "status", label: "Issue status", options: [{ value: "unresolved", label: "Unresolved" }, { value: "resolved", label: "Resolved" }, { value: "all", label: "All" }] },
+      { kind: "number", key: "limit", label: "Maximum issues (1–100)", fallbackValue: 20 },
+    ],
+  },
+  {
+    type: "action.vercel.list-deployments", label: "Vercel deployments", description: "Read recent deployments for a Vercel project.",
+    category: "action", libraryGroup: "developer-data", appId: "vercel", operationId: "list-deployments", operationLabel: "List deployments", operationKind: "search", icon: "vercel", available: true,
+    defaultConfig: { credentialId: "", team: "personal", project: "", limit: 20 },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Vercel connection", providers: ["VERCEL"] },
+      { kind: "resource", key: "team", label: "Account or team", resource: "vercel-team", credentialKey: "credentialId", placeholder: "Search teams" },
+      { kind: "resource", key: "project", label: "Project", resource: "vercel-project", credentialKey: "credentialId", dependencyKey: "team", placeholder: "Search projects" },
+      { kind: "number", key: "limit", label: "Maximum deployments (1–100)", fallbackValue: 20 },
+    ],
+  },
+  {
+    type: "action.reddit.list-posts", label: "Reddit posts", description: "Read recent or popular posts from a public community.",
+    category: "action", libraryGroup: "developer-data", appId: "reddit", operationId: "list-posts", operationLabel: "List posts", operationKind: "search", icon: "reddit", available: true,
+    defaultConfig: { credentialId: "", subreddit: "", sort: "new", limit: 20 },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Reddit connection", providers: ["REDDIT"] },
+      { kind: "text", key: "subreddit", label: "Public community (e.g. technology)" },
+      { kind: "select", key: "sort", label: "Sort posts", options: [{ value: "new", label: "Newest" }, { value: "hot", label: "Popular" }] },
+      { kind: "number", key: "limit", label: "Maximum posts (1–100)", fallbackValue: 20 },
+    ],
+  },
+  {
+    type: "action.supabase.select", label: "Supabase rows", description: "Read rows from a Supabase public-schema table.",
+    category: "action", libraryGroup: "developer-data", appId: "supabase", operationId: "select-rows", operationLabel: "Select rows", operationKind: "search", icon: "supabase", available: true,
+    defaultConfig: { credentialId: "", table: "", limit: 20 },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Supabase connection", providers: ["SUPABASE"] },
+      { kind: "resource", key: "table", label: "Table", resource: "supabase-table", credentialKey: "credentialId", placeholder: "Search tables" },
       { kind: "number", key: "limit", label: "Maximum rows (1–100)", fallbackValue: 20 },
     ],
   },

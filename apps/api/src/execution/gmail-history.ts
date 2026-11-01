@@ -41,8 +41,14 @@ export async function getGmailHistoryPage(token: string, startHistoryId: string,
     if (changes === undefined) continue;
     if (!Array.isArray(changes)) throw new NodeFailure("INVALID_RESPONSE", "Gmail returned an invalid history page.", false);
     for (const change of changes) {
-      const id = record(record(change)?.message)?.id;
+      const message = record(record(change)?.message);
+      const id = message?.id;
       if (typeof id !== "string" || !messageIdPattern.test(id)) throw new NodeFailure("INVALID_RESPONSE", "Gmail returned an invalid message ID.", false);
+      const labels = message?.labelIds;
+      if (labels !== undefined && (!Array.isArray(labels) || labels.some((label) => typeof label !== "string" || label.length > 128))) throw new NodeFailure("INVALID_RESPONSE", "Gmail returned invalid history labels.", false);
+      // Gmail reports draft creation as messageAdded, but sending may delete
+      // that draft before the next poll. A draft is not a received message.
+      if (Array.isArray(labels) && labels.includes("DRAFT")) continue;
       ids.add(id);
     }
   }

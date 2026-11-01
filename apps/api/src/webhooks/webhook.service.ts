@@ -29,12 +29,13 @@ export class WebhookService {
     if (!workflow.publishedVersion) throw new NotFoundException({ code: "PUBLISHED_VERSION_REQUIRED", message: "Publish this workflow before creating a webhook endpoint." });
     const graph = parseWorkflowGraph(workflow.publishedVersion.graph);
     const githubTrigger = githubWebhookTrigger(graph);
-    if (!graph.nodes.some((node) => node.type === "trigger.webhook") && !githubTrigger) {
+    const kumaTrigger = graph.nodes.some((node) => node.type === "trigger.uptime-kuma.alert");
+    if (!graph.nodes.some((node) => node.type === "trigger.webhook") && !githubTrigger && !kumaTrigger) {
       throw new BadRequestException({ code: "WEBHOOK_TRIGGER_REQUIRED", message: "Publish a workflow version containing a Webhook or GitHub event trigger before creating an endpoint." });
     }
     const conflictingEndpoint = await this.prisma.webhookEndpoint.findFirst({ where: { path, NOT: { workflowId } } });
     if (conflictingEndpoint) throw new ConflictException({ code: "WEBHOOK_PATH_IN_USE", message: "This webhook path is already in use by another workflow." });
-    const secret = githubTrigger || secretRequired ? randomBytes(24).toString("base64url") : null;
+    const secret = githubTrigger || kumaTrigger || secretRequired ? randomBytes(24).toString("base64url") : null;
     const encryptedSigningSecret = githubTrigger && secret ? this.vault.encrypt({ secret }) : null;
     const publishedVersionId = workflow.publishedVersion.id;
     const endpoint = await this.prisma.$transaction(async (transaction) => {
@@ -53,7 +54,7 @@ export class WebhookService {
       const saved = existing
         ? await transaction.webhookEndpoint.update({ where: { id: existing.id }, data: { path, secretHash: !githubTrigger && secret ? hashWebhookSecret(secret) : null, encryptedSigningSecret, workflowVersionId: publishedVersionId, isActive: true, updatedAt } })
         : await transaction.webhookEndpoint.create({ data: { workflowId, workflowVersionId: publishedVersionId, path, secretHash: !githubTrigger && secret ? hashWebhookSecret(secret) : null, encryptedSigningSecret } });
-      await transaction.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "webhook.created", targetType: "webhook", targetId: saved.id, metadata: { path, secretRequired: Boolean(secretRequired) || Boolean(githubTrigger) } } });
+      await transaction.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "webhook.created", targetType: "webhook", targetId: saved.id, metadata: { path, secretRequired: Boolean(secretRequired) || Boolean(githubTrigger) || kumaTrigger } } });
       return saved;
     }).catch((error: unknown) => {
       if (error && typeof error === "object" && "code" in error && error.code === "P2002") throw new ConflictException({ code: "WEBHOOK_PATH_IN_USE", message: "This webhook path is already in use by another workflow." });
@@ -76,17 +77,21 @@ export class WebhookService {
     if (!endpoint || !endpoint.isActive || endpoint.workflow.archivedAt) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
     const graph = parseWorkflowGraph(endpoint.workflowVersion.graph);
     const githubTrigger = githubWebhookTrigger(graph);
+    const kumaTrigger = graph.nodes.some((node) => node.type === "trigger.uptime-kuma.alert");
+    if (kumaTrigger && (githubTrigger || !endpoint.secretHash)) throw new ForbiddenException({ code: "WEBHOOK_SECRET_INVALID", message: "Webhook secret is invalid." });
     if (githubTrigger) {
       await this.verifyGitHubWebhook(endpoint.workflow.workspaceId, githubTrigger.config, payload, githubEventHeaders, endpoint.encryptedSigningSecret);
       if (githubEventHeaders.githubEvent === "ping") return { acknowledged: true };
     } else if (endpoint.secretHash && (!secret || !matchesWebhookSecret(secret, endpoint.secretHash))) {
       throw new ForbiddenException({ code: "WEBHOOK_SECRET_INVALID", message: "Webhook secret is invalid." });
     }
+    const normalized = kumaTrigger ? normalizeUptimeKumaAlert(payload) : null;
+    if (normalized?.test) return { acknowledged: true };
     if (!endpoint.workflow.isActive) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
     const deliveryKey = githubTrigger && githubEventHeaders.githubDelivery ? `github:${githubEventHeaders.githubDelivery}` : idempotencyKey;
     const execution = await this.executions.createScheduledExecution(
       endpoint.workflowVersionId,
-      payload && typeof payload === "object" && !Array.isArray(payload) ? payload as Record<string, unknown> : { payload },
+      normalized ? normalized.payload : payload && typeof payload === "object" && !Array.isArray(payload) ? payload as Record<string, unknown> : { payload },
       deliveryKey ? `webhook:${endpoint.id}:${deliveryKey}` : undefined,
     );
     await this.queue.dispatch({ executionId: execution.id, mode: "live" });
@@ -136,6 +141,17 @@ function readSecret(value: unknown) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+export function normalizeUptimeKumaAlert(payload: unknown): { test: true } | { test: false; payload: Record<string, unknown> } {
+  if (!isRecord(payload) || typeof payload.msg !== "string" || payload.msg.length > 4096) throw new BadRequestException({ code: "UPTIME_KUMA_PAYLOAD_INVALID", message: "Expected an Uptime Kuma JSON notification." });
+  if (payload.monitor == null && payload.heartbeat == null) return { test: true };
+  const monitor = payload.monitor;
+  const heartbeat = payload.heartbeat;
+  if (!isRecord(monitor) || !isRecord(heartbeat) || (typeof monitor.id !== "number" && typeof monitor.id !== "string") || typeof monitor.name !== "string" || monitor.name.length > 300 || !Number.isInteger(heartbeat.status) || (heartbeat.status as number) < 0 || (heartbeat.status as number) > 3) throw new BadRequestException({ code: "UPTIME_KUMA_PAYLOAD_INVALID", message: "Expected a monitor and heartbeat in the Uptime Kuma notification." });
+  const monitorId = String(monitor.id);
+  if (!/^[A-Za-z0-9_-]{1,100}$/.test(monitorId)) throw new BadRequestException({ code: "UPTIME_KUMA_PAYLOAD_INVALID", message: "Monitor ID is invalid." });
+  return { test: false, payload: { source: "uptime-kuma", monitor: { id: monitorId, name: monitor.name }, heartbeat: { status: heartbeat.status, time: typeof heartbeat.time === "string" ? heartbeat.time.slice(0, 100) : null, ping: typeof heartbeat.ping === "number" && Number.isFinite(heartbeat.ping) ? heartbeat.ping : null }, message: payload.msg } };
 }
 
 export function hashWebhookSecret(value: string) {

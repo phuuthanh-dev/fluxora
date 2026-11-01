@@ -6,7 +6,7 @@ import { CredentialService } from "../credentials/credential.service";
 import { PrismaService } from "../database/prisma.service";
 import { ExecutionEventsService } from "./execution-events.service";
 import { applyHttpCredential, HttpCredentialError } from "./http-credential";
-import { fetchSafeOutbound, OutboundRequestPolicyError } from "./outbound-url-policy";
+import { fetchSafeOutbound } from "./outbound-url-policy";
 import { resolveExpressions } from "./expression";
 import { redactValue } from "./redaction";
 import { isRetryableFailure, retryDelayMs } from "./retry-policy";
@@ -18,6 +18,12 @@ import { executeGeminiText } from "./gemini-text";
 import { executeOpenAIText } from "./openai-text";
 import { executeMongoFind, executeMongoInsert } from "./mongodb-find";
 import { executeNotionSearch } from "./notion-search";
+import { executeRssRead } from "./rss-read";
+import { executeTrelloCreateCard } from "./trello";
+import { executeSentryListIssues } from "./sentry";
+import { executeVercelListDeployments } from "./vercel";
+import { executeSupabaseSelect } from "./supabase";
+import { executeRedditListPosts } from "./reddit";
 import { executePostgresSelect } from "./postgres-read";
 import { executeGmailRead } from "./gmail-read";
 import { executeGoogleCalendar, executeGoogleCalendarAvailability, executeGoogleCalendarCreate, executeGoogleCalendarEvent } from "./google-calendar";
@@ -672,6 +678,12 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
   if (node.type === "action.notion.search-pages") {
     return executeNotionSearch(config, mode, workspaceId, credentials);
   }
+  if (node.type === "action.rss.read") return executeRssRead(config, mode);
+  if (node.type === "action.trello.create-card") return executeTrelloCreateCard(config, mode, workspaceId, credentials);
+  if (node.type === "action.sentry.list-issues") return executeSentryListIssues(config, mode, workspaceId, credentials);
+  if (node.type === "action.vercel.list-deployments") return executeVercelListDeployments(config, mode, workspaceId, credentials);
+  if (node.type === "action.supabase.select") return executeSupabaseSelect(config, mode, workspaceId, credentials);
+  if (node.type === "action.reddit.list-posts") return executeRedditListPosts(config, mode, workspaceId, credentials);
   if (node.type === "action.postgres.select") {
     return executePostgresSelect(config, mode, workspaceId, credentials);
   }
@@ -751,7 +763,8 @@ async function executeHttpRequest(config: Record<string, unknown>, credential?: 
     return { status: "succeeded", output: { status: response.status, body: responseBody }, route: "success" };
   } catch (reason) {
     if (reason instanceof NodeFailure) throw reason;
-    if (reason instanceof OutboundRequestPolicyError) throw nodeFailureFromOutboundPolicy(reason);
+    const policyFailure = nodeFailureFromOutboundPolicy(reason);
+    if (policyFailure.code === "OUTBOUND_URL_BLOCKED" || policyFailure.code === "OUTBOUND_REDIRECT_BLOCKED") throw policyFailure;
     const timeout = reason instanceof Error && reason.name === "TimeoutError";
     throw new NodeFailure(timeout ? "TIMEOUT" : "NETWORK_ERROR", timeout ? "HTTP request timed out." : "HTTP request failed.", true);
   }
@@ -1149,7 +1162,8 @@ export async function executeGitHubCreateIssue(config: Record<string, unknown>, 
     };
   } catch (reason) {
     if (reason instanceof NodeFailure) throw reason;
-    if (reason instanceof OutboundRequestPolicyError) throw nodeFailureFromOutboundPolicy(reason);
+    const policyFailure = nodeFailureFromOutboundPolicy(reason);
+    if (policyFailure.code === "OUTBOUND_URL_BLOCKED" || policyFailure.code === "OUTBOUND_REDIRECT_BLOCKED") throw policyFailure;
     const timeout = reason instanceof Error && reason.name === "TimeoutError";
     throw new NodeFailure(timeout ? "TIMEOUT" : "NETWORK_ERROR", timeout ? "GitHub request timed out." : "GitHub request failed.", true);
   }
@@ -1222,7 +1236,8 @@ export async function executeGitHubAddLabel(config: Record<string, unknown>, mod
     };
   } catch (reason) {
     if (reason instanceof NodeFailure) throw reason;
-    if (reason instanceof OutboundRequestPolicyError) throw nodeFailureFromOutboundPolicy(reason);
+    const policyFailure = nodeFailureFromOutboundPolicy(reason);
+    if (policyFailure.code === "OUTBOUND_URL_BLOCKED" || policyFailure.code === "OUTBOUND_REDIRECT_BLOCKED") throw policyFailure;
     const timeout = reason instanceof Error && reason.name === "TimeoutError";
     throw new NodeFailure(timeout ? "TIMEOUT" : "NETWORK_ERROR", timeout ? "GitHub request timed out." : "GitHub request failed.", true);
   }
@@ -1295,7 +1310,8 @@ export async function executeGitHubAddComment(config: Record<string, unknown>, m
     };
   } catch (reason) {
     if (reason instanceof NodeFailure) throw reason;
-    if (reason instanceof OutboundRequestPolicyError) throw nodeFailureFromOutboundPolicy(reason);
+    const policyFailure = nodeFailureFromOutboundPolicy(reason);
+    if (policyFailure.code === "OUTBOUND_URL_BLOCKED" || policyFailure.code === "OUTBOUND_REDIRECT_BLOCKED") throw policyFailure;
     const timeout = reason instanceof Error && reason.name === "TimeoutError";
     throw new NodeFailure(timeout ? "TIMEOUT" : "NETWORK_ERROR", timeout ? "GitHub request timed out." : "GitHub request failed.", true);
   }
@@ -1372,7 +1388,8 @@ export async function executeGitHubMergePullRequest(config: Record<string, unkno
     };
   } catch (reason) {
     if (reason instanceof NodeFailure) throw reason;
-    if (reason instanceof OutboundRequestPolicyError) throw nodeFailureFromOutboundPolicy(reason);
+    const policyFailure = nodeFailureFromOutboundPolicy(reason);
+    if (policyFailure.code === "OUTBOUND_URL_BLOCKED" || policyFailure.code === "OUTBOUND_REDIRECT_BLOCKED") throw policyFailure;
     const timeout = reason instanceof Error && reason.name === "TimeoutError";
     throw new NodeFailure(timeout ? "TIMEOUT" : "NETWORK_ERROR", timeout ? "GitHub request timed out." : "GitHub request failed.", true);
   }

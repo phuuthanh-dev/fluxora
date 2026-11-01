@@ -32,13 +32,16 @@
     "class-validator": "^0.14.2",
     "cron-parser": "^4.9.0",
     "dotenv": "^17.4.2",
+    "fast-xml-parser": "^5.11.2",
     "ioredis": "^5.11.1",
+    "ipaddr.js": "^2.5.0",
     "mongodb": "^6.21.0",
     "nodemailer": "^10.2.1",
     "pg": "^8.23.1",
     "pg-query-stream": "^4.17.1",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "undici": "^6.29.1"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

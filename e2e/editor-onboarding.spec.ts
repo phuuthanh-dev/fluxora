@@ -131,6 +131,9 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
 
   await page.getByRole("button", { name: "Communication", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Apps & services" })).toBeVisible();
+  const communicationGroup = page.locator(".palette-app-category").filter({ has: page.getByRole("heading", { name: /Communication/ }) });
+  await expect(communicationGroup.getByRole("button", { name: /Open Telegram/ })).toBeVisible();
+  await expect(communicationGroup.getByRole("button", { name: /Open Discord/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /Manual trigger/ })).toHaveCount(0);
   await page.getByLabel("Search apps and operations").fill("Instagram");
   await expect(page.getByRole("button", { name: /Instagram.*Planned/ })).toHaveAttribute("aria-disabled", "true");

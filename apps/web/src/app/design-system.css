@@ -84,6 +84,13 @@
   --provider-gemini: #6d5190;
   --provider-mongodb: #208a3d;
   --provider-notion: #222a25;
+  --provider-rss: #a34b00;
+  --provider-trello: #0755a7;
+  --provider-sentry: #55328e;
+  --provider-vercel: #222a25;
+  --provider-supabase: #087e4c;
+  --provider-reddit: #b73800;
+  --provider-uptime-kuma: #087d61;
   --provider-postgres: #235c88;
   --provider-github: #181717;
   --provider-facebook: #075bdf;
@@ -207,6 +214,13 @@
   --provider-gemini: #d3b7fa;
   --provider-mongodb: #88d99a;
   --provider-notion: #f4f5f0;
+  --provider-rss: #ffad5c;
+  --provider-trello: #8abfff;
+  --provider-sentry: #c0a5f4;
+  --provider-vercel: #f4f5f0;
+  --provider-supabase: #63d9a3;
+  --provider-reddit: #ff875d;
+  --provider-uptime-kuma: #69ddbd;
   --provider-postgres: #80bce7;
   --provider-github: #f3f6ec;
   --provider-facebook: #9bbcff;

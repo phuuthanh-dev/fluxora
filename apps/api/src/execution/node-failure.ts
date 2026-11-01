@@ -15,7 +15,11 @@ export class NodeFailure extends Error {
 
 export function nodeFailureFromOutboundPolicy(reason: unknown): NodeFailure {
   if (reason instanceof NodeFailure) return reason;
-  if (reason instanceof OutboundRequestPolicyError) return new NodeFailure(reason.code, reason.message, false);
+  let current = reason;
+  for (let depth = 0; depth < 5 && current instanceof Error; depth += 1) {
+    if (current instanceof OutboundRequestPolicyError) return new NodeFailure(current.code, current.message, false);
+    current = current.cause;
+  }
   const timeout = reason instanceof Error && reason.name === "TimeoutError";
   return new NodeFailure(
     timeout ? "TIMEOUT" : "NETWORK_ERROR",

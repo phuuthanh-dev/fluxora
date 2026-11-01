@@ -23,9 +23,20 @@ test("history pages expose distinct added message IDs and preserve continuation"
   assert.match(requested, /startHistoryId=123/); assert.match(requested, /pageToken=page-1/);
 });
 
+test("history skips draft additions but keeps subsequent sent and received messages", async () => {
+  const transport = async () => new Response(JSON.stringify({ historyId: "130", history: [
+    { messagesAdded: [{ message: { id: "draft-only", labelIds: ["DRAFT"] } }, { message: { id: "reused", labelIds: ["DRAFT"] } }] },
+    { messagesAdded: [{ message: { id: "reused", labelIds: ["SENT", "INBOX"] } }, { message: { id: "received", labelIds: ["INBOX"] } }] },
+  ] }));
+  const page = await getGmailHistoryPage("token", "123", undefined, transport as never);
+  assert.deepEqual(page.messageIds, ["reused", "received"]);
+});
+
 test("expired and malformed history are visible and never return provider content", async () => {
   const expired = async () => new Response("private body", { status: 404 });
   await assert.rejects(getGmailHistoryPage("token", "123", undefined, expired as never), (error: Error & { code?: string }) => error.code === "GMAIL_HISTORY_EXPIRED" && !error.message.includes("private body"));
   const invalid = async () => new Response(JSON.stringify({ historyId: "125", history: [{ messagesAdded: [{ message: { id: "not valid" } }] }] }));
   await assert.rejects(getGmailHistoryPage("token", "123", undefined, invalid as never));
+  const invalidLabels = async () => new Response(JSON.stringify({ historyId: "125", history: [{ messagesAdded: [{ message: { id: "valid", labelIds: "DRAFT" } }] }] }));
+  await assert.rejects(getGmailHistoryPage("token", "123", undefined, invalidLabels as never));
 });

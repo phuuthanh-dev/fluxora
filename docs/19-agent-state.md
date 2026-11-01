@@ -6,13 +6,23 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-01
 
+- `APP-EXPANSION-1` on local `codex/connector-catalog-expansion` adds one scoped
+  operation each for RSS, Trello, Sentry, Reddit, Uptime Kuma, Vercel and
+  Supabase. Grouped app discovery and connection-provider search are implemented;
+  `npm run verify` passed against disposable services (143 Playwright passed;
+  340 API tests passed and 1 skipped). Proof boundaries are in
+  `.agent/reports/2026-11-01-app-expansion-progress.md` and `docs/34-app-expansion.md`.
+  Real-provider qualification, production migrations and release are pending;
+  do not describe these as shipped.
+
 - PR #56 (`develop` → `main`) merged at `bd2519d`; it includes Notion search
   and PostgreSQL select. Notion search was qualified once locally; broader
   live and production qualification remains. See `.agent/reports/2026-11-01-notion-postgres.md`.
 - Draft PR #57 adds Gmail read and polling trigger, grouped email connection
   choices and Google Calendar operations. Full isolated verification and its
-  GitHub quality gate passed on `d1d4dcd`; real Gmail/Calendar access, Google
-  scope approval and production deployment remain separate. A follow-up review
+  GitHub quality gate passed on `d1d4dcd`; limited local Gmail/Calendar live
+  checks later succeeded, while Google scope approval, broader qualification
+  and production deployment remain separate. A follow-up review
   fixed a queue-recovery edge case involving approval and passed isolated
   verification; see the associated report. Gmail Pub/Sub is not implemented.
 - Do not repeat the completed MongoDB live insert qualification.
@@ -140,6 +150,7 @@ one of these IDs or explicitly reopen a completed ledger slice.
 
 | ID | Outcome | Status | Owner/evidence boundary |
 |---|---|---|---|
+| `APP-EXPANSION-1` | Add Trello, Sentry, Reddit, RSS, Uptime Kuma, Vercel and Supabase with scalable app discovery | pending | Implement provider slices independently; no live calls without owner-authorized credentials and resources. See docs/34-app-expansion.md. |
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
 | `CONNECTOR-LIVE-2` | Remaining Google, GitHub and SMTP live qualification | pending | Drive upload/read, Sheets append/read/update, GitHub create issue/comment/label and one Gmail SMTP delivery to the intended inbox succeeded on owner-approved test resources. Local Google refresh is inferred from a credential update during a successful demo run; production refresh, GitHub PR merge and sustained delivery remain unverified. See the 2026-10-31 connector reports and 2026-11-01 recovery report. |
 | `AI-GEMINI-1` | Gemini text generation with workspace credential, model discovery and execution | pending | Local live generation succeeded once with Gemini 3.1 Flash Lite; a 2.5 Flash request returned 404 and a 3.8 Flash request timed out. Causes, other models and sustained or production behavior remain unverified. See `.agent/reports/2026-10-31-gemini-live.md`. |
@@ -147,8 +158,8 @@ one of these IDs or explicitly reopen a completed ledger slice.
 | `EDITOR-QUALIFICATION-1` | Audit credential status, picker, validation and mock/live node-debug UX | planned | Reuse completed editor work; implement only evidenced gaps |
 | `NOTION-1` | Add Notion connector with user-owned credential and guided page operations | pending | Search pages implemented in PR #56; live search qualified once locally. More operations and production qualification remain. |
 | `POSTGRES-1` | Add PostgreSQL connector with user-owned credential and guided operations | pending | Select rows implemented in PR #56; live qualification and further operations remain. |
-| `GMAIL-1` | Add Gmail read operations and a durable new-message trigger with a separate owner-authorized Google connection | pending | Implementation and isolated full verify passed; live mailbox qualification, restricted-scope approval and release remain. Pub/Sub push is not implemented. See `.agent/reports/2026-11-01-gmail-trigger-calendar-expansion.md`. |
-| `CALENDAR-1` | Add Google Calendar connection and actions | pending | Guided calendar/event pickers and event operations passed the isolated gate; consent configuration, owner-approved live qualification and release remain. A Calendar trigger is not implemented. |
+| `GMAIL-1` | Add Gmail read operations and a durable new-message trigger with a separate owner-authorized Google connection | pending | Gmail Read and one targeted unmodified local trigger poll succeeded against a test email after a draft-history fix; isolated full verify passed. Sustained polling, restricted-scope approval and release remain. Pub/Sub push is not implemented. See `.agent/reports/2026-11-01-gmail-trigger-calendar-expansion.md`. |
+| `CALENDAR-1` | Add Google Calendar connection and actions | pending | Picker plus one local create/get/update/delete sequence succeeded against a test event. List-events, availability, public scope approval and release remain; a Calendar trigger is not implemented. See the Gmail/Calendar report. |
 | `EMAIL-UX-1` | Group Gmail and SMTP connection choices in the UI | pending | Grouped in the implementation; Gmail and SMTP keep separate providers and nodes. Isolated full verify passed; release remains. |
 
 ## Closed boundary

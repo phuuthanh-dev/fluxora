@@ -52,7 +52,16 @@ test("guided connection fields preserve JSON, mask secrets, search saved account
   const cards = await page.locator(".credential-list").boundingBox();
   expect(form!.y).toBeGreaterThanOrEqual(toolbar!.y + toolbar!.height);
   expect(form!.y + form!.height).toBeLessThan(cards!.y);
-  await expect(page.getByLabel("Provider", { exact: true })).toBeFocused();
+  await expect(page.getByLabel("Find an app", { exact: true })).toBeFocused();
+  await page.getByLabel("Find an app").fill("reddit");
+  await expect(page.getByRole("status").filter({ hasText: "1 app found" })).toBeVisible();
+  await expect(page.getByLabel("Provider", { exact: true })).toHaveValue("GOOGLE");
+  await page.getByLabel("Provider", { exact: true }).selectOption("REDDIT");
+  await expect(page.getByLabel("App client secret")).toHaveAttribute("type", "password");
+  await page.getByLabel("Find an app").fill("no matching provider");
+  await expect(page.getByText("No apps found. Try another search.")).toBeVisible();
+  await expect(page.getByLabel("Provider", { exact: true })).toHaveValue("REDDIT");
+  await page.getByLabel("Find an app").clear();
   await expect(page.getByLabel("Provider", { exact: true })).toHaveCSS("padding-right", "40px");
   await expect(page.getByLabel("Provider", { exact: true })).toHaveCSS("background-position", "calc(100% - 12px) 50%");
 

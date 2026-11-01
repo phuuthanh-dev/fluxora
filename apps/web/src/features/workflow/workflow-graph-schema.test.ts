@@ -79,6 +79,14 @@ test("Notion page search has its own connection and search operation", () => {
   assert.deepEqual(notion?.configurationFields?.[0], { kind: "credential", key: "credentialId", label: "Notion credential", providers: ["NOTION"] });
 });
 
+test("RSS read is executable without a credential", () => {
+  const rss = getNodeDefinition("action.rss.read");
+  assert.equal(rss?.available, true);
+  assert.equal(isExecutableWorkflowNodeType("action.rss.read"), true);
+  assert.equal(rss?.configurationFields?.some((field) => field.kind === "credential"), false);
+  assert.equal(rss?.configurationFields?.some((field) => field.key === "url"), true);
+});
+
 test("Gmail read uses its own connection and guided mailbox filter", () => {
   const gmail = getNodeDefinition("action.gmail.read");
   assert.equal(gmail?.available, true);

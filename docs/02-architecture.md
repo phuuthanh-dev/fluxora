@@ -183,6 +183,11 @@ type NodeExecutionResult = {
 - Mask sensitive headers/fields before persisting an execution.
 - Hash webhook secrets and compare in constant time.
 - Validate user-configurable HTTP and webhook destinations before every outbound request. Block loopback, private, link-local, multicast, and reserved IP ranges after DNS resolution; validate each redirect target and permit cross-origin redirects only through an explicit future policy.
+- `fetchSafeOutbound` also validates DNS answers at TCP connection time using
+  its dispatcher, so a DNS change between URL validation and socket creation
+  cannot silently select a private address. The operator's explicit hostname
+  allowlist is still an exception. This is specific to that HTTP transport;
+  SMTP, databases and direct `fetch` calls retain their own policies.
 - Use allowlisted expression helpers; never execute user JavaScript.
 - Restrict CORS to the web application origin.
 - External account identities live in `auth_identities`, separate from encrypted workspace credentials. Google login verifies state, issuer, audience, and a verified email; GitHub login exchanges the authorization code server-side and requires a verified GitHub email. Both create/link an identity and issue the same opaque session cookie as password login; provider access tokens are discarded after identity retrieval.
@@ -370,6 +375,8 @@ preserves the cursor and receipts for the same node and credential; changing or
 removing the trigger requires explicit acknowledgement of a possible gap.
 Polling intervals are selectable (one, five, 15 or 60 minutes), with 10, 25 or
 50 messages per check; a backlog continues on later checks. Sender, subject and
-label filters are evaluated using the message state when polled. Delivery receipts
-currently have no automatic retention cleanup. Polling is not instant; Pub/Sub
+label filters are evaluated using the message state when polled. History additions
+marked `DRAFT` are skipped before fetching message content: Gmail can remove a
+draft when it is sent. A missing non-draft message still requires review. Delivery
+receipts currently have no automatic retention cleanup. Polling is not instant; Pub/Sub
 push and real-mailbox qualification remain separate work.

@@ -392,6 +392,26 @@ function requiredEnv(name: "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET") {
 }
 
 function validateCredentialPayload(provider: CredentialProvider, data: Record<string, unknown>) {
+  if (provider === CredentialProvider.REDDIT) {
+    if (typeof data.clientId !== "string" || !/^[A-Za-z0-9_-]{1,200}$/.test(data.clientId) || typeof data.clientSecret !== "string" || !/^[A-Za-z0-9_-]{1,512}$/.test(data.clientSecret) || typeof data.username !== "string" || !/^[A-Za-z0-9_-]{3,20}$/.test(data.username)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid Reddit client ID, client secret and Reddit username." });
+    return;
+  }
+  if (provider === CredentialProvider.SUPABASE) {
+    if (typeof data.projectRef !== "string" || !/^[a-z0-9]{10,40}$/.test(data.projectRef) || typeof data.apiKey !== "string" || !/^[A-Za-z0-9._-]{1,4096}$/.test(data.apiKey)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid Supabase project reference and API key." });
+    return;
+  }
+  if (provider === CredentialProvider.VERCEL) {
+    if (typeof data.token !== "string" || !/^[A-Za-z0-9._-]{1,512}$/.test(data.token)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid Vercel access token." });
+    return;
+  }
+  if (provider === CredentialProvider.SENTRY) {
+    if (typeof data.token !== "string" || !/^[A-Za-z0-9._-]{1,512}$/.test(data.token) || !["global", "us", "de"].includes(typeof data.region === "string" ? data.region : "global")) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid Sentry token and region." });
+    return;
+  }
+  if (provider === CredentialProvider.TRELLO) {
+    if (typeof data.apiKey !== "string" || !/^[A-Za-z0-9_-]{1,512}$/.test(data.apiKey) || typeof data.token !== "string" || !/^[A-Za-z0-9_-]{1,512}$/.test(data.token)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid Trello API key and token." });
+    return;
+  }
   if (provider === CredentialProvider.POSTGRES) {
     try { validatePostgresCredential(data); } catch { throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid PostgreSQL connection." }); }
     return;
