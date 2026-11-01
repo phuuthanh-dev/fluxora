@@ -66,7 +66,7 @@ provider qualification, not a larger UI taxonomy.
 | App / connector | Catalog operations and category | Runtime status | Credential contract | Resource / field UX | Production gap |
 |---|---|---|---|---|---|
 | Steam | `Account snapshot` — action | Implemented; mock and live-capable executor | `STEAM`, encrypted API key plus Steam ID 64 fallback | Credential and Steam ID are purpose-built Inspector fields; include-owned/recent and achievement options are typed controls | Real Steam → notification smoke is owner-gated; Steam OpenID is identity linking only, not a workflow credential |
-| Google Chat | `Send webhook message` — action; OAuth message is roadmap | Webhook action implemented; OAuth action unavailable | `GOOGLE_CHAT_WEBHOOK`; Google OAuth `GOOGLE` is managed separately | Message textarea; credential select; OAuth node remains disabled | Live delivery and OAuth scope/callback qualification remain owner-gated |
+| Google Chat | Separate webhook and OAuth message actions | Implemented locally; provider qualification pending | `GOOGLE_CHAT_WEBHOOK` or separate `GOOGLE_CHAT_OAUTH` | Space picker with manual fallback and message field | Live OAuth scope/callback qualification and Google review remain separate |
 | Discord | `Send webhook message` — action | Implemented through shared notification dispatcher | `DISCORD_WEBHOOK`, encrypted webhook URL | Content, username, avatar URL, embeds JSON, allowlisted mentions JSON | Real channel delivery and rate-limit smoke remain owner-gated |
 | Telegram | `Send message` — action | Implemented through shared notification dispatcher | `TELEGRAM_BOT`, encrypted bot token only | Purpose-built destination type, chat ID, optional topic/thread ID, parse-mode select; legacy credential chat ID fallback | Real bot/chat authorization and channel/group smoke remain owner-gated |
 | Google Drive | `Manage files` — action: list, search, upload text, download text | Implemented for configured operations | `GOOGLE`, OAuth or manual compatible credential | Operation select; download uses authenticated text-file picker; upload-only name/text fields are conditional | Live OAuth scopes, shared-drive edge cases, and provider smoke remain owner-gated |
@@ -75,7 +75,7 @@ provider qualification, not a larger UI taxonomy.
 | Email SMTP | `Send email` — action | Implemented with deterministic mock and guarded live transport | `SMTP`, encrypted hostname, TLS submission port, username, password and From address | SMTP credential selector; To/Cc/Bcc, subject, plain-text/HTML body and Reply-to fields; recipients stay on the node | One owner-approved Gmail submission reached its intended inbox; sustained and production delivery are unverified. No attachments, inbound mail, bulk sending, Gmail OAuth or vendor presets |
 | OpenAI | `Generate text` — action | Implemented and verified locally | `OPENAI`, encrypted API key | Model discovery and prompt configuration | Real-provider testing deferred by owner; production behavior unverified |
 | Gemini | `Generate text` — action | Implemented and verified locally | `GEMINI`, encrypted API key | Model discovery and prompt configuration | One owner-approved local model generation succeeded; other models and production behavior remain unverified |
-| MongoDB | `Query documents` — action | Roadmap/schema-only | No runtime credential contract yet | Database, collection and operation placeholders; operation is currently free text | Must define connection credential, safe query model, operation enum, limits and executor before enabling |
+| MongoDB | `Find documents` and `Insert document` actions | Single-server TLS runtime implemented locally | `MONGODB` encrypted connection | Database/collection pickers, JSON input and bounded results | SRV/replica, private hosts and update/delete unsupported; live qualification pending |
 | GitHub | Triggers: issue opened, PR opened, push, workflow run completed; actions: create issue, add label, add comment, merge PR | Implemented; signed trigger delivery, guarded action calls, and feature-flagged managed webhook lifecycle with recorded-identity reconciliation | `GITHUB`, workspace connector token; separate from GitHub account login | Authenticated paginated repository picker; optional repository trigger filter; merge method select; published-version webhook setup | Reconciliation is locally tested and never claims unknown hooks; live webhook/action qualification and owner/operator proof remain gated |
 | Facebook Meta | `Manage content` — action | Roadmap/schema-only | No runtime credential contract yet | Operation placeholder only | Must define Meta OAuth/page-token model, asset/resource pickers and executor before enabling |
 | Instagram | `Manage content` — action | Roadmap/schema-only | No runtime credential contract yet | Operation placeholder only | Must define Meta/Instagram account/media model, OAuth and executor before enabling |
@@ -86,9 +86,9 @@ provider qualification, not a larger UI taxonomy.
 separates document operations such as find, insert, update and delete from
 its [MongoDB credential](https://docs.n8n.io/integrations/builtin/credentials/mongodb/),
 which supports a connection string or individual connection values. For a
-first Fluxora slice, prefer one encrypted workspace credential and a clearly
-labelled Find documents operation with bounded results and execution time;
-add writes separately once their failure and retry semantics are reviewed.
+first Fluxora slice, use one encrypted workspace credential and separate Find
+and Insert operations, with bounded results and execution time. Insert never
+automatically retries an uncertain write; update/delete remain future work.
 Use provider-backed database/collection selectors where permissions permit,
 with manual/expression fallback and an explicit loading/error state.
 
@@ -140,7 +140,7 @@ were changed in this research.
 | Steam and Telegram contain provider-specific conditional controls outside the declarative field list | Keep purpose-built controls; these are not generic fields and are explicitly allowed by the node-library contract | Intentional; covered by editor tests |
 | Google Drive changes fields based on selected operation | Keep conditional operation-specific controls and authenticated file picker | Fixed in `CONNECTOR-FIELD-UX-1` |
 | Google Sheets values previously used compact single-row input | Use a reusable table editor that persists the existing matrix payload | Fixed in `CONNECTOR-FIELD-UX-1`; expression mapping remains future work |
-| Roadmap AI/database/social nodes have placeholder fields | Keep disabled; do not add fake runtime branches | Intentional roadmap boundary |
+| Roadmap social nodes have placeholder fields | Keep disabled; do not add fake runtime branches | Intentional roadmap boundary |
 | Manual/expression entry remains for dynamic values | Retain hybrid behavior; providers cannot safely enumerate arbitrary runtime strings | Intentional and aligned with mature platforms |
 
 ## Remaining production qualification after this audit

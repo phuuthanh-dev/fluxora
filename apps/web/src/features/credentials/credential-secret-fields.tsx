@@ -7,6 +7,7 @@ import type { CredentialProvider } from "./credential-types";
 type SecretField = { key: string; label: string; secret?: boolean; hint?: string };
 const fields: Partial<Record<CredentialProvider, SecretField[]>> = {
   GOOGLE: [{ key: "accessToken", label: "Access token", secret: true }],
+  GOOGLE_CHAT_OAUTH: [{ key: "accessToken", label: "Access token", secret: true }],
   STEAM: [{ key: "apiKey", label: "Steam Web API key", secret: true }, { key: "steamId", label: "Steam ID", hint: "Your 17-digit Steam ID. Keep it as text to preserve every digit." }],
   GOOGLE_CHAT_WEBHOOK: [{ key: "webhookUrl", label: "Webhook URL", secret: true }],
   DISCORD_WEBHOOK: [{ key: "webhookUrl", label: "Webhook URL", secret: true }],
@@ -14,6 +15,7 @@ const fields: Partial<Record<CredentialProvider, SecretField[]>> = {
   GITHUB: [{ key: "token", label: "GitHub token", secret: true }],
   GEMINI: [{ key: "apiKey", label: "Gemini API key", secret: true }],
   OPENAI: [{ key: "apiKey", label: "OpenAI API key", secret: true }],
+  MONGODB: [{ key: "host", label: "MongoDB host", hint: "Public DNS hostname for a single TLS-enabled server." }, { key: "username", label: "Database user" }, { key: "password", label: "Database password", secret: true }, { key: "authDatabase", label: "Authentication database" }],
   SMTP: [{ key: "host", label: "SMTP host" }, { key: "username", label: "Username" }, { key: "password", label: "Password", secret: true }, { key: "from", label: "Sender address", hint: "An address or sender identity accepted by your SMTP provider." }],
 };
 
@@ -54,6 +56,7 @@ export function CredentialSecretFields({ provider, value, onChange, replacement 
           {payload?.port !== 587 && payload?.port !== 465 && <option value={String(payload?.port)}>Current value · {String(payload?.port)}</option>}
         </Select>
       </Field>}
+      {provider === "MONGODB" && <Field label="Port"><input aria-label="Port" type="number" min={1} max={65535} value={typeof payload?.port === "number" ? payload.port : 27017} onChange={(event) => update("port", Number(event.target.value))} /></Field>}
     </div>}
   </div>;
 }

@@ -35,8 +35,12 @@ complete in the delivery ledger.
 - Workspace activity overview is complete locally: an owner-scoped 24-hour
   snapshot counts retained test and live executions by current status. Its
   isolated gate passed (245 API, 25 web and 129 E2E); it is not deployed.
-  MongoDB and Google Chat OAuth remain planned, not implemented by this slice.
   See `.agent/reports/2026-11-01-workspace-activity-overview.md`.
+- MongoDB Find/Insert and Google Chat OAuth message are implemented locally;
+  their isolated quality gate passed (258 API, 26 web, 130 E2E). No live
+  provider qualification or deployment occurred. MongoDB is limited to one
+  public TLS host; SRV/replica, private hosts and update/delete remain open.
+  See `.agent/reports/2026-11-01-mongodb-chat-connectors.md`.
 
 The older snapshots below describe their dates and must not be read as current.
 

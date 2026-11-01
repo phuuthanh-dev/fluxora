@@ -1,4 +1,5 @@
 import { CredentialProvider, ExecutionStatus } from "@prisma/client";
+import { validateMongoCredential } from "../execution/mongodb-find";
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../database/prisma.service";
 import { WorkspaceService } from "../workspaces/workspace.service";
@@ -10,7 +11,8 @@ const googleRefreshSkewMs = 60_000;
 const canonicalGoogleOAuthLabel = "Google OAuth";
 
 function isCanonicalGoogleOAuth(credential: { provider: CredentialProvider; label: string }): boolean {
-  return credential.provider === CredentialProvider.GOOGLE && credential.label === canonicalGoogleOAuthLabel;
+  return (credential.provider === CredentialProvider.GOOGLE && credential.label === canonicalGoogleOAuthLabel)
+    || (credential.provider === CredentialProvider.GOOGLE_CHAT_OAUTH && credential.label === "Google Chat OAuth");
 }
 
 function hasErrorCode(error: unknown, code: string): boolean {
@@ -278,8 +280,8 @@ export class CredentialService {
     return this.vault.decrypt(credential.encryptedData);
   }
 
-  async readGoogleForExecution(credentialId: string, workspaceId: string) {
-    const credential = await this.prisma.credential.findFirst({ where: { id: credentialId, workspaceId, provider: CredentialProvider.GOOGLE } });
+  async readGoogleForExecution(credentialId: string, workspaceId: string, provider: typeof CredentialProvider.GOOGLE | typeof CredentialProvider.GOOGLE_CHAT_OAUTH = CredentialProvider.GOOGLE) {
+    const credential = await this.prisma.credential.findFirst({ where: { id: credentialId, workspaceId, provider } });
     if (!credential) throw new NotFoundException({ code: "CREDENTIAL_NOT_FOUND", message: "A matching credential was not found in this workspace." });
     const data = this.vault.decrypt(credential.encryptedData);
     if (!requiresGoogleRefresh(data)) return data;
@@ -319,6 +321,20 @@ export class CredentialService {
     return this.summary(credential);
   }
 
+  async upsertGoogleChatOAuth(workspaceId: string, userId: string, data: Record<string, unknown>) {
+    await this.workspaces.requireOwner(workspaceId, userId);
+    const encryptedData = this.vault.encrypt(data);
+    const provider = CredentialProvider.GOOGLE_CHAT_OAUTH;
+    const label = "Google Chat OAuth";
+    const credential = await this.prisma.credential.upsert({
+      where: { workspaceId_provider_label: { workspaceId, provider, label } },
+      create: { workspaceId, provider, label, encryptedData },
+      update: { encryptedData },
+    });
+    await this.prisma.auditLog.create({ data: { workspaceId, actorId: userId, action: "credential.google_chat_oauth_connected", targetType: "credential", targetId: credential.id } });
+    return this.summary(credential);
+  }
+
   private summary(credential: { id: string; provider: CredentialProvider; label: string; createdAt: Date; updatedAt: Date }) {
     return {
       id: credential.id,
@@ -349,6 +365,14 @@ function requiredEnv(name: "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET") {
 }
 
 function validateCredentialPayload(provider: CredentialProvider, data: Record<string, unknown>) {
+  if (provider === CredentialProvider.MONGODB) {
+    try { validateMongoCredential(data); } catch { throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a public MongoDB host, port, username, password and authentication database." }); }
+    return;
+  }
+  if (provider === CredentialProvider.GOOGLE_CHAT_OAUTH) {
+    if (typeof data.accessToken !== "string" || !data.accessToken || data.accessToken.length > 4096 || /\s/.test(data.accessToken)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid Google Chat access token." });
+    return;
+  }
   if (provider === CredentialProvider.GEMINI || provider === CredentialProvider.OPENAI) {
     if (typeof data.apiKey !== "string" || !data.apiKey.trim() || data.apiKey.length > 512 || /[\r\n]/.test(data.apiKey)) {
       throw new BadRequestException({ code: "INVALID_INPUT", message: "API key must be a non-empty string of at most 512 characters." });

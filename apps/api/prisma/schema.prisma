@@ -36,6 +36,8 @@ enum CredentialProvider {
   SMTP
   GEMINI
   OPENAI
+  MONGODB
+  GOOGLE_CHAT_OAUTH
 }
 
 // Provider writes can succeed even when the response is lost. Pending and

@@ -39,6 +39,11 @@ Additional L6.11 owner follow-up: the dashboard displays an owner-scoped,
 retention-aware 24-hour activity snapshot independent of the paginated list.
 Evidence: `.agent/reports/2026-11-01-workspace-activity-overview.md`.
 
+Owner follow-up to L4: MongoDB Find/Insert and Google Chat OAuth message are
+implemented locally with separate workspace credentials. Final isolated gate
+passed; provider qualification and production release remain separate. See
+`.agent/reports/2026-11-01-mongodb-chat-connectors.md` for limits and evidence.
+
 | Loop | Outcome | Status | Proof required |
 |---|---|---:|---|
 | L14.1 | Account settings and password recovery (ACCOUNT-1) | Complete locally | Own profile/session management, current-password change, atomic one-use reset, encrypted system SMTP outbox; isolated PostgreSQL security/concurrency proof and full verify passed: 226 API, 23 web, 86 E2E. All 12 new route/theme/viewport screenshots reviewed. System email remains opt-in and unqualified for real delivery. See docs/29 and account-recovery report. |

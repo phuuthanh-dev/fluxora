@@ -233,6 +233,21 @@
       ]
     },
     {
+      "id": "apps/api/src/credentials/connector-resource.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/google-chat-oauth.ts",
+        "apps/api/src/execution/mongodb-find.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client"
+      ]
+    },
+    {
       "id": "apps/api/src/credentials/credential-vault.service.ts",
       "boundary": "api",
       "internalImports": [],
@@ -258,6 +273,7 @@
       "boundary": "api",
       "internalImports": [
         "apps/api/src/auth/auth.module.ts",
+        "apps/api/src/credentials/connector-resource.controller.ts",
         "apps/api/src/credentials/credential-vault.service.ts",
         "apps/api/src/credentials/credential.controller.ts",
         "apps/api/src/credentials/credential.service.ts",
@@ -280,6 +296,7 @@
       "internalImports": [
         "apps/api/src/credentials/credential-vault.service.ts",
         "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/mongodb-find.ts",
         "apps/api/src/execution/smtp-email.ts",
         "apps/api/src/workspaces/workspace.service.ts"
       ],
@@ -479,8 +496,10 @@
         "apps/api/src/execution/execution-events.service.ts",
         "apps/api/src/execution/expression.ts",
         "apps/api/src/execution/gemini-text.ts",
+        "apps/api/src/execution/google-chat-oauth.ts",
         "apps/api/src/execution/http-credential.ts",
         "apps/api/src/execution/live-readiness.ts",
+        "apps/api/src/execution/mongodb-find.ts",
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/openai-text.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
@@ -519,6 +538,19 @@
       ]
     },
     {
+      "id": "apps/api/src/execution/google-chat-oauth.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-json.ts"
+      ],
+      "externalImports": [
+        "@prisma/client"
+      ]
+    },
+    {
       "id": "apps/api/src/execution/http-credential.ts",
       "boundary": "api",
       "internalImports": [],
@@ -531,6 +563,21 @@
       "externalImports": [
         "@prisma/client",
         "@workflow/contracts"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/mongodb-find.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts"
+      ],
+      "externalImports": [
+        "@prisma/client",
+        "mongodb",
+        "node:dns/promises",
+        "node:net"
       ]
     },
     {
@@ -2258,6 +2305,26 @@
       "to": "apps/api/src/auth/authenticated-request.ts"
     },
     {
+      "from": "apps/api/src/credentials/connector-resource.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/connector-resource.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/connector-resource.controller.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/connector-resource.controller.ts",
+      "to": "apps/api/src/execution/google-chat-oauth.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/connector-resource.controller.ts",
+      "to": "apps/api/src/execution/mongodb-find.ts"
+    },
+    {
       "from": "apps/api/src/credentials/credential.controller.ts",
       "to": "apps/api/src/auth/authenticated-request.ts"
     },
@@ -2272,6 +2339,10 @@
     {
       "from": "apps/api/src/credentials/credential.module.ts",
       "to": "apps/api/src/auth/auth.module.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/connector-resource.controller.ts"
     },
     {
       "from": "apps/api/src/credentials/credential.module.ts",
@@ -2324,6 +2395,10 @@
     {
       "from": "apps/api/src/credentials/credential.service.ts",
       "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.service.ts",
+      "to": "apps/api/src/execution/mongodb-find.ts"
     },
     {
       "from": "apps/api/src/credentials/credential.service.ts",
@@ -2511,11 +2586,19 @@
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/google-chat-oauth.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/execution/http-credential.ts"
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/execution/live-readiness.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/mongodb-find.ts"
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
@@ -2564,6 +2647,34 @@
     {
       "from": "apps/api/src/execution/gemini-text.ts",
       "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-chat-oauth.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-chat-oauth.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-chat-oauth.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-chat-oauth.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/execution/mongodb-find.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/mongodb-find.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/mongodb-find.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
     },
     {
       "from": "apps/api/src/execution/node-failure.ts",

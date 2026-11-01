@@ -156,6 +156,26 @@ Never commit `.env`, provider secrets, API keys, or encrypted production values.
 
 Google Drive and Sheets use a manually supplied access token or Google OAuth connector credentials. Configure the connector callback from `.env.example` using `GOOGLE_REDIRECT_URI`.
 
+Google Chat OAuth is a separate workspace connection. Enable the Chat API and
+configure/verify its `chat.spaces.readonly` and `chat.messages.create` scopes
+in the Google Cloud project before real use; these settings are not changed by
+the application. Select a space and enter a message in the Chat OAuth node.
+Manual tokens expire; the managed connection refreshes server-side. A delivery
+without a confirmed response may already have arrived, so inspect the space
+before retrying. Google Chat incoming webhooks remain a separate option.
+
+### MongoDB
+
+Create a MongoDB connection with a public DNS hostname, TLS-enabled port,
+database username/password and authentication database. The first version
+connects directly to one server: it does not accept SRV/connection strings,
+replica discovery, private network addresses or custom TLS certificates. Select
+a database and collection (or enter them manually), supply a JSON filter and
+set a limit from 1 to 100. Find and single-document Insert are supported;
+update/delete are not. An insert with an uncertain response may have succeeded:
+check the collection before retrying. Provider access is performed server-side
+and requires a confirmed live run.
+
 ### Account sign-in
 
 Account sign-in uses separate OAuth callbacks:

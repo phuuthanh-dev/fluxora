@@ -91,6 +91,8 @@ function providerLabel(provider: CredentialProvider) {
     SMTP: "SMTP email",
     GEMINI: "Gemini",
     OPENAI: "OpenAI",
+    MONGODB: "MongoDB",
+    GOOGLE_CHAT_OAUTH: "Google Chat OAuth",
     HTTP: "HTTP",
   };
   return labels[provider];
@@ -239,7 +241,7 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, all
         return <label key={field.key} className="checkbox-field"><input type="checkbox" checked={config[field.key] !== false} onChange={(event) => onChange(field.key, event.target.checked)} /> {field.label}</label>;
       }
       if (field.kind === "resource") {
-        return <ResourcePicker key={field.key} workspaceId={workspaceId} resource={field.resource} credentialId={readConfigText(config, field.credentialKey)} label={field.label} value={value} placeholder={field.placeholder} allowExpression={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
+        return <ResourcePicker key={field.key} workspaceId={workspaceId} resource={field.resource} credentialId={readConfigText(config, field.credentialKey)} dependencyValue={field.dependencyKey ? readConfigText(config, field.dependencyKey) : undefined} label={field.label} value={value} placeholder={field.placeholder} allowExpression={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       }
       if (field.kind === "select") {
         return <Field key={field.key} label={field.label} className="config-field"><Select aria-label={field.label} value={value} onChange={(event) => onChange(field.key, event.target.value)}>{field.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></Field>;

@@ -19,6 +19,19 @@ Retention, activation and known boundaries: `docs/29-account-recovery.md`.
 
 ## System shape
 
+MongoDB uses a dedicated workspace credential and direct TLS adapter. Every
+socket uses guarded DNS lookup to reject private, loopback, link-local and
+mixed public/private results; URI options, SRV, replica discovery and arbitrary
+certificate paths are unavailable. Owner-scoped metadata pickers use the same
+guard. The adapter bounds document count, query time and output size. Insert
+supports one bounded document and never retries an uncertain write automatically.
+
+Google Chat OAuth uses its own provider and signed authorization state, scopes,
+token and owner-scoped space discovery, independent of Drive/Sheets. The Chat
+adapter calls a fixed API endpoint. Uncertain delivery is not automatically
+retried; the user checks the destination before a manual retry. Live provider
+configuration and verification are separate from local implementation.
+
 Gemini text generation is a server-side node adapter with a separate `GEMINI`
 vault provider and an owner-authorized model-list endpoint. The editor stores
 model identifiers and prompt configuration, never the API key. Mock runs do not

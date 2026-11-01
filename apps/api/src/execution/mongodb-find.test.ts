@@ -1,0 +1,89 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { createMongoClient, executeMongoFind, executeMongoInsert, guardedMongoLookup, validateMongoCredential } from "./mongodb-find";
+
+const connection = { host: "mongo.example.com", port: 27017, username: "test-user", password: "synthetic-password", authDatabase: "admin" };
+const config = { database: "sample", collection: "items", filter: "{}", limit: 20 };
+
+test("MongoDB mock validates input and never reads credentials", async () => {
+  const result = await executeMongoFind(config, "mock", "workspace", { readForExecution: () => { throw new Error("unexpected credential read"); } } as never);
+  assert.equal(result.output.count, 1);
+  for (const invalid of [{ ...config, operation: "delete" }, { ...config, limit: 101 }, { ...config, filter: '{"$where":"return true"}' }, { ...config, filter: "[]" }]) {
+    await assert.rejects(executeMongoFind(invalid, "mock", "workspace", {} as never));
+  }
+});
+
+test("MongoDB credentials require a hostname and bounded safe fields", () => {
+  validateMongoCredential(connection);
+  for (const host of ["localhost", "127.0.0.1", "10.0.0.1", "/tmp/mongodb.sock", "mongodb+srv://host.example.com"]) {
+    assert.throws(() => validateMongoCredential({ ...connection, host }));
+  }
+  assert.throws(() => validateMongoCredential({ ...connection, port: 65536 }));
+});
+
+test("MongoDB driver uses direct TLS, guarded DNS and disables implicit write retries", async () => {
+  const client = createMongoClient(connection);
+  assert.equal(client.options.directConnection, true);
+  assert.equal(client.options.tls, true);
+  assert.equal(client.options.retryWrites, false);
+  assert.equal(typeof client.options.lookup, "function");
+  await client.close();
+});
+
+test("MongoDB DNS guard rejects mixed private and public resolutions", async () => {
+  const check = (addresses: Array<{ address: string; family: number }>) => new Promise<{ error: Error | null; address: string }>((resolve) => {
+    const resolver = (async () => addresses) as never;
+    const lookup = guardedMongoLookup(resolver);
+    lookup("mongo.example.com", { family: 0 }, (error, address) => resolve({ error, address: address as string }));
+  });
+  const allowed = await check([{ address: "8.8.8.8", family: 4 }]);
+  assert.equal(allowed.error, null);
+  assert.equal(allowed.address, "8.8.8.8");
+  assert.ok((await check([{ address: "8.8.8.8", family: 4 }, { address: "127.0.0.1", family: 4 }])).error);
+  assert.ok((await check([{ address: "169.254.169.254", family: 4 }])).error);
+});
+
+test("MongoDB live find uses workspace credential, bounded query and closes the client", async () => {
+  let closed = false;
+  let query: unknown;
+  let limit = 0;
+  const cursor = { limit(value: number) { limit = value; return this; }, batchSize() { return this; }, async *[Symbol.asyncIterator]() { yield { value: "example" }; } };
+  const client = { connect: async () => {}, close: async () => { closed = true; }, db: (name: string) => { assert.equal(name, "sample"); return { collection: (name: string) => { assert.equal(name, "items"); return { find: (filter: unknown) => { query = filter; return cursor; } }; } }; } };
+  const credentials = { readForExecution: async (...args: unknown[]) => { assert.deepEqual(args, ["mongo-credential", "workspace", "MONGODB"]); return connection; } };
+  const result = await executeMongoFind({ ...config, credentialId: "mongo-credential", filter: '{"active":true}' }, "live", "workspace", credentials as never, (() => client) as never);
+  assert.deepEqual(query, { active: true });
+  assert.equal(limit, 20);
+  assert.deepEqual(result.output.documents, [{ value: "example" }]);
+  assert.equal(closed, true);
+  assert.ok(!JSON.stringify(result).includes("synthetic-password"));
+});
+
+test("MongoDB failures are sanitized and connection is closed", async () => {
+  let closed = false;
+  const credentials = { readForExecution: async () => connection };
+  const client = { connect: async () => { throw new Error("synthetic-password"); }, close: async () => { closed = true; } };
+  await assert.rejects(executeMongoFind({ ...config, credentialId: "mongo-credential" }, "live", "workspace", credentials as never, (() => client) as never), (error: unknown) => error instanceof Error && !error.message.includes("synthetic-password"));
+  assert.equal(closed, true);
+});
+
+test("MongoDB insert validates input and mock does not read credentials", async () => {
+  const insert = { database: "sample", collection: "items", document: '{"name":"example"}' };
+  const result = await executeMongoInsert(insert, "mock", "workspace", { readForExecution: () => { throw new Error("unexpected credential read"); } } as never);
+  assert.equal(result.output.inserted, true);
+  await assert.rejects(executeMongoInsert({ ...insert, document: "[]" }, "mock", "workspace", {} as never));
+  await assert.rejects(executeMongoInsert({ ...insert, document: "{" }, "mock", "workspace", {} as never));
+});
+
+test("MongoDB insert sanitizes uncertain writes and never automatically retries", async () => {
+  const credentials = { readForExecution: async (...args: unknown[]) => { assert.deepEqual(args, ["mongo", "workspace", "MONGODB"]); return connection; } };
+  let closed = false;
+  let inserted: unknown;
+  const client = { connect: async () => {}, close: async () => { closed = true; }, db: () => ({ collection: () => ({ insertOne: async (doc: unknown) => { inserted = doc; return { acknowledged: true, insertedId: "new-id" }; } }) }) };
+  const config = { credentialId: "mongo", database: "sample", collection: "items", document: '{"name":"example"}' };
+  const result = await executeMongoInsert(config, "live", "workspace", credentials as never, (() => client) as never);
+  assert.deepEqual(inserted, { name: "example" });
+  assert.equal(result.output.insertedId, "new-id");
+  assert.equal(closed, true);
+  const uncertain = { ...client, db: () => ({ collection: () => ({ insertOne: async () => { throw new Error("synthetic-password"); } }) }) };
+  await assert.rejects(executeMongoInsert(config, "live", "workspace", credentials as never, (() => uncertain) as never), (error: unknown) => error instanceof Error && !error.message.includes("synthetic-password") && "retryable" in error && error.retryable === false);
+});

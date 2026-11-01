@@ -14,6 +14,8 @@ export function liveCredentialRequirements(graph: WorkflowGraph): LiveCredential
     if (node.type === "action.email") return [{ nodeId: node.id, provider: CredentialProvider.SMTP, credentialId }];
     if (node.type === "action.gemini") return [{ nodeId: node.id, provider: CredentialProvider.GEMINI, credentialId }];
     if (node.type === "action.openai") return [{ nodeId: node.id, provider: CredentialProvider.OPENAI, credentialId }];
+    if (node.type === "action.mongodb" || node.type === "action.mongodb.insert") return [{ nodeId: node.id, provider: CredentialProvider.MONGODB, credentialId }];
+    if (node.type === "action.google-chat.oauth") return [{ nodeId: node.id, provider: CredentialProvider.GOOGLE_CHAT_OAUTH, credentialId }];
     if (node.type === "action.github" || node.type === "action.github.add-label" || node.type === "action.github.add-comment" || node.type === "action.github.merge-pull-request") return [{ nodeId: node.id, provider: CredentialProvider.GITHUB, credentialId }];
     if (node.type === "action.google-drive" || node.type === "action.google-sheets") return [{ nodeId: node.id, provider: CredentialProvider.GOOGLE, credentialId }];
     if (node.type === "action.http-request" && credentialId) return [{ nodeId: node.id, provider: CredentialProvider.HTTP, credentialId }];

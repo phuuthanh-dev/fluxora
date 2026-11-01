@@ -16,6 +16,8 @@ import { executionRetentionPolicy } from "./retention-policy";
 import { executeSmtpEmail } from "./smtp-email";
 import { executeGeminiText } from "./gemini-text";
 import { executeOpenAIText } from "./openai-text";
+import { executeMongoFind, executeMongoInsert } from "./mongodb-find";
+import { executeGoogleChatOAuth } from "./google-chat-oauth";
 
 type RunMode = "mock" | "live";
 export type ExecutionTriageFilter = "ALL" | "ATTENTION" | "IN_PROGRESS" | "FAILED" | "SUCCEEDED";
@@ -618,6 +620,9 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
   if (node.type === "action.google-chat.webhook") {
     return executeGoogleChatWebhook(config, mode, workspaceId, credentials);
   }
+  if (node.type === "action.google-chat.oauth") {
+    return executeGoogleChatOAuth(config, mode, workspaceId, credentials);
+  }
   if (node.type === "action.discord.webhook") {
     return executeDiscordWebhook(config, mode, workspaceId, credentials);
   }
@@ -626,6 +631,12 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
   }
   if (node.type === "action.email") {
     return executeSmtpEmail(config, mode, workspaceId, credentials);
+  }
+  if (node.type === "action.mongodb") {
+    return executeMongoFind(config, mode, workspaceId, credentials);
+  }
+  if (node.type === "action.mongodb.insert") {
+    return executeMongoInsert(config, mode, workspaceId, credentials);
   }
   if (node.type === "action.gemini") {
     return executeGeminiText(config, mode, workspaceId, credentials);

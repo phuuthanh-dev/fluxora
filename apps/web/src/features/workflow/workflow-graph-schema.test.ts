@@ -31,7 +31,7 @@ test("rejects an edge whose branch does not match its source node", () => {
 });
 
 test("keeps schema-only connector nodes importable while marking them unavailable", () => {
-  for (const type of ["action.google-chat.oauth", "action.mongodb", "action.facebook-meta", "action.instagram"]) {
+  for (const type of ["action.facebook-meta", "action.instagram"]) {
     const definition = getNodeDefinition(type);
     assert.ok(definition);
     assert.equal(definition.available, false);
@@ -44,6 +44,16 @@ test("keeps schema-only connector nodes importable while marking them unavailabl
   const graph = parseWorkflowCanvasGraph({ nodes: [{ id: "email", type: "workflowNode" as const, position: { x: 0, y: 0 }, data: createNodeData(email) }], edges: [] });
   assert.equal(graph.nodes[0]?.data.config.subject, "");
   assert.ok(nodeCatalog.length > 10);
+});
+
+test("MongoDB and Google Chat OAuth use dedicated credentials and resource pickers", () => {
+  for (const [type, provider] of [["action.mongodb", "MONGODB"], ["action.mongodb.insert", "MONGODB"], ["action.google-chat.oauth", "GOOGLE_CHAT_OAUTH"]] as const) {
+    const definition = getNodeDefinition(type);
+    assert.equal(definition?.available, true);
+    assert.equal(isExecutableWorkflowNodeType(type), true);
+    assert.equal(definition?.configurationFields?.some((field) => field.kind === "credential" && field.providers.includes(provider)), true);
+    assert.equal(definition?.configurationFields?.some((field) => field.kind === "resource"), true);
+  }
 });
 
 test("Gemini generation uses a dedicated credential and model picker", () => {

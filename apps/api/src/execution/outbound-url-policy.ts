@@ -102,7 +102,7 @@ function isAllowedHostname(hostname: string) {
     .some((pattern) => pattern.startsWith("*.") ? normalized.endsWith(pattern.slice(1)) : normalized === pattern);
 }
 
-function isBlockedAddress(address: string) {
+export function isBlockedAddress(address: string) {
   const normalized = stripIpv6Brackets(address).toLowerCase();
   if (isIP(normalized) === 4) return isBlockedIpv4(normalized);
   if (isIP(normalized) === 6) return isBlockedIpv6(normalized);

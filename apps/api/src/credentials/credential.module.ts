@@ -11,10 +11,11 @@ import { GoogleResourceController } from "./google-resource.controller";
 import { GoogleResourceService } from "./google-resource.service";
 import { GeminiResourceController } from "./gemini-resource.controller";
 import { OpenAIResourceController } from "./openai-resource.controller";
+import { ConnectorResourceController } from "./connector-resource.controller";
 
 @Module({
   imports: [AuthModule, WorkspaceModule],
-  controllers: [CredentialController, GoogleOAuthController, GitHubResourceController, GoogleResourceController, GeminiResourceController, OpenAIResourceController],
+  controllers: [CredentialController, GoogleOAuthController, GitHubResourceController, GoogleResourceController, GeminiResourceController, OpenAIResourceController, ConnectorResourceController],
   providers: [CredentialService, CredentialVaultService, GitHubResourceService, GoogleResourceService],
   exports: [CredentialService, CredentialVaultService],
 })
