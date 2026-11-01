@@ -499,6 +499,7 @@
         "apps/api/src/execution/expression.ts",
         "apps/api/src/execution/gemini-text.ts",
         "apps/api/src/execution/gmail-read.ts",
+        "apps/api/src/execution/google-calendar.ts",
         "apps/api/src/execution/google-chat-oauth.ts",
         "apps/api/src/execution/http-credential.ts",
         "apps/api/src/execution/live-readiness.ts",
@@ -553,6 +554,19 @@
       ],
       "externalImports": [
         "), to: header(",
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/google-calendar.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-json.ts"
+      ],
+      "externalImports": [
         "@prisma/client"
       ]
     },
@@ -2693,6 +2707,10 @@
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/google-calendar.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/execution/google-chat-oauth.ts"
     },
     {
@@ -2777,6 +2795,22 @@
     },
     {
       "from": "apps/api/src/execution/gmail-read.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-calendar.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-calendar.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-calendar.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-calendar.ts",
       "to": "apps/api/src/execution/provider-json.ts"
     },
     {

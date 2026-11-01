@@ -338,3 +338,12 @@ or remote hook ID. The editor shows the connection state, a recorded-identity
 verification action and keeps manual setup available as a fallback. The feature
 remains disabled by default until production origin, migration and
 live-provider qualification are complete.
+
+## Google Calendar initial read slice
+
+The Calendar connector has a separate workspace-owned OAuth credential with
+`calendar.events.readonly`, and an action that lists a bounded set of upcoming
+events from the primary calendar. Mock mode uses synthetic events. Calendar
+selection beyond the primary calendar, write operations and the Calendar
+trigger are not implemented. Event data may appear in execution history.
+OAuth consent configuration, live qualification and deployment are separate.

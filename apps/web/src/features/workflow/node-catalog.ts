@@ -109,6 +109,7 @@ export const appCatalog: AppDefinition[] = [
   { id: "telegram", label: "Telegram", description: "Send messages with the Telegram Bot API.", icon: "telegram", category: "communication", aliases: ["bot", "notification"] },
   { id: "google-drive", label: "Google Drive", description: "Search, read, upload, and download files.", icon: "google-drive", category: "productivity", aliases: ["files", "workspace"] },
   { id: "google-sheets", label: "Google Sheets", description: "Read and write spreadsheet data.", icon: "google-sheets", category: "productivity", aliases: ["spreadsheet", "rows", "workspace"] },
+  { id: "google-calendar", label: "Google Calendar", description: "Read upcoming events.", icon: "google", category: "productivity", aliases: ["calendar", "events", "workspace"] },
   { id: "http", label: "HTTP", description: "Call REST APIs with optional authentication.", icon: "http", category: "developer-devops", aliases: ["api", "request", "webhook"] },
   { id: "email", label: "Email", description: "Send email notifications.", icon: "email", category: "communication", aliases: ["mail", "smtp"] },
   { id: "gmail", label: "Gmail", description: "Read messages from your Gmail account.", icon: "gmail", category: "communication", aliases: ["mail", "google", "inbox"] },
@@ -559,6 +560,20 @@ export const nodeCatalog: NodeDefinition[] = [
       { kind: "select", key: "mailbox", label: "Messages", options: [{ value: "inbox", label: "Inbox" }, { value: "unread", label: "Unread inbox" }, { value: "all", label: "All mail" }] },
       { kind: "text", key: "query", label: "Additional Gmail search (optional)" },
       { kind: "number", key: "limit", label: "Maximum messages (1–10)", fallbackValue: 5 },
+    ],
+  },
+  {
+    type: "action.google-calendar.list-events",
+    label: "Google Calendar events",
+    description: "Read upcoming events from your primary calendar.",
+    category: "action", libraryGroup: "google-workspace", appId: "google-calendar",
+    operationId: "list-events", operationLabel: "List upcoming events", operationKind: "search",
+    icon: "google", available: true,
+    defaultConfig: { credentialId: "", calendarId: "primary", limit: 10 },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Google Calendar credential", providers: ["GOOGLE_CALENDAR"] },
+      { kind: "select", key: "calendarId", label: "Calendar", options: [{ value: "primary", label: "Primary calendar" }] },
+      { kind: "number", key: "limit", label: "Maximum events (1–50)", fallbackValue: 10 },
     ],
   },
   {

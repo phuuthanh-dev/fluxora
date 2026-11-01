@@ -149,7 +149,7 @@ one of these IDs or explicitly reopen a completed ledger slice.
 | `NOTION-1` | Add Notion connector with user-owned credential and guided page operations | pending | Search pages implemented in PR #56; live search qualified once locally. More operations and production qualification remain. |
 | `POSTGRES-1` | Add PostgreSQL connector with user-owned credential and guided operations | pending | Select rows implemented in PR #56; live qualification and further operations remain. |
 | `GMAIL-1` | Add Gmail read operations and a durable new-message trigger with a separate owner-authorized Google connection | pending | Read action implemented locally; trigger remains unimplemented. `gmail.readonly` is restricted; no Google Cloud changes or live mailbox access without specific owner action. |
-| `CALENDAR-1` | Add Google Calendar connection and actions | planned | Scope permissions separately, use guided calendar selection, test with synthetic data. |
+| `CALENDAR-1` | Add Google Calendar connection and actions | pending | Local read-only OAuth and primary-calendar upcoming events action implemented; mocked tests pass. Calendar picker, write actions, trigger, live qualification and full gate remain. |
 | `EMAIL-UX-1` | Group Gmail and SMTP connection choices in the UI | pending | Grouped locally; Gmail and SMTP keep separate providers and nodes. Typecheck and focused E2E passed; full gate not yet rerun. |
 
 ## Closed boundary

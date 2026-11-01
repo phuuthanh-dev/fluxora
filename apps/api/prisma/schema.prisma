@@ -40,6 +40,7 @@ enum CredentialProvider {
   NOTION
   POSTGRES
   GMAIL
+  GOOGLE_CALENDAR
   GOOGLE_CHAT_OAUTH
 }
 

@@ -99,6 +99,7 @@ function providerLabel(provider: CredentialProvider) {
     POSTGRES: "PostgreSQL",
     GOOGLE_CHAT_OAUTH: "Google Chat OAuth",
     GMAIL: "Gmail",
+    GOOGLE_CALENDAR: "Google Calendar",
     HTTP: "HTTP",
   };
   return labels[provider];

@@ -1,0 +1,1 @@
+ALTER TYPE "CredentialProvider" ADD VALUE 'GOOGLE_CALENDAR';

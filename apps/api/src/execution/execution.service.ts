@@ -20,6 +20,7 @@ import { executeMongoFind, executeMongoInsert } from "./mongodb-find";
 import { executeNotionSearch } from "./notion-search";
 import { executePostgresSelect } from "./postgres-read";
 import { executeGmailRead } from "./gmail-read";
+import { executeGoogleCalendar } from "./google-calendar";
 import { executeGoogleChatOAuth } from "./google-chat-oauth";
 
 type RunMode = "mock" | "live";
@@ -649,6 +650,9 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
   }
   if (node.type === "action.gmail.read") {
     return executeGmailRead(config, mode, workspaceId, credentials);
+  }
+  if (node.type === "action.google-calendar.list-events") {
+    return executeGoogleCalendar(config, mode, workspaceId, credentials);
   }
   if (node.type === "action.gemini") {
     return executeGeminiText(config, mode, workspaceId, credentials);

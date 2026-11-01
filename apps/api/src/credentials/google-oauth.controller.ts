@@ -8,7 +8,8 @@ import { CredentialService } from "./credential.service";
 const googleScopes = ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/spreadsheets"];
 const chatScopes = ["https://www.googleapis.com/auth/chat.messages.create", "https://www.googleapis.com/auth/chat.spaces.readonly"];
 const gmailScopes = ["https://www.googleapis.com/auth/gmail.readonly"];
-type GoogleConnectionKind = "google" | "chat" | "gmail";
+const calendarScopes = ["https://www.googleapis.com/auth/calendar.events.readonly"];
+type GoogleConnectionKind = "google" | "chat" | "gmail" | "calendar";
 const stateMaxAgeMs = 10 * 60_000;
 
 @Controller()
@@ -33,6 +34,12 @@ export class GoogleOAuthController {
     return this.begin(workspaceId, request, response, "gmail");
   }
 
+  @Get("workspaces/:workspaceId/credentials/google-calendar/connect")
+  @UseGuards(AuthenticationGuard)
+  async connectCalendar(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest, @Res() response: Response) {
+    return this.begin(workspaceId, request, response, "calendar");
+  }
+
   private async begin(workspaceId: string, request: AuthenticatedRequest, response: Response, kind: GoogleConnectionKind) {
     const clientId = requiredEnv("GOOGLE_CLIENT_ID");
     const redirectUri = requiredEnv("GOOGLE_REDIRECT_URI");
@@ -40,7 +47,7 @@ export class GoogleOAuthController {
     await this.credentials.requireOwner(workspaceId, userId);
     const state = signState({ workspaceId, userId, kind });
     const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-    url.search = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, response_type: "code", access_type: "offline", prompt: "consent", include_granted_scopes: kind === "google" ? "true" : "false", scope: (kind === "chat" ? chatScopes : kind === "gmail" ? gmailScopes : googleScopes).join(" "), state }).toString();
+    url.search = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, response_type: "code", access_type: "offline", prompt: "consent", include_granted_scopes: kind === "google" ? "true" : "false", scope: (kind === "chat" ? chatScopes : kind === "gmail" ? gmailScopes : kind === "calendar" ? calendarScopes : googleScopes).join(" "), state }).toString();
     response.redirect(url.toString());
   }
 
@@ -62,7 +69,7 @@ export class GoogleOAuthController {
     if (typeof tokens.refresh_token !== "string" || !/^\S+$/.test(tokens.refresh_token)) {
       const recovery = new URL("/dashboard/connections", process.env.WEB_ORIGIN ?? "http://localhost:3000");
       recovery.searchParams.set("workspace", verified.workspaceId);
-      recovery.searchParams.set("google_oauth", verified.kind === "chat" ? "chat_missing_refresh" : verified.kind === "gmail" ? "gmail_missing_refresh" : "missing_refresh");
+      recovery.searchParams.set("google_oauth", verified.kind === "chat" ? "chat_missing_refresh" : verified.kind === "gmail" ? "gmail_missing_refresh" : verified.kind === "calendar" ? "calendar_missing_refresh" : "missing_refresh");
       response.redirect(recovery.toString());
       return;
     }
@@ -78,11 +85,15 @@ export class GoogleOAuthController {
       const granted = typeof tokens.scope === "string" ? tokens.scope.split(/\s+/) : [];
       if (!gmailScopes.every((scope) => granted.includes(scope))) throw new BadRequestException({ code: "GOOGLE_OAUTH_SCOPE_MISSING", message: "Gmail permission was not granted. The existing connection was not changed." });
       await this.credentials.upsertGmailOAuth(verified.workspaceId, verified.userId, data);
+    } else if (verified.kind === "calendar") {
+      const granted = typeof tokens.scope === "string" ? tokens.scope.split(/\s+/) : [];
+      if (!calendarScopes.every((scope) => granted.includes(scope))) throw new BadRequestException({ code: "GOOGLE_OAUTH_SCOPE_MISSING", message: "Google Calendar permission was not granted. The existing connection was not changed." });
+      await this.credentials.upsertGoogleCalendarOAuth(verified.workspaceId, verified.userId, data);
     } else await this.credentials.upsertGoogleOAuth(verified.workspaceId, verified.userId, data);
-    if (verified.kind === "chat" || verified.kind === "gmail") {
+    if (verified.kind === "chat" || verified.kind === "gmail" || verified.kind === "calendar") {
       const connected = new URL("/dashboard/connections", process.env.WEB_ORIGIN ?? "http://localhost:3000");
       connected.searchParams.set("workspace", verified.workspaceId);
-      connected.searchParams.set("connected", verified.kind === "chat" ? "google-chat" : "gmail");
+      connected.searchParams.set("connected", verified.kind === "chat" ? "google-chat" : verified.kind === "calendar" ? "google-calendar" : "gmail");
       response.redirect(connected.toString());
     } else response.redirect(`${process.env.WEB_ORIGIN ?? "http://localhost:3000"}/editor?connected=google`);
   }
@@ -112,8 +123,8 @@ function verifyState(value: string) {
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error();
     const record = parsed as Record<string, unknown>;
     if (typeof record.workspaceId !== "string" || typeof record.userId !== "string" || typeof record.issuedAt !== "number" || record.issuedAt > Date.now() + 60_000 || record.issuedAt + stateMaxAgeMs < Date.now()) throw new Error();
-    if (record.kind !== undefined && record.kind !== "google" && record.kind !== "chat" && record.kind !== "gmail") throw new Error();
-    return { workspaceId: record.workspaceId, userId: record.userId, kind: record.kind === "chat" ? "chat" as const : record.kind === "gmail" ? "gmail" as const : "google" as const };
+    if (record.kind !== undefined && record.kind !== "google" && record.kind !== "chat" && record.kind !== "gmail" && record.kind !== "calendar") throw new Error();
+    return { workspaceId: record.workspaceId, userId: record.userId, kind: record.kind === "chat" ? "chat" as const : record.kind === "gmail" ? "gmail" as const : record.kind === "calendar" ? "calendar" as const : "google" as const };
   } catch {
     throw new BadRequestException({ code: "GOOGLE_OAUTH_INVALID", message: "Google OAuth state is invalid." });
   }
