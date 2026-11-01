@@ -75,7 +75,7 @@ provider qualification, not a larger UI taxonomy.
 | Email SMTP | `Send email` — action | Implemented with deterministic mock and guarded live transport | `SMTP`, encrypted hostname, TLS submission port, username, password and From address | SMTP credential selector; To/Cc/Bcc, subject, plain-text/HTML body and Reply-to fields; recipients stay on the node | One owner-approved Gmail submission reached its intended inbox; sustained and production delivery are unverified. No attachments, inbound mail, bulk sending, Gmail OAuth or vendor presets |
 | OpenAI | `Generate text` — action | Implemented and verified locally | `OPENAI`, encrypted API key | Model discovery and prompt configuration | Real-provider testing deferred by owner; production behavior unverified |
 | Gemini | `Generate text` — action | Implemented and verified locally | `GEMINI`, encrypted API key | Model discovery and prompt configuration | One owner-approved local model generation succeeded; other models and production behavior remain unverified |
-| MongoDB | `Find documents` and `Insert document` actions | Single-server TLS runtime implemented locally | `MONGODB` encrypted connection | Database/collection pickers, JSON input and bounded results | SRV/replica, private hosts and update/delete unsupported; live qualification pending |
+| MongoDB | `Find documents` and `Insert document` actions | Direct TLS and bounded SRV seed selection implemented locally | `MONGODB` encrypted connection | Database/collection pickers, JSON input and bounded results | Owner-approved SRV list and Find succeeded; live insert, mid-operation replica failover, private hosts and update/delete remain unqualified or unsupported |
 | GitHub | Triggers: issue opened, PR opened, push, workflow run completed; actions: create issue, add label, add comment, merge PR | Implemented; signed trigger delivery, guarded action calls, and feature-flagged managed webhook lifecycle with recorded-identity reconciliation | `GITHUB`, workspace connector token; separate from GitHub account login | Authenticated paginated repository picker; optional repository trigger filter; merge method select; published-version webhook setup | Reconciliation is locally tested and never claims unknown hooks; live webhook/action qualification and owner/operator proof remain gated |
 | Facebook Meta | `Manage content` — action | Roadmap/schema-only | No runtime credential contract yet | Operation placeholder only | Must define Meta OAuth/page-token model, asset/resource pickers and executor before enabling |
 | Instagram | `Manage content` — action | Roadmap/schema-only | No runtime credential contract yet | Operation placeholder only | Must define Meta/Instagram account/media model, OAuth and executor before enabling |
@@ -97,8 +97,10 @@ multiple hosts; validating only the initial hostname is not sufficient to prove
 that every connection respects Fluxora's outbound network boundary. Before
 enabling runtime, establish a driver-compatible egress enforcement design,
 credential/error redaction, TLS, resource limits, and deterministic mock and
-integration coverage. Do not label the existing roadmap node executable until
-that vertical slice is complete. The [MongoDB driver connection options](https://www.mongodb.com/docs/drivers/node/current/connect/connection-options/)
+integration coverage. The local connector resolves bounded SRV seeds, checks their parent
+domain, validates each socket via guarded DNS, and connects directly to a
+writable seed without following server-advertised topology. It does not offer
+the driver's full replica-set failover. The [MongoDB driver connection options](https://www.mongodb.com/docs/drivers/node/current/connect/connection-options/)
 describe separate connection, server-selection, socket and operation timeouts.
 
 ### Google Chat OAuth research — 2026-11-01

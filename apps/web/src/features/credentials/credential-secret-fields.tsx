@@ -15,7 +15,7 @@ const fields: Partial<Record<CredentialProvider, SecretField[]>> = {
   GITHUB: [{ key: "token", label: "GitHub token", secret: true }],
   GEMINI: [{ key: "apiKey", label: "Gemini API key", secret: true }],
   OPENAI: [{ key: "apiKey", label: "OpenAI API key", secret: true }],
-  MONGODB: [{ key: "host", label: "MongoDB host", hint: "Public DNS hostname for a single TLS-enabled server." }, { key: "username", label: "Database user" }, { key: "password", label: "Database password", secret: true }, { key: "authDatabase", label: "Authentication database" }],
+  MONGODB: [{ key: "host", label: "MongoDB host", hint: "Public server hostname or SRV cluster hostname, without mongodb:// or mongodb+srv://." }, { key: "username", label: "Database user" }, { key: "password", label: "Database password", secret: true }, { key: "authDatabase", label: "Authentication database" }],
   SMTP: [{ key: "host", label: "SMTP host" }, { key: "username", label: "Username" }, { key: "password", label: "Password", secret: true }, { key: "from", label: "Sender address", hint: "An address or sender identity accepted by your SMTP provider." }],
 };
 
@@ -56,7 +56,7 @@ export function CredentialSecretFields({ provider, value, onChange, replacement 
           {payload?.port !== 587 && payload?.port !== 465 && <option value={String(payload?.port)}>Current value · {String(payload?.port)}</option>}
         </Select>
       </Field>}
-      {provider === "MONGODB" && <Field label="Port"><input aria-label="Port" type="number" min={1} max={65535} value={typeof payload?.port === "number" ? payload.port : 27017} onChange={(event) => update("port", Number(event.target.value))} /></Field>}
+      {provider === "MONGODB" && <Field label="Port" hint="Used for direct hosts; SRV clusters supply their own ports."><input aria-label="Port" type="number" min={1} max={65535} value={typeof payload?.port === "number" ? payload.port : 27017} onChange={(event) => update("port", Number(event.target.value))} /></Field>}
     </div>}
   </div>;
 }

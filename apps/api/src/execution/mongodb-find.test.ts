@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createMongoClient, executeMongoFind, executeMongoInsert, guardedMongoLookup, validateMongoCredential } from "./mongodb-find";
+import { createMongoClient, createResolvedMongoClient, executeMongoFind, executeMongoInsert, guardedMongoLookup, validateMongoCredential } from "./mongodb-find";
 
 const connection = { host: "mongo.example.com", port: 27017, username: "test-user", password: "synthetic-password", authDatabase: "admin" };
 const config = { database: "sample", collection: "items", filter: "{}", limit: 20 };
@@ -41,6 +41,42 @@ test("MongoDB DNS guard rejects mixed private and public resolutions", async () 
   assert.equal(allowed.address, "8.8.8.8");
   assert.ok((await check([{ address: "8.8.8.8", family: 4 }, { address: "127.0.0.1", family: 4 }])).error);
   assert.ok((await check([{ address: "169.254.169.254", family: 4 }])).error);
+});
+
+test("MongoDB retains direct hosts and does not mask transient DNS failures", async () => {
+  const direct = createMongoClient(connection);
+  const dependencies = { lookup: async () => [{ address: "8.8.8.8", family: 4 }], srv: () => { throw new Error("unexpected SRV lookup"); }, client: () => direct };
+  assert.equal(await createResolvedMongoClient(connection, dependencies as never), direct);
+  await direct.close();
+  await assert.rejects(createResolvedMongoClient(connection, { ...dependencies, lookup: async () => { throw Object.assign(new Error("dns"), { code: "EAI_AGAIN" }); } } as never));
+});
+
+test("MongoDB bounds stalled DNS requests without trying another target", async () => {
+  const dependencies = { lookup: () => new Promise(() => {}), srv: () => { throw new Error("unexpected SRV lookup"); }, client: () => { throw new Error("unexpected connection"); }, dnsTimeoutMs: 10 };
+  await assert.rejects(createResolvedMongoClient(connection, dependencies as never), (error: unknown) => error instanceof Error && error.message === "MongoDB DNS lookup timed out." && "retryable" in error && error.retryable === true);
+});
+
+test("MongoDB SRV selects a writable guarded direct seed and closes non-primary seeds", async () => {
+  const calls: Array<{ host: string; port: number }> = [];
+  let closedSecondary = false;
+  const secondary = { connect: async () => {}, close: async () => { closedSecondary = true; }, db: () => ({ command: async () => ({ isWritablePrimary: false }) }) };
+  const primary = { connect: async () => {}, close: async () => {}, db: () => ({ command: async () => ({ isWritablePrimary: true }) }) };
+  const dependencies = {
+    lookup: async () => { throw Object.assign(new Error("dns"), { code: "ENOTFOUND" }); },
+    srv: async (name: string) => { assert.equal(name, "_mongodb._tcp.cluster.example.com"); return [{ name: "node1.example.com", port: 27017, priority: 0, weight: 1 }, { name: "node2.example.com", port: 27018, priority: 0, weight: 1 }]; },
+    client: (value: typeof connection, timeout: number) => { assert.equal(timeout, 4000); calls.push({ host: value.host, port: value.port }); return calls.length === 1 ? secondary : primary; },
+  };
+  const result = await createResolvedMongoClient({ ...connection, host: "cluster.example.com" }, dependencies as never);
+  assert.equal(result, primary);
+  assert.equal(closedSecondary, true);
+  assert.deepEqual(calls, [{ host: "node1.example.com", port: 27017 }, { host: "node2.example.com", port: 27018 }]);
+});
+
+test("MongoDB SRV rejects untrusted names and IP literals before creating a client", async () => {
+  for (const target of ["internal.other.com", "127.0.0.1", "example.com", "node.example.com.evil.test"]) {
+    const dependencies = { lookup: async () => { throw Object.assign(new Error("dns"), { code: "ENOTFOUND" }); }, srv: async () => [{ name: target, port: 27017, priority: 0, weight: 0 }], client: () => { throw new Error("unexpected connection"); } };
+    await assert.rejects(createResolvedMongoClient({ ...connection, host: "cluster.example.com" }, dependencies as never), (error: unknown) => error instanceof Error && error.message === "MongoDB SRV records are invalid.");
+  }
 });
 
 test("MongoDB live find uses workspace credential, bounded query and closes the client", async () => {

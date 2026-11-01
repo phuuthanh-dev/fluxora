@@ -1,4 +1,4 @@
-import { lookup as dnsLookup } from "node:dns/promises";
+import { lookup as dnsLookup, resolveSrv } from "node:dns/promises";
 import { isIP, type LookupFunction } from "node:net";
 import { CredentialProvider } from "@prisma/client";
 import { BSON, MongoClient, MongoNetworkTimeoutError } from "mongodb";
@@ -39,15 +39,66 @@ export function guardedMongoLookup(resolve = dnsLookup): LookupFunction {
   }) as LookupFunction;
 }
 
-export function createMongoClient(connection: MongoConnection) {
+export function createMongoClient(connection: MongoConnection, selectionTimeoutMs = 10_000) {
   // Direct TCP connection prevents discovery from bypassing guarded DNS lookup.
   // No connection-string options or filesystem paths come from the credential.
   return new MongoClient(`mongodb://${connection.host}:${connection.port}/`, {
     auth: { username: connection.username, password: connection.password },
     authSource: connection.authDatabase, tls: true, directConnection: true,
     lookup: guardedMongoLookup(), autoSelectFamily: false, retryWrites: false,
-    maxPoolSize: 1, serverSelectionTimeoutMS: 10_000, connectTimeoutMS: 10_000, socketTimeoutMS: 20_000,
+    maxPoolSize: 1, serverSelectionTimeoutMS: selectionTimeoutMs, connectTimeoutMS: selectionTimeoutMs, socketTimeoutMS: 20_000,
   });
+}
+
+type SrvRecord = { name: string; port: number; priority: number; weight: number };
+type MongoClientFactory = (connection: MongoConnection) => MongoClient | Promise<MongoClient>;
+
+async function boundedDns<T>(request: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([request, new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new NodeFailure("TIMEOUT", "MongoDB DNS lookup timed out.", true)), timeoutMs);
+    })]);
+  } finally { if (timer) clearTimeout(timer); }
+}
+
+/** Discover SRV seeds without letting topology discovery bypass guarded DNS. */
+export async function createResolvedMongoClient(connection: MongoConnection, dependencies: {
+  lookup: typeof dnsLookup;
+  srv: typeof resolveSrv;
+  client: typeof createMongoClient;
+  dnsTimeoutMs?: number;
+} = { lookup: dnsLookup, srv: resolveSrv, client: createMongoClient }): Promise<MongoClient> {
+  try {
+    await boundedDns(dependencies.lookup(connection.host, { all: true, verbatim: true }), dependencies.dnsTimeoutMs ?? 4_000);
+    return dependencies.client(connection);
+  } catch (error) {
+    if (!error || typeof error !== "object" || !("code" in error) || error.code !== "ENOTFOUND") throw error;
+  }
+  const labels = connection.host.split(".");
+  if (labels.length < 3) throw new NodeFailure("MONGODB_ERROR", "MongoDB SRV hostname is invalid.", false);
+  const parent = labels.slice(1).join(".");
+  const records: SrvRecord[] = await boundedDns(dependencies.srv(`_mongodb._tcp.${connection.host}`), dependencies.dnsTimeoutMs ?? 4_000);
+  if (!records.length || records.length > 20) throw new NodeFailure("MONGODB_ERROR", "MongoDB SRV records are invalid.", false);
+  const valid = records.every((record) => {
+    const host = record.name.toLowerCase().replace(/\.$/, "");
+    return host.endsWith(`.${parent}`) && host.length > parent.length + 1 && !isIP(host)
+      && /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{1,62}$/.test(host)
+      && Number.isInteger(record.port) && record.port > 0 && record.port <= 65535;
+  });
+  if (!valid) throw new NodeFailure("MONGODB_ERROR", "MongoDB SRV records are invalid.", false);
+  // Connect to at most three validated seeds directly. Never follow hosts from
+  // server topology announcements; those can contain private IP literals.
+  for (const seed of [...records].sort((a, b) => a.priority - b.priority).slice(0, 3)) {
+    const client = dependencies.client({ ...connection, host: seed.name.toLowerCase().replace(/\.$/, ""), port: seed.port }, 4_000);
+    try {
+      await client.connect();
+      const hello = await client.db("admin").command({ hello: 1 });
+      if (hello.isWritablePrimary === true || hello.msg === "isdbgrid") return client;
+    } catch { /* Try another seed only before sending any application operation. */ }
+    await client.close().catch(() => undefined);
+  }
+  throw new NodeFailure("MONGODB_ERROR", "MongoDB could not connect to a writable SRV seed. Check network access and credentials.", false);
 }
 
 function validateFilter(value: unknown): Document {
@@ -67,7 +118,7 @@ function validateFilter(value: unknown): Document {
   return value as Document;
 }
 
-export async function executeMongoFind(config: Document, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, makeClient: typeof createMongoClient = createMongoClient) {
+export async function executeMongoFind(config: Document, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, makeClient: MongoClientFactory = createResolvedMongoClient) {
   if (config.operation !== undefined && config.operation !== "find") throw new NodeFailure("INVALID_INPUT", "Only the Find documents operation is available.", false);
   const database = typeof config.database === "string" ? config.database : "";
   const collection = typeof config.collection === "string" ? config.collection : "";
@@ -78,8 +129,9 @@ export async function executeMongoFind(config: Document, mode: "mock" | "live", 
   const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
   if (!credentialId) throw new NodeFailure("CREDENTIAL_REQUIRED", "Select a MongoDB connection.", false);
   const connection = readConnection(await credentials.readForExecution(credentialId, workspaceId, CredentialProvider.MONGODB));
-  const client = makeClient(connection);
+  let client: MongoClient | undefined;
   try {
+    client = await makeClient(connection);
     await client.connect();
     const cursor = client.db(database).collection(collection).find(filter, { maxTimeMS: 10_000 }).limit(limit).batchSize(1);
     const documents: unknown[] = [];
@@ -95,10 +147,10 @@ export async function executeMongoFind(config: Document, mode: "mock" | "live", 
     if (error instanceof NodeFailure) throw error;
     if (error instanceof MongoNetworkTimeoutError) throw new NodeFailure("TIMEOUT", "MongoDB query timed out.", true);
     throw new NodeFailure("MONGODB_ERROR", "MongoDB query failed. Check the connection, permissions and query.", false);
-  } finally { await client.close().catch(() => undefined); }
+  } finally { await client?.close().catch(() => undefined); }
 }
 
-export async function executeMongoInsert(config: Document, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, makeClient: typeof createMongoClient = createMongoClient) {
+export async function executeMongoInsert(config: Document, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, makeClient: MongoClientFactory = createResolvedMongoClient) {
   const database = typeof config.database === "string" ? config.database : "";
   const collection = typeof config.collection === "string" ? config.collection : "";
   let document: unknown = config.document;
@@ -108,8 +160,9 @@ export async function executeMongoInsert(config: Document, mode: "mock" | "live"
   const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
   if (!credentialId) throw new NodeFailure("CREDENTIAL_REQUIRED", "Select a MongoDB connection.", false);
   const connection = readConnection(await credentials.readForExecution(credentialId, workspaceId, CredentialProvider.MONGODB));
-  const client = makeClient(connection);
+  let client: MongoClient | undefined;
   try {
+    client = await makeClient(connection);
     await client.connect();
     try {
       const result = await client.db(database).collection(collection).insertOne(document as Document, { timeoutMS: 10_000 });
@@ -119,12 +172,12 @@ export async function executeMongoInsert(config: Document, mode: "mock" | "live"
   } catch (error) {
     if (error instanceof NodeFailure) throw error;
     throw new NodeFailure("MONGODB_ERROR", "MongoDB connection failed. Check the connection and permissions.", false);
-  } finally { await client.close().catch(() => undefined); }
+  } finally { await client?.close().catch(() => undefined); }
 }
 
 export async function listMongoCollections(data: Document, database: string) {
   if (!validDatabase(database)) throw new NodeFailure("INVALID_INPUT", "Enter a valid database first.", false);
-  const client = createMongoClient(readConnection(data));
+  const client = await createResolvedMongoClient(readConnection(data));
   try {
     await client.connect();
     const collections: Array<{ id: string; name: string }> = [];
@@ -137,7 +190,7 @@ export async function listMongoCollections(data: Document, database: string) {
 }
 
 export async function listMongoDatabases(data: Document) {
-  const client = createMongoClient(readConnection(data));
+  const client = await createResolvedMongoClient(readConnection(data));
   try {
     await client.connect();
     const result = await client.db("admin").admin().listDatabases({ nameOnly: true, authorizedDatabases: true, maxTimeMS: 10_000 });

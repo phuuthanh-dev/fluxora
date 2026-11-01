@@ -36,11 +36,11 @@ complete in the delivery ledger.
   snapshot counts retained test and live executions by current status. Its
   isolated gate passed (245 API, 25 web and 129 E2E); it is not deployed.
   See `.agent/reports/2026-11-01-workspace-activity-overview.md`.
-- MongoDB Find/Insert and Google Chat OAuth message are implemented locally;
-  their isolated quality gate passed (258 API, 26 web, 130 E2E). No live
-  provider qualification or deployment occurred. MongoDB is limited to one
-  public TLS host; SRV/replica, private hosts and update/delete remain open.
-  See `.agent/reports/2026-11-01-mongodb-chat-connectors.md`.
+- MongoDB Find/Insert and Google Chat OAuth are implemented locally. One real
+  Chat message and MongoDB SRV list/Find passed with owner authorization.
+  MongoDB SRV uses guarded direct seed selection, not full replica-set failover;
+  real insert, private hosts, update/delete and deployment remain open. See
+  `.agent/reports/2026-11-01-mongodb-srv.md` and the original connector report.
 
 The older snapshots below describe their dates and must not be read as current.
 

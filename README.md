@@ -167,9 +167,12 @@ before retrying. Google Chat incoming webhooks remain a separate option.
 ### MongoDB
 
 Create a MongoDB connection with a public DNS hostname, TLS-enabled port,
-database username/password and authentication database. The first version
-connects directly to one server: it does not accept SRV/connection strings,
-replica discovery, private network addresses or custom TLS certificates. Select
+database username/password and authentication database. Enter only the hostname,
+without `mongodb://` or `mongodb+srv://`. When the host has no address record,
+Fluxora tries its MongoDB SRV records and connects directly to a validated
+writable seed; SRV supplies the port. It does not follow server-advertised
+replica hosts, support automatic mid-operation failover, private network
+addresses or custom TLS certificates. Select
 a database and collection (or enter them manually), supply a JSON filter and
 set a limit from 1 to 100. Find and single-document Insert are supported;
 update/delete are not. An insert with an uncertain response may have succeeded:
