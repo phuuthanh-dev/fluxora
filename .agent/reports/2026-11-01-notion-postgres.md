@@ -16,6 +16,12 @@
   custom SQL, filtering UI, inserts/updates and pagination are not implemented.
 - Credential enum migration applies to both providers. No production migration
   was run. Mock runs do not retrieve credentials or contact providers.
+- An owner-provided Notion connection was encrypted into the local workspace.
+  One local live Search pages execution succeeded and returned two results,
+  including the owner's selected sample page. The manual-trigger test workflow
+  was deactivated afterwards. The same additive migration was applied to the
+  local `workflow` database only. This one successful read does not establish
+  production or sustained behavior; PostgreSQL live qualification is pending.
 
 ## Validation
 
@@ -29,13 +35,14 @@
   separately unit tested. No customer database or real provider was contacted.
 - A separate tracked-file security scan passed after the new files were added
   to the temporary worktree index. The owner-authorized production PR #55
-  quality run `41282544015` also passed; it remains a draft and was not merged.
+  quality run `41282544015` also passed; PR #55 was subsequently merged as
+  `bf6d963` and did not contain these connector slices.
 
 ## Follow-up
 
-- Review and qualify with owner-designated Notion pages and a test database;
-  verify permissions, bounded metadata behavior and provider errors. Do not
-  collect secrets in chat.
+- Qualify PostgreSQL with an owner-designated test database; further Notion
+  permissions, pagination, provider errors and production behavior remain open.
+  Do not collect secrets in chat.
 - Run the migration and deploy only through an explicitly reviewed release.
 - Extend Notion with page selection and create/update, and PostgreSQL with
   guided filters and explicit write operations after separate safety review.

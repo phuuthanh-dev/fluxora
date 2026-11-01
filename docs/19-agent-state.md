@@ -6,11 +6,13 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-01
 
-- PR #55 (`develop` → `main`) is a draft for inspector pending-edit safety;
-  GitHub quality gate run `41282544015` passed. The local branch
+- PR #55 (`develop` → `main`) was merged at `bf6d963` for inspector pending-edit
+  safety; GitHub quality gate run `41282544015` passed. The local branch
   `codex/notion-postgres-connectors` contains new unfinished connector work;
   Notion Search pages and PostgreSQL Select rows passed the local full gate
   but are not on GitHub or deployed. See `.agent/reports/2026-11-01-notion-postgres.md`.
+  The Notion credential migration was applied to the local database and one
+  owner-approved live search succeeded; the test workflow is inactive.
   Do not repeat already
   completed MongoDB live insert qualification.
 
