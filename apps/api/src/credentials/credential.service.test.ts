@@ -148,6 +148,15 @@ test("Trello rejects invalid credentials before encryption without revealing the
   });
 });
 
+test("Sentry rejects invalid token or unsupported region before encryption", async () => {
+  const service = new CredentialService({} as never, { requireOwner: async () => {} } as never, {} as never);
+  for (const data of [{ token: "bad token", region: "us" }, { token: "fixture-token", region: "__proto__" }]) {
+    await assert.rejects(() => service.create("ws-1", "user-1", { provider: "SENTRY", label: "Sentry", data }), (err: unknown) => {
+      const error = err as HttpErrorShape; assert.equal(error.response?.code, "INVALID_INPUT"); return true;
+    });
+  }
+});
+
 test("create allows manual Google credentials including names that contain OAuth", async () => {
   const prisma = {
     credential: {

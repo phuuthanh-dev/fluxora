@@ -17,6 +17,7 @@ export function liveCredentialRequirements(graph: WorkflowGraph): LiveCredential
     if (node.type === "action.mongodb" || node.type === "action.mongodb.insert") return [{ nodeId: node.id, provider: CredentialProvider.MONGODB, credentialId }];
     if (node.type === "action.notion.search-pages") return [{ nodeId: node.id, provider: CredentialProvider.NOTION, credentialId }];
     if (node.type === "action.trello.create-card") return [{ nodeId: node.id, provider: CredentialProvider.TRELLO, credentialId }];
+    if (node.type === "action.sentry.list-issues") return [{ nodeId: node.id, provider: CredentialProvider.SENTRY, credentialId }];
     if (node.type === "action.postgres.select") return [{ nodeId: node.id, provider: CredentialProvider.POSTGRES, credentialId }];
     if (node.type === "action.gmail.read" || node.type === "trigger.gmail") return [{ nodeId: node.id, provider: CredentialProvider.GMAIL, credentialId }];
     if (node.type === "action.google-calendar.list-events" || node.type === "action.google-calendar.create-event" || node.type === "action.google-calendar.get-event" || node.type === "action.google-calendar.update-event" || node.type === "action.google-calendar.delete-event" || node.type === "action.google-calendar.availability") return [{ nodeId: node.id, provider: CredentialProvider.GOOGLE_CALENDAR, credentialId }];

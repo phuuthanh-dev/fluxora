@@ -63,7 +63,7 @@ export type NodeSelectOption = { value: string; label: string };
 type NodeFieldVisibilityValue = string | number | boolean;
 export type NodeFieldVisibility = { visibleWhen?: { key: string; equals: NodeFieldVisibilityValue | readonly NodeFieldVisibilityValue[] } };
 
-export type NodeResource = "github-repository" | "google-file" | "google-spreadsheet" | "google-calendar" | "google-calendar-event" | "gmail-label" | "gemini-model" | "openai-model" | "google-chat-space" | "mongodb-database" | "mongodb-collection" | "postgres-schema" | "postgres-table" | "trello-board" | "trello-list";
+export type NodeResource = "github-repository" | "google-file" | "google-spreadsheet" | "google-calendar" | "google-calendar-event" | "gmail-label" | "gemini-model" | "openai-model" | "google-chat-space" | "mongodb-database" | "mongodb-collection" | "postgres-schema" | "postgres-table" | "trello-board" | "trello-list" | "sentry-organization" | "sentry-project";
 
 /**
  * Declarative fields that the inspector can render without growing another
@@ -119,6 +119,7 @@ export const appCatalog: AppDefinition[] = [
   { id: "mongodb", label: "MongoDB", description: "Find and insert documents in a database.", icon: "mongodb", category: "data", aliases: ["database", "documents"] },
   { id: "notion", label: "Notion", description: "Find pages shared with your integration.", icon: "notion", category: "productivity", aliases: ["pages", "notes"] },
   { id: "trello", label: "Trello", description: "Organize work with boards, lists, and cards.", icon: "trello", category: "productivity", aliases: ["kanban", "cards", "boards"] },
+  { id: "sentry", label: "Sentry", description: "Find issues in your monitored projects.", icon: "sentry", category: "developer-devops", aliases: ["errors", "monitoring", "issues"] },
   { id: "rss", label: "RSS", description: "Read items from a public RSS or Atom feed.", icon: "rss", category: "data", aliases: ["feed", "atom", "news"] },
   { id: "postgres", label: "PostgreSQL", description: "Read rows from a PostgreSQL database.", icon: "postgres", category: "data", aliases: ["sql", "database"] },
   { id: "github", label: "GitHub", description: "Automate repositories, issues, and pull requests.", icon: "github", category: "developer-devops", aliases: ["git", "pull request", "issues"] },
@@ -705,6 +706,18 @@ export const nodeCatalog: NodeDefinition[] = [
       { kind: "resource", key: "listId", label: "List", resource: "trello-list", credentialKey: "credentialId", dependencyKey: "boardId", placeholder: "Search lists" },
       { kind: "text", key: "title", label: "Card title" },
       { kind: "textarea", key: "description", label: "Description (optional)" },
+    ],
+  },
+  {
+    type: "action.sentry.list-issues", label: "Sentry issues", description: "Read issues from a Sentry project.",
+    category: "action", libraryGroup: "developer-data", appId: "sentry", operationId: "list-issues", operationLabel: "List issues", operationKind: "search", icon: "sentry", available: true,
+    defaultConfig: { credentialId: "", organization: "", project: "", status: "unresolved", limit: 20 },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Sentry connection", providers: ["SENTRY"] },
+      { kind: "resource", key: "organization", label: "Organization", resource: "sentry-organization", credentialKey: "credentialId", placeholder: "Search organizations" },
+      { kind: "resource", key: "project", label: "Project", resource: "sentry-project", credentialKey: "credentialId", dependencyKey: "organization", placeholder: "Search projects" },
+      { kind: "select", key: "status", label: "Issue status", options: [{ value: "unresolved", label: "Unresolved" }, { value: "resolved", label: "Resolved" }, { value: "all", label: "All" }] },
+      { kind: "number", key: "limit", label: "Maximum issues (1–100)", fallbackValue: 20 },
     ],
   },
   {

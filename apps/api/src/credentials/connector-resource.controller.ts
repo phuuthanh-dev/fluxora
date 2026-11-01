@@ -6,12 +6,31 @@ import { listMongoCollections, listMongoDatabases } from "../execution/mongodb-f
 import { listGoogleChatSpaces } from "../execution/google-chat-oauth";
 import { listPostgresSchemas, listPostgresTables, validatePostgresCredential } from "../execution/postgres-read";
 import { listTrelloBoards, listTrelloLists } from "../execution/trello";
+import { listSentryOrganizations, listSentryProjects } from "../execution/sentry";
 import { CredentialService } from "./credential.service";
 
 @Controller("workspaces/:workspaceId/credentials/:credentialId")
 @UseGuards(AuthenticationGuard)
 export class ConnectorResourceController {
   constructor(@Inject(CredentialService) private readonly credentials: CredentialService) {}
+
+  @Get("sentry/organizations")
+  async sentryOrganizations(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.SENTRY);
+    try { return await listSentryOrganizations(credential); }
+    catch { throw new BadRequestException({ code: "SENTRY_ORGANIZATIONS_UNAVAILABLE", message: "Organizations could not be loaded. Check your connection, region and permissions, or enter a slug manually." }); }
+  }
+
+  @Get("sentry/projects")
+  async sentryProjects(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Query("organization") organization: string | undefined, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.SENTRY);
+    try { return await listSentryProjects(credential, organization ?? ""); }
+    catch { throw new BadRequestException({ code: "SENTRY_PROJECTS_UNAVAILABLE", message: "Projects could not be loaded. Check your organization and permissions, or enter a slug manually." }); }
+  }
 
   @Get("trello/boards")
   async trelloBoards(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Req() request: AuthenticatedRequest) {

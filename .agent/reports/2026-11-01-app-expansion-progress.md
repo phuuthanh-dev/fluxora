@@ -20,7 +20,9 @@ security review. No live provider call or full release gate was performed.
 Trello Create Card now has a distinct vault credential and guided board/list
 pickers, with a pre-write list membership check and non-retryable uncertain write
 errors. Local migration and browser/full verification remain pending. Re-running
-after an interrupted worker can still duplicate a card. Sentry, Reddit, Uptime
-Kuma, Vercel and Supabase have provider notes only. The category grouping is the
-start of UI/UX work, not a full redesign.
+after an interrupted worker can still duplicate a card. Sentry List Issues has a
+separate token, selectable Cloud region, organization/project discovery and
+bounded issue metadata; targeted mocked tests passed. Reddit, Uptime Kuma,
+Vercel and Supabase have provider notes only. The category grouping is the start
+of UI/UX work, not a full redesign.
 No changes were pushed, merged or deployed.

@@ -17,6 +17,7 @@ const fields: Partial<Record<CredentialProvider, SecretField[]>> = {
   GITHUB: [{ key: "token", label: "GitHub token", secret: true }],
   NOTION: [{ key: "token", label: "Notion integration token", secret: true, hint: "Share the pages you want to access with this integration in Notion." }],
   TRELLO: [{ key: "apiKey", label: "Trello API key", secret: true }, { key: "token", label: "Trello token", secret: true, hint: "Grant your token access to the boards you want to use." }],
+  SENTRY: [{ key: "token", label: "Sentry authentication token", secret: true, hint: "A token with organization and issue read permissions." }],
   POSTGRES: [{ key: "host", label: "PostgreSQL host", hint: "Public hostname with a trusted TLS certificate." }, { key: "database", label: "Database name" }, { key: "username", label: "Database user" }, { key: "password", label: "Database password", secret: true }],
   GEMINI: [{ key: "apiKey", label: "Gemini API key", secret: true }],
   OPENAI: [{ key: "apiKey", label: "OpenAI API key", secret: true }],
@@ -66,6 +67,7 @@ export function CredentialSecretFields({ provider, value, onChange, replacement 
       </Field>}
       {provider === "MONGODB" && payload?.configurationType !== "connectionString" && payload?.connectionMode !== "srv" && <Field label="Port" hint="Used for direct hosts; SRV clusters supply their own ports."><input aria-label="Port" type="number" min={1} max={65535} value={typeof payload?.port === "number" ? payload.port : 27017} onChange={(event) => update("port", Number(event.target.value))} /></Field>}
       {provider === "POSTGRES" && <Field label="Port"><input aria-label="Port" type="number" min={1} max={65535} value={typeof payload?.port === "number" ? payload.port : 5432} onChange={(event) => update("port", Number(event.target.value))} /></Field>}
+      {provider === "SENTRY" && <Field label="Sentry region" hint="Choose the region shown in your Sentry organization settings."><Select aria-label="Sentry region" value={typeof payload?.region === "string" ? payload.region : "global"} onChange={(event) => update("region", event.target.value)}><option value="global">Global</option><option value="us">US</option><option value="de">Germany</option></Select></Field>}
     </div>}
   </div>;
 }

@@ -21,7 +21,7 @@ need appropriate authentication and delivery reconciliation.
 | --- | --- | --- | --- |
 | RSS | Read a bounded RSS/Atom feed; consider trigger separately | Public feed only; bounded response, rejects DTDs, and limits XML nesting. Never put a secret in a URL. | Executable locally; targeted checks passed, browser/full verification and real-provider qualification pending |
 | Trello | Create card; select board and list | Owner's API key and token; first 100 accessible open boards/lists, manual ID fallback; list membership checked before write | Implemented locally; synthetic checks only; migration, browser/full verification and real-provider qualification pending |
-| Sentry | Read project issues or verified alert webhook | Owner's token or separately registered signed integration; validate event authenticity | Planned |
+| Sentry | List issues for a project | User token with organization/issue read scopes and Global/US/DE region; first page picker with manual slug fallback | Implemented locally; synthetic checks only; migration, browser/full verification and real-provider qualification pending |
 | Reddit | Read/search posts | OAuth and Reddit API eligibility/terms; avoid assuming unrestricted access | Planned |
 | Uptime Kuma | Receive alert through existing generic webhook; assess dedicated adapter | Internal management API is unsupported; do not promise stable monitor management | Planned |
 | Vercel | List projects/deployments | Owner's token, team scope and bounded pagination; webhook availability depends on account/integration | Planned |
@@ -37,6 +37,12 @@ is not automatically retried by the node and asks the user to inspect the list.
 A manual workflow retry or worker interruption after a successful write may
 still create a duplicate. Further operations and managed OAuth remain future
 work; the current connection uses a user-provided key and token.
+
+Sentry List Issues uses the organization issues endpoint and a project filter.
+It returns a bounded subset of issue metadata; titles can contain sensitive
+information and appear in execution history. Organization/project discovery
+loads the first page and warns if more exist. Alert webhooks, self-hosted Sentry,
+automatic pagination and a durable trigger are not implemented.
 
 ## Primary references
 

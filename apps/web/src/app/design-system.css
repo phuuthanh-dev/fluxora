@@ -86,6 +86,7 @@
   --provider-notion: #222a25;
   --provider-rss: #a34b00;
   --provider-trello: #0755a7;
+  --provider-sentry: #55328e;
   --provider-postgres: #235c88;
   --provider-github: #181717;
   --provider-facebook: #075bdf;
@@ -211,6 +212,7 @@
   --provider-notion: #f4f5f0;
   --provider-rss: #ffad5c;
   --provider-trello: #8abfff;
+  --provider-sentry: #c0a5f4;
   --provider-postgres: #80bce7;
   --provider-github: #f3f6ec;
   --provider-facebook: #9bbcff;

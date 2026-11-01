@@ -20,6 +20,7 @@ import { executeMongoFind, executeMongoInsert } from "./mongodb-find";
 import { executeNotionSearch } from "./notion-search";
 import { executeRssRead } from "./rss-read";
 import { executeTrelloCreateCard } from "./trello";
+import { executeSentryListIssues } from "./sentry";
 import { executePostgresSelect } from "./postgres-read";
 import { executeGmailRead } from "./gmail-read";
 import { executeGoogleCalendar, executeGoogleCalendarAvailability, executeGoogleCalendarCreate, executeGoogleCalendarEvent } from "./google-calendar";
@@ -676,6 +677,7 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
   }
   if (node.type === "action.rss.read") return executeRssRead(config, mode);
   if (node.type === "action.trello.create-card") return executeTrelloCreateCard(config, mode, workspaceId, credentials);
+  if (node.type === "action.sentry.list-issues") return executeSentryListIssues(config, mode, workspaceId, credentials);
   if (node.type === "action.postgres.select") {
     return executePostgresSelect(config, mode, workspaceId, credentials);
   }
