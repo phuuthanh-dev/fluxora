@@ -14,11 +14,12 @@ References: [n8n Gmail](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-n
 [n8n Send Email](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.sendemail/),
 and [n8n Gmail Trigger](https://docs.n8n.io/integrations/builtin/trigger-nodes/n8n-nodes-base.gmailtrigger/).
 
-These are proposals, not features already delivered. Gmail reading requires a
-separate consent and may need Google restricted-scope verification.
+These are example workflows, not claims of live provider qualification. Gmail
+reading requires separate consent and may need Google restricted-scope verification.
 
 1. Inbox triage: new message from a selected sender → summarize with Gemini →
-   send a short notification to Google Chat. Requires the durable Gmail trigger.
+   send a short notification to Google Chat. The polling trigger supports
+   sender, subject and label filters, evaluated when the message is checked.
 2. Support handoff: find messages by subject → create a GitHub issue with a
    manually reviewed summary. Requires reliable pagination and a human approval
    step before external writes.
@@ -29,7 +30,7 @@ separate consent and may need Google restricted-scope verification.
    attachment. Attachment download and binary Drive upload are not supported.
 5. Project updates: detect a GitHub notification email → extract information →
    add a Notion page. Prefer the existing native GitHub trigger when available;
-   Notion create-page and the Gmail trigger are not yet implemented.
+   Notion create-page is not yet implemented; live Gmail verification remains.
 
 Prioritize the durable Gmail trigger and an explicit data-retention decision
 before automating business-critical inboxes. Never claim exactly-once delivery:

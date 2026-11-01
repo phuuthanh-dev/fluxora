@@ -12,10 +12,12 @@ import { GoogleResourceService } from "./google-resource.service";
 import { GeminiResourceController } from "./gemini-resource.controller";
 import { OpenAIResourceController } from "./openai-resource.controller";
 import { ConnectorResourceController } from "./connector-resource.controller";
+import { GoogleCalendarResourceController } from "./google-calendar-resource.controller";
+import { GmailResourceController } from "./gmail-resource.controller";
 
 @Module({
   imports: [AuthModule, WorkspaceModule],
-  controllers: [CredentialController, GoogleOAuthController, GitHubResourceController, GoogleResourceController, GeminiResourceController, OpenAIResourceController, ConnectorResourceController],
+  controllers: [CredentialController, GoogleOAuthController, GitHubResourceController, GoogleResourceController, GeminiResourceController, OpenAIResourceController, ConnectorResourceController, GoogleCalendarResourceController, GmailResourceController],
   providers: [CredentialService, CredentialVaultService, GitHubResourceService, GoogleResourceService],
   exports: [CredentialService, CredentialVaultService],
 })

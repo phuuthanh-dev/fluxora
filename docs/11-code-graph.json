@@ -281,6 +281,8 @@
         "apps/api/src/credentials/gemini-resource.controller.ts",
         "apps/api/src/credentials/github-resource.controller.ts",
         "apps/api/src/credentials/github-resource.service.ts",
+        "apps/api/src/credentials/gmail-resource.controller.ts",
+        "apps/api/src/credentials/google-calendar-resource.controller.ts",
         "apps/api/src/credentials/google-oauth.controller.ts",
         "apps/api/src/credentials/google-resource.controller.ts",
         "apps/api/src/credentials/google-resource.service.ts",
@@ -338,6 +340,37 @@
       "boundary": "api",
       "internalImports": [
         "apps/api/src/credentials/credential.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/gmail-resource.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/gmail-read.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/google-calendar-resource.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/google-calendar.ts",
+        "apps/api/src/execution/node-failure.ts"
       ],
       "externalImports": [
         "@nestjs/common",
@@ -544,6 +577,18 @@
       ]
     },
     {
+      "id": "apps/api/src/execution/gmail-history.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/gmail-read.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts"
+      ],
+      "externalImports": [
+        "node:crypto"
+      ]
+    },
+    {
       "id": "apps/api/src/execution/gmail-read.ts",
       "boundary": "api",
       "internalImports": [
@@ -567,7 +612,8 @@
         "apps/api/src/execution/provider-json.ts"
       ],
       "externalImports": [
-        "@prisma/client"
+        "@prisma/client",
+        "node:crypto"
       ]
     },
     {
@@ -914,11 +960,33 @@
       ]
     },
     {
+      "id": "apps/api/src/scheduler/gmail-trigger.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/execution-queue.service.ts",
+        "apps/api/src/execution/execution.service.ts",
+        "apps/api/src/execution/gmail-history.ts",
+        "apps/api/src/execution/gmail-read.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/workflows/workflow-graph.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client",
+        "@workflow/contracts",
+        "node:crypto"
+      ]
+    },
+    {
       "id": "apps/api/src/scheduler/scheduler.module.ts",
       "boundary": "api",
       "internalImports": [
+        "apps/api/src/credentials/credential.module.ts",
         "apps/api/src/execution/execution.module.ts",
-        "apps/api/src/scheduler/cron-scheduler.service.ts"
+        "apps/api/src/scheduler/cron-scheduler.service.ts",
+        "apps/api/src/scheduler/gmail-trigger.service.ts"
       ],
       "externalImports": [
         "@nestjs/common"
@@ -1117,6 +1185,7 @@
       "internalImports": [
         "apps/api/src/auth/auth.module.ts",
         "apps/api/src/execution/execution.module.ts",
+        "apps/api/src/scheduler/scheduler.module.ts",
         "apps/api/src/workflows/workflow.controller.ts",
         "apps/api/src/workflows/workflow.service.ts",
         "apps/api/src/workspaces/workspace.module.ts"
@@ -1130,6 +1199,7 @@
       "boundary": "api",
       "internalImports": [
         "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/scheduler/gmail-trigger.service.ts",
         "apps/api/src/workflows/system-templates.ts",
         "apps/api/src/workflows/workflow-graph.ts",
         "apps/api/src/workspaces/workspace.service.ts"
@@ -2483,6 +2553,14 @@
     },
     {
       "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/gmail-resource.controller.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/google-calendar-resource.controller.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
       "to": "apps/api/src/credentials/google-oauth.controller.ts"
     },
     {
@@ -2556,6 +2634,50 @@
     {
       "from": "apps/api/src/credentials/github-resource.service.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/gmail-resource.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/gmail-resource.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/gmail-resource.controller.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/gmail-resource.controller.ts",
+      "to": "apps/api/src/execution/gmail-read.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/gmail-resource.controller.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/gmail-resource.controller.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-calendar-resource.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-calendar-resource.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-calendar-resource.controller.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-calendar-resource.controller.ts",
+      "to": "apps/api/src/execution/google-calendar.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-calendar-resource.controller.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
     },
     {
       "from": "apps/api/src/credentials/google-oauth.controller.ts",
@@ -2780,6 +2902,18 @@
     {
       "from": "apps/api/src/execution/gemini-text.ts",
       "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/execution/gmail-history.ts",
+      "to": "apps/api/src/execution/gmail-read.ts"
+    },
+    {
+      "from": "apps/api/src/execution/gmail-history.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/gmail-history.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
     },
     {
       "from": "apps/api/src/execution/gmail-read.ts",
@@ -3102,12 +3236,52 @@
       "to": "apps/api/src/workflows/workflow-graph.ts"
     },
     {
+      "from": "apps/api/src/scheduler/gmail-trigger.service.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/gmail-trigger.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/gmail-trigger.service.ts",
+      "to": "apps/api/src/execution/execution-queue.service.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/gmail-trigger.service.ts",
+      "to": "apps/api/src/execution/execution.service.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/gmail-trigger.service.ts",
+      "to": "apps/api/src/execution/gmail-history.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/gmail-trigger.service.ts",
+      "to": "apps/api/src/execution/gmail-read.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/gmail-trigger.service.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/gmail-trigger.service.ts",
+      "to": "apps/api/src/workflows/workflow-graph.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/scheduler.module.ts",
+      "to": "apps/api/src/credentials/credential.module.ts"
+    },
+    {
       "from": "apps/api/src/scheduler/scheduler.module.ts",
       "to": "apps/api/src/execution/execution.module.ts"
     },
     {
       "from": "apps/api/src/scheduler/scheduler.module.ts",
       "to": "apps/api/src/scheduler/cron-scheduler.service.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/scheduler.module.ts",
+      "to": "apps/api/src/scheduler/gmail-trigger.service.ts"
     },
     {
       "from": "apps/api/src/webhooks/github-webhook-adapter.ts",
@@ -3307,6 +3481,10 @@
     },
     {
       "from": "apps/api/src/workflows/workflow.module.ts",
+      "to": "apps/api/src/scheduler/scheduler.module.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow.module.ts",
       "to": "apps/api/src/workflows/workflow.controller.ts"
     },
     {
@@ -3320,6 +3498,10 @@
     {
       "from": "apps/api/src/workflows/workflow.service.ts",
       "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow.service.ts",
+      "to": "apps/api/src/scheduler/gmail-trigger.service.ts"
     },
     {
       "from": "apps/api/src/workflows/workflow.service.ts",

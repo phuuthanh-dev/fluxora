@@ -237,9 +237,44 @@ model WorkflowVersion {
   executions  Execution[]
   webhookEndpoints WebhookEndpoint[]
   providerWebhookRegistrations ProviderWebhookRegistration[]
+  gmailTriggerCheckpoints GmailTriggerCheckpoint[]
 
   @@unique([workflowId, version])
   @@index([workflowId, status])
+}
+
+// Progress belongs to a published version and trigger node. A page token is
+// committed only after its messages have been durably dispatched.
+model GmailTriggerCheckpoint {
+  workflowVersionId String
+  nodeId            String
+  historyId         String
+  mailboxHash       String
+  pageToken         String?
+  state             String   @default("READY")
+  leaseToken        String?
+  leaseExpiresAt    DateTime?
+  nextPollAt        DateTime?
+  lastErrorCode     String?
+  updatedAt         DateTime @updatedAt
+  workflowVersion   WorkflowVersion @relation(fields: [workflowVersionId], references: [id], onDelete: Cascade)
+  deliveries        GmailTriggerDelivery[]
+
+  @@id([workflowVersionId, nodeId])
+  @@index([state, leaseExpiresAt])
+}
+
+model GmailTriggerDelivery {
+  workflowVersionId String
+  nodeId            String
+  messageId         String
+  executionId       String?
+  dispatchedAt      DateTime?
+  skipReason        String?
+  createdAt         DateTime @default(now())
+  checkpoint        GmailTriggerCheckpoint @relation(fields: [workflowVersionId, nodeId], references: [workflowVersionId, nodeId], onDelete: Cascade)
+
+  @@id([workflowVersionId, nodeId, messageId])
 }
 
 model Credential {
@@ -263,6 +298,7 @@ model Execution {
   status            ExecutionStatus @default(QUEUED)
   mode              String          @default("LIVE")
   idempotencyKey    String?         @unique
+  idempotencyRootId String?
   triggerData       Json?
   errorCode         String?
   errorMessage      String?

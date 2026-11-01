@@ -148,9 +148,9 @@ one of these IDs or explicitly reopen a completed ledger slice.
 | `EDITOR-QUALIFICATION-1` | Audit credential status, picker, validation and mock/live node-debug UX | planned | Reuse completed editor work; implement only evidenced gaps |
 | `NOTION-1` | Add Notion connector with user-owned credential and guided page operations | pending | Search pages implemented in PR #56; live search qualified once locally. More operations and production qualification remain. |
 | `POSTGRES-1` | Add PostgreSQL connector with user-owned credential and guided operations | pending | Select rows implemented in PR #56; live qualification and further operations remain. |
-| `GMAIL-1` | Add Gmail read operations and a durable new-message trigger with a separate owner-authorized Google connection | pending | Read action implemented locally; trigger remains unimplemented. `gmail.readonly` is restricted; no Google Cloud changes or live mailbox access without specific owner action. |
-| `CALENDAR-1` | Add Google Calendar connection and actions | pending | Local read-only OAuth and primary-calendar upcoming events action implemented; mocked tests pass. Calendar picker, write actions, trigger, live qualification and full gate remain. |
-| `EMAIL-UX-1` | Group Gmail and SMTP connection choices in the UI | pending | Grouped locally; Gmail and SMTP keep separate providers and nodes. Typecheck and focused E2E passed; full gate not yet rerun. |
+| `GMAIL-1` | Add Gmail read operations and a durable new-message trigger with a separate owner-authorized Google connection | pending | Implementation and isolated full verify passed; live mailbox qualification, restricted-scope approval and release remain. Pub/Sub push is not implemented. See `.agent/reports/2026-11-01-gmail-trigger-calendar-expansion.md`. |
+| `CALENDAR-1` | Add Google Calendar connection and actions | pending | Guided calendar/event pickers and event operations passed the isolated gate; consent configuration, owner-approved live qualification and release remain. A Calendar trigger is not implemented. |
+| `EMAIL-UX-1` | Group Gmail and SMTP connection choices in the UI | pending | Grouped in the implementation; Gmail and SMTP keep separate providers and nodes. Isolated full verify passed; release remains. |
 
 ## Closed boundary
 

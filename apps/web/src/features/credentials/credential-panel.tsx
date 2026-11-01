@@ -11,7 +11,7 @@ import "./credentials.css";
 import { CredentialSecretFields } from "./credential-secret-fields";
 import { NodeIcon, type NodeIconName } from "../workflow/node-icon";
 
-const providerIcons: Record<CredentialProvider, NodeIconName> = { GOOGLE: "google", STEAM: "steam", GOOGLE_CHAT_WEBHOOK: "google-chat", GOOGLE_CHAT_OAUTH: "google-chat", GMAIL: "gmail", GOOGLE_CALENDAR: "google", MONGODB: "mongodb", NOTION: "notion", POSTGRES: "postgres", HTTP: "http", DISCORD_WEBHOOK: "discord", TELEGRAM_BOT: "telegram", GITHUB: "github", SMTP: "email", GEMINI: "gemini", OPENAI: "openai" };
+const providerIcons: Record<CredentialProvider, NodeIconName> = { GOOGLE: "google", STEAM: "steam", GOOGLE_CHAT_WEBHOOK: "google-chat", GOOGLE_CHAT_OAUTH: "google-chat", GMAIL: "gmail", GOOGLE_CALENDAR: "google-calendar", MONGODB: "mongodb", NOTION: "notion", POSTGRES: "postgres", HTTP: "http", DISCORD_WEBHOOK: "discord", TELEGRAM_BOT: "telegram", GITHUB: "github", SMTP: "email", GEMINI: "gemini", OPENAI: "openai" };
 
 type CredentialPreset = {
   label: string;
@@ -439,7 +439,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
         ) : null}
         {provider === "GOOGLE_CHAT_OAUTH" ? <div className="credential-form__oauth-helper"><span>Google Chat asks to list your spaces and send messages on your behalf. This connection is separate from Drive and Sheets.</span><button type="button" className="credential-form__oauth-link" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google-chat/connect`)}>Connect Google Chat <ArrowUpRight size={13} aria-hidden="true" /></button></div> : null}
         {provider === "GMAIL" ? <div className="credential-form__oauth-helper"><span>Gmail requests read-only access to your mailbox. Message contents may appear in workflow execution history. This connection is separate from Google sign-in and Drive.</span><button type="button" className="credential-form__oauth-link" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/gmail/connect`)}>Connect Gmail <ArrowUpRight size={13} aria-hidden="true" /></button></div> : null}
-        {provider === "GOOGLE_CALENDAR" ? <div className="credential-form__oauth-helper"><span>Google Calendar requests read-only access to events on your calendars. Events may appear in workflow execution history.</span><button type="button" className="credential-form__oauth-link" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google-calendar/connect`)}>Connect Google Calendar <ArrowUpRight size={13} aria-hidden="true" /></button></div> : null}
+        {provider === "GOOGLE_CALENDAR" ? <div className="credential-form__oauth-helper"><span>Google Calendar requests permission to view and edit events, list your calendars and check availability. Events may appear in workflow execution history.</span><button type="button" className="credential-form__oauth-link" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google-calendar/connect`)}>Connect Google Calendar <ArrowUpRight size={13} aria-hidden="true" /></button></div> : null}
         <p className="credential-form__hint" aria-live="polite">{credentialPresets[provider].hint}</p>
         <CredentialSecretFields provider={provider} value={data} onChange={(value) => { setData(value); setJsonError(null); setCreateError(null); }} />
         {jsonError && <p className="credential-form__error" role="alert">{jsonError}</p>}

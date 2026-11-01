@@ -143,6 +143,7 @@ test("retry creates a new execution from the failed pinned version and original 
     status: ExecutionStatus.FAILED,
     mode: "MOCK",
     workflowVersionId: "version-7",
+    idempotencyRootId: null as string | null,
     triggerData: { event: "daily-report", authorization: "[REDACTED]" },
     workflowVersion: { version: 7, graph: { nodes: [], edges: [] }, workflow: { workspaceId: "workspace-1" } },
   };
@@ -158,8 +159,11 @@ test("retry creates a new execution from the failed pinned version and original 
   const retry = await service.retry("execution-source", "user-1");
 
   assert.equal(retry.id, "execution-retry");
-  assert.deepEqual(created, [{ workflowVersionId: "version-7", mode: "MOCK", triggerData: { event: "daily-report", authorization: "[REDACTED]" } }]);
+  assert.deepEqual(created, [{ workflowVersionId: "version-7", mode: "MOCK", triggerData: { event: "daily-report", authorization: "[REDACTED]" }, idempotencyRootId: "execution-source" }]);
   assert.deepEqual(audits[0]?.metadata, { sourceExecutionId: "execution-source", mode: "mock", workflowVersion: 7 });
+  source.id = "execution-retry"; source.idempotencyRootId = "execution-source";
+  await service.retry("execution-retry", "user-1");
+  assert.equal(created[1]?.idempotencyRootId, "execution-source");
 });
 
 test("trigger idempotency returns the existing pinned execution without creating another run", async () => {

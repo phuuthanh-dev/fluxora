@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { apiRequest, apiUrl } from "../api/api-client";
+import { ApiClientError, apiRequest, apiUrl } from "../api/api-client";
 import { validateWorkflowGraph } from "./graph-validation";
 import {
   createNodeData,
@@ -228,6 +228,20 @@ function TableField({ label, value, onChange }: { label: string; value: unknown;
   );
 }
 
+function DateTimeField({ label, value, allowExpressions, onChange }: { label: string; value: string; allowExpressions: boolean; onChange: (value: string) => void }) {
+  const [manual, setManual] = useState(value.includes("{{"));
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  const date = new Date(value);
+  const pad = (number: number) => String(number).padStart(2, "0");
+  const local = mounted && value && Number.isFinite(date.getTime()) ? `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}` : "";
+  return <Field label={label} className="config-field">
+    {manual ? <input aria-label={label} value={value} placeholder="ISO time or expression" onChange={(event) => onChange(event.target.value)} /> : <input aria-label={label} type="datetime-local" value={local} onChange={(event) => { const next = new Date(event.target.value); onChange(event.target.value && Number.isFinite(next.getTime()) ? next.toISOString() : ""); }} />}
+    <small>{manual ? "Use an ISO 8601 timestamp with timezone or an expression." : "Uses your device time zone and stores the time in UTC."}</small>
+    {allowExpressions && <Button type="button" variant="ghost" onClick={() => setManual((previous) => !previous)}>{manual ? "Choose date and time" : "Enter value or expression"}</Button>}
+  </Field>;
+}
+
 function NodeConfigurationFields({ fields, config, credentials, workspaceId, allowExpressions, onChange, draft, onDraftChange }: {
   fields: NodeConfigurationField[];
   config: Record<string, unknown>;
@@ -250,6 +264,8 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, all
       if (field.kind === "boolean") {
         return <label key={field.key} className="checkbox-field"><input type="checkbox" checked={config[field.key] !== false} onChange={(event) => onChange(field.key, event.target.checked)} /> {field.label}</label>;
       }
+      if (field.kind === "datetime") return <DateTimeField key={field.key} label={field.label} value={value} allowExpressions={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
+      if (field.key === "pageToken") return <details key={field.key} className="config-field"><summary>Advanced pagination</summary><ConfigField label={field.label} value={value} onChange={(nextValue) => onChange(field.key, nextValue)} /><small>Use the token and start time from the previous output. Keep the same calendar and limit.</small></details>;
       if (field.kind === "resource") {
         return <ResourcePicker key={field.key} workspaceId={workspaceId} resource={field.resource} credentialId={readConfigText(config, field.credentialKey)} dependencyValue={field.dependencyKey ? readConfigText(config, field.dependencyKey) : undefined} label={field.label} value={value} placeholder={field.placeholder} allowExpression={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       }
@@ -655,7 +671,36 @@ function WorkflowLibraryPanel({ initialWorkspaces, activeWorkflowId, activeWorks
   return <Dialog label="Workflow library" className="workflow-library" modal={false} onClose={onClose}><div className="credential-panel__heading"><div><p className="section-label">WORKSPACE LIBRARY</p><h2>Workflows</h2></div><button className="icon-button" type="button" aria-label="Close workflow library" onClick={onClose}>×</button></div><label className="workflow-library__field"><span>Workspace</span><select value={workspaceId} onChange={(event) => switchWorkspace(event.target.value)}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</select></label><div className="workflow-library__create"><input value={newWorkspaceName} onChange={(event) => setNewWorkspaceName(event.target.value)} placeholder="New workspace name" /><button className="ghost-button" type="button" onClick={() => void createWorkspace()} disabled={isSaving || !newWorkspaceName.trim()}>Create workspace</button></div><div className="workflow-library__list">{workflows.map((candidate) => <button key={candidate.id} className={candidate.id === activeWorkflowId ? "workflow-library__item workflow-library__item--active" : "workflow-library__item"} type="button" onClick={() => onOpen(candidate)}><strong>{candidate.name}</strong><span>{candidate.published ? `Published v${candidate.published.version}` : "Draft only"}</span></button>)}</div><div className="workflow-library__new"><p className="section-label">CREATE WORKFLOW</p><input value={newWorkflowName} onChange={(event) => setNewWorkflowName(event.target.value)} aria-label="New workflow name" /><div><button className="run-button" type="button" onClick={() => void createWorkflow()} disabled={isSaving || !workspaceId || !newWorkflowName.trim()}>{isSaving && !lastCreateTemplate ? "Creating…" : "Start blank"}</button><button className="ghost-button" type="button" onClick={() => void createWorkflow("steam-daily-report")} disabled={isSaving || !workspaceId}>{isSaving && lastCreateTemplate ? "Creating…" : "Use Steam template"}</button></div>{createError && <p className="workflow-library__error" role="alert">{createError} <button type="button" className="ghost-button" onClick={() => void createWorkflow(lastCreateTemplate)}>Retry</button></p>}</div>{isLoadingWorkflows && <p className="workflow-library__notice" aria-live="polite">Loading workflows…</p>}{loadError && <p className="workflow-library__notice workflow-library__notice--error" role="alert">{loadError} <button type="button" className="ghost-button" onClick={() => void loadWorkflows(workspaceId)}>Retry</button></p>}{!isLoadingWorkflows && !loadError && <p className="workflow-library__notice">{notice}</p>}</Dialog>;
 }
 
-function NodeInspector({ node, execution, credentials, workspaceId, onResolveApproval, onDebugNode, onOpenWebhook, webhookContext, isDebugging, isDrawerOpen, onCloseDrawer, draft, onDraftChange, hasPending }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null; credentials: CredentialSummary[]; workspaceId: string; onResolveApproval: (approvalId: string, decision: "approved" | "rejected") => void; onDebugNode: (node: WorkflowCanvasNode) => void; onOpenWebhook: () => void; webhookContext: "published" | "different" | "draft" | "other-draft"; isDebugging: boolean; isDrawerOpen: boolean; onCloseDrawer: () => void; draft: InspectorDraft; onDraftChange: UpdateInspectorDraft; hasPending: boolean }) {
+function GmailTriggerStatus({ workflowId, nodeId }: { workflowId: string; nodeId: string }) {
+  const [status, setStatus] = useState<{ active: boolean; checkpoints: Array<{ nodeId: string; state: string; lastErrorCode: string | null }> } | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
+  const [refresh, setRefresh] = useState(0);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState("");
+  useEffect(() => {
+    if (!workflowId) return;
+    let current = true;
+    const load = () => { void apiRequest<{ active: boolean; checkpoints: Array<{ nodeId: string; state: string; lastErrorCode: string | null }> }>(`/workflows/${encodeURIComponent(workflowId)}/gmail-trigger-status`).then((data) => { if (current) { setStatus(data); setUnavailable(false); } }).catch(() => { if (current) setUnavailable(true); }); };
+    load();
+    const timer = window.setInterval(load, 30_000);
+    return () => { current = false; window.clearInterval(timer); };
+  }, [workflowId, refresh]);
+  const checkpoint = status?.checkpoints.find((item) => item.nodeId === nodeId);
+  const error = checkpoint?.lastErrorCode;
+  return <Status tone={checkpoint?.state === "ERROR" || unavailable ? "warning" : "info"} className="inspector-note">
+    <strong>Gmail polling</strong>
+    <span>{unavailable ? "Trigger status is unavailable. Try refreshing." : checkpoint?.state === "ERROR" ? error === "GMAIL_CHECKPOINT_MISSING" ? "This trigger has no checkpoint and is not checking mail. Deactivate and reactivate to begin from the current inbox; earlier messages may be missed." : `${error === "GMAIL_MAILBOX_CHANGED" ? "The connection now belongs to a different mailbox." : error === "GMAIL_EXECUTION_MISSING" ? "A pending execution is no longer available." : error === "GMAIL_MESSAGE_MISSING" ? "A message in the saved history is no longer available." : "Gmail history is no longer available."} Deactivate, then review the reset option.` : error ? "The last check failed. Check the Gmail connection and permissions; Fluxora will retry without advancing the checkpoint." : status?.active && checkpoint ? "Active. Checks for messages on the selected schedule; delivery may be delayed." : checkpoint ? "Inactive. Reactivating resumes from the saved checkpoint and may process messages received while inactive." : "Publish and activate to begin checking new messages. Existing messages are not processed."}</span>
+    <span>Message contents may be retained in execution history.</span>
+    <span>When messages exceed the per-check limit, remaining messages are processed in later checks until caught up.</span>
+    <span>Inbox and label filters use the message's labels when it is checked.</span>
+    <Button type="button" variant="ghost" onClick={() => setRefresh((value) => value + 1)}>Refresh status</Button>
+    {!status?.active && checkpoint && <Button type="button" variant="ghost" onClick={() => { setResetError(""); setResetOpen(true); }}>Reset checkpoint…</Button>}
+    {resetOpen && <Dialog label="Reset Gmail checkpoint" onClose={() => { if (!resetting) setResetOpen(false); }}><DialogHeader title="Start from the current inbox?" onClose={() => { if (!resetting) setResetOpen(false); }} closeLabel="Close reset confirmation" /><p>Messages since the saved checkpoint, including pending deliveries, may be permanently missed. Already running executions may still finish. This cannot be undone.</p>{resetError && <Status tone="error" role="alert">{resetError}</Status>}<div className="dialog-actions"><Button variant="secondary" type="button" disabled={resetting} onClick={() => setResetOpen(false)}>Cancel</Button><Button variant="primary" type="button" disabled={resetting} onClick={() => { setResetting(true); setResetError(""); void apiRequest(`/workflows/${encodeURIComponent(workflowId)}/gmail-trigger-reset`, { method: "POST", body: JSON.stringify({ confirmDataGap: true }) }).then(() => { setResetOpen(false); setRefresh((value) => value + 1); }).catch((reason: unknown) => setResetError(reason instanceof Error ? reason.message : "Could not reset the checkpoint." )).finally(() => setResetting(false)); }}>{resetting ? "Resetting…" : "Reset checkpoint"}</Button></div></Dialog>}
+  </Status>;
+}
+
+function NodeInspector({ node, execution, credentials, workspaceId, workflowId, onResolveApproval, onDebugNode, onOpenWebhook, webhookContext, isDebugging, isDrawerOpen, onCloseDrawer, draft, onDraftChange, hasPending }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null; credentials: CredentialSummary[]; workspaceId: string; workflowId: string; onResolveApproval: (approvalId: string, decision: "approved" | "rejected") => void; onDebugNode: (node: WorkflowCanvasNode) => void; onOpenWebhook: () => void; webhookContext: "published" | "different" | "draft" | "other-draft"; isDebugging: boolean; isDrawerOpen: boolean; onCloseDrawer: () => void; draft: InspectorDraft; onDraftChange: UpdateInspectorDraft; hasPending: boolean }) {
   const updateNodeData = useWorkflowEditorStore((state) => state.updateNodeData);
   const inspectorRef = useDialogFocus<HTMLElement>({ active: isDrawerOpen, trapFocus: true, onClose: onCloseDrawer, restoreFocus: false });
 
@@ -680,7 +725,13 @@ function NodeInspector({ node, execution, credentials, workspaceId, onResolveApp
     ? (nodeExecution.output as Record<string, unknown>).approvalRequestId as string
     : null;
   const updateConfig = (key: string, value: unknown) => {
-    updateNodeData(node.id, { config: { ...node.data.config, [key]: value } });
+    const config = { ...node.data.config, [key]: value };
+    if (node.data.nodeType.startsWith("action.google-calendar.") && node.data.config[key] !== value) {
+      if (key === "credentialId") { config.calendarId = "primary"; config.eventId = ""; }
+      else if (key === "calendarId") config.eventId = "";
+    }
+    if (node.data.nodeType === "trigger.gmail" && key === "credentialId" && node.data.config.credentialId !== value) config.labelId = "";
+    updateNodeData(node.id, { config });
   };
   const suggestions = buildExpressionSuggestions(execution?.nodeExecutions.map((item) => ({ nodeId: item.nodeId, output: item.output })) ?? []);
 
@@ -701,6 +752,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, onResolveApp
       </InspectorSection>
       <InspectorSection title="Configuration">
       {definition?.configurationFields && <NodeConfigurationFields key={node.id} fields={definition.configurationFields} config={node.data.config} credentials={credentials} workspaceId={workspaceId} allowExpressions={!node.data.nodeType.startsWith("trigger.")} onChange={updateConfig} draft={draft} onDraftChange={onDraftChange} />}
+      {node.data.nodeType === "trigger.gmail" && <GmailTriggerStatus workflowId={workflowId} nodeId={node.id} />}
       {node.data.nodeType === "trigger.manual" && <TestDataEditor key={node.id} value={node.data.config.testData} onApply={(testData) => updateConfig("testData", testData)} draft={draft.testData} onDraftChange={(next) => onDraftChange("testData", next)} />}
       {node.data.nodeType === "trigger.cron" && (
         <>
@@ -832,6 +884,7 @@ export function WorkflowEditor() {
   const [retryConfirmOpen, setRetryConfirmOpen] = useState(false);
   const [executionDetailsOpen, setExecutionDetailsOpen] = useState(false);
   const [activationOpen, setActivationOpen] = useState(false);
+  const [gmailPublishWarningOpen, setGmailPublishWarningOpen] = useState(false);
   const [liveReadiness, setLiveReadiness] = useState<LiveReadiness | null>(null);
   const [liveReadinessLoading, setLiveReadinessLoading] = useState(false);
   const [liveReadinessError, setLiveReadinessError] = useState<string | null>(null);
@@ -1214,7 +1267,7 @@ export function WorkflowEditor() {
     }
   };
 
-  const publish = async () => {
+  const publish = async (confirmDiscardGmail = false) => {
     if (!workflow) return;
     const saved = await saveDraft("publishing", true);
     if (!saved) {
@@ -1223,11 +1276,13 @@ export function WorkflowEditor() {
     }
     setIsSaving(true);
     try {
-      const response = await apiRequest<{ workflow: ApiWorkflow }>(`/workflows/${workflow.id}/publish`, { method: "POST" });
+      const response = await apiRequest<{ workflow: ApiWorkflow }>(`/workflows/${workflow.id}/publish`, { method: "POST", body: JSON.stringify({ confirmDiscardGmail }) });
+      setGmailPublishWarningOpen(false);
       setWorkflow(response.workflow);
       setNotice(`Version ${response.workflow.published?.version ?? ""} published. A new editable draft is ready.`);
     } catch (reason) {
-      setNotice(reason instanceof Error ? reason.message : "Unable to publish the workflow.");
+      if (reason instanceof ApiClientError && reason.code === "GMAIL_PUBLISH_GAP_CONFIRMATION") setGmailPublishWarningOpen(true);
+      else setNotice(reason instanceof Error ? reason.message : "Unable to publish the workflow.");
     } finally {
       setIsSaving(false);
       setActiveOperation(null);
@@ -1490,7 +1545,7 @@ export function WorkflowEditor() {
           </button>
         </section>
         {isInspectorDrawerOpen && <button className="inspector-backdrop" type="button" aria-label="Dismiss node inspector" onClick={closeInspectorDrawer} />}
-        <NodeInspector node={selectedNode} execution={execution} credentials={credentials} workspaceId={workflow?.workspaceId ?? ""} onResolveApproval={resolveApproval} onDebugNode={(node) => void runNodeDebug(node)} onOpenWebhook={() => { if (isNarrowEditorLayout) setInspectorDrawerOpen(false); setWebhookOpen(true); }} webhookContext={webhookContext} isDebugging={activeOperation === "debugging"} isDrawerOpen={isInspectorDrawerOpen} onCloseDrawer={closeInspectorDrawer} draft={selectedNode ? inspectorDrafts[selectedNode.id] ?? {} : {}} onDraftChange={(kind, value) => { if (selectedNode) setInspectorDraft(selectedNode.id, kind, value); }} hasPending={hasPending} />
+        <NodeInspector node={selectedNode} execution={execution} credentials={credentials} workspaceId={workflow?.workspaceId ?? ""} workflowId={workflow?.id ?? ""} onResolveApproval={resolveApproval} onDebugNode={(node) => void runNodeDebug(node)} onOpenWebhook={() => { if (isNarrowEditorLayout) setInspectorDrawerOpen(false); setWebhookOpen(true); }} webhookContext={webhookContext} isDebugging={activeOperation === "debugging"} isDrawerOpen={isInspectorDrawerOpen} onCloseDrawer={closeInspectorDrawer} draft={selectedNode ? inspectorDrafts[selectedNode.id] ?? {} : {}} onDraftChange={(kind, value) => { if (selectedNode) setInspectorDraft(selectedNode.id, kind, value); }} hasPending={hasPending} />
       </div>
       {contextMenu && <div className="node-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} role="menu" onMouseLeave={() => setContextMenu(null)}>
         <button type="button" disabled={hasPending} onClick={() => { copyNode(contextMenu.nodeId); setContextMenu(null); }}>Copy node</button>
@@ -1502,6 +1557,7 @@ export function WorkflowEditor() {
       {webhookOpen && workflow && webhookTrigger && <WebhookEndpointPanel workflow={workflow} config={webhookTrigger.config} isGitHub={isGitHubWebhookTrigger(webhookTrigger.type)} canRegister={Boolean(publishedWebhook)} onClose={() => setWebhookOpen(false)} />}
       {activationOpen && workflow && <WorkflowActivationPanel workflow={workflow} isSaving={activeOperation === "activating" || activeOperation === "deactivating"} readiness={liveReadiness} loading={liveReadinessLoading} error={liveReadinessError} onConfirm={() => void updateActivation()} onRefresh={() => void checkLiveReadiness()} onOpenCredentials={() => { setActivationOpen(false); setCredentialsOpen(true); }} onClose={() => setActivationOpen(false)} />}
       {liveConfirmOpen && workflow && <GoLivePanel workflow={workflow} isRunning={activeOperation === "live"} readiness={liveReadiness} loading={liveReadinessLoading} error={liveReadinessError} onConfirm={() => void runLive()} onRefresh={() => void checkLiveReadiness()} onOpenCredentials={() => { setLiveConfirmOpen(false); setCredentialsOpen(true); }} onClose={() => setLiveConfirmOpen(false)} />}
+      {gmailPublishWarningOpen && <Dialog label="Confirm Gmail trigger change" onClose={() => setGmailPublishWarningOpen(false)}><DialogHeader title="Change the Gmail trigger?" onClose={() => setGmailPublishWarningOpen(false)} closeLabel="Close confirmation" /><p>Changing or removing the mailbox trigger discards its saved progress. Some messages and pending deliveries may be missed; already running executions may still finish.</p><div className="dialog-actions"><Button type="button" variant="secondary" onClick={() => setGmailPublishWarningOpen(false)}>Cancel</Button><Button type="button" variant="primary" disabled={isSaving} onClick={() => void publish(true)}>Publish and discard progress</Button></div></Dialog>}
       {retryConfirmOpen && execution && <RetryExecutionPanel execution={execution} isRetrying={activeOperation === "retrying"} onConfirm={() => void retryExecution()} onClose={() => setRetryConfirmOpen(false)} />}
       {executionDetailsOpen && execution && <ExecutionDetailsPanel executionId={execution.id} onSelectNode={(nodeId) => { selectNode(nodeId); setExecutionDetailsOpen(false); if (isNarrowEditorLayout) setInspectorDrawerOpen(true); }} onClose={() => setExecutionDetailsOpen(false)} />}
       {libraryOpen && <WorkflowLibraryPanel initialWorkspaces={workspaces} activeWorkflowId={workflow?.id} activeWorkspaceId={workflow?.workspaceId} onOpen={openWorkflow} onWorkspaceCreated={(workspace) => setWorkspaces((current) => [workspace, ...current])} onClose={() => setLibraryOpen(false)} />}

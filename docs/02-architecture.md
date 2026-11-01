@@ -339,11 +339,37 @@ verification action and keeps manual setup available as a fallback. The feature
 remains disabled by default until production origin, migration and
 live-provider qualification are complete.
 
-## Google Calendar initial read slice
+## Google Calendar connector
 
 The Calendar connector has a separate workspace-owned OAuth credential with
-`calendar.events.readonly`, and an action that lists a bounded set of upcoming
-events from the primary calendar. Mock mode uses synthetic events. Calendar
-selection beyond the primary calendar, write operations and the Calendar
-trigger are not implemented. Event data may appear in execution history.
+`calendar.events`, `calendar.events.freebusy`, and
+`calendar.calendarlist.readonly`; it can list, read, create, update, and delete
+events or check availability in a selected calendar. Event creation uses a
+deterministic event ID and verifies a private marker after a conflict so retries
+do not silently create duplicates within one execution. The event picker lists
+up to 50 upcoming events and permits an ID/expression for other events. Update
+only patches non-empty fields. A delete returning 404/410 is reported as absent
+or inaccessible, not proven deleted. Mock mode uses synthetic events. A Calendar
+trigger is not yet implemented. Event data may
+appear in execution history.
 OAuth consent configuration, live qualification and deployment are separate.
+
+## Gmail new-message polling
+
+Gmail Trigger uses a selected polling interval and Gmail history pages. The
+first activation captures a mailbox-specific checkpoint; reactivation of the
+same published version resumes the checkpoint, so messages received while
+inactive may run. Per-message receipts and idempotent execution creation allow
+retries without advancing a failed page. A periodic scan re-enqueues persisted
+Gmail executions that remain queued when their Redis job has been lost; job IDs
+and execution status claims prevent concurrent recovery from running them twice.
+History expiration or a changed
+mailbox enters an explicit error state. An owner-confirmed reset may discard
+pending messages and cancels queued executions where possible. A version change
+preserves the cursor and receipts for the same node and credential; changing or
+removing the trigger requires explicit acknowledgement of a possible gap.
+Polling intervals are selectable (one, five, 15 or 60 minutes), with 10, 25 or
+50 messages per check; a backlog continues on later checks. Sender, subject and
+label filters are evaluated using the message state when polled. Delivery receipts
+currently have no automatic retention cleanup. Polling is not instant; Pub/Sub
+push and real-mailbox qualification remain separate work.

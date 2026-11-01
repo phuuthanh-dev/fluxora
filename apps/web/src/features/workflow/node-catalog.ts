@@ -63,7 +63,7 @@ export type NodeSelectOption = { value: string; label: string };
 type NodeFieldVisibilityValue = string | number | boolean;
 export type NodeFieldVisibility = { visibleWhen?: { key: string; equals: NodeFieldVisibilityValue | readonly NodeFieldVisibilityValue[] } };
 
-export type NodeResource = "github-repository" | "google-file" | "google-spreadsheet" | "gemini-model" | "openai-model" | "google-chat-space" | "mongodb-database" | "mongodb-collection" | "postgres-schema" | "postgres-table";
+export type NodeResource = "github-repository" | "google-file" | "google-spreadsheet" | "google-calendar" | "google-calendar-event" | "gmail-label" | "gemini-model" | "openai-model" | "google-chat-space" | "mongodb-database" | "mongodb-collection" | "postgres-schema" | "postgres-table";
 
 /**
  * Declarative fields that the inspector can render without growing another
@@ -74,6 +74,7 @@ export type NodeConfigurationField =
   | ({ kind: "credential"; key: string; label: string; providers: CredentialProvider[]; optional?: boolean } & NodeFieldVisibility)
   | ({ kind: "boolean"; key: string; label: string } & NodeFieldVisibility)
   | ({ kind: "text" | "textarea"; key: string; label: string } & NodeFieldVisibility)
+  | ({ kind: "datetime"; key: string; label: string } & NodeFieldVisibility)
   | ({ kind: "number"; key: string; label: string; fallbackValue: number } & NodeFieldVisibility)
   | ({ kind: "select"; key: string; label: string; options: NodeSelectOption[] } & NodeFieldVisibility)
   | ({ kind: "key-value"; key: string; label: string; keyPlaceholder?: string; valuePlaceholder?: string } & NodeFieldVisibility)
@@ -109,10 +110,10 @@ export const appCatalog: AppDefinition[] = [
   { id: "telegram", label: "Telegram", description: "Send messages with the Telegram Bot API.", icon: "telegram", category: "communication", aliases: ["bot", "notification"] },
   { id: "google-drive", label: "Google Drive", description: "Search, read, upload, and download files.", icon: "google-drive", category: "productivity", aliases: ["files", "workspace"] },
   { id: "google-sheets", label: "Google Sheets", description: "Read and write spreadsheet data.", icon: "google-sheets", category: "productivity", aliases: ["spreadsheet", "rows", "workspace"] },
-  { id: "google-calendar", label: "Google Calendar", description: "Read upcoming events.", icon: "google", category: "productivity", aliases: ["calendar", "events", "workspace"] },
+  { id: "google-calendar", label: "Google Calendar", description: "Find and manage calendar events.", icon: "google-calendar", category: "productivity", aliases: ["calendar", "events", "workspace"] },
   { id: "http", label: "HTTP", description: "Call REST APIs with optional authentication.", icon: "http", category: "developer-devops", aliases: ["api", "request", "webhook"] },
   { id: "email", label: "Email", description: "Send email notifications.", icon: "email", category: "communication", aliases: ["mail", "smtp"] },
-  { id: "gmail", label: "Gmail", description: "Read messages from your Gmail account.", icon: "gmail", category: "communication", aliases: ["mail", "google", "inbox"] },
+  { id: "gmail", label: "Gmail", description: "Start workflows from new mail and read messages.", icon: "gmail", category: "communication", aliases: ["mail", "google", "inbox"] },
   { id: "openai", label: "OpenAI", description: "Generate and transform content with AI.", icon: "openai", category: "ai", aliases: ["gpt", "llm"] },
   { id: "gemini", label: "Gemini", description: "Generate content with Google Gemini.", icon: "gemini", category: "ai", aliases: ["google ai", "llm"] },
   { id: "mongodb", label: "MongoDB", description: "Find and insert documents in a database.", icon: "mongodb", category: "data", aliases: ["database", "documents"] },
@@ -543,6 +544,24 @@ export const nodeCatalog: NodeDefinition[] = [
     ],
   },
   {
+    type: "trigger.gmail",
+    label: "Gmail new message",
+    description: "Check for new messages on a schedule while this workflow is active.",
+    category: "trigger", libraryGroup: "start", appId: "gmail",
+    operationId: "message-received", operationLabel: "New message", operationKind: "trigger",
+    icon: "gmail", available: true,
+    defaultConfig: { credentialId: "", mailbox: "inbox", labelId: "", sender: "", subject: "", pollMinutes: "1", maxMessages: "10" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Gmail credential", providers: ["GMAIL"] },
+      { kind: "select", key: "mailbox", label: "Messages", options: [{ value: "inbox", label: "Inbox" }, { value: "all", label: "All mail, including Sent and Spam" }] },
+      { kind: "resource", key: "labelId", label: "Label (optional)", resource: "gmail-label", credentialKey: "credentialId", placeholder: "Search labels" },
+      { kind: "text", key: "sender", label: "Sender contains (optional)" },
+      { kind: "text", key: "subject", label: "Subject contains (optional)" },
+      { kind: "select", key: "pollMinutes", label: "Check for new mail", options: [{ value: "1", label: "Every minute" }, { value: "5", label: "Every 5 minutes" }, { value: "15", label: "Every 15 minutes" }, { value: "60", label: "Every hour" }] },
+      { kind: "select", key: "maxMessages", label: "Maximum messages per check", options: [{ value: "10", label: "10 messages" }, { value: "25", label: "25 messages" }, { value: "50", label: "50 messages" }] },
+    ],
+  },
+  {
     type: "action.gmail.read",
     label: "Gmail messages",
     description: "Read recent messages without changing your inbox.",
@@ -565,15 +584,84 @@ export const nodeCatalog: NodeDefinition[] = [
   {
     type: "action.google-calendar.list-events",
     label: "Google Calendar events",
-    description: "Read upcoming events from your primary calendar.",
+    description: "Read upcoming events from a selected calendar.",
     category: "action", libraryGroup: "google-workspace", appId: "google-calendar",
     operationId: "list-events", operationLabel: "List upcoming events", operationKind: "search",
-    icon: "google", available: true,
-    defaultConfig: { credentialId: "", calendarId: "primary", limit: 10 },
+    icon: "google-calendar", available: true,
+    defaultConfig: { credentialId: "", calendarId: "primary", limit: 10, timeMin: "", pageToken: "" },
     configurationFields: [
       { kind: "credential", key: "credentialId", label: "Google Calendar credential", providers: ["GOOGLE_CALENDAR"] },
-      { kind: "select", key: "calendarId", label: "Calendar", options: [{ value: "primary", label: "Primary calendar" }] },
+      { kind: "resource", key: "calendarId", label: "Calendar", resource: "google-calendar", credentialKey: "credentialId", placeholder: "Search calendars" },
       { kind: "number", key: "limit", label: "Maximum events (1–50)", fallbackValue: 10 },
+      { kind: "datetime", key: "timeMin", label: "Start after (optional)" },
+      { kind: "text", key: "pageToken", label: "Next page token (reuse original start and limit)" },
+    ],
+  },
+  {
+    type: "action.google-calendar.create-event", label: "Create calendar event",
+    description: "Create an event and optionally invite attendees.",
+    category: "action", libraryGroup: "google-workspace", appId: "google-calendar",
+    operationId: "create-event", operationLabel: "Create event", operationKind: "action",
+    icon: "google-calendar", available: true,
+    defaultConfig: { credentialId: "", calendarId: "primary", summary: "", start: "", end: "", description: "", location: "", attendees: "", sendUpdates: "none" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Google Calendar credential", providers: ["GOOGLE_CALENDAR"] },
+      { kind: "resource", key: "calendarId", label: "Calendar", resource: "google-calendar", credentialKey: "credentialId", placeholder: "Search calendars" },
+      { kind: "text", key: "summary", label: "Event title" },
+      { kind: "datetime", key: "start", label: "Start" },
+      { kind: "datetime", key: "end", label: "End" },
+      { kind: "textarea", key: "description", label: "Description (optional)" },
+      { kind: "text", key: "location", label: "Location (optional)" },
+      { kind: "text", key: "attendees", label: "Attendee emails (comma separated)" },
+      { kind: "select", key: "sendUpdates", label: "Send email invitations", options: [{ value: "none", label: "Do not send" }, { value: "all", label: "Send to all attendees" }, { value: "externalOnly", label: "Send to external attendees" }] },
+    ],
+  },
+  {
+    type: "action.google-calendar.get-event", label: "Get calendar event", description: "Read details for a selected event.",
+    category: "action", libraryGroup: "google-workspace", appId: "google-calendar", operationId: "get-event", operationLabel: "Get event", operationKind: "search", icon: "google-calendar", available: true,
+    defaultConfig: { credentialId: "", calendarId: "primary", eventId: "" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Google Calendar credential", providers: ["GOOGLE_CALENDAR"] },
+      { kind: "resource", key: "calendarId", label: "Calendar", resource: "google-calendar", credentialKey: "credentialId", placeholder: "Search calendars" },
+      { kind: "resource", key: "eventId", label: "Event", resource: "google-calendar-event", credentialKey: "credentialId", dependencyKey: "calendarId", placeholder: "Search upcoming events" },
+    ],
+  },
+  {
+    type: "action.google-calendar.update-event", label: "Update calendar event", description: "Change selected event details; leave other fields blank to keep them.",
+    category: "action", libraryGroup: "google-workspace", appId: "google-calendar", operationId: "update-event", operationLabel: "Update event", operationKind: "action", icon: "google-calendar", available: true,
+    defaultConfig: { credentialId: "", calendarId: "primary", eventId: "", summary: "", start: "", end: "", description: "", location: "", sendUpdates: "none" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Google Calendar credential", providers: ["GOOGLE_CALENDAR"] },
+      { kind: "resource", key: "calendarId", label: "Calendar", resource: "google-calendar", credentialKey: "credentialId", placeholder: "Search calendars" },
+      { kind: "resource", key: "eventId", label: "Event", resource: "google-calendar-event", credentialKey: "credentialId", dependencyKey: "calendarId", placeholder: "Search upcoming events" },
+      { kind: "text", key: "summary", label: "New title (optional)" },
+      { kind: "datetime", key: "start", label: "New start (optional)" },
+      { kind: "datetime", key: "end", label: "New end (optional)" },
+      { kind: "textarea", key: "description", label: "New description (optional)" },
+      { kind: "text", key: "location", label: "New location (optional)" },
+      { kind: "select", key: "sendUpdates", label: "Notify attendees", options: [{ value: "none", label: "Do not send" }, { value: "all", label: "Send to all attendees" }, { value: "externalOnly", label: "Send to external attendees" }] },
+    ],
+  },
+  {
+    type: "action.google-calendar.delete-event", label: "Delete calendar event", description: "Delete the selected event when the workflow runs live.",
+    category: "action", libraryGroup: "google-workspace", appId: "google-calendar", operationId: "delete-event", operationLabel: "Delete event", operationKind: "action", icon: "google-calendar", available: true,
+    defaultConfig: { credentialId: "", calendarId: "primary", eventId: "", sendUpdates: "none" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Google Calendar credential", providers: ["GOOGLE_CALENDAR"] },
+      { kind: "resource", key: "calendarId", label: "Calendar", resource: "google-calendar", credentialKey: "credentialId", placeholder: "Search calendars" },
+      { kind: "resource", key: "eventId", label: "Event", resource: "google-calendar-event", credentialKey: "credentialId", dependencyKey: "calendarId", placeholder: "Search upcoming events" },
+      { kind: "select", key: "sendUpdates", label: "Notify attendees", options: [{ value: "none", label: "Do not send" }, { value: "all", label: "Send to all attendees" }, { value: "externalOnly", label: "Send to external attendees" }] },
+    ],
+  },
+  {
+    type: "action.google-calendar.availability", label: "Check calendar availability", description: "Check whether a calendar is free during a time range.",
+    category: "action", libraryGroup: "google-workspace", appId: "google-calendar", operationId: "availability", operationLabel: "Check availability", operationKind: "search", icon: "google-calendar", available: true,
+    defaultConfig: { credentialId: "", calendarId: "primary", start: "", end: "" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Google Calendar credential", providers: ["GOOGLE_CALENDAR"] },
+      { kind: "resource", key: "calendarId", label: "Calendar", resource: "google-calendar", credentialKey: "credentialId", placeholder: "Search calendars" },
+      { kind: "datetime", key: "start", label: "Start" },
+      { kind: "datetime", key: "end", label: "End" },
     ],
   },
   {

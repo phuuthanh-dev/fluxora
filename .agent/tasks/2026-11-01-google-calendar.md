@@ -8,21 +8,22 @@
 - Reviewer: user
 
 ## Outcome
-Connect a Google Calendar account and read upcoming events from a workflow.
+Connect a Google Calendar account and manage events and availability from a workflow.
 
 ## Target slice IDs
 - `CALENDAR-1`
 
 ## In scope
-- Independently scoped OAuth, protected credential, guided action and mock/live adapter.
+- Independently scoped OAuth, protected credential, calendar/event pickers, event actions and mock/live adapters.
 
 ## Explicitly out of scope
-- Production changes, real calendar access, event modification.
+- Production changes and real calendar access without an owner-approved test resource.
 
 ## Acceptance criteria
-- [ ] Calendar credentials are workspace scoped and do not alter existing Google credentials.
-- [ ] Users can list upcoming events using a scoped calendar connection.
-- [ ] Mock runs are synthetic and provider errors do not expose tokens.
+- [x] Calendar credentials are workspace scoped and do not alter existing Google credentials.
+- [x] Users can list, get, create, update and delete events and check availability using a scoped calendar connection.
+- [x] Retries use stable event IDs within one execution; invitation and deletion effects are explicit.
+- [x] Mock runs are synthetic and provider errors do not expose tokens.
 
 ## Required evidence
 - Tests to add or update: OAuth, adapter, guided configuration.

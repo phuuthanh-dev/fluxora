@@ -3,7 +3,7 @@ import test from "node:test";
 import type { Response } from "express";
 import { GoogleOAuthController } from "./google-oauth.controller";
 
-test("Calendar OAuth requests only event read permission and rejects incomplete grants", async () => {
+test("Calendar OAuth requests event and calendar-list permissions and rejects incomplete grants", async () => {
   const names = ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI", "APP_ENCRYPTION_KEY", "WEB_ORIGIN"] as const;
   const before = new Map(names.map((key) => [key, process.env[key]])); const originalFetch = globalThis.fetch;
   Object.assign(process.env, { GOOGLE_CLIENT_ID: "synthetic-client", GOOGLE_CLIENT_SECRET: "synthetic-secret", GOOGLE_REDIRECT_URI: "https://api.example.test/callback", APP_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString("base64"), WEB_ORIGIN: "https://example.test" });
@@ -14,7 +14,7 @@ test("Calendar OAuth requests only event read permission and rejects incomplete 
   try {
     await controller.connectCalendar("workspace", request, response);
     const auth = new URL(redirect); const state = auth.searchParams.get("state")!; const scope = auth.searchParams.get("scope")!;
-    assert.equal(scope, "https://www.googleapis.com/auth/calendar.events.readonly");
+    assert.equal(scope, "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.calendarlist.readonly https://www.googleapis.com/auth/calendar.events.freebusy");
     assert.equal(auth.searchParams.get("include_granted_scopes"), "false");
     globalThis.fetch = async () => new globalThis.Response(JSON.stringify({ access_token: "token", refresh_token: "refresh", expires_in: 3600, scope: "missing" }));
     await assert.rejects(controller.callback("code", state, request, response));

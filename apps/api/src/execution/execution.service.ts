@@ -20,7 +20,7 @@ import { executeMongoFind, executeMongoInsert } from "./mongodb-find";
 import { executeNotionSearch } from "./notion-search";
 import { executePostgresSelect } from "./postgres-read";
 import { executeGmailRead } from "./gmail-read";
-import { executeGoogleCalendar } from "./google-calendar";
+import { executeGoogleCalendar, executeGoogleCalendarAvailability, executeGoogleCalendarCreate, executeGoogleCalendarEvent } from "./google-calendar";
 import { executeGoogleChatOAuth } from "./google-chat-oauth";
 
 type RunMode = "mock" | "live";
@@ -45,6 +45,7 @@ export class ExecutionService {
     if (!workflow) throw new NotFoundException({ code: "WORKFLOW_NOT_FOUND", message: "Workflow was not found." });
     const version = mock ? workflow.draftVersion ?? workflow.publishedVersion : workflow.publishedVersion;
     if (!version) throw new NotFoundException({ code: "PUBLISHED_VERSION_REQUIRED", message: "Publish the workflow before starting a live execution." });
+    if (!mock && !debugNodeId && parseWorkflowGraph(version.graph).nodes.some((node) => node.type === "trigger.gmail")) throw new BadRequestException({ code: "GMAIL_TRIGGER_LIVE_ONLY", message: "Activate this workflow and wait for a new Gmail message. Use a test run for sample data." });
     if (debugNodeId) {
       const debugNode = parseWorkflowGraph(version.graph).nodes.find((node) => node.id === debugNodeId);
       if (!debugNode) throw new BadRequestException({ code: "NODE_NOT_FOUND", message: "The selected node does not exist in this workflow." });
@@ -77,6 +78,30 @@ export class ExecutionService {
       }
       throw reason;
     }
+  }
+
+  async createGmailScheduledExecution(workflowVersionId: string, workflowId: string, nodeId: string, messageId: string, leaseToken: string, triggerData: Record<string, unknown>, idempotencyKey: string) {
+    const version = await this.prisma.workflowVersion.findUnique({ where: { id: workflowVersionId }, include: { workflow: true } });
+    if (!version || version.workflowId !== workflowId) throw new NotFoundException({ code: "WORKFLOW_VERSION_NOT_FOUND", message: "Workflow version was not found." });
+    await this.assertLiveReady(version.workflow.workspaceId, parseWorkflowGraph(version.graph));
+    return this.prisma.$transaction(async (transaction) => {
+      const workflows = await transaction.$queryRaw<Array<{ isActive: boolean; archivedAt: Date | null; publishedVersionId: string | null }>>`SELECT "isActive", "archivedAt", "publishedVersionId" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
+      if (!workflows[0]?.isActive || workflows[0].archivedAt || workflows[0].publishedVersionId !== workflowVersionId) return { execution: null, alreadyDispatched: false };
+      const checkpoints = await transaction.$queryRaw<Array<{ leaseToken: string | null; leaseExpiresAt: Date | null; state: string }>>`SELECT "leaseToken", "leaseExpiresAt", "state" FROM "GmailTriggerCheckpoint" WHERE "workflowVersionId" = ${workflowVersionId} AND "nodeId" = ${nodeId} FOR UPDATE`;
+      if (!checkpoints[0] || checkpoints[0].state !== "READY" || checkpoints[0].leaseToken !== leaseToken || !checkpoints[0].leaseExpiresAt || checkpoints[0].leaseExpiresAt <= new Date()) return { execution: null, alreadyDispatched: false };
+      const rows = await transaction.$queryRaw<Array<{ executionId: string | null; dispatchedAt: Date | null }>>`SELECT "executionId", "dispatchedAt" FROM "GmailTriggerDelivery" WHERE "workflowVersionId" = ${workflowVersionId} AND "nodeId" = ${nodeId} AND "messageId" = ${messageId} FOR UPDATE`;
+      const receipt = rows[0];
+      if (!receipt) throw new ConflictException({ code: "GMAIL_DELIVERY_MISSING", message: "Gmail delivery state was not found." });
+      if (receipt.dispatchedAt) return { execution: null, alreadyDispatched: true };
+      if (receipt.executionId) {
+        const existing = await transaction.execution.findUnique({ where: { id: receipt.executionId } });
+        if (!existing) throw new NodeFailure("GMAIL_EXECUTION_MISSING", "A previous Gmail execution is unavailable. Review the trigger before resetting its checkpoint.", false);
+        return { execution: existing, alreadyDispatched: false };
+      }
+      const execution = await transaction.execution.create({ data: { workflowVersionId, mode: "LIVE", triggerData: redactValue(triggerData) as Prisma.InputJsonValue, idempotencyKey } });
+      await transaction.gmailTriggerDelivery.update({ where: { workflowVersionId_nodeId_messageId: { workflowVersionId, nodeId, messageId } }, data: { executionId: execution.id } });
+      return { execution, alreadyDispatched: false };
+    });
   }
 
   async getLiveReadiness(workflowId: string, userId: string) {
@@ -179,6 +204,7 @@ export class ExecutionService {
         workflowVersionId: source.workflowVersionId,
         mode: source.mode,
         triggerData: source.triggerData ?? Prisma.JsonNull,
+        idempotencyRootId: source.idempotencyRootId ?? source.id,
       },
     });
     await this.prisma.auditLog.create({ data: { workspaceId: source.workflowVersion.workflow.workspaceId, actorId: userId, action: "execution.retried", targetType: "execution", targetId: execution.id, metadata: { sourceExecutionId: source.id, mode: source.mode.toLowerCase(), workflowVersion: source.workflowVersion.version } } });
@@ -341,7 +367,7 @@ export class ExecutionService {
       const node = pending.shift();
       if (!node || visited.has(node.id)) continue;
       visited.add(node.id);
-      const result = await this.runNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, mode);
+      const result = await this.runNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, mode, execution.idempotencyRootId ?? execution.id);
       if (debugNodeId) {
         await this.markUnvisitedSkipped(executionId, graph, visited);
         const completedAt = new Date();
@@ -455,7 +481,7 @@ export class ExecutionService {
     this.events.publish(executionId, "execution.failed");
   }
 
-  private async runNode(executionId: string, workspaceId: string, node: WorkflowNode, context: Record<string, unknown>, mode: RunMode): Promise<NodeResult> {
+  private async runNode(executionId: string, workspaceId: string, node: WorkflowNode, context: Record<string, unknown>, mode: RunMode, idempotencyRootId: string): Promise<NodeResult> {
     const rawConfig = node.config as Record<string, unknown>;
     const retries = readRetries(rawConfig);
     let attempt = 0;
@@ -473,7 +499,7 @@ export class ExecutionService {
           where: { executionId_nodeId: { executionId, nodeId: node.id } },
           data: { input: redactValue(input) as Prisma.InputJsonValue },
         });
-        const result = await executeNode(node, config, context, mode, workspaceId, this.credentials);
+        const result = await executeNode(node, config, context, mode, workspaceId, this.credentials, idempotencyRootId);
         await this.prisma.nodeExecution.update({
           where: { executionId_nodeId: { executionId, nodeId: node.id } },
           data: { status: result.status === "waiting" ? NodeExecutionStatus.WAITING : NodeExecutionStatus.SUCCEEDED, output: redactValue(result.output) as Prisma.InputJsonValue, completedAt: new Date() },
@@ -600,8 +626,9 @@ function leaseExpiry(now: Date) {
   return new Date(now.getTime() + executionLeaseMs);
 }
 
-async function executeNode(node: WorkflowNode, config: Record<string, unknown>, context: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService): Promise<NodeResult> {
+async function executeNode(node: WorkflowNode, config: Record<string, unknown>, context: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService, executionId: string): Promise<NodeResult> {
   if (!isExecutableWorkflowNodeType(node.type)) throw new NodeFailure("NODE_UNAVAILABLE", `${node.type} is not available in this MVP execution engine.`, false);
+  if (node.type === "trigger.gmail" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "gmail", message: { id: "example-message", from: "sender@example.test", to: "owner@example.test", subject: "Example message", text: "Synthetic test message", labels: ["INBOX"] } } }, route: "success" };
   if (node.type.startsWith("trigger.")) return { status: "succeeded", output: { received: context.trigger ?? {} }, route: "success" };
   if (node.type === "condition.if") {
     const matches = compare(config.left, String(config.operator ?? "equals"), config.right);
@@ -653,6 +680,16 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
   }
   if (node.type === "action.google-calendar.list-events") {
     return executeGoogleCalendar(config, mode, workspaceId, credentials);
+  }
+  if (node.type === "action.google-calendar.create-event") {
+    return executeGoogleCalendarCreate(config, mode, workspaceId, credentials, executionId, node.id);
+  }
+  if (node.type === "action.google-calendar.availability") {
+    return executeGoogleCalendarAvailability(config, mode, workspaceId, credentials);
+  }
+  if (node.type === "action.google-calendar.get-event" || node.type === "action.google-calendar.update-event" || node.type === "action.google-calendar.delete-event") {
+    const operation = node.type === "action.google-calendar.get-event" ? "get" : node.type === "action.google-calendar.update-event" ? "update" : "delete";
+    return executeGoogleCalendarEvent(config, operation, mode, workspaceId, credentials);
   }
   if (node.type === "action.gemini") {
     return executeGeminiText(config, mode, workspaceId, credentials);

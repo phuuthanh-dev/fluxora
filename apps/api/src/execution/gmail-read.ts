@@ -8,7 +8,10 @@ type Transport = typeof fetchSafeOutbound;
 const record = (value: unknown): Record<string, unknown> | null => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 const messageIdPattern = /^[A-Za-z0-9_-]{1,128}$/;
 
-async function getJson(url: string, token: string, transport: Transport): Promise<Record<string, unknown>> {
+export async function getGmailJson(url: string, token: string, transport: Transport): Promise<Record<string, unknown>> {
+  let target: URL;
+  try { target = new URL(url); } catch { throw new NodeFailure("INVALID_INPUT", "Gmail request target is invalid.", false); }
+  if (target.protocol !== "https:" || target.hostname !== "gmail.googleapis.com" || target.port || target.username || target.password || !target.pathname.startsWith("/gmail/v1/users/me/")) throw new NodeFailure("INVALID_INPUT", "Gmail request target is invalid.", false);
   let response: Response;
   try { response = await transport(url, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15_000) }); }
   catch { throw new NodeFailure("GMAIL_UNAVAILABLE", "Gmail could not be reached.", true); }
@@ -38,24 +41,31 @@ function plainText(payload: unknown) {
   return found;
 }
 
+export async function getGmailMessage(token: string, id: string, transport: Transport = fetchSafeOutbound) {
+  if (!token || token.length > 4096 || /\s/.test(token) || !messageIdPattern.test(id)) throw new NodeFailure("INVALID_INPUT", "Gmail message reference is invalid.", false);
+  const data = await getGmailJson(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(id)}?format=full`, token, transport);
+  const payload = record(data.payload);
+  const headers = Array.isArray(payload?.headers) ? payload.headers : [];
+  const header = (name: string) => {
+    const entry = headers.map(record).find((item) => typeof item?.name === "string" && item.name.toLowerCase() === name);
+    return typeof entry?.value === "string" ? entry.value.slice(0, 1000) : "";
+  };
+  if (data.labelIds !== undefined && (!Array.isArray(data.labelIds) || data.labelIds.some((label) => typeof label !== "string" || label.length > 128))) throw new NodeFailure("INVALID_RESPONSE", "Gmail returned invalid labels.", false);
+  return { id, threadId: typeof data.threadId === "string" && messageIdPattern.test(data.threadId) ? data.threadId : "", from: header("from"), to: header("to"), subject: header("subject"), date: header("date"), snippet: typeof data.snippet === "string" ? data.snippet.slice(0, 2000) : "", text: plainText(payload), labels: (data.labelIds as string[] | undefined) ?? [] };
+}
+
 export async function listGmailMessages(token: string, query: string, limit: number, transport: Transport = fetchSafeOutbound) {
   if (!token || token.length > 4096 || /\s/.test(token) || query.length > 500 || !Number.isInteger(limit) || limit < 1 || limit > 10) throw new NodeFailure("INVALID_INPUT", "Enter a valid Gmail query and limit between 1 and 10.", false);
   const params = new URLSearchParams({ maxResults: String(limit), q: query });
-  const list = await getJson(`https://gmail.googleapis.com/gmail/v1/users/me/messages?${params}`, token, transport);
+  const list = await getGmailJson(`https://gmail.googleapis.com/gmail/v1/users/me/messages?${params}`, token, transport);
   if (list.messages !== undefined && !Array.isArray(list.messages)) throw new NodeFailure("INVALID_RESPONSE", "Gmail returned an invalid message list.", false);
   const refs = (Array.isArray(list.messages) ? list.messages : []).slice(0, limit);
   const messages = [];
   for (const entry of refs) {
     const id = record(entry)?.id;
     if (typeof id !== "string" || !messageIdPattern.test(id)) throw new NodeFailure("INVALID_RESPONSE", "Gmail returned an invalid message ID.", false);
-    const data = await getJson(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(id)}?format=full`, token, transport);
-    const payload = record(data.payload);
-    const headers = Array.isArray(payload?.headers) ? payload.headers : [];
-    const header = (name: string) => {
-      const entry = headers.map(record).find((item) => typeof item?.name === "string" && item.name.toLowerCase() === name);
-      return typeof entry?.value === "string" ? entry.value.slice(0, 1000) : "";
-    };
-    messages.push({ id, threadId: typeof data.threadId === "string" && messageIdPattern.test(data.threadId) ? data.threadId : "", from: header("from"), to: header("to"), subject: header("subject"), date: header("date"), snippet: typeof data.snippet === "string" ? data.snippet.slice(0, 2000) : "", text: plainText(payload) });
+    const { labels: _labels, ...message } = await getGmailMessage(token, id, transport);
+    messages.push(message);
   }
   return { messages, count: messages.length, hasMore: typeof list.nextPageToken === "string" && !!list.nextPageToken };
 }

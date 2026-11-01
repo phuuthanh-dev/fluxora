@@ -8,7 +8,7 @@ import { CredentialService } from "./credential.service";
 const googleScopes = ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/spreadsheets"];
 const chatScopes = ["https://www.googleapis.com/auth/chat.messages.create", "https://www.googleapis.com/auth/chat.spaces.readonly"];
 const gmailScopes = ["https://www.googleapis.com/auth/gmail.readonly"];
-const calendarScopes = ["https://www.googleapis.com/auth/calendar.events.readonly"];
+const calendarScopes = ["https://www.googleapis.com/auth/calendar.events", "https://www.googleapis.com/auth/calendar.calendarlist.readonly", "https://www.googleapis.com/auth/calendar.events.freebusy"];
 type GoogleConnectionKind = "google" | "chat" | "gmail" | "calendar";
 const stateMaxAgeMs = 10 * 60_000;
 
