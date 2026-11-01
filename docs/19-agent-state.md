@@ -6,18 +6,24 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
+- PR #63 merged as `ccbf167` after PR CI passed; its main quality gate
+  `41340683966` and production deployment `41341549749` succeeded. After the
+  deployment, public home, login, API health and readiness returned HTTP 200;
+  local web and API also returned HTTP 200. These are point-in-time checks,
+  not proof of live provider access or sustained production reliability.
+
 - PR #62 merged as `dec5b65` after its PR quality gate passed, but main quality
   run `41338466267` failed the execution-center pagination E2E; its deploy was
   skipped. The fixture used request order rather than the requested cursor, so
   a local follow-up makes its response selection deterministic. The exact
   request ordering was not captured; do not claim the production UI was proven
   defective or that PR #62 was deployed. The targeted test passed 5 consecutive
-  isolated runs and full `npm run verify` passed with 144 E2E; the follow-up
-  still needs the GitHub gate and release.
+  isolated runs and full `npm run verify` passed with 144 E2E; PR #63 then
+  passed GitHub CI and deployed the combined code as described above.
 
-- The optional Supabase Management API table discovery change is implemented on
-  local branch `codex/connector-discovery-qualification`, not yet released or
-  qualified with a real Management API token. The isolated `npm run verify`
+- The optional Supabase Management API table discovery change is released by
+  PR #63's deployment, but has not been qualified with a real Management API
+  token. The isolated `npm run verify`
   passed after the Uptime Kuma setup-copy change, including 144 E2E tests.
   Uptime Kuma's upstream webhook sender passed an isolated HTTP contract
   experiment using a minimal test superclass, but no complete Uptime Kuma
