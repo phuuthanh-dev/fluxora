@@ -189,7 +189,7 @@ test("Vercel rejects invalid token before encryption", async () => {
 
 test("Supabase rejects arbitrary hosts and malformed keys before encryption", async () => {
   const service = new CredentialService({} as never, { requireOwner: async () => {} } as never, {} as never);
-  for (const data of [{ projectRef: "evil.example", apiKey: "fixture" }, { projectRef: "abcdefghijklmnopqrst", apiKey: "bad key" }]) {
+  for (const data of [{ projectRef: "evil.example", apiKey: "fixture" }, { projectRef: "abcdefghijklmnopqrst", apiKey: "bad key" }, { projectRef: "abcdefghijklmnopqrst", apiKey: "fixture", managementToken: "invalid\r\nheader" }]) {
     await assert.rejects(() => service.create("ws-1", "user-1", { provider: "SUPABASE", label: "Supabase", data }), (err: unknown) => {
       const error = err as HttpErrorShape; assert.equal(error.response?.code, "INVALID_INPUT"); return true;
     });

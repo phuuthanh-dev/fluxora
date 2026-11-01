@@ -404,7 +404,7 @@ function validateCredentialPayload(provider: CredentialProvider, data: Record<st
     return;
   }
   if (provider === CredentialProvider.SUPABASE) {
-    if (typeof data.projectRef !== "string" || !/^[a-z0-9]{10,40}$/.test(data.projectRef) || typeof data.apiKey !== "string" || !/^[A-Za-z0-9._-]{1,4096}$/.test(data.apiKey)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid Supabase project reference and API key." });
+    if (typeof data.projectRef !== "string" || !/^[a-z0-9]{10,40}$/.test(data.projectRef) || typeof data.apiKey !== "string" || !/^[A-Za-z0-9._-]{1,4096}$/.test(data.apiKey) || (data.managementToken !== undefined && (typeof data.managementToken !== "string" || (data.managementToken !== "" && !/^[A-Za-z0-9._-]{1,4096}$/.test(data.managementToken))))) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid Supabase project reference, API key and optional management token." });
     return;
   }
   if (provider === CredentialProvider.VERCEL) {

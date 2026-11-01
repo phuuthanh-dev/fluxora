@@ -139,6 +139,7 @@ export function ResourcePicker({ workspaceId, resource, credentialId, dependency
         {nextPage && !error && <Button type="button" variant="ghost" disabled={loading} onClick={() => setPage(nextPage)}>{loading ? "Loading…" : `Load more ${resourcePlurals[resource]}`}</Button>}
       </>}
       <Button className="resource-picker__mode" type="button" variant="ghost" onClick={() => { if (manual && warning && resource === "supabase-table") { setWarning(null); setRetry((current) => current + 1); } setManual((current) => !current); }}>{manual ? "Choose from list" : allowExpression ? "Enter value or expression" : `Enter ${resourceLabels[resource]} manually`}</Button>
+      {resource === "supabase-table" && <small>Listing a table does not grant access to its rows. The Data API key and Row Level Security still apply.</small>}
     </div>
   );
 }

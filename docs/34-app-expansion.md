@@ -53,7 +53,11 @@ webhooks, automatic pagination and deployment triggers are not implemented.
 
 Supabase Select Rows supports the Cloud Data API's public schema and bounded
 reads. Table discovery uses its OpenAPI endpoint; Supabase restricts this for
-publishable/anon keys, so the editor allows a manual table name. New API keys use
+publishable/anon keys, so the editor allows a manual table name. A local follow-up
+adds an optional project-scoped management token for the official database-read
+OpenAPI endpoint; its permission may allow broader read access and does not
+replace the Data API key or bypass RLS during row reads. This path has not yet
+been qualified with a real token. New API keys use
 the `apikey` header; legacy JWT keys also use bearer authorization. The node does
 not bypass RLS itself: a user-supplied secret/service-role key does. Custom
 domains, custom schemas, filters, mutations and broader live-provider proof remain open.

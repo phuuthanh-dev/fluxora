@@ -11,6 +11,7 @@ test("only allowlisted long opaque tokens expose a fixed mask and two trailing c
     { field: "token", label: "Token", masked: "••••••z9" },
   ]);
   assert.deepEqual(credentialHints(CredentialProvider.TRELLO, { apiKey: "short", token: "https://example.test/a/secret" }), []);
+  assert.deepEqual(credentialHints(CredentialProvider.SUPABASE, { apiKey: "short", managementToken: token }), []);
   for (const provider of [CredentialProvider.SMTP, CredentialProvider.MONGODB, CredentialProvider.GOOGLE, CredentialProvider.DISCORD_WEBHOOK]) {
     assert.deepEqual(credentialHints(provider, { token, password: token, accessToken: token, webhookUrl: token }), []);
   }

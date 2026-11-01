@@ -33,9 +33,29 @@ async function get(path: string, credential: Record<string, unknown>, transport:
   catch (error) { if (error instanceof NodeFailure) throw error; throw new NodeFailure("INVALID_RESPONSE", "Supabase returned an invalid response.", false); }
 }
 
+async function getManagedSchema(credential: Record<string, unknown>, transport: Transport) {
+  const projectRef = typeof credential.projectRef === "string" ? credential.projectRef : "";
+  const managementToken = typeof credential.managementToken === "string" ? credential.managementToken : "";
+  if (!/^[a-z0-9]{10,40}$/.test(projectRef) || !/^[A-Za-z0-9._-]{1,4096}$/.test(managementToken)) {
+    throw new NodeFailure("CREDENTIAL_INVALID", "Supabase connection requires a valid project reference and management token.", false);
+  }
+  let response: Response;
+  try {
+    response = await transport(`https://api.supabase.com/v1/projects/${projectRef}/database/openapi?schema=public`, {
+      method: "GET", headers: { authorization: `Bearer ${managementToken}`, accept: "application/json", "user-agent": "Fluxora/1.0" }, signal: AbortSignal.timeout(10_000),
+    });
+  } catch (error) { throw nodeFailureFromOutboundPolicy(error); }
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) throw new NodeFailure("SUPABASE_MANAGEMENT_AUTH_FAILED", "Supabase denied management API access.", false, response.status);
+    throw new NodeFailure("HTTP_ERROR", `Supabase management API returned ${response.status}.`, response.status === 429 || response.status >= 500, response.status);
+  }
+  try { return await readBoundedProviderJson(response); }
+  catch (error) { if (error instanceof NodeFailure) throw error; throw new NodeFailure("INVALID_RESPONSE", "Supabase returned an invalid schema response.", false); }
+}
+
 /** OpenAPI discovery may be unavailable for publishable keys; manual input remains available. */
 export async function listSupabaseTables(credential: Record<string, unknown>, transport: Transport = fetchSafeOutbound) {
-  const data = object(await get("", credential, transport, true));
+  const data = object(await (credential.managementToken ? getManagedSchema(credential, transport) : get("", credential, transport, true)));
   const paths = object(data?.paths);
   if (!paths) throw new NodeFailure("INVALID_RESPONSE", "Supabase did not return its table schema.", false);
   const tables = Object.entries(paths).flatMap(([path, value]) => {
