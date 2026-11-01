@@ -11,8 +11,9 @@ Keep app identity separate from executable operations, credentials and trigger
 delivery. Reuse the current category filters, catalog, resource pickers, vault,
 executor contract, outbound URL policy and execution/error handling. Prefer
 guided selectors with a manual/expression fallback. Existing graph type IDs and
-credentials must remain compatible. No secret should appear in browser output,
-logs, fixtures or workflow data. Polling requires durable checkpoints and clear
+credentials must remain compatible. Full secrets must not appear in browser output,
+logs, fixtures or workflow data; the owner-approved masked token identifier exception
+is described in docs/35. Polling requires durable checkpoints and clear
 first-run, deduplication, rate-limit and recovery behavior; provider webhooks
 need appropriate authentication and delivery reconciliation.
 
@@ -20,13 +21,13 @@ need appropriate authentication and delivery reconciliation.
 
 | App | First candidate | Authentication and constraints | State |
 | --- | --- | --- | --- |
-| RSS | Read a bounded RSS/Atom feed; consider trigger separately | Public feed only; bounded response, rejects DTDs, and limits XML nesting. Never put a secret in a URL. | Shipped with PR #58; local public feeds exposed a CDATA bug. Local fix passed focused tests and two public-feed reads; not yet released |
-| Trello | Create card; select board and list | Owner's API key and token; first 100 accessible open boards/lists, manual ID fallback; list membership checked before write | Shipped in PR #58; production board discovery failed twice with a generic error; cause and write qualification remain open |
+| RSS | Read a bounded RSS/Atom feed; consider trigger separately | Public feed only; bounded response, rejects DTDs, and limits XML nesting. Never put a secret in a URL. | CDATA fix released in PR #60; one production live read of GitHub Changelog succeeded. Trigger and broader feed qualification remain open. |
+| Trello | Create card; select board and list | Owner's API key and token; first 100 accessible open boards/lists, manual ID fallback; list membership checked before write | Production board discovery returned the 401-specific error after PR #60; the exact authentication cause and live write qualification remain open. |
 | Sentry | List issues for a project | User token with organization/issue read scopes and Global/US/DE region; first page picker with manual slug fallback | Production live read on the designated empty test project succeeded once; sustained behavior is unverified |
-| Reddit | List recent or popular posts in a public community | Owner-provided approved app ID/secret and username; app-only OAuth; Reddit eligibility and terms apply | Shipped in PR #58; synthetic tests and isolated migration passed; real-provider qualification pending |
+| Reddit | List recent or popular posts in a public community | Owner-provided approved app ID/secret and username; app-only OAuth; Reddit eligibility and terms apply | Synthetic tests passed; real-provider qualification pending. Reddit announced a public Data API transition and an end to new public-access requests on 2026-10-31; see docs/35. |
 | Uptime Kuma | Receive monitor alerts via dedicated webhook trigger | Requires `x-workflow-secret` in Uptime Kuma webhook additional headers; normalized payload, no internal management API | Shipped in PR #58; synthetic checks and full local verification passed; real-provider qualification pending |
-| Vercel | List deployments for a selected project | Owner token; personal/team and project picker; first page with manual ID fallback | Production live read on the designated project succeeded once; team discovery failed and its status was not captured |
-| Supabase | Read rows through the Data API | User's project reference and API key; secret key bypasses RLS; schema discovery can be denied | Production publishable-key read returned one test row; schema discovery failed and its status was not captured |
+| Vercel | List deployments for a selected project | Owner token; personal/team and project picker; first page with manual ID fallback | A production read succeeded; the team-discovery 403 fallback and personal project picker were observed after PR #60. |
+| Supabase | Read rows through the Data API | User's project reference and API key; secret key bypasses RLS; schema discovery can be denied | After PR #61 the manual table fallback retained the test table and a production read returned one row. Schema discovery and its exact provider cause remain unresolved. |
 
 Discovery redesign is an independent first slice. Resource pickers, meaningful
 errors, mock/live boundaries, and tests are required for each implementation;
@@ -55,7 +56,7 @@ reads. Table discovery uses its OpenAPI endpoint; Supabase restricts this for
 publishable/anon keys, so the editor allows a manual table name. New API keys use
 the `apikey` header; legacy JWT keys also use bearer authorization. The node does
 not bypass RLS itself: a user-supplied secret/service-role key does. Custom
-domains, custom schemas, filters, mutations and live-provider proof remain open.
+domains, custom schemas, filters, mutations and broader live-provider proof remain open.
 
 Uptime Kuma Monitor Alert uses the existing published-version webhook lifecycle.
 Configure Kuma's Webhook notification as POST + JSON and set the generated
