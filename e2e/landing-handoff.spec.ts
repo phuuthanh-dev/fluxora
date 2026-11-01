@@ -156,7 +156,7 @@ test("docking survives resize, deep reload, pause and preference changes", async
 test("no JavaScript keeps the statement and diagram independently readable", async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 375, height: 844 } });
   const page = await context.newPage();
-  await page.goto("http://localhost:3000/");
+  await page.goto("/");
   await expect(page.locator(".landing-handoff")).not.toHaveAttribute("data-handoff", "active");
   await expect(page.locator(".landing-statement__copy")).toBeVisible();
   await expect(page.locator(".landing-runtime-hub__center > svg")).toBeVisible();

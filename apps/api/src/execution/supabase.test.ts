@@ -37,3 +37,13 @@ test("legacy JWT uses bearer authorization; invalid hosts and oversized data are
   await assert.rejects(listSupabaseTables({ projectRef: "evil.example", apiKey: "fixture" }, async () => { throw new Error("must not fetch"); }), /project reference/);
   await assert.rejects(executeSupabaseSelect({ credentialId: "connection", table: "items" }, "live", "workspace", credentials, async () => Response.json([{ body: "x".repeat(200_001) }])), /output size limit/);
 });
+
+test("Supabase recognizes restricted schema discovery without mislabeling an invalid key", async () => {
+  const credential = { projectRef: "abcdefghijklmnopqrst", apiKey: "sb_publishable_fixture" };
+  await assert.rejects(listSupabaseTables(credential, async () => Response.json({ message: "Access to schema is forbidden", hint: "provider-only detail" }, { status: 401 })), (error: unknown) => {
+    const failure = error as { code: string; message: string }; assert.equal(failure.code, "SUPABASE_DISCOVERY_RESTRICTED"); assert.ok(!failure.message.includes("provider-only detail")); return true;
+  });
+  await assert.rejects(listSupabaseTables(credential, async () => Response.json({ message: "Invalid API key" }, { status: 401 })), (error: unknown) => {
+    assert.equal((error as { code: string }).code, "HTTP_ERROR"); return true;
+  });
+});

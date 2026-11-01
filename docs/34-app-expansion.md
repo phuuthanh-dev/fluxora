@@ -21,12 +21,12 @@ need appropriate authentication and delivery reconciliation.
 | App | First candidate | Authentication and constraints | State |
 | --- | --- | --- | --- |
 | RSS | Read a bounded RSS/Atom feed; consider trigger separately | Public feed only; bounded response, rejects DTDs, and limits XML nesting. Never put a secret in a URL. | Shipped with PR #58; local public feeds exposed a CDATA bug. Local fix passed focused tests and two public-feed reads; not yet released |
-| Trello | Create card; select board and list | Owner's API key and token; first 100 accessible open boards/lists, manual ID fallback; list membership checked before write | Shipped in PR #58; synthetic tests and isolated migration passed; real-provider qualification pending |
-| Sentry | List issues for a project | User token with organization/issue read scopes and Global/US/DE region; first page picker with manual slug fallback | Shipped in PR #58; synthetic tests and isolated migration passed; real-provider qualification pending |
+| Trello | Create card; select board and list | Owner's API key and token; first 100 accessible open boards/lists, manual ID fallback; list membership checked before write | Shipped in PR #58; production board discovery failed twice with a generic error; cause and write qualification remain open |
+| Sentry | List issues for a project | User token with organization/issue read scopes and Global/US/DE region; first page picker with manual slug fallback | Production live read on the designated empty test project succeeded once; sustained behavior is unverified |
 | Reddit | List recent or popular posts in a public community | Owner-provided approved app ID/secret and username; app-only OAuth; Reddit eligibility and terms apply | Shipped in PR #58; synthetic tests and isolated migration passed; real-provider qualification pending |
 | Uptime Kuma | Receive monitor alerts via dedicated webhook trigger | Requires `x-workflow-secret` in Uptime Kuma webhook additional headers; normalized payload, no internal management API | Shipped in PR #58; synthetic checks and full local verification passed; real-provider qualification pending |
-| Vercel | List deployments for a selected project | Owner token; personal/team and project picker; first page with manual ID fallback | Shipped in PR #58; synthetic tests and isolated migration passed; real-provider qualification pending |
-| Supabase | Read rows through the Data API | User's project reference and API key; secret key bypasses RLS; schema discovery can be denied | Shipped in PR #58; synthetic tests and isolated migration passed; real-provider qualification pending |
+| Vercel | List deployments for a selected project | Owner token; personal/team and project picker; first page with manual ID fallback | Production live read on the designated project succeeded once; team discovery failed and its status was not captured |
+| Supabase | Read rows through the Data API | User's project reference and API key; secret key bypasses RLS; schema discovery can be denied | Production publishable-key read returned one test row; schema discovery failed and its status was not captured |
 
 Discovery redesign is an independent first slice. Resource pickers, meaningful
 errors, mock/live boundaries, and tests are required for each implementation;

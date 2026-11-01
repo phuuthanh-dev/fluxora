@@ -10,6 +10,20 @@ import { listSentryOrganizations, listSentryProjects } from "../execution/sentry
 import { listVercelProjects, listVercelTeams } from "../execution/vercel";
 import { listSupabaseTables } from "../execution/supabase";
 import { CredentialService } from "./credential.service";
+import { NodeFailure } from "../execution/node-failure";
+
+export function trelloDiscoveryError(error: unknown, resource: "boards" | "lists") {
+  const prefix = resource === "boards" ? "Boards" : "Lists";
+  let guidance = "Check your connection or enter the ID manually.";
+  if (error instanceof NodeFailure) {
+    if (error.code === "CREDENTIAL_INVALID") guidance = "The Trello API key or token is missing or has an invalid format. Update the connection and retry.";
+    else if (error.statusCode === 401) guidance = "Trello rejected the API key or token. Check that both belong to the same app and are still valid.";
+    else if (error.statusCode === 403) guidance = "Trello denied access. Check the token permissions and access to this board.";
+    else if (error.statusCode === 429) guidance = "Trello rate limited the request. Wait and retry.";
+    else if (error.code === "TIMEOUT" || error.code === "NETWORK_ERROR") guidance = "The Trello request could not reach the provider. Check network access and retry.";
+  }
+  return new BadRequestException({ code: resource === "boards" ? "TRELLO_BOARDS_UNAVAILABLE" : "TRELLO_LISTS_UNAVAILABLE", message: `${prefix} could not be loaded. ${guidance}` });
+}
 
 @Controller("workspaces/:workspaceId/credentials/:credentialId")
 @UseGuards(AuthenticationGuard)
@@ -22,7 +36,10 @@ export class ConnectorResourceController {
     await this.credentials.requireOwner(workspaceId, request.currentUser.id);
     const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.SUPABASE);
     try { return await listSupabaseTables(credential); }
-    catch { throw new BadRequestException({ code: "SUPABASE_TABLES_UNAVAILABLE", message: "Tables could not be listed. Supabase may restrict schema discovery for this key; enter the table name manually." }); }
+    catch (error) {
+      if (error instanceof NodeFailure && error.statusCode === 403) throw new BadRequestException({ code: "SUPABASE_DISCOVERY_RESTRICTED", message: "Supabase denied schema discovery. Publishable and anon keys can still read permitted rows; enter the table name manually." });
+      throw new BadRequestException({ code: "SUPABASE_TABLES_UNAVAILABLE", message: "Tables could not be listed. Check the connection or enter the table name manually." });
+    }
   }
 
   @Get("vercel/teams")
@@ -67,7 +84,7 @@ export class ConnectorResourceController {
     await this.credentials.requireOwner(workspaceId, request.currentUser.id);
     const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.TRELLO);
     try { return await listTrelloBoards(credential); }
-    catch { throw new BadRequestException({ code: "TRELLO_BOARDS_UNAVAILABLE", message: "Boards could not be loaded. Check your Trello connection or enter a board ID manually." }); }
+    catch (error) { throw trelloDiscoveryError(error, "boards"); }
   }
 
   @Get("trello/lists")
@@ -76,7 +93,7 @@ export class ConnectorResourceController {
     await this.credentials.requireOwner(workspaceId, request.currentUser.id);
     const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.TRELLO);
     try { return await listTrelloLists(credential, board ?? ""); }
-    catch { throw new BadRequestException({ code: "TRELLO_LISTS_UNAVAILABLE", message: "Lists could not be loaded. Check your board and connection or enter a list ID manually." }); }
+    catch (error) { throw trelloDiscoveryError(error, "lists"); }
   }
 
   @Get("postgres/schemas")

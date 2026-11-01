@@ -5,6 +5,7 @@ import { BadRequestException, ConflictException, Inject, Injectable, NotFoundExc
 import { PrismaService } from "../database/prisma.service";
 import { WorkspaceService } from "../workspaces/workspace.service";
 import { CredentialVaultService } from "./credential-vault.service";
+import { credentialHints } from "./credential-hints";
 import { validateSmtpCredentialData } from "../execution/smtp-email";
 
 const providers = new Set(Object.values(CredentialProvider));
@@ -362,7 +363,12 @@ export class CredentialService {
     return this.summary(credential);
   }
 
-  private summary(credential: { id: string; provider: CredentialProvider; label: string; createdAt: Date; updatedAt: Date }) {
+  private summary(credential: { id: string; provider: CredentialProvider; label: string; createdAt: Date; updatedAt: Date; encryptedData?: string }) {
+    let hints: ReturnType<typeof credentialHints> = [];
+    if (credential.encryptedData && !isCanonicalGoogleOAuth(credential)) {
+      try { hints = credentialHints(credential.provider, this.vault.decrypt(credential.encryptedData)); }
+      catch { /* A malformed or old encrypted value must not prevent listing other connections. */ }
+    }
     return {
       id: credential.id,
       provider: credential.provider,
@@ -370,6 +376,7 @@ export class CredentialService {
       createdAt: credential.createdAt,
       updatedAt: credential.updatedAt,
       isManaged: isCanonicalGoogleOAuth(credential),
+      ...(hints.length ? { hints } : {}),
     };
   }
 }

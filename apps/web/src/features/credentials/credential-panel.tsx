@@ -416,7 +416,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
         </div>
         {onClose ? <IconButton className="icon-button" label="Close credential manager" onClick={onClose}>×</IconButton> : null}
       </div>
-      <p>Secrets are encrypted server-side and never shown again after save.</p>
+      <p>Full secrets are encrypted and never shown after saving. Some tokens display their last two characters for identification.</p>
       {presentation === "panel" ? (
         <div className="credential-panel__directory">
           <Button variant="ghost" className="credential-panel__directory-link" onClick={() => window.open(`/dashboard/connections?workspace=${encodeURIComponent(workspaceId)}`, "_blank", "noopener,noreferrer")}>
@@ -489,6 +489,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
                 <div className="credential-card__info">
                   <strong>{credential.label}</strong>
                   <span className="credential-card__provider">{credentialProviderLabel(credential.provider)}</span>
+                  {credential.hints && credential.hints.length > 0 && <span className="credential-card__hints" aria-label="Saved credential identification">{credential.hints.map((hint) => <span key={hint.field}>{hint.label} <code>{hint.masked}</code></span>)}</span>}
                 </div>
                 {isGoogleOAuth(credential) ? <span className="credential-card__managed-badge">Managed OAuth</span> : (
                   <Menu

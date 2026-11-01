@@ -12,7 +12,7 @@
 - Version endpoints under `/api/v1`.
 - Validate request data and node configuration with schemas.
 - Return a stable error shape: `{ code, message, details?, requestId }`.
-- Never serialize stored credential values, OAuth tokens, existing secrets, or sensitive headers. A newly generated webhook signing or header-auth secret may be returned only once to the authenticated workspace owner in a non-cacheable creation or rotation response; later reads must not return it, and it must never be logged.
+- Never serialize complete stored credential values, OAuth tokens, passwords, webhook URLs, connection strings or sensitive headers. The owner explicitly approved fixed masked hints exposing only the last two characters of allowlisted long opaque API keys/tokens to the authenticated workspace owner. Summary responses are non-cacheable and hints are never logged. Short values and all other credential fields have no hint. A newly generated webhook signing or header-auth secret may be returned only once to the authenticated workspace owner in a non-cacheable creation or rotation response; later reads must not return it, and it must never be logged.
 - Make external calls only in backend executors.
 
 ## Frontend rules

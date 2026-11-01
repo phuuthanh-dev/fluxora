@@ -64,3 +64,14 @@ test("every catalog entry declares stable operation metadata and existing node t
   assert.ok(nodeCatalog.some((node) => node.type === "action.google-chat.webhook" && node.appId === "google-chat"));
   assert.ok(nodeCatalog.some((node) => node.type === "condition.if" && !node.appId));
 });
+
+test("each app has a unique identity and operations with valid discovery groups", () => {
+  assert.equal(new Set(appCatalog.map((app) => app.id)).size, appCatalog.length);
+  for (const app of appCatalog) {
+    const operations = operationsForApp(app.id);
+    assert.ok(operations.length > 0, `${app.id} has no discoverable operation`);
+    assert.equal(new Set(operations.map((operation) => operation.operationId)).size, operations.length, `${app.id} repeats an operation id`);
+    assert.ok(operations.every((operation) => ["trigger", "action", "search", "utility"].includes(operation.operationKind)));
+  }
+  assert.ok(nodeCatalog.every((node) => !node.appId || appCatalog.some((app) => app.id === node.appId)));
+});

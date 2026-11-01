@@ -1,5 +1,12 @@
 # Product Specification — Fluxora MVP
 
+Owner update, 2026-11-01: the workspace connection list may show a fixed mask
+plus at most two trailing characters of specifically allowlisted long opaque
+API keys/tokens, to help identify an existing connection. This is only a hint,
+not proof of validity. Passwords, OAuth credentials, webhook URLs, connection
+strings, short or non-opaque values are excluded. The full stored value is
+never returned. See `docs/35-connector-coverage-and-discovery.md`.
+
 ## 1. Product intent
 
 Build Fluxora, an open-source workflow automation web application for personal use first. The MVP must be real, attractive enough for a portfolio, and structured to expand to small workspaces later.

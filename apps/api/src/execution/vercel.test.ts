@@ -34,3 +34,11 @@ test("Vercel handles permission and rate limit failures without provider details
     const failure = error as { retryable: boolean; message: string }; assert.equal(failure.retryable, true); assert.ok(!failure.message.includes("private")); return true;
   });
 });
+
+test("Vercel retains a personal account fallback only when team listing is forbidden", async () => {
+  const result = await listVercelTeams({ token: "fixture-token" }, async () => new Response("provider detail", { status: 403 }));
+  assert.deepEqual(result.teams, [{ id: "personal", name: "Personal account" }]);
+  assert.match(result.warning ?? "", /denied team discovery/);
+  assert.ok(!JSON.stringify(result).includes("provider detail"));
+  await assert.rejects(listVercelTeams({ token: "fixture-token" }, async () => new Response("", { status: 401 })));
+});

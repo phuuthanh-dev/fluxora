@@ -10,7 +10,7 @@ test("owners can find and restore an archived workflow without activating it", a
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
 
-  const api = "http://localhost:3001/api/v1";
+  const api = `http://localhost:${process.env.E2E_API_PORT ?? "3001"}/api/v1`;
   const workspaces = await (await page.request.get(`${api}/workspaces`)).json();
   const workspaceId = workspaces.workspaces[0].id as string;
   const created = await page.request.post(`${api}/workspaces/${workspaceId}/workflows`, { data: { name: "Recoverable workflow" } });

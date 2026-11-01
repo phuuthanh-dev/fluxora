@@ -144,6 +144,12 @@ evidence only; it does not substitute for future provider-specific smoke tests.
 
 ## Next approved slices
 
+Owner follow-up in progress on `codex/connector-discovery-qualification`: see
+`.agent/tasks/2026-11-01-connector-qualification.md` and
+`docs/35-connector-coverage-and-discovery.md`. Production Sentry, Vercel and
+Supabase read evidence has been recorded; Trello board discovery remains
+unqualified. This is not a completion claim until final verification and release.
+
 These are the only currently approved follow-up directions. A task must target
 one of these IDs or explicitly reopen a completed ledger slice.
 

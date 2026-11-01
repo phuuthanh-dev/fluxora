@@ -5,6 +5,7 @@ export type CredentialSummary = {
   provider: CredentialProvider;
   label: string;
   isManaged?: boolean;
+  hints?: Array<{ field: string; label: string; masked: string }>;
   createdAt?: string | Date;
   updatedAt?: string | Date;
 };

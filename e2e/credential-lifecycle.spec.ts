@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+const api = `http://localhost:${process.env.E2E_API_PORT ?? "3001"}/api/v1`;
+
 test("credential lifecycle: create with conflict handling, rename, secret rotation, in-use delete blocking, and unreferenced deletion", async ({ page }) => {
   // Registration, workflow creation and the complete credential lifecycle share
   // one journey; individual assertions retain their normal timeout.
@@ -49,6 +51,25 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   await page.getByLabel("Provider").selectOption("DISCORD_WEBHOOK");
   await page.getByLabel("Provider").selectOption("TRELLO");
   await expect(page.getByLabel("Trello API key", { exact: true })).toHaveAttribute("type", "password");
+  const savedKey = "fixture_trello_api_key_123456789ab";
+  const savedToken = "fixture_trello_token_123456789xy";
+  await page.getByLabel("Trello API key", { exact: true }).fill(savedKey);
+  await page.getByLabel("Trello token", { exact: true }).fill(savedToken);
+  await page.getByLabel("Connection name", { exact: true }).fill("Trello visibility test");
+  const trelloSave = page.waitForResponse((res) => res.request().method() === "POST" && res.url().includes("/credentials"));
+  await page.getByRole("button", { name: "Encrypt & save" }).click();
+  const trelloSaveResponse = await trelloSave;
+  expect(trelloSaveResponse.headers()["cache-control"]).toContain("no-store");
+  const trelloResponse = await trelloSaveResponse.json();
+  expect(JSON.stringify(trelloResponse)).not.toContain(savedKey);
+  expect(JSON.stringify(trelloResponse)).not.toContain(savedToken);
+  const trelloCard = page.locator("li.credential-card").filter({ hasText: "Trello visibility test" });
+  await expect(trelloCard.getByText("••••••ab")).toBeVisible();
+  await expect(trelloCard.getByText("••••••xy")).toBeVisible();
+  await trelloCard.getByLabel("Actions for Trello visibility test actions").click();
+  await trelloCard.getByRole("button", { name: "Delete Trello visibility test" }).click();
+  await trelloCard.getByRole("button", { name: "Confirm delete" }).click();
+  await expect(trelloCard).toHaveCount(0);
   await page.getByLabel("Provider").selectOption("MONGODB");
   await page.getByLabel("Configuration type").selectOption("connectionString");
   await page.getByLabel("Connection string", { exact: true }).fill("mongodb+srv://example.test");
@@ -210,7 +231,7 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
 
   // 9. Google OAuth protection and manual "OAuth backup" test
   // Verify manual create of canonical Google OAuth is rejected with CREDENTIAL_MANAGED_BY_OAUTH
-  const rejectedOAuthCreateRes = await page.request.post(`http://localhost:3001/api/v1/workspaces/${workspaceId}/credentials`, {
+  const rejectedOAuthCreateRes = await page.request.post(`${api}/workspaces/${workspaceId}/credentials`, {
     data: { provider: "GOOGLE", label: "Google OAuth", data: { accessToken: "manual" } },
   });
   expect(rejectedOAuthCreateRes.status()).toBe(400);
@@ -218,14 +239,14 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   expect(rejectedOAuthCreateBody.code).toBe("CREDENTIAL_MANAGED_BY_OAUTH");
 
   // Create a manual Google credential named "OAuth backup" (must be permitted)
-  const oauthBackupRes = await page.request.post(`http://localhost:3001/api/v1/workspaces/${workspaceId}/credentials`, {
+  const oauthBackupRes = await page.request.post(`${api}/workspaces/${workspaceId}/credentials`, {
     data: { provider: "GOOGLE", label: "OAuth backup", data: { accessToken: "backup-token" } },
   });
   expect(oauthBackupRes.ok()).toBeTruthy();
   const oauthBackupCred = (await oauthBackupRes.json()) as { credential: { id: string } };
 
   // Verify manual rename of "OAuth backup" to "Google OAuth" is rejected with CREDENTIAL_MANAGED_BY_OAUTH
-  const rejectedRenameRes = await page.request.patch(`http://localhost:3001/api/v1/workspaces/${workspaceId}/credentials/${oauthBackupCred.credential.id}`, {
+  const rejectedRenameRes = await page.request.patch(`${api}/workspaces/${workspaceId}/credentials/${oauthBackupCred.credential.id}`, {
     data: { label: "Google OAuth" },
   });
   expect(rejectedRenameRes.status()).toBe(400);
@@ -270,7 +291,7 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   await expect(googleOAuthCard.getByRole("button", { name: /Delete/ })).toHaveCount(0);
 
   // Direct API regression: direct PATCH must be rejected with CREDENTIAL_MANAGED_BY_OAUTH
-  const directPatchRes = await page.request.patch(`http://localhost:3001/api/v1/workspaces/${workspaceId}/credentials/${googleOAuthCred.id}`, {
+  const directPatchRes = await page.request.patch(`${api}/workspaces/${workspaceId}/credentials/${googleOAuthCred.id}`, {
     data: { label: "Hacked Google" },
   });
   expect(directPatchRes.status()).toBe(400);
@@ -278,18 +299,18 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   expect(directPatchBody.code).toBe("CREDENTIAL_MANAGED_BY_OAUTH");
 
   // Direct API regression: direct DELETE must be rejected with CREDENTIAL_MANAGED_BY_OAUTH
-  const directDeleteRes = await page.request.delete(`http://localhost:3001/api/v1/workspaces/${workspaceId}/credentials/${googleOAuthCred.id}`);
+  const directDeleteRes = await page.request.delete(`${api}/workspaces/${workspaceId}/credentials/${googleOAuthCred.id}`);
   expect(directDeleteRes.status()).toBe(400);
   const directDeleteBody = (await directDeleteRes.json()) as { code: string };
   expect(directDeleteBody.code).toBe("CREDENTIAL_MANAGED_BY_OAUTH");
 
   // Clean up manual OAuth backup credential via delete
-  await page.request.delete(`http://localhost:3001/api/v1/workspaces/${workspaceId}/credentials/${oauthBackupCred.credential.id}`);
+  await page.request.delete(`${api}/workspaces/${workspaceId}/credentials/${oauthBackupCred.credential.id}`);
   await prisma.$disconnect();
 
   // 10. Telegram legacy fallback rotation test:
   // Create a legacy Telegram credential with both botToken and chatId
-  const legacyTgRes = await page.request.post(`http://localhost:3001/api/v1/workspaces/${workspaceId}/credentials`, {
+  const legacyTgRes = await page.request.post(`${api}/workspaces/${workspaceId}/credentials`, {
     data: { provider: "TELEGRAM_BOT", label: "Legacy Telegram Ops", data: { botToken: "legacy-token-123", chatId: "-100998877" } },
   });
   expect(legacyTgRes.ok()).toBeTruthy();

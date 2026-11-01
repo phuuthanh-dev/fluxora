@@ -81,7 +81,7 @@ test("guided connection fields preserve JSON, mask secrets, search saved account
     if (theme === "dark") await page.getByRole("button", { name: "Switch to dark mode" }).click();
     await page.screenshot({ path: testInfo.outputPath(`connections-guided-${theme}.png`), fullPage: true });
   }
-  const workspaceResponse = await page.request.post("http://localhost:3001/api/v1/workspaces", { data: { name: "Isolated workspace" } });
+  const workspaceResponse = await page.request.post(`http://localhost:${process.env.E2E_API_PORT ?? "3001"}/api/v1/workspaces`, { data: { name: "Isolated workspace" } });
   expect(workspaceResponse.ok()).toBeTruthy();
   const { workspace } = await workspaceResponse.json();
   await page.goto(`/dashboard/connections?workspace=${workspace.id}`);
