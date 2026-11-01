@@ -25,8 +25,25 @@ complete in the delivery ledger.
   copy or restore evidence is available. Do not infer the cause of the reported
   missing workflows or credentials from health checks alone.
 - `EDITOR-QUALIFICATION-1` follow-up adds missing-refresh recovery UX and
-  clarifies the already-approved broad scopes locally; see its task/report.
-  This local follow-up has not been pushed or deployed.
+  clarifies the already-approved broad scopes; see its task/report. It is on
+  `develop` in open PR #53, whose quality gate passed. It is not on `main` or
+  deployed as of this snapshot.
+- Workflow archive recovery is complete locally on top of PR #53: owners can
+  list and restore archived workflows without reactivating them. Its isolated
+  local gate passed (243 API, 25 web and 128 E2E tests); it is not deployed.
+  See `.agent/reports/2026-11-01-workflow-archive-recovery.md`.
+- Workspace activity overview is complete locally: an owner-scoped 24-hour
+  snapshot counts retained test and live executions by current status. Its
+  isolated gate passed (245 API, 25 web and 129 E2E); it is not deployed.
+  See `.agent/reports/2026-11-01-workspace-activity-overview.md`.
+- MongoDB Find/Insert and Google Chat OAuth are implemented locally. One real
+  Chat message and MongoDB SRV list/Find passed with owner authorization.
+  MongoDB SRV uses guarded direct seed selection, not full replica-set failover;
+  real insert, private hosts, update/delete and deployment remain open. See
+  `.agent/reports/2026-11-01-mongodb-srv.md` and the original connector report.
+- MongoDB connection setup and simple Find filters have guided controls; complex
+  queries remain editable as JSON. See
+  `.agent/reports/2026-11-01-mongodb-guided-config.md`.
 
 The older snapshots below describe their dates and must not be read as current.
 

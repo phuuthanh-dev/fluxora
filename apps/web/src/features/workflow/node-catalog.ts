@@ -62,7 +62,7 @@ export type NodeSelectOption = { value: string; label: string };
 type NodeFieldVisibilityValue = string | number | boolean;
 export type NodeFieldVisibility = { visibleWhen?: { key: string; equals: NodeFieldVisibilityValue | readonly NodeFieldVisibilityValue[] } };
 
-export type NodeResource = "github-repository" | "google-file" | "google-spreadsheet" | "gemini-model" | "openai-model";
+export type NodeResource = "github-repository" | "google-file" | "google-spreadsheet" | "gemini-model" | "openai-model" | "google-chat-space" | "mongodb-database" | "mongodb-collection";
 
 /**
  * Declarative fields that the inspector can render without growing another
@@ -77,7 +77,8 @@ export type NodeConfigurationField =
   | ({ kind: "select"; key: string; label: string; options: NodeSelectOption[] } & NodeFieldVisibility)
   | ({ kind: "key-value"; key: string; label: string; keyPlaceholder?: string; valuePlaceholder?: string } & NodeFieldVisibility)
   | ({ kind: "table"; key: string; label: string } & NodeFieldVisibility)
-  | ({ kind: "resource"; key: string; label: string; resource: NodeResource; credentialKey: string; placeholder?: string } & NodeFieldVisibility);
+  | ({ kind: "mongo-filter"; key: string; label: string } & NodeFieldVisibility)
+  | ({ kind: "resource"; key: string; label: string; resource: NodeResource; credentialKey: string; dependencyKey?: string; placeholder?: string } & NodeFieldVisibility);
 
 export const categoryOrder: WorkflowNodeCategory[] = ["trigger", "condition", "action", "approval"];
 
@@ -111,7 +112,7 @@ export const appCatalog: AppDefinition[] = [
   { id: "email", label: "Email", description: "Send email notifications.", icon: "email", category: "communication", aliases: ["mail", "smtp"] },
   { id: "openai", label: "OpenAI", description: "Generate and transform content with AI.", icon: "openai", category: "ai", aliases: ["gpt", "llm"] },
   { id: "gemini", label: "Gemini", description: "Generate content with Google Gemini.", icon: "gemini", category: "ai", aliases: ["google ai", "llm"] },
-  { id: "mongodb", label: "MongoDB", description: "Read and write document data.", icon: "mongodb", category: "data", aliases: ["database", "documents"] },
+  { id: "mongodb", label: "MongoDB", description: "Find and insert documents in a database.", icon: "mongodb", category: "data", aliases: ["database", "documents"] },
   { id: "github", label: "GitHub", description: "Automate repositories, issues, and pull requests.", icon: "github", category: "developer-devops", aliases: ["git", "pull request", "issues"] },
   { id: "facebook-meta", label: "Facebook Meta", description: "Publish and manage Facebook content.", icon: "facebook", category: "social", aliases: ["meta"] },
   { id: "instagram", label: "Instagram", description: "Publish and manage Instagram content.", icon: "instagram", category: "social", aliases: ["meta"] },
@@ -485,11 +486,11 @@ export const nodeCatalog: NodeDefinition[] = [
     operationLabel: "Send OAuth message",
     operationKind: "action",
     icon: "google-chat",
-    available: false,
+    available: true,
     defaultConfig: { credentialId: "", space: "", message: "" },
     configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Google credential", providers: ["GOOGLE"] },
-      { kind: "text", key: "space", label: "Space" },
+      { kind: "credential", key: "credentialId", label: "Google Chat credential", providers: ["GOOGLE_CHAT_OAUTH"] },
+      { kind: "resource", key: "space", label: "Space", resource: "google-chat-space", credentialKey: "credentialId", placeholder: "Search spaces" },
       { kind: "textarea", key: "message", label: "Message template" },
     ],
   },
@@ -538,20 +539,42 @@ export const nodeCatalog: NodeDefinition[] = [
   {
     type: "action.mongodb",
     label: "MongoDB",
-    description: "Read or write MongoDB documents.",
+    description: "Find documents in a MongoDB collection.",
     category: "action",
     libraryGroup: "developer-data",
     appId: "mongodb",
     operationId: "query-documents",
-    operationLabel: "Query documents",
+    operationLabel: "Find documents",
     operationKind: "action",
     icon: "mongodb",
-    available: false,
-    defaultConfig: { credentialId: "", database: "", collection: "", operation: "find" },
+    available: true,
+    defaultConfig: { credentialId: "", database: "", collection: "", operation: "find", filter: "{}", limit: 20 },
     configurationFields: [
-      { kind: "text", key: "database", label: "Database" },
-      { kind: "text", key: "collection", label: "Collection" },
-      { kind: "text", key: "operation", label: "Operation" },
+      { kind: "credential", key: "credentialId", label: "MongoDB credential", providers: ["MONGODB"] },
+      { kind: "resource", key: "database", label: "Database", resource: "mongodb-database", credentialKey: "credentialId", placeholder: "Search databases" },
+      { kind: "resource", key: "collection", label: "Collection", resource: "mongodb-collection", credentialKey: "credentialId", dependencyKey: "database", placeholder: "Search collections" },
+      { kind: "mongo-filter", key: "filter", label: "Filter documents" },
+      { kind: "number", key: "limit", label: "Maximum documents (1–100)", fallbackValue: 20 },
+    ],
+  },
+  {
+    type: "action.mongodb.insert",
+    label: "MongoDB insert",
+    description: "Insert one document into a MongoDB collection.",
+    category: "action",
+    libraryGroup: "developer-data",
+    appId: "mongodb",
+    operationId: "insert-document",
+    operationLabel: "Insert document",
+    operationKind: "action",
+    icon: "mongodb",
+    available: true,
+    defaultConfig: { credentialId: "", database: "", collection: "", document: "{}" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "MongoDB credential", providers: ["MONGODB"] },
+      { kind: "resource", key: "database", label: "Database", resource: "mongodb-database", credentialKey: "credentialId", placeholder: "Search databases" },
+      { kind: "resource", key: "collection", label: "Collection", resource: "mongodb-collection", credentialKey: "credentialId", dependencyKey: "database", placeholder: "Search collections" },
+      { kind: "textarea", key: "document", label: "Document (JSON)" },
     ],
   },
   {

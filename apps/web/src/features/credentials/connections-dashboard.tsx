@@ -41,7 +41,8 @@ export function ConnectionsDashboard() {
   }, [router, searchParams]);
 
   const activeWorkspace = useMemo(() => workspaces.find((workspace) => workspace.id === workspaceId), [workspaceId, workspaces]);
-  const googleRefreshMissing = searchParams.get("google_oauth") === "missing_refresh" && searchParams.get("workspace") === workspaceId;
+  const oauthRecovery = searchParams.get("google_oauth");
+  const googleRefreshMissing = (oauthRecovery === "missing_refresh" || oauthRecovery === "chat_missing_refresh") && searchParams.get("workspace") === workspaceId;
 
   const switchWorkspace = (nextWorkspaceId: string) => {
     setWorkspaceId(nextWorkspaceId);
@@ -72,11 +73,11 @@ export function ConnectionsDashboard() {
         {!error && googleRefreshMissing && activeWorkspace ? (
           <Status tone="error" className="connections-oauth-error">
             <div>
-              <strong>Google connection needs another try</strong>
+              <strong>{oauthRecovery === "chat_missing_refresh" ? "Google Chat" : "Google"} connection needs another try</strong>
               <p>Google did not return a refresh token. Any existing connection was not changed. Try connecting again to allow workflows to run when you are away.</p>
             </div>
             <div className="connections-oauth-error__actions">
-              <Button variant="secondary" onClick={() => window.location.assign(`${apiUrl}/workspaces/${encodeURIComponent(workspaceId)}/credentials/google/connect`)}>Try Google again</Button>
+              <Button variant="secondary" onClick={() => window.location.assign(`${apiUrl}/workspaces/${encodeURIComponent(workspaceId)}/credentials/${oauthRecovery === "chat_missing_refresh" ? "google-chat" : "google"}/connect`)}>Try Google again</Button>
               <Button variant="ghost" onClick={() => router.replace(`/dashboard/connections?workspace=${encodeURIComponent(workspaceId)}`)}>Dismiss</Button>
             </div>
           </Status>

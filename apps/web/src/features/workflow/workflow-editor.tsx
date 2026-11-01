@@ -59,6 +59,7 @@ import { useSurfaceMotion } from "../../components/ui/ui-motion";
 import { AppShellHeader } from "../app-shell/app-shell-header";
 import { ExecutionDetailsPanel, type ApiExecution } from "./execution-observability";
 import { ResourcePicker } from "./resource-picker";
+import { MongoFilterField } from "./mongodb-filter-field";
 
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNode };
 
@@ -91,6 +92,8 @@ function providerLabel(provider: CredentialProvider) {
     SMTP: "SMTP email",
     GEMINI: "Gemini",
     OPENAI: "OpenAI",
+    MONGODB: "MongoDB",
+    GOOGLE_CHAT_OAUTH: "Google Chat OAuth",
     HTTP: "HTTP",
   };
   return labels[provider];
@@ -138,6 +141,7 @@ function ConfigField({ label, value, onChange, multiline = false, inputMode }: {
 
 function readConfigurationFieldValue(config: Record<string, unknown>, field: NodeConfigurationField) {
   const value = config[field.key];
+  if (field.kind === "mongo-filter") return value === undefined ? "{}" : value && typeof value === "object" ? JSON.stringify(value, null, 2) : readConfigText(config, field.key);
   return field.key === "embeds" && value && typeof value === "object"
     ? JSON.stringify(value, null, 2)
     : readConfigText(config, field.key);
@@ -239,7 +243,7 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, all
         return <label key={field.key} className="checkbox-field"><input type="checkbox" checked={config[field.key] !== false} onChange={(event) => onChange(field.key, event.target.checked)} /> {field.label}</label>;
       }
       if (field.kind === "resource") {
-        return <ResourcePicker key={field.key} workspaceId={workspaceId} resource={field.resource} credentialId={readConfigText(config, field.credentialKey)} label={field.label} value={value} placeholder={field.placeholder} allowExpression={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
+        return <ResourcePicker key={field.key} workspaceId={workspaceId} resource={field.resource} credentialId={readConfigText(config, field.credentialKey)} dependencyValue={field.dependencyKey ? readConfigText(config, field.dependencyKey) : undefined} label={field.label} value={value} placeholder={field.placeholder} allowExpression={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       }
       if (field.kind === "select") {
         return <Field key={field.key} label={field.label} className="config-field"><Select aria-label={field.label} value={value} onChange={(event) => onChange(field.key, event.target.value)}>{field.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></Field>;
@@ -250,6 +254,7 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, all
       if (field.kind === "table") {
         return <TableField key={field.key} label={field.label} value={config[field.key]} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       }
+      if (field.kind === "mongo-filter") return <MongoFilterField key={field.key} value={value} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       return <ConfigField
         key={field.key}
         label={field.label}
@@ -683,7 +688,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, onResolveApp
         />
       </InspectorSection>
       <InspectorSection title="Configuration">
-      {definition?.configurationFields && <NodeConfigurationFields fields={definition.configurationFields} config={node.data.config} credentials={credentials} workspaceId={workspaceId} allowExpressions={!node.data.nodeType.startsWith("trigger.")} onChange={updateConfig} />}
+      {definition?.configurationFields && <NodeConfigurationFields key={node.id} fields={definition.configurationFields} config={node.data.config} credentials={credentials} workspaceId={workspaceId} allowExpressions={!node.data.nodeType.startsWith("trigger.")} onChange={updateConfig} />}
       {node.data.nodeType === "trigger.manual" && <TestDataEditor value={node.data.config.testData} onApply={(testData) => updateConfig("testData", testData)} />}
       {node.data.nodeType === "trigger.cron" && (
         <>

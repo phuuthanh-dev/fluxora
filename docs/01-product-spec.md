@@ -55,13 +55,14 @@ The Steam profile is public. The Steam node returns every field available throug
 | Action | SMTP Email | Dedicated encrypted SMTP credential, TLS-only submission and normalized delivery result; real-provider qualification remains separate. |
 | Action | Gemini Generate Text | Dedicated workspace API-key connection, model discovery, prompt and bounded output, with mock and confirmed live modes. |
 | Action | OpenAI Generate Text | Dedicated workspace API-key connection, model discovery and Responses API text output, with mock and confirmed live modes. |
+| Action | MongoDB Find / Insert document | Dedicated credential, public single-server TLS, bounded data and database/collection pickers with manual fallback. |
+| Action | Google Chat OAuth message | Dedicated Chat OAuth connection and space picker, sending on behalf of the consenting user. |
 | Approval | Approval | Pause, notify by Chat/webhook with an app link, then resume after UI approve/reject. |
 
 ### UI/schema-only nodes
 
 - Gmail OAuth, attachments and inbound email remain unavailable; SMTP Email is executable (EMAIL-SMTP-1).
-- Google Chat OAuth credential mode.
-- MongoDB, remaining GitHub operations, Facebook Meta, Instagram.
+- MongoDB update/delete and replica/SRV discovery, remaining GitHub operations, Facebook Meta, Instagram.
 
 ### Explicitly out of scope
 
@@ -84,6 +85,9 @@ The Steam profile is public. The Steam node returns every field available throug
 - A workflow has Draft and Published versions. Published versions are immutable.
 - Export/import graph JSON, clone workflow, and create from template.
 - The public root route is a product landing page. The dashboard is the authenticated control-plane home: it lists workflows in the selected workspace, distinguishes draft-only from published workflows, and opens or creates workflows without an editor modal.
+- Owners can view archived workflows in their workspace and restore them with
+  draft, published versions and execution history intact. A restored workflow
+  remains inactive until explicitly activated again.
 - The graph must be acyclic in MVP.
 
 ## 6. Data mapping and expressions
@@ -148,6 +152,15 @@ Action nodes support timeout, retry with exponential backoff, and an error edge.
 - GitHub `Merge Pull Request` calls the pull-request merge endpoint with the same workspace-owned token and an explicit `merge`, `squash`, or `rebase` method. The action remains subject to the existing live-run confirmation boundary and normalizes the provider merge result.
 - GitHub `Issue opened`, `Pull request opened`, `Push`, and `Workflow run completed` verify `X-Hub-Signature-256` against the raw body using the endpoint registration's signing secret, then filter the configured event and action before execution. Legacy endpoints continue using the connector's `webhookSecret` until rotated. GitHub account-login OAuth is never used for verification.
 - Google Chat MVP: incoming webhook URL credential.
+- Google Chat OAuth is a separate workspace connection requesting space listing
+  and message creation; it never replaces Drive/Sheets credentials. API enablement,
+  scope verification and live qualification remain separate.
+- MongoDB uses a single public DNS hostname, port and user authentication.
+  TLS validation and connection-time DNS checks are mandatory. Find is bounded
+  to 100 documents and 200 KB, rejects server-side JavaScript and has bounded
+  connection/operation time. Insert accepts one JSON document up to 200 KB and
+  uncertain writes are never automatically retried. Private hosts, SRV/replica
+  discovery, update/delete and custom TLS files are unsupported in this slice.
 - Generic HTTP: API key, bearer token, basic auth, or headers.
 - Gemini: a dedicated encrypted workspace API key, separate from Google sign-in and Drive OAuth. The server lists up to 100 text-generation models and the editor retains a manual model ID/expression fallback. Output length and request timeout are bounded; retries follow the shared failure policy. Provider calls occur only in confirmed live execution.
 - OpenAI: a separate encrypted workspace API key. The server lists up to 100 models available to that key; the provider's list does not guarantee Responses API text compatibility. Manual model ID/expression fallback is available. Execution uses the Responses API with `store: false`, bounded output and timeout, and the same live confirmation boundary.
@@ -170,6 +183,9 @@ No multi-approver routing, reminder schedule, or approval policy engine is inclu
 - Smooth but restrained graph and status animations.
 - Realtime execution updates using WebSocket or SSE.
 - The dashboard displays API runtime readiness, database/queue availability, configured worker concurrency, and active/queued work so a degraded production dependency is visible without reading logs.
+- The dashboard activity overview counts retained workspace executions created
+  in the preceding 24 hours, across test and live modes, with current status
+  counts and an explicit refresh. The recent-run list filters only loaded pages.
 - Input/output views: JSON tree, table, raw text.
 - Mock run mode uses fixtures and calls no third-party API.
 - **Go live** is available only after publish and always requires an explicit confirmation. The API also rejects unconfirmed live-run requests and checks that each runtime integration node references a compatible credential in the selected workspace. It executes the immutable published version, never the editable draft, and warns of real external side effects.

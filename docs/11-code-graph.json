@@ -233,6 +233,21 @@
       ]
     },
     {
+      "id": "apps/api/src/credentials/connector-resource.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/google-chat-oauth.ts",
+        "apps/api/src/execution/mongodb-find.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client"
+      ]
+    },
+    {
       "id": "apps/api/src/credentials/credential-vault.service.ts",
       "boundary": "api",
       "internalImports": [],
@@ -258,6 +273,7 @@
       "boundary": "api",
       "internalImports": [
         "apps/api/src/auth/auth.module.ts",
+        "apps/api/src/credentials/connector-resource.controller.ts",
         "apps/api/src/credentials/credential-vault.service.ts",
         "apps/api/src/credentials/credential.controller.ts",
         "apps/api/src/credentials/credential.service.ts",
@@ -280,6 +296,7 @@
       "internalImports": [
         "apps/api/src/credentials/credential-vault.service.ts",
         "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/mongodb-find.ts",
         "apps/api/src/execution/smtp-email.ts",
         "apps/api/src/workspaces/workspace.service.ts"
       ],
@@ -479,8 +496,10 @@
         "apps/api/src/execution/execution-events.service.ts",
         "apps/api/src/execution/expression.ts",
         "apps/api/src/execution/gemini-text.ts",
+        "apps/api/src/execution/google-chat-oauth.ts",
         "apps/api/src/execution/http-credential.ts",
         "apps/api/src/execution/live-readiness.ts",
+        "apps/api/src/execution/mongodb-find.ts",
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/openai-text.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
@@ -519,6 +538,19 @@
       ]
     },
     {
+      "id": "apps/api/src/execution/google-chat-oauth.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-json.ts"
+      ],
+      "externalImports": [
+        "@prisma/client"
+      ]
+    },
+    {
       "id": "apps/api/src/execution/http-credential.ts",
       "boundary": "api",
       "internalImports": [],
@@ -531,6 +563,21 @@
       "externalImports": [
         "@prisma/client",
         "@workflow/contracts"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/mongodb-find.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts"
+      ],
+      "externalImports": [
+        "@prisma/client",
+        "mongodb",
+        "node:dns/promises",
+        "node:net"
       ]
     },
     {
@@ -1554,6 +1601,19 @@
       "externalImports": []
     },
     {
+      "id": "apps/web/src/features/dashboard/archived-workflows.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/ui/disclosure.tsx",
+        "apps/web/src/features/api/api-client.ts",
+        "apps/web/src/features/workflow/workflow-api.ts"
+      ],
+      "externalImports": [
+        "lucide-react",
+        "react"
+      ]
+    },
+    {
       "id": "apps/web/src/features/dashboard/executions-dashboard.tsx",
       "boundary": "web",
       "internalImports": [
@@ -1586,6 +1646,8 @@
         "apps/web/src/components/ui/disclosure.tsx",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/app-shell/app-shell-header.tsx",
+        "apps/web/src/features/dashboard/archived-workflows.tsx",
+        "apps/web/src/features/dashboard/workspace-activity.tsx",
         "apps/web/src/features/workflow/node-catalog.ts",
         "apps/web/src/features/workflow/workflow-api.ts"
       ],
@@ -1593,6 +1655,18 @@
         "@workflow/contracts",
         "lucide-react",
         "next/navigation",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/dashboard/workspace-activity.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/api/api-client.ts"
+      ],
+      "externalImports": [
+        "lucide-react",
+        "next/link",
         "react"
       ]
     },
@@ -1893,6 +1967,22 @@
       "externalImports": []
     },
     {
+      "id": "apps/web/src/features/workflow/mongodb-filter-field.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/workflow/mongodb-filter.ts"
+      ],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/workflow/mongodb-filter.ts",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
       "id": "apps/web/src/features/workflow/node-catalog.ts",
       "boundary": "web",
       "internalImports": [
@@ -1983,6 +2073,7 @@
         "apps/web/src/features/workflow/execution-observability.tsx",
         "apps/web/src/features/workflow/expression-suggestions.ts",
         "apps/web/src/features/workflow/graph-validation.ts",
+        "apps/web/src/features/workflow/mongodb-filter-field.tsx",
         "apps/web/src/features/workflow/node-catalog.ts",
         "apps/web/src/features/workflow/node-icon.tsx",
         "apps/web/src/features/workflow/node-library.tsx",
@@ -2231,6 +2322,26 @@
       "to": "apps/api/src/auth/authenticated-request.ts"
     },
     {
+      "from": "apps/api/src/credentials/connector-resource.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/connector-resource.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/connector-resource.controller.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/connector-resource.controller.ts",
+      "to": "apps/api/src/execution/google-chat-oauth.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/connector-resource.controller.ts",
+      "to": "apps/api/src/execution/mongodb-find.ts"
+    },
+    {
       "from": "apps/api/src/credentials/credential.controller.ts",
       "to": "apps/api/src/auth/authenticated-request.ts"
     },
@@ -2245,6 +2356,10 @@
     {
       "from": "apps/api/src/credentials/credential.module.ts",
       "to": "apps/api/src/auth/auth.module.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/connector-resource.controller.ts"
     },
     {
       "from": "apps/api/src/credentials/credential.module.ts",
@@ -2297,6 +2412,10 @@
     {
       "from": "apps/api/src/credentials/credential.service.ts",
       "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.service.ts",
+      "to": "apps/api/src/execution/mongodb-find.ts"
     },
     {
       "from": "apps/api/src/credentials/credential.service.ts",
@@ -2484,11 +2603,19 @@
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/google-chat-oauth.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/execution/http-credential.ts"
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/execution/live-readiness.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/mongodb-find.ts"
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
@@ -2537,6 +2664,34 @@
     {
       "from": "apps/api/src/execution/gemini-text.ts",
       "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-chat-oauth.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-chat-oauth.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-chat-oauth.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-chat-oauth.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/execution/mongodb-find.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/mongodb-find.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/mongodb-find.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
     },
     {
       "from": "apps/api/src/execution/node-failure.ts",
@@ -3291,6 +3446,18 @@
       "to": "apps/web/src/features/credentials/credential-types.ts"
     },
     {
+      "from": "apps/web/src/features/dashboard/archived-workflows.tsx",
+      "to": "apps/web/src/components/ui/disclosure.tsx"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/archived-workflows.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/archived-workflows.tsx",
+      "to": "apps/web/src/features/workflow/workflow-api.ts"
+    },
+    {
       "from": "apps/web/src/features/dashboard/executions-dashboard.tsx",
       "to": "apps/web/src/components/ui/disclosure.tsx"
     },
@@ -3328,11 +3495,23 @@
     },
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
+      "to": "apps/web/src/features/dashboard/archived-workflows.tsx"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
+      "to": "apps/web/src/features/dashboard/workspace-activity.tsx"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
       "to": "apps/web/src/features/workflow/node-catalog.ts"
     },
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
       "to": "apps/web/src/features/workflow/workflow-api.ts"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/workspace-activity.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
     },
     {
       "from": "apps/web/src/features/marketing/landing-demo.tsx",
@@ -3535,6 +3714,10 @@
       "to": "apps/web/src/features/workflow/node-catalog.ts"
     },
     {
+      "from": "apps/web/src/features/workflow/mongodb-filter-field.tsx",
+      "to": "apps/web/src/features/workflow/mongodb-filter.ts"
+    },
+    {
       "from": "apps/web/src/features/workflow/node-catalog.ts",
       "to": "apps/web/src/features/credentials/credential-types.ts"
     },
@@ -3609,6 +3792,10 @@
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",
       "to": "apps/web/src/features/workflow/graph-validation.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/mongodb-filter-field.tsx"
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",

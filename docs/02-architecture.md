@@ -19,6 +19,19 @@ Retention, activation and known boundaries: `docs/29-account-recovery.md`.
 
 ## System shape
 
+MongoDB uses a dedicated workspace credential and direct TLS adapter. Every
+socket uses guarded DNS lookup to reject private, loopback, link-local and
+mixed public/private results; URI options, SRV, replica discovery and arbitrary
+certificate paths are unavailable. Owner-scoped metadata pickers use the same
+guard. The adapter bounds document count, query time and output size. Insert
+supports one bounded document and never retries an uncertain write automatically.
+
+Google Chat OAuth uses its own provider and signed authorization state, scopes,
+token and owner-scoped space discovery, independent of Drive/Sheets. The Chat
+adapter calls a fixed API endpoint. Uncertain delivery is not automatically
+retried; the user checks the destination before a manual retry. Live provider
+configuration and verification are separate from local implementation.
+
 Gemini text generation is a server-side node adapter with a separate `GEMINI`
 vault provider and an owner-authorized model-list endpoint. The editor stores
 model identifiers and prompt configuration, never the API key. Mock runs do not
@@ -54,6 +67,12 @@ Only the API process runs scheduler ingress. The worker starts the Nest applicat
 Every active execution owns a short lease. The runner renews it while progressing nodes. BullMQ stalled-job replay is disabled for execution workers because a live provider may already have accepted a side effect. API maintenance marks a lease that expires as a terminal `EXECUTION_LEASE_EXPIRED` failure; a human may then explicitly retry with a fresh live confirmation. Maintenance also prunes terminal execution records by outcome-specific age and total count; waiting and running executions are never eligible.
 
 The web dashboard is the authenticated control plane: it selects a workspace, lists workflows, and routes into a workflow-scoped editor URL. The editor distinguishes a deterministic mock test run from a guarded live run. Live requests use only `publishedVersion`; the API remains the final authorization and version-pinning boundary.
+
+Workspace activity aggregates execution status in the API after owner
+authorization, scoped through the workflow version to the selected workspace.
+It counts retained test and live executions created within a rolling 24-hour
+window and returns no payloads or secrets. It is a refreshable snapshot, not a
+live stream or an all-time analytics store.
 
 ## Monorepo boundaries
 

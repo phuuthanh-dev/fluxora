@@ -156,6 +156,34 @@ Never commit `.env`, provider secrets, API keys, or encrypted production values.
 
 Google Drive and Sheets use a manually supplied access token or Google OAuth connector credentials. Configure the connector callback from `.env.example` using `GOOGLE_REDIRECT_URI`.
 
+Google Chat OAuth is a separate workspace connection. Enable the Chat API and
+configure/verify its `chat.spaces.readonly` and `chat.messages.create` scopes
+in the Google Cloud project before real use; these settings are not changed by
+the application. Select a space and enter a message in the Chat OAuth node.
+Manual tokens expire; the managed connection refreshes server-side. A delivery
+without a confirmed response may already have arrived, so inspect the space
+before retrying. Google Chat incoming webhooks remain a separate option.
+
+### MongoDB
+
+Create a MongoDB connection using separate fields or a connection string. The
+fields accept a public DNS hostname, TLS-enabled port, database username/password
+and authentication database. For connection strings, Fluxora supports a single
+public hostname and `authSource`, `retryWrites`, `w`, `appName` and `tls` options;
+TLS is required and automatic write retries remain disabled. Other options and
+multiple hosts are rejected instead of silently ignored. With separate fields,
+enter the hostname without `mongodb://` or `mongodb+srv://`. When an auto-detected host has no address record,
+Fluxora tries its MongoDB SRV records and connects directly to a validated
+writable seed; SRV supplies the port. It does not follow server-advertised
+replica hosts, support automatic mid-operation failover, private network
+addresses or custom TLS certificates. Select
+a database and collection (or enter them manually), add simple filter conditions
+or use advanced JSON, and set a limit from 1 to 100. Apply conditions before
+running. Find and single-document Insert are supported;
+update/delete are not. An insert with an uncertain response may have succeeded:
+check the collection before retrying. Provider access is performed server-side
+and requires a confirmed live run.
+
 ### Account sign-in
 
 Account sign-in uses separate OAuth callbacks:

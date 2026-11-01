@@ -11,7 +11,7 @@ import "./credentials.css";
 import { CredentialSecretFields } from "./credential-secret-fields";
 import { NodeIcon, type NodeIconName } from "../workflow/node-icon";
 
-const providerIcons: Record<CredentialProvider, NodeIconName> = { GOOGLE: "google", STEAM: "steam", GOOGLE_CHAT_WEBHOOK: "google-chat", HTTP: "http", DISCORD_WEBHOOK: "discord", TELEGRAM_BOT: "telegram", GITHUB: "github", SMTP: "email", GEMINI: "gemini", OPENAI: "openai" };
+const providerIcons: Record<CredentialProvider, NodeIconName> = { GOOGLE: "google", STEAM: "steam", GOOGLE_CHAT_WEBHOOK: "google-chat", GOOGLE_CHAT_OAUTH: "google-chat", MONGODB: "mongodb", HTTP: "http", DISCORD_WEBHOOK: "discord", TELEGRAM_BOT: "telegram", GITHUB: "github", SMTP: "email", GEMINI: "gemini", OPENAI: "openai" };
 
 type CredentialPreset = {
   label: string;
@@ -20,6 +20,8 @@ type CredentialPreset = {
 };
 
 const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
+  MONGODB: { label: "MongoDB", data: '{\n  "host": "",\n  "port": 27017,\n  "username": "",\n  "password": "",\n  "authDatabase": "admin"\n}', hint: "Connect to a public TLS-enabled MongoDB server or SRV cluster using fields or a connection string." },
+  GOOGLE_CHAT_OAUTH: { label: "Google Chat manual token", data: '{\n  "accessToken": ""\n}', hint: "Connect Google Chat separately from Drive and Sheets. Manual access tokens are short-lived." },
   OPENAI: {
     label: "OpenAI API",
     data: '{\n  "apiKey": ""\n}',
@@ -93,6 +95,8 @@ function credentialProviderLabel(provider: CredentialProvider) {
     SMTP: "SMTP email",
     GEMINI: "Gemini",
     OPENAI: "OpenAI",
+    MONGODB: "MongoDB",
+    GOOGLE_CHAT_OAUTH: "Google Chat OAuth",
   };
 
   return labels[provider];
@@ -195,6 +199,8 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
       SMTP: "SMTP email",
       GEMINI: "Gemini",
       OPENAI: "OpenAI",
+      MONGODB: "MongoDB",
+      GOOGLE_CHAT_OAUTH: "Google Chat OAuth",
     };
     setNotice(`${providerLabels[nextProvider] ?? nextProvider} credential template loaded.`);
   };
@@ -394,6 +400,8 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
             <option value="GITHUB">GitHub connector</option>
             <option value="GEMINI">Gemini API</option>
             <option value="OPENAI">OpenAI API</option>
+            <option value="MONGODB">MongoDB</option>
+            <option value="GOOGLE_CHAT_OAUTH">Google Chat OAuth</option>
             <option value="HTTP">HTTP</option>
           </Select>
         </Field>
@@ -408,6 +416,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
             </button>
           </div>
         ) : null}
+        {provider === "GOOGLE_CHAT_OAUTH" ? <div className="credential-form__oauth-helper"><span>Google Chat asks to list your spaces and send messages on your behalf. This connection is separate from Drive and Sheets.</span><button type="button" className="credential-form__oauth-link" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google-chat/connect`)}>Connect Google Chat <ArrowUpRight size={13} aria-hidden="true" /></button></div> : null}
         <p className="credential-form__hint" aria-live="polite">{credentialPresets[provider].hint}</p>
         <CredentialSecretFields provider={provider} value={data} onChange={(value) => { setData(value); setJsonError(null); setCreateError(null); }} />
         {jsonError && <p className="credential-form__error" role="alert">{jsonError}</p>}
@@ -451,7 +460,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
                     variant="ghost"
                     type="button"
                     className="ghost-button credential-panel__oauth"
-                    onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google/connect`); }}
+                    onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/${credential.provider === "GOOGLE_CHAT_OAUTH" ? "google-chat" : "google"}/connect`); }}
                   >
                     Reconnect Google
                   </Button>

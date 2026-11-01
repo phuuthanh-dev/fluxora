@@ -231,9 +231,7 @@ test("editor text, controls, and provider icons meet contrast targets in both th
       page.locator(".react-flow__node").filter({ hasText: "Get account snapshot" }).locator(".workflow-node__provider-icon svg"),
       3,
     );
-    await page.getByRole("button", { name: "Roadmap" }).click();
     await expectContrast(page.locator(".palette-app").filter({ hasText: "MongoDB" }).locator("svg"), 3);
-    await page.getByRole("button", { name: "All", exact: true }).click();
     await expectContrast(page.locator(".palette-app").filter({ hasText: "GitHub" }).locator("svg"), 3);
     await page.getByRole("button", { name: "Collapse node palette" }).click();
     const addNode = page.getByRole("button", { name: "Add node" });
@@ -500,14 +498,14 @@ test("workflow cards expose rename, duplicate, archive, and guarded delete actio
   await expect(page.getByText("Recent runs", { exact: true })).toBeHidden();
   await executionCenterToggle.click();
   await expect(page.getByText("Recent runs", { exact: true })).toBeVisible();
-  await expect(page.getByText("Succeeded", { exact: true })).toBeVisible();
+  await expect(page.locator("#dashboard-execution-content").getByText("Succeeded", { exact: true })).toBeVisible();
   const succeededFilter = page.getByRole("button", { name: "Succeeded (1)" });
   await succeededFilter.click();
   await expect(succeededFilter).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Needs attention (0)" }).click();
   await expect(page.getByText("No matching runs", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Show all runs" }).click();
-  await expect(page.getByText("Succeeded", { exact: true })).toBeVisible();
+  await expect(page.locator("#dashboard-execution-content").getByText("Succeeded", { exact: true })).toBeVisible();
 
   const renamedCardAfterRun = page.locator(".workflow-card", { has: page.getByRole("heading", { name: "Renamed target", exact: true }) });
   await renamedCardAfterRun.getByLabel("Workflow actions for Renamed target actions").click();
