@@ -511,6 +511,10 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px soli
 .connections-main .ui-page-header, .executions-main .ui-page-header { margin-bottom: 28px; }
 .connections-error, .executions-error { align-items: center; display: flex; gap: 9px; margin-bottom: 18px; padding: 12px 14px; }
 .connections-error .ui-button, .executions-error .ui-button { margin-left: auto; min-height: 29px; padding: 6px 9px; }
+.connections-oauth-error { align-items: flex-start; background: var(--panel); border: 1px solid var(--semantic-danger); color: var(--ink); display: flex; flex-wrap: wrap; gap: 16px 24px; justify-content: space-between; margin-bottom: 18px; padding: 16px; }
+.connections-oauth-error > div:first-child { flex: 1 1 280px; }
+.connections-oauth-error p { line-height: 1.5; margin: 6px 0 0; }
+.connections-oauth-error__actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 /* Keep registration steps distinct and readable in the compact editor panel. */
 .webhook-endpoint-panel { display: flex; flex-direction: column; gap: 12px; z-index: 50; }
