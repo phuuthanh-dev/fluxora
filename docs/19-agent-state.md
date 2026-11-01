@@ -6,6 +6,12 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
+- PostgreSQL select runtime read a synthetic local PostgreSQL 16 table over
+  verified TLS with a test-only DNS resolver and credential-service stub. It
+  enforced the row limit and rejected a mismatched hostname certificate. This
+  is not cloud, real-authentication, picker or full workflow qualification;
+  details are recorded in `docs/35`.
+
 - PR #63 merged as `ccbf167` after PR CI passed; its main quality gate
   `41340683966` and production deployment `41341549749` succeeded. After the
   deployment, public home, login, API health and readiness returned HTTP 200;
