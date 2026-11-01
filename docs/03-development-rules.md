@@ -20,6 +20,7 @@
 - Prefer accessible semantic HTML and keyboard-operable controls.
 - Keep graph state separate from server state.
 - Forms must show inline validation and preserve unsaved input where practical.
+- Credential forms may reveal or hide each newly entered secret locally. Existing saved secrets are never loaded into the form; rotation starts with empty fields.
 - Node configuration must use the strongest appropriate control: static selects for bounded enums, searchable resource pickers for provider-owned resources, and expression-aware hybrid inputs for runtime data. Avoid free-text fields when the provider can safely enumerate the value.
 - Provider resource pickers must load through an authenticated backend endpoint; the browser must never receive connector tokens or call provider APIs directly. Persist stable provider identifiers in workflow config, not display-only labels.
 - Avoid animation that obscures workflow status or makes execution feel slower.
