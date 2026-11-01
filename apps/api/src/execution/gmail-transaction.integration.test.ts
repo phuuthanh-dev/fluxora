@@ -1,0 +1,119 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { randomUUID } from "node:crypto";
+import { PrismaClient } from "@prisma/client";
+import { ExecutionService } from "./execution.service";
+import { WorkflowService } from "../workflows/workflow.service";
+import { ExecutionQueueService } from "./execution-queue.service";
+import { Queue, QueueEvents, Worker } from "bullmq";
+import IORedis from "ioredis";
+import { GmailTriggerService } from "../scheduler/gmail-trigger.service";
+
+// This test must never operate on a normal local or production database.
+test("concurrent Gmail deliveries atomically share one queued execution", { skip: process.env.FLUXORA_GMAIL_INTEGRATION !== "1" }, async () => {
+  const url = new URL(process.env.DATABASE_URL ?? "");
+  if (!/^\/fluxora_[a-z0-9_]*test[a-z0-9_]*$/.test(url.pathname) || !["localhost", "127.0.0.1"].includes(url.hostname)) throw new Error("Gmail integration test requires a local disposable fluxora_*test* database.");
+  const prisma = new PrismaClient();
+  const id = randomUUID(); const userId = `test-user-${id}`; const workspaceId = `test-space-${id}`; const workflowId = `test-flow-${id}`; const versionId = `test-version-${id}`; const credentialId = `test-credential-${id}`;
+  const previousQueueMode = process.env.EXECUTION_QUEUE_MODE; const previousQueueName = process.env.EXECUTION_QUEUE_NAME;
+  const queueName = `gmail-test-${id}`;
+  process.env.EXECUTION_QUEUE_MODE = "redis"; process.env.EXECUTION_QUEUE_NAME = queueName;
+  let queueService: ExecutionQueueService | undefined; let inspectionQueue: Queue | undefined; let events: QueueEvents | undefined; let worker: Worker | undefined; let redis: IORedis | undefined; let eventsRedis: IORedis | undefined; let workerRedis: IORedis | undefined;
+  try {
+    await prisma.user.create({ data: { id: userId, email: `${id}@example.test` } });
+    await prisma.workspace.create({ data: { id: workspaceId, name: "Synthetic", slug: `test-${id}`, ownerId: userId } });
+    await prisma.workspaceMember.create({ data: { workspaceId, userId, role: "OWNER" } });
+    await prisma.credential.create({ data: { id: credentialId, workspaceId, provider: "GMAIL", label: "Synthetic", encryptedData: "synthetic" } });
+    await prisma.workflow.create({ data: { id: workflowId, workspaceId, name: "Synthetic", isActive: true } });
+    const graph = { nodes: [{ id: "mail", type: "trigger.gmail", position: { x: 0, y: 0 }, config: { credentialId } }], edges: [] };
+    await prisma.workflowVersion.create({ data: { id: versionId, workflowId, version: 1, status: "PUBLISHED", graph } });
+    await prisma.workflow.update({ where: { id: workflowId }, data: { publishedVersionId: versionId } });
+    await prisma.gmailTriggerCheckpoint.create({ data: { workflowVersionId: versionId, nodeId: "mail", historyId: "100", mailboxHash: "synthetic", leaseToken: "lease", leaseExpiresAt: new Date(Date.now() + 60_000) } });
+    await prisma.gmailTriggerDelivery.create({ data: { workflowVersionId: versionId, nodeId: "mail", messageId: "message" } });
+    const service = new ExecutionService(prisma as never, {} as never, { publish: () => {} } as never);
+    const create = () => service.createGmailScheduledExecution(versionId, workflowId, "mail", "message", "lease", { source: "gmail" }, `gmail:${id}`);
+    const [first, second] = await Promise.all([create(), create()]);
+    assert.equal(first.execution?.id, second.execution?.id);
+    assert.equal(await prisma.execution.count({ where: { workflowVersionId: versionId } }), 1);
+    const receipt = await prisma.gmailTriggerDelivery.findUniqueOrThrow({ where: { workflowVersionId_nodeId_messageId: { workflowVersionId: versionId, nodeId: "mail", messageId: "message" } } });
+    assert.equal(receipt.executionId, first.execution?.id);
+    if (!process.env.REDIS_URL || !["localhost", "127.0.0.1"].includes(new URL(process.env.REDIS_URL).hostname)) throw new Error("The disposable integration test requires a local test Redis URL.");
+    redis = new IORedis(process.env.REDIS_URL, { maxRetriesPerRequest: null });
+    queueService = new ExecutionQueueService(service);
+    inspectionQueue = new Queue(queueName, { connection: redis });
+    eventsRedis = redis.duplicate();
+    events = new QueueEvents(queueName, { connection: eventsRedis });
+    await events.waitUntilReady();
+    await queueService.dispatch({ executionId: first.execution!.id, mode: "live", startNodeIds: ["mail"] });
+    await queueService.dispatch({ executionId: first.execution!.id, mode: "live", startNodeIds: ["mail"] });
+    assert.equal((await inspectionQueue.getJobCounts("wait")).wait, 1);
+    const lost = await inspectionQueue.getJob(first.execution!.id);
+    assert.ok(lost); await lost.remove();
+    await prisma.execution.update({ where: { id: first.execution!.id }, data: { createdAt: new Date(Date.now() - 3 * 60_000) } });
+    const gmail = new GmailTriggerService(prisma as never, {} as never, service, queueService);
+    await gmail.recoverQueued();
+    const job = await inspectionQueue.getJob(first.execution!.id);
+    assert.ok(job);
+    workerRedis = redis.duplicate();
+    worker = new Worker(queueName, async (item) => service.run(item.data.executionId, item.data.mode, item.data.startNodeIds), { connection: workerRedis });
+    await job.waitUntilFinished(events, 15_000);
+    assert.equal((await prisma.execution.findUniqueOrThrow({ where: { id: first.execution!.id } })).status, "SUCCEEDED");
+    assert.equal(await prisma.nodeExecution.count({ where: { executionId: first.execution!.id, nodeId: "mail" } }), 1);
+    // A lost queue job after approval must resume at the successor, not the
+    // already-visited trigger (which would incorrectly mark the run complete).
+    await worker.close(); worker = undefined;
+    const approvalVersionId = `test-approval-version-${id}`;
+    const approvalExecutionId = `test-approval-execution-${id}`;
+    const approvalId = `test-approval-${id}`;
+    const approvalGraph = { nodes: [
+      { id: "mail", type: "trigger.gmail", position: { x: 0, y: 0 }, config: { credentialId } },
+      { id: "approve", type: "approval.request", position: { x: 1, y: 0 }, config: {} },
+      { id: "next", type: "condition.if", position: { x: 2, y: 0 }, config: { left: "yes", operator: "equals", right: "yes" } },
+    ], edges: [{ id: "a", source: "mail", target: "approve", kind: "success" }, { id: "b", source: "approve", target: "next", kind: "success" }] };
+    await prisma.workflowVersion.create({ data: { id: approvalVersionId, workflowId, version: 99, status: "PUBLISHED", graph: approvalGraph } });
+    await prisma.execution.create({ data: { id: approvalExecutionId, workflowVersionId: approvalVersionId, mode: "LIVE", idempotencyKey: `gmail:approval-${id}`, createdAt: new Date(Date.now() - 3 * 60_000) } });
+    await prisma.approvalRequest.create({ data: { id: approvalId, executionId: approvalExecutionId, tokenHash: `synthetic-${id}`, status: "APPROVED", resolvedAt: new Date(), expiresAt: new Date(Date.now() + 60_000) } });
+    await prisma.nodeExecution.createMany({ data: [
+      { executionId: approvalExecutionId, nodeId: "mail", status: "SUCCEEDED", output: {} },
+      { executionId: approvalExecutionId, nodeId: "approve", status: "SUCCEEDED", output: { approvalRequestId: approvalId } },
+      { executionId: approvalExecutionId, nodeId: "next", status: "SKIPPED" },
+    ] });
+    await gmail.recoverQueued();
+    const resumedJob = await inspectionQueue.getJob(approvalExecutionId);
+    assert.ok(resumedJob); assert.deepEqual(resumedJob.data.startNodeIds, ["next"]);
+    worker = new Worker(queueName, async (item) => service.run(item.data.executionId, item.data.mode, item.data.startNodeIds), { connection: workerRedis });
+    await resumedJob.waitUntilFinished(events, 15_000);
+    assert.equal((await prisma.nodeExecution.findUniqueOrThrow({ where: { executionId_nodeId: { executionId: approvalExecutionId, nodeId: "next" } } })).status, "SUCCEEDED");
+    assert.equal((await prisma.execution.findUniqueOrThrow({ where: { id: approvalExecutionId } })).status, "SUCCEEDED");
+    await prisma.workflow.update({ where: { id: workflowId }, data: { isActive: false } });
+    const inactive = await create();
+    assert.equal(inactive.execution, null);
+    await prisma.gmailTriggerCheckpoint.update({ where: { workflowVersionId_nodeId: { workflowVersionId: versionId, nodeId: "mail" } }, data: { leaseToken: null, leaseExpiresAt: null } });
+    const draftId = `test-draft-${id}`;
+    await prisma.workflowVersion.create({ data: { id: draftId, workflowId, version: 2, status: "DRAFT", graph } });
+    await prisma.workflow.update({ where: { id: workflowId }, data: { draftVersionId: draftId } });
+    const workflows = new WorkflowService(prisma as never, {} as never);
+    const published = await workflows.publish(workflowId, userId);
+    assert.equal(published.published?.id, draftId);
+    const transferred = await prisma.gmailTriggerCheckpoint.findUniqueOrThrow({ where: { workflowVersionId_nodeId: { workflowVersionId: draftId, nodeId: "mail" } } });
+    assert.equal(transferred.historyId, "100");
+    const transferredReceipt = await prisma.gmailTriggerDelivery.findUniqueOrThrow({ where: { workflowVersionId_nodeId_messageId: { workflowVersionId: draftId, nodeId: "mail", messageId: "message" } } });
+    assert.equal(transferredReceipt.executionId, first.execution?.id);
+    await prisma.workflow.update({ where: { id: workflowId }, data: { isActive: true } });
+    await prisma.gmailTriggerCheckpoint.update({ where: { workflowVersionId_nodeId: { workflowVersionId: draftId, nodeId: "mail" } }, data: { leaseToken: "new-lease", leaseExpiresAt: new Date(Date.now() + 60_000) } });
+    const resumed = await service.createGmailScheduledExecution(draftId, workflowId, "mail", "message", "new-lease", { source: "gmail" }, `new-${id}`);
+    assert.equal(resumed.execution?.id, first.execution?.id);
+  } finally {
+    await worker?.close(); await events?.close(); await workerRedis?.quit(); await eventsRedis?.quit(); await queueService?.onModuleDestroy();
+    if (inspectionQueue) { await inspectionQueue.obliterate({ force: true }); await inspectionQueue.close(); }
+    await redis?.quit();
+    if (previousQueueMode === undefined) delete process.env.EXECUTION_QUEUE_MODE; else process.env.EXECUTION_QUEUE_MODE = previousQueueMode;
+    if (previousQueueName === undefined) delete process.env.EXECUTION_QUEUE_NAME; else process.env.EXECUTION_QUEUE_NAME = previousQueueName;
+    await prisma.execution.deleteMany({ where: { workflowVersion: { workflowId } } });
+    await prisma.workflow.deleteMany({ where: { id: workflowId } });
+    await prisma.auditLog.deleteMany({ where: { workspaceId } });
+    await prisma.workspace.deleteMany({ where: { id: workspaceId } });
+    await prisma.user.deleteMany({ where: { id: userId } });
+    await prisma.$disconnect();
+  }
+});

@@ -4,6 +4,7 @@ export type WorkflowNodeCategory = (typeof workflowNodeCategories)[number];
 
 export const workflowNodeTypes = [
   "trigger.manual",
+  "trigger.gmail",
   "trigger.cron",
   "trigger.webhook",
   "trigger.github.issue-opened",
@@ -28,6 +29,13 @@ export const workflowNodeTypes = [
   "action.mongodb.insert",
   "action.notion.search-pages",
   "action.postgres.select",
+  "action.gmail.read",
+  "action.google-calendar.list-events",
+  "action.google-calendar.create-event",
+  "action.google-calendar.get-event",
+  "action.google-calendar.update-event",
+  "action.google-calendar.delete-event",
+  "action.google-calendar.availability",
   "action.github",
   "action.github.add-label",
   "action.github.add-comment",
@@ -48,6 +56,7 @@ export type WorkflowNodeType = (typeof workflowNodeTypes)[number];
  */
 export const executableWorkflowNodeTypes = [
   "trigger.manual",
+  "trigger.gmail",
   "trigger.cron",
   "trigger.webhook",
   "trigger.github.issue-opened",
@@ -70,6 +79,13 @@ export const executableWorkflowNodeTypes = [
   "action.mongodb.insert",
   "action.notion.search-pages",
   "action.postgres.select",
+  "action.gmail.read",
+  "action.google-calendar.list-events",
+  "action.google-calendar.create-event",
+  "action.google-calendar.get-event",
+  "action.google-calendar.update-event",
+  "action.google-calendar.delete-event",
+  "action.google-calendar.availability",
   "action.google-chat.oauth",
   "approval.request",
   "action.github",

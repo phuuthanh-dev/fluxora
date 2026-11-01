@@ -22,6 +22,19 @@ export class ExecutionQueueService implements OnModuleDestroy {
     await queue.add("execute", job, { attempts: 1, jobId: job.executionId, removeOnComplete: 100, removeOnFail: 100 });
   }
 
+  /** Re-enqueue a persisted queued execution if its Redis job was lost. */
+  async ensureDispatched(job: ExecutionJob) {
+    if (this.mode === "inline") return this.executions.run(job.executionId, job.mode, job.startNodeIds, job.debugNodeId);
+    const queue = this.getQueue();
+    const existing = await queue.getJob(job.executionId);
+    if (existing) {
+      const state = await existing.getState();
+      if (state !== "completed" && state !== "failed" && state !== "unknown") return;
+      await existing.remove();
+    }
+    await queue.add("execute", job, { attempts: 1, jobId: job.executionId, removeOnComplete: 100, removeOnFail: 100 });
+  }
+
   async health(): Promise<QueueHealth> {
     const configuredWorkerConcurrency = resolveWorkerConcurrency();
     if (this.mode === "inline") return { status: "ready", mode: "inline", configuredWorkerConcurrency, waiting: 0, active: 0, delayed: 0, failed: 0 };

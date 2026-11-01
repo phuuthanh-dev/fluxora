@@ -11,7 +11,7 @@ import "./credentials.css";
 import { CredentialSecretFields } from "./credential-secret-fields";
 import { NodeIcon, type NodeIconName } from "../workflow/node-icon";
 
-const providerIcons: Record<CredentialProvider, NodeIconName> = { GOOGLE: "google", STEAM: "steam", GOOGLE_CHAT_WEBHOOK: "google-chat", GOOGLE_CHAT_OAUTH: "google-chat", MONGODB: "mongodb", NOTION: "notion", POSTGRES: "postgres", HTTP: "http", DISCORD_WEBHOOK: "discord", TELEGRAM_BOT: "telegram", GITHUB: "github", SMTP: "email", GEMINI: "gemini", OPENAI: "openai" };
+const providerIcons: Record<CredentialProvider, NodeIconName> = { GOOGLE: "google", STEAM: "steam", GOOGLE_CHAT_WEBHOOK: "google-chat", GOOGLE_CHAT_OAUTH: "google-chat", GMAIL: "gmail", GOOGLE_CALENDAR: "google-calendar", MONGODB: "mongodb", NOTION: "notion", POSTGRES: "postgres", HTTP: "http", DISCORD_WEBHOOK: "discord", TELEGRAM_BOT: "telegram", GITHUB: "github", SMTP: "email", GEMINI: "gemini", OPENAI: "openai" };
 
 type CredentialPreset = {
   label: string;
@@ -20,6 +20,8 @@ type CredentialPreset = {
 };
 
 const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
+  GOOGLE_CALENDAR: { label: "Google Calendar manual token", data: '{\n  "accessToken": ""\n}', hint: "Connect Google Calendar separately. Calendar events can appear in execution history." },
+  GMAIL: { label: "Gmail manual token", data: '{\n  "accessToken": ""\n}', hint: "Connect Gmail separately from Google sign-in and Drive. Reading requires Gmail access." },
   NOTION: { label: "Notion", data: '{\n  "token": ""\n}', hint: "Use your Notion integration token and share the pages with the integration." },
   POSTGRES: { label: "PostgreSQL", data: '{\n  "host": "",\n  "port": 5432,\n  "database": "",\n  "username": "",\n  "password": ""\n}', hint: "Connect to a public PostgreSQL host using a trusted TLS certificate. Private networks are not currently supported." },
   MONGODB: { label: "MongoDB", data: '{\n  "host": "",\n  "port": 27017,\n  "username": "",\n  "password": "",\n  "authDatabase": "admin"\n}', hint: "Connect to a public TLS-enabled MongoDB server or SRV cluster using fields or a connection string." },
@@ -101,6 +103,8 @@ function credentialProviderLabel(provider: CredentialProvider) {
     NOTION: "Notion",
     POSTGRES: "PostgreSQL",
     GOOGLE_CHAT_OAUTH: "Google Chat OAuth",
+    GMAIL: "Gmail",
+    GOOGLE_CALENDAR: "Google Calendar",
   };
 
   return labels[provider];
@@ -207,6 +211,8 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
       NOTION: "Notion",
       POSTGRES: "PostgreSQL",
       GOOGLE_CHAT_OAUTH: "Google Chat OAuth",
+      GMAIL: "Gmail",
+      GOOGLE_CALENDAR: "Google Calendar",
     };
     setNotice(`${providerLabels[nextProvider] ?? nextProvider} credential template loaded.`);
   };
@@ -396,13 +402,13 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
       <form ref={formRef} onSubmit={submit} className="credential-form" aria-label="New connection">
         <div className="credential-form__title"><h3>New connection</h3><p>Choose an app and add its authorization details.</p></div>
         <Field label="Provider" className="credential-form__field">
-          <Select aria-label="Provider" value={provider} onChange={(event) => changeProvider(event.target.value as CredentialProvider)}>
+          <Select aria-label="Provider" value={provider === "SMTP" || provider === "GMAIL" ? "EMAIL" : provider} onChange={(event) => changeProvider(event.target.value === "EMAIL" ? "GMAIL" : event.target.value as CredentialProvider)}>
             <option value="GOOGLE">Google Drive / Sheets</option>
             <option value="STEAM">Steam</option>
             <option value="GOOGLE_CHAT_WEBHOOK">Google Chat webhook</option>
             <option value="DISCORD_WEBHOOK">Discord webhook</option>
             <option value="TELEGRAM_BOT">Telegram bot</option>
-            <option value="SMTP">SMTP email</option>
+            <option value="EMAIL">Email</option>
             <option value="GITHUB">GitHub connector</option>
             <option value="GEMINI">Gemini API</option>
             <option value="OPENAI">OpenAI API</option>
@@ -410,9 +416,16 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
             <option value="NOTION">Notion</option>
             <option value="POSTGRES">PostgreSQL</option>
             <option value="GOOGLE_CHAT_OAUTH">Google Chat OAuth</option>
+            <option value="GOOGLE_CALENDAR">Google Calendar</option>
             <option value="HTTP">HTTP</option>
           </Select>
         </Field>
+        {provider === "SMTP" || provider === "GMAIL" ? <Field label="Connection type" className="credential-form__field">
+          <Select aria-label="Email connection type" value={provider} onChange={(event) => changeProvider(event.target.value as "GMAIL" | "SMTP")}>
+            <option value="GMAIL">Gmail API (read messages)</option>
+            <option value="SMTP">SMTP (send email)</option>
+          </Select>
+        </Field> : null}
         <Field label="Connection name" className="credential-form__field">
           <input aria-label="Connection name" value={label} onChange={(event) => { setLabel(event.target.value); setCreateError(null); }} />
         </Field>
@@ -425,6 +438,8 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
           </div>
         ) : null}
         {provider === "GOOGLE_CHAT_OAUTH" ? <div className="credential-form__oauth-helper"><span>Google Chat asks to list your spaces and send messages on your behalf. This connection is separate from Drive and Sheets.</span><button type="button" className="credential-form__oauth-link" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google-chat/connect`)}>Connect Google Chat <ArrowUpRight size={13} aria-hidden="true" /></button></div> : null}
+        {provider === "GMAIL" ? <div className="credential-form__oauth-helper"><span>Gmail requests read-only access to your mailbox. Message contents may appear in workflow execution history. This connection is separate from Google sign-in and Drive.</span><button type="button" className="credential-form__oauth-link" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/gmail/connect`)}>Connect Gmail <ArrowUpRight size={13} aria-hidden="true" /></button></div> : null}
+        {provider === "GOOGLE_CALENDAR" ? <div className="credential-form__oauth-helper"><span>Google Calendar requests permission to view and edit events, list your calendars and check availability. Events may appear in workflow execution history.</span><button type="button" className="credential-form__oauth-link" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google-calendar/connect`)}>Connect Google Calendar <ArrowUpRight size={13} aria-hidden="true" /></button></div> : null}
         <p className="credential-form__hint" aria-live="polite">{credentialPresets[provider].hint}</p>
         <CredentialSecretFields provider={provider} value={data} onChange={(value) => { setData(value); setJsonError(null); setCreateError(null); }} />
         {jsonError && <p className="credential-form__error" role="alert">{jsonError}</p>}
@@ -468,7 +483,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
                     variant="ghost"
                     type="button"
                     className="ghost-button credential-panel__oauth"
-                    onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/${credential.provider === "GOOGLE_CHAT_OAUTH" ? "google-chat" : "google"}/connect`); }}
+                    onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/${credential.provider === "GOOGLE_CHAT_OAUTH" ? "google-chat" : credential.provider === "GMAIL" ? "gmail" : credential.provider === "GOOGLE_CALENDAR" ? "google-calendar" : "google"}/connect`); }}
                   >
                     Reconnect Google
                   </Button>

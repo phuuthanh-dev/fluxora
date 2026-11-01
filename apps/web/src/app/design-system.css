@@ -71,6 +71,8 @@
   --provider-steam: #1b2838;
   --provider-google: #1a73e8;
   --provider-google-chat: #007f3b;
+  --provider-google-calendar: #1a73e8;
+  --provider-gmail: #c5221f;
   --provider-discord: #4752c4;
   --provider-telegram: #087ea9;
   --provider-google-drive: #1a73e8;
@@ -192,6 +194,8 @@
   --provider-steam: #8ec5ee;
   --provider-google: #8ab4f8;
   --provider-google-chat: #72df9b;
+  --provider-google-calendar: #8ab4f8;
+  --provider-gmail: #ff9b90;
   --provider-discord: #b4beff;
   --provider-telegram: #76cfff;
   --provider-google-drive: #8ab4f8;

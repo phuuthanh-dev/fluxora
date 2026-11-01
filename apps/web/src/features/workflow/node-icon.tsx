@@ -16,6 +16,8 @@ import googleIcon from "@iconify-icons/logos/google-icon";
 import {
   SiFacebook,
   SiGithub,
+  SiGmail,
+  SiGooglecalendar,
   SiGooglechat,
   SiGooglesheets,
   SiInstagram,
@@ -36,6 +38,8 @@ export type NodeIconName =
   | "steam"
   | "google"
   | "google-chat"
+  | "google-calendar"
+  | "gmail"
   | "discord"
   | "telegram"
   | "google-drive"
@@ -65,6 +69,8 @@ export function NodeIcon({ name, size = 18, className = "" }: { name: NodeIconNa
       case "steam": return <SiSteam {...props} />;
       case "google": return <Icon icon={googleIcon} {...multicolorProps} />;
       case "google-chat": return <SiGooglechat {...props} />;
+      case "google-calendar": return <SiGooglecalendar {...props} />;
+      case "gmail": return <SiGmail {...props} />;
       case "discord": return <Icon icon={discordIcon} {...multicolorProps} />;
       case "telegram": return <SiTelegram {...props} />;
       case "google-drive": return <Icon icon={googleDriveIcon} {...multicolorProps} />;

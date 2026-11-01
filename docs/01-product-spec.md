@@ -39,6 +39,7 @@ The Steam profile is public. The Steam node returns every field available throug
 | Trigger | GitHub Pull request opened | Receive a signed GitHub `pull_request` webhook with `action: opened` using the registration signing secret. |
 | Trigger | GitHub Push | Receive a signed GitHub `push` webhook using the registration signing secret. |
 | Trigger | GitHub Workflow run completed | Receive a signed GitHub `workflow_run` webhook with `action: completed` using the registration signing secret. |
+| Trigger | Gmail new message | Poll Gmail history with a workspace-owned connection, selectable interval and optional sender/subject/label filters. Implemented in draft PR #57; live qualification and release remain. |
 | Condition | If/Else | Comparison operators and true/false paths. |
 | Condition | Switch | Multiple cases and a default path. |
 | Action | Steam Account Snapshot | Profile, current game, owned/recent games, playtime, and optional per-game achievements. |
@@ -53,6 +54,8 @@ The Steam profile is public. The Steam node returns every field available throug
 | Action | Google Sheets | Read ranges, append rows, update ranges. |
 | Action | HTTP Request | Generic REST request with structured response. |
 | Action | SMTP Email | Dedicated encrypted SMTP credential, TLS-only submission and normalized delivery result; real-provider qualification remains separate. |
+| Action | Gmail Read | Read bounded inbox results using a dedicated Gmail connection. Implemented in draft PR #57; live qualification and release remain. |
+| Action | Google Calendar | List, get, create, update and delete events or check availability using a dedicated Calendar connection. Implemented in draft PR #57; live qualification and release remain. |
 | Action | Gemini Generate Text | Dedicated workspace API-key connection, model discovery, prompt and bounded output, with mock and confirmed live modes. |
 | Action | OpenAI Generate Text | Dedicated workspace API-key connection, model discovery and Responses API text output, with mock and confirmed live modes. |
 | Action | MongoDB Find / Insert document | Dedicated credential, public single-server TLS, bounded data and database/collection pickers with manual fallback. |
@@ -61,7 +64,9 @@ The Steam profile is public. The Steam node returns every field available throug
 
 ### UI/schema-only nodes
 
-- Gmail OAuth, attachments and inbound email remain unavailable; SMTP Email is executable (EMAIL-SMTP-1).
+- Gmail OAuth, read action and polling trigger are implemented in draft PR #57;
+  live qualification and release remain. Gmail attachments are unavailable;
+  SMTP Email is executable (EMAIL-SMTP-1).
 - MongoDB update/delete and replica/SRV discovery, remaining GitHub operations, Facebook Meta, Instagram.
 
 ### Explicitly out of scope

@@ -79,6 +79,13 @@ test("Notion page search has its own connection and search operation", () => {
   assert.deepEqual(notion?.configurationFields?.[0], { kind: "credential", key: "credentialId", label: "Notion credential", providers: ["NOTION"] });
 });
 
+test("Gmail read uses its own connection and guided mailbox filter", () => {
+  const gmail = getNodeDefinition("action.gmail.read");
+  assert.equal(gmail?.available, true);
+  assert.deepEqual(gmail?.configurationFields?.[0], { kind: "credential", key: "credentialId", label: "Gmail credential", providers: ["GMAIL"] });
+  assert.equal(gmail?.configurationFields?.find((field) => field.key === "mailbox")?.kind, "select");
+});
+
 test("GitHub Create Issue is executable with a separate connector credential", () => {
   const definition = getNodeDefinition("action.github");
   assert.ok(definition);

@@ -8,6 +8,8 @@ type SecretField = { key: string; label: string; secret?: boolean; hint?: string
 const fields: Partial<Record<CredentialProvider, SecretField[]>> = {
   GOOGLE: [{ key: "accessToken", label: "Access token", secret: true }],
   GOOGLE_CHAT_OAUTH: [{ key: "accessToken", label: "Access token", secret: true }],
+  GMAIL: [{ key: "accessToken", label: "Gmail access token", secret: true, hint: "Manual access tokens are short-lived. OAuth is recommended." }],
+  GOOGLE_CALENDAR: [{ key: "accessToken", label: "Google Calendar access token", secret: true, hint: "Manual access tokens are short-lived. OAuth is recommended." }],
   STEAM: [{ key: "apiKey", label: "Steam Web API key", secret: true }, { key: "steamId", label: "Steam ID", hint: "Your 17-digit Steam ID. Keep it as text to preserve every digit." }],
   GOOGLE_CHAT_WEBHOOK: [{ key: "webhookUrl", label: "Webhook URL", secret: true }],
   DISCORD_WEBHOOK: [{ key: "webhookUrl", label: "Webhook URL", secret: true }],

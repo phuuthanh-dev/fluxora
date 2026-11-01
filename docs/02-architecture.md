@@ -108,6 +108,23 @@ Execution detail is owner-scoped and derived from the immutable workflow version
 
 ## Connector architecture
 
+### Gmail read slice — in progress
+
+Gmail uses a separate owner-scoped, encrypted `GMAIL` connection; its OAuth
+consent requests `gmail.readonly` and does not replace Drive or Chat. That scope
+is restricted and production access depends on Google review. The local Read
+messages action exposes Inbox/Unread/All and optional Gmail query, returns at
+most ten message headers, snippets and bounded plain-text bodies, and does not
+load attachments. Results can be stored in execution history; explain this in
+the connection UI. Mock runs never access credentials or mailboxes.
+
+The new-message trigger is not implemented or exposed. It requires a durable
+per-version mailbox checkpoint, concurrency-safe leasing, idempotent
+enqueue/recovery, initial activation semantics, handling expired Gmail history
+and lossless pagination before it can be advertised as reliable. A recurring
+schedule plus Read messages is not a new-message trigger and must not be
+described as one. No Gmail cloud scopes have been configured by this slice.
+
 ### Work in progress: Notion and PostgreSQL — 2026-11-01
 
 The owner requested both connectors. On the local development branch, a Notion
@@ -321,3 +338,38 @@ or remote hook ID. The editor shows the connection state, a recorded-identity
 verification action and keeps manual setup available as a fallback. The feature
 remains disabled by default until production origin, migration and
 live-provider qualification are complete.
+
+## Google Calendar connector
+
+The Calendar connector has a separate workspace-owned OAuth credential with
+`calendar.events`, `calendar.events.freebusy`, and
+`calendar.calendarlist.readonly`; it can list, read, create, update, and delete
+events or check availability in a selected calendar. Event creation uses a
+deterministic event ID and verifies a private marker after a conflict so retries
+do not silently create duplicates within one execution. The event picker lists
+up to 50 upcoming events and permits an ID/expression for other events. Update
+only patches non-empty fields. A delete returning 404/410 is reported as absent
+or inaccessible, not proven deleted. Mock mode uses synthetic events. A Calendar
+trigger is not yet implemented. Event data may
+appear in execution history.
+OAuth consent configuration, live qualification and deployment are separate.
+
+## Gmail new-message polling
+
+Gmail Trigger uses a selected polling interval and Gmail history pages. The
+first activation captures a mailbox-specific checkpoint; reactivation of the
+same published version resumes the checkpoint, so messages received while
+inactive may run. Per-message receipts and idempotent execution creation allow
+retries without advancing a failed page. A periodic scan re-enqueues persisted
+Gmail executions that remain queued when their Redis job has been lost; job IDs
+and execution status claims prevent concurrent recovery from running them twice.
+History expiration or a changed
+mailbox enters an explicit error state. An owner-confirmed reset may discard
+pending messages and cancels queued executions where possible. A version change
+preserves the cursor and receipts for the same node and credential; changing or
+removing the trigger requires explicit acknowledgement of a possible gap.
+Polling intervals are selectable (one, five, 15 or 60 minutes), with 10, 25 or
+50 messages per check; a backlog continues on later checks. Sender, subject and
+label filters are evaluated using the message state when polled. Delivery receipts
+currently have no automatic retention cleanup. Polling is not instant; Pub/Sub
+push and real-mailbox qualification remain separate work.

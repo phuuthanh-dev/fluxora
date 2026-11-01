@@ -17,6 +17,8 @@ export function liveCredentialRequirements(graph: WorkflowGraph): LiveCredential
     if (node.type === "action.mongodb" || node.type === "action.mongodb.insert") return [{ nodeId: node.id, provider: CredentialProvider.MONGODB, credentialId }];
     if (node.type === "action.notion.search-pages") return [{ nodeId: node.id, provider: CredentialProvider.NOTION, credentialId }];
     if (node.type === "action.postgres.select") return [{ nodeId: node.id, provider: CredentialProvider.POSTGRES, credentialId }];
+    if (node.type === "action.gmail.read" || node.type === "trigger.gmail") return [{ nodeId: node.id, provider: CredentialProvider.GMAIL, credentialId }];
+    if (node.type === "action.google-calendar.list-events" || node.type === "action.google-calendar.create-event" || node.type === "action.google-calendar.get-event" || node.type === "action.google-calendar.update-event" || node.type === "action.google-calendar.delete-event" || node.type === "action.google-calendar.availability") return [{ nodeId: node.id, provider: CredentialProvider.GOOGLE_CALENDAR, credentialId }];
     if (node.type === "action.google-chat.oauth") return [{ nodeId: node.id, provider: CredentialProvider.GOOGLE_CHAT_OAUTH, credentialId }];
     if (node.type === "action.github" || node.type === "action.github.add-label" || node.type === "action.github.add-comment" || node.type === "action.github.merge-pull-request") return [{ nodeId: node.id, provider: CredentialProvider.GITHUB, credentialId }];
     if (node.type === "action.google-drive" || node.type === "action.google-sheets") return [{ nodeId: node.id, provider: CredentialProvider.GOOGLE, credentialId }];

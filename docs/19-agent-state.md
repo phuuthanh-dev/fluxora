@@ -6,15 +6,16 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-01
 
-- PR #55 (`develop` → `main`) was merged at `bf6d963` for inspector pending-edit
-  safety; GitHub quality gate run `41282544015` passed. The local branch
-  `codex/notion-postgres-connectors` contains new unfinished connector work;
-  Notion Search pages and PostgreSQL Select rows passed the local full gate
-  but are not on GitHub or deployed. See `.agent/reports/2026-11-01-notion-postgres.md`.
-  The Notion credential migration was applied to the local database and one
-  owner-approved live search succeeded; the test workflow is inactive.
-  Do not repeat already
-  completed MongoDB live insert qualification.
+- PR #56 (`develop` → `main`) merged at `bd2519d`; it includes Notion search
+  and PostgreSQL select. Notion search was qualified once locally; broader
+  live and production qualification remains. See `.agent/reports/2026-11-01-notion-postgres.md`.
+- Draft PR #57 adds Gmail read and polling trigger, grouped email connection
+  choices and Google Calendar operations. Full isolated verification and its
+  GitHub quality gate passed on `d1d4dcd`; real Gmail/Calendar access, Google
+  scope approval and production deployment remain separate. A follow-up review
+  fixed a queue-recovery edge case involving approval and passed isolated
+  verification; see the associated report. Gmail Pub/Sub is not implemented.
+- Do not repeat the completed MongoDB live insert qualification.
 
 - PR #52 shipped the Google refresh-token guard at `2514147`; main quality
   run `41228624481` and production deploy `41229373344` succeeded. Public
@@ -144,8 +145,11 @@ one of these IDs or explicitly reopen a completed ledger slice.
 | `AI-GEMINI-1` | Gemini text generation with workspace credential, model discovery and execution | pending | Local live generation succeeded once with Gemini 3.1 Flash Lite; a 2.5 Flash request returned 404 and a 3.8 Flash request timed out. Causes, other models and sustained or production behavior remain unverified. See `.agent/reports/2026-10-31-gemini-live.md`. |
 | `AI-OPENAI-1` | OpenAI text generation with workspace credential, model discovery and execution | pending | Implemented and verified locally; owner deferred real-provider testing. Migration applied only to local database. |
 | `EDITOR-QUALIFICATION-1` | Audit credential status, picker, validation and mock/live node-debug UX | planned | Reuse completed editor work; implement only evidenced gaps |
-| `NOTION-1` | Add Notion connector with user-owned credential and guided page operations | planned | Fixed provider API, bounded results, no live calls without owner-selected resources |
-| `POSTGRES-1` | Add PostgreSQL connector with user-owned credential and guided operations | planned | Guard network targets, TLS, safe SQL construction and non-destructive qualification |
+| `NOTION-1` | Add Notion connector with user-owned credential and guided page operations | pending | Search pages implemented in PR #56; live search qualified once locally. More operations and production qualification remain. |
+| `POSTGRES-1` | Add PostgreSQL connector with user-owned credential and guided operations | pending | Select rows implemented in PR #56; live qualification and further operations remain. |
+| `GMAIL-1` | Add Gmail read operations and a durable new-message trigger with a separate owner-authorized Google connection | pending | Implementation and isolated full verify passed; live mailbox qualification, restricted-scope approval and release remain. Pub/Sub push is not implemented. See `.agent/reports/2026-11-01-gmail-trigger-calendar-expansion.md`. |
+| `CALENDAR-1` | Add Google Calendar connection and actions | pending | Guided calendar/event pickers and event operations passed the isolated gate; consent configuration, owner-approved live qualification and release remain. A Calendar trigger is not implemented. |
+| `EMAIL-UX-1` | Group Gmail and SMTP connection choices in the UI | pending | Grouped in the implementation; Gmail and SMTP keep separate providers and nodes. Isolated full verify passed; release remains. |
 
 ## Closed boundary
 

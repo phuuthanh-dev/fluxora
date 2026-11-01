@@ -44,6 +44,16 @@ export class WorkflowController {
     return { versions: await this.workflows.listVersions(workflowId, requireUserId(request)) };
   }
 
+  @Get("workflows/:workflowId/gmail-trigger-status")
+  async gmailTriggerStatus(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return this.workflows.gmailTriggerStatus(workflowId, requireUserId(request));
+  }
+
+  @Post("workflows/:workflowId/gmail-trigger-reset")
+  async resetGmailTrigger(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return this.workflows.resetGmailTrigger(workflowId, requireUserId(request), request.body?.confirmDataGap === true);
+  }
+
   @Patch("workflows/:workflowId/draft")
   async updateDraft(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
     return { workflow: await this.workflows.updateDraft(workflowId, requireUserId(request), readUpdateInput(request.body)) };
@@ -51,7 +61,7 @@ export class WorkflowController {
 
   @Post("workflows/:workflowId/publish")
   async publish(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
-    return { workflow: await this.workflows.publish(workflowId, requireUserId(request)) };
+    return { workflow: await this.workflows.publish(workflowId, requireUserId(request), request.body?.confirmDiscardGmail === true) };
   }
 
   @Post("workflows/:workflowId/activate")

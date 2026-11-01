@@ -56,7 +56,13 @@ test("guided connection fields preserve JSON, mask secrets, search saved account
   await expect(page.getByLabel("Provider", { exact: true })).toHaveCSS("padding-right", "40px");
   await expect(page.getByLabel("Provider", { exact: true })).toHaveCSS("background-position", "calc(100% - 12px) 50%");
 
-  await page.getByLabel("Provider", { exact: true }).selectOption("SMTP");
+  await page.getByLabel("Provider", { exact: true }).selectOption("EMAIL");
+  await expect(page.getByLabel("Email connection type")).toHaveValue("GMAIL");
+  await expect(page.getByRole("button", { name: "Connect Gmail" })).toBeVisible();
+  await expect(page.getByLabel("Gmail access token")).toBeVisible();
+  await page.getByLabel("Email connection type").selectOption("SMTP");
+  await expect(page.getByLabel("SMTP host")).toBeVisible();
+  await expect(page.getByLabel("Gmail access token")).toHaveCount(0);
   await expect(page.getByLabel("Password", { exact: true })).toHaveAttribute("type", "password");
   await page.getByLabel("Transport").selectOption("465");
   await page.getByRole("button", { name: "Edit JSON", exact: true }).click();

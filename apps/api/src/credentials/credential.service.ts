@@ -13,7 +13,9 @@ const canonicalGoogleOAuthLabel = "Google OAuth";
 
 function isCanonicalGoogleOAuth(credential: { provider: CredentialProvider; label: string }): boolean {
   return (credential.provider === CredentialProvider.GOOGLE && credential.label === canonicalGoogleOAuthLabel)
-    || (credential.provider === CredentialProvider.GOOGLE_CHAT_OAUTH && credential.label === "Google Chat OAuth");
+    || (credential.provider === CredentialProvider.GOOGLE_CHAT_OAUTH && credential.label === "Google Chat OAuth")
+    || (credential.provider === CredentialProvider.GMAIL && credential.label === "Gmail OAuth")
+    || (credential.provider === CredentialProvider.GOOGLE_CALENDAR && credential.label === "Google Calendar OAuth");
 }
 
 function hasErrorCode(error: unknown, code: string): boolean {
@@ -281,7 +283,7 @@ export class CredentialService {
     return this.vault.decrypt(credential.encryptedData);
   }
 
-  async readGoogleForExecution(credentialId: string, workspaceId: string, provider: typeof CredentialProvider.GOOGLE | typeof CredentialProvider.GOOGLE_CHAT_OAUTH = CredentialProvider.GOOGLE) {
+  async readGoogleForExecution(credentialId: string, workspaceId: string, provider: typeof CredentialProvider.GOOGLE | typeof CredentialProvider.GOOGLE_CHAT_OAUTH | typeof CredentialProvider.GMAIL | typeof CredentialProvider.GOOGLE_CALENDAR = CredentialProvider.GOOGLE) {
     const credential = await this.prisma.credential.findFirst({ where: { id: credentialId, workspaceId, provider } });
     if (!credential) throw new NotFoundException({ code: "CREDENTIAL_NOT_FOUND", message: "A matching credential was not found in this workspace." });
     const data = this.vault.decrypt(credential.encryptedData);
@@ -336,6 +338,30 @@ export class CredentialService {
     return this.summary(credential);
   }
 
+  async upsertGmailOAuth(workspaceId: string, userId: string, data: Record<string, unknown>) {
+    await this.workspaces.requireOwner(workspaceId, userId);
+    const encryptedData = this.vault.encrypt(data);
+    const provider = CredentialProvider.GMAIL;
+    const label = "Gmail OAuth";
+    const credential = await this.prisma.credential.upsert({
+      where: { workspaceId_provider_label: { workspaceId, provider, label } },
+      create: { workspaceId, provider, label, encryptedData },
+      update: { encryptedData },
+    });
+    await this.prisma.auditLog.create({ data: { workspaceId, actorId: userId, action: "credential.gmail_oauth_connected", targetType: "credential", targetId: credential.id } });
+    return this.summary(credential);
+  }
+
+  async upsertGoogleCalendarOAuth(workspaceId: string, userId: string, data: Record<string, unknown>) {
+    await this.workspaces.requireOwner(workspaceId, userId);
+    const encryptedData = this.vault.encrypt(data);
+    const provider = CredentialProvider.GOOGLE_CALENDAR;
+    const label = "Google Calendar OAuth";
+    const credential = await this.prisma.credential.upsert({ where: { workspaceId_provider_label: { workspaceId, provider, label } }, create: { workspaceId, provider, label, encryptedData }, update: { encryptedData } });
+    await this.prisma.auditLog.create({ data: { workspaceId, actorId: userId, action: "credential.google_calendar_oauth_connected", targetType: "credential", targetId: credential.id } });
+    return this.summary(credential);
+  }
+
   private summary(credential: { id: string; provider: CredentialProvider; label: string; createdAt: Date; updatedAt: Date }) {
     return {
       id: credential.id,
@@ -378,8 +404,8 @@ function validateCredentialPayload(provider: CredentialProvider, data: Record<st
     try { validateMongoCredential(data); } catch { throw new BadRequestException({ code: "INVALID_INPUT", message: data.configurationType === "connectionString" ? "Enter a supported MongoDB connection string with one public host, credentials and TLS. Check its options." : "Enter a public MongoDB host, port, username, password and authentication database." }); }
     return;
   }
-  if (provider === CredentialProvider.GOOGLE_CHAT_OAUTH) {
-    if (typeof data.accessToken !== "string" || !data.accessToken || data.accessToken.length > 4096 || /\s/.test(data.accessToken)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid Google Chat access token." });
+  if (provider === CredentialProvider.GOOGLE_CHAT_OAUTH || provider === CredentialProvider.GMAIL || provider === CredentialProvider.GOOGLE_CALENDAR) {
+    if (typeof data.accessToken !== "string" || !data.accessToken || data.accessToken.length > 4096 || /\s/.test(data.accessToken)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid Google access token for this connection." });
     return;
   }
   if (provider === CredentialProvider.GEMINI || provider === CredentialProvider.OPENAI) {
