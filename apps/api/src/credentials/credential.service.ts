@@ -392,6 +392,10 @@ function requiredEnv(name: "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET") {
 }
 
 function validateCredentialPayload(provider: CredentialProvider, data: Record<string, unknown>) {
+  if (provider === CredentialProvider.VERCEL) {
+    if (typeof data.token !== "string" || !/^[A-Za-z0-9._-]{1,512}$/.test(data.token)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid Vercel access token." });
+    return;
+  }
   if (provider === CredentialProvider.SENTRY) {
     if (typeof data.token !== "string" || !/^[A-Za-z0-9._-]{1,512}$/.test(data.token) || !["global", "us", "de"].includes(typeof data.region === "string" ? data.region : "global")) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid Sentry token and region." });
     return;

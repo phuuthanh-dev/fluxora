@@ -24,7 +24,7 @@ need appropriate authentication and delivery reconciliation.
 | Sentry | List issues for a project | User token with organization/issue read scopes and Global/US/DE region; first page picker with manual slug fallback | Implemented locally; synthetic checks only; migration, browser/full verification and real-provider qualification pending |
 | Reddit | Read/search posts | OAuth and Reddit API eligibility/terms; avoid assuming unrestricted access | Planned |
 | Uptime Kuma | Receive alert through existing generic webhook; assess dedicated adapter | Internal management API is unsupported; do not promise stable monitor management | Planned |
-| Vercel | List projects/deployments | Owner's token, team scope and bounded pagination; webhook availability depends on account/integration | Planned |
+| Vercel | List deployments for a selected project | Owner token; personal/team and project picker; first page with manual ID fallback | Implemented locally; synthetic checks only; migration, browser/full verification and real-provider qualification pending |
 | Supabase | Read rows using existing PostgreSQL where viable, or scoped Data API | Distinguish project data from management API; protect privileged keys and row-level access | Planned |
 
 Discovery redesign is an independent first slice. Resource pickers, meaningful
@@ -43,6 +43,11 @@ It returns a bounded subset of issue metadata; titles can contain sensitive
 information and appear in execution history. Organization/project discovery
 loads the first page and warns if more exist. Alert webhooks, self-hosted Sentry,
 automatic pagination and a durable trigger are not implemented.
+
+Vercel List Deployments is read-only. It uses the owner's token and selected
+account/team, and exposes a bounded selection of deployment metadata. Team and
+project pickers load one page and indicate when more exist. Creating deployments,
+webhooks, automatic pagination and deployment triggers are not implemented.
 
 ## Primary references
 

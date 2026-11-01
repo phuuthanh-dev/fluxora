@@ -98,6 +98,7 @@ function providerLabel(provider: CredentialProvider) {
     NOTION: "Notion",
     TRELLO: "Trello",
     SENTRY: "Sentry",
+    VERCEL: "Vercel",
     POSTGRES: "PostgreSQL",
     GOOGLE_CHAT_OAUTH: "Google Chat OAuth",
     GMAIL: "Gmail",
@@ -740,6 +741,10 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
     if (node.data.nodeType === "action.sentry.list-issues" && node.data.config[key] !== value) {
       if (key === "credentialId") { config.organization = ""; config.project = ""; }
       else if (key === "organization") config.project = "";
+    }
+    if (node.data.nodeType === "action.vercel.list-deployments" && node.data.config[key] !== value) {
+      if (key === "credentialId") { config.team = "personal"; config.project = ""; }
+      else if (key === "team") config.project = "";
     }
     updateNodeData(node.id, { config });
   };

@@ -243,7 +243,8 @@
         "apps/api/src/execution/mongodb-find.ts",
         "apps/api/src/execution/postgres-read.ts",
         "apps/api/src/execution/sentry.ts",
-        "apps/api/src/execution/trello.ts"
+        "apps/api/src/execution/trello.ts",
+        "apps/api/src/execution/vercel.ts"
       ],
       "externalImports": [
         "@nestjs/common",
@@ -551,6 +552,7 @@
         "apps/api/src/execution/sentry.ts",
         "apps/api/src/execution/smtp-email.ts",
         "apps/api/src/execution/trello.ts",
+        "apps/api/src/execution/vercel.ts",
         "apps/api/src/workflows/workflow-graph.ts"
       ],
       "externalImports": [
@@ -813,6 +815,19 @@
     },
     {
       "id": "apps/api/src/execution/trello.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-json.ts"
+      ],
+      "externalImports": [
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/vercel.ts",
       "boundary": "api",
       "internalImports": [
         "apps/api/src/credentials/credential.service.ts",
@@ -2560,6 +2575,10 @@
       "to": "apps/api/src/execution/trello.ts"
     },
     {
+      "from": "apps/api/src/credentials/connector-resource.controller.ts",
+      "to": "apps/api/src/execution/vercel.ts"
+    },
+    {
       "from": "apps/api/src/credentials/credential.controller.ts",
       "to": "apps/api/src/auth/authenticated-request.ts"
     },
@@ -2949,6 +2968,10 @@
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/vercel.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/workflows/workflow-graph.ts"
     },
     {
@@ -3157,6 +3180,22 @@
     },
     {
       "from": "apps/api/src/execution/trello.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/execution/vercel.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/vercel.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/vercel.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/vercel.ts",
       "to": "apps/api/src/execution/provider-json.ts"
     },
     {

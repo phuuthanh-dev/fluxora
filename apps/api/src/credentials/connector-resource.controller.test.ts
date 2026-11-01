@@ -16,5 +16,7 @@ test("connector discovery checks workspace ownership before credential access", 
   await assert.rejects(controller.trelloLists("workspace", "trello", "board", request));
   await assert.rejects(controller.sentryOrganizations("workspace", "sentry", request));
   await assert.rejects(controller.sentryProjects("workspace", "sentry", "organization", request));
+  await assert.rejects(controller.vercelTeams("workspace", "vercel", request));
+  await assert.rejects(controller.vercelProjects("workspace", "vercel", "team", request));
   assert.equal(reads, 0);
 });

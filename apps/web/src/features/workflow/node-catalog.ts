@@ -63,7 +63,7 @@ export type NodeSelectOption = { value: string; label: string };
 type NodeFieldVisibilityValue = string | number | boolean;
 export type NodeFieldVisibility = { visibleWhen?: { key: string; equals: NodeFieldVisibilityValue | readonly NodeFieldVisibilityValue[] } };
 
-export type NodeResource = "github-repository" | "google-file" | "google-spreadsheet" | "google-calendar" | "google-calendar-event" | "gmail-label" | "gemini-model" | "openai-model" | "google-chat-space" | "mongodb-database" | "mongodb-collection" | "postgres-schema" | "postgres-table" | "trello-board" | "trello-list" | "sentry-organization" | "sentry-project";
+export type NodeResource = "github-repository" | "google-file" | "google-spreadsheet" | "google-calendar" | "google-calendar-event" | "gmail-label" | "gemini-model" | "openai-model" | "google-chat-space" | "mongodb-database" | "mongodb-collection" | "postgres-schema" | "postgres-table" | "trello-board" | "trello-list" | "sentry-organization" | "sentry-project" | "vercel-team" | "vercel-project";
 
 /**
  * Declarative fields that the inspector can render without growing another
@@ -120,6 +120,7 @@ export const appCatalog: AppDefinition[] = [
   { id: "notion", label: "Notion", description: "Find pages shared with your integration.", icon: "notion", category: "productivity", aliases: ["pages", "notes"] },
   { id: "trello", label: "Trello", description: "Organize work with boards, lists, and cards.", icon: "trello", category: "productivity", aliases: ["kanban", "cards", "boards"] },
   { id: "sentry", label: "Sentry", description: "Find issues in your monitored projects.", icon: "sentry", category: "developer-devops", aliases: ["errors", "monitoring", "issues"] },
+  { id: "vercel", label: "Vercel", description: "Inspect project deployments.", icon: "vercel", category: "developer-devops", aliases: ["deployment", "hosting", "projects"] },
   { id: "rss", label: "RSS", description: "Read items from a public RSS or Atom feed.", icon: "rss", category: "data", aliases: ["feed", "atom", "news"] },
   { id: "postgres", label: "PostgreSQL", description: "Read rows from a PostgreSQL database.", icon: "postgres", category: "data", aliases: ["sql", "database"] },
   { id: "github", label: "GitHub", description: "Automate repositories, issues, and pull requests.", icon: "github", category: "developer-devops", aliases: ["git", "pull request", "issues"] },
@@ -718,6 +719,17 @@ export const nodeCatalog: NodeDefinition[] = [
       { kind: "resource", key: "project", label: "Project", resource: "sentry-project", credentialKey: "credentialId", dependencyKey: "organization", placeholder: "Search projects" },
       { kind: "select", key: "status", label: "Issue status", options: [{ value: "unresolved", label: "Unresolved" }, { value: "resolved", label: "Resolved" }, { value: "all", label: "All" }] },
       { kind: "number", key: "limit", label: "Maximum issues (1–100)", fallbackValue: 20 },
+    ],
+  },
+  {
+    type: "action.vercel.list-deployments", label: "Vercel deployments", description: "Read recent deployments for a Vercel project.",
+    category: "action", libraryGroup: "developer-data", appId: "vercel", operationId: "list-deployments", operationLabel: "List deployments", operationKind: "search", icon: "vercel", available: true,
+    defaultConfig: { credentialId: "", team: "personal", project: "", limit: 20 },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Vercel connection", providers: ["VERCEL"] },
+      { kind: "resource", key: "team", label: "Account or team", resource: "vercel-team", credentialKey: "credentialId", placeholder: "Search teams" },
+      { kind: "resource", key: "project", label: "Project", resource: "vercel-project", credentialKey: "credentialId", dependencyKey: "team", placeholder: "Search projects" },
+      { kind: "number", key: "limit", label: "Maximum deployments (1–100)", fallbackValue: 20 },
     ],
   },
   {

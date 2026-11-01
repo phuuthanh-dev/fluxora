@@ -7,12 +7,31 @@ import { listGoogleChatSpaces } from "../execution/google-chat-oauth";
 import { listPostgresSchemas, listPostgresTables, validatePostgresCredential } from "../execution/postgres-read";
 import { listTrelloBoards, listTrelloLists } from "../execution/trello";
 import { listSentryOrganizations, listSentryProjects } from "../execution/sentry";
+import { listVercelProjects, listVercelTeams } from "../execution/vercel";
 import { CredentialService } from "./credential.service";
 
 @Controller("workspaces/:workspaceId/credentials/:credentialId")
 @UseGuards(AuthenticationGuard)
 export class ConnectorResourceController {
   constructor(@Inject(CredentialService) private readonly credentials: CredentialService) {}
+
+  @Get("vercel/teams")
+  async vercelTeams(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.VERCEL);
+    try { return await listVercelTeams(credential); }
+    catch { throw new BadRequestException({ code: "VERCEL_TEAMS_UNAVAILABLE", message: "Accounts and teams could not be loaded. Check your connection or enter a team ID manually." }); }
+  }
+
+  @Get("vercel/projects")
+  async vercelProjects(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Query("team") team: string | undefined, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.VERCEL);
+    try { return await listVercelProjects(credential, team ?? ""); }
+    catch { throw new BadRequestException({ code: "VERCEL_PROJECTS_UNAVAILABLE", message: "Projects could not be loaded. Check your account and permissions, or enter a project ID manually." }); }
+  }
 
   @Get("sentry/organizations")
   async sentryOrganizations(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Req() request: AuthenticatedRequest) {

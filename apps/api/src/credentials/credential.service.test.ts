@@ -157,6 +157,13 @@ test("Sentry rejects invalid token or unsupported region before encryption", asy
   }
 });
 
+test("Vercel rejects invalid token before encryption", async () => {
+  const service = new CredentialService({} as never, { requireOwner: async () => {} } as never, {} as never);
+  await assert.rejects(() => service.create("ws-1", "user-1", { provider: "VERCEL", label: "Vercel", data: { token: "bad token" } }), (err: unknown) => {
+    const error = err as HttpErrorShape; assert.equal(error.response?.code, "INVALID_INPUT"); return true;
+  });
+});
+
 test("create allows manual Google credentials including names that contain OAuth", async () => {
   const prisma = {
     credential: {

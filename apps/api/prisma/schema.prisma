@@ -44,6 +44,7 @@ enum CredentialProvider {
   GOOGLE_CHAT_OAUTH
   TRELLO
   SENTRY
+  VERCEL
 }
 
 // Provider writes can succeed even when the response is lost. Pending and

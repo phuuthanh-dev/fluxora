@@ -29,6 +29,7 @@ import {
   SiTelegram,
   SiTrello,
   SiSentry,
+  SiVercel,
 } from "react-icons/si";
 import { BsOpenai } from "react-icons/bs";
 
@@ -57,6 +58,7 @@ export type NodeIconName =
   | "rss"
   | "trello"
   | "sentry"
+  | "vercel"
   | "postgres"
   | "github"
   | "facebook"
@@ -91,6 +93,7 @@ export function NodeIcon({ name, size = 18, className = "" }: { name: NodeIconNa
       case "rss": return <Rss {...props} />;
       case "trello": return <SiTrello {...props} />;
       case "sentry": return <SiSentry {...props} />;
+      case "vercel": return <SiVercel {...props} />;
       case "postgres": return <SiPostgresql {...props} />;
       case "github": return <SiGithub {...props} />;
       case "facebook": return <SiFacebook {...props} />;
