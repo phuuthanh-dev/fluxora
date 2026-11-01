@@ -89,6 +89,7 @@
   --provider-sentry: #55328e;
   --provider-vercel: #222a25;
   --provider-supabase: #087e4c;
+  --provider-uptime-kuma: #087d61;
   --provider-postgres: #235c88;
   --provider-github: #181717;
   --provider-facebook: #075bdf;
@@ -217,6 +218,7 @@
   --provider-sentry: #c0a5f4;
   --provider-vercel: #f4f5f0;
   --provider-supabase: #63d9a3;
+  --provider-uptime-kuma: #69ddbd;
   --provider-postgres: #80bce7;
   --provider-github: #f3f6ec;
   --provider-facebook: #9bbcff;

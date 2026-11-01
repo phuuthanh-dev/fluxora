@@ -122,6 +122,7 @@ export const appCatalog: AppDefinition[] = [
   { id: "sentry", label: "Sentry", description: "Find issues in your monitored projects.", icon: "sentry", category: "developer-devops", aliases: ["errors", "monitoring", "issues"] },
   { id: "vercel", label: "Vercel", description: "Inspect project deployments.", icon: "vercel", category: "developer-devops", aliases: ["deployment", "hosting", "projects"] },
   { id: "supabase", label: "Supabase", description: "Read rows from a Supabase project.", icon: "supabase", category: "data", aliases: ["database", "postgres", "tables"] },
+  { id: "uptime-kuma", label: "Uptime Kuma", description: "Start a workflow from a monitor alert.", icon: "uptime-kuma", category: "developer-devops", aliases: ["uptime", "monitoring", "alert"] },
   { id: "rss", label: "RSS", description: "Read items from a public RSS or Atom feed.", icon: "rss", category: "data", aliases: ["feed", "atom", "news"] },
   { id: "postgres", label: "PostgreSQL", description: "Read rows from a PostgreSQL database.", icon: "postgres", category: "data", aliases: ["sql", "database"] },
   { id: "github", label: "GitHub", description: "Automate repositories, issues, and pull requests.", icon: "github", category: "developer-devops", aliases: ["git", "pull request", "issues"] },
@@ -193,6 +194,11 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "webhook",
     available: true,
     defaultConfig: { path: "steam-daily-report", secretRequired: true },
+  },
+  {
+    type: "trigger.uptime-kuma.alert", label: "Uptime Kuma alert", description: "Start when an Uptime Kuma monitor sends an alert.",
+    category: "trigger", libraryGroup: "developer-data", appId: "uptime-kuma", operationId: "monitor-alert", operationLabel: "Monitor alert", operationKind: "trigger", icon: "uptime-kuma", available: true,
+    defaultConfig: { path: "uptime-kuma-alert", secretRequired: true },
   },
   {
     type: "trigger.github.issue-opened",

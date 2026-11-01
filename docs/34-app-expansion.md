@@ -23,7 +23,7 @@ need appropriate authentication and delivery reconciliation.
 | Trello | Create card; select board and list | Owner's API key and token; first 100 accessible open boards/lists, manual ID fallback; list membership checked before write | Implemented locally; synthetic checks only; migration, browser/full verification and real-provider qualification pending |
 | Sentry | List issues for a project | User token with organization/issue read scopes and Global/US/DE region; first page picker with manual slug fallback | Implemented locally; synthetic checks only; migration, browser/full verification and real-provider qualification pending |
 | Reddit | Read/search posts | OAuth and Reddit API eligibility/terms; avoid assuming unrestricted access | Planned |
-| Uptime Kuma | Receive alert through existing generic webhook; assess dedicated adapter | Internal management API is unsupported; do not promise stable monitor management | Planned |
+| Uptime Kuma | Receive monitor alerts via dedicated webhook trigger | Requires `x-workflow-secret` in Uptime Kuma webhook additional headers; normalized payload, no internal management API | Implemented locally; synthetic checks only; browser/full verification and real-provider qualification pending |
 | Vercel | List deployments for a selected project | Owner token; personal/team and project picker; first page with manual ID fallback | Implemented locally; synthetic checks only; migration, browser/full verification and real-provider qualification pending |
 | Supabase | Read rows through the Data API | User's project reference and API key; secret key bypasses RLS; schema discovery can be denied | Implemented locally; synthetic checks only; migration, browser/full verification and real-provider qualification pending |
 
@@ -55,6 +55,16 @@ publishable/anon keys, so the editor allows a manual table name. New API keys us
 the `apikey` header; legacy JWT keys also use bearer authorization. The node does
 not bypass RLS itself: a user-supplied secret/service-role key does. Custom
 domains, custom schemas, filters, mutations and live-provider proof remain open.
+
+Uptime Kuma Monitor Alert uses the existing published-version webhook lifecycle.
+Configure Kuma's Webhook notification as POST + JSON and set the generated
+`x-workflow-secret` in Additional Headers, then attach it to a monitor. A Kuma
+test notification is acknowledged without an execution. For real monitor
+events, only monitor ID/name, heartbeat status/time/ping and message are passed
+on; raw monitor settings are omitted. The shared header is not an HMAC signature
+and does not prevent replay; Kuma does not provide a delivery ID in this path.
+Custom payloads, automatic registration, monitor administration and live
+qualification are not implemented. Reference: [Uptime Kuma 2.5 webhook source](https://github.com/louislam/uptime-kuma/blob/2.5.X/server/notification-providers/webhook.js).
 
 ## Primary references
 

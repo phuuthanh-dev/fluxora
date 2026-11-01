@@ -26,6 +26,8 @@ bounded issue metadata; targeted mocked tests passed. Vercel List Deployments
 uses a separate token and guided account/team and project pickers; targeted
 mocks passed. Supabase Select Rows uses a separate Data API connection, an
 OpenAPI table picker with manual fallback, bounded public-schema reads and an
-explicit secret-key/RLS warning. Reddit and Uptime Kuma have provider notes only.
+explicit secret-key/RLS warning. Uptime Kuma Monitor Alert reuses the webhook
+registration lifecycle with a required shared header and normalized payload;
+targeted mocked tests passed. Reddit has provider notes only.
 The category grouping is the start of UI/UX work, not a full redesign.
 No changes were pushed, merged or deployed.
