@@ -25,9 +25,10 @@ complete in the delivery ledger.
   PR #63's deployment, but has not been qualified with a real Management API
   token. The isolated `npm run verify`
   passed after the Uptime Kuma setup-copy change, including 144 E2E tests.
-  Uptime Kuma's upstream webhook sender passed an isolated HTTP contract
-  experiment using a minimal test superclass, but no complete Uptime Kuma
-  instance or live monitor has been tested. See `docs/35` for exact limits.
+  Uptime Kuma 2.5.9 and a real synthetic HTTP monitor subsequently ran against
+  an isolated Fluxora API and database: DOWN and recovery executions succeeded.
+  Production, TLS, retry, replay and sustained delivery remain unqualified.
+  See `docs/35` for exact limits.
 
 - PR #60 merged as `2eebdbc` and PR #61 as `2cc2537`; their production
   deployments succeeded. The RSS CDATA fix passed a production live read of
