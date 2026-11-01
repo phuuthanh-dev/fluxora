@@ -17,7 +17,11 @@ export async function listGoogleChatSpaces(token: string, transport: Transport =
     if (!entry || typeof entry !== "object") return [];
     const space = entry as Record<string, unknown>;
     if (typeof space.name !== "string" || !/^spaces\/[A-Za-z0-9_-]{1,128}$/.test(space.name)) return [];
-    return [{ id: space.name, name: typeof space.displayName === "string" && space.displayName.trim() ? space.displayName.slice(0, 160) : space.name }];
+    const displayName = typeof space.displayName === "string" ? space.displayName.trim() : "";
+    const fallback = space.spaceType === "DIRECT_MESSAGE" ? "Direct message"
+      : space.spaceType === "GROUP_CHAT" ? "Group conversation"
+      : space.spaceType === "SPACE" ? "Unnamed space" : "Unnamed conversation";
+    return [{ id: space.name, name: displayName ? displayName.slice(0, 160) : `${fallback} · ${space.name}` }];
   });
   return { spaces, hasMore: typeof data.nextPageToken === "string" && data.nextPageToken.length > 0 };
 }

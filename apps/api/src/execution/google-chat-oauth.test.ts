@@ -25,3 +25,21 @@ test("Google Chat space listing handles empty and trims provider data", async ()
   const result = await listGoogleChatSpaces("synthetic-token", async () => new Response(JSON.stringify({ spaces: [{ name: "spaces/abc", displayName: "Team", secret: "ignored" }] })));
   assert.deepEqual(result.spaces, [{ id: "spaces/abc", name: "Team" }]);
 });
+
+test("Google Chat labels unnamed conversations without inventing names or changing IDs", async () => {
+  const result = await listGoogleChatSpaces("synthetic-token", async () => new Response(JSON.stringify({ spaces: [
+    { name: "spaces/room", displayName: " Notification ", spaceType: "SPACE" },
+    { name: "spaces/dm", displayName: "", spaceType: "DIRECT_MESSAGE" },
+    { name: "spaces/group", spaceType: "GROUP_CHAT" },
+    { name: "spaces/unnamed", spaceType: "SPACE" },
+    { name: "spaces/unknown" },
+    { name: "https://invalid", displayName: "Ignored" },
+  ] })));
+  assert.deepEqual(result.spaces, [
+    { id: "spaces/room", name: "Notification" },
+    { id: "spaces/dm", name: "Direct message · spaces/dm" },
+    { id: "spaces/group", name: "Group conversation · spaces/group" },
+    { id: "spaces/unnamed", name: "Unnamed space · spaces/unnamed" },
+    { id: "spaces/unknown", name: "Unnamed conversation · spaces/unknown" },
+  ]);
+});

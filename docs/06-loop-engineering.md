@@ -44,6 +44,11 @@ implemented locally with separate workspace credentials. Final isolated gate
 passed; provider qualification and production release remain separate. See
 `.agent/reports/2026-11-01-mongodb-chat-connectors.md` for limits and evidence.
 
+Further L4 follow-up: Google Chat displays provider names or type-labelled IDs
+for unnamed conversations. After an initial HTTP 404 and owner-approved Chat app
+configuration, one live Notification message succeeded. See
+`.agent/reports/2026-11-01-chat-space-labels.md`.
+
 | Loop | Outcome | Status | Proof required |
 |---|---|---:|---|
 | L14.1 | Account settings and password recovery (ACCOUNT-1) | Complete locally | Own profile/session management, current-password change, atomic one-use reset, encrypted system SMTP outbox; isolated PostgreSQL security/concurrency proof and full verify passed: 226 API, 23 web, 86 E2E. All 12 new route/theme/viewport screenshots reviewed. System email remains opt-in and unqualified for real delivery. See docs/29 and account-recovery report. |
