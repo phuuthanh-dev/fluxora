@@ -25,6 +25,19 @@ export function trelloDiscoveryError(error: unknown, resource: "boards" | "lists
   return new BadRequestException({ code: resource === "boards" ? "TRELLO_BOARDS_UNAVAILABLE" : "TRELLO_LISTS_UNAVAILABLE", message: `${prefix} could not be loaded. ${guidance}` });
 }
 
+export function supabaseDiscoveryError(error: unknown) {
+  if (error instanceof NodeFailure && (error.code === "SUPABASE_DISCOVERY_RESTRICTED" || error.statusCode === 403)) {
+    return new BadRequestException({ code: "SUPABASE_DISCOVERY_RESTRICTED", message: "Supabase denied schema discovery. Publishable and anon keys can still read permitted rows; enter the table name manually." });
+  }
+  let guidance = "Check the connection or enter the table name manually.";
+  if (error instanceof NodeFailure) {
+    if (error.code === "CREDENTIAL_INVALID" || error.statusCode === 401) guidance = "Check the project reference and API key, or enter the table name manually.";
+    else if (error.statusCode === 429) guidance = "Supabase rate limited the request. Retry later or enter the table name manually.";
+    else if (error.code === "TIMEOUT" || error.code === "NETWORK_ERROR") guidance = "Supabase could not be reached. Retry or enter the table name manually.";
+  }
+  return new BadRequestException({ code: "SUPABASE_TABLES_UNAVAILABLE", message: `Tables could not be listed. ${guidance}` });
+}
+
 @Controller("workspaces/:workspaceId/credentials/:credentialId")
 @UseGuards(AuthenticationGuard)
 export class ConnectorResourceController {
@@ -36,10 +49,7 @@ export class ConnectorResourceController {
     await this.credentials.requireOwner(workspaceId, request.currentUser.id);
     const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.SUPABASE);
     try { return await listSupabaseTables(credential); }
-    catch (error) {
-      if (error instanceof NodeFailure && error.statusCode === 403) throw new BadRequestException({ code: "SUPABASE_DISCOVERY_RESTRICTED", message: "Supabase denied schema discovery. Publishable and anon keys can still read permitted rows; enter the table name manually." });
-      throw new BadRequestException({ code: "SUPABASE_TABLES_UNAVAILABLE", message: "Tables could not be listed. Check the connection or enter the table name manually." });
-    }
+    catch (error) { throw supabaseDiscoveryError(error); }
   }
 
   @Get("vercel/teams")

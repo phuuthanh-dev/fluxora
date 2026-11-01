@@ -103,7 +103,7 @@ export function ResourcePicker({ workspaceId, resource, credentialId, dependency
         setNextPage(resource === "github-repository" ? response.nextPage ? String(response.nextPage) : null : response.nextPageToken ?? null);
       } })
       .catch((reason) => { if (isCurrent) {
-        if (resource === "supabase-table" && reason instanceof ApiClientError && reason.code === "SUPABASE_DISCOVERY_RESTRICTED") {
+        if (resource === "supabase-table" && reason instanceof ApiClientError && (reason.code === "SUPABASE_DISCOVERY_RESTRICTED" || reason.code === "SUPABASE_TABLES_UNAVAILABLE")) {
           setManual(true);
           setError(null);
           setWarning(reason.message);
