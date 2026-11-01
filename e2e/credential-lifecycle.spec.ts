@@ -33,6 +33,30 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   await page.getByLabel("Manage actions").click();
   await page.getByRole("button", { name: "Credentials" }).click();
 
+  // Secret visibility is per field and only affects the unsaved draft.
+  await page.getByLabel("Provider").selectOption("TRELLO");
+  const trelloKey = page.getByLabel("Trello API key", { exact: true });
+  const trelloToken = page.getByLabel("Trello token", { exact: true });
+  await trelloKey.fill("sample-key");
+  await trelloToken.fill("sample-token");
+  await expect(trelloKey).toHaveAttribute("type", "password");
+  await page.getByRole("button", { name: "Show Trello API key" }).click();
+  await expect(trelloKey).toHaveAttribute("type", "text");
+  await expect(trelloToken).toHaveAttribute("type", "password");
+  await page.getByRole("button", { name: "Hide Trello API key" }).click();
+  await expect(trelloKey).toHaveAttribute("type", "password");
+  await page.getByRole("button", { name: "Show Trello API key" }).click();
+  await page.getByLabel("Provider").selectOption("DISCORD_WEBHOOK");
+  await page.getByLabel("Provider").selectOption("TRELLO");
+  await expect(page.getByLabel("Trello API key", { exact: true })).toHaveAttribute("type", "password");
+  await page.getByLabel("Provider").selectOption("MONGODB");
+  await page.getByLabel("Configuration type").selectOption("connectionString");
+  await page.getByLabel("Connection string", { exact: true }).fill("mongodb+srv://example.test");
+  await page.getByRole("button", { name: "Show Connection string" }).click();
+  await expect(page.getByLabel("Connection string", { exact: true })).toHaveAttribute("type", "text");
+  await page.getByRole("button", { name: "Hide Connection string" }).click();
+  await expect(page.getByLabel("Connection string", { exact: true })).toHaveAttribute("type", "password");
+
   await page.getByRole("button", { name: "Edit JSON", exact: true }).click();
 
   // 1. Create a Discord Webhook credential
@@ -92,6 +116,14 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   await primaryCard.getByLabel("Actions for Discord Ops Main actions").click();
   await primaryCard.getByRole("button", { name: "Rotate secret for Discord Ops Main" }).click();
   await expect(primaryCard.getByText("Existing secret values cannot be displayed for security. Enter all replacement values. The advanced JSON option preserves custom fields.")).toBeVisible();
+
+  const replacementUrl = primaryCard.getByLabel("Webhook URL", { exact: true });
+  await expect(replacementUrl).toHaveValue("");
+  await replacementUrl.fill("https://discord.com/api/webhooks/111/sample");
+  await primaryCard.getByRole("button", { name: "Show Webhook URL" }).click();
+  await expect(replacementUrl).toHaveAttribute("type", "text");
+  await primaryCard.getByRole("button", { name: "Hide Webhook URL" }).click();
+  await expect(replacementUrl).toHaveAttribute("type", "password");
 
   await primaryCard.getByRole("button", { name: "Edit JSON", exact: true }).click();
 

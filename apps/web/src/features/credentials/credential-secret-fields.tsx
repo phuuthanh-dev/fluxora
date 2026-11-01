@@ -1,10 +1,28 @@
 "use client";
 
-import { useState } from "react";
-import { Button, Field, Select } from "../../components/ui";
+import { useEffect, useId, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
+import { Button, Field, IconButton, Select } from "../../components/ui";
 import type { CredentialProvider } from "./credential-types";
 
 type SecretField = { key: string; label: string; secret?: boolean; hint?: string };
+
+function SecretInput({ label, value, hint, onChange }: { label: string; value: string; hint?: string; onChange: (value: string) => void }) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => { if (!value) setVisible(false); }, [value]);
+  const inputId = useId();
+  const hintId = hint ? `${inputId}-hint` : undefined;
+  return <div className="ui-field">
+    <label className="ui-field__label" htmlFor={inputId}>{label}</label>
+    <div className="credential-secret-input">
+      <input id={inputId} aria-label={label} aria-describedby={hintId} type={visible ? "text" : "password"} autoComplete="new-password" spellCheck={false} value={value} onChange={(event) => onChange(event.target.value)} />
+      <IconButton label={`${visible ? "Hide" : "Show"} ${label}`} aria-pressed={visible} onClick={() => setVisible((current) => !current)} className="credential-secret-input__toggle">
+        {visible ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+      </IconButton>
+    </div>
+    {hint && <p id={hintId} className="ui-field__hint">{hint}</p>}
+  </div>;
+}
 const fields: Partial<Record<CredentialProvider, SecretField[]>> = {
   GOOGLE: [{ key: "accessToken", label: "Access token", secret: true }],
   GOOGLE_CHAT_OAUTH: [{ key: "accessToken", label: "Access token", secret: true }],
@@ -58,10 +76,10 @@ export function CredentialSecretFields({ provider, value, onChange, replacement 
     </> : <div className="credential-secret-fields__grid">
       {provider === "MONGODB" && <Field label="Configuration type"><Select aria-label="Configuration type" value={payload?.configurationType === "connectionString" ? "connectionString" : "values"} onChange={(event) => update("configurationType", event.target.value)}><option value="values">Separate fields</option><option value="connectionString">Connection string</option></Select></Field>}
       {provider === "MONGODB" && payload?.configurationType !== "connectionString" && <Field label="Connection type" hint="Auto-detect supports existing connections. Atlas/SRV obtains host and port from DNS."><Select aria-label="Connection type" value={typeof payload?.connectionMode === "string" ? payload.connectionMode : "auto"} onChange={(event) => update("connectionMode", event.target.value)}><option value="auto">Auto-detect</option><option value="srv">Atlas / SRV cluster</option><option value="direct">Single server</option></Select></Field>}
-      {provider === "MONGODB" && payload?.configurationType === "connectionString" && <Field label="Connection string" hint="Use a single public host with TLS. Supported options: authSource, retryWrites, w, appName and tls. Automatic write retries remain disabled."><input aria-label="Connection string" type="password" autoComplete="new-password" spellCheck={false} value={typeof payload?.connectionString === "string" ? payload.connectionString : ""} onChange={(event) => update("connectionString", event.target.value)} /></Field>}
-      {(provider !== "MONGODB" || payload?.configurationType !== "connectionString") && fields[provider]?.map((field) => <Field key={field.key} label={field.label} hint={field.hint}>
-        <input aria-label={field.label} type={field.secret ? "password" : "text"} autoComplete={field.secret ? "new-password" : "off"} spellCheck={false} value={typeof payload?.[field.key] === "string" ? payload[field.key] as string : ""} onChange={(event) => update(field.key, event.target.value)} />
-      </Field>)}
+      {provider === "MONGODB" && payload?.configurationType === "connectionString" && <SecretInput label="Connection string" hint="Use a single public host with TLS. Supported options: authSource, retryWrites, w, appName and tls. Automatic write retries remain disabled." value={typeof payload?.connectionString === "string" ? payload.connectionString : ""} onChange={(next) => update("connectionString", next)} />}
+      {(provider !== "MONGODB" || payload?.configurationType !== "connectionString") && fields[provider]?.map((field) => field.secret
+        ? <SecretInput key={`${provider}-${field.key}`} label={field.label} hint={field.hint} value={typeof payload?.[field.key] === "string" ? payload[field.key] as string : ""} onChange={(next) => update(field.key, next)} />
+        : <Field key={field.key} label={field.label} hint={field.hint}><input aria-label={field.label} type="text" autoComplete="off" spellCheck={false} value={typeof payload?.[field.key] === "string" ? payload[field.key] as string : ""} onChange={(event) => update(field.key, event.target.value)} /></Field>)}
       {provider === "SMTP" && <Field label="Transport">
         <Select value={String(payload?.port ?? 587)} onChange={(event) => update("port", Number(event.target.value))}>
           <option value="587">STARTTLS · port 587</option><option value="465">TLS · port 465</option>
