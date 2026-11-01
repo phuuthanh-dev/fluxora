@@ -19,7 +19,7 @@ need appropriate authentication and delivery reconciliation.
 
 | App | First candidate | Authentication and constraints | State |
 | --- | --- | --- | --- |
-| RSS | Read a bounded RSS/Atom feed; consider trigger separately | Public feed only; uses existing outbound policy, bounded response, rejects DTDs, and limits XML nesting. Secret URLs are not supported. | Local implementation; targeted tests only, full verification and live qualification pending |
+| RSS | Read a bounded RSS/Atom feed; consider trigger separately | Public feed only; bounded response, rejects DTDs, and limits XML nesting. Never put a secret in a URL. | Local adapter prototype only; marked planned and not executable pending connection-time DNS safety |
 | Trello | List boards/lists and create card | Owner's Trello API key and token; check permissions and bounded picker pagination | Planned |
 | Sentry | Read project issues or verified alert webhook | Owner's token or separately registered signed integration; validate event authenticity | Planned |
 | Reddit | Read/search posts | OAuth and Reddit API eligibility/terms; avoid assuming unrestricted access | Planned |

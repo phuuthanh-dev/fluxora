@@ -79,7 +79,6 @@ export const executableWorkflowNodeTypes = [
   "action.mongodb",
   "action.mongodb.insert",
   "action.notion.search-pages",
-  "action.rss.read",
   "action.postgres.select",
   "action.gmail.read",
   "action.google-calendar.list-events",

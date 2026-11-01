@@ -687,7 +687,7 @@ export const nodeCatalog: NodeDefinition[] = [
   },
   {
     type: "action.rss.read", label: "Read RSS feed", description: "Read recent items from a public RSS or Atom feed.",
-    category: "action", libraryGroup: "developer-data", appId: "rss", operationId: "read-feed", operationLabel: "Read feed", operationKind: "search", icon: "rss", available: true,
+    category: "action", libraryGroup: "developer-data", appId: "rss", operationId: "read-feed", operationLabel: "Read feed", operationKind: "search", icon: "rss", available: false,
     defaultConfig: { url: "", limit: 20 },
     configurationFields: [
       { kind: "text", key: "url", label: "Public feed URL (no secrets)" },
