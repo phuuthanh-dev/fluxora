@@ -402,7 +402,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
         </Field>
         {provider === "GOOGLE" ? (
           <div className="credential-form__oauth-helper">
-            <span>For Google Drive and Sheets, use a managed OAuth connection.</span>
+            <span>Google requests access to view, create, edit and delete files in your Drive, including spreadsheets. This connection is separate from Google sign-in.</span>
             <button type="button" className="credential-form__oauth-link" onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google/connect`); }}>
               Connect Google <ArrowUpRight size={13} aria-hidden="true" />
             </button>

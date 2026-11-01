@@ -139,7 +139,7 @@ Action nodes support timeout, retry with exponential backoff, and an error edge.
 
 - Support multiple credentials per provider.
 - Steam Account Snapshot: API key plus Steam ID 64. Steam OpenID is an optional identity-link flow only; it does not replace the API credential.
-- Google Drive and Sheets: Google OAuth 2.0 authorization-code flow handled by the backend, with encrypted refresh tokens.
+- Google Drive and Sheets: Google OAuth 2.0 authorization-code flow handled by the backend, with encrypted refresh tokens. The shared managed connection requests full Drive and Sheets scopes; resource selection happens in node configuration, not during consent.
 - Google account sign-in: a separate OpenID Connect authorization-code flow that links a verified Google subject to the app user. It never stores Drive/Sheets access tokens as account-login state.
 - GitHub account sign-in: an OAuth 2.0 authorization-code flow that links a GitHub subject with a verified email to the app user. It requests only `read:user` and `user:email`, and never persists the provider access token as account-login state.
 - GitHub connector: a separate workspace-owned token credential for workflow actions. `Create Issue` calls the GitHub REST API from the backend; an optional idempotency key is hashed into an HTML comment marker and searched before creation because GitHub's Issues API does not provide a native idempotency key.
@@ -156,7 +156,7 @@ Action nodes support timeout, retry with exponential backoff, and an error edge.
 - Safe deletion & conflict handling: Duplicate `(workspaceId, provider, label)` combinations are rejected with a stable conflict error. Deletion is blocked with a stable `CREDENTIAL_IN_USE` error whenever the credential is referenced by a workflow's current draft or published version, or by an active (queued, running, waiting) execution. Historic versions without active executions do not permanently prevent cleanup.
 - Telegram bot credentials contain only the encrypted bot token for new connections. The node stores the destination type and chat ID; legacy credential-level chat IDs remain a backwards-compatible fallback. DM IDs are positive numeric user IDs, group/supergroup IDs are negative numeric IDs, and channels may use a negative numeric ID or a public `@username`.
 
-Google OAuth must use incremental, least-privilege scopes. Google Drive and Sheets share a Google credential when appropriate.
+The owner has chosen the existing broad Drive and Sheets scopes for workflow automation. Full Drive access is a Google restricted scope; public use requires Google verification and any applicable security assessment. Account sign-in remains separate. A connection attempt without a refresh token returns the user to the matching workspace with an explanation and retry action, without replacing an existing credential.
 
 ## 9. Approval behavior
 

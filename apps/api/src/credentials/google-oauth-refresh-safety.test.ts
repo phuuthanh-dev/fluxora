@@ -25,16 +25,26 @@ test("Google OAuth never replaces an offline connection when the token response 
   const response = { redirect: (value: string) => { redirect = value; } } as unknown as Response;
   try {
     await controller.connect("workspace-1", request, response);
-    const state = new URL(redirect).searchParams.get("state")!;
+    const authorization = new URL(redirect);
+    assert.equal(authorization.searchParams.get("scope"), "https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets");
+    assert.equal(authorization.searchParams.get("access_type"), "offline");
+    assert.equal(authorization.searchParams.get("prompt"), "consent");
+    const state = authorization.searchParams.get("state")!;
     for (const refreshToken of [undefined, null, "", "  ", 123]) {
       globalThis.fetch = async () => new globalThis.Response(JSON.stringify({ access_token: "new-access", refresh_token: refreshToken, expires_in: 3600 }), { status: 200 });
-      await assert.rejects(controller.callback("synthetic-code", state, request, response), (error: unknown) => {
-        const result = error as { response?: { code?: string; message?: string } };
-        return result.response?.code === "GOOGLE_OAUTH_REFRESH_TOKEN_MISSING" && !JSON.stringify(result.response).includes("new-access");
-      });
+      await controller.callback("synthetic-code", state, request, response);
+      const recovery = new URL(redirect);
+      assert.equal(recovery.origin, "https://example.test");
+      assert.equal(recovery.pathname, "/dashboard/connections");
+      assert.equal(recovery.searchParams.get("workspace"), "workspace-1");
+      assert.equal(recovery.searchParams.get("google_oauth"), "missing_refresh");
+      assert.ok(!redirect.includes("new-access") && !redirect.includes("synthetic-code"));
       assert.equal(saves, 0);
       assert.deepEqual(saved, { accessToken: "old-access", refreshToken: "old-refresh" });
     }
+    await assert.rejects(controller.callback("synthetic-code", `${state}tampered`, request, response));
+    await assert.rejects(controller.callback("synthetic-code", state, { currentUser: { id: "other-user" } } as never, response));
+    assert.equal(saves, 0);
     for (const expiresIn of [undefined, 0, -1, "3600", Number.MAX_SAFE_INTEGER]) {
       globalThis.fetch = async () => new globalThis.Response(JSON.stringify({ access_token: "new-access", refresh_token: "new-refresh", expires_in: expiresIn }), { status: 200 });
       await assert.rejects(controller.callback("synthetic-code", state, request, response));

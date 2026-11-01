@@ -151,6 +151,10 @@ The MVP pins Prisma ORM 6.12.0 because the local Node 23 runtime is outside Pris
   not be combined with a new grant unless the Google account identity has been
   verified; retrying consent may be required. This guard does not repair a
   credential that was already saved without a refresh token.
+- After validating signed state and the user session, a missing refresh token
+  redirects to the fixed Connections route with the verified workspace ID and
+  a non-secret status code. The page explains the failure and offers a retry;
+  no authorization code, token or provider response is included in the URL.
 - Google Drive/Sheets use a shared OAuth credential where scopes allow it.
 - Owner-scoped resource discovery proxies paginated Drive text files and Google spreadsheets through the API, returning file IDs and names without credentials. Search operates on loaded pages; users can enter IDs or expressions manually. The existing OAuth connection currently requests broad Drive access; a narrower scope and Google Picker flow require separate compatibility review.
 - Google Chat incoming webhook URLs are treated as secrets and deliver outward notifications via the notification dispatcher.

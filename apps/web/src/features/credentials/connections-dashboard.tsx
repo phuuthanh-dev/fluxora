@@ -3,7 +3,7 @@
 import { ArrowLeft, KeyRound } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { apiRequest } from "../api/api-client";
+import { apiRequest, apiUrl } from "../api/api-client";
 import { Button, EmptyState, PageHeader, Skeleton, Status } from "../../components/ui";
 import { CredentialManager } from "./credential-panel";
 import { AppShellHeader } from "../app-shell/app-shell-header";
@@ -41,6 +41,7 @@ export function ConnectionsDashboard() {
   }, [router, searchParams]);
 
   const activeWorkspace = useMemo(() => workspaces.find((workspace) => workspace.id === workspaceId), [workspaceId, workspaces]);
+  const googleRefreshMissing = searchParams.get("google_oauth") === "missing_refresh" && searchParams.get("workspace") === workspaceId;
 
   const switchWorkspace = (nextWorkspaceId: string) => {
     setWorkspaceId(nextWorkspaceId);
@@ -68,6 +69,18 @@ export function ConnectionsDashboard() {
           actions={<Button variant="secondary" onClick={() => router.push("/dashboard")}><ArrowLeft size={15} /> Dashboard</Button>}
         />
         {error ? <Status tone="error" className="connections-error">{error}<Button variant="ghost" onClick={() => window.location.reload()}>Retry</Button></Status> : null}
+        {!error && googleRefreshMissing && activeWorkspace ? (
+          <Status tone="error" className="connections-oauth-error">
+            <div>
+              <strong>Google connection needs another try</strong>
+              <p>Google did not return a refresh token. Any existing connection was not changed. Try connecting again to allow workflows to run when you are away.</p>
+            </div>
+            <div className="connections-oauth-error__actions">
+              <Button variant="secondary" onClick={() => window.location.assign(`${apiUrl}/workspaces/${encodeURIComponent(workspaceId)}/credentials/google/connect`)}>Try Google again</Button>
+              <Button variant="ghost" onClick={() => router.replace(`/dashboard/connections?workspace=${encodeURIComponent(workspaceId)}`)}>Dismiss</Button>
+            </div>
+          </Status>
+        ) : null}
         {!error && !workspaceId ? (
           <EmptyState
             icon={<KeyRound size={24} />}

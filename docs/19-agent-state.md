@@ -4,7 +4,33 @@ This file is the compact, machine-checked handoff point for the next coding
 loop. It prevents an agent from proposing implementation work that is already
 complete in the delivery ledger.
 
-## Current release snapshot — 2026-10-30
+## Latest verified snapshot — 2026-11-01
+
+- PR #52 shipped the Google refresh-token guard at `2514147`; main quality
+  run `41228624481` and production deploy `41229373344` succeeded. Public
+  liveness, readiness and web root returned 200 after deploy.
+- Google verification is submitted and data access is under review; Drive's
+  restricted scope is not yet approved. The public consent decision and any
+  required CASA assessment belong to Google and the assessment process.
+- One local demo Sheets read succeeded on 2026-11-01 using the owner-approved
+  synthetic spreadsheet. The managed credential's metadata timestamp changed
+  inside the run; code inspection supports refresh as the explanation, but
+  no token or provider response was inspected. Production refresh remains
+  unverified.
+- The owner-approved SMTP test message sent on 2026-10-31 was observed in the
+  intended recipient's inbox on 2026-11-01. This is one Gmail-to-Gmail delivery,
+  not proof of general deliverability or sustained production operation.
+- Deployment logs show a PostgreSQL backup was created on the VPS on 2026-11-01
+  Vietnam time. The prior isolated restore was on 2026-10-28; no recent off-host
+  copy or restore evidence is available. Do not infer the cause of the reported
+  missing workflows or credentials from health checks alone.
+- `EDITOR-QUALIFICATION-1` follow-up adds missing-refresh recovery UX and
+  clarifies the already-approved broad scopes locally; see its task/report.
+  This local follow-up has not been pushed or deployed.
+
+The older snapshots below describe their dates and must not be read as current.
+
+## Historical release snapshot — 2026-10-30
 
 PR #46 merged develop → main at `3ee77fc4d1b8976282b8ec72ad2044d09c798ea8`.
 Main quality run `40911982815` and deploy run `40913079403` succeeded; public login
@@ -96,7 +122,7 @@ one of these IDs or explicitly reopen a completed ledger slice.
 | ID | Outcome | Status | Owner/evidence boundary |
 |---|---|---|---|
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
-| `CONNECTOR-LIVE-2` | Remaining Google, GitHub and SMTP live qualification | pending | Drive upload/read, Sheets append/read/update, GitHub create issue/comment/label and one Gmail SMTP submission succeeded on owner-approved test resources. Google refresh, GitHub PR merge, SMTP inbox placement and sustained delivery remain unverified. See the 2026-10-31 connector reports. |
+| `CONNECTOR-LIVE-2` | Remaining Google, GitHub and SMTP live qualification | pending | Drive upload/read, Sheets append/read/update, GitHub create issue/comment/label and one Gmail SMTP delivery to the intended inbox succeeded on owner-approved test resources. Local Google refresh is inferred from a credential update during a successful demo run; production refresh, GitHub PR merge and sustained delivery remain unverified. See the 2026-10-31 connector reports and 2026-11-01 recovery report. |
 | `AI-GEMINI-1` | Gemini text generation with workspace credential, model discovery and execution | pending | Local live generation succeeded once with Gemini 3.1 Flash Lite; a 2.5 Flash request returned 404 and a 3.8 Flash request timed out. Causes, other models and sustained or production behavior remain unverified. See `.agent/reports/2026-10-31-gemini-live.md`. |
 | `AI-OPENAI-1` | OpenAI text generation with workspace credential, model discovery and execution | pending | Implemented and verified locally; owner deferred real-provider testing. Migration applied only to local database. |
 | `EDITOR-QUALIFICATION-1` | Audit credential status, picker, validation and mock/live node-debug UX | planned | Reuse completed editor work; implement only evidenced gaps |
