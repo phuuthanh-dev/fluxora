@@ -492,6 +492,9 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px soli
 .palette-search { background: var(--panel); border-color: var(--line); color: var(--icon-muted); }
 .palette-search kbd { background: var(--panel); border-color: var(--line); color: var(--text-tertiary); }
 .palette-results { border-color: var(--line); color: var(--text-tertiary); }
+.palette-app-category { margin-top: 16px; }
+.palette-app-category h4 { align-items: center; color: var(--text-secondary); display: flex; font-size: 12px; font-weight: 700; justify-content: space-between; letter-spacing: .02em; margin: 0 0 8px; }
+.palette-app-category h4 span { color: var(--text-tertiary); font-size: 11px; font-weight: 500; }
 .palette-results button { color: var(--text-accent); }
 .section-label { color: var(--text-tertiary); }
 .palette-group > header h3 { color: var(--text-secondary); }

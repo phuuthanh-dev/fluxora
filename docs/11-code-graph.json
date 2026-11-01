@@ -545,6 +545,7 @@
         "apps/api/src/execution/redaction.ts",
         "apps/api/src/execution/retention-policy.ts",
         "apps/api/src/execution/retry-policy.ts",
+        "apps/api/src/execution/rss-read.ts",
         "apps/api/src/execution/smtp-email.ts",
         "apps/api/src/workflows/workflow-graph.ts"
       ],
@@ -764,6 +765,17 @@
       "boundary": "api",
       "internalImports": [],
       "externalImports": []
+    },
+    {
+      "id": "apps/api/src/execution/rss-read.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts"
+      ],
+      "externalImports": [
+        "fast-xml-parser"
+      ]
     },
     {
       "id": "apps/api/src/execution/smtp-email.ts",
@@ -2881,6 +2893,10 @@
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/rss-read.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/execution/smtp-email.ts"
     },
     {
@@ -3042,6 +3058,14 @@
     {
       "from": "apps/api/src/execution/provider-json.ts",
       "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/rss-read.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/rss-read.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
     },
     {
       "from": "apps/api/src/execution/smtp-email.ts",

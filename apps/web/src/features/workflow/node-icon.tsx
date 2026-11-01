@@ -5,6 +5,7 @@ import {
   Globe2,
   Mail,
   Play,
+  Rss,
   Shuffle,
   Webhook,
 } from "lucide-react";
@@ -51,6 +52,7 @@ export type NodeIconName =
   | "gemini"
   | "mongodb"
   | "notion"
+  | "rss"
   | "postgres"
   | "github"
   | "facebook"
@@ -82,6 +84,7 @@ export function NodeIcon({ name, size = 18, className = "" }: { name: NodeIconNa
       case "gemini": return <Icon icon={googleGeminiIcon} {...multicolorProps} />;
       case "mongodb": return <SiMongodb {...props} />;
       case "notion": return <SiNotion {...props} />;
+      case "rss": return <Rss {...props} />;
       case "postgres": return <SiPostgresql {...props} />;
       case "github": return <SiGithub {...props} />;
       case "facebook": return <SiFacebook {...props} />;

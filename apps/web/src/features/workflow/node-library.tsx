@@ -137,6 +137,10 @@ export const NodeLibrary = forwardRef<NodeLibraryHandle, NodeLibraryProps>(funct
     const operations = operationsForApp(app.id);
     return operations.some((operation) => filteredDefinitions.includes(operation));
   });
+  const appGroups = nodeLibraryFilters.flatMap((category) => {
+    const apps = visibleApps.filter((app) => app.category === category.id);
+    return apps.length ? [{ id: category.id, label: category.label, apps }] : [];
+  });
   const filteredCore = coreNodeDefinitions().filter((definition) => filteredDefinitions.includes(definition));
   const resultCount = selectedApp ? selectedOperations.length : filteredDefinitions.length;
   const hasSearch = Boolean(search.trim());
@@ -200,7 +204,7 @@ export const NodeLibrary = forwardRef<NodeLibraryHandle, NodeLibraryProps>(funct
         {nodeLibraryFilters.map((candidate) => <button key={candidate.id} type="button" className={filter === candidate.id ? "palette-filter palette-filter--active" : "palette-filter"} aria-pressed={filter === candidate.id} onClick={() => { setFilter(candidate.id); if (candidate.id === "core") setSelectedAppId(null); }}>{candidate.label}</button>)}
       </div>
       <div className="palette-results" aria-live="polite">
-        <span>{resultCount} {resultCount === 1 ? "operation" : "operations"}</span>
+        <span>{!selectedApp && !hasSearch && filter !== "core" ? `${visibleApps.length} ${visibleApps.length === 1 ? "app" : "apps"} · ` : ""}{resultCount} {resultCount === 1 ? "operation" : "operations"}</span>
         {(search || filter !== "all" || selectedApp) && <button type="button" onClick={clearFilters}>Clear filters</button>}
       </div>
 
@@ -234,11 +238,11 @@ export const NodeLibrary = forwardRef<NodeLibraryHandle, NodeLibraryProps>(funct
             const definitions = filteredCore.filter((definition) => definition.libraryGroup === group.id);
             return definitions.length > 0 ? <OperationSection key={group.id} id={group.id} label={group.label} description={group.description} definitions={definitions} favoriteTypes={favoriteTypes} onAdd={addOperation} onDragStart={dragOperation} onToggleFavorite={toggleFavorite} /> : null;
           })}
-          {filter !== "core" && visibleApps.length > 0 && <section className="palette-group palette-apps" aria-labelledby="palette-apps-heading"><header><div><h3 id="palette-apps-heading">Apps & services</h3><p>Select an app, then choose its operation</p></div><span>{visibleApps.length}</span></header><div className="palette-app-grid" onKeyDown={(event) => moveCollectionFocus(event, ".palette-app", false)}>{visibleApps.map((app) => {
+          {filter !== "core" && visibleApps.length > 0 && <section className="palette-group palette-apps" aria-labelledby="palette-apps-heading"><header><div><h3 id="palette-apps-heading">Apps & services</h3><p>Select an app, then choose its operation</p></div><span>{visibleApps.length}</span></header><div onKeyDown={(event) => moveCollectionFocus(event, ".palette-app", false)}>{appGroups.map((group) => <div className="palette-app-category" key={group.id}><h4>{group.label}<span>{group.apps.length}</span></h4><div className="palette-app-grid">{group.apps.map((app) => {
             const operations = operationsForApp(app.id).filter((definition) => filteredDefinitions.includes(definition));
             const planned = operations.every((definition) => !definition.available);
             return <button className="palette-app" data-app-id={app.id} key={app.id} type="button" onClick={() => openApp(app.id)} aria-label={`Open ${app.label}, ${operations.length} ${operations.length === 1 ? "operation" : "operations"}${planned ? ", planned" : ""}`}><span className="palette-app__icon"><NodeIcon name={app.icon} size={19} /></span><span><strong>{app.label}</strong><small>{operations.length} {operations.length === 1 ? "operation" : "operations"}</small></span>{planned && <em>Planned</em>}</button>;
-          })}</div></section>}
+          })}</div></div>)}</div></section>}
         </>
       )}
 
