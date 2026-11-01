@@ -50,9 +50,30 @@ async function readBounded(response: Response) {
   return new TextDecoder().decode(bytes);
 }
 
+function hasUnsafeDeclaration(xml: string) {
+  let offset = 0;
+  while ((offset = xml.indexOf("<", offset)) !== -1) {
+    const endMarker = xml.startsWith("<!--", offset) ? "-->"
+      : xml.startsWith("<![CDATA[", offset) ? "]]>"
+      : xml.startsWith("<?", offset) ? "?>" : null;
+    if (endMarker) {
+      const end = xml.indexOf(endMarker, offset + 2);
+      // Fail closed even if the XML validator changes its behavior.
+      if (end === -1) return true;
+      offset = end + endMarker.length;
+      continue;
+    }
+    if (/^<!\s*(?:DOCTYPE|ENTITY)\b/i.test(xml.slice(offset))) return true;
+    offset += 1;
+  }
+  return false;
+}
+
 export function parseRssFeed(xml: string, limit: number) {
-  // Never process external entities or DTD declarations from untrusted feeds.
-  if (/<!\s*(?:DOCTYPE|ENTITY)\b/i.test(xml) || XMLValidator.validate(xml) !== true) throw new NodeFailure("INVALID_RESPONSE", "Feed contains invalid or unsupported XML.", false);
+  // CDATA and comments are literal content, not XML declarations. Validate
+  // first so malformed delimiters cannot hide a real DTD or entity declaration.
+  if (XMLValidator.validate(xml) !== true) throw new NodeFailure("INVALID_RESPONSE", "Feed contains invalid or unsupported XML.", false);
+  if (hasUnsafeDeclaration(xml)) throw new NodeFailure("INVALID_RESPONSE", "Feed contains invalid or unsupported XML.", false);
   let root: Record<string, unknown> | undefined;
   try { root = record(new XMLParser({ ignoreAttributes: false, removeNSPrefix: true, maxNestedTags: 32 }).parse(xml)); }
   catch { throw new NodeFailure("INVALID_RESPONSE", "Feed contains invalid or unsupported XML.", false); }

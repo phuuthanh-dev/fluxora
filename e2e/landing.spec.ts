@@ -337,7 +337,7 @@ test("no JavaScript still provides content, navigation, FAQ and sign-in links", 
     viewport: { width: 390, height: 844 },
   });
   const page = await context.newPage();
-  await page.goto("http://localhost:3000/");
+  await page.goto("/");
   await expect(
     page.getByRole("heading", { name: "Good work. On autopilot." }),
   ).toBeVisible();

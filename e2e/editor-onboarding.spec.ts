@@ -134,6 +134,10 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   const communicationGroup = page.locator(".palette-app-category").filter({ has: page.getByRole("heading", { name: /Communication/ }) });
   await expect(communicationGroup.getByRole("button", { name: /Open Telegram/ })).toBeVisible();
   await expect(communicationGroup.getByRole("button", { name: /Open Discord/ })).toBeVisible();
+  await communicationGroup.getByRole("button", { name: "Collapse Communication" }).click();
+  await expect(communicationGroup.getByRole("button", { name: /Open Telegram/ })).toHaveCount(0);
+  await communicationGroup.getByRole("button", { name: "Expand Communication" }).click();
+  await expect(communicationGroup.getByRole("button", { name: /Open Telegram/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /Manual trigger/ })).toHaveCount(0);
   await page.getByLabel("Search apps and operations").fill("Instagram");
   await expect(page.getByRole("button", { name: /Instagram.*Planned/ })).toHaveAttribute("aria-disabled", "true");
@@ -141,15 +145,18 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
 
   await page.getByRole("button", { name: /Open Telegram/ }).click();
   await expect(page.getByRole("heading", { name: "Telegram" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Actions", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Add Send message to favorites" }).click();
   await page.getByRole("button", { name: /Telegram: Send message/ }).click();
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page.getByRole("heading", { name: "Favorites" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Recently used" })).toBeVisible();
+  await page.getByRole("button", { name: "Collapse Data" }).click();
   await page.reload();
   await expect(page.getByRole("heading", { name: "Steam daily report" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Favorites" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Recently used" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Expand Data" })).toBeVisible();
 
   await page.getByRole("button", { name: /Switch Route to multiple cases/ }).click();
   await expect(page.getByText("SWITCH CASES")).toBeVisible();
@@ -322,9 +329,9 @@ test("node library and editor menus support keyboard-only navigation", async ({ 
   await expect(coreFilter).toHaveAttribute("aria-pressed", "true");
   await allFilter.click();
 
-  const googleChatApp = page.getByRole("button", { name: /Open Google Chat/ });
-  await googleChatApp.focus();
-  await page.keyboard.press("ArrowDown");
+  const emailApp = page.getByRole("button", { name: /Open Email/ });
+  await emailApp.focus();
+  await page.keyboard.press("ArrowUp");
   const discordApp = page.getByRole("button", { name: /Open Discord/ });
   await expect(discordApp).toBeFocused();
   await page.keyboard.press("Enter");

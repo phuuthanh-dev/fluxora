@@ -12,7 +12,7 @@ test("Supabase table discovery offers a manual fallback when schema access is de
     if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
     if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
     if (path.endsWith("/credentials")) return send({ credentials: [{ id: "supabase-1", provider: "SUPABASE", label: "My Supabase" }] });
-    if (path.endsWith("/supabase/tables")) return route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ code: "SUPABASE_TABLES_UNAVAILABLE", message: "Schema discovery is unavailable; enter the table name manually." }) });
+    if (path.endsWith("/supabase/tables")) return route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ code: "SUPABASE_DISCOVERY_RESTRICTED", message: "Schema discovery is unavailable; enter the table name manually." }) });
     if (path.endsWith("/workflows/supabase-test")) return send({ workflow });
     return route.continue();
   });
@@ -20,7 +20,6 @@ test("Supabase table discovery offers a manual fallback when schema access is de
   await page.locator(".react-flow__node").filter({ hasText: "Select rows" }).click();
   await expect(page.getByLabel("Supabase connection")).toHaveValue("supabase-1");
   const table = page.getByRole("group", { name: "Table" });
-  await expect(table.getByRole("alert")).toContainText("Schema discovery");
-  await table.getByRole("button", { name: "Enter value or expression" }).click();
+  await expect(table.getByRole("status")).toContainText("Schema discovery");
   await expect(table.getByRole("textbox", { name: "Table value" })).toHaveValue("items");
 });

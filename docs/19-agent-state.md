@@ -6,15 +6,14 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-01
 
-- `APP-EXPANSION-1` on local `codex/connector-catalog-expansion` adds one scoped
-  operation each for RSS, Trello, Sentry, Reddit, Uptime Kuma, Vercel and
-  Supabase. Grouped app discovery and connection-provider search are implemented;
-  `npm run verify` passed against disposable services (143 Playwright passed;
-  340 API tests passed and 1 skipped). Proof boundaries are in
-  `.agent/reports/2026-11-01-app-expansion-progress.md` and `docs/34-app-expansion.md`.
-  Real-provider qualification, production migrations and release are pending;
-  do not describe these as shipped.
-
+- PR #58 merged as `955c00c`; quality gate and production deploy succeeded.
+  On 2026-11-01, the deployed web root and API liveness/readiness returned 200.
+  Deploy logs show a local PostgreSQL backup and migration container completion;
+  no recent restore or full workflow/credential audit is implied. Seven initial
+  operations shipped; provider-specific live qualification remains outstanding.
+  A local public RSS test found CDATA doctype text was rejected; fix and proof
+  are tracked in `.agent/tasks/2026-11-01-rss-cdata-fix.md` and the associated
+  report. No conclusion about production fix until released.
 - PR #56 (`develop` → `main`) merged at `bd2519d`; it includes Notion search
   and PostgreSQL select. Notion search was qualified once locally; broader
   live and production qualification remains. See `.agent/reports/2026-11-01-notion-postgres.md`.
@@ -144,6 +143,12 @@ evidence only; it does not substitute for future provider-specific smoke tests.
 - `EMAIL-SMTP-1` — Dedicated SMTP Email action has encrypted `SMTP` credentials, TLS-only submission policy, mock/live contract, redaction and provider-failure classification. An owner-approved Gmail SMTP submission succeeded locally on 2026-10-31; inbox placement and production execution remain unverified. Attachments, Gmail OAuth, bulk sending and inbound email are out of scope. See `.agent/reports/2026-10-31-smtp-live.md`.
 
 ## Next approved slices
+
+Owner follow-up in progress on `codex/connector-discovery-qualification`: see
+`.agent/tasks/2026-11-01-connector-qualification.md` and
+`docs/35-connector-coverage-and-discovery.md`. Production Sentry, Vercel and
+Supabase read evidence has been recorded; Trello board discovery remains
+unqualified. This is not a completion claim until final verification and release.
 
 These are the only currently approved follow-up directions. A task must target
 one of these IDs or explicitly reopen a completed ledger slice.

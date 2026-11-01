@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Delete, Get, Inject, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Controller, Delete, Get, Header, Inject, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
 import { CredentialService } from "./credential.service";
@@ -9,11 +9,13 @@ export class CredentialController {
   constructor(@Inject(CredentialService) private readonly credentials: CredentialService) {}
 
   @Get()
+  @Header("Cache-Control", "no-store")
   async list(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest) {
     return { credentials: await this.credentials.list(workspaceId, userId(request)) };
   }
 
   @Post()
+  @Header("Cache-Control", "no-store")
   async create(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest) {
     const body = readBody(request.body);
     return { credential: await this.credentials.create(workspaceId, userId(request), {
@@ -33,6 +35,7 @@ export class CredentialController {
   }
 
   @Patch(":credentialId")
+  @Header("Cache-Control", "no-store")
   async update(
     @Param("workspaceId") workspaceId: string,
     @Param("credentialId") credentialId: string,

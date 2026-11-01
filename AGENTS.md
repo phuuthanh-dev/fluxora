@@ -23,7 +23,7 @@ If a request conflicts with the specification, call out the conflict and propose
 
 - The workflow runner is server-side. Browsers never execute credentials or third-party actions.
 - A published workflow version is immutable; executions always point to the version they ran.
-- Stored credentials, OAuth tokens, and existing secrets must never be returned to the browser, logged, committed, or placed in fixtures. The sole exception is a newly generated webhook signing or header-auth secret, returned once to its authenticated workspace owner at creation or rotation so it can be configured with the sender; responses must not be cached, and subsequent reads must never return it.
+- Stored credentials, OAuth tokens, and existing secrets must never be returned in full to the browser, logged, committed, or placed in fixtures. The owner explicitly authorized a fixed mask with at most two trailing characters for allowlisted long opaque provider API keys/tokens in authenticated, non-cacheable workspace credential summaries. Passwords, OAuth credentials, webhook URLs, connection strings and short values are excluded. A newly generated webhook signing or header-auth secret may additionally be returned once to its authenticated workspace owner at creation or rotation so it can be configured with the sender; responses must not be cached, and subsequent reads must never return it.
 - Every action node has structured input, output, timeout, retry, and failure behavior.
 - Every integration is an adapter behind the node-executor contract.
 - Prefer the MVP scope in `docs/01-product-spec.md`; do not casually introduce loops, code execution, RBAC, or unsupported connectors.

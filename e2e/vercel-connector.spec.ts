@@ -12,7 +12,7 @@ test("Vercel setup chooses account and project and clears the previous project",
     if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
     if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
     if (path.endsWith("/credentials")) return send({ credentials: [{ id: "vercel-1", provider: "VERCEL", label: "My Vercel" }] });
-    if (path.endsWith("/vercel/teams")) return send({ teams: [{ id: "personal", name: "Personal account" }, { id: "team_abc", name: "Team" }] });
+    if (path.endsWith("/vercel/teams")) return send({ teams: [{ id: "personal", name: "Personal account" }, { id: "team_abc", name: "Team" }], warning: "Team discovery may be limited." });
     if (path.endsWith("/vercel/projects")) return send({ projects: url.searchParams.get("team") === "personal" ? [{ id: "prj_abc", name: "Web" }] : [] });
     if (path.endsWith("/workflows/vercel-test")) return send({ workflow });
     return route.continue();
@@ -23,6 +23,7 @@ test("Vercel setup chooses account and project and clears the previous project",
   const team = page.getByRole("group", { name: "Account or team" }).getByRole("combobox");
   const project = page.getByRole("group", { name: "Project" }).getByRole("combobox");
   await expect(team.getByRole("option", { name: "Team", exact: true })).toHaveAttribute("value", "team_abc");
+  await expect(page.getByRole("status").filter({ hasText: "Team discovery may be limited." })).toBeVisible();
   await expect(project).toHaveValue("prj_abc");
   await team.selectOption("team_abc");
   await expect(project).toHaveValue("");

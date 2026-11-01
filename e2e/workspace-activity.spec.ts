@@ -19,7 +19,7 @@ test("workspace activity handles aggregate, failure, retry and themes", async ({
   await page.locator('input[autocomplete="new-password"]').fill("e2e-activity-password");
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
-  const api = "http://localhost:3001/api/v1";
+  const api = `http://localhost:${process.env.E2E_API_PORT ?? "3001"}/api/v1`;
   const workspaceResponse = await page.request.get(`${api}/workspaces`);
   expect(workspaceResponse.ok()).toBeTruthy();
   const { workspaces } = await workspaceResponse.json();

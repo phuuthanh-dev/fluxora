@@ -2,6 +2,29 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { PrismaService } from "../database/prisma.service";
 import { CredentialService } from "./credential.service";
+import { CredentialProvider } from "@prisma/client";
+
+test("credential list is owner-scoped and exposes only allowed masked hints", async () => {
+  const secret = "fixture_trello_token_123456789xy";
+  let required = "";
+  const service = new CredentialService({ credential: { findMany: async () => [{ id: "c1", provider: CredentialProvider.TRELLO, label: "Trello", encryptedData: "ciphertext", createdAt: new Date(), updatedAt: new Date() }] } } as never,
+    { requireOwner: async (workspaceId: string, userId: string) => { required = `${workspaceId}/${userId}`; } } as never,
+    { decrypt: () => ({ token: secret }) } as never);
+  const result = await service.list("ws", "owner");
+  assert.equal(required, "ws/owner");
+  assert.deepEqual(result[0]?.hints, [{ field: "token", label: "Token", masked: "••••••xy" }]);
+  assert.equal(JSON.stringify(result).includes(secret), false);
+  assert.equal(JSON.stringify(result).includes("ciphertext"), false);
+});
+
+test("credential hints are not loaded when workspace ownership fails", async () => {
+  let reads = 0;
+  const service = new CredentialService({ credential: { findMany: async () => { reads += 1; return []; } } } as never,
+    { requireOwner: async () => { throw new Error("not owner"); } } as never,
+    { decrypt: () => { throw new Error("must not decrypt"); } } as never);
+  await assert.rejects(service.list("other-workspace", "user"), /not owner/);
+  assert.equal(reads, 0);
+});
 
 test("expired Google OAuth credentials refresh on the server before execution", async () => {
   const updated: Array<{ encryptedData: string }> = [];

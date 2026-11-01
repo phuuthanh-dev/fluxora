@@ -18,7 +18,17 @@ async function get(path: string, credential: Record<string, unknown>, transport:
   let response: Response;
   try { response = await transport(`https://${projectRef}.supabase.co/rest/v1/${path}`, { method: "GET", headers, signal: AbortSignal.timeout(10_000) }); }
   catch (error) { throw nodeFailureFromOutboundPolicy(error); }
-  if (!response.ok) throw new NodeFailure("HTTP_ERROR", `Supabase returned ${response.status}.`, response.status === 429 || response.status >= 500, response.status);
+  if (!response.ok) {
+    // Schema discovery may be denied for anon/publishable keys even when the
+    // same key can read rows under RLS. Never surface raw provider messages.
+    if (openapi && response.status === 401) {
+      try {
+        const body = object(await readBoundedProviderJson(response));
+        if (body?.message === "Access to schema is forbidden") throw new NodeFailure("SUPABASE_DISCOVERY_RESTRICTED", "Supabase denied schema discovery.", false, 403);
+      } catch (error) { if (error instanceof NodeFailure && error.code === "SUPABASE_DISCOVERY_RESTRICTED") throw error; }
+    }
+    throw new NodeFailure("HTTP_ERROR", `Supabase returned ${response.status}.`, response.status === 429 || response.status >= 500, response.status);
+  }
   try { return await readBoundedProviderJson(response); }
   catch (error) { if (error instanceof NodeFailure) throw error; throw new NodeFailure("INVALID_RESPONSE", "Supabase returned an invalid response.", false); }
 }

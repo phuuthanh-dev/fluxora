@@ -63,6 +63,12 @@ The default library contains:
 6. Planned apps and operations that remain discoverable but cannot be added or
    executed.
 
+As the catalog grows, app categories can be expanded or collapsed. App details
+group operations into triggers, actions, searches and utilities. Category
+filters apply at the app-discovery level rather than hiding operations after
+entering an app. Coverage and provider-proof boundaries are recorded in
+`docs/35-connector-coverage-and-discovery.md`.
+
 Search is the primary discovery path. Categories are mutable metadata and must
 not become persisted workflow semantics. A connector with many operations still
 occupies one app card in the top-level library.

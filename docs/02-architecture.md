@@ -77,7 +77,7 @@ live stream or an all-time analytics store.
 ## Monorepo boundaries
 
 ```text
-apps/web: React UI only; never stores provider credentials or executes provider calls. A freshly generated webhook signing or header-auth secret is displayed once to the authenticated owner for manual sender setup and is not retrievable afterward.
+apps/web: React UI only; never stores saved provider credentials or executes provider calls. Owner-authorized credential summaries may include a fixed mask and two trailing characters for specifically allowlisted long opaque API keys/tokens; passwords, OAuth, webhook URLs and connection strings are excluded. Responses containing hints are not cacheable. A freshly generated webhook signing or header-auth secret is displayed once to the authenticated owner for manual sender setup and is not retrievable afterward.
 apps/api: REST API, authentication, persistence, scheduler, node registry, worker.
 packages/workflow-contracts: Shared graph DTOs, node metadata, expression types.
 infra: Docker Compose, deployment scripts, and Nginx templates for the VPS runtime.

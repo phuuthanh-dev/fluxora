@@ -1,7 +1,7 @@
 import { expect, test, request as playwrightRequest } from "@playwright/test";
 import { randomBytes, randomUUID } from "node:crypto";
 
-const api = "http://localhost:3001/api/v1";
+const api = `http://localhost:${process.env.E2E_API_PORT ?? "3001"}/api/v1`;
 
 test("account settings persist a profile, revoke another session and change the password", async ({ page }) => {
   const email = `account-${randomUUID()}@example.test`;

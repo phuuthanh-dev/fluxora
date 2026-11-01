@@ -1,6 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ConnectorResourceController } from "./connector-resource.controller";
+import { ConnectorResourceController, trelloDiscoveryError } from "./connector-resource.controller";
+import { NodeFailure } from "../execution/node-failure";
+
+test("Trello discovery guidance distinguishes permissions without leaking provider content", () => {
+  for (const [status, expected] of [[401, /rejected/], [403, /permissions/], [429, /rate limited/]] as const) {
+    const error = trelloDiscoveryError(new NodeFailure("HTTP_ERROR", "private provider response", false, status), "boards");
+    const response = error.getResponse() as { code: string; message: string };
+    assert.equal(response.code, "TRELLO_BOARDS_UNAVAILABLE");
+    assert.match(response.message, expected);
+    assert.ok(!response.message.includes("private provider response"));
+  }
+  assert.match((trelloDiscoveryError(new Error("secret provider text"), "lists").getResponse() as { message: string }).message, /Check your connection/);
+});
 
 test("connector discovery checks workspace ownership before credential access", async () => {
   let reads = 0;

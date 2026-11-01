@@ -58,7 +58,7 @@ test("privacy, terms and support remain accessible without JavaScript", async ({
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
   for (const item of pages) {
-    await page.goto(`http://localhost:3000${item.path}`);
+    await page.goto(item.path);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(item.title);
   }
   await page.getByRole("navigation", { name: "Footer", exact: true }).getByRole("link", { name: "Privacy" }).click();

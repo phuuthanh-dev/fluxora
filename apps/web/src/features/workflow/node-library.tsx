@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ChevronLeft, Search, Star } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronLeft, Search, Star } from "lucide-react";
 import {
   forwardRef,
   useEffect,
@@ -27,6 +27,7 @@ import { NodeIcon } from "./node-icon";
 
 const favoritesStorageKey = "fluxora.node-library.favorites";
 const recentStorageKey = "fluxora.node-library.recent";
+const collapsedCategoriesStorageKey = "fluxora.node-library.collapsed-categories";
 const recentLimit = 5;
 
 export type NodeLibraryHandle = {
@@ -55,6 +56,14 @@ function definitionsFromTypes(types: string[]) {
     const definition = nodeCatalog.find((candidate) => candidate.type === type);
     return definition ? [definition] : [];
   });
+}
+
+function readCollapsedCategories() {
+  try {
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(collapsedCategoriesStorageKey) ?? "[]");
+    const categories = new Set(appCatalog.map((app) => app.category as string));
+    return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string" && categories.has(value)) : [];
+  } catch { return []; }
 }
 
 function moveCollectionFocus(event: ReactKeyboardEvent<HTMLElement>, selector: string, activate: boolean) {
@@ -89,12 +98,14 @@ export const NodeLibrary = forwardRef<NodeLibraryHandle, NodeLibraryProps>(funct
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
   const [favoriteTypes, setFavoriteTypes] = useState<string[]>([]);
   const [recentTypes, setRecentTypes] = useState<string[]>([]);
+  const [collapsedCategories, setCollapsedCategories] = useState<string[]>([]);
 
   useImperativeHandle(ref, () => ({ focusSearch: () => searchRef.current?.focus() }), []);
 
   useEffect(() => {
     setFavoriteTypes(readStoredNodeTypes(favoritesStorageKey));
     setRecentTypes(readStoredNodeTypes(recentStorageKey));
+    setCollapsedCategories(readCollapsedCategories());
   }, []);
 
   const rememberRecent = (definition: NodeDefinition) => {
@@ -123,6 +134,12 @@ export const NodeLibrary = forwardRef<NodeLibraryHandle, NodeLibraryProps>(funct
     window.localStorage.setItem(favoritesStorageKey, JSON.stringify(next));
   };
 
+  const toggleCategory = (id: string) => {
+    const next = collapsedCategories.includes(id) ? collapsedCategories.filter((category) => category !== id) : [...collapsedCategories, id];
+    setCollapsedCategories(next);
+    window.localStorage.setItem(collapsedCategoriesStorageKey, JSON.stringify(next));
+  };
+
   const filteredDefinitions = useMemo(
     () => nodeCatalog.filter((definition) => matchesNodeLibraryFilter(definition, search.trim() ? "all" : filter, search)),
     [filter, search],
@@ -138,7 +155,7 @@ export const NodeLibrary = forwardRef<NodeLibraryHandle, NodeLibraryProps>(funct
     return operations.some((operation) => filteredDefinitions.includes(operation));
   });
   const appGroups = nodeLibraryFilters.flatMap((category) => {
-    const apps = visibleApps.filter((app) => app.category === category.id);
+    const apps = visibleApps.filter((app) => app.category === category.id).sort((left, right) => left.label.localeCompare(right.label));
     return apps.length ? [{ id: category.id, label: category.label, apps }] : [];
   });
   const filteredCore = coreNodeDefinitions().filter((definition) => filteredDefinitions.includes(definition));
@@ -200,25 +217,23 @@ export const NodeLibrary = forwardRef<NodeLibraryHandle, NodeLibraryProps>(funct
       )}
       <p className="node-palette__hint">{selectedApp ? selectedApp.description : "Choose a core step or open an app to select one operation."}</p>
       <label className="palette-search"><Search size={15} /><span className="visually-hidden">Search apps and operations</span><input ref={searchRef} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search apps and operations" aria-label="Search apps and operations" aria-keyshortcuts="/" /><kbd aria-hidden="true">/</kbd></label>
-      <div className="palette-filters" role="group" aria-label="Filter node library" onKeyDown={(event) => moveCollectionFocus(event, ".palette-filter", true)}>
+      {!selectedApp && <div className="palette-filters" role="group" aria-label="Filter node library" onKeyDown={(event) => moveCollectionFocus(event, ".palette-filter", true)}>
         {nodeLibraryFilters.map((candidate) => <button key={candidate.id} type="button" className={filter === candidate.id ? "palette-filter palette-filter--active" : "palette-filter"} aria-pressed={filter === candidate.id} onClick={() => { setFilter(candidate.id); if (candidate.id === "core") setSelectedAppId(null); }}>{candidate.label}</button>)}
-      </div>
+      </div>}
       <div className="palette-results" aria-live="polite">
         <span>{!selectedApp && !hasSearch && filter !== "core" ? `${visibleApps.length} ${visibleApps.length === 1 ? "app" : "apps"} · ` : ""}{resultCount} {resultCount === 1 ? "operation" : "operations"}</span>
         {(search || filter !== "all" || selectedApp) && <button type="button" onClick={clearFilters}>Clear filters</button>}
       </div>
 
       {selectedApp ? (
-        <OperationSection
-          id={`app-${selectedApp.id}`}
-          label="Operations"
-          description="Choose the exact step this app should perform"
-          definitions={selectedOperations}
-          favoriteTypes={favoriteTypes}
-          onAdd={addOperation}
-          onDragStart={dragOperation}
-          onToggleFavorite={toggleFavorite}
-        />
+        <div className="palette-app-operations">
+          {([
+            { kind: "trigger", label: "Triggers", description: "Start a workflow when something happens" },
+            { kind: "action", label: "Actions", description: "Perform a task in this app" },
+            { kind: "search", label: "Search", description: "Find existing data" },
+            { kind: "utility", label: "Utilities", description: "Other supported operations" },
+          ] as const).map((group) => <OperationSection key={group.kind} id={`app-${selectedApp.id}-${group.kind}`} label={group.label} description={group.description} definitions={selectedOperations.filter((definition) => definition.operationKind === group.kind)} favoriteTypes={favoriteTypes} onAdd={addOperation} onDragStart={dragOperation} onToggleFavorite={toggleFavorite} />)}
+        </div>
       ) : hasSearch ? (
         <OperationSection
           id="search-results"
@@ -238,11 +253,11 @@ export const NodeLibrary = forwardRef<NodeLibraryHandle, NodeLibraryProps>(funct
             const definitions = filteredCore.filter((definition) => definition.libraryGroup === group.id);
             return definitions.length > 0 ? <OperationSection key={group.id} id={group.id} label={group.label} description={group.description} definitions={definitions} favoriteTypes={favoriteTypes} onAdd={addOperation} onDragStart={dragOperation} onToggleFavorite={toggleFavorite} /> : null;
           })}
-          {filter !== "core" && visibleApps.length > 0 && <section className="palette-group palette-apps" aria-labelledby="palette-apps-heading"><header><div><h3 id="palette-apps-heading">Apps & services</h3><p>Select an app, then choose its operation</p></div><span>{visibleApps.length}</span></header><div onKeyDown={(event) => moveCollectionFocus(event, ".palette-app", false)}>{appGroups.map((group) => <div className="palette-app-category" key={group.id}><h4>{group.label}<span>{group.apps.length}</span></h4><div className="palette-app-grid">{group.apps.map((app) => {
+          {filter !== "core" && visibleApps.length > 0 && <section className="palette-group palette-apps" aria-labelledby="palette-apps-heading"><header><div><h3 id="palette-apps-heading">Apps & services</h3><p>Select an app, then choose its operation</p></div><span>{visibleApps.length}</span></header><div onKeyDown={(event) => moveCollectionFocus(event, ".palette-app", false)}>{appGroups.map((group) => <div className="palette-app-category" key={group.id}><h4><button type="button" className="palette-category-toggle" aria-label={`${collapsedCategories.includes(group.id) ? "Expand" : "Collapse"} ${group.label}`} aria-expanded={!collapsedCategories.includes(group.id)} onClick={() => toggleCategory(group.id)}><span>{group.label}</span><span className="palette-category-toggle__meta">{group.apps.length}<ChevronDown size={14} aria-hidden="true" /></span></button></h4>{!collapsedCategories.includes(group.id) && <div className="palette-app-grid">{group.apps.map((app) => {
             const operations = operationsForApp(app.id).filter((definition) => filteredDefinitions.includes(definition));
             const planned = operations.every((definition) => !definition.available);
             return <button className="palette-app" data-app-id={app.id} key={app.id} type="button" onClick={() => openApp(app.id)} aria-label={`Open ${app.label}, ${operations.length} ${operations.length === 1 ? "operation" : "operations"}${planned ? ", planned" : ""}`}><span className="palette-app__icon"><NodeIcon name={app.icon} size={19} /></span><span><strong>{app.label}</strong><small>{operations.length} {operations.length === 1 ? "operation" : "operations"}</small></span>{planned && <em>Planned</em>}</button>;
-          })}</div></div>)}</div></section>}
+          })}</div>}</div>)}</div></section>}
         </>
       )}
 

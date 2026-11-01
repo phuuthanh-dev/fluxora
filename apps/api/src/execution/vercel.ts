@@ -39,7 +39,15 @@ function parameters(team: string, limit: number) {
 }
 
 export async function listVercelTeams(credential: Record<string, unknown>, transport: Transport = fetchSafeOutbound) {
-  const result = await get("v2/teams?limit=100", tokenFrom(credential), transport);
+  let result: Record<string, unknown>;
+  try { result = await get("v2/teams?limit=100", tokenFrom(credential), transport); }
+  catch (error) {
+    if (error instanceof NodeFailure && error.statusCode === 403) return {
+      teams: [{ id: "personal", name: "Personal account" }], hasMore: false,
+      warning: "Vercel denied team discovery for this token. Personal projects may still be available; enter a team ID manually if needed.",
+    };
+    throw error;
+  }
   const teams = optionList(result.teams, (id) => id !== "personal" && validTeam(id));
   return { teams: [{ id: "personal", name: "Personal account" }, ...teams.slice(0, 100)], hasMore: nextPage(result) || teams.length > 100 };
 }
