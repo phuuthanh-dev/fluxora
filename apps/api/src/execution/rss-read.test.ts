@@ -15,6 +15,8 @@ test("untrusted XML, oversized responses and invalid inputs fail safely", async 
   assert.throws(() => parseRssFeed('<!DOCTYPE rss [<!ENTITY a SYSTEM "file:///etc/passwd">]><rss><channel><title>&a;</title></channel></rss>', 1), /unsupported XML/);
   assert.throws(() => parseRssFeed("<html></html>", 1), /Expected an RSS/);
   await assert.rejects(executeRssRead({ url: "https://example.test/feed", limit: 101 }, "mock"), /limit between/);
+  await assert.rejects(executeRssRead({ url: "https://user:password@example.test/feed" }, "mock"), /without embedded credentials/);
+  await assert.rejects(executeRssRead({ url: "not-a-url" }, "mock"), /valid public HTTP/);
   await assert.rejects(executeRssRead({ url: "https://example.test/feed" }, "live", async () => new Response("x".repeat(1_000_001))), /size limit/);
   await assert.rejects(executeRssRead({ url: "https://example.test/feed" }, "live", async () => new Response("", { status: 429 })), (error: unknown) => !!error && typeof error === "object" && "retryable" in error && error.retryable === true);
   assert.throws(() => parseRssFeed(`<rss><channel>${"<a>".repeat(40)}${"</a>".repeat(40)}</channel></rss>`, 1), /unsupported XML/);

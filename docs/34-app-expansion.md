@@ -19,7 +19,7 @@ need appropriate authentication and delivery reconciliation.
 
 | App | First candidate | Authentication and constraints | State |
 | --- | --- | --- | --- |
-| RSS | Read a bounded RSS/Atom feed; consider trigger separately | Public feed only; bounded response, rejects DTDs, and limits XML nesting. Never put a secret in a URL. | Local adapter prototype only; marked planned and not executable pending connection-time DNS safety |
+| RSS | Read a bounded RSS/Atom feed; consider trigger separately | Public feed only; bounded response, rejects DTDs, and limits XML nesting. Never put a secret in a URL. | Executable locally; targeted checks passed, browser/full verification and real-provider qualification pending |
 | Trello | List boards/lists and create card | Owner's Trello API key and token; check permissions and bounded picker pagination | Planned |
 | Sentry | Read project issues or verified alert webhook | Owner's token or separately registered signed integration; validate event authenticity | Planned |
 | Reddit | Read/search posts | OAuth and Reddit API eligibility/terms; avoid assuming unrestricted access | Planned |
@@ -43,7 +43,10 @@ use owner-approved accounts and explicitly designated resources.
 
 ## Outbound boundary follow-up
 
-The current shared outbound policy checks DNS before fetch, but fetch can resolve
-the hostname again. DNS rebinding protection and connection-time address pinning
-need separate security review before describing arbitrary feed URLs as hardened
-for untrusted users. No public feed has been fetched during this implementation.
+For requests using `fetchSafeOutbound`, DNS answers are now checked at socket
+connection time via an Undici dispatcher as well as during URL validation.
+Requests reject local/private/reserved addresses, including mapped IPv6 forms;
+the existing explicit operator allowlist remains an exception. This does not
+cover unrelated direct `fetch`, SMTP, database transports, network-level
+egress policy, or establish a complete SSRF security assessment. Only local,
+synthetic network tests have run; no public feed was fetched.

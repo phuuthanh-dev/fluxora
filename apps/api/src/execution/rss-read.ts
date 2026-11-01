@@ -74,6 +74,10 @@ export async function executeRssRead(config: Record<string, unknown>, mode: "moc
   const url = typeof config.url === "string" ? config.url.trim() : "";
   const limit = config.limit === undefined ? 20 : config.limit;
   if (!url || url.length > 2048 || typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > 100) throw new NodeFailure("INVALID_INPUT", "Enter a public feed URL and a limit between 1 and 100.", false);
+  try {
+    const parsed = new URL(url);
+    if (!["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password) throw new Error("invalid URL");
+  } catch { throw new NodeFailure("INVALID_INPUT", "Enter a valid public HTTP or HTTPS feed URL without embedded credentials.", false); }
   if (mode === "mock") return { status: "succeeded" as const, output: { title: "Example feed", items: [{ title: "Example item", link: "https://example.test/item", id: "example-item", publishedAt: "", summary: "Synthetic feed item" }] }, route: "success" as const };
   let response: Response;
   try { response = await transport(url, { method: "GET", headers: { accept: "application/rss+xml, application/atom+xml, application/xml, text/xml" }, signal: AbortSignal.timeout(10_000) }); }

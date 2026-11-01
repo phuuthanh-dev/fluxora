@@ -1,12 +1,16 @@
 import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
+import { isIP, type LookupFunction } from "node:net";
+import ipaddr from "ipaddr.js";
+import { Agent } from "undici";
 
 type ResolveHost = (hostname: string) => Promise<string[]>;
+type ResolveSocketHost = (hostname: string) => Promise<Array<{ address: string; family: number }>>;
 type FetchImplementation = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 type PolicyDependencies = {
   resolveHost?: ResolveHost;
   fetchImplementation?: FetchImplementation;
+  dispatcher?: Agent;
 };
 
 export class OutboundRequestPolicyError extends Error {
@@ -14,6 +18,31 @@ export class OutboundRequestPolicyError extends Error {
     super(message);
   }
 }
+
+/** Validate the actual socket addresses, not only an earlier DNS lookup. */
+export function createSafeSocketLookup(resolve: ResolveSocketHost = resolveSocketHost): LookupFunction {
+  return (hostname, options, callback) => {
+    void (async () => {
+      const normalized = stripIpv6Brackets(hostname).toLowerCase();
+      if (!normalized || isBlockedHostname(normalized)) throw new OutboundRequestPolicyError("OUTBOUND_URL_BLOCKED", "Outbound request target is not permitted.");
+      const addresses = await resolve(normalized);
+      if (!addresses.length || (!isAllowedHostname(normalized) && addresses.some(({ address }) => isBlockedAddress(address)))) {
+        throw new OutboundRequestPolicyError("OUTBOUND_URL_BLOCKED", "Outbound request target is not permitted.");
+      }
+      const family = Number(options.family) || 0;
+      const candidates = addresses.filter((item) => family === 0 || item.family === family);
+      if (!candidates.length) {
+        const error: NodeJS.ErrnoException = new Error("No suitable address for outbound target.");
+        error.code = "ENOTFOUND";
+        throw error;
+      }
+      if (options.all) callback(null, candidates);
+      else callback(null, candidates[0]!.address, candidates[0]!.family);
+    })().catch((error: unknown) => callback(error instanceof Error ? error : new Error("Outbound resolution failed."), "", 0));
+  };
+}
+
+const safeDispatcher = new Agent({ connect: { lookup: createSafeSocketLookup() } });
 
 export async function assertSafeOutboundUrl(rawUrl: string, dependencies: Pick<PolicyDependencies, "resolveHost"> = {}) {
   let url: URL;
@@ -58,11 +87,15 @@ export async function fetchSafeOutbound(rawUrl: string, init: RequestInit = {}, 
   let requestInit: RequestInit = { ...init, redirect: "manual" };
 
   for (let redirectCount = 0; redirectCount <= 5; redirectCount += 1) {
-    const response = await fetchImplementation(currentUrl, requestInit);
+    // Node's bundled fetch and the installed Undici dispatcher use compatible
+    // runtime interfaces, but their independent declaration versions differ.
+    const dispatchInit = { ...requestInit, dispatcher: dependencies.dispatcher ?? safeDispatcher } as unknown as RequestInit;
+    const response = await fetchImplementation(currentUrl, dependencies.fetchImplementation ? requestInit : dispatchInit);
     if (!isRedirect(response.status)) return response;
 
     const location = response.headers.get("location");
     if (!location) return response;
+    await response.body?.cancel();
     const nextUrl = await assertSafeOutboundUrl(new URL(location, currentUrl).toString(), dependencies);
     if (nextUrl.origin !== currentUrl.origin) {
       throw new OutboundRequestPolicyError("OUTBOUND_REDIRECT_BLOCKED", "Outbound redirect target is not permitted.");
@@ -77,6 +110,10 @@ export async function fetchSafeOutbound(rawUrl: string, init: RequestInit = {}, 
 async function resolvePublicHost(hostname: string) {
   const addresses = await lookup(hostname, { all: true, verbatim: true });
   return addresses.map((entry) => entry.address);
+}
+
+async function resolveSocketHost(hostname: string) {
+  return lookup(hostname, { all: true, verbatim: true });
 }
 
 function isRedirect(status: number) {
@@ -104,9 +141,14 @@ function isAllowedHostname(hostname: string) {
 
 export function isBlockedAddress(address: string) {
   const normalized = stripIpv6Brackets(address).toLowerCase();
-  if (isIP(normalized) === 4) return isBlockedIpv4(normalized);
-  if (isIP(normalized) === 6) return isBlockedIpv6(normalized);
-  return true;
+  if (!isIP(normalized)) return true;
+  const parsed = ipaddr.process(normalized);
+  if (parsed.kind() === "ipv4") return parsed.range() !== "unicast" || isBlockedIpv4(parsed.toString());
+  // Restrict IPv6 to global-unicast space, excluding the special-purpose
+  // 2001::/23 block even where a library labels its subranges as unicast.
+  return parsed.range() !== "unicast"
+    || !parsed.match(ipaddr.IPv6.parse("2000::"), 3)
+    || parsed.match(ipaddr.IPv6.parse("2001::"), 23);
 }
 
 function isBlockedIpv4(address: string) {
@@ -128,16 +170,6 @@ function isBlockedIpv4(address: string) {
     || (first === 198 && second === 51 && third === 100)
     || (first === 203 && second === 0 && third === 113)
     || first >= 224;
-}
-
-function isBlockedIpv6(address: string) {
-  return address === "::" || address === "::1"
-    || address.startsWith("fc")
-    || address.startsWith("fd")
-    || /^fe[89ab]/.test(address)
-    || address.startsWith("ff")
-    || address.startsWith("2001:db8:")
-    || (address.startsWith("::ffff:") && isBlockedIpv4(address.slice("::ffff:".length)));
 }
 
 function stripIpv6Brackets(value: string) {
