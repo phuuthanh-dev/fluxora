@@ -45,6 +45,27 @@ function fixture() {
   return { service, checkpoint, deliveries, executions, dispatches, pages, setQueueFailure: () => { failQueue = true; }, loseQueueAck: () => { failAfterEnqueue = true; }, setActive: (value: boolean) => { active = value; }, setExpired: () => { expired = true; }, setMissing: () => { missing = true; }, setMailbox: (value: string) => { mailboxHash = value; } };
 }
 
+test("queue recovery resumes after the approved node and refuses ambiguous progress", async () => {
+  const graph = { nodes: [
+    { id: "mail", type: "trigger.gmail", position: { x: 0, y: 0 }, config: {} },
+    { id: "approve", type: "approval.request", position: { x: 1, y: 0 }, config: {} },
+    { id: "next", type: "condition.if", position: { x: 2, y: 0 }, config: {} },
+  ], edges: [{ id: "a", source: "mail", target: "approve", kind: "success" }, { id: "b", source: "approve", target: "next", kind: "success" }] };
+  const queued = [
+    { id: "initial", workflowVersion: { graph }, nodeExecutions: [], approvalRequests: [] },
+    { id: "resumed", workflowVersion: { graph }, nodeExecutions: [{ nodeId: "mail", status: "SUCCEEDED", output: {} }, { nodeId: "approve", status: "SUCCEEDED", output: { approvalRequestId: "approval-1" } }], approvalRequests: [{ id: "approval-1" }] },
+    { id: "ambiguous", workflowVersion: { graph }, nodeExecutions: [{ nodeId: "mail", status: "SUCCEEDED", output: {} }], approvalRequests: [] },
+    { id: "missing-approval-node", workflowVersion: { graph }, nodeExecutions: [], approvalRequests: [{ id: "approval-2" }] },
+  ];
+  const jobs: unknown[] = [];
+  const service = new GmailTriggerService({ execution: { findMany: async () => queued } } as never, {} as never, {} as never, { ensureDispatched: async (job: unknown) => { jobs.push(job); } } as never);
+  await service.recoverQueued();
+  assert.deepEqual(jobs, [
+    { executionId: "initial", mode: "live" },
+    { executionId: "resumed", mode: "live", startNodeIds: ["next"] },
+  ]);
+});
+
 test("queue failure retains checkpoint and retries the same execution", async () => {
   const f = fixture(); f.setQueueFailure();
   await f.service.poll("v1", "flow", "space", "node", { credentialId: "cred" });

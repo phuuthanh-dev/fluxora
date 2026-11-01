@@ -27,3 +27,17 @@
 - Filters use message state at polling time; receipt retention has no automatic
   cleanup yet. Reset or replacing a trigger can discard pending messages and
   requires explicit acknowledgement.
+
+## Follow-up review: approval recovery
+
+- Review found that recovering a lost Gmail job after approval could restart at
+  an already-visited trigger and falsely mark the run successful. Recovery now
+  resumes at the approved node's successors, or refuses ambiguous state.
+- Synthetic unit coverage and an isolated PostgreSQL/Redis test exercise the
+  resumed path, including a successor node that must actually execute. A full
+  `npm run verify` on an isolated copy passed with 312 API, 30 web and 137
+  browser tests; only test ports differed from the checked-in configuration.
+- Read-only Cloud Console review on 2026-11-01 showed verified branding, data
+  access under review, and declared Drive/Sheets scopes. Gmail and Calendar
+  scopes were not present in the displayed scope list. No Cloud changes or
+  live Gmail/Calendar calls were made in this review.

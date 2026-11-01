@@ -59,6 +59,32 @@ test("concurrent Gmail deliveries atomically share one queued execution", { skip
     await job.waitUntilFinished(events, 15_000);
     assert.equal((await prisma.execution.findUniqueOrThrow({ where: { id: first.execution!.id } })).status, "SUCCEEDED");
     assert.equal(await prisma.nodeExecution.count({ where: { executionId: first.execution!.id, nodeId: "mail" } }), 1);
+    // A lost queue job after approval must resume at the successor, not the
+    // already-visited trigger (which would incorrectly mark the run complete).
+    await worker.close(); worker = undefined;
+    const approvalVersionId = `test-approval-version-${id}`;
+    const approvalExecutionId = `test-approval-execution-${id}`;
+    const approvalId = `test-approval-${id}`;
+    const approvalGraph = { nodes: [
+      { id: "mail", type: "trigger.gmail", position: { x: 0, y: 0 }, config: { credentialId } },
+      { id: "approve", type: "approval.request", position: { x: 1, y: 0 }, config: {} },
+      { id: "next", type: "condition.if", position: { x: 2, y: 0 }, config: { left: "yes", operator: "equals", right: "yes" } },
+    ], edges: [{ id: "a", source: "mail", target: "approve", kind: "success" }, { id: "b", source: "approve", target: "next", kind: "success" }] };
+    await prisma.workflowVersion.create({ data: { id: approvalVersionId, workflowId, version: 99, status: "PUBLISHED", graph: approvalGraph } });
+    await prisma.execution.create({ data: { id: approvalExecutionId, workflowVersionId: approvalVersionId, mode: "LIVE", idempotencyKey: `gmail:approval-${id}`, createdAt: new Date(Date.now() - 3 * 60_000) } });
+    await prisma.approvalRequest.create({ data: { id: approvalId, executionId: approvalExecutionId, tokenHash: `synthetic-${id}`, status: "APPROVED", resolvedAt: new Date(), expiresAt: new Date(Date.now() + 60_000) } });
+    await prisma.nodeExecution.createMany({ data: [
+      { executionId: approvalExecutionId, nodeId: "mail", status: "SUCCEEDED", output: {} },
+      { executionId: approvalExecutionId, nodeId: "approve", status: "SUCCEEDED", output: { approvalRequestId: approvalId } },
+      { executionId: approvalExecutionId, nodeId: "next", status: "SKIPPED" },
+    ] });
+    await gmail.recoverQueued();
+    const resumedJob = await inspectionQueue.getJob(approvalExecutionId);
+    assert.ok(resumedJob); assert.deepEqual(resumedJob.data.startNodeIds, ["next"]);
+    worker = new Worker(queueName, async (item) => service.run(item.data.executionId, item.data.mode, item.data.startNodeIds), { connection: workerRedis });
+    await resumedJob.waitUntilFinished(events, 15_000);
+    assert.equal((await prisma.nodeExecution.findUniqueOrThrow({ where: { executionId_nodeId: { executionId: approvalExecutionId, nodeId: "next" } } })).status, "SUCCEEDED");
+    assert.equal((await prisma.execution.findUniqueOrThrow({ where: { id: approvalExecutionId } })).status, "SUCCEEDED");
     await prisma.workflow.update({ where: { id: workflowId }, data: { isActive: false } });
     const inactive = await create();
     assert.equal(inactive.execution, null);
@@ -83,7 +109,7 @@ test("concurrent Gmail deliveries atomically share one queued execution", { skip
     await redis?.quit();
     if (previousQueueMode === undefined) delete process.env.EXECUTION_QUEUE_MODE; else process.env.EXECUTION_QUEUE_MODE = previousQueueMode;
     if (previousQueueName === undefined) delete process.env.EXECUTION_QUEUE_NAME; else process.env.EXECUTION_QUEUE_NAME = previousQueueName;
-    await prisma.execution.deleteMany({ where: { workflowVersionId: versionId } });
+    await prisma.execution.deleteMany({ where: { workflowVersion: { workflowId } } });
     await prisma.workflow.deleteMany({ where: { id: workflowId } });
     await prisma.auditLog.deleteMany({ where: { workspaceId } });
     await prisma.workspace.deleteMany({ where: { id: workspaceId } });

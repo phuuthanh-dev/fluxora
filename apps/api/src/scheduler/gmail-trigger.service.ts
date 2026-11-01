@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
-import { CredentialProvider, ExecutionStatus, WorkflowVersionStatus } from "@prisma/client";
+import { ApprovalRequestStatus, CredentialProvider, ExecutionStatus, NodeExecutionStatus, WorkflowVersionStatus } from "@prisma/client";
 import { createHash, randomUUID } from "node:crypto";
 import type { WorkflowGraph } from "@workflow/contracts";
 import { CredentialService } from "../credentials/credential.service";
@@ -65,9 +65,21 @@ export class GmailTriggerService implements OnModuleInit, OnModuleDestroy {
   }
 
   async recoverQueued(now = new Date()) {
-    const queued = await this.prisma.execution.findMany({ where: { status: ExecutionStatus.QUEUED, mode: "LIVE", idempotencyKey: { startsWith: "gmail:" }, createdAt: { lt: new Date(now.getTime() - 2 * 60_000) }, ...(this.recoveryCursor ? { id: { gt: this.recoveryCursor } } : {}) }, select: { id: true }, orderBy: { id: "asc" }, take: 100 });
+    const queued = await this.prisma.execution.findMany({ where: { status: ExecutionStatus.QUEUED, mode: "LIVE", idempotencyKey: { startsWith: "gmail:" }, createdAt: { lt: new Date(now.getTime() - 2 * 60_000) }, ...(this.recoveryCursor ? { id: { gt: this.recoveryCursor } } : {}) }, select: { id: true, workflowVersion: { select: { graph: true } }, nodeExecutions: { select: { nodeId: true, status: true, output: true } }, approvalRequests: { where: { status: ApprovalRequestStatus.APPROVED }, orderBy: { resolvedAt: "desc" }, take: 1, select: { id: true } } }, orderBy: { id: "asc" }, take: 100 });
     for (const execution of queued) {
-      try { await this.queue.ensureDispatched({ executionId: execution.id, mode: "live" }); }
+      try {
+        const approved = execution.approvalRequests[0];
+        let startNodeIds: string[] | undefined;
+        if (approved) {
+          const graph = parseWorkflowGraph(execution.workflowVersion.graph);
+          const approvedNode = execution.nodeExecutions.find((node) => node.status === NodeExecutionStatus.SUCCEEDED && node.output && typeof node.output === "object" && !Array.isArray(node.output) && node.output.approvalRequestId === approved.id && graph.nodes.some((candidate) => candidate.id === node.nodeId && candidate.type === "approval.request"));
+          if (!approvedNode) throw new Error("Approval resume point cannot be determined.");
+          startNodeIds = graph.edges.filter((edge) => edge.source === approvedNode.nodeId && edge.kind === "success").map((edge) => edge.target);
+        } else if (execution.nodeExecutions.some((node) => node.status !== NodeExecutionStatus.PENDING)) {
+          throw new Error("Execution resume point cannot be determined.");
+        }
+        await this.queue.ensureDispatched({ executionId: execution.id, mode: "live", ...(startNodeIds ? { startNodeIds } : {}) });
+      }
       catch { this.logger.warn(`Could not restore queued Gmail execution ${execution.id}.`); }
     }
     this.recoveryCursor = queued.length === 100 ? queued[queued.length - 1]!.id : "";

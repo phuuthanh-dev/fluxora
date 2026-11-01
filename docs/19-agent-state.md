@@ -6,17 +6,16 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-01
 
-- PR #55 (`develop` → `main`) merged at `bf6d963`. PR #56 includes Notion
-  Search pages and PostgreSQL Select rows; its GitHub quality gate run
-  `41284897832` passed and the PR remains open. Neither connector is deployed
-  by this PR yet. The Notion credential migration was applied to the local
-  database and one owner-approved live search succeeded; the test workflow is
-  inactive. See `.agent/reports/2026-11-01-notion-postgres.md`.
-- `codex/gmail-connector` adds the local Gmail read slice. The new-message
-  trigger remains unimplemented; Gmail's restricted-scope verification and
-  live qualification are separate from local tests.
-  Do not repeat already
-  completed MongoDB live insert qualification.
+- PR #56 (`develop` → `main`) merged at `bd2519d`; it includes Notion search
+  and PostgreSQL select. Notion search was qualified once locally; broader
+  live and production qualification remains. See `.agent/reports/2026-11-01-notion-postgres.md`.
+- Draft PR #57 adds Gmail read and polling trigger, grouped email connection
+  choices and Google Calendar operations. Full isolated verification and its
+  GitHub quality gate passed on `d1d4dcd`; real Gmail/Calendar access, Google
+  scope approval and production deployment remain separate. A follow-up review
+  fixed a queue-recovery edge case involving approval and passed isolated
+  verification; see the associated report. Gmail Pub/Sub is not implemented.
+- Do not repeat the completed MongoDB live insert qualification.
 
 - PR #52 shipped the Google refresh-token guard at `2514147`; main quality
   run `41228624481` and production deploy `41229373344` succeeded. Public
