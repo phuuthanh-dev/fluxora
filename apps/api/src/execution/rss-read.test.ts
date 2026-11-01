@@ -23,3 +23,14 @@ test("untrusted XML, oversized responses and invalid inputs fail safely", async 
   const result = await executeRssRead({ url: "https://example.test/feed" }, "live", async () => new Response("<rss><channel><title>Feed</title></channel></rss>"));
   assert.deepEqual(result.output, { title: "Feed", items: [] });
 });
+
+test("HTML declarations inside CDATA and comments do not reject a valid feed", () => {
+  const feed = '<rss><channel><!-- <!DOCTYPE html> --><title>News</title><item><title>Update</title><description><![CDATA[<!DOCTYPE html><p>Example</p>]]></description></item></channel></rss>';
+  const parsed = parseRssFeed(feed, 10);
+  assert.equal(parsed.items[0]?.summary, "<!DOCTYPE html><p>Example</p>");
+});
+
+test("processing instructions cannot hide a real DTD behind CDATA-looking text", () => {
+  const xml = '<?example <![CDATA[ ?><!DOCTYPE rss [<!ENTITY x "secret">]><!-- ]]> --><rss><channel><title>&x;</title></channel></rss>';
+  assert.throws(() => parseRssFeed(xml, 1), /unsupported XML/);
+});
