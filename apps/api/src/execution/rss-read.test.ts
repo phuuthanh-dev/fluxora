@@ -11,6 +11,18 @@ test("RSS and Atom entries normalize and respect the configured limit", () => {
   assert.equal(atom.items[0]?.link, "https://example.test/post");
 });
 
+test("Atom content is used when no summary is supplied, without overriding summaries", () => {
+  const xml = `<feed xmlns="http://www.w3.org/2005/Atom"><title>Releases</title>
+    <entry><id>one</id><content type="html">&lt;p&gt;Release details&lt;/p&gt;</content></entry>
+    <entry><id>two</id><summary>Short description</summary><content type="html">Full content</content></entry>
+    <entry><id>three</id><content>${"x".repeat(10_100)}</content></entry>
+  </feed>`;
+  const result = parseRssFeed(xml, 3);
+  assert.equal(result.items[0]?.summary, "<p>Release details</p>");
+  assert.equal(result.items[1]?.summary, "Short description");
+  assert.equal(result.items[2]?.summary.length, 10_000);
+});
+
 test("untrusted XML, oversized responses and invalid inputs fail safely", async () => {
   assert.throws(() => parseRssFeed('<!DOCTYPE rss [<!ENTITY a SYSTEM "file:///etc/passwd">]><rss><channel><title>&a;</title></channel></rss>', 1), /unsupported XML/);
   assert.throws(() => parseRssFeed("<html></html>", 1), /Expected an RSS/);
