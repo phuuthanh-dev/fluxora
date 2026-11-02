@@ -6,6 +6,18 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
+- Owner-requested parallel app/node expansion audit at `04d67b6` is recorded in
+  `docs/37-node-expansion-audit.md`. Inventory: 25 catalog apps, 46 node types,
+  44 executable (including six core types), two planned Meta/Instagram types.
+  Three read-only auditors covered Google, communication/productivity and
+  data/DevOps; coordinator covered shared architecture, HTTP and AI. This is
+  an audit, not implementation or new live qualification. Priorities are
+  write-retry semantics/payload bounds, then typed metadata/versioning and
+  pagination, then useful operation depth and durable triggers. Do not repeat
+  existing node-library, Calendar CRUD or initial connector implementations.
+  Final documentation validation belongs to
+  `.agent/reports/2026-11-02-node-expansion-audit.md`.
+
 - Owner-requested `L8.4` reopen adds a shared glass sidebar to Dashboard,
   Connections, Executions and Account; the editor retains its guarded header.
   Final isolated verify passed: API 355, web 32, Playwright 147. Synthetic
@@ -291,20 +303,18 @@ evidence only; it does not substitute for future provider-specific smoke tests.
 
 ## Next approved slices
 
-Owner follow-up in progress on `codex/connector-discovery-qualification`: see
-`.agent/tasks/2026-11-01-connector-qualification.md` and
-`docs/35-connector-coverage-and-discovery.md`. Production Sentry, Vercel and
-Supabase read evidence and Trello production discovery/local create evidence
-are recorded. PRs #60 and #61 passed their local and GitHub gates and were
-deployed; this is not a completion claim for all connector operations or
-provider qualification.
+Initial connector work and later live qualifications are recorded in
+`docs/35-connector-coverage-and-discovery.md`; use the latest follow-ups rather
+than an earlier failure or pending status. The subsequent parallel expansion
+audit at `04d67b6` is in `docs/37-node-expansion-audit.md`. Its proposed `NX-*`
+checklist is not a set of completed features or new approved slice IDs.
 
 These are the only currently approved follow-up directions. A task must target
 one of these IDs or explicitly reopen a completed ledger slice.
 
 | ID | Outcome | Status | Owner/evidence boundary |
 |---|---|---|---|
-| `APP-EXPANSION-1` | Add Trello, Sentry, Reddit, RSS, Uptime Kuma, Vercel and Supabase with scalable app discovery | pending | Implement provider slices independently; no live calls without owner-authorized credentials and resources. See docs/34-app-expansion.md. |
+| `APP-EXPANSION-1` | Deepen existing app operations and remaining qualification; initial seven-app implementation and app discovery already exist | pending | Do not rebuild initial nodes. See docs/35 for latest live evidence and docs/37 for operation/trigger/auth/UX gaps and priorities. Reddit access remains blocked; future live calls require owner-authorized resources. |
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
 | `CONNECTOR-LIVE-2` | Remaining Google, GitHub and SMTP live qualification | pending | Drive upload/read, Sheets append/read/update, GitHub create issue/comment/label and one Gmail SMTP delivery to the intended inbox succeeded on owner-approved test resources. Local Google refresh is inferred from a credential update during a successful demo run; production refresh, GitHub PR merge and sustained delivery remain unverified. See the 2026-10-31 connector reports and 2026-11-01 recovery report. |
 | `AI-GEMINI-1` | Gemini text generation with workspace credential, model discovery and execution | pending | Local live generation succeeded once with Gemini 3.1 Flash Lite; a 2.5 Flash request returned 404 and a 3.8 Flash request timed out. Causes, other models and sustained or production behavior remain unverified. See `.agent/reports/2026-10-31-gemini-live.md`. |

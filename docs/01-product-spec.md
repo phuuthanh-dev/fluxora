@@ -176,12 +176,14 @@ Action nodes support timeout, retry with exponential backoff, and an error edge.
 - Google Chat OAuth is a separate workspace connection requesting space listing
   and message creation; it never replaces Drive/Sheets credentials. API enablement,
   scope verification and live qualification remain separate.
-- MongoDB uses a single public DNS hostname, port and user authentication.
+- MongoDB uses a public DNS hostname, port and user authentication; guarded
+  SRV seed discovery is also supported for the existing find/insert operations.
   TLS validation and connection-time DNS checks are mandatory. Find is bounded
   to 100 documents and 200 KB, rejects server-side JavaScript and has bounded
   connection/operation time. Insert accepts one JSON document up to 200 KB and
-  uncertain writes are never automatically retried. Private hosts, SRV/replica
-  discovery, update/delete and custom TLS files are unsupported in this slice.
+  uncertain writes are never automatically retried. Private hosts, unrestricted
+  replica topology discovery, update/delete and custom TLS files are unsupported
+  in this slice. Guarded SRV support does not imply unrestricted topology discovery.
 - Generic HTTP: API key, bearer token, basic auth, or headers.
 - Gemini: a dedicated encrypted workspace API key, separate from Google sign-in and Drive OAuth. The server lists up to 100 text-generation models and the editor retains a manual model ID/expression fallback. Output length and request timeout are bounded; retries follow the shared failure policy. Provider calls occur only in confirmed live execution.
 - OpenAI: a separate encrypted workspace API key. The server lists up to 100 models available to that key; the provider's list does not guarantee Responses API text compatibility. Manual model ID/expression fallback is available. Execution uses the Responses API with `store: false`, bounded output and timeout, and the same live confirmation boundary.
