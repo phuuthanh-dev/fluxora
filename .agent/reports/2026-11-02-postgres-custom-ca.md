@@ -27,6 +27,15 @@ that case passed twice independently, and a subsequent complete gate passed.
 The precise cause of the timeout remains unconfirmed. Existing GSAP/WebGL
 warnings did not fail the gate.
 
+An additional isolated PostgreSQL 16 test exercised the actual
+`readPostgresRows` implementation with a synthetic CA and SCRAM authentication.
+A bounded read succeeded with the custom CA. The connection was rejected with
+the custom CA absent, an unrelated CA, a mismatched TLS hostname, an incorrect
+password, and an ungranted table. The temporary server was stopped afterward.
+Only the DNS resolver was replaced to address loopback; this does not establish
+public DNS behavior, a complete workflow, vault integration, Supabase
+authentication, or production operation.
+
 The owner-created local PostgreSQL connection initially lacked its CA and
 failed TLS before authentication. A replacement form was prepared with the
 official public CA and non-secret connection settings, but the owner must

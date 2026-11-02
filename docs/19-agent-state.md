@@ -13,6 +13,12 @@ complete in the delivery ledger.
   Playwright 144) after an earlier onboarding timeout of unconfirmed cause. The change
   has not been released. See `.agent/reports/2026-11-02-postgres-custom-ca.md`.
 
+- A further isolated PostgreSQL 16 test exercised `readPostgresRows` against a
+  real TLS/SCRAM server with a synthetic custom CA. A bounded read succeeded;
+  missing/wrong CA, wrong hostname/password, and missing table permission were
+  rejected. The test injected a loopback resolver and did not authenticate to
+  Supabase or exercise the complete workflow and vault.
+
 - Reddit's credential form and node description now warn about retirement of
   its public Data API and link to the provider timeline. This is local only;
   no Reddit access has been qualified. Isolated full `npm run verify` passed
