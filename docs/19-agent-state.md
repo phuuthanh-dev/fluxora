@@ -30,10 +30,11 @@ complete in the delivery ledger.
 
 - After the owner reported updating the local Supabase connection, the table
   picker listed the designated test table and a manual live run successfully
-  returned one row. The test workflow was deactivated afterwards. A Management
-  token was requested for this follow-up, but the saved secret and discovery
-  request path were not inspected; do not claim independent verification of
-  Management API authentication. See `docs/35` before repeating work.
+  returned one row. The test workflow was deactivated afterwards. A subsequent
+  bounded live diagnostic confirmed the Management token is present and that
+  the existing safe transport reached `api.supabase.com` and returned the test
+  table; only booleans and the table count were output. This does not establish
+  production Management API access. See `docs/35` before repeating work.
 
 - PostgreSQL select runtime read a synthetic local PostgreSQL 16 table over
   verified TLS with SCRAM authentication, a test-only DNS resolver and a
@@ -57,8 +58,8 @@ complete in the delivery ledger.
   passed GitHub CI and deployed the combined code as described above.
 
 - The optional Supabase Management API table discovery change is released by
-  PR #63's deployment; local table discovery succeeded after the owner's
-  connection update, with the request path not independently verified. The
+  PR #63's deployment; local Management API discovery succeeded after the
+  owner's connection update. The
   isolated `npm run verify`
   passed after the Uptime Kuma setup-copy change, including 144 E2E tests.
   Uptime Kuma 2.5.9 and a real synthetic HTTP monitor subsequently ran against
