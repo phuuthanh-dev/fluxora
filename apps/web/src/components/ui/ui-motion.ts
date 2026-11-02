@@ -5,6 +5,29 @@ import { useLayoutEffect, type RefObject } from "react";
 
 export const uiMotion = { fast: 0.18, standard: 0.28, disclosure: 0.32, ease: "power2.out" } as const;
 
+/** The rail must reflow content; animate its one layout variable, never scale text. */
+export function useSidebarMotion(ref: RefObject<HTMLElement | null>, collapsed: boolean, animate: boolean) {
+  useLayoutEffect(() => {
+    const page = ref.current?.closest<HTMLElement>(".dashboard-page");
+    if (!page) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const width = collapsed ? "76px" : "248px";
+    const tween = gsap.to(page, {
+      "--workspace-rail": width,
+      duration: animate && !reduced.matches ? uiMotion.standard : 0,
+      ease: uiMotion.ease,
+      overwrite: true,
+    });
+    const settle = () => { if (reduced.matches) tween.progress(1); };
+    reduced.addEventListener("change", settle);
+    return () => { tween.kill(); reduced.removeEventListener("change", settle); };
+  }, [collapsed, ref, animate]);
+  useLayoutEffect(() => {
+    const page = ref.current?.closest<HTMLElement>(".dashboard-page");
+    return () => { page?.style.removeProperty("--workspace-rail"); };
+  }, [ref]);
+}
+
 /** Enhances a mounted surface without delaying focus or changing its layout. */
 export function useSurfaceMotion(ref: RefObject<HTMLElement | null>, active = true, key: string | number = 0) {
   useLayoutEffect(() => {

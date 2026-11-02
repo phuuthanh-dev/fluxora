@@ -13,12 +13,20 @@ function applyTheme(theme: ThemeMode) {
   document.documentElement.dataset.theme = theme;
 }
 
+function readTheme(key: string) {
+  try { return window.localStorage.getItem(key); } catch { return null; }
+}
+
+function saveTheme(theme: ThemeMode) {
+  try { window.localStorage.setItem(themeStorageKey, theme); } catch { /* The current session still switches theme. */ }
+}
+
 export function ThemeToggle() {
   const [theme, setTheme] = useState<ThemeMode>("light");
 
   useEffect(() => {
     const current = document.documentElement.dataset.theme;
-    const stored = window.localStorage.getItem(themeStorageKey) ?? window.localStorage.getItem(legacyThemeStorageKey);
+    const stored = readTheme(themeStorageKey) ?? readTheme(legacyThemeStorageKey);
     const initial: ThemeMode = stored === "dark" || stored === "light"
       ? stored
       : current === "dark"
@@ -26,7 +34,7 @@ export function ThemeToggle() {
         : "light";
     applyTheme(initial);
     setTheme(initial);
-    if (!window.localStorage.getItem(themeStorageKey) && stored) window.localStorage.setItem(themeStorageKey, initial);
+    if (!readTheme(themeStorageKey) && stored) saveTheme(initial);
 
     const onStorage = (event: StorageEvent) => {
       if (event.key !== themeStorageKey && event.key !== legacyThemeStorageKey) return;
@@ -47,7 +55,7 @@ export function ThemeToggle() {
       title={`Switch to ${nextTheme} mode`}
       onClick={() => {
         applyTheme(nextTheme);
-        window.localStorage.setItem(themeStorageKey, nextTheme);
+        saveTheme(nextTheme);
         setTheme(nextTheme);
       }}
     >

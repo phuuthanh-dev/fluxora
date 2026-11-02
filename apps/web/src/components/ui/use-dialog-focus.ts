@@ -8,6 +8,7 @@ const focusableSelector = [
   "input:not([disabled])",
   "select:not([disabled])",
   "textarea:not([disabled])",
+  "summary",
   '[tabindex]:not([tabindex="-1"])',
 ].join(", ");
 
@@ -36,7 +37,7 @@ export function useDialogFocus<T extends HTMLElement>({
     if (!scope) return;
     const returnTarget = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const focusableElements = () => Array.from(scope.querySelectorAll<HTMLElement>(focusableSelector))
-      .filter((element) => element.getAttribute("aria-hidden") !== "true");
+      .filter((element) => element.getAttribute("aria-hidden") !== "true" && element.getClientRects().length > 0);
     const frame = window.requestAnimationFrame(() => {
       const preferred = initialFocusSelector
         ? scope.querySelector<HTMLElement>(initialFocusSelector)
@@ -44,7 +45,7 @@ export function useDialogFocus<T extends HTMLElement>({
       (preferred ?? focusableElements()[0] ?? scope).focus();
     });
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && closeRef.current) {
+      if (event.key === "Escape" && !event.defaultPrevented && closeRef.current) {
         event.preventDefault();
         event.stopPropagation();
         closeRef.current();

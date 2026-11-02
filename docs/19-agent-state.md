@@ -6,6 +6,15 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
+- Owner-requested `L8.4` reopen adds a shared glass sidebar to Dashboard,
+  Connections, Executions and Account; the editor retains its guarded header.
+  Final isolated verify passed: API 355, web 32, Playwright 147. Synthetic
+  light/dark, compact/expanded/mobile screenshots and a transition recording
+  were reviewed. This is a video-inspired Fluxora adaptation, not exact visual
+  equivalence or a provider qualification. See `docs/36-workspace-sidebar.md`
+  and `.agent/reports/2026-11-02-dashboard-sidebar.md`; release status belongs
+  to the resulting develop-to-main PR and its deployment checks.
+
 - PR [#71](https://github.com/phuuthanh-dev/fluxora/pull/71) merged as `6f09d8f`; PR/main quality gates and [production deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/41440411080) succeeded. In the production editor, opening planned Instagram focused the unavailable operation, no favorite control appeared, and Escape returned focus to the app. A ready operation showed an app-specific favorite label. These checks do not establish every device, theme or provider operation.
 
 - Local node-library favorites follow-up hides favorite actions for unavailable planned operations and identifies the app in favorite control labels. Isolated full verify passed (API 355, web 32, Playwright 145); PR #71 was deployed. An initial naming collision caused six E2E failures before the label was revised and the affected journeys passed. See `.agent/reports/2026-11-02-node-library-favorites.md`.

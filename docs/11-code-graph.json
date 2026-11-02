@@ -1730,11 +1730,25 @@
       "internalImports": [
         "apps/web/src/components/brand/brand-lockup.tsx",
         "apps/web/src/features/api/api-client.ts",
+        "apps/web/src/features/app-shell/workspace-sidebar.tsx",
         "apps/web/src/features/theme/theme-toggle.tsx"
       ],
       "externalImports": [
         "lucide-react",
         "next/navigation",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/app-shell/workspace-sidebar.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/brand/brand-lockup.tsx",
+        "apps/web/src/components/ui/ui-motion.ts",
+        "apps/web/src/features/theme/theme-toggle.tsx"
+      ],
+      "externalImports": [
+        "lucide-react",
         "react"
       ]
     },
@@ -3971,6 +3985,22 @@
     },
     {
       "from": "apps/web/src/features/app-shell/app-shell-header.tsx",
+      "to": "apps/web/src/features/app-shell/workspace-sidebar.tsx"
+    },
+    {
+      "from": "apps/web/src/features/app-shell/app-shell-header.tsx",
+      "to": "apps/web/src/features/theme/theme-toggle.tsx"
+    },
+    {
+      "from": "apps/web/src/features/app-shell/workspace-sidebar.tsx",
+      "to": "apps/web/src/components/brand/brand-lockup.tsx"
+    },
+    {
+      "from": "apps/web/src/features/app-shell/workspace-sidebar.tsx",
+      "to": "apps/web/src/components/ui/ui-motion.ts"
+    },
+    {
+      "from": "apps/web/src/features/app-shell/workspace-sidebar.tsx",
       "to": "apps/web/src/features/theme/theme-toggle.tsx"
     },
     {

@@ -18,8 +18,10 @@ routes.
   #c8f751 palette and selected local artwork; see `30-relay-reference-adoption.md`.
 - Landing navigation is a 64px inset glass bar with a 12px sticky offset;
   mobile keeps an accessible menu in a 60px bar. The official-reference stream and template choreography remain exclusive to the landing (docs/30).
-- Workspace navigation is a compact theme-aware bar. Workspace selection,
-  navigation, theme and the rightmost account menu keep their existing roles.
+- Management navigation uses the shared collapsible glass sidebar described in
+  `36-workspace-sidebar.md`. Workspace selection remains in a compact topbar;
+  theme and account actions sit at the bottom of the rail. The editor retains
+  its horizontal header and unsaved-change navigation guard.
 - Dashboard, Connections and Executions share PageHeader, content width and
   gutters. Page titles are 28–36px; product body is 14px, controls around 13px,
   secondary information 12px, and short technical metadata may be smaller.
