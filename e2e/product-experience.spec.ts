@@ -58,6 +58,8 @@ test("guided connection fields preserve JSON, mask secrets, search saved account
   await expect(page.getByLabel("Provider", { exact: true })).toHaveValue("GOOGLE");
   await page.getByLabel("Provider", { exact: true }).selectOption("REDDIT");
   await expect(page.getByLabel("App client secret", { exact: true })).toHaveAttribute("type", "password");
+  await expect(page.getByText(/plans to retire remaining access in March 2027/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Reddit access timeline" })).toHaveAttribute("href", "https://support.reddithelp.com/hc/en-us/articles/54353370049684-Changelog-October-8-2026");
   await page.getByLabel("Find an app").fill("no matching provider");
   await expect(page.getByText("No apps found. Try another search.")).toBeVisible();
   await expect(page.getByLabel("Provider", { exact: true })).toHaveValue("REDDIT");

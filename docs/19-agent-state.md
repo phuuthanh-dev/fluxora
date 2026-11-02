@@ -6,6 +6,11 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
+- Reddit's credential form and node description now warn about retirement of
+  its public Data API and link to the provider timeline. This is local only;
+  no Reddit access has been qualified. Isolated full `npm run verify` passed
+  (API 352, web 32, Playwright 144). See `.agent/reports/2026-11-02-reddit-access-guidance.md`.
+
 - PR #64 merged as `393c097`; main quality run `41382040879` and production
   deployment `41382980015` succeeded. The public homepage and login and the
   separate API host's health and readiness endpoints each returned HTTP 200
@@ -18,8 +23,9 @@ complete in the delivery ledger.
 - A newly saved local Trello connection loaded the designated `Fluxora
   connector test` board and its three lists. A manual live workflow created
   one test card in `To Do`; both node and execution succeeded, and the test
-  workflow was deactivated. This does not validate the previously failing
-  production credential, other Trello operations, or sustained reliability.
+  workflow was deactivated. After the owner rotated the production credential,
+  its picker also loaded the test board and all three lists. No production
+  card was created; other operations and sustained reliability remain untested.
   See `docs/35` before repeating the provider write.
 
 - After the owner reported updating the local Supabase connection, the table
@@ -209,8 +215,8 @@ evidence only; it does not substitute for future provider-specific smoke tests.
 Owner follow-up in progress on `codex/connector-discovery-qualification`: see
 `.agent/tasks/2026-11-01-connector-qualification.md` and
 `docs/35-connector-coverage-and-discovery.md`. Production Sentry, Vercel and
-Supabase read evidence and local Trello discovery/create evidence are recorded;
-the production Trello credential remains unqualified. PRs #60 and #61 passed their local and GitHub gates and were
+Supabase read evidence and Trello production discovery/local create evidence
+are recorded. PRs #60 and #61 passed their local and GitHub gates and were
 deployed; this is not a completion claim for all connector operations or
 provider qualification.
 
