@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Button, Field, IconButton, Select } from "../../components/ui";
 import type { CredentialProvider } from "./credential-types";
@@ -51,6 +51,13 @@ export function CredentialSecretFields({ provider, value, onChange, replacement 
   provider: CredentialProvider; value: string; onChange: (value: string) => void; replacement?: boolean;
 }) {
   const [advanced, setAdvanced] = useState(false);
+  const [caFileError, setCaFileError] = useState("");
+  const currentValue = useRef(value);
+  const currentProvider = useRef(provider);
+  const caRead = useRef(0);
+  currentValue.current = value;
+  currentProvider.current = provider;
+  useEffect(() => { caRead.current += 1; setCaFileError(""); }, [provider]);
   let payload: Record<string, unknown> | null = null;
   try {
     const parsed: unknown = JSON.parse(value);
@@ -88,6 +95,25 @@ export function CredentialSecretFields({ provider, value, onChange, replacement 
       </Field>}
       {provider === "MONGODB" && payload?.configurationType !== "connectionString" && payload?.connectionMode !== "srv" && <Field label="Port" hint="Used for direct hosts; SRV clusters supply their own ports."><input aria-label="Port" type="number" min={1} max={65535} value={typeof payload?.port === "number" ? payload.port : 27017} onChange={(event) => update("port", Number(event.target.value))} /></Field>}
       {provider === "POSTGRES" && <Field label="Port"><input aria-label="Port" type="number" min={1} max={65535} value={typeof payload?.port === "number" ? payload.port : 5432} onChange={(event) => update("port", Number(event.target.value))} /></Field>}
+      {provider === "POSTGRES" && <div className="credential-secret-fields__wide credential-secret-fields__certificate">
+        <Field label="CA certificate (optional)" hint="Paste or choose your provider’s PEM certificate if required. The certificate and hostname are always verified."><textarea aria-label="CA certificate (optional)" rows={5} maxLength={32768} spellCheck={false} value={typeof payload?.caCertificate === "string" ? payload.caCertificate : ""} onChange={(event) => { caRead.current += 1; update("caCertificate", event.target.value); }} placeholder="-----BEGIN CERTIFICATE-----" /></Field>
+        <Field label="Choose CA certificate file" hint="PEM, CRT or CER, up to 32 KB." error={caFileError}><input aria-label="Choose CA certificate file" type="file" accept=".pem,.crt,.cer" onChange={(event) => {
+          const file = event.currentTarget.files?.[0];
+          event.currentTarget.value = "";
+          if (!file) return;
+          const readId = ++caRead.current;
+          if (file.size > 32768) { setCaFileError("Choose a certificate file no larger than 32 KB."); return; }
+          void file.text().then((text) => {
+            if (currentProvider.current !== "POSTGRES" || readId !== caRead.current) return;
+            try {
+              const current: unknown = JSON.parse(currentValue.current);
+              if (!current || typeof current !== "object" || Array.isArray(current)) throw new Error("Invalid JSON");
+              onChange(JSON.stringify({ ...current, caCertificate: text }, null, 2));
+              setCaFileError("");
+            } catch { setCaFileError("Correct the connection fields before adding a certificate."); }
+          }, () => { if (currentProvider.current === "POSTGRES" && readId === caRead.current) setCaFileError("Could not read this certificate file."); });
+        }} /></Field>
+      </div>}
       {provider === "SENTRY" && <Field label="Sentry region" hint="Choose the region shown in your Sentry organization settings."><Select aria-label="Sentry region" value={typeof payload?.region === "string" ? payload.region : "global"} onChange={(event) => update("region", event.target.value)}><option value="global">Global</option><option value="us">US</option><option value="de">Germany</option></Select></Field>}
     </div>}
   </div>;

@@ -6,6 +6,13 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
+- A local PostgreSQL credential enhancement accepts an optional provider CA
+  while retaining verified TLS and pinned DNS. Supabase's official CA passed a
+  no-credential Node TLS handshake; the connection is not yet authenticated
+  or live-read qualified. Full isolated verify passed (API 353, web 32,
+  Playwright 144) after an earlier onboarding timeout of unconfirmed cause. The change
+  has not been released. See `.agent/reports/2026-11-02-postgres-custom-ca.md`.
+
 - Reddit's credential form and node description now warn about retirement of
   its public Data API and link to the provider timeline. This is local only;
   no Reddit access has been qualified. Isolated full `npm run verify` passed

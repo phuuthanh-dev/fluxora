@@ -107,6 +107,15 @@ test("MongoDB credential shows fields appropriate to the selected connection typ
   await page.getByLabel("Configuration type").selectOption("values");
   await page.getByLabel("Connection type").selectOption("direct");
   await expect(page.getByLabel("Port", { exact: true })).toBeVisible();
+  await page.getByLabel("Provider", { exact: true }).selectOption("POSTGRES");
+  const ca = page.getByLabel("CA certificate (optional)");
+  await expect(ca).toBeVisible();
+  await expect(page.getByText(/certificate and hostname are always verified/)).toBeVisible();
+  const exampleCa = "-----BEGIN CERTIFICATE-----\nexample\n-----END CERTIFICATE-----";
+  await page.getByLabel("Choose CA certificate file").setInputFiles({ name: "test.crt", mimeType: "application/x-pem-file", buffer: Buffer.from(exampleCa) });
+  await expect(ca).toHaveValue(exampleCa);
+  await page.getByRole("button", { name: "Edit JSON", exact: true }).click();
+  expect(JSON.parse(await page.getByLabel("Secret JSON").inputValue()).caCertificate).toContain("BEGIN CERTIFICATE");
 });
 
 test("workflow list precedes creation, menus fully dismiss and dialogs restore focus", async ({ page }, testInfo) => {
