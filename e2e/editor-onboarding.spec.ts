@@ -146,7 +146,7 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await page.getByRole("button", { name: /Open Telegram/ }).click();
   await expect(page.getByRole("heading", { name: "Telegram" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Actions", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Add Send message to favorites" }).click();
+  await page.getByRole("button", { name: "Add Send message to favorites (Telegram)" }).click();
   await page.getByRole("button", { name: /Telegram: Send message/ }).click();
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page.getByRole("heading", { name: "Favorites" })).toBeVisible();
@@ -328,6 +328,26 @@ test("node library and editor menus support keyboard-only navigation", async ({ 
   await expect(coreFilter).toBeFocused();
   await expect(coreFilter).toHaveAttribute("aria-pressed", "true");
   await allFilter.click();
+
+  const communication = page.getByRole("button", { name: "Collapse Communication" });
+  await communication.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(communication).toBeFocused();
+
+  await page.getByRole("button", { name: "Roadmap", exact: true }).click();
+  const instagramApp = page.getByRole("button", { name: /Open Instagram/ });
+  await instagramApp.focus();
+  await page.keyboard.press("Enter");
+  await expect(plannedInstagram).toBeFocused();
+  await expect(page.getByRole("button", { name: /Manage content.*favorites.*Instagram/ })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(instagramApp).toBeFocused();
+  await allFilter.click();
+
+  await search.fill("Select rows");
+  await expect(page.getByRole("button", { name: "Add Select rows to favorites (PostgreSQL)" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add Select rows to favorites (Supabase)" })).toBeVisible();
+  await search.clear();
 
   const emailApp = page.getByRole("button", { name: /Open Email/ });
   await emailApp.focus();

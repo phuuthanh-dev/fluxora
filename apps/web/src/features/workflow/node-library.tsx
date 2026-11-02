@@ -78,9 +78,11 @@ function moveCollectionFocus(event: ReactKeyboardEvent<HTMLElement>, selector: s
   if (!["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
   const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>(selector))
     .filter((item) => !item.disabled);
-  if (items.length === 0) return;
+  // Category toggles share the app-list container but are not app items.
+  // Do not steal their arrow keys or move focus from unrelated controls.
+  const currentIndex = items.indexOf(event.target as HTMLButtonElement);
+  if (currentIndex === -1) return;
   event.preventDefault();
-  const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement);
   const forward = event.key === "ArrowDown" || event.key === "ArrowRight";
   const nextIndex = event.key === "Home"
     ? 0
@@ -180,7 +182,9 @@ export const NodeLibrary = forwardRef<NodeLibraryHandle, NodeLibraryProps>(funct
     lastAppIdRef.current = appId;
     setSelectedAppId(appId);
     window.requestAnimationFrame(() => {
-      libraryRef.current?.querySelector<HTMLButtonElement>('.palette-operation .palette-node:not([aria-disabled="true"])')?.focus();
+      // Planned operations remain focusable so keyboard users can discover why
+      // they are unavailable and navigate back to the app list.
+      libraryRef.current?.querySelector<HTMLButtonElement>(".palette-operation .palette-node")?.focus();
     });
   };
 
@@ -296,7 +300,7 @@ function OperationSection({ id, label, description, definitions, favoriteTypes, 
             <span className="palette-node__icon"><NodeIcon name={definition.icon} size={16} /></span>
             <span className="palette-node__body"><span className="palette-node__title"><strong>{definition.operationLabel}</strong>{!definition.available && <em>Planned</em>}</span><small>{app ? `${app.label} · ` : ""}{definition.description}</small></span>
           </button>
-          <button className={favorite ? "palette-favorite palette-favorite--active" : "palette-favorite"} type="button" aria-label={`${favorite ? "Remove" : "Add"} ${definition.operationLabel} ${favorite ? "from" : "to"} favorites`} aria-pressed={favorite} onClick={() => onToggleFavorite(definition)}><Star size={13} fill={favorite ? "currentColor" : "none"} /></button>
+          {definition.available && <button className={favorite ? "palette-favorite palette-favorite--active" : "palette-favorite"} type="button" aria-label={`${favorite ? "Remove" : "Add"} ${definition.operationLabel} ${favorite ? "from" : "to"} favorites${app ? ` (${app.label})` : ""}`} aria-pressed={favorite} onClick={() => onToggleFavorite(definition)}><Star size={13} fill={favorite ? "currentColor" : "none"} /></button>}
         </div>;
       })}
     </section>
