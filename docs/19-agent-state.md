@@ -6,6 +6,13 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
+- A local diagnostic of the designated Supabase test connection returned HTTP
+  401 for schema discovery and HTTP 200 for a bounded one-row read with the
+  same publishable key. The precise cause of the 401 and the production key's
+  identity remain unknown. Local guidance now explains the distinction and
+  existing options; verification and release remain pending. See
+  `.agent/reports/2026-11-02-supabase-discovery-401.md`.
+
 - A node-library fix prevents browser preference write failures from
   blocking node addition. Favorites and collapsed categories remain usable in
   the current session. Isolated final verify passed: API 352 plus one skipped,
