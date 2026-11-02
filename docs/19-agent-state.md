@@ -11,7 +11,9 @@ complete in the delivery ledger.
   same publishable key. The precise cause of the 401 and the production key's
   identity remain unknown. Local guidance now explains the distinction and
   existing options. Final isolated verify passed (API 352 and one skipped,
-  web 32, Playwright 145); release remains pending. Two prior full runs each
+  web 32, Playwright 145). PR #67 merged as `c4fc52f` and deployed; a read-only
+  production picker retry displayed the new guidance and preserved manual
+  input, but production discovery remains unavailable. Two prior full runs each
   had a different timeout which passed targeted and final reruns, with causes
   unconfirmed. See
   `.agent/reports/2026-11-02-supabase-discovery-401.md`.

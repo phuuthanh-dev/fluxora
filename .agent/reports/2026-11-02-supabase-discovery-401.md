@@ -22,5 +22,14 @@ Two prior full runs each had 144/145 Playwright cases pass: an editor loading
 timeout and, separately, a landing chart animation sampling timeout. Those cases
 passed 2/2 and 3/3 isolated reruns respectively, and both passed in the final
 full run. Their precise causes remain unconfirmed. The isolated Redis instance
-was stopped and the user's local web/API continued to respond. This change is
-local and has not been released.
+was stopped and the user's local web/API continued to respond.
+
+PR [#67](https://github.com/phuuthanh-dev/fluxora/pull/67) merged as `c4fc52f`;
+the PR and main quality gates and
+[production deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/41403383629)
+passed. Production home, login, API health and readiness returned HTTP 200.
+The existing test workflow's Supabase picker returned the revised guidance
+after a read-only retry and preserved the manually entered table name. No
+workflow was run or saved. This verifies the production fallback and message,
+not successful production schema discovery, the production key's identity, or
+sustained operation.
