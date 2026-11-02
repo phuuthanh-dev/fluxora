@@ -18,15 +18,74 @@ permissions:
 concurrency:
   group: production-deploy
   cancel-in-progress: false
+  # Do not let a later docs-only workflow replace a pending product deployment.
+  queue: max
 
 env:
   IMAGE_NAMESPACE: ${{ github.repository_owner }}
   COMMIT_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.commit_sha || github.event.workflow_run.head_sha }}
 
 jobs:
+  qualify:
+    name: Qualify automatic deployment
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.id == github.event.repository.id)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      deploy: ${{ steps.decision.outputs.deploy }}
+    steps:
+      # Policy comes from trusted main, not from an upstream PR or artifact.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        if: github.event_name == 'workflow_run'
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Require verified, non-stale product commit
+        id: decision
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
+          UPSTREAM_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ ! "$UPSTREAM_RUN_ID" =~ ^[0-9]+$ || ! "$UPSTREAM_ATTEMPT" =~ ^[1-9][0-9]*$ ]]; then
+            echo "Missing upstream run metadata; refusing deployment." >&2; exit 1
+          fi
+          verification="$(gh api --paginate --slurp "repos/$REPOSITORY/actions/runs/$UPSTREAM_RUN_ID/attempts/$UPSTREAM_ATTEMPT/jobs?per_page=100" | node scripts/ci-upstream-verification.mjs "$COMMIT_SHA" "$UPSTREAM_ATTEMPT")"
+          if [[ "$verification" == "skipped" ]]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "Documentation-only quality run; no deployment."
+            exit 0
+          fi
+          git fetch origin +refs/heads/main:refs/remotes/origin/main
+          current="$(git rev-parse refs/remotes/origin/main)"
+          if ! git merge-base --is-ancestor "$COMMIT_SHA" "$current"; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "Verified commit is no longer an ancestor of main; no automatic deployment."
+            exit 0
+          fi
+          scope="$(node scripts/ci-change-scope.mjs "$COMMIT_SHA" "$current")"
+          if [[ "$scope" == "product" ]]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "Newer product changes exist; wait for their own quality gate."
+            exit 0
+          fi
+          echo "deploy=true" >> "$GITHUB_OUTPUT"
+
   build:
     name: Build and push production images
-    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    needs: qualify
+    if: needs.qualify.outputs.deploy == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:

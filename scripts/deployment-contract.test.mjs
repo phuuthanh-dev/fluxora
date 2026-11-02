@@ -1,10 +1,12 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { qualityCommands } from "./workspace-quality-policy.mjs";
+import { classifyChange, isDocumentationOnlyPath } from "./ci-change-scope.mjs";
+import { upstreamVerification } from "./ci-upstream-verification.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const validator = resolve(root, "infra/scripts/validate-image-tag.sh");
@@ -109,7 +111,7 @@ test("CI/CD workflow keeps bounded jobs, cache, and least-privilege deploy permi
   assert.match(qualityWorkflow, /cancel-in-progress: true/);
   assert.match(qualityWorkflow, /jobs:\n\s+scope:/);
   assert.match(qualityWorkflow, /outputs:\n\s+run_verify:/);
-  assert.match(qualityWorkflow, /git diff --no-renames --name-only/);
+  assert.match(qualityWorkflow, /node scripts\/ci-change-scope\.mjs/);
   assert.match(qualityWorkflow, /needs: scope/);
   assert.match(qualityWorkflow, /needs\.scope\.outputs\.run_verify/);
   assert.doesNotMatch(qualityWorkflow, /uses: [^\n]+@v\d/);
@@ -140,7 +142,7 @@ test("CI/CD workflow keeps bounded jobs, cache, and least-privilege deploy permi
   assert.match(workflow, /name: Build and push Web image/);
 });
 
-test("scope preserves product verification when a docs commit follows a cancelled main run", () => {
+test("scope classifies main and PR changes without dropping product work", () => {
   const script = qualityWorkflow.match(/- name: Detect product changes[\s\S]*?        run: \|\n([\s\S]*?)\n  verify:/)?.[1].replace(/^          /gm, "");
   assert.ok(script, "quality scope script must be present");
   const dir = mkdtempSync(resolve(tmpdir(), "fluxora-ci-scope-"));
@@ -159,13 +161,19 @@ test("scope preserves product verification when a docs commit follows a cancelle
     writeFileSync(resolve(dir, "docs", "guide.md"), "docs\n");
     git("add", "."); git("commit", "-qm", "docs change");
     const docs = git("rev-parse", "HEAD");
+    mkdirSync(resolve(dir, "scripts"));
+    copyFileSync(resolve(root, "scripts/ci-change-scope.mjs"), resolve(dir, "scripts/ci-change-scope.mjs"));
     const run = (event, from, to) => {
       const output = resolve(dir, "output");
       writeFileSync(output, "");
       const result = spawnSync("bash", ["-c", script], { cwd: dir, encoding: "utf8", env: { ...process.env, EVENT_NAME: event, BEFORE_SHA: from, BASE_SHA: from, HEAD_SHA: to, GITHUB_OUTPUT: output } });
       return { ...result, output: readFileSync(output, "utf8") };
     };
-    assert.match(run("push", product, docs).output, /run_verify=true/);
+    assert.match(run("push", product, docs).output, /run_verify=false/);
+    assert.match(run("push", base, docs).output, /run_verify=true/);
+    assert.match(run("push", docs, product).output, /run_verify=true/);
+    assert.equal(classifyChange(product, docs, dir).product, false);
+    assert.equal(classifyChange(base, docs, dir).product, true);
     assert.match(run("pull_request", product, docs).output, /run_verify=false/);
     assert.match(run("pull_request", base, docs).output, /run_verify=true/);
     assert.notEqual(run("pull_request", "invalid-ref", docs).status, 0);
@@ -174,6 +182,31 @@ test("scope preserves product verification when a docs commit follows a cancelle
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("deployment eligibility requires the exact verified quality attempt", () => {
+  const job = { name: "verify", head_sha: sha, run_attempt: 2, status: "completed", conclusion: "success" };
+  assert.equal(upstreamVerification([{ jobs: [job] }], sha, 2), "verified");
+  assert.equal(upstreamVerification([{ jobs: [{ ...job, conclusion: "skipped" }] }], sha, 2), "skipped");
+  for (const pages of [
+    [{ jobs: [] }], [{ jobs: [job, job] }], [{ jobs: [{ ...job, conclusion: "failure" }] }],
+    [{ jobs: [{ ...job, conclusion: "cancelled" }] }], [{ jobs: [{ ...job, head_sha: "a".repeat(40) }] }],
+    [{ jobs: [{ ...job, run_attempt: 1 }] }], [{ jobs: [{ ...job, status: "in_progress" }] }], [{}],
+  ]) assert.throws(() => upstreamVerification(pages, sha, 2));
+  assert.throws(() => upstreamVerification([{ jobs: [job] }], "invalid", 2));
+  assert.match(workflow, /queue: max/);
+  assert.match(workflow, /workflow_run\.event == 'push'/);
+  assert.match(workflow, /workflow_run\.head_repository\.id == github\.event\.repository\.id/);
+  assert.match(workflow, /attempts\/\$UPSTREAM_ATTEMPT\/jobs/);
+  assert.match(workflow, /git merge-base --is-ancestor "\$COMMIT_SHA" "\$current"/);
+  assert.match(workflow, /node scripts\/ci-change-scope\.mjs "\$COMMIT_SHA" "\$current"/);
+  assert.match(workflow, /needs: qualify/);
+  assert.match(qualityWorkflow, /github\.event\.pull_request\.number \|\| github\.sha/);
+});
+
+test("documentation classification is deliberately narrow", () => {
+  for (const path of ["README.md", "docs/guide.md", ".agent/tasks/task.md", "LICENSE"]) assert.equal(isDocumentationOnlyPath(path), true, path);
+  for (const path of ["apps/web/README.md", "docs/data.json", ".github/workflows/quality.yml", ".gitignore", "package-lock.json"]) assert.equal(isDocumentationOnlyPath(path), false, path);
 });
 
 test("verification and operational retention contracts avoid redundant work", () => {

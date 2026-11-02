@@ -6,6 +6,16 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
+- After the owner rotated the Supabase production connection, the designated table appeared in the picker (1 of 1), and one LIVE run of the designated test workflow succeeded with a one-row limit. The workflow was deactivated afterward and its execution history retained. No secret was inspected. The precise discovery path and sustained behavior remain unqualified. See `docs/35-connector-coverage-and-discovery.md`.
+
+- Local follow-up removes the two-character hint previously shown for a Reddit OAuth app client secret, which conflicts with the documented OAuth-credential exclusion. Other allowlisted opaque-token hints are unchanged. Verification and release status are recorded in `.agent/reports/2026-11-02-reddit-client-secret-hint.md`; production remains unchanged until release.
+
+- Follow-up direct Calendar adapter diagnostics found the designated test event and pagination in a 2030 provider page. At the 2100 test interval, the raw Google list response itself had no items or next-page token while free/busy showed busy. Two marker-verified test events were deleted. This does not establish a universal provider date limit or prove the complete UI workflow for populated pages; see `docs/35-connector-coverage-and-discovery.md`.
+
+- An owner-authorized local Calendar test event produced a successful busy-interval result, but List upcoming events unexpectedly returned an empty page with `hasMore: false` for the far-future test range. The exact cause is unknown; do not claim a fix or a successful populated-list test. The test event was deleted, and all three qualification workflows were deactivated. See `docs/35-connector-coverage-and-discovery.md`.
+
+- A separate owner-authorized local Calendar read-only workflow successfully listed zero events after a future test date and reported a 15-minute interval as free. Both nodes and the live execution succeeded; the workflow was deactivated. Populated events, busy intervals, production and sustained behavior remain unqualified. See `docs/35-connector-coverage-and-discovery.md`.
+
 - After the owner rotated the local PostgreSQL connection with the Supabase CA,
   a direct verified-TLS read and one manual LIVE workflow run each succeeded on
   `public.fluxora_connector_test` with a one-row limit. Schema/table discovery
@@ -21,7 +31,8 @@ complete in the delivery ledger.
   existing options. Final isolated verify passed (API 352 and one skipped,
   web 32, Playwright 145). PR #67 merged as `c4fc52f` and deployed; a read-only
   production picker retry displayed the new guidance and preserved manual
-  input, but production discovery remains unavailable. Two prior full runs each
+  input, but production discovery remained unavailable at that time; the later
+  post-rotation success is recorded above. Two prior full runs each
   had a different timeout which passed targeted and final reruns, with causes
   unconfirmed. See
   `.agent/reports/2026-11-02-supabase-discovery-401.md`.

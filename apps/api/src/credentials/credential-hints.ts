@@ -12,7 +12,6 @@ const hintFields: Partial<Record<CredentialProvider, ReadonlyArray<{ key: string
   [CredentialProvider.GEMINI]: [{ key: "apiKey", label: "API key" }],
   [CredentialProvider.OPENAI]: [{ key: "apiKey", label: "API key" }],
   [CredentialProvider.SUPABASE]: [{ key: "apiKey", label: "API key" }],
-  [CredentialProvider.REDDIT]: [{ key: "clientSecret", label: "Client secret" }],
 };
 
 export function credentialHints(provider: CredentialProvider, data: Record<string, unknown>) {
