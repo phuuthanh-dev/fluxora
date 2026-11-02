@@ -37,16 +37,24 @@ public DNS behavior, a complete workflow, vault integration, Supabase
 authentication, or production operation.
 
 The owner-created local PostgreSQL connection initially lacked its CA and
-failed TLS before authentication. A replacement form was prepared with the
-official public CA and non-secret connection settings, but the owner must
-enter and submit the database password. No live read has yet succeeded. This
-change was subsequently released as noted below; the Supabase connection and
-sustained production behavior are not qualified. The user-owned local web and
-API remained running.
+failed TLS before authentication. The owner subsequently rotated the local
+connection, entering the password and the official public CA. A direct runtime
+check against the designated Supabase session pooler authenticated with
+verified TLS and read one row from `public.fluxora_connector_test`.
+
+An existing local test workflow was then configured with a manual trigger and
+PostgreSQL Select rows, limited to that table and one row. Schema and table
+discovery succeeded. A single published LIVE execution and both node executions
+were `SUCCEEDED`, with a count of one. The test workflow was deactivated after
+the run; its execution history, which may contain the test row, remains in the
+local database. Only status and count were printed in the diagnostic; no
+credential or row content was printed. This is one local end-to-end run, not
+evidence of sustained service or a production PostgreSQL connection.
 
 Release update: PR [#65](https://github.com/phuuthanh-dev/fluxora/pull/65)
 merged as `87542ed`. Its PR and main quality gates passed, and
 [production deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/41391212408)
 completed successfully. Production home, login, API health and readiness
 responded HTTP 200 afterward. This is a deployment and availability check;
-Supabase database authentication and a live PostgreSQL read remain unverified.
+The live PostgreSQL read was subsequently qualified locally as described above;
+production PostgreSQL authentication remains unverified.
