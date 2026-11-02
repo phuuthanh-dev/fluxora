@@ -6,6 +6,8 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
+- After the Trello production credential rotation, a manual LIVE run of the designated Trello test workflow created one clearly labelled card in `Fluxora connector test` / `To Do`. Both the node and execution succeeded; the workflow was deactivated afterward and the card and execution history remain. This confirms one production create at that time, not repeat-delivery safety or sustained operation; see `docs/35-connector-coverage-and-discovery.md`.
+
 - PR [#69](https://github.com/phuuthanh-dev/fluxora/pull/69) merged as `64e9e66`; its PR and main quality gates and [production deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/41426085890) succeeded. Production home, login, API health and readiness and local web/API returned HTTP 200 after deployment. The new deploy qualification accepted the verified commit. These checks are point-in-time evidence, not a sustained reliability or complete GitHub scheduling test.
 
 - After the owner rotated the Supabase production connection, the designated table appeared in the picker (1 of 1), and one LIVE run of the designated test workflow succeeded with a one-row limit. The workflow was deactivated afterward and its execution history retained. No secret was inspected. The precise discovery path and sustained behavior remain unqualified. See `docs/35-connector-coverage-and-discovery.md`.
