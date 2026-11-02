@@ -6,9 +6,11 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
+- PR [#69](https://github.com/phuuthanh-dev/fluxora/pull/69) merged as `64e9e66`; its PR and main quality gates and [production deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/41426085890) succeeded. Production home, login, API health and readiness and local web/API returned HTTP 200 after deployment. The new deploy qualification accepted the verified commit. These checks are point-in-time evidence, not a sustained reliability or complete GitHub scheduling test.
+
 - After the owner rotated the Supabase production connection, the designated table appeared in the picker (1 of 1), and one LIVE run of the designated test workflow succeeded with a one-row limit. The workflow was deactivated afterward and its execution history retained. No secret was inspected. The precise discovery path and sustained behavior remain unqualified. See `docs/35-connector-coverage-and-discovery.md`.
 
-- Local follow-up removes the two-character hint previously shown for a Reddit OAuth app client secret, which conflicts with the documented OAuth-credential exclusion. Other allowlisted opaque-token hints are unchanged. Verification and release status are recorded in `.agent/reports/2026-11-02-reddit-client-secret-hint.md`; production remains unchanged until release.
+- Local follow-up removes the two-character hint previously shown for a Reddit OAuth app client secret, which conflicts with the documented OAuth-credential exclusion. Other allowlisted opaque-token hints are unchanged. Verification and release status are recorded in `.agent/reports/2026-11-02-reddit-client-secret-hint.md`; this correction was released in PR #69.
 
 - Follow-up direct Calendar adapter diagnostics found the designated test event and pagination in a 2030 provider page. At the 2100 test interval, the raw Google list response itself had no items or next-page token while free/busy showed busy. Two marker-verified test events were deleted. This does not establish a universal provider date limit or prove the complete UI workflow for populated pages; see `docs/35-connector-coverage-and-discovery.md`.
 
