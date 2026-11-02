@@ -17,6 +17,19 @@ test("credential list is owner-scoped and exposes only allowed masked hints", as
   assert.equal(JSON.stringify(result).includes("ciphertext"), false);
 });
 
+test("credential list does not expose even a suffix of a Reddit OAuth client secret", async () => {
+  const clientSecret = "fixture_oauth_client_secret_1234zq";
+  const service = new CredentialService({ credential: { findMany: async () => [{ id: "reddit-1", provider: CredentialProvider.REDDIT, label: "Reddit", encryptedData: "ciphertext", createdAt: new Date(), updatedAt: new Date() }] } } as never,
+    { requireOwner: async () => {} } as never,
+    { decrypt: () => ({ clientId: "fixture_id", clientSecret, username: "fixture_user" }) } as never);
+  const [summary] = await service.list("ws", "owner");
+  assert.ok(summary);
+  assert.equal("hints" in summary, false);
+  assert.equal(JSON.stringify(summary).includes(clientSecret), false);
+  assert.equal(JSON.stringify(summary).includes("zq"), false);
+  assert.equal(JSON.stringify(summary).includes("ciphertext"), false);
+});
+
 test("credential hints are not loaded when workspace ownership fails", async () => {
   let reads = 0;
   const service = new CredentialService({ credential: { findMany: async () => { reads += 1; return []; } } } as never,
