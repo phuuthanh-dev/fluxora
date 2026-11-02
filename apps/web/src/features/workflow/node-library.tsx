@@ -66,6 +66,14 @@ function readCollapsedCategories() {
   } catch { return []; }
 }
 
+function writePreference(key: string, value: string[]) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Preferences are optional; browser storage can be blocked or full.
+  }
+}
+
 function moveCollectionFocus(event: ReactKeyboardEvent<HTMLElement>, selector: string, activate: boolean) {
   if (!["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
   const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>(selector))
@@ -111,7 +119,7 @@ export const NodeLibrary = forwardRef<NodeLibraryHandle, NodeLibraryProps>(funct
   const rememberRecent = (definition: NodeDefinition) => {
     const next = [definition.type, ...recentTypes.filter((type) => type !== definition.type)].slice(0, recentLimit);
     setRecentTypes(next);
-    window.localStorage.setItem(recentStorageKey, JSON.stringify(next));
+    writePreference(recentStorageKey, next);
   };
 
   const addOperation = (definition: NodeDefinition) => {
@@ -131,13 +139,13 @@ export const NodeLibrary = forwardRef<NodeLibraryHandle, NodeLibraryProps>(funct
       ? favoriteTypes.filter((type) => type !== definition.type)
       : [...favoriteTypes, definition.type];
     setFavoriteTypes(next);
-    window.localStorage.setItem(favoritesStorageKey, JSON.stringify(next));
+    writePreference(favoritesStorageKey, next);
   };
 
   const toggleCategory = (id: string) => {
     const next = collapsedCategories.includes(id) ? collapsedCategories.filter((category) => category !== id) : [...collapsedCategories, id];
     setCollapsedCategories(next);
-    window.localStorage.setItem(collapsedCategoriesStorageKey, JSON.stringify(next));
+    writePreference(collapsedCategoriesStorageKey, next);
   };
 
   const filteredDefinitions = useMemo(

@@ -6,12 +6,24 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
-- A local PostgreSQL credential enhancement accepts an optional provider CA
+- A local node-library fix prevents browser preference write failures from
+  blocking node addition. Favorites and collapsed categories remain usable in
+  the current session. Isolated final verify passed: API 352 plus one skipped,
+  web 32, and Playwright 145. An earlier navigation timeout passed twice in
+  isolation and in the full rerun; its cause is unconfirmed. The fix is not
+  yet released. See `.agent/reports/2026-11-02-node-library-storage.md`.
+
+- PR #65 merged as `87542ed`; PR and main quality gates passed and production
+  deployment succeeded. Production home, login, API health and readiness and
+  local web/API returned HTTP 200. Actual Supabase PostgreSQL authentication
+  remains unqualified. See `.agent/reports/2026-11-02-postgres-custom-ca.md`.
+
+- A PostgreSQL credential enhancement accepts an optional provider CA
   while retaining verified TLS and pinned DNS. Supabase's official CA passed a
   no-credential Node TLS handshake; the connection is not yet authenticated
   or live-read qualified. Full isolated verify passed (API 353, web 32,
   Playwright 144) after an earlier onboarding timeout of unconfirmed cause. The change
-  has not been released. See `.agent/reports/2026-11-02-postgres-custom-ca.md`.
+  was subsequently released. See `.agent/reports/2026-11-02-postgres-custom-ca.md`.
 
 - A further isolated PostgreSQL 16 test exercised `readPostgresRows` against a
   real TLS/SCRAM server with a synthetic custom CA. A bounded read succeeded;
@@ -20,7 +32,7 @@ complete in the delivery ledger.
   Supabase or exercise the complete workflow and vault.
 
 - Reddit's credential form and node description now warn about retirement of
-  its public Data API and link to the provider timeline. This is local only;
+  its public Data API and link to the provider timeline. This was released in PR #65;
   no Reddit access has been qualified. Isolated full `npm run verify` passed
   (API 352, web 32, Playwright 144). See `.agent/reports/2026-11-02-reddit-access-guidance.md`.
 

@@ -40,5 +40,13 @@ The owner-created local PostgreSQL connection initially lacked its CA and
 failed TLS before authentication. A replacement form was prepared with the
 official public CA and non-secret connection settings, but the owner must
 enter and submit the database password. No live read has yet succeeded. This
-change is local and not yet released; production and sustained behavior are
-not qualified. The user-owned local web and API remained running.
+change was subsequently released as noted below; the Supabase connection and
+sustained production behavior are not qualified. The user-owned local web and
+API remained running.
+
+Release update: PR [#65](https://github.com/phuuthanh-dev/fluxora/pull/65)
+merged as `87542ed`. Its PR and main quality gates passed, and
+[production deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/41391212408)
+completed successfully. Production home, login, API health and readiness
+responded HTTP 200 afterward. This is a deployment and availability check;
+Supabase database authentication and a live PostgreSQL read remain unverified.
