@@ -7,7 +7,11 @@ import { resolvePostgresTarget } from "./postgres-target";
 import type { lookup } from "node:dns/promises";
 import { Readable } from "node:stream";
 import { rootCertificates } from "node:tls";
-import { executePostgresSelect, readPostgresRows, validatePostgresCredential } from "./postgres-read";
+import { executePostgresSelect as executePostgresSelectVersioned, readPostgresRows, validatePostgresCredential } from "./postgres-read";
+import { resolveExpressions } from "./expression";
+
+// These existing selection tests exercise the new, explicit v2 contract.
+const executePostgresSelect = (config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, read?: typeof readPostgresRows) => executePostgresSelectVersioned(config, mode, workspaceId, credentials, read, 2);
 
 test("Notion search sends bounded request and returns only page identifiers and titles", async () => {
   let captured: { url: string; init: RequestInit } | undefined;
@@ -24,6 +28,31 @@ test("Notion search sends bounded request and returns only page identifiers and 
 test("Notion failures are sanitized and requests reject invalid bounds", async () => {
   await assert.rejects(searchNotionPages({ token: "secret", query: "", pageSize: 101 }), /Invalid Notion search/);
   await assert.rejects(searchNotionPages({ token: "secret", query: "", pageSize: 20 }, async () => new Response("secret", { status: 403 })), (error: unknown) => error instanceof Error && !error.message.includes("secret") && /403/.test(error.message));
+});
+
+test("Notion search passes an opaque continuation cursor through the executor", async () => {
+  const credentials = { readForExecution: async () => ({ token: "synthetic" }) } as unknown as CredentialService;
+  const cursor = "opaque/cursor+with=_parts";
+  let body: Record<string, unknown> | undefined;
+  const result = await executeNotionSearch({ credentialId: "connection", query: "notes", pageSize: 10, cursor }, "live", "workspace", credentials, async (input) =>
+    searchNotionPages(input, async (_url, init) => {
+      body = JSON.parse(String(init.body)) as Record<string, unknown>;
+      return Response.json({ has_more: false, next_cursor: null, results: [] });
+    }));
+  assert.equal(body?.start_cursor, cursor);
+  assert.equal(result.output.hasMore, false);
+  await assert.rejects(executeNotionSearch({ cursor: "bad\nheader" }, "mock", "workspace", credentials), /pagination cursor/);
+});
+
+test("Notion respects bounded Retry-After and declines unsafe shorter retries", async () => {
+  for (const [header, expectedRetryable, expectedDelay] of [["5", true, 5000], ["120", false, 120000]] as const) {
+    await assert.rejects(searchNotionPages({ token: "synthetic", query: "", pageSize: 20 }, async () => new Response(null, { status: 429, headers: { "retry-after": header } })), (reason: unknown) => {
+      assert.ok(reason instanceof Error && "retryable" in reason && "retryAfterMs" in reason);
+      assert.equal(reason.retryable, expectedRetryable);
+      assert.equal(reason.retryAfterMs, expectedDelay);
+      return true;
+    });
+  }
 });
 
 test("Notion mock never reads credentials, and live execution requires the workspace credential", async () => {
@@ -48,6 +77,18 @@ test("PostgreSQL selection rejects injected identifiers and unsupported operator
   assert.throws(() => buildPostgresSelect({ schema: "public", table: 'orders; DROP TABLE users', columns: [], conditions: [], limit: 20 }));
   assert.throws(() => buildPostgresSelect({ schema: "public", table: "orders", columns: [], conditions: [{ column: "name", operator: "constructor" as never, value: "x" }], limit: 20 }));
   assert.throws(() => buildPostgresSelect({ schema: "public", table: "orders", columns: [], conditions: [], limit: 101 }));
+});
+
+test("PostgreSQL selection binds conditions and validates ordered pagination", () => {
+  const query = buildPostgresSelect({ schema: "public", table: "orders", columns: ["id", "amount"], conditions: [{ column: "status", operator: "equals", value: "pending' OR true --" }], orderBy: "id", orderDirection: "desc", offset: 20, limit: 10 });
+  assert.equal(query.text, 'SELECT "id", "amount" FROM "public"."orders" WHERE "status" = $1 ORDER BY "id" DESC LIMIT 10 OFFSET 20');
+  assert.deepEqual(query.values, ["pending' OR true --"]);
+  assert.throws(() => buildPostgresSelect({ schema: "public", table: "orders", columns: [], conditions: [], offset: 1, limit: 10 }));
+  assert.throws(() => buildPostgresSelect({ schema: "public", table: "orders", columns: [], conditions: [], orderBy: 'id; DROP TABLE orders', limit: 10 }));
+  assert.throws(() => buildPostgresSelect({ schema: "public", table: "orders", columns: [], conditions: [], orderBy: "id", orderDirection: "desc; DROP" as never, limit: 10 }));
+  assert.throws(() => buildPostgresSelect({ schema: "public", table: "orders", columns: ["id", "id"], conditions: [], limit: 10 }));
+  assert.throws(() => buildPostgresSelect({ schema: "public", table: "orders", columns: [], conditions: [], orderDirection: "desc", limit: 10 }));
+  assert.throws(() => buildPostgresSelect({ schema: "public", table: "orders", columns: [], conditions: [{ column: "id", operator: "equals", value: 1, unexpected: true } as never], limit: 10 }));
 });
 
 test("PostgreSQL targets reject private and mixed DNS results and preserve the TLS hostname", async () => {
@@ -114,4 +155,36 @@ test("PostgreSQL mock does not read credentials and live selection uses its work
   const result = await executePostgresSelect({ ...config, credentialId: "connection" }, "live", "workspace", credentials, async (_credential, schema, table, limit) => { assert.deepEqual([schema, table, limit], ["public", "items", 10]); return { rows: [], count: 0 }; });
   assert.deepEqual(calls[0], ["connection", "workspace", "POSTGRES"]);
   assert.equal(JSON.stringify(result).includes("secret"), false);
+});
+
+test("PostgreSQL rejects unresolved selection expressions and unknown config before any read", async () => {
+  let calls = 0;
+  const forbidden = { readForExecution: async () => { calls++; throw new Error("unexpected credential read"); } } as unknown as CredentialService;
+  const forbiddenRead = (async () => { calls++; throw new Error("unexpected database read"); }) as typeof readPostgresRows;
+  const context = { steps: {} };
+  for (const mode of ["mock", "live"] as const) {
+    for (const key of ["columns", "conditions", "orderBy", "orderDirection", "offset", "limit"]) {
+      const config = resolveExpressions({ credentialId: "connection", schema: "public", table: "items", [key]: "{{ steps.missing.output }}" }, context) as Record<string, unknown>;
+      assert.equal(Object.hasOwn(config, key), true);
+      assert.equal(config[key], undefined);
+      await assert.rejects(executePostgresSelect(config, mode, "workspace", forbidden, forbiddenRead), /unresolved value/);
+    }
+    const nested = resolveExpressions({ schema: "public", table: "items", conditions: [{ column: "id", operator: "equals", value: "{{ steps.missing.output }}" }] }, context) as Record<string, unknown>;
+    await assert.rejects(executePostgresSelect(nested, mode, "workspace", forbidden, forbiddenRead), /unresolved value/);
+    for (const unknown of [{ filters: [] }, { conditons: [] }, { arbitrary: 1 }]) {
+      await assert.rejects(executePostgresSelect({ schema: "public", table: "items", ...unknown }, mode, "workspace", forbidden, forbiddenRead), /unsupported field/);
+    }
+  }
+  assert.equal(calls, 0);
+  // Legacy nodes may omit all selection keys and retain common execution settings.
+  const legacy = await executePostgresSelect({ schema: "public", table: "items", retryAttempts: 2, timeoutMs: 9000 }, "mock", "workspace", forbidden);
+  assert.deepEqual(legacy.output.page, { limit: 20, offset: 0, completeness: "unknown" });
+  assert.equal(legacy.output.returnedCount, 1);
+});
+
+test("PostgreSQL reports page completeness as unknown for live results", async () => {
+  const credentials = { readForExecution: async () => ({ host: "db.example.com", port: 5432, database: "db", username: "user", password: "secret" }) } as unknown as CredentialService;
+  const read = (async () => ({ rows: [{ id: 1 }, { id: 2 }], count: 2 })) as typeof readPostgresRows;
+  const result = await executePostgresSelect({ schema: "public", table: "items", credentialId: "connection", limit: 2, orderBy: "id", offset: 10 }, "live", "workspace", credentials, read);
+  assert.deepEqual(result.output, { rows: [{ id: 1 }, { id: 2 }], count: 2, returnedCount: 2, page: { limit: 2, offset: 10, completeness: "unknown" } });
 });

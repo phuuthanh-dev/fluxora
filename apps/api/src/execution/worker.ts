@@ -20,6 +20,12 @@ export function createExecutionWorker(connection: IORedis, execute: (job: Execut
   });
 }
 
+/** A failed queue job cannot prove ownership of a currently running phase. */
+export async function markWorkerJobFailure(executions: Pick<ExecutionService, "failUnstartedResumeFromWorker" | "failUnstartedFromWorker">, job: ExecutionJob) {
+  if (job.resumeToken) await executions.failUnstartedResumeFromWorker(job.executionId, job.resumeToken);
+  else await executions.failUnstartedFromWorker(job.executionId);
+}
+
 export async function bootstrapExecutionWorker() {
   validateEnvironment();
   process.env.PROCESS_ROLE = "worker";
@@ -28,9 +34,9 @@ export async function bootstrapExecutionWorker() {
   const connection = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", { maxRetriesPerRequest: null });
   const worker = createExecutionWorker(connection, async (job) => {
     try {
-      await executions.run(job.executionId, job.mode, job.startNodeIds, job.debugNodeId);
+      await executions.run(job.executionId, job.mode, job.startNodeIds, job.debugNodeId, job.initialOnly, job.resumeToken);
     } catch (error) {
-      await executions.failFromWorker(job.executionId);
+      await markWorkerJobFailure(executions, job);
       throw error;
     }
   });

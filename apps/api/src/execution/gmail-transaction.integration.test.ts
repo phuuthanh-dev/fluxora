@@ -44,18 +44,18 @@ test("concurrent Gmail deliveries atomically share one queued execution", { skip
     eventsRedis = redis.duplicate();
     events = new QueueEvents(queueName, { connection: eventsRedis });
     await events.waitUntilReady();
-    await queueService.dispatch({ executionId: first.execution!.id, mode: "live", startNodeIds: ["mail"] });
-    await queueService.dispatch({ executionId: first.execution!.id, mode: "live", startNodeIds: ["mail"] });
+    await queueService.dispatch({ executionId: first.execution!.id, mode: "live", startNodeIds: ["mail"], initialOnly: true });
+    await queueService.dispatch({ executionId: first.execution!.id, mode: "live", startNodeIds: ["mail"], initialOnly: true });
     assert.equal((await inspectionQueue.getJobCounts("wait")).wait, 1);
-    const lost = await inspectionQueue.getJob(first.execution!.id);
+    const lost = await inspectionQueue.getJob(`initial-${first.execution!.id}`);
     assert.ok(lost); await lost.remove();
     await prisma.execution.update({ where: { id: first.execution!.id }, data: { createdAt: new Date(Date.now() - 3 * 60_000) } });
     const gmail = new GmailTriggerService(prisma as never, {} as never, service, queueService);
     await gmail.recoverQueued();
-    const job = await inspectionQueue.getJob(first.execution!.id);
+    const job = await inspectionQueue.getJob(`initial-${first.execution!.id}`);
     assert.ok(job);
     workerRedis = redis.duplicate();
-    worker = new Worker(queueName, async (item) => service.run(item.data.executionId, item.data.mode, item.data.startNodeIds), { connection: workerRedis });
+    worker = new Worker(queueName, async (item) => service.run(item.data.executionId, item.data.mode, item.data.startNodeIds, undefined, item.data.initialOnly), { connection: workerRedis });
     await job.waitUntilFinished(events, 15_000);
     assert.equal((await prisma.execution.findUniqueOrThrow({ where: { id: first.execution!.id } })).status, "SUCCEEDED");
     assert.equal(await prisma.nodeExecution.count({ where: { executionId: first.execution!.id, nodeId: "mail" } }), 1);
@@ -71,7 +71,7 @@ test("concurrent Gmail deliveries atomically share one queued execution", { skip
       { id: "next", type: "condition.if", position: { x: 2, y: 0 }, config: { left: "yes", operator: "equals", right: "yes" } },
     ], edges: [{ id: "a", source: "mail", target: "approve", kind: "success" }, { id: "b", source: "approve", target: "next", kind: "success" }] };
     await prisma.workflowVersion.create({ data: { id: approvalVersionId, workflowId, version: 99, status: "PUBLISHED", graph: approvalGraph } });
-    await prisma.execution.create({ data: { id: approvalExecutionId, workflowVersionId: approvalVersionId, mode: "LIVE", idempotencyKey: `gmail:approval-${id}`, createdAt: new Date(Date.now() - 3 * 60_000) } });
+    await prisma.execution.create({ data: { id: approvalExecutionId, workflowVersionId: approvalVersionId, mode: "LIVE", idempotencyKey: `gmail:approval-${id}`, startedAt: new Date(Date.now() - 4 * 60_000), createdAt: new Date(Date.now() - 3 * 60_000) } });
     await prisma.approvalRequest.create({ data: { id: approvalId, executionId: approvalExecutionId, tokenHash: `synthetic-${id}`, status: "APPROVED", resolvedAt: new Date(), expiresAt: new Date(Date.now() + 60_000) } });
     await prisma.nodeExecution.createMany({ data: [
       { executionId: approvalExecutionId, nodeId: "mail", status: "SUCCEEDED", output: {} },

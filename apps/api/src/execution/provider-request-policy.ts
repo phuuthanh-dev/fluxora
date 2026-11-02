@@ -14,7 +14,7 @@ export async function requireProviderSuccess(response: Response, provider: strin
   if (response.ok) return;
   // Error bodies can contain secrets and have no useful execution output.
   await response.body?.cancel().catch(() => undefined);
-  if (write && (response.status >= 500 || wasOutboundRedirected(response))) throw uncertainDelivery(provider, response.status);
+  if (write && (response.status === 408 || response.status >= 500 || (response.status >= 300 && response.status < 400) || wasOutboundRedirected(response))) throw uncertainDelivery(provider, response.status);
   throw new NodeFailure(code, `${provider} returned ${response.status}.`, response.status === 429 || (!write && response.status >= 500), response.status);
 }
 

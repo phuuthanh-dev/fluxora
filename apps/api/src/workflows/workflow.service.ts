@@ -6,6 +6,8 @@ import { WorkspaceService } from "../workspaces/workspace.service";
 import { parseWorkflowGraph, validatePublishableGraph } from "./workflow-graph";
 import { systemWorkflowTemplates } from "./system-templates";
 import { GmailTriggerService } from "../scheduler/gmail-trigger.service";
+import { RssTriggerService } from "../scheduler/rss-trigger.service";
+import { rssFeedUrlHash, rssTargets } from "../scheduler/rss-trigger-poller";
 
 type CreateWorkflowInput = { name: string; description?: string; graph?: unknown };
 type UpdateDraftInput = { name?: string; description?: string | null; graph: unknown };
@@ -17,7 +19,7 @@ const defaultGraph: WorkflowGraph = {
 
 @Injectable()
 export class WorkflowService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService, @Inject(WorkspaceService) private readonly workspaces: WorkspaceService, @Optional() @Inject(GmailTriggerService) private readonly gmailTriggers?: GmailTriggerService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService, @Inject(WorkspaceService) private readonly workspaces: WorkspaceService, @Optional() @Inject(GmailTriggerService) private readonly gmailTriggers?: GmailTriggerService, @Optional() @Inject(RssTriggerService) private readonly rssTriggers?: RssTriggerService) {}
 
   async list(workspaceId: string, userId: string) {
     await this.workspaces.requireOwner(workspaceId, userId);
@@ -90,6 +92,41 @@ export class WorkflowService {
     return { active: workflow.isActive, checkpoints };
   }
 
+  async rssTriggerStatus(workflowId: string, userId: string) {
+    const workflow = await this.findOwned(workflowId, userId);
+    if (!workflow.publishedVersion) return { active: false, checkpoints: [] };
+    const checkpoints = await this.prisma.$queryRaw<Array<{ nodeId: string; state: string; lastErrorCode: string | null; nextPollAt: Date | null; updatedAt: Date }>>`SELECT "nodeId", "state", "lastErrorCode", "nextPollAt", "updatedAt" FROM "RssTriggerCheckpoint" WHERE "workflowId" = ${workflowId} AND "workflowVersionId" = ${workflow.publishedVersion.id}`;
+    if (workflow.isActive) for (const node of parseWorkflowGraph(workflow.publishedVersion.graph).nodes.filter((item) => item.type === "trigger.rss.new-item")) {
+      if (!checkpoints.some((checkpoint) => checkpoint.nodeId === node.id)) checkpoints.push({ nodeId: node.id, state: "ERROR", lastErrorCode: "RSS_CHECKPOINT_MISSING", nextPollAt: null, updatedAt: new Date() });
+    }
+    return { active: workflow.isActive, checkpoints };
+  }
+
+  async resetRssTrigger(workflowId: string, userId: string, confirmDataGap: boolean) {
+    if (!confirmDataGap) throw new BadRequestException({ code: "RSS_RESET_CONFIRMATION_REQUIRED", message: "Confirm that items in the gap may be missed." });
+    const workflow = await this.findOwned(workflowId, userId);
+    if (workflow.isActive || !workflow.publishedVersion || !this.rssTriggers) throw new ConflictException({ code: "RSS_RESET_REQUIRES_INACTIVE", message: "Deactivate the published workflow before resetting the RSS trigger." });
+    const versionId = workflow.publishedVersion.id;
+    const baselines = await this.rssTriggers.freshBaselines(workflowId, versionId, parseWorkflowGraph(workflow.publishedVersion.graph));
+    if (!baselines.length) throw new BadRequestException({ code: "RSS_TRIGGER_NOT_FOUND", message: "The published workflow has no RSS trigger." });
+    await this.prisma.$transaction(async (transaction) => {
+      const workflows = await transaction.$queryRaw<Array<{ publishedVersionId: string | null; isActive: boolean; archivedAt: Date | null }>>`SELECT "publishedVersionId", "isActive", "archivedAt" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
+      if (!workflows[0] || workflows[0].isActive || workflows[0].archivedAt || workflows[0].publishedVersionId !== versionId) throw new ConflictException({ code: "WORKFLOW_CHANGED", message: "The workflow changed. Reload and try again." });
+      let cancelledQueued = 0;
+      for (const { target, baseline } of baselines) {
+        const rows = await transaction.$queryRaw<Array<{ leaseToken: string | null; leaseExpiresAt: Date | null }>>`SELECT "leaseToken", "leaseExpiresAt" FROM "RssTriggerCheckpoint" WHERE "workflowId" = ${workflowId} AND "nodeId" = ${target.nodeId} FOR UPDATE`;
+        if (rows[0]?.leaseToken && rows[0].leaseExpiresAt && rows[0].leaseExpiresAt > new Date()) throw new ConflictException({ code: "RSS_POLL_IN_PROGRESS", message: "Wait for the current RSS check to finish before resetting." });
+        cancelledQueued += await transaction.$executeRaw`UPDATE "Execution" SET "status" = 'CANCELLED', "completedAt" = NOW() WHERE id IN (SELECT "executionId" FROM "RssTriggerDelivery" WHERE "workflowId" = ${workflowId} AND "nodeId" = ${target.nodeId} AND "executionId" IS NOT NULL) AND "status" = 'QUEUED' AND "startedAt" IS NULL`;
+        await transaction.$executeRaw`DELETE FROM "RssTriggerCheckpoint" WHERE "workflowId" = ${workflowId} AND "nodeId" = ${target.nodeId}`;
+        const now = new Date();
+        await transaction.$executeRaw`INSERT INTO "RssTriggerCheckpoint" ("workflowId", "nodeId", "workflowVersionId", "feedUrlHash", "snapshot", "etag", "lastModified", "updatedAt") VALUES (${workflowId}, ${target.nodeId}, ${versionId}, ${baseline.feedUrlHash}, ${JSON.stringify(baseline.keys)}::jsonb, ${baseline.etag}, ${baseline.lastModified}, ${now})`;
+        if (baseline.keys.length) await transaction.$executeRaw`INSERT INTO "RssTriggerDelivery" ("workflowId", "nodeId", "itemKey", "lastSeenAt") VALUES ${Prisma.join(baseline.keys.map((key) => Prisma.sql`(${workflowId}, ${target.nodeId}, ${key}, ${now})`))}`;
+      }
+      await transaction.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "workflow.rss_checkpoint_reset", targetType: "workflow", targetId: workflowId, metadata: { versionId, cancelledQueued } } });
+    });
+    return { success: true };
+  }
+
   async resetGmailTrigger(workflowId: string, userId: string, confirmDataGap: boolean) {
     if (!confirmDataGap) throw new BadRequestException({ code: "GMAIL_RESET_CONFIRMATION_REQUIRED", message: "Confirm that messages in the gap may be missed." });
     const workflow = await this.findOwned(workflowId, userId);
@@ -155,7 +192,7 @@ export class WorkflowService {
     return this.serialize(updated);
   }
 
-  async publish(workflowId: string, userId: string, confirmDiscardGmail = false) {
+  async publish(workflowId: string, userId: string, confirmDiscardGmail = false, confirmDiscardRss = false) {
     const workflow = await this.findOwned(workflowId, userId);
     if (!workflow.draftVersion) {
       throw new NotFoundException({ code: "DRAFT_NOT_FOUND", message: "Workflow has no draft version to publish." });
@@ -175,7 +212,15 @@ export class WorkflowService {
       const previous = locked[0]?.publishedVersionId ? await transaction.workflowVersion.findUnique({ where: { id: locked[0].publishedVersionId } }) : null;
       const previousGmail = previous ? parseWorkflowGraph(previous.graph).nodes.find((node) => node.type === "trigger.gmail") : undefined;
       const nextGmail = graph.nodes.find((node) => node.type === "trigger.gmail");
+      const previousRss = previous ? rssTargets(workflowId, previous.id, parseWorkflowGraph(previous.graph))[0] : undefined;
+      const nextRss = rssTargets(workflowId, draftVersion.id, graph)[0];
       if (locked[0]?.isActive && (nextGmail || previousGmail)) throw new ConflictException({ code: "GMAIL_TRIGGER_DEACTIVATE_TO_PUBLISH", message: "Deactivate the Gmail-triggered workflow before publishing a different version." });
+      if (locked[0]?.isActive && (nextRss || previousRss)) throw new ConflictException({ code: "RSS_TRIGGER_DEACTIVATE_TO_PUBLISH", message: "Deactivate the RSS-triggered workflow before publishing a different version." });
+      const rssRows = previousRss ? await transaction.$queryRaw<Array<{ feedUrlHash: string; state: string; leaseToken: string | null; leaseExpiresAt: Date | null }>>`SELECT "feedUrlHash", "state", "leaseToken", "leaseExpiresAt" FROM "RssTriggerCheckpoint" WHERE "workflowId" = ${workflowId} AND "nodeId" = ${previousRss.nodeId} FOR UPDATE` : [];
+      const rssCheckpoint = rssRows[0];
+      if (rssCheckpoint?.leaseToken && rssCheckpoint.leaseExpiresAt && rssCheckpoint.leaseExpiresAt > new Date()) throw new ConflictException({ code: "RSS_POLL_IN_PROGRESS", message: "Wait for the current RSS check to finish before publishing." });
+      const preserveRss = Boolean(rssCheckpoint && previousRss && nextRss && previousRss.nodeId === nextRss.nodeId && rssCheckpoint.feedUrlHash === rssFeedUrlHash(nextRss.url));
+      if (rssCheckpoint && !preserveRss && !confirmDiscardRss) throw new ConflictException({ code: "RSS_PUBLISH_GAP_CONFIRMATION", message: "Changing or removing this RSS trigger discards its saved progress. Review before publishing." });
       const oldCheckpoint = previous && previousGmail ? await transaction.gmailTriggerCheckpoint.findUnique({ where: { workflowVersionId_nodeId: { workflowVersionId: previous.id, nodeId: previousGmail.id } } }) : null;
       if (oldCheckpoint?.leaseToken && oldCheckpoint.leaseExpiresAt && oldCheckpoint.leaseExpiresAt > new Date()) throw new ConflictException({ code: "GMAIL_POLL_IN_PROGRESS", message: "Wait for the current Gmail check to finish before publishing." });
       const preserveGmail = Boolean(oldCheckpoint && previousGmail && nextGmail && previousGmail.id === nextGmail.id && previousGmail.config.credentialId === nextGmail.config.credentialId);
@@ -184,6 +229,15 @@ export class WorkflowService {
         where: { id: draftVersion.id },
         data: { status: WorkflowVersionStatus.PUBLISHED, publishedAt: new Date() },
       });
+      if (rssCheckpoint && previousRss && preserveRss) {
+        await transaction.$executeRaw`UPDATE "RssTriggerCheckpoint" SET "workflowVersionId" = ${published.id}, "leaseToken" = NULL, "leaseExpiresAt" = NULL, "nextPollAt" = NULL, "updatedAt" = NOW() WHERE "workflowId" = ${workflowId} AND "nodeId" = ${previousRss.nodeId}`;
+      } else if (rssCheckpoint && previousRss && confirmDiscardRss) {
+        // Existing running/approved executions remain intact. A queued initial
+        // run is cancelled before its receipt is removed so it cannot become
+        // an orphan that is no longer recoverable.
+        await transaction.$executeRaw`UPDATE "Execution" SET "status" = 'CANCELLED', "completedAt" = NOW() WHERE id IN (SELECT "executionId" FROM "RssTriggerDelivery" WHERE "workflowId" = ${workflowId} AND "nodeId" = ${previousRss.nodeId} AND "executionId" IS NOT NULL) AND "status" = 'QUEUED' AND "startedAt" IS NULL`;
+        await transaction.$executeRaw`DELETE FROM "RssTriggerCheckpoint" WHERE "workflowId" = ${workflowId} AND "nodeId" = ${previousRss.nodeId}`;
+      }
       if (oldCheckpoint && previous && previousGmail && nextGmail && preserveGmail) {
         await transaction.gmailTriggerCheckpoint.create({ data: { workflowVersionId: published.id, nodeId: nextGmail.id, historyId: oldCheckpoint.historyId, mailboxHash: oldCheckpoint.mailboxHash, pageToken: oldCheckpoint.pageToken, state: oldCheckpoint.state, lastErrorCode: oldCheckpoint.lastErrorCode, nextPollAt: oldCheckpoint.nextPollAt } });
         await transaction.$executeRaw`INSERT INTO "GmailTriggerDelivery" ("workflowVersionId", "nodeId", "messageId", "executionId", "dispatchedAt", "skipReason", "createdAt") SELECT ${published.id}, ${nextGmail.id}, "messageId", "executionId", "dispatchedAt", "skipReason", "createdAt" FROM "GmailTriggerDelivery" WHERE "workflowVersionId" = ${previous.id} AND "nodeId" = ${previousGmail.id}`;
@@ -201,7 +255,7 @@ export class WorkflowService {
         data: { publishedVersionId: published.id, draftVersionId: nextDraft.id },
         include: { draftVersion: true, publishedVersion: true },
       });
-      await transaction.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "workflow.published", targetType: "workflow", targetId: workflowId, metadata: { version: published.version, ...(oldCheckpoint && !preserveGmail ? { gmailGapAcknowledged: true } : {}) } } });
+      await transaction.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "workflow.published", targetType: "workflow", targetId: workflowId, metadata: { version: published.version, ...(oldCheckpoint && !preserveGmail ? { gmailGapAcknowledged: true } : {}), ...(rssCheckpoint && !preserveRss ? { rssGapAcknowledged: true } : {}) } } });
       return linked;
     });
     return this.serialize(updated);
@@ -213,11 +267,14 @@ export class WorkflowService {
     if (workflow.isActive) return this.serialize(workflow);
     const graph = parseWorkflowGraph(workflow.publishedVersion.graph);
     const gmailNodes = graph.nodes.filter((node) => node.type === "trigger.gmail");
+    const rssNodes = graph.nodes.filter((node) => node.type === "trigger.rss.new-item");
     if (gmailNodes.length && !this.gmailTriggers) throw new BadRequestException({ code: "GMAIL_TRIGGER_UNAVAILABLE", message: "Gmail trigger is unavailable." });
+    if (rssNodes.length && !this.rssTriggers) throw new BadRequestException({ code: "RSS_TRIGGER_UNAVAILABLE", message: "RSS trigger is unavailable." });
     const baselines = gmailNodes.length ? await this.gmailTriggers!.baseline(workflow.workspaceId, graph) : [];
+    const rssBaselines = rssNodes.length ? await this.rssTriggers!.baselines(workflowId, workflow.publishedVersion.id, graph) : [];
     const activatedAt = new Date();
     const updated = await this.prisma.$transaction(async (transaction) => {
-      if (gmailNodes.length) {
+      if (gmailNodes.length || rssNodes.length) {
         const locked = await transaction.$queryRaw<Array<{ publishedVersionId: string | null; isActive: boolean; archivedAt: Date | null }>>`SELECT "publishedVersionId", "isActive", "archivedAt" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
         if (!locked[0] || locked[0].isActive || locked[0].archivedAt || locked[0].publishedVersionId !== workflow.publishedVersion!.id) throw new ConflictException({ code: "WORKFLOW_CHANGED", message: "The workflow changed while activating. Reload and try again." });
         for (const baseline of baselines) {
@@ -227,6 +284,18 @@ export class WorkflowService {
           if (existing && existing.mailboxHash !== baseline.mailboxHash) throw new ConflictException({ code: "GMAIL_MAILBOX_CHANGED", message: "This connection belongs to a different Gmail mailbox. Review and explicitly reset the trigger before reactivating." });
           if (existing) await transaction.gmailTriggerCheckpoint.update({ where: key, data: { leaseToken: null, leaseExpiresAt: null, nextPollAt: null } });
           else await transaction.gmailTriggerCheckpoint.create({ data: { workflowVersionId: workflow.publishedVersion!.id, ...baseline } });
+        }
+        for (const { target, baseline } of rssBaselines) {
+          const rows = await transaction.$queryRaw<Array<{ feedUrlHash: string; workflowVersionId: string; state: string; leaseToken: string | null; leaseExpiresAt: Date | null }>>`SELECT "feedUrlHash", "workflowVersionId", "state", "leaseToken", "leaseExpiresAt" FROM "RssTriggerCheckpoint" WHERE "workflowId" = ${workflowId} AND "nodeId" = ${target.nodeId} FOR UPDATE`;
+          const existing = rows[0];
+          if (existing && (existing.state !== "READY" || existing.workflowVersionId !== target.versionId || existing.feedUrlHash !== rssFeedUrlHash(target.url))) throw new ConflictException({ code: "RSS_TRIGGER_RECOVERY_REQUIRED", message: "Review the RSS trigger before reactivating it." });
+          if (existing?.leaseToken && existing.leaseExpiresAt && existing.leaseExpiresAt > activatedAt) throw new ConflictException({ code: "RSS_POLL_IN_PROGRESS", message: "Wait for the current RSS check to finish before activating." });
+          if (existing) await transaction.$executeRaw`UPDATE "RssTriggerCheckpoint" SET "leaseToken" = NULL, "leaseExpiresAt" = NULL, "nextPollAt" = NULL, "updatedAt" = ${activatedAt} WHERE "workflowId" = ${workflowId} AND "nodeId" = ${target.nodeId}`;
+          else {
+            if (!baseline) throw new ConflictException({ code: "RSS_CHECKPOINT_CHANGED", message: "The RSS trigger changed. Reload and try again." });
+            await transaction.$executeRaw`INSERT INTO "RssTriggerCheckpoint" ("workflowId", "nodeId", "workflowVersionId", "feedUrlHash", "snapshot", "etag", "lastModified", "updatedAt") VALUES (${workflowId}, ${target.nodeId}, ${target.versionId}, ${baseline.feedUrlHash}, ${JSON.stringify(baseline.keys)}::jsonb, ${baseline.etag}, ${baseline.lastModified}, ${activatedAt})`;
+            if (baseline.keys.length) await transaction.$executeRaw`INSERT INTO "RssTriggerDelivery" ("workflowId", "nodeId", "itemKey", "lastSeenAt") VALUES ${Prisma.join(baseline.keys.map((key) => Prisma.sql`(${workflowId}, ${target.nodeId}, ${key}, ${activatedAt})`))}`;
+          }
         }
       }
       const activated = await transaction.workflow.update({

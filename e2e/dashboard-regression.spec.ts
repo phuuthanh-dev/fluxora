@@ -625,6 +625,20 @@ test("failed template creation shows error with retry button, preserves input, a
   await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
 });
 
+test("starter templates remain available from the dashboard create section", async ({ page }) => {
+  await signUpAndDashboard(page, `starter-${Date.now()}@example.test`);
+  const selector = page.getByLabel("Choose workflow template");
+  await expect(selector.locator('option[value="inspect-postgres-rows"]')).toHaveCount(1);
+  await selector.selectOption("inspect-postgres-rows");
+  const created = page.waitForResponse((response) => response.request().method() === "POST" && response.url().includes("/workflows/from-template/inspect-postgres-rows"));
+  await page.getByRole("button", { name: "Use template", exact: true }).click();
+  expect((await created).ok()).toBeTruthy();
+  await expect(page).toHaveURL(/\/editor\?workflow=/);
+  await expect(page.locator(".react-flow__node").filter({ hasText: "PostgreSQL · Action" })).toBeVisible();
+  await page.getByRole("button", { name: "Run test" }).click();
+  await expect(page.getByText(/Mock execution succeeded/)).toBeVisible({ timeout: 15_000 });
+});
+
 test("failed blank workflow creation shows error alert with retry and preserves entered name", async ({ page }) => {
   const email = `regression-blank-${Date.now()}@example.test`;
   await signUpAndDashboard(page, email);

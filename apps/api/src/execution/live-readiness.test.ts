@@ -4,6 +4,39 @@ import { CredentialProvider } from "@prisma/client";
 import { liveCredentialRequirements } from "./live-readiness";
 import { ExecutionService } from "./execution.service";
 
+test("new Trello and Notion operations retain provider-specific live-readiness checks", () => {
+  const types = ["action.notion.retrieve-page", "action.notion.list-children", "action.notion.retrieve-property", "action.trello.get-card", "action.trello.update-card", "action.trello.move-card", "action.trello.archive-card", "action.trello.list-cards", "action.trello.find-cards"] as const;
+  const nodes = types.map((type, index) => ({ id: String(index), type, position: { x: 0, y: 0 }, config: { credentialId: `credential-${index}` } }));
+  const requirements = liveCredentialRequirements({ nodes, edges: [] });
+  assert.equal(requirements.length, types.length);
+  for (let i = 0; i < types.length; i++) {
+    assert.equal(requirements[i]?.provider, types[i]!.startsWith("action.notion.") ? CredentialProvider.NOTION : CredentialProvider.TRELLO);
+    assert.equal(requirements[i]?.credentialId, `credential-${i}`);
+  }
+});
+
+test("GitHub read operations require the workspace GitHub credential", () => {
+  const types = ["action.github.list-issues", "action.github.get-issue", "action.github.list-pull-requests", "action.github.get-pull-request"] as const;
+  const requirements = liveCredentialRequirements({ nodes: types.map((type, index) => ({ id: String(index), type, position: { x: 0, y: 0 }, config: { credentialId: "github" } })), edges: [] });
+  assert.equal(requirements.length, types.length);
+  assert.ok(requirements.every((entry) => entry.provider === CredentialProvider.GITHUB && entry.credentialId === "github"));
+});
+
+test("Gmail get-message requires a Gmail credential", () => {
+  const requirements = liveCredentialRequirements({ nodes: [{ id: "message", type: "action.gmail.get-message", position: { x: 0, y: 0 }, config: { credentialId: "gmail" } }], edges: [] });
+  assert.deepEqual(requirements, [{ nodeId: "message", provider: CredentialProvider.GMAIL, credentialId: "gmail" }]);
+});
+
+test("observability read operations require their own provider credential", () => {
+  const types = ["action.sentry.list-issues", "action.sentry.get-issue", "action.vercel.list-deployments", "action.vercel.public-deployment-lookup"] as const;
+  const requirements = liveCredentialRequirements({ nodes: types.map((type, index) => ({ id: String(index), type, position: { x: 0, y: 0 }, config: { credentialId: `connection-${index}` } })), edges: [] });
+  assert.equal(requirements.length, types.length);
+  for (let index = 0; index < types.length; index++) {
+    assert.equal(requirements[index]?.credentialId, `connection-${index}`);
+    assert.equal(requirements[index]?.provider, index < 2 ? CredentialProvider.SENTRY : CredentialProvider.VERCEL);
+  }
+});
+
 test("live readiness derives credential requirements from executable node types", () => {
   const requirements = liveCredentialRequirements({
     nodes: [

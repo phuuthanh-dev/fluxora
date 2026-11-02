@@ -3,12 +3,37 @@ import test from "node:test";
 import { executableWorkflowNodeTypes, isExecutableWorkflowNodeType } from "@workflow/contracts";
 import { availableCatalogTypes, createNodeData, getNodeDefinition, initialEdges, initialNodes, nodeCatalog } from "./node-catalog";
 import { parseWorkflowCanvasGraph } from "./workflow-graph-schema";
+import { graphForApi, graphFromApi } from "./workflow-api";
 
 test("accepts a valid exported workflow graph", () => {
   const graph = parseWorkflowCanvasGraph(structuredClone({ nodes: initialNodes, edges: initialEdges }));
 
   assert.equal(graph.nodes.length, 3);
   assert.deepEqual(graph.edges.map((edge) => edge.kind), ["success", "success"]);
+});
+
+test("API round-trip preserves unversioned legacy nodes and versioned new nodes", () => {
+  const legacy = { nodes: [{ id: "manual", type: "trigger.manual" as const, position: { x: 0, y: 0 }, config: {} }], edges: [] };
+  assert.deepEqual(graphForApi(graphFromApi(legacy)), legacy);
+  const versioned = { ...legacy, nodes: [{ ...legacy.nodes[0]!, nodeVersion: 1 }] };
+  assert.deepEqual(graphForApi(graphFromApi(versioned)), versioned);
+  assert.equal(createNodeData(getNodeDefinition("trigger.manual")!).nodeVersion, 1);
+  assert.throws(() => graphFromApi({ ...legacy, nodes: [{ ...legacy.nodes[0]!, nodeVersion: 2 }] }), /Unsupported node version/);
+});
+
+test("advanced pagination help belongs to the Calendar field, not its key globally", () => {
+  const calendar = getNodeDefinition("action.google-calendar.list-events");
+  const pagination = calendar?.configurationFields?.find((field) => field.key === "pageToken");
+  assert.ok(pagination && pagination.kind === "text");
+  assert.equal(pagination.advanced?.summary, "Advanced pagination");
+  assert.match(pagination.advanced?.help ?? "", /same calendar and limit/i);
+  for (const definition of nodeCatalog.filter((node) => node.type !== calendar?.type)) {
+    for (const field of definition.configurationFields ?? []) {
+      if (field.key === "pageToken" && field.kind === "text") {
+        assert.notEqual(field.advanced?.help, pagination.advanced?.help);
+      }
+    }
+  }
 });
 
 test("rejects malformed graph data before it reaches the editor", () => {
@@ -171,4 +196,25 @@ test("executable node capabilities stay aligned with the UI catalog", () => {
   assert.deepEqual(sortTypes(availableCatalogTypes()), sortTypes(executableWorkflowNodeTypes));
   assert.equal(nodeCatalog.filter((definition) => definition.available).length, executableWorkflowNodeTypes.length);
   assert.ok(nodeCatalog.filter((definition) => !definition.available).every((definition) => !isExecutableWorkflowNodeType(definition.type)));
+});
+
+
+test("relational v2 types round trip without changing historical types", () => {
+  for (const type of ["action.postgres.select.v2", "action.supabase.select.v2"] as const) {
+    const graph = { nodes: [{ id: "read", type, nodeVersion: 1, position: { x: 0, y: 0 }, config: { table: "items", columns: ["id"], custom: "retained" } }], edges: [] };
+    assert.deepEqual(graphForApi(graphFromApi(graph)), graph);
+    assert.equal(createNodeData(getNodeDefinition(type)!).nodeVersion, 1);
+  }
+});
+
+test("library offers one current selection per provider while old graphs remain supported", async () => {
+  const { operationsForApp, matchesNodeLibraryFilter, libraryNodeType } = await import("./node-catalog");
+  for (const provider of ["postgres", "supabase"] as const) {
+    const oldType = `action.${provider}.select`;
+    const currentType = `${oldType}.v2`;
+    assert.equal(getNodeDefinition(oldType)?.available, true);
+    assert.equal(matchesNodeLibraryFilter(getNodeDefinition(oldType)!, "all", provider), false);
+    assert.deepEqual(operationsForApp(provider).filter((node) => node.operationId === "select-rows").map((node) => node.type), [currentType]);
+    assert.equal(libraryNodeType(oldType), currentType);
+  }
 });

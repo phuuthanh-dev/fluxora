@@ -3,6 +3,7 @@ import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure } from "./node-failure";
 import { fetchSafeOutbound } from "./outbound-url-policy";
 import { readBoundedProviderJson } from "./provider-json";
+import { markPageTokenOutput } from "./redaction";
 import { createHash } from "node:crypto";
 
 type Transport = typeof fetchSafeOutbound;
@@ -37,7 +38,8 @@ export async function listCalendarEvents(token: string, calendarId: string, limi
     return { id: text(event.id), summary: text(event.summary), description: text(event.description, 10000), start: text(start?.dateTime ?? start?.date), end: text(end?.dateTime ?? end?.date), timeZone: text(start?.timeZone), location: text(event.location), status: text(event.status) };
   });
   const nextPageToken = typeof data.nextPageToken === "string" && data.nextPageToken.length <= 512 && /^[\x21-\x7e]+$/.test(data.nextPageToken) ? data.nextPageToken : null;
-  return { events, count: events.length, hasMore: Boolean(nextPageToken), nextPageToken, timeMin: now.toISOString() };
+  if (nextPageToken?.includes(token)) throw new NodeFailure("INVALID_RESPONSE", "Google Calendar returned an invalid continuation token.", false);
+  return markPageTokenOutput({ events, count: events.length, hasMore: Boolean(nextPageToken), nextPageToken, timeMin: now.toISOString() });
 }
 
 export async function executeGoogleCalendar(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, read = listCalendarEvents) {
@@ -47,7 +49,7 @@ export async function executeGoogleCalendar(config: Record<string, unknown>, mod
   const timeMin = typeof config.timeMin === "string" ? config.timeMin.trim() : "";
   if (!isCalendarResourceId(calendarId) || typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > 50 || (pageToken !== undefined && (pageToken.length > 512 || !/^[\x21-\x7e]+$/.test(pageToken) || !timeMin)) || (timeMin && (!/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d{1,3})?)?(?:Z|[+-]\d\d:\d\d)$/i.test(timeMin) || !Number.isFinite(Date.parse(timeMin))))) throw new NodeFailure("INVALID_INPUT", "Select a calendar and valid limit. When using a page token, also use the original start time.", false);
   const start = timeMin ? new Date(timeMin) : new Date();
-  if (mode === "mock") return { status: "succeeded" as const, output: { events: [{ id: "example-event", summary: "Example event", description: "", start: "2030-01-01T09:00:00Z", end: "2030-01-01T10:00:00Z", timeZone: "UTC", location: "", status: "confirmed" }], count: 1, hasMore: false, nextPageToken: null, timeMin: start.toISOString() }, route: "success" as const };
+  if (mode === "mock") return { status: "succeeded" as const, output: markPageTokenOutput({ events: [{ id: "example-event", summary: "Example event", description: "", start: "2030-01-01T09:00:00Z", end: "2030-01-01T10:00:00Z", timeZone: "UTC", location: "", status: "confirmed" }], count: 1, hasMore: false, nextPageToken: null, timeMin: start.toISOString() }), route: "success" as const };
   const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
   if (!credentialId) throw new NodeFailure("CREDENTIAL_REQUIRED", "Select a Google Calendar connection.", false);
   const credential = await credentials.readGoogleForExecution(credentialId, workspaceId, CredentialProvider.GOOGLE_CALENDAR);

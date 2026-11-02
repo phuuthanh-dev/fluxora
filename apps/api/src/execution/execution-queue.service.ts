@@ -5,7 +5,7 @@ import { ExecutionService } from "./execution.service";
 import { resolveExecutionQueueName, resolveQueueMode, type QueueMode } from "./execution-queue.config";
 import { resolveWorkerConcurrency } from "./worker-concurrency";
 
-export type ExecutionJob = { executionId: string; mode: "mock" | "live"; startNodeIds?: string[]; debugNodeId?: string };
+export type ExecutionJob = { executionId: string; mode: "mock" | "live"; startNodeIds?: string[]; debugNodeId?: string; initialOnly?: boolean; resumeToken?: string };
 export type QueueHealth = { status: "ready" | "unavailable"; mode: QueueMode; configuredWorkerConcurrency: number; waiting: number; active: number; delayed: number; failed: number };
 
 @Injectable()
@@ -17,22 +17,22 @@ export class ExecutionQueueService implements OnModuleDestroy {
   constructor(@Inject(ExecutionService) private readonly executions: ExecutionService) {}
 
   async dispatch(job: ExecutionJob) {
-    if (this.mode === "inline") return this.executions.run(job.executionId, job.mode, job.startNodeIds, job.debugNodeId);
+    if (this.mode === "inline") return this.executions.run(job.executionId, job.mode, job.startNodeIds, job.debugNodeId, job.initialOnly, job.resumeToken);
     const queue = this.getQueue();
-    await queue.add("execute", job, { attempts: 1, jobId: job.executionId, removeOnComplete: 100, removeOnFail: 100 });
+    await queue.add("execute", job, { attempts: 1, jobId: executionJobId(job), removeOnComplete: 100, removeOnFail: 100 });
   }
 
   /** Re-enqueue a persisted queued execution if its Redis job was lost. */
   async ensureDispatched(job: ExecutionJob) {
-    if (this.mode === "inline") return this.executions.run(job.executionId, job.mode, job.startNodeIds, job.debugNodeId);
+    if (this.mode === "inline") return this.executions.run(job.executionId, job.mode, job.startNodeIds, job.debugNodeId, job.initialOnly, job.resumeToken);
     const queue = this.getQueue();
-    const existing = await queue.getJob(job.executionId);
+    const existing = await queue.getJob(executionJobId(job));
     if (existing) {
       const state = await existing.getState();
       if (state !== "completed" && state !== "failed" && state !== "unknown") return;
       await existing.remove();
     }
-    await queue.add("execute", job, { attempts: 1, jobId: job.executionId, removeOnComplete: 100, removeOnFail: 100 });
+    await queue.add("execute", job, { attempts: 1, jobId: executionJobId(job), removeOnComplete: 100, removeOnFail: 100 });
   }
 
   async health(): Promise<QueueHealth> {
@@ -60,6 +60,11 @@ export class ExecutionQueueService implements OnModuleDestroy {
     }
     return this.queue;
   }
+}
+
+/** Initial-delivery recovery must not replace an approval continuation job. */
+function executionJobId(job: ExecutionJob) {
+  return job.resumeToken ? `resume-${job.resumeToken}` : job.initialOnly ? `initial-${job.executionId}` : job.executionId;
 }
 
 function withTimeout<T>(promise: Promise<T>, milliseconds: number) {

@@ -12,6 +12,21 @@ export function isRetryableFailure(failure: RetryableFailure) {
   return failure.code === "NETWORK_ERROR" || failure.code === "TIMEOUT" || failure.code === "SMTP_TEMPORARY" || failure.statusCode === 429 || (failure.statusCode !== undefined && failure.statusCode >= 500 && failure.statusCode <= 599);
 }
 
-export function retryDelayMs(attempt: number) {
-  return Math.min(30_000, 500 * 2 ** Math.max(0, attempt - 1));
+export const maximumRetryDelayMs = 30_000;
+
+/** Return an unbounded provider delay so callers can decline an excessive wait. */
+export function parseRetryAfter(value: string | null, now = Date.now()): number | undefined {
+  if (value === null || value.length > 128) return undefined;
+  const text = value.trim();
+  if (/^\d+$/.test(text)) {
+    const seconds = Number(text);
+    return Number.isSafeInteger(seconds) ? seconds * 1000 : Number.POSITIVE_INFINITY;
+  }
+  const timestamp = Date.parse(text);
+  return Number.isFinite(timestamp) ? Math.max(0, timestamp - now) : undefined;
+}
+
+export function retryDelayMs(attempt: number, providerDelayMs?: number) {
+  const backoff = Math.min(maximumRetryDelayMs, 500 * 2 ** Math.max(0, attempt - 1));
+  return providerDelayMs === undefined ? backoff : Math.max(backoff, Math.min(maximumRetryDelayMs, Math.max(0, providerDelayMs)));
 }

@@ -1,12 +1,34 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
-import { executeGoogleChatOAuth, listGoogleChatSpaces } from "./google-chat-oauth";
+import { executeGoogleChatEdit, executeGoogleChatOAuth, listGoogleChatSpaces } from "./google-chat-oauth";
 import { NodeFailure } from "./node-failure";
 
 test("Google Chat mock validates destination without reading credentials", async () => {
   const mock = await executeGoogleChatOAuth({ space: "spaces/abc", message: "Hello" }, "mock", "workspace", { readGoogleForExecution: () => { throw new Error("unexpected credential read"); } } as never);
   assert.equal(mock.output.delivered, true);
   await assert.rejects(executeGoogleChatOAuth({ space: "https://example.com", message: "Hello" }, "mock", "workspace", {} as never));
+});
+
+test("Google Chat edit requires verified management scope and confirms the same message", async () => {
+  const token = "synthetic-token";
+  const config = { credentialId: "connection", space: "spaces/abc", messageName: "spaces/abc/messages/msg1", message: "Updated" };
+  let requests = 0;
+  const credential = (scopes: string[]) => ({ readGoogleForExecution: async () => ({ accessToken: token, grantedScopes: scopes, scopeTokenHash: createHash("sha256").update(token).digest("hex") }) });
+  const transport = async (url: string, init: RequestInit = {}) => {
+    requests++;
+    assert.equal(url, "https://chat.googleapis.com/v1/spaces/abc/messages/msg1?updateMask=text");
+    assert.equal(init.method, "PATCH");
+    assert.deepEqual(JSON.parse(String(init.body)), { text: "Updated" });
+    return Response.json({ name: config.messageName });
+  };
+  await assert.rejects(executeGoogleChatEdit(config, "live", "workspace", credential(["https://www.googleapis.com/auth/chat.messages.create"]) as never, transport), (error: unknown) => error instanceof NodeFailure && error.code === "GOOGLE_CHAT_SCOPE_MISSING");
+  assert.equal(requests, 0);
+  const result = await executeGoogleChatEdit(config, "live", "workspace", credential(["https://www.googleapis.com/auth/chat.messages"]) as never, transport);
+  assert.equal(result.output.updated, true);
+  assert.equal(result.output.messageId, config.messageName);
+  await assert.rejects(executeGoogleChatEdit(config, "live", "workspace", credential(["https://www.googleapis.com/auth/chat.messages"]) as never, async () => Response.json({ name: "spaces/other/messages/msg1" })), (error: unknown) => error instanceof NodeFailure && error.code === "DELIVERY_UNCERTAIN" && !error.retryable);
+  await assert.rejects(executeGoogleChatEdit(config, "live", "workspace", credential(["https://www.googleapis.com/auth/chat.messages"]) as never, async () => new Response(null, { status: 503 })), (error: unknown) => error instanceof NodeFailure && error.code === "DELIVERY_UNCERTAIN" && !error.retryable);
 });
 
 test("Google Chat sends via scoped credential and never exposes its token", async () => {
@@ -19,6 +41,36 @@ test("Google Chat sends via scoped credential and never exposes its token", asyn
   assert.equal(sent.output.messageId, "spaces/abc/messages/msg1");
   assert.ok(!JSON.stringify(sent).includes("synthetic-token"));
   await assert.rejects(executeGoogleChatOAuth({ credentialId: "connection", space: "spaces/abc", message: "Hello" }, "live", "workspace", credentials as never, async () => { throw new Error("synthetic-token"); }), (error: unknown) => error instanceof Error && !error.message.includes("synthetic-token") && "retryable" in error && error.retryable === false);
+});
+
+test("thread-aware Google Chat sends expose the thread while legacy output stays compatible", async () => {
+  const credentials = { readGoogleForExecution: async () => ({ accessToken: "synthetic-token" }) };
+  const config = { credentialId: "connection", space: "spaces/abc", message: "Hello" };
+  const transport = async () => Response.json({ name: "spaces/abc/messages/msg1", thread: { name: "spaces/abc/threads/thread1" } });
+  const legacy = await executeGoogleChatOAuth(config, "live", "workspace", credentials as never, transport);
+  const send = await executeGoogleChatOAuth(config, "live", "workspace", credentials as never, transport, "send");
+  assert.equal("threadName" in legacy.output, false);
+  assert.equal("threadName" in send.output && send.output.threadName, "spaces/abc/threads/thread1");
+  const noThread = await executeGoogleChatOAuth(config, "live", "workspace", credentials as never, async () => Response.json({ name: "spaces/abc/messages/msg1" }), "send");
+  assert.equal("threadName" in noThread.output && noThread.output.threadName, null);
+});
+
+test("Google Chat replies target the selected thread without falling back to a new one", async () => {
+  const credentials = { readGoogleForExecution: async () => ({ accessToken: "synthetic-token" }) };
+  const config = { credentialId: "connection", space: "spaces/abc", threadName: "spaces/abc/threads/thread1", message: "Reply" };
+  let writes = 0;
+  const reply = await executeGoogleChatOAuth(config, "live", "workspace", credentials as never, async (url, init) => {
+    writes += 1;
+    assert.equal(url, "https://chat.googleapis.com/v1/spaces/abc/messages?messageReplyOption=REPLY_MESSAGE_OR_FAIL");
+    assert.deepEqual(JSON.parse(String(init?.body)), { text: "Reply", thread: { name: config.threadName } });
+    return Response.json({ name: "spaces/abc/messages/msg2", thread: { name: config.threadName } });
+  }, "reply");
+  assert.equal(writes, 1);
+  assert.equal("threadName" in reply.output && reply.output.threadName, config.threadName);
+  await assert.rejects(executeGoogleChatOAuth({ ...config, threadName: "spaces/other/threads/thread1" }, "live", "workspace", credentials as never, async () => { throw new Error("unexpected write"); }, "reply"), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT");
+  for (const thread of [undefined, { name: "spaces/abc/threads/other" }, { name: "spaces/other/threads/thread1" }]) {
+    await assert.rejects(executeGoogleChatOAuth(config, "live", "workspace", credentials as never, async () => Response.json({ name: "spaces/abc/messages/msg2", ...(thread ? { thread } : {}) }), "reply"), (error: unknown) => error instanceof NodeFailure && error.code === "DELIVERY_UNCERTAIN" && error.retryable === false);
+  }
 });
 
 test("Google Chat space listing handles empty and trims provider data", async () => {
@@ -45,9 +97,26 @@ test("Google Chat labels unnamed conversations without inventing names or changi
   ]);
 });
 
+test("Google Chat discovery redacts access tokens even across the name boundary", async () => {
+  const result = await listGoogleChatSpaces("synthetic-token", async () => Response.json({ spaces: [
+    { name: "spaces/abc", displayName: `${"x".repeat(155)}synthetic-token` },
+    { name: "spaces/synthetic-token", displayName: "Unsafe identifier" },
+  ] }));
+  assert.equal(result.spaces.length, 1);
+  assert.ok(!JSON.stringify(result).includes("synthetic-token"));
+  assert.ok(!result.spaces[0]!.name.includes("synth"));
+});
+
+test("Google Chat does not claim success for a receipt in another space or containing the credential", async () => {
+  const credentials = { readGoogleForExecution: async () => ({ accessToken: "synthetic-token" }) };
+  for (const name of ["spaces/other/messages/msg1", "spaces/abc/messages/synthetic-token"]) {
+    await assert.rejects(executeGoogleChatOAuth({ credentialId: "connection", space: "spaces/abc", message: "Hello" }, "live", "workspace", credentials as never, async () => Response.json({ name })), (error: unknown) => error instanceof NodeFailure && error.code === "DELIVERY_UNCERTAIN" && error.retryable === false && !error.message.includes("synthetic-token"));
+  }
+});
+
 test("Google Chat OAuth writes permit only known 429 retries and send once per attempt", async (t) => {
   const credentials = { readGoogleForExecution: async () => ({ accessToken: "synthetic-token" }) };
-  for (const status of [400, 401, 403, 408, 429, 500, 502, 503]) {
+  for (const status of [307, 308, 400, 401, 403, 408, 429, 500, 502, 503]) {
     await t.test(String(status), async () => {
       let writes = 0;
       // An unreadable error body must neither hide a 429 nor create a second
@@ -61,7 +130,7 @@ test("Google Chat OAuth writes permit only known 429 retries and send once per a
         async (_url, init) => { writes += 1; assert.equal(init?.method, "POST"); return response; },
       ), (error: unknown) => {
         assert.ok(error instanceof NodeFailure);
-        assert.equal(error.code, "GOOGLE_CHAT_ERROR");
+        assert.equal(error.code, status < 400 || status === 408 || status >= 500 ? "DELIVERY_UNCERTAIN" : "GOOGLE_CHAT_ERROR");
         assert.equal(error.statusCode, status);
         assert.equal(error.retryable, status === 429);
         assert.equal(error.message.includes("synthetic-token"), false);

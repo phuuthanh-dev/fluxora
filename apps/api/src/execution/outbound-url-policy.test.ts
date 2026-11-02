@@ -62,6 +62,16 @@ test("follows same-origin redirects with a fresh validated target", async () => 
   assert.deepEqual(requestedUrls, ["https://example.com/start", "https://example.com/complete"]);
 });
 
+test("unsafe writes can opt out of redirects before replay", async () => {
+  let writes = 0;
+  await assert.rejects(() => fetchSafeOutbound("https://example.com/start", { method: "POST", body: "payload" }, {
+    resolveHost: publicResolver,
+    rejectWriteRedirects: true,
+    fetchImplementation: async () => { writes++; return new Response(null, { status: 307, headers: { location: "/again" } }); },
+  }), (error: unknown) => error instanceof OutboundRequestPolicyError && error.code === "OUTBOUND_REDIRECT_BLOCKED" && /may have reached/.test(error.message));
+  assert.equal(writes, 1);
+});
+
 test("blocks equivalent IPv6 forms of local and mapped private addresses", () => {
   for (const address of ["0:0:0:0:0:0:0:1", "::7f00:1", "::ffff:7f00:1", "::ffff:a9fe:a9fe", "fc00::1", "100::1", "2001:10::1", "2001:db8::1"]) {
     assert.equal(isBlockedAddress(address), true, address);

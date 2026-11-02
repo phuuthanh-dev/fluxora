@@ -11,6 +11,7 @@ type PolicyDependencies = {
   resolveHost?: ResolveHost;
   fetchImplementation?: FetchImplementation;
   dispatcher?: Agent;
+  rejectWriteRedirects?: boolean;
 };
 
 export class OutboundRequestPolicyError extends Error {
@@ -104,6 +105,9 @@ export async function fetchSafeOutbound(rawUrl: string, init: RequestInit = {}, 
     const location = response.headers.get("location");
     if (!location) return response;
     await response.body?.cancel();
+    if (dependencies.rejectWriteRedirects && !["GET", "HEAD", "OPTIONS"].includes((requestInit.method ?? "GET").toUpperCase())) {
+      throw new OutboundRequestPolicyError("OUTBOUND_REDIRECT_BLOCKED", "The write may have reached the provider. Check its state before retrying.");
+    }
     const nextUrl = await assertSafeOutboundUrl(new URL(location, currentUrl).toString(), dependencies);
     if (nextUrl.origin !== currentUrl.origin) {
       throw new OutboundRequestPolicyError("OUTBOUND_REDIRECT_BLOCKED", "Outbound redirect target is not permitted.");
@@ -113,6 +117,11 @@ export async function fetchSafeOutbound(rawUrl: string, init: RequestInit = {}, 
   }
 
   throw new OutboundRequestPolicyError("OUTBOUND_REDIRECT_BLOCKED", "Outbound request redirected too many times.");
+}
+
+/** Prevent HTTP redirects from replaying an unsafe provider write. */
+export function fetchSafeOutboundWrite(rawUrl: string, init: RequestInit = {}) {
+  return fetchSafeOutbound(rawUrl, init, { rejectWriteRedirects: true });
 }
 
 async function resolvePublicHost(hostname: string) {

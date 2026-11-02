@@ -39,6 +39,7 @@ import { validateWorkflowGraph } from "./graph-validation";
 import {
   createNodeData,
   getNodeDefinition,
+  upgradePaginationNode,
   type NodeDefinition,
   type NodeConfigurationField,
   type WorkflowCanvasEdge,
@@ -60,13 +61,20 @@ import { AppShellHeader } from "../app-shell/app-shell-header";
 import { ExecutionDetailsPanel, type ApiExecution } from "./execution-observability";
 import { ResourcePicker } from "./resource-picker";
 import { MongoFilterField } from "./mongodb-filter-field";
+import { StructuredOutputField } from "./structured-output-field";
+import { resetDrivePageToken } from "./drive-pagination";
+import { RelationalSelectionField } from "./relational-selection-field";
+import { isRelationalBaselineCurrent, relationalSelectionKeys, upgradeRelationalNode, type RelationalBaseline, type RelationalDraft, type RelationalMetadata, type RelationalProvider, type RelationalSelection } from "./relational-selection";
+import type { StructuredOutputDraft } from "./structured-output-schema";
 import type { InspectorDraft, InspectorDraftKind, StagedText, UpdateInspectorDraft } from "./inspector-drafts";
 import type { MongoFilterRow } from "./mongodb-filter";
+import { GoogleSheetsMappingField } from "./google-sheets-mapping-field";
+import { applySheetsMapping, type SheetsMappingDraft } from "./google-sheets-mapping";
 
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNode };
 
 type WorkflowVersionSummary = { id: string; version: number; status: "DRAFT" | "PUBLISHED"; createdAt: string; publishedAt: string | null; nodeCount: number };
-type WebhookEndpoint = { id: string; path: string; secretRequired: boolean; signingMode?: "registration" | "legacy"; workflowVersionId: string; createdAt: string; updatedAt: string };
+type WebhookEndpoint = { id: string; path: string; secretRequired: boolean; signingMode?: "registration" | "legacy"; callbackUrl?: string; workflowVersionId: string; createdAt: string; updatedAt: string };
 type ProviderWebhookState = "CREATING" | "CREATE_DISPATCHING" | "CREATE_UNCERTAIN" | "CREATE_REJECTED" | "ACTIVE" | "DELETING" | "DELETE_UNCERTAIN" | "REMOVED";
 type ProviderWebhookStatus = { enabled: boolean; endpoint: { id: string; path: string; workflowVersionId: string; updatedAt: string } | null; registration: { provider: string; repository: string; event: string; workflowVersionId: string; state: ProviderWebhookState; createdAt: string; updatedAt: string } | null; reconciliation?: { outcome: "MATCHED" | "DRIFTED" | "UNKNOWN" | "MANUAL_REQUIRED"; message: string } };
 type ApiApproval = { id: string; status: string; expiresAt: string; executionId: string; workflowId: string };
@@ -81,6 +89,10 @@ function readConfigText(config: Record<string, unknown>, key: string) {
 
 function isGitHubWebhookTrigger(nodeType: string) {
   return nodeType === "trigger.github.issue-opened" || nodeType === "trigger.github.pull-request-opened" || nodeType === "trigger.github.push" || nodeType === "trigger.github.workflow-run-completed";
+}
+
+function isUptimeKumaTrigger(nodeType: string) {
+  return nodeType === "trigger.uptime-kuma.alert" || nodeType === "trigger.uptime-kuma.alert.v2";
 }
 
 function providerLabel(provider: CredentialProvider) {
@@ -260,7 +272,7 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, all
   return <>
     {fields.map((field) => {
       const expectedValue = field.visibleWhen?.equals;
-      const currentValue = field.visibleWhen ? config[field.visibleWhen.key] : undefined;
+      const currentValue = field.visibleWhen ? config[field.visibleWhen.key] ?? field.visibleWhen.fallback : undefined;
       if (expectedValue !== undefined && !(Array.isArray(expectedValue) ? expectedValue.includes(currentValue as never) : currentValue === expectedValue)) return null;
       const value = readConfigurationFieldValue(config, field);
       if (field.kind === "credential") {
@@ -270,7 +282,7 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, all
         return <label key={field.key} className="checkbox-field"><input type="checkbox" checked={config[field.key] !== false} onChange={(event) => onChange(field.key, event.target.checked)} /> {field.label}</label>;
       }
       if (field.kind === "datetime") return <DateTimeField key={field.key} label={field.label} value={value} allowExpressions={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
-      if (field.key === "pageToken") return <details key={field.key} className="config-field"><summary>Advanced pagination</summary><ConfigField label={field.label} value={value} onChange={(nextValue) => onChange(field.key, nextValue)} /><small>Use the token and start time from the previous output. Keep the same calendar and limit.</small></details>;
+      if (field.kind === "text" && field.advanced) return <details key={field.key} className="config-field"><summary>{field.advanced.summary}</summary><ConfigField label={field.label} value={value} onChange={(nextValue) => onChange(field.key, nextValue)} /><small>{field.advanced.help}</small></details>;
       if (field.kind === "resource") {
         return <ResourcePicker key={field.key} workspaceId={workspaceId} resource={field.resource} credentialId={readConfigText(config, field.credentialKey)} dependencyValue={field.dependencyKey ? readConfigText(config, field.dependencyKey) : undefined} label={field.label} value={value} placeholder={field.placeholder} allowExpression={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       }
@@ -283,6 +295,11 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, all
       if (field.kind === "table") {
         return <TableField key={field.key} label={field.label} value={config[field.key]} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       }
+      if (field.kind === "structured-output") return <section key={field.key} className="config-field">
+        <label className="checkbox-field"><input type="checkbox" checked={config[field.key] !== undefined} disabled={draft.structuredOutput !== undefined} onChange={(event) => onChange(field.key, event.target.checked ? { type: "object", properties: { summary: { type: "string" } }, required: ["summary"], additionalProperties: false } : undefined)} /> {field.label}</label>
+        <small>Ask a supported model for fields you can use in later steps. Availability and cost depend on the model and provider.</small>
+        {config[field.key] !== undefined && <StructuredOutputField value={config[field.key]} onChange={(schema) => onChange(field.key, schema)} draft={draft.structuredOutput} onDraftChange={(next) => onDraftChange("structuredOutput", next)} />}
+      </section>;
       if (field.kind === "mongo-filter") return <MongoFilterField key={field.key} value={value} draft={draft.filter} onDraftChange={(next) => onDraftChange("filter", next)} rawDraft={draft.filterRaw} onRawDraftChange={(next) => onDraftChange("filterRaw", next)} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       return <ConfigField
         key={field.key}
@@ -440,7 +457,7 @@ function GraphValidationPanel({ issues, onClose }: { issues: ReturnType<typeof v
 function GoLivePanel({ workflow, isRunning, readiness, loading, error, onConfirm, onClose, onRefresh, onOpenCredentials }: { workflow: ApiWorkflow; isRunning: boolean; readiness: LiveReadiness | null; loading: boolean; error: string | null; onConfirm: () => void; onClose: () => void; onRefresh: () => void; onOpenCredentials: () => void }) {
   const canRun = Boolean(workflow.published && readiness?.ready && !loading && !error && !isRunning);
   const blockers = readiness?.requirements.filter((requirement) => !requirement.ready) ?? [];
-  return <Dialog label="Confirm live execution" className="go-live-panel" onClose={onClose}><DialogHeader eyebrow="LIVE EXECUTION" title="Run the published workflow?" onClose={onClose} closeLabel="Close live execution confirmation" /><p>This will call real providers and may send messages, write data, or create external side effects. The editor will run <strong>published version {workflow.published?.version ?? "—"}</strong>, never unsaved draft changes.</p>{!workflow.published && <p className="go-live-panel__warning">Publish this workflow first. Test runs stay safe and use deterministic mock providers.</p>}{loading && <Status tone="info" className="go-live-panel__readiness" aria-busy="true"><LoaderCircle className="ui-spinner" size={15} /> Checking live credentials…</Status>}{error && <Status tone="error" className="go-live-panel__readiness">{error} <Button variant="ghost" onClick={onRefresh}>Retry check</Button></Status>}{!loading && !error && readiness?.ready && <Status tone="success" className="go-live-panel__readiness">All live integrations are configured.</Status>}{!loading && !error && readiness && !readiness.ready && <div className="go-live-panel__blockers"><Status tone="error" className="go-live-panel__readiness">Live execution is blocked until these integrations are configured.</Status><ul>{blockers.map((requirement) => <li key={requirement.nodeId}><strong>{providerLabel(requirement.provider)}</strong><span>{reasonLabel(requirement.reason)}</span></li>)}</ul><Button variant="ghost" onClick={onOpenCredentials}>Open credentials</Button></div>}<div className="go-live-panel__actions"><Button variant="ghost" className="ghost-button" onClick={onClose}>Cancel</Button><Button variant="secondary" className="go-live-button" disabled={!canRun} onClick={onConfirm}>{isRunning ? "Starting…" : "Run live now"}</Button></div></Dialog>;
+  return <Dialog label="Confirm live execution" className="go-live-panel" onClose={onClose}><DialogHeader eyebrow="LIVE EXECUTION" title="Run the published workflow?" onClose={onClose} closeLabel="Close live execution confirmation" /><p>This will call real providers and may send messages, write data, or create external side effects. The editor will run <strong>published version {workflow.published?.version ?? "—"}</strong>, never unsaved draft changes.</p>{!workflow.published && <p className="go-live-panel__warning">Publish this workflow first. Test runs stay safe and use deterministic mock providers.</p>}{loading && <Status tone="info" className="go-live-panel__readiness" aria-busy="true"><LoaderCircle className="ui-spinner" size={15} /> Checking live credentials…</Status>}{error && <Status tone="error" className="go-live-panel__readiness">{error} <Button variant="ghost" onClick={onRefresh}>Retry check</Button></Status>}{!loading && !error && readiness?.ready && <Status tone="success" className="go-live-panel__readiness">Required live credentials are configured.</Status>}{!loading && !error && readiness && !readiness.ready && <div className="go-live-panel__blockers"><Status tone="error" className="go-live-panel__readiness">Live execution is blocked until these integrations are configured.</Status><ul>{blockers.map((requirement) => <li key={requirement.nodeId}><strong>{providerLabel(requirement.provider)}</strong><span>{reasonLabel(requirement.reason)}</span></li>)}</ul><Button variant="ghost" onClick={onOpenCredentials}>Open credentials</Button></div>}<div className="go-live-panel__actions"><Button variant="ghost" className="ghost-button" onClick={onClose}>Cancel</Button><Button variant="secondary" className="go-live-button" disabled={!canRun} onClick={onConfirm}>{isRunning ? "Starting…" : "Run live now"}</Button></div></Dialog>;
 }
 
 function RetryExecutionPanel({ execution, isRetrying, onConfirm, onClose }: { execution: ApiExecution; isRetrying: boolean; onConfirm: () => void; onClose: () => void }) {
@@ -452,11 +469,16 @@ function WorkflowActivationPanel({ workflow, isSaving, readiness, loading, error
   const isDeactivation = workflow.isActive;
   const blockers = readiness?.requirements.filter((requirement) => !requirement.ready) ?? [];
   const canConfirm = isDeactivation || Boolean(workflow.published && readiness?.ready && !loading && !error && !isSaving);
-  return <Dialog label={isDeactivation ? "Deactivate workflow" : "Activate workflow"} className="go-live-panel" onClose={onClose}><DialogHeader eyebrow="WORKFLOW ACTIVATION" title={isDeactivation ? "Deactivate this workflow?" : "Activate this workflow?"} onClose={onClose} closeLabel="Close workflow activation" />{isDeactivation ? <p>Scheduled and webhook triggers will stop accepting new work. Existing executions are not cancelled.</p> : <p>Activation enables published Cron and Webhook triggers. It does not send a manual run now; use <strong>Run live</strong> when you want an immediate provider call.</p>}{!isDeactivation && !workflow.published && <p className="go-live-panel__warning">Publish this workflow first.</p>}{!isDeactivation && loading && <Status tone="info" className="go-live-panel__readiness" aria-busy="true"><LoaderCircle className="ui-spinner" size={15} /> Checking live credentials…</Status>}{!isDeactivation && error && <Status tone="error" className="go-live-panel__readiness">{error} <Button variant="ghost" onClick={onRefresh}>Retry check</Button></Status>}{!isDeactivation && !loading && !error && readiness?.ready && <Status tone="success" className="go-live-panel__readiness">All live integrations are configured.</Status>}{!isDeactivation && !loading && !error && readiness && !readiness.ready && <div className="go-live-panel__blockers"><Status tone="error" className="go-live-panel__readiness">Activation is blocked until these integrations are configured.</Status><ul>{blockers.map((requirement) => <li key={requirement.nodeId}><strong>{providerLabel(requirement.provider)}</strong><span>{reasonLabel(requirement.reason)}</span></li>)}</ul><Button variant="ghost" onClick={onOpenCredentials}>Open credentials</Button></div>}<div className="go-live-panel__actions"><Button variant="ghost" className="ghost-button" onClick={onClose} disabled={isSaving}>Cancel</Button><Button variant={isDeactivation ? "danger" : "primary"} disabled={!canConfirm} onClick={onConfirm}>{isSaving ? "Working…" : isDeactivation ? "Deactivate workflow" : "Activate workflow"}</Button></div></Dialog>;
+  const hasVercelTrigger = workflow.published?.graph.nodes.some((node) => node.type === "trigger.vercel.deployment");
+  const hasTrelloTrigger = workflow.published?.graph.nodes.some((node) => node.type === "trigger.trello.board-action");
+  const hasSentryTrigger = workflow.published?.graph.nodes.some((node) => node.type === "trigger.sentry.issue-created");
+  return <Dialog label={isDeactivation ? "Deactivate workflow" : "Activate workflow"} className="go-live-panel" onClose={onClose}><DialogHeader eyebrow="WORKFLOW ACTIVATION" title={isDeactivation ? "Deactivate this workflow?" : "Activate this workflow?"} onClose={onClose} closeLabel="Close workflow activation" />{isDeactivation ? <p>Scheduled and webhook triggers will stop accepting new work. Existing executions are not cancelled.</p> : <p>Activation enables published Cron and Webhook triggers. It does not send a manual run now; use <strong>Run live</strong> when you want an immediate provider call.</p>}{!isDeactivation && !workflow.published && <p className="go-live-panel__warning">Publish this workflow first.</p>}{!isDeactivation && loading && <Status tone="info" className="go-live-panel__readiness" aria-busy="true"><LoaderCircle className="ui-spinner" size={15} /> Checking live credentials…</Status>}{!isDeactivation && error && <Status tone="error" className="go-live-panel__readiness">{error} <Button variant="ghost" onClick={onRefresh}>Retry check</Button></Status>}{!isDeactivation && !loading && !error && readiness?.ready && <Status tone="success" className="go-live-panel__readiness">Required live credentials are configured.</Status>}{!isDeactivation && hasVercelTrigger && <Status tone="info" className="go-live-panel__readiness">Vercel delivery also requires a matching account webhook and signing secret. Fluxora cannot verify the remote webhook; check its setup and delivery status in Vercel.</Status>}{!isDeactivation && hasTrelloTrigger && <Status tone="info" className="go-live-panel__readiness">Trello delivery requires the app secret and an externally registered webhook for the selected board. Fluxora cannot verify the remote webhook; check its setup in Trello.</Status>}{!isDeactivation && hasSentryTrigger && <Status tone="info" className="go-live-panel__readiness">Sentry delivery requires a custom integration with a matching installation and client secret. Fluxora cannot verify the remote integration.</Status>}{!isDeactivation && !loading && !error && readiness && !readiness.ready && <div className="go-live-panel__blockers"><Status tone="error" className="go-live-panel__readiness">Activation is blocked until these integrations are configured.</Status><ul>{blockers.map((requirement) => <li key={requirement.nodeId}><strong>{providerLabel(requirement.provider)}</strong><span>{reasonLabel(requirement.reason)}</span></li>)}</ul><Button variant="ghost" onClick={onOpenCredentials}>Open credentials</Button></div>}<div className="go-live-panel__actions"><Button variant="ghost" className="ghost-button" onClick={onClose} disabled={isSaving}>Cancel</Button><Button variant={isDeactivation ? "danger" : "primary"} disabled={!canConfirm} onClick={onConfirm}>{isSaving ? "Working…" : isDeactivation ? "Deactivate workflow" : "Activate workflow"}</Button></div></Dialog>;
 }
 
-function WebhookEndpointPanel({ workflow, config, isGitHub, isUptimeKuma, canRegister, onClose }: { workflow: ApiWorkflow; config: Record<string, unknown>; isGitHub: boolean; isUptimeKuma: boolean; canRegister: boolean; onClose: () => void }) {
-  const [path, setPath] = useState(readConfigText(config, "path"));
+function WebhookEndpointPanel({ workflow, config, isGitHub, isUptimeKuma, isTelegram, isVercel, isTrello, isSentry, canRegister, onClose }: { workflow: ApiWorkflow; config: Record<string, unknown>; isGitHub: boolean; isUptimeKuma: boolean; isTelegram: boolean; isVercel: boolean; isTrello: boolean; isSentry: boolean; canRegister: boolean; onClose: () => void }) {
+  const [path, setPath] = useState(() => readConfigText(config, "path") || (isTelegram || isVercel || isTrello || isSentry ? `${isTelegram ? "telegram" : isVercel ? "vercel" : isTrello ? "trello" : "sentry"}-${workflow.id.replace(/[^a-z0-9-]/gi, "").slice(0, 60)}` : ""));
+  const [signingSecret, setSigningSecret] = useState("");
+  const [callbackUrl, setCallbackUrl] = useState("");
   const [secretRequired, setSecretRequired] = useState(config.secretRequired !== false);
   const [endpoint, setEndpoint] = useState<WebhookEndpoint | null>(null);
   const [createdSecret, setCreatedSecret] = useState<string | null>(null);
@@ -472,7 +494,11 @@ function WebhookEndpointPanel({ workflow, config, isGitHub, isUptimeKuma, canReg
   const [confirmRotation, setConfirmRotation] = useState(false);
   const [writeUncertain, setWriteUncertain] = useState(false);
   const [writeError, setWriteError] = useState<string | null>(null);
-  const endpointUrl = `${apiUrl}/webhooks/${endpoint?.path ?? path}`;
+  const endpointUrl = `${apiUrl}/webhooks/${path}`;
+  const validPath = /^[a-z0-9][a-z0-9-]{2,80}$/i.test(path);
+  const trelloCallback = callbackUrl || (endpointUrl.startsWith("https://") ? endpointUrl : "");
+  let validTrelloCallback = false;
+  try { const url = new URL(trelloCallback); validTrelloCallback = url.protocol === "https:" && !url.username && !url.password && !url.port && !url.search && !url.hash && url.toString() === trelloCallback && url.pathname.endsWith(`/webhooks/${path}`); } catch { /* The callback is incomplete. */ }
   const githubEvent = readConfigText(config, "event") || "issues";
   const githubAction = readConfigText(config, "action");
   const githubEventLabel = githubAction ? `${githubEvent}.${githubAction}` : githubEvent;
@@ -483,11 +509,11 @@ function WebhookEndpointPanel({ workflow, config, isGitHub, isUptimeKuma, canReg
     setEndpointError(null);
     const providerRequest = isGitHub ? apiRequest<{ providerWebhook: ProviderWebhookStatus }>(`/workflows/${workflow.id}/provider-webhook`) : Promise.resolve(null);
     void Promise.all([apiRequest<{ endpoint: WebhookEndpoint | null }>(`/workflows/${workflow.id}/webhook-endpoint`), providerRequest])
-      .then(([response, providerResponse]) => { if (isCurrent) { setEndpoint(response.endpoint); if (response.endpoint) setPath(response.endpoint.path); setProviderWebhook(providerResponse?.providerWebhook ?? null); setProviderWebhookError(null); setNotice(response.endpoint ? isGitHub && response.endpoint.signingMode === "legacy" ? "Existing registration uses the connection’s legacy secret. It will keep working until you rotate it." : "An active endpoint is pinned to a published version." : "No endpoint has been created yet."); } })
+      .then(([response, providerResponse]) => { if (isCurrent) { setEndpoint(response.endpoint); if (response.endpoint) { setPath(response.endpoint.path); if (isTrello && response.endpoint.callbackUrl) setCallbackUrl(response.endpoint.callbackUrl); } setProviderWebhook(providerResponse?.providerWebhook ?? null); setProviderWebhookError(null); setNotice(response.endpoint ? isGitHub && response.endpoint.signingMode === "legacy" ? "Existing registration uses the connection’s legacy secret. It will keep working until you rotate it." : "An active endpoint is pinned to a published version." : "No endpoint has been created yet."); } })
       .catch((reason) => { if (isCurrent) setEndpointError(reason instanceof Error ? reason.message : "Unable to load webhook status."); })
       .finally(() => { if (isCurrent) setEndpointLoading(false); });
     return () => { isCurrent = false; };
-  }, [workflow.id, isGitHub, endpointRetry]);
+  }, [workflow.id, isGitHub, isTrello, endpointRetry]);
 
   const createEndpoint = async () => {
     setIsSaving(true);
@@ -496,12 +522,13 @@ function WebhookEndpointPanel({ workflow, config, isGitHub, isUptimeKuma, canReg
     try {
       const response = await apiRequest<{ endpoint: { id: string; path: string; secret: string | null; workflowVersionId: string; createdAt: string; updatedAt: string } }>(`/workflows/${workflow.id}/webhook-endpoint`, {
         method: "POST",
-        body: JSON.stringify({ path, secretRequired: isUptimeKuma || secretRequired, publishedVersionId: workflow.published?.id, expectedEndpoint: endpoint ? { id: endpoint.id, updatedAt: endpoint.updatedAt } : null }),
+        body: JSON.stringify({ path, secretRequired: isUptimeKuma || isTelegram || isVercel || isTrello || isSentry || secretRequired, publishedVersionId: workflow.published?.id, expectedEndpoint: endpoint ? { id: endpoint.id, updatedAt: endpoint.updatedAt } : null, ...(isVercel || isTrello || isSentry ? { signingSecret } : {}), ...(isTrello ? { callbackUrl: trelloCallback } : {}) }),
       });
-      setEndpoint({ id: response.endpoint.id, path: response.endpoint.path, secretRequired: response.endpoint.secret !== null, workflowVersionId: response.endpoint.workflowVersionId, createdAt: response.endpoint.createdAt, updatedAt: response.endpoint.updatedAt });
+      setEndpoint({ id: response.endpoint.id, path: response.endpoint.path, secretRequired: isVercel || isTrello || isSentry || response.endpoint.secret !== null, workflowVersionId: response.endpoint.workflowVersionId, createdAt: response.endpoint.createdAt, updatedAt: response.endpoint.updatedAt, ...(isTrello ? { callbackUrl: trelloCallback } : {}) });
       setCreatedSecret(response.endpoint.secret);
+      setSigningSecret("");
       setWriteUncertain(false);
-      setNotice(response.endpoint.secret ? "Endpoint created. Copy the secret now; it will not be shown again." : "Endpoint created without a secret header.");
+      setNotice(isTrello ? "App secret saved. Create the matching board webhook in Trello using the exact callback URL." : isSentry ? "Client secret saved. Configure the matching custom integration in Sentry." : isVercel ? "Signing secret saved. Confirm the matching webhook is configured in Vercel." : response.endpoint.secret ? "Endpoint created. Copy the secret now; it will not be shown again." : "Endpoint created without a secret header.");
     } catch (reason) {
       setWriteUncertain(true);
       setWriteError(reason instanceof Error ? reason.message : "Unable to create the webhook endpoint.");
@@ -563,11 +590,16 @@ function WebhookEndpointPanel({ workflow, config, isGitHub, isUptimeKuma, canReg
     <p>Setup uses the published workflow, not unsaved changes. Each registration is pinned to a published version.</p>
     {endpoint && workflow.published && endpoint.workflowVersionId !== workflow.published.id && <Status tone="warning">This endpoint still uses an older published version. Rotate it to apply the setup shown here to the current published version.</Status>}
     <ConfigField label="Public path" value={path} onChange={setPath} />
-    {isGitHub ? <Status tone={providerWebhook?.registration?.state === "ACTIVE" ? "success" : "info"} className="webhook-endpoint-panel__help">{providerWebhook?.registration?.state === "ACTIVE" ? <>GitHub manages <code>{providerWebhook.registration.repository}</code> automatically for <code>{githubEventLabel}</code>. The manual endpoint stays available as a compatibility path.</> : <>Add this URL and signing secret in your repository’s GitHub webhook settings for <code>{githubEventLabel}</code>. You can connect it automatically when provider registration is enabled.</>}</Status> : isUptimeKuma ? <Status tone="info" className="webhook-endpoint-panel__help">In Uptime Kuma, choose a Webhook notification with POST and JSON. In Additional Headers, enter <code>{'{"x-workflow-secret":"YOUR_SECRET"}'}</code> and replace YOUR_SECRET with the generated secret. Use a URL reachable from Uptime Kuma and assign the notification to your monitor. Uptime Kuma’s Test button checks the connection without starting a workflow run; an actual monitor alert starts one when the workflow is active.</Status> : <label className="checkbox-field"><input type="checkbox" checked={secretRequired} onChange={(event) => setSecretRequired(event.target.checked)} /> Require <code>x-workflow-secret</code> header</label>}
+    <small className="webhook-endpoint-panel__warning">Use 3–81 letters, numbers or hyphens. Changing the path requires updating the external webhook.</small>
+    {isGitHub ? <Status tone={providerWebhook?.registration?.state === "ACTIVE" ? "success" : "info"} className="webhook-endpoint-panel__help">{providerWebhook?.registration?.state === "ACTIVE" ? <>GitHub manages <code>{providerWebhook.registration.repository}</code> automatically for <code>{githubEventLabel}</code>. The manual endpoint stays available as a compatibility path.</> : <>Add this URL and signing secret in your repository’s GitHub webhook settings for <code>{githubEventLabel}</code>. You can connect it automatically when provider registration is enabled.</>}</Status> : isUptimeKuma ? <Status tone="info" className="webhook-endpoint-panel__help">In Uptime Kuma, choose a Webhook notification with POST and JSON. In Additional Headers, enter <code>{'{"x-workflow-secret":"YOUR_SECRET"}'}</code> and replace YOUR_SECRET with the generated secret. Use a URL reachable from Uptime Kuma and assign the notification to your monitor. Uptime Kuma’s Test button checks the connection without starting a workflow run; an actual monitor alert starts one when the workflow is active.</Status> : isTelegram ? <Status tone="warning" className="webhook-endpoint-panel__help">Telegram allows one webhook per bot. This endpoint does not register or change it automatically. Before configuring <code>setWebhook</code>, check the bot’s existing webhook: setting a new one replaces it. Provide the HTTPS URL and the one-time secret as <code>secret_token</code>. Never put the bot token or secret in a shared URL or screenshot. <a href="https://core.telegram.org/bots/api#setwebhook" target="_blank" rel="noopener noreferrer">Telegram setup documentation</a></Status> : isSentry ? <Status tone="info" className="webhook-endpoint-panel__help">Create a Sentry custom integration, subscribe to issue events, and configure its public webhook URL. Enter its client secret here and its installation UUID in the node. Project service hooks use a different protocol. This setup does not create or verify the Sentry integration. Only issue-created events are supported. <a href="https://sentry-blog.sentry.dev/customize-your-sentry-workflow-a-sample-internal-integration/" target="_blank" rel="noopener noreferrer">Sentry setup guidance</a></Status> : isTrello ? <Status tone="info" className="webhook-endpoint-panel__help">Enter the Trello app secret and the exact public HTTPS callback below. Save this endpoint first; then register a webhook for the selected board in Trello using that exact URL. Trello validates the endpoint with HEAD. Fluxora does not create or verify the remote webhook. <a href="https://developer.atlassian.com/cloud/trello/guides/rest-api/webhooks/" target="_blank" rel="noopener noreferrer">Trello setup documentation</a></Status> : isVercel ? <Status tone="info" className="webhook-endpoint-panel__help">Create an account webhook in Vercel using the public HTTPS URL below and select the published event and project. Paste the one-time signing secret from Vercel here; it is separate from your API token. This setup does not create or verify the remote webhook. Account webhooks require an eligible Vercel plan. <a href="https://vercel.com/docs/webhooks" target="_blank" rel="noopener noreferrer">Vercel setup documentation</a></Status> : <label className="checkbox-field"><input type="checkbox" checked={secretRequired} onChange={(event) => setSecretRequired(event.target.checked)} /> Require <code>x-workflow-secret</code> header</label>}
+    {(isVercel || isTrello || isSentry) && <label className="config-field"><span>{isTrello ? "Trello app secret" : isSentry ? "Sentry integration client secret" : "Vercel webhook signing secret"}</span><input type="password" autoComplete="off" value={signingSecret} onChange={(event) => setSigningSecret(event.target.value)} /></label>}
+    {isTrello && <ConfigField label="Exact public callback URL" value={trelloCallback} onChange={setCallbackUrl} />}
+    {isTrello && <small className="webhook-endpoint-panel__warning">Use HTTPS on port 443 with no query string. Copy this exact URL to Trello; changing it requires updating both registrations.</small>}
     {isGitHub && <div className="webhook-endpoint-panel__provider"><div><span className="webhook-endpoint-panel__provider-label">GITHUB CONNECTION</span><strong>{providerWebhook?.registration ? providerWebhookStateLabel(providerWebhook.registration.state) : providerWebhook?.enabled ? "Not connected" : "Manual setup"}</strong><small>{providerWebhook?.registration ? `${providerWebhook.registration.repository} · ${providerWebhook.registration.event}` : providerWebhook?.enabled ? "Use the connector credential to register this repository webhook." : "Automatic registration is disabled until the public HTTPS origin is configured."}</small></div><div className="webhook-endpoint-panel__provider-actions">{providerWebhook?.enabled && providerWebhook?.registration && !registrationIsBusy && <Button variant="ghost" disabled={providerWebhookAction !== null} onClick={() => void reconcileProviderWebhook()}>{providerWebhookAction === "reconcile" ? "Checking…" : providerWebhook.registration.state === "ACTIVE" ? "Verify remote" : "Reconcile"}</Button>}{providerWebhook?.enabled && providerWebhook?.registration?.state === "ACTIVE" ? <Button variant="ghost" disabled={providerWebhookAction !== null} onClick={() => setConfirmProviderDisconnect(true)}>{providerWebhookAction === "disconnect" ? "Disconnecting…" : "Disconnect"}</Button> : providerWebhook?.enabled && (!providerWebhook?.registration || providerWebhook.registration.state === "CREATE_REJECTED" || providerWebhook.registration.state === "REMOVED") ? <Button variant="secondary" disabled={!canRegister || providerWebhookAction !== null || endpointLoading || Boolean(endpointError)} onClick={() => void connectProviderWebhook()}>{providerWebhookAction === "connect" ? "Connecting…" : providerWebhook?.registration ? "Retry connection" : "Connect GitHub"}</Button> : null}</div></div>}
     {providerWebhook?.reconciliation && <Status tone={reconciliationTone} className="webhook-endpoint-panel__reconciliation">{providerWebhook.reconciliation.message}</Status>}
-    <div className="webhook-endpoint-panel__url"><span>POST URL</span><code>{endpointUrl}</code><Button variant="ghost" onClick={() => void navigator.clipboard.writeText(endpointUrl)}>Copy URL</Button></div>
-    {createdSecret && <div className="webhook-endpoint-panel__secret"><strong>Copy this secret now</strong><code>{createdSecret}</code><Button variant="ghost" onClick={() => void navigator.clipboard.writeText(createdSecret)}>Copy secret</Button><small>{isGitHub ? "It is displayed only once. Store it securely and paste it into GitHub." : "It is displayed only once. Store it securely and send it in the x-workflow-secret header."}</small></div>}
+    <div className="webhook-endpoint-panel__url"><span>POST URL</span><code>{isTrello ? trelloCallback || "Enter a public callback URL" : endpointUrl}</code><Button variant="ghost" disabled={isTrello && !validTrelloCallback} onClick={() => void navigator.clipboard.writeText(isTrello ? trelloCallback : endpointUrl)}>Copy URL</Button></div>
+    {endpoint && path !== endpoint.path && <Status tone="warning">This is the new URL. The current URL remains active until you rotate the registration; update the provider after rotating.</Status>}
+    {createdSecret && <div className="webhook-endpoint-panel__secret"><strong>Copy this secret now</strong><code>{createdSecret}</code><Button variant="ghost" onClick={() => void navigator.clipboard.writeText(createdSecret)}>Copy secret</Button><small>{isGitHub ? "It is displayed only once. Store it securely and paste it into GitHub." : isTelegram ? "It is displayed only once. Store it securely and configure it as Telegram’s secret_token." : "It is displayed only once. Store it securely and send it in the x-workflow-secret header."}</small></div>}
     {writeError && <Status tone="error">{writeError}</Status>}
     {providerWebhookError && <Status tone="error">{providerWebhookError}</Status>}
     {writeUncertain && <Status tone="warning">The request did not complete. The endpoint may have changed even if no secret was displayed. Check its status; if you do not have the current secret, rotate it again and update the external webhook.</Status>}
@@ -575,7 +607,7 @@ function WebhookEndpointPanel({ workflow, config, isGitHub, isUptimeKuma, canReg
     {endpointError && <Button variant="ghost" onClick={() => setEndpointRetry((value) => value + 1)}>Retry status check</Button>}
     {confirmRotation && <div className="webhook-endpoint-panel__confirmation"><Status tone="warning">Rotating immediately replaces the secret. Update the external webhook with the new secret to resume delivery.</Status><Button variant="ghost" onClick={() => setConfirmRotation(false)}>Cancel</Button><Button variant="primary" disabled={isSaving} onClick={() => { setConfirmRotation(false); void createEndpoint(); }}>Confirm rotation</Button></div>}
     {confirmProviderDisconnect && <div className="webhook-endpoint-panel__confirmation"><Status tone="warning">This removes only the GitHub-managed remote webhook. The Fluxora endpoint and manual setup remain available.</Status><Button variant="ghost" disabled={providerWebhookAction !== null} onClick={() => setConfirmProviderDisconnect(false)}>Cancel</Button><Button variant="primary" disabled={providerWebhookAction !== null} onClick={() => void disconnectProviderWebhook()}>{providerWebhookAction === "disconnect" ? "Disconnecting…" : "Confirm disconnect"}</Button></div>}
-    <Button variant="primary" className="run-button" onClick={() => endpoint ? setConfirmRotation(true) : void createEndpoint()} disabled={!canRegister || isSaving || endpointLoading || Boolean(endpointError) || !path.trim() || confirmRotation}>{endpointLoading ? "Checking registration…" : isSaving ? "Creating…" : endpoint ? "Rotate registration" : "Create registration"}</Button>
+    <Button variant="primary" className="run-button" onClick={() => endpoint ? setConfirmRotation(true) : void createEndpoint()} disabled={!canRegister || isSaving || endpointLoading || Boolean(endpointError) || !validPath || confirmRotation || ((isVercel || isTrello || isSentry) && !/^[\x21-\x7e]{1,1024}$/.test(signingSecret)) || (isTrello && !validTrelloCallback)}>{endpointLoading ? "Checking registration…" : isSaving ? "Creating…" : endpoint ? "Rotate registration" : "Create registration"}</Button>
     {!canRegister && <small className="webhook-endpoint-panel__warning">Publish a version containing this webhook trigger before creating its endpoint.</small>}
   </Dialog>;
 }
@@ -705,7 +737,101 @@ function GmailTriggerStatus({ workflowId, nodeId }: { workflowId: string; nodeId
   </Status>;
 }
 
-function NodeInspector({ node, execution, credentials, workspaceId, workflowId, onResolveApproval, onDebugNode, onOpenWebhook, webhookContext, isDebugging, isDrawerOpen, onCloseDrawer, draft, onDraftChange, hasPending }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null; credentials: CredentialSummary[]; workspaceId: string; workflowId: string; onResolveApproval: (approvalId: string, decision: "approved" | "rejected") => void; onDebugNode: (node: WorkflowCanvasNode) => void; onOpenWebhook: () => void; webhookContext: "published" | "different" | "draft" | "other-draft"; isDebugging: boolean; isDrawerOpen: boolean; onCloseDrawer: () => void; draft: InspectorDraft; onDraftChange: UpdateInspectorDraft; hasPending: boolean }) {
+function RssTriggerStatus({ workflowId, nodeId }: { workflowId: string; nodeId: string }) {
+  const [status, setStatus] = useState<{ active: boolean; checkpoints: Array<{ nodeId: string; state: string; lastErrorCode: string | null }> } | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
+  const [refresh, setRefresh] = useState(0);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState("");
+  useEffect(() => {
+    if (!workflowId) return;
+    let current = true;
+    const load = () => { void apiRequest<{ active: boolean; checkpoints: Array<{ nodeId: string; state: string; lastErrorCode: string | null }> }>(`/workflows/${encodeURIComponent(workflowId)}/rss-trigger-status`).then((data) => { if (current) { setStatus(data); setUnavailable(false); } }).catch(() => { if (current) setUnavailable(true); }); };
+    load();
+    const timer = window.setInterval(load, 30_000);
+    return () => { current = false; window.clearInterval(timer); };
+  }, [workflowId, refresh]);
+  const checkpoint = status?.checkpoints.find((item) => item.nodeId === nodeId);
+  const error = checkpoint?.lastErrorCode;
+  return <Status tone={checkpoint?.state === "ERROR" || unavailable ? "warning" : "info"} className="inspector-note">
+    <strong>RSS polling</strong>
+    <span>Use a public feed URL. Do not put passwords, API keys or tokens in the URL.</span>
+    <span>Status and reset refer to the published workflow, not unsaved draft changes.</span>
+    <span>{unavailable ? "Trigger status is unavailable. Try refreshing." : checkpoint?.state === "ERROR" ? error === "RSS_SNAPSHOT_GAP" ? "The feed no longer overlaps the previous snapshot, so some items may have been missed. Deactivate and review the reset option." : "The trigger needs attention. Deactivate and review the reset option." : error ? "The last check failed. Fluxora will retry without advancing the checkpoint." : status?.active && checkpoint ? "Active. New items are checked on the selected schedule." : checkpoint ? "Inactive. Reactivating resumes the saved checkpoint." : "Publish and activate to start checking. Existing items are not processed."}</span>
+    <span>Items that appear and disappear between checks can be missed. History is bounded; an older item may be delivered again after its receipt expires.</span>
+    <Button type="button" variant="ghost" onClick={() => setRefresh((value) => value + 1)}>Refresh status</Button>
+    {!status?.active && checkpoint && <Button type="button" variant="ghost" onClick={() => { setResetError(""); setResetOpen(true); }}>Reset checkpoint…</Button>}
+    {resetOpen && <Dialog label="Reset RSS checkpoint" onClose={() => { if (!resetting) setResetOpen(false); }}><DialogHeader title="Start from the current feed?" onClose={() => { if (!resetting) setResetOpen(false); }} closeLabel="Close reset confirmation" /><p>Items since the saved checkpoint and queued deliveries that have not started may be missed. Running executions may still finish. This cannot be undone.</p>{resetError && <Status tone="error" role="alert">{resetError}</Status>}<div className="dialog-actions"><Button variant="secondary" type="button" disabled={resetting} onClick={() => setResetOpen(false)}>Cancel</Button><Button variant="primary" type="button" disabled={resetting} onClick={() => { setResetting(true); setResetError(""); void apiRequest(`/workflows/${encodeURIComponent(workflowId)}/rss-trigger-reset`, { method: "POST", body: JSON.stringify({ confirmDataGap: true }) }).then(() => { setResetOpen(false); setRefresh((value) => value + 1); }).catch((reason: unknown) => setResetError(reason instanceof Error ? reason.message : "Could not reset the checkpoint.")).finally(() => setResetting(false)); }}>{resetting ? "Resetting…" : "Reset checkpoint"}</Button></div></Dialog>}
+  </Status>;
+}
+
+// Identity changes on every config replacement, including undo/redo and graph reloads.
+const relationalConfigIds = new WeakMap<object, number>();
+let nextRelationalConfigId = 0;
+function relationalContext(workspaceId: string, workflowId: string, node: WorkflowCanvasNode, provider: RelationalProvider) {
+  let id = relationalConfigIds.get(node.data.config);
+  if (id === undefined) { id = ++nextRelationalConfigId; relationalConfigIds.set(node.data.config, id); }
+  return JSON.stringify([workspaceId, workflowId, node.id, node.data.nodeType, node.data.nodeVersion, provider, node.data.config.credentialId, node.data.config.schema, node.data.config.table, id]);
+}
+function relationalProjection(config: Record<string, unknown>, provider: RelationalProvider): RelationalSelection {
+  const result: RelationalSelection = {};
+  for (const key of relationalSelectionKeys[provider]) if (Object.hasOwn(config, key)) result[key] = config[key];
+  return result;
+}
+
+function RelationalNodeField({ node, workspaceId, workflowId, owner, credentials, draft, onDraftChange, jsonPending }: {
+  node: WorkflowCanvasNode; workspaceId: string; workflowId: string; owner: boolean; credentials: CredentialSummary[];
+  draft?: RelationalDraft; onDraftChange: (draft: RelationalDraft | undefined) => void; jsonPending: boolean;
+}) {
+  const provider: RelationalProvider = node.data.nodeType === "action.postgres.select.v2" ? "postgres" : "supabase";
+  const config = node.data.config;
+  const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
+  const table = typeof config.table === "string" ? config.table : "";
+  const schema = typeof config.schema === "string" ? config.schema : "";
+  const validIdentifier = /^[A-Za-z_][A-Za-z0-9_$]{0,62}$/;
+  const credential = credentials.find((item) => item.id === credentialId && item.provider === (provider === "postgres" ? "POSTGRES" : "SUPABASE"));
+  const eligible = owner && Boolean(workspaceId && workflowId && credentialId && credential && validIdentifier.test(table) && (provider !== "postgres" || validIdentifier.test(schema)));
+  const resourceKey = JSON.stringify([workspaceId, workflowId, node.id, provider, credentialId, credential?.updatedAt, schema, table, eligible]);
+  const metadataGeneration = useRef({ resourceKey: "", value: 0 });
+  if (metadataGeneration.current.resourceKey !== resourceKey) metadataGeneration.current = { resourceKey, value: metadataGeneration.current.value + 1 };
+  const metadataKey = JSON.stringify([resourceKey, metadataGeneration.current.value]);
+  const [metadataState, setMetadataState] = useState<{ key: string; metadata: RelationalMetadata }>({ key: "", metadata: { status: "unavailable" } });
+  useEffect(() => {
+    if (!eligible) return;
+    let current = true;
+    const controller = new AbortController();
+    const params = new URLSearchParams({ table });
+    if (provider === "postgres") params.set("schema", schema);
+    const base = `/workspaces/${encodeURIComponent(workspaceId)}/credentials/${encodeURIComponent(credentialId)}`;
+    void apiRequest<{ columns?: Array<{ name?: unknown; type?: unknown }>; partial?: boolean; hasMore?: boolean }>(`${base}/${provider}/columns?${params}`, { signal: controller.signal })
+      .then((response) => {
+        if (!current) return;
+        if (!Array.isArray(response.columns)) { setMetadataState({ key: metadataKey, metadata: { status: "unavailable" } }); return; }
+        const columns = response.columns.flatMap((column) => column && typeof column.name === "string" && validIdentifier.test(column.name) ? [{ value: column.name, label: typeof column.type === "string" && column.type ? `${column.name} · ${column.type}` : column.name }] : []);
+        setMetadataState({ key: metadataKey, metadata: { status: "available", columns, partial: provider === "postgres" || response.partial === true || response.hasMore === true || columns.length !== response.columns.length } });
+      }).catch(() => { if (current) setMetadataState({ key: metadataKey, metadata: { status: "unavailable" } }); });
+    return () => { current = false; controller.abort(); };
+  }, [metadataKey, eligible, workspaceId, credentialId, table, schema, provider]);
+  const metadata: RelationalMetadata = eligible && metadataState.key === metadataKey ? metadataState.metadata : { status: "unavailable" };
+  const contextKey = relationalContext(workspaceId, workflowId, node, provider);
+  const apply = (selection: RelationalSelection, baseline: RelationalBaseline) => {
+    if (jsonPending) return false;
+    // Zustand reads and commits synchronously in this event; there is no await between compare and update.
+    const state = useWorkflowEditorStore.getState();
+    const latest = state.nodes.find((candidate) => candidate.id === node.id);
+    if (!latest || latest.data.nodeType !== node.data.nodeType || !isRelationalBaselineCurrent(baseline, relationalProjection(latest.data.config, provider), relationalContext(workspaceId, workflowId, latest, provider), provider)) return false;
+    if (Object.keys(selection).some((key) => !relationalSelectionKeys[provider].includes(key))) return false;
+    const next = { ...latest.data.config };
+    for (const key of relationalSelectionKeys[provider]) delete next[key];
+    Object.assign(next, selection);
+    state.updateNodeData(node.id, { config: next });
+    return true;
+  };
+  return <RelationalSelectionField provider={provider} value={relationalProjection(config, provider)} contextKey={contextKey} metadata={metadata} draft={draft} applyBlockedReason={jsonPending ? "Apply or discard the node JSON edits before applying this selection." : undefined} onDraftChange={onDraftChange} onApply={apply} />;
+}
+
+function NodeInspector({ node, execution, credentials, workspaceId, workflowId, owner, onResolveApproval, onDebugNode, onOpenWebhook, webhookContext, isDebugging, isDrawerOpen, onCloseDrawer, draft, onDraftChange, onApplySheets, hasPending }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null; credentials: CredentialSummary[]; workspaceId: string; workflowId: string; owner: boolean; onResolveApproval: (approvalId: string, decision: "approved" | "rejected") => void; onDebugNode: (node: WorkflowCanvasNode) => void; onOpenWebhook: () => void; webhookContext: "published" | "different" | "draft" | "other-draft"; isDebugging: boolean; isDrawerOpen: boolean; onCloseDrawer: () => void; draft: InspectorDraft; onDraftChange: UpdateInspectorDraft; onApplySheets: (draft: SheetsMappingDraft) => boolean; hasPending: boolean }) {
   const updateNodeData = useWorkflowEditorStore((state) => state.updateNodeData);
   const inspectorRef = useDialogFocus<HTMLElement>({ active: isDrawerOpen, trapFocus: true, onClose: onCloseDrawer, restoreFocus: false });
 
@@ -725,30 +851,63 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
   }
 
   const definition = getNodeDefinition(node.data.nodeType);
+  const showPaginationUpgrade = Boolean(upgradePaginationNode(node.data)) && !(node.data.nodeType === "action.google-drive" && ["uploadText", "downloadText"].includes(String(node.data.config.operation)));
   const nodeExecution = execution?.nodeExecutions.find((item) => item.nodeId === node.id);
   const approvalId = nodeExecution?.output && typeof nodeExecution.output === "object" && !Array.isArray(nodeExecution.output) && typeof (nodeExecution.output as Record<string, unknown>).approvalRequestId === "string"
     ? (nodeExecution.output as Record<string, unknown>).approvalRequestId as string
     : null;
   const updateConfig = (key: string, value: unknown) => {
-    const config = { ...node.data.config, [key]: value };
+    const config = node.data.nodeType === "action.google-drive.v2" ? resetDrivePageToken(node.data.config, key, value) : { ...node.data.config, [key]: value };
+    if (value === undefined) delete config[key];
+    if (node.data.nodeType.startsWith("action.telegram.") && key === "destinationType" && value !== "supergroup" && "messageThreadId" in config) config.messageThreadId = "";
+    if (["action.google-chat.oauth.v2", "action.google-chat.reply", "action.google-chat.edit-message"].includes(node.data.nodeType) && node.data.config[key] !== value) {
+      if (key === "credentialId") config.space = "";
+      if ((key === "credentialId" || key === "space") && "threadName" in config) config.threadName = "";
+      if ((key === "credentialId" || key === "space") && "messageName" in config) config.messageName = "";
+    }
     if (node.data.nodeType.startsWith("action.google-calendar.") && node.data.config[key] !== value) {
       if (key === "credentialId") { config.calendarId = "primary"; config.eventId = ""; }
       else if (key === "calendarId") config.eventId = "";
     }
     if (node.data.nodeType === "trigger.gmail" && key === "credentialId" && node.data.config.credentialId !== value) config.labelId = "";
-    if (node.data.nodeType === "action.trello.create-card" && node.data.config[key] !== value) {
-      if (key === "credentialId") { config.boardId = ""; config.listId = ""; }
-      else if (key === "boardId") config.listId = "";
+    if (["action.gmail.reply", "action.gmail.modify-label"].includes(node.data.nodeType) && key === "credentialId" && node.data.config.credentialId !== value) {
+      config.messageId = "";
+      if ("labelId" in config) config.labelId = "";
     }
-    if (node.data.nodeType === "action.sentry.list-issues" && node.data.config[key] !== value) {
+    if (node.data.nodeType === "action.gmail.update-draft" && key === "credentialId" && node.data.config.credentialId !== value) config.draftId = "";
+    if (node.data.nodeType === "action.gmail.read.v2" && node.data.config[key] !== value && ["credentialId", "mailbox", "query", "limit"].includes(key) && "pageToken" in config) config.pageToken = "";
+    if (node.data.nodeType === "trigger.trello.board-action" && key === "credentialId" && node.data.config.credentialId !== value) config.boardId = "";
+    if (node.data.nodeType.startsWith("action.trello.") && node.data.config[key] !== value) {
+      if (key === "credentialId") for (const dependent of ["boardId", "sourceBoardId", "listId", "cardId", "before"]) { if (dependent in config) config[dependent] = ""; }
+      else if (key === "sourceBoardId" && "cardId" in config) config.cardId = "";
+      else if (key === "boardId") { if ("listId" in config) config.listId = ""; if ("before" in config) config.before = ""; }
+    }
+    if (node.data.nodeType.startsWith("action.notion.") && node.data.config[key] !== value) {
+      if (key === "credentialId") for (const dependent of node.data.nodeType === "action.notion.search-pages" ? ["pageId", "blockId", "propertyId"] : ["pageId", "blockId", "propertyId", "cursor"]) { if (dependent in config) config[dependent] = ""; }
+      else if (["query", "pageId", "blockId", "pageSize"].includes(key)) { if (node.data.nodeType !== "action.notion.search-pages" && "cursor" in config) config.cursor = ""; if (key === "pageId" && "propertyId" in config) config.propertyId = ""; }
+    }
+    if ((node.data.nodeType === "action.github" || node.data.nodeType.startsWith("action.github.")) && node.data.config[key] !== value) {
+      if (key === "credentialId" && "repository" in config) config.repository = "";
+      if (key === "credentialId" || key === "repository") for (const dependent of ["issueNumber", "pullRequestNumber"]) { if (dependent in config) config[dependent] = ""; }
+      if (["credentialId", "repository", "state", "pageSize"].includes(key) && "page" in config) config.page = 1;
+    }
+    if (node.data.nodeType === "trigger.sentry.issue-created" && node.data.config[key] !== value) {
+      if (key === "credentialId" || key === "organization") { config.project = ""; config.installationId = ""; }
+      if (key === "credentialId") config.organization = "";
+    }
+    if (node.data.nodeType.startsWith("action.sentry.") && node.data.config[key] !== value) {
       if (key === "credentialId") { config.organization = ""; config.project = ""; }
       else if (key === "organization") config.project = "";
+      if (["credentialId", "organization", "project"].includes(key) && "issueId" in config) config.issueId = "";
+      if (node.data.nodeType !== "action.sentry.list-issues" && ["credentialId", "organization", "project", "status", "limit"].includes(key) && "cursor" in config) config.cursor = "";
     }
-    if (node.data.nodeType === "action.vercel.list-deployments" && node.data.config[key] !== value) {
-      if (key === "credentialId") { config.team = "personal"; config.project = ""; }
-      else if (key === "team") config.project = "";
+    if (node.data.nodeType.startsWith("action.vercel.") && node.data.config[key] !== value) {
+      if (key === "credentialId") { config.team = "personal"; if ("project" in config) config.project = ""; }
+      else if (key === "team" && "project" in config) config.project = "";
+      if (["credentialId", "team"].includes(key) && "deploymentId" in config) config.deploymentId = "";
+      if (node.data.nodeType !== "action.vercel.list-deployments" && ["credentialId", "team", "project", "limit"].includes(key) && "cursor" in config) config.cursor = "";
     }
-    if (node.data.nodeType === "action.supabase.select" && key === "credentialId" && node.data.config.credentialId !== value) config.table = "";
+    if ((node.data.nodeType === "action.supabase.select" || node.data.nodeType === "action.supabase.select.v2") && key === "credentialId" && node.data.config.credentialId !== value) config.table = "";
     updateNodeData(node.id, { config });
   };
   const suggestions = buildExpressionSuggestions(execution?.nodeExecutions.map((item) => ({ nodeId: item.nodeId, output: item.output })) ?? []);
@@ -769,12 +928,60 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
         />
       </InspectorSection>
       <InspectorSection title="Configuration">
-      {definition?.configurationFields && <NodeConfigurationFields key={node.id} fields={definition.configurationFields} config={node.data.config} credentials={credentials} workspaceId={workspaceId} allowExpressions={!node.data.nodeType.startsWith("trigger.")} onChange={updateConfig} draft={draft} onDraftChange={onDraftChange} />}
+      {node.data.nodeType === "trigger.uptime-kuma.alert" && <Status tone="info" className="inspector-note"><strong>Filter monitor alerts</strong><span>This original trigger accepts every alert. Enable filters in the draft to choose a monitor or status; saved settings are preserved and publishing remains separate.</span><Button type="button" variant="secondary" disabled={hasPending} onClick={() => {
+        const state = useWorkflowEditorStore.getState();
+        const latest = state.nodes.find((candidate) => candidate.id === node.id);
+        if (!latest || latest.data.nodeType !== "trigger.uptime-kuma.alert") return;
+        state.updateNodeData(node.id, { nodeType: "trigger.uptime-kuma.alert.v2", nodeVersion: 1, config: { ...latest.data.config, statusFilter: latest.data.config.statusFilter ?? "any" } });
+      }}>Enable filters in draft</Button></Status>}
+      {node.data.nodeType === "trigger.uptime-kuma.alert.v2" && <Status tone="info" className="inspector-note">Leave Monitor ID empty for all monitors. Repeated notifications may start multiple runs unless the sender supplies an Idempotency-Key. Matching keys are remembered while execution history is retained for this published version.</Status>}
+      {showPaginationUpgrade && <Status tone="warning" className="inspector-note"><strong>Original pagination behavior</strong><span>This node ignores saved continuation fields. Upgrading keeps the entire configuration and may change results or cause invalid saved cursors to fail. This updates only the draft; publishing is separate.</span><Button type="button" variant="secondary" disabled={hasPending} onClick={() => {
+        const state = useWorkflowEditorStore.getState();
+        const latest = state.nodes.find((candidate) => candidate.id === node.id);
+        if (!latest || latest.data.nodeType !== node.data.nodeType) return;
+        const upgraded = upgradePaginationNode(latest.data);
+        if (upgraded) state.updateNodeData(node.id, upgraded);
+      }}>Use paginated version in draft</Button></Status>}
+      {definition?.configurationFields && <NodeConfigurationFields key={`configuration-${node.id}`} fields={definition.configurationFields} config={node.data.config} credentials={credentials} workspaceId={workspaceId} allowExpressions={!node.data.nodeType.startsWith("trigger.")} onChange={updateConfig} draft={draft} onDraftChange={onDraftChange} />}
+      {["action.openai", "action.gemini"].includes(node.data.nodeType) && <Status tone="info" className="inspector-note">Generation may incur provider charges, including after a timeout. The output limit applies per request; an administrator may set a lower ceiling. Model and structured-output support depend on the provider.</Status>}
+      {node.data.nodeType === "action.google-sheets" && <GoogleSheetsMappingField key={`sheets-mapping-${node.id}`} workspaceId={workspaceId} config={node.data.config} draft={draft.sheetsMapping} onDraftChange={(next) => onDraftChange("sheetsMapping", next)} applyBlockedReason={draft.json ? "Apply or discard the node JSON edits before applying this preview." : undefined} onApply={onApplySheets} />}
+      {(["action.postgres.select", "action.supabase.select", "action.postgres.select.v2", "action.supabase.select.v2"].includes(node.data.nodeType)) && (node.data.nodeType.endsWith(".select.v2")
+        ? <RelationalNodeField key={`relational-${node.id}`} node={node} workspaceId={workspaceId} workflowId={workflowId} owner={owner} credentials={credentials} draft={draft.relational} onDraftChange={(next) => onDraftChange("relational", next)} jsonPending={draft.json !== undefined} />
+        : <Status tone="warning" className="inspector-note"><strong>Original selection behavior</strong><span>This node reads all columns and ignores saved selection fields. Switching to the new selection may change results; existing fields will be kept and applied, and unsupported fields must be corrected. {node.data.nodeType === "action.supabase.select" && "This version ignores a connection's user access token. After upgrading, that token is used when present and may change the database identity and accessible rows. "}This updates the draft only; publish to change live runs.</span><Button type="button" variant="secondary" disabled={hasPending} onClick={() => {
+          const state = useWorkflowEditorStore.getState();
+          const latest = state.nodes.find((candidate) => candidate.id === node.id);
+          if (!latest || latest.data.nodeType !== node.data.nodeType) return;
+          const upgraded = upgradeRelationalNode(latest.data);
+          if (upgraded) state.updateNodeData(node.id, upgraded);
+        }}>Use new selection in draft</Button></Status>)}
       {node.data.nodeType === "action.trello.create-card" && <Status tone="info" className="inspector-note">Card creation can be duplicated if a run is repeated. If the result is uncertain, check Trello before retrying.</Status>}
-      {node.data.nodeType === "action.sentry.list-issues" && <Status tone="info" className="inspector-note">Issue titles and metadata can be stored in execution history.</Status>}
-      {node.data.nodeType === "action.supabase.select" && <Status tone="info" className="inspector-note">Results may appear in execution history. Access depends on the connection key and your Supabase policies.</Status>}
+      {node.data.nodeType === "action.github.merge-pull-request" && <Status tone="info" className="inspector-note">For a guarded merge, provide the full head SHA from an earlier GitHub pull request step. GitHub rejects the merge if the head changes. Leave it empty to retain the original behavior.</Status>}
+      {node.data.nodeType === "action.google-chat.oauth" && <Status tone="info" className="inspector-note"><strong>Thread-aware output</strong><span>The newer send action can return a thread name for replies. This changes only the draft and may change the output shape; publish separately to update live runs.</span><Button type="button" variant="secondary" disabled={hasPending} onClick={() => {
+        const state = useWorkflowEditorStore.getState();
+        const latest = state.nodes.find((candidate) => candidate.id === node.id);
+        if (latest?.data.nodeType === "action.google-chat.oauth") state.updateNodeData(node.id, { nodeType: "action.google-chat.oauth.v2", nodeVersion: 1, config: { ...latest.data.config } });
+      }}>Use thread-aware send in draft</Button></Status>}
+      {node.data.nodeType === "action.google-chat.reply" && <Status tone="info" className="inspector-note">Use the threadName output of a thread-aware send in this space. If a thread is unavailable, the reply fails rather than starting a new thread.</Status>}
+      {node.data.nodeType === "action.google-chat.edit-message" && <Status tone="info" className="inspector-note">Reconnect Google Chat with message management enabled. Use the messageId output of a previous Chat step in this space. If the update is unconfirmed, check the message before retrying.</Status>}
+      {node.data.nodeType === "trigger.telegram.update" && <Status tone="info" className="inspector-note">Use a separate workflow and endpoint for each bot. Only the selected event and chats start a run. Telegram delivers updates through a manually configured webhook; it cannot use polling at the same time.</Status>}
+      {node.data.nodeType === "trigger.sentry.issue-created" && <Status tone="info" className="inspector-note">Select a project and enter the UUID of the installed Sentry custom integration. Its client secret is configured separately in the webhook endpoint. Only newly created issues are supported.</Status>}
+      {node.data.nodeType === "trigger.trello.board-action" && <Status tone="info" className="inspector-note">Select the board and register its webhook using the Trello app secret and exact callback URL. The connection helps find boards; it is not the webhook signing secret. Trello registration is manual.</Status>}
+      {node.data.nodeType === "trigger.vercel.deployment" && <Status tone="info" className="inspector-note">The connection is used to choose a project; webhook signing uses a separate secret. Configure a matching webhook in Vercel after publishing. Vercel documents <code>deployment.ready</code> for integration checks; <code>deployment.succeeded</code> can depend on registered checks. Confirm the event is offered by your webhook and plan. Duplicate event IDs are recognized while their execution history and the encryption key are retained.</Status>}
+      {["action.gmail.send", "action.gmail.reply", "action.gmail.create-draft", "action.gmail.update-draft", "action.gmail.modify-label"].includes(node.data.nodeType) && <Status tone="info" className="inspector-note">{node.data.nodeType === "action.gmail.update-draft" ? "Requires Gmail draft permission. This replaces the complete existing draft, including any attachments." : node.data.nodeType === "action.gmail.create-draft" ? "Requires Gmail draft permission." : node.data.nodeType === "action.gmail.modify-label" ? "Requires Gmail modify-mailbox permission." : "Requires Gmail send permission."} Reconnect the selected account if needed. Test runs are simulated. A repeated live run can repeat the change; if the result is uncertain, check Gmail before trying again.</Status>}
+      {["action.telegram.reply", "action.telegram.edit-message"].includes(node.data.nodeType) && <Status tone="info" className="inspector-note">Use the message ID returned by an earlier Telegram step. If Telegram does not confirm the result, check the chat before retrying.</Status>}
+      {["action.trello.update-card", "action.trello.move-card", "action.trello.archive-card"].includes(node.data.nodeType) && <Status tone="info" className="inspector-note">This changes the selected card. If the result is uncertain, check Trello before running it again.</Status>}
+      {node.data.nodeType === "action.notion.retrieve-page" && <Status tone="info" className="inspector-note">Some Notion properties may be incomplete. Use Get page property for paginated values. Sensitive values are redacted from execution data.</Status>}
+      {node.data.nodeType === "action.notion.list-children" && <Status tone="info" className="inspector-note">Returns direct child blocks only. Nested blocks require a separate request.</Status>}
+      {node.data.nodeType === "action.trello.find-cards" && <Status tone="info" className="inspector-note">Search returns a bounded first page using Trello search syntax.</Status>}
+      {["action.sentry.list-issues", "action.sentry.list-issues.v2", "action.sentry.get-issue"].includes(node.data.nodeType) && <Status tone="info" className="inspector-note">Issue titles and metadata can be stored in execution history.</Status>}
+      {["action.sentry.get-issue", "action.sentry.list-issues.v2", "action.vercel.list-deployments.v2"].includes(node.data.nodeType) && <Status tone="info" className="inspector-note">Only selected metadata is returned; check partial and continuation fields before treating a page as complete.</Status>}
+      {node.data.nodeType === "action.vercel.public-deployment-lookup" && <Status tone="info" className="inspector-note">A public lookup can return deployments outside the selected account. It does not verify ownership.</Status>}
+      {(node.data.nodeType === "action.supabase.select" || node.data.nodeType === "action.supabase.select.v2") && <Status tone="info" className="inspector-note">Results may appear in execution history. {node.data.nodeType === "action.supabase.select.v2" ? "Access depends on the connection key, any user access token, and your Supabase policies." : "This version uses the connection key and ignores any user access token; access depends on that key and your Supabase policies."}</Status>}
+      {node.data.nodeType === "action.gmail.get-message" && <Status tone="info" className="inspector-note">Message content can be stored in execution history and passed to later steps. Check bodyStatus for partial or unsupported content.</Status>}
+      {["action.github.list-issues", "action.github.get-issue", "action.github.list-pull-requests", "action.github.get-pull-request"].includes(node.data.nodeType) && <Status tone="info" className="inspector-note">Issue and pull request content can be stored in execution history and passed to later steps. Check bodyTruncated before using a description as complete.</Status>}
       {node.data.nodeType === "trigger.gmail" && <GmailTriggerStatus workflowId={workflowId} nodeId={node.id} />}
-      {node.data.nodeType === "trigger.manual" && <TestDataEditor key={node.id} value={node.data.config.testData} onApply={(testData) => updateConfig("testData", testData)} draft={draft.testData} onDraftChange={(next) => onDraftChange("testData", next)} />}
+      {node.data.nodeType === "trigger.rss.new-item" && <RssTriggerStatus workflowId={workflowId} nodeId={node.id} />}
+      {node.data.nodeType === "trigger.manual" && <TestDataEditor key={`test-data-${node.id}`} value={node.data.config.testData} onApply={(testData) => updateConfig("testData", testData)} draft={draft.testData} onDraftChange={(next) => onDraftChange("testData", next)} />}
       {node.data.nodeType === "trigger.cron" && (
         <>
           <ConfigField label="Cron expression" value={readConfigText(node.data.config, "expression")} onChange={(value) => updateConfig("expression", value)} />
@@ -787,8 +994,8 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
           <label className="checkbox-field"><input type="checkbox" checked={node.data.config.secretRequired !== false} onChange={(event) => updateConfig("secretRequired", event.target.checked)} /> Require <code>x-workflow-secret</code> header</label>
         </>
       )}
-      {(isGitHubWebhookTrigger(node.data.nodeType) || node.data.nodeType === "trigger.webhook" || node.data.nodeType === "trigger.uptime-kuma.alert") && <div className="inspector-webhook-setup"><Status tone={webhookContext === "different" || webhookContext === "other-draft" ? "warning" : "info"} className="inspector-note"><strong>Webhook setup</strong><span>{webhookContext === "different" ? "The published workflow uses a different webhook trigger. This setup manages that published trigger, not this draft node." : webhookContext === "other-draft" ? "This draft has multiple webhook triggers. Keep one trigger and publish before setting up its endpoint." : webhookContext === "published" ? "Setup uses the published workflow. Publish draft changes before applying them." : "Publish this workflow to set up its endpoint."}</span></Status>{webhookContext !== "other-draft" && <Button type="button" variant="ghost" className="inspector-webhook-setup__action" onClick={onOpenWebhook}>{webhookContext === "different" ? "Manage published webhook" : "Configure webhook"}</Button>}</div>}
-      {node.data.nodeType === "action.telegram.message" && (
+      {(isGitHubWebhookTrigger(node.data.nodeType) || node.data.nodeType === "trigger.webhook" || node.data.nodeType === "trigger.telegram.update" || node.data.nodeType === "trigger.vercel.deployment" || node.data.nodeType === "trigger.trello.board-action" || node.data.nodeType === "trigger.sentry.issue-created" || isUptimeKumaTrigger(node.data.nodeType)) && <div className="inspector-webhook-setup"><Status tone={webhookContext === "different" || webhookContext === "other-draft" ? "warning" : "info"} className="inspector-note"><strong>Webhook setup</strong><span>{webhookContext === "different" ? "The published workflow uses a different webhook trigger. This setup manages that published trigger, not this draft node." : webhookContext === "other-draft" ? "This draft has multiple webhook triggers. Keep one trigger and publish before setting up its endpoint." : webhookContext === "published" ? "Setup uses the published workflow. Publish draft changes before applying them." : "Publish this workflow to set up its endpoint."}</span></Status>{webhookContext !== "other-draft" && <Button type="button" variant="ghost" className="inspector-webhook-setup__action" onClick={onOpenWebhook}>{webhookContext === "different" ? "Manage published webhook" : "Configure webhook"}</Button>}</div>}
+      {["action.telegram.message", "action.telegram.reply", "action.telegram.edit-message"].includes(node.data.nodeType) && (
         <>
           <CredentialField label="Telegram credential" value={readConfigText(node.data.config, "credentialId")} providers={["TELEGRAM_BOT"]} credentials={credentials} onChange={(value) => updateConfig("credentialId", value)} />
           {(() => {
@@ -817,11 +1024,12 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
                   </Select>
                   <small>{destinationHints[destinationType] ?? destinationHints.dm}</small>
                 </Field>
-                <ConfigField label={`${destinationLabel} chat ID (legacy credential chatId is deprecated)`} value={readConfigText(node.data.config, "chatId")} onChange={(value) => updateConfig("chatId", value)} />
-                {destinationType === "supergroup" && <ConfigField label="Topic / thread ID (optional)" value={readConfigText(node.data.config, "messageThreadId")} onChange={(value) => updateConfig("messageThreadId", value)} />}
+                <ConfigField label={node.data.nodeType === "action.telegram.message" ? `${destinationLabel} chat ID (legacy credential chatId is deprecated)` : `${destinationLabel} chat ID`} value={readConfigText(node.data.config, "chatId")} onChange={(value) => updateConfig("chatId", value)} />
+                {destinationType === "supergroup" && node.data.nodeType !== "action.telegram.edit-message" && <ConfigField label="Topic / thread ID (optional)" value={readConfigText(node.data.config, "messageThreadId")} onChange={(value) => updateConfig("messageThreadId", value)} />}
               </>
             );
           })()}
+          {node.data.nodeType !== "action.telegram.message" && <ConfigField label="Message ID" value={readConfigText(node.data.config, "messageId")} onChange={(value) => updateConfig("messageId", value)} />}
           <ConfigField label="Message text" value={readConfigText(node.data.config, "text") || readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("text", value)} multiline />
           <Field label="Parse mode" className="config-field"><Select aria-label="Telegram parse mode" value={readConfigText(node.data.config, "parseMode")} onChange={(event) => updateConfig("parseMode", event.target.value)}><option value="">Plain text</option><option value="Markdown">Markdown</option><option value="HTML">HTML</option><option value="MarkdownV2">MarkdownV2</option></Select></Field>
         </>
@@ -857,7 +1065,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
         </section>
       </InspectorSection>
       <InspectorSection title="Advanced">
-        <JsonConfigEditor key={node.id} config={node.data.config} onApply={(config) => updateNodeData(node.id, { config })} draft={draft.json} onDraftChange={(next) => onDraftChange("json", next)} otherPending={draft.filter !== undefined || draft.filterRaw !== undefined || draft.testData !== undefined} />
+        <JsonConfigEditor key={node.id} config={node.data.config} onApply={(config) => updateNodeData(node.id, { config })} draft={draft.json} onDraftChange={(next) => onDraftChange("json", next)} otherPending={draft.filter !== undefined || draft.filterRaw !== undefined || draft.testData !== undefined || draft.structuredOutput !== undefined || draft.relational !== undefined || draft.sheetsMapping !== undefined} />
         <ExpressionSuggestions suggestions={suggestions} />
       </InspectorSection>
       {nodeExecution && (
@@ -868,7 +1076,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
             <div className="execution-inspector__section"><strong>{nodeExecution.error ? "Normalized error" : "Output"}</strong><ResultView value={nodeExecution.error ?? nodeExecution.output} /></div>
             {nodeExecution.status === "WAITING" && approvalId && (
               <div className="approval-actions">
-                <button className="run-button" type="button" onClick={() => onResolveApproval(approvalId, "approved")}>Approve &amp; resume</button>
+                <button className="run-button" type="button" disabled={hasPending} onClick={() => onResolveApproval(approvalId, "approved")}>Approve &amp; resume</button>
                 <button className="ghost-button" type="button" onClick={() => onResolveApproval(approvalId, "rejected")}>Reject</button>
               </div>
             )}
@@ -892,7 +1100,10 @@ export function WorkflowEditor() {
   const [minimapOpen, setMinimapOpen] = useState(true);
   const [inspectorDrawerOpen, setInspectorDrawerOpen] = useState(false);
   const [workflow, setWorkflow] = useState<ApiWorkflow | null>(null);
+  const workflowRef = useRef<ApiWorkflow | null>(null);
+  workflowRef.current = workflow;
   const [inspectorDrafts, setInspectorDrafts] = useState<Record<string, InspectorDraft>>({});
+  const inspectorDraftsRef = useRef<Record<string, InspectorDraft>>({});
   const [execution, setExecution] = useState<ApiExecution | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -906,6 +1117,7 @@ export function WorkflowEditor() {
   const [executionDetailsOpen, setExecutionDetailsOpen] = useState(false);
   const [activationOpen, setActivationOpen] = useState(false);
   const [gmailPublishWarningOpen, setGmailPublishWarningOpen] = useState(false);
+  const [rssPublishWarningOpen, setRssPublishWarningOpen] = useState(false);
   const [liveReadiness, setLiveReadiness] = useState<LiveReadiness | null>(null);
   const [liveReadinessLoading, setLiveReadinessLoading] = useState(false);
   const [liveReadinessError, setLiveReadinessError] = useState<string | null>(null);
@@ -941,26 +1153,29 @@ export function WorkflowEditor() {
   const pendingNode = nodes.find((node) => Object.keys(inspectorDrafts[node.id] ?? {}).length > 0);
   const hasPending = Boolean(pendingNode);
   const publishedNodes = workflow?.published?.graph.nodes ?? [];
-  const publishedWebhook = publishedNodes.find((node) => isGitHubWebhookTrigger(node.type)) ?? publishedNodes.find((node) => node.type === "trigger.webhook" || node.type === "trigger.uptime-kuma.alert");
-  const draftWebhook = nodes.find((node) => isGitHubWebhookTrigger(node.data.nodeType)) ?? nodes.find((node) => node.data.nodeType === "trigger.webhook" || node.data.nodeType === "trigger.uptime-kuma.alert");
+  const publishedWebhook = publishedNodes.find((node) => isGitHubWebhookTrigger(node.type)) ?? publishedNodes.find((node) => node.type === "trigger.webhook" || node.type === "trigger.telegram.update" || node.type === "trigger.vercel.deployment" || node.type === "trigger.trello.board-action" || node.type === "trigger.sentry.issue-created" || isUptimeKumaTrigger(node.type));
+  const draftWebhook = nodes.find((node) => isGitHubWebhookTrigger(node.data.nodeType)) ?? nodes.find((node) => node.data.nodeType === "trigger.webhook" || node.data.nodeType === "trigger.telegram.update" || node.data.nodeType === "trigger.vercel.deployment" || node.data.nodeType === "trigger.trello.board-action" || node.data.nodeType === "trigger.sentry.issue-created" || isUptimeKumaTrigger(node.data.nodeType));
   const webhookContext = publishedWebhook ? (selectedNode?.id === publishedWebhook.id && selectedNode.data.nodeType === publishedWebhook.type ? "published" : "different") : selectedNode?.id === draftWebhook?.id ? "draft" : "other-draft";
   const webhookTrigger = publishedWebhook ? { type: publishedWebhook.type, config: publishedWebhook.config } : draftWebhook ? { type: draftWebhook.data.nodeType, config: draftWebhook.data.config } : null;
   const isNarrowEditorLayout = useNarrowEditorLayout();
   const isInspectorDrawerOpen = isNarrowEditorLayout && inspectorDrawerOpen;
 
-  const setInspectorDraft = (nodeId: string, kind: InspectorDraftKind, value: MongoFilterRow[] | StagedText | undefined) => {
-    setInspectorDrafts((current) => {
-      const draft = { ...current[nodeId] };
-      if (value === undefined) delete draft[kind];
-      else if (kind === "filter" && Array.isArray(value)) draft.filter = value;
-      else if (kind === "filterRaw" && !Array.isArray(value)) draft.filterRaw = value;
-      else if (kind === "json" && !Array.isArray(value)) draft.json = value;
-      else if (kind === "testData" && !Array.isArray(value)) draft.testData = value;
-      const next = { ...current };
-      if (Object.keys(draft).length) next[nodeId] = draft;
-      else delete next[nodeId];
-      return next;
-    });
+  const setInspectorDraft: (nodeId: string, kind: InspectorDraftKind, value: MongoFilterRow[] | StagedText | StructuredOutputDraft | RelationalDraft | SheetsMappingDraft | undefined) => void = (nodeId, kind, value) => {
+    const current = inspectorDraftsRef.current;
+    const draft = { ...current[nodeId] };
+    if (value === undefined) delete draft[kind];
+    else if (kind === "filter" && Array.isArray(value)) draft.filter = value;
+    else if (kind === "relational" && !Array.isArray(value) && "mode" in value) draft.relational = value;
+    else if (kind === "sheetsMapping" && !Array.isArray(value) && "kind" in value && value.kind === "sheets") draft.sheetsMapping = value;
+    else if (kind === "structuredOutput" && !Array.isArray(value) && "kind" in value && value.kind !== "sheets") draft.structuredOutput = value;
+    else if (kind === "filterRaw" && !Array.isArray(value) && "text" in value && ! ("kind" in value) && !("mode" in value)) draft.filterRaw = value;
+    else if (kind === "json" && !Array.isArray(value) && "text" in value && !("kind" in value) && !("mode" in value)) draft.json = value;
+    else if (kind === "testData" && !Array.isArray(value) && "text" in value && !("kind" in value) && !("mode" in value)) draft.testData = value;
+    const next = { ...current };
+    if (Object.keys(draft).length) next[nodeId] = draft;
+    else delete next[nodeId];
+    inspectorDraftsRef.current = next;
+    setInspectorDrafts(next);
   };
   const reviewPending = () => {
     if (!pendingNode) return;
@@ -968,7 +1183,24 @@ export function WorkflowEditor() {
     if (isNarrowEditorLayout) setInspectorDrawerOpen(true);
     setNotice(`Apply or discard edits in ${pendingNode.data.label} before continuing.`);
   };
-  const allowNavigation = () => { if (!hasPending) return true; reviewPending(); return false; };
+  const allowNavigation = () => {
+    const pending = useWorkflowEditorStore.getState().nodes.find((node) => Object.keys(inspectorDraftsRef.current[node.id] ?? {}).length > 0);
+    if (!pending) return true;
+    selectNode(pending.id);
+    if (isNarrowEditorLayout) setInspectorDrawerOpen(true);
+    setNotice(`Apply or discard edits in ${pending.data.label} before continuing.`);
+    return false;
+  };
+
+  // Graph replacement must not carry drafts keyed by node IDs into another graph.
+  // Check again after asynchronous loads, then clear state and ref together.
+  const replaceEditorGraph = (graph: Parameters<typeof loadGraph>[0]) => {
+    if (!allowNavigation()) return false;
+    inspectorDraftsRef.current = {};
+    setInspectorDrafts({});
+    loadGraph(graph);
+    return true;
+  };
 
   useEffect(() => {
     if (!hasPending) return;
@@ -1047,7 +1279,7 @@ export function WorkflowEditor() {
         const graph = linkedExecution?.graph ?? loadedWorkflow.draft?.graph ?? loadedWorkflow.published?.graph;
         if (!graph) throw new Error("The workflow has no editable version.");
         if (!isCurrent) return;
-        loadGraph(graphFromApi(graph));
+        if (!replaceEditorGraph(graphFromApi(graph))) return;
         setWorkflow(loadedWorkflow);
         if (linkedExecution) {
           setExecution(linkedExecution);
@@ -1116,7 +1348,7 @@ export function WorkflowEditor() {
       setNotice("The selected workflow has no editable version.");
       return;
     }
-    loadGraph(graphFromApi(graph));
+    if (!replaceEditorGraph(graphFromApi(graph))) return;
     setWorkflow(nextWorkflow);
     setExecution(null);
     void refreshCredentials(nextWorkflow.workspaceId);
@@ -1167,13 +1399,13 @@ export function WorkflowEditor() {
   };
 
   const cloneWorkflow = async () => {
-    if (!workflow) return;
+    if (!workflow || !allowNavigation()) return;
     setActiveOperation("cloning");
     try {
       const response = await apiRequest<{ workflow: ApiWorkflow }>(`/workflows/${workflow.id}/clone`, { method: "POST" });
       const graph = response.workflow.draft?.graph ?? response.workflow.published?.graph;
       if (!graph) throw new Error("The cloned workflow has no graph.");
-      loadGraph(graphFromApi(graph));
+      if (!replaceEditorGraph(graphFromApi(graph))) { setNotice("The copy was created. Apply or discard pending edits before opening it."); return; }
       setWorkflow(response.workflow);
       setExecution(null);
       void refreshCredentials(response.workflow.workspaceId);
@@ -1252,7 +1484,7 @@ export function WorkflowEditor() {
     if (!file) return;
     try {
       const parsed: unknown = JSON.parse(await file.text());
-      loadGraph(parseWorkflowCanvasGraph(parsed));
+      if (!replaceEditorGraph(parseWorkflowCanvasGraph(parsed))) return;
       setNotice("Workflow JSON imported into a fresh local draft.");
     } catch {
       setNotice("Import failed. Choose a workflow JSON export from this app.");
@@ -1264,7 +1496,8 @@ export function WorkflowEditor() {
   const saveDraft = async (operation: "saving" | "publishing" | "running" | "debugging" = "saving", keepProgress = false): Promise<boolean> => {
     if (!workflow) return false;
     if (!allowNavigation()) return false;
-    const errors = issues.filter((issue) => issue.severity === "error");
+    const currentGraph = useWorkflowEditorStore.getState();
+    const errors = validateWorkflowGraph(currentGraph.nodes, currentGraph.edges).filter((issue) => issue.severity === "error");
     if (errors.length) {
       setNotice("Resolve graph errors before saving this draft.");
       return false;
@@ -1272,11 +1505,24 @@ export function WorkflowEditor() {
     setActiveOperation(operation);
     setIsSaving(true);
     try {
+      // Snapshot the exact graph sent to the server, not a stale render closure.
+      const savedGraph = JSON.stringify(graphForApi(currentGraph));
       const response = await apiRequest<{ workflow: ApiWorkflow }>(`/workflows/${workflow.id}/draft`, {
         method: "PATCH",
-        body: JSON.stringify({ name: workflow.name, description: workflow.description, graph: graphForApi({ nodes, edges }) }),
+        body: JSON.stringify({ name: workflow.name, description: workflow.description, graph: JSON.parse(savedGraph) }),
       });
+      if (workflowRef.current?.id !== workflow.id || workflowRef.current.workspaceId !== workflow.workspaceId) {
+        setNotice("The previous workflow was saved, but the active workflow changed. Start the action again.");
+        return false;
+      }
       setWorkflow(response.workflow);
+      if (!allowNavigation()) return false;
+      let unchanged = false;
+      try { unchanged = JSON.stringify(graphForApi(useWorkflowEditorStore.getState())) === savedGraph; } catch { /* An invalid current graph cannot be the saved graph. */ }
+      if (!unchanged) {
+        setNotice("An earlier graph was saved, but the workflow changed while saving. Save again before publishing or running.");
+        return false;
+      }
       setNotice("Draft saved to your workspace.");
       return true;
     } catch (reason) {
@@ -1288,21 +1534,24 @@ export function WorkflowEditor() {
     }
   };
 
-  const publish = async (confirmDiscardGmail = false) => {
+  const publish = async (confirmDiscardGmail = false, confirmDiscardRss = false) => {
     if (!workflow) return;
     const saved = await saveDraft("publishing", true);
     if (!saved) {
       setActiveOperation(null);
       return;
     }
+    if (!allowNavigation()) { setActiveOperation(null); return; }
     setIsSaving(true);
     try {
-      const response = await apiRequest<{ workflow: ApiWorkflow }>(`/workflows/${workflow.id}/publish`, { method: "POST", body: JSON.stringify({ confirmDiscardGmail }) });
+      const response = await apiRequest<{ workflow: ApiWorkflow }>(`/workflows/${workflow.id}/publish`, { method: "POST", body: JSON.stringify({ confirmDiscardGmail, confirmDiscardRss }) });
       setGmailPublishWarningOpen(false);
+      setRssPublishWarningOpen(false);
       setWorkflow(response.workflow);
       setNotice(`Version ${response.workflow.published?.version ?? ""} published. A new editable draft is ready.`);
     } catch (reason) {
       if (reason instanceof ApiClientError && reason.code === "GMAIL_PUBLISH_GAP_CONFIRMATION") setGmailPublishWarningOpen(true);
+      else if (reason instanceof ApiClientError && reason.code === "RSS_PUBLISH_GAP_CONFIRMATION") setRssPublishWarningOpen(true);
       else setNotice(reason instanceof Error ? reason.message : "Unable to publish the workflow.");
     } finally {
       setIsSaving(false);
@@ -1317,11 +1566,12 @@ export function WorkflowEditor() {
       setActiveOperation(null);
       return;
     }
+    if (!allowNavigation()) { setActiveOperation(null); return; }
     setIsSaving(true);
     try {
       const response = await apiRequest<{ execution: ApiExecution }>(`/workflows/${workflow.id}/executions`, {
         method: "POST",
-        body: JSON.stringify({ mock: true, triggerData: manualTriggerTestData(nodes) }),
+        body: JSON.stringify({ mock: true, triggerData: manualTriggerTestData(useWorkflowEditorStore.getState().nodes) }),
       });
       setExecution(response.execution);
       setNotice(`Mock execution ${response.execution.status.toLowerCase()} — select a node to inspect its output.`);
@@ -1340,11 +1590,12 @@ export function WorkflowEditor() {
       setActiveOperation(null);
       return;
     }
+    if (!allowNavigation()) { setActiveOperation(null); return; }
     setIsSaving(true);
     try {
       const response = await apiRequest<{ execution: ApiExecution }>(`/workflows/${workflow.id}/executions`, {
         method: "POST",
-        body: JSON.stringify({ mock: true, nodeId: node.id, triggerData: manualTriggerTestData(nodes) }),
+        body: JSON.stringify({ mock: true, nodeId: node.id, triggerData: manualTriggerTestData(useWorkflowEditorStore.getState().nodes) }),
       });
       setExecution(response.execution);
       setNotice(`Mock node debug ${response.execution.status.toLowerCase()} — only ${node.data.label} ran.`);
@@ -1389,6 +1640,7 @@ export function WorkflowEditor() {
   const updateActivation = async () => {
     if (!workflow) return;
     const activating = !workflow.isActive;
+    if (activating && !allowNavigation()) return;
     setActivationOpen(false);
     setActiveOperation(activating ? "activating" : "deactivating");
     setIsSaving(true);
@@ -1408,6 +1660,7 @@ export function WorkflowEditor() {
     if (!workflow?.published) return;
     setLiveConfirmOpen(false);
     setActiveOperation("live");
+    if (!allowNavigation()) { setActiveOperation(null); return; }
     setIsSaving(true);
     try {
       const response = await apiRequest<{ execution: ApiExecution }>(`/workflows/${workflow.id}/executions`, {
@@ -1425,14 +1678,18 @@ export function WorkflowEditor() {
   };
 
   const resolveApproval = async (approvalId: string, decision: "approved" | "rejected") => {
+    if (decision === "approved" && !allowNavigation()) return;
     try {
-      const result = await apiRequest<{ approval: { executionId: string; resumed: boolean } }>(`/approvals/${approvalId}/resolve`, {
+      const result = await apiRequest<{ approval: { executionId: string; resumed: boolean; dispatchStatus?: "not_required" | "submitted" | "unconfirmed" } }>(`/approvals/${approvalId}/resolve`, {
         method: "POST",
         body: JSON.stringify({ decision }),
       });
-      const response = await apiRequest<{ execution: ApiExecution }>(`/executions/${result.approval.executionId}`);
-      setExecution(response.execution);
-      setNotice(decision === "approved" ? "Approval accepted and execution resumed." : "Approval rejected; execution stopped.");
+      // The decision is already saved even if refreshing the execution fails.
+      try {
+        const response = await apiRequest<{ execution: ApiExecution }>(`/executions/${result.approval.executionId}`);
+        setExecution(response.execution);
+      } catch { /* Keep the saved-decision message and let the user refresh. */ }
+      setNotice(decision === "rejected" ? "Approval rejected; execution stopped." : !result.approval.resumed ? "Approval saved; execution finished." : result.approval.dispatchStatus === "unconfirmed" ? "Approval saved. Continuation could not be confirmed; check execution status." : "Approval saved. Continuation submitted; check execution status for progress.");
     } catch (reason) {
       setNotice(reason instanceof Error ? reason.message : "Unable to resolve approval.");
     }
@@ -1443,14 +1700,14 @@ export function WorkflowEditor() {
     try {
       const response = await apiRequest<{ execution: ApiExecution }>(`/executions/${execution.id}/cancel`, { method: "POST" });
       setExecution(response.execution);
-      setNotice("Execution cancelled. Pending work will not continue.");
+      setNotice("Execution cancelled. Pending work will not continue. Requests already sent may still complete; check the provider before retrying.");
     } catch (reason) {
       setNotice(reason instanceof Error ? reason.message : "Unable to cancel execution.");
     }
   };
 
   const retryExecution = async () => {
-    if (!execution || execution.status !== "FAILED") return;
+    if (!execution || execution.status !== "FAILED" || !allowNavigation()) return;
     setRetryConfirmOpen(false);
     setActiveOperation("retrying");
     setIsSaving(true);
@@ -1566,7 +1823,17 @@ export function WorkflowEditor() {
           </button>
         </section>
         {isInspectorDrawerOpen && <button className="inspector-backdrop" type="button" aria-label="Dismiss node inspector" onClick={closeInspectorDrawer} />}
-        <NodeInspector node={selectedNode} execution={execution} credentials={credentials} workspaceId={workflow?.workspaceId ?? ""} workflowId={workflow?.id ?? ""} onResolveApproval={resolveApproval} onDebugNode={(node) => void runNodeDebug(node)} onOpenWebhook={() => { if (isNarrowEditorLayout) setInspectorDrawerOpen(false); setWebhookOpen(true); }} webhookContext={webhookContext} isDebugging={activeOperation === "debugging"} isDrawerOpen={isInspectorDrawerOpen} onCloseDrawer={closeInspectorDrawer} draft={selectedNode ? inspectorDrafts[selectedNode.id] ?? {} : {}} onDraftChange={(kind, value) => { if (selectedNode) setInspectorDraft(selectedNode.id, kind, value); }} hasPending={hasPending} />
+        <NodeInspector node={selectedNode} execution={execution} credentials={credentials} workspaceId={workflow?.workspaceId ?? ""} workflowId={workflow?.id ?? ""} owner={workspaces.some((workspace) => workspace.id === workflow?.workspaceId && workspace.role === "OWNER")} onResolveApproval={resolveApproval} onDebugNode={(node) => void runNodeDebug(node)} onOpenWebhook={() => { if (isNarrowEditorLayout) setInspectorDrawerOpen(false); setWebhookOpen(true); }} webhookContext={webhookContext} isDebugging={activeOperation === "debugging"} isDrawerOpen={isInspectorDrawerOpen} onCloseDrawer={closeInspectorDrawer} draft={selectedNode ? inspectorDrafts[selectedNode.id] ?? {} : {}} onDraftChange={(kind, value) => { if (selectedNode) setInspectorDraft(selectedNode.id, kind, value); }} onApplySheets={(sheetDraft) => {
+          if (!selectedNode) return false;
+          const pending = inspectorDraftsRef.current[selectedNode.id];
+          if (pending?.sheetsMapping !== sheetDraft || pending.json) return false;
+          const state = useWorkflowEditorStore.getState();
+          const latest = state.nodes.find((node) => node.id === selectedNode.id);
+          if (!latest || latest.data.nodeType !== "action.google-sheets") return false;
+          const config = applySheetsMapping(workflow?.workspaceId ?? "", latest.data.config, sheetDraft);
+          state.updateNodeData(latest.id, { config });
+          return true;
+        }} hasPending={hasPending} />
       </div>
       {contextMenu && <div className="node-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} role="menu" onMouseLeave={() => setContextMenu(null)}>
         <button type="button" disabled={hasPending} onClick={() => { copyNode(contextMenu.nodeId); setContextMenu(null); }}>Copy node</button>
@@ -1575,10 +1842,11 @@ export function WorkflowEditor() {
       </div>}
       {historyOpen && <WorkflowHistoryPanel versions={versions} loading={versionsLoading} onClose={() => setHistoryOpen(false)} />}
       {validationOpen && <GraphValidationPanel issues={issues} onClose={() => setValidationOpen(false)} />}
-      {webhookOpen && workflow && webhookTrigger && <WebhookEndpointPanel workflow={workflow} config={webhookTrigger.config} isGitHub={isGitHubWebhookTrigger(webhookTrigger.type)} isUptimeKuma={webhookTrigger.type === "trigger.uptime-kuma.alert"} canRegister={Boolean(publishedWebhook)} onClose={() => setWebhookOpen(false)} />}
+      {webhookOpen && workflow && webhookTrigger && <WebhookEndpointPanel workflow={workflow} config={webhookTrigger.config} isGitHub={isGitHubWebhookTrigger(webhookTrigger.type)} isUptimeKuma={isUptimeKumaTrigger(webhookTrigger.type)} isTelegram={webhookTrigger.type === "trigger.telegram.update"} isVercel={webhookTrigger.type === "trigger.vercel.deployment"} isTrello={webhookTrigger.type === "trigger.trello.board-action"} isSentry={webhookTrigger.type === "trigger.sentry.issue-created"} canRegister={Boolean(publishedWebhook)} onClose={() => setWebhookOpen(false)} />}
       {activationOpen && workflow && <WorkflowActivationPanel workflow={workflow} isSaving={activeOperation === "activating" || activeOperation === "deactivating"} readiness={liveReadiness} loading={liveReadinessLoading} error={liveReadinessError} onConfirm={() => void updateActivation()} onRefresh={() => void checkLiveReadiness()} onOpenCredentials={() => { setActivationOpen(false); setCredentialsOpen(true); }} onClose={() => setActivationOpen(false)} />}
       {liveConfirmOpen && workflow && <GoLivePanel workflow={workflow} isRunning={activeOperation === "live"} readiness={liveReadiness} loading={liveReadinessLoading} error={liveReadinessError} onConfirm={() => void runLive()} onRefresh={() => void checkLiveReadiness()} onOpenCredentials={() => { setLiveConfirmOpen(false); setCredentialsOpen(true); }} onClose={() => setLiveConfirmOpen(false)} />}
       {gmailPublishWarningOpen && <Dialog label="Confirm Gmail trigger change" onClose={() => setGmailPublishWarningOpen(false)}><DialogHeader title="Change the Gmail trigger?" onClose={() => setGmailPublishWarningOpen(false)} closeLabel="Close confirmation" /><p>Changing or removing the mailbox trigger discards its saved progress. Some messages and pending deliveries may be missed; already running executions may still finish.</p><div className="dialog-actions"><Button type="button" variant="secondary" onClick={() => setGmailPublishWarningOpen(false)}>Cancel</Button><Button type="button" variant="primary" disabled={isSaving} onClick={() => void publish(true)}>Publish and discard progress</Button></div></Dialog>}
+      {rssPublishWarningOpen && <Dialog label="Confirm RSS trigger change" onClose={() => setRssPublishWarningOpen(false)}><DialogHeader title="Change the RSS trigger?" onClose={() => setRssPublishWarningOpen(false)} closeLabel="Close confirmation" /><p>Changing or removing the feed discards its saved progress. Some items and queued deliveries may be missed; already running executions may still finish.</p><div className="dialog-actions"><Button type="button" variant="secondary" onClick={() => setRssPublishWarningOpen(false)}>Cancel</Button><Button type="button" variant="primary" disabled={isSaving} onClick={() => void publish(false, true)}>Publish and discard progress</Button></div></Dialog>}
       {retryConfirmOpen && execution && <RetryExecutionPanel execution={execution} isRetrying={activeOperation === "retrying"} onConfirm={() => void retryExecution()} onClose={() => setRetryConfirmOpen(false)} />}
       {executionDetailsOpen && execution && <ExecutionDetailsPanel executionId={execution.id} onSelectNode={(nodeId) => { selectNode(nodeId); setExecutionDetailsOpen(false); if (isNarrowEditorLayout) setInspectorDrawerOpen(true); }} onClose={() => setExecutionDetailsOpen(false)} />}
       {libraryOpen && <WorkflowLibraryPanel initialWorkspaces={workspaces} activeWorkflowId={workflow?.id} activeWorkspaceId={workflow?.workspaceId} onOpen={openWorkflow} onWorkspaceCreated={(workspace) => setWorkspaces((current) => [workspace, ...current])} onClose={() => setLibraryOpen(false)} />}

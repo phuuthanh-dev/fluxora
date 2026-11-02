@@ -1,5 +1,13 @@
-import { workflowEdgeKinds, workflowNodeTypes, type WorkflowEdgeKind, type WorkflowGraph, type WorkflowNodeType } from "@workflow/contracts";
+import { isSupportedWorkflowNodeVersion, workflowEdgeKinds, workflowNodeOutputKinds, workflowNodeTypes, type WorkflowEdgeKind, type WorkflowGraph, type WorkflowNodeType } from "@workflow/contracts";
 import { BadRequestException } from "@nestjs/common";
+import { readUptimeKumaFilter } from "../webhooks/uptime-kuma-filter";
+import { rssTargets } from "../scheduler/rss-trigger-poller";
+import { NodeFailure } from "../execution/node-failure";
+import { parsePublicRssUrl } from "../execution/rss-public-transport";
+import { telegramTriggerFilterFromConfig } from "../webhooks/telegram-trigger-protocol";
+import { vercelTriggerFilterFromConfig } from "../webhooks/vercel-trigger-protocol";
+import { readTrelloTriggerFilter } from "../webhooks/trello-trigger-protocol";
+import { readSentryIssueCreatedFilter } from "../webhooks/sentry-trigger-protocol";
 
 type StoredWorkflowNode = WorkflowGraph["nodes"][number];
 type StoredWorkflowEdge = WorkflowGraph["edges"][number];
@@ -19,7 +27,7 @@ export function parseWorkflowGraph(value: unknown): WorkflowGraph {
   for (const edge of edges) {
     const source = nodes.find((node) => node.id === edge.source);
     if (!source || !nodeIds.has(edge.target)) invalid(`Connection ${edge.id} refers to a missing node.`);
-    if (!source || !outputKinds(source.type).includes(edge.kind)) invalid(`Connection ${edge.id} uses an invalid ${edge.kind} branch.`);
+    if (!source || !workflowNodeOutputKinds(source.type).includes(edge.kind)) invalid(`Connection ${edge.id} uses an invalid ${edge.kind} branch.`);
   }
 
   if (containsCycle(nodes, edges)) invalid("Loops are not supported in the MVP workflow graph.");
@@ -30,7 +38,14 @@ export function validatePublishableGraph(graph: WorkflowGraph) {
   const triggers = graph.nodes.filter((node) => node.type.startsWith("trigger."));
   if (triggers.length !== 1) invalid("A published workflow must have exactly one trigger.");
   if (!graph.nodes.length) invalid("A published workflow must contain at least one node.");
+  try { rssTargets("", "", graph); }
+  catch (error) { if (error instanceof NodeFailure) throw new BadRequestException({ code: error.code, message: error.message }); throw error; }
   for (const node of graph.nodes) {
+    if (node.type === "trigger.telegram.update") telegramTriggerFilterFromConfig(node.config);
+    if (node.type === "trigger.vercel.deployment") vercelTriggerFilterFromConfig(node.config);
+    if (node.type === "trigger.trello.board-action") readTrelloTriggerFilter(node.config);
+    if (node.type === "trigger.sentry.issue-created") readSentryIssueCreatedFilter(node.config);
+    if (node.type === "trigger.uptime-kuma.alert.v2") readUptimeKumaFilter(node.config);
     if (node.type !== "condition.switch") continue;
     const values = switchCaseValues(node.config);
     if (!values.length) invalid(`Switch node ${node.id} needs at least one non-empty case value.`);
@@ -50,7 +65,15 @@ function parseNode(value: unknown): StoredWorkflowNode {
   const y = readNumber(position.y, "Node y position must be a number.");
   const configSource = record.config ?? data?.config;
   const config = readRecord(configSource, "Node config must be an object.");
-  return { id: readString(record.id, "Node ID is required."), type, position: { x, y }, config };
+  // A draft may be incomplete, but identifiable secrets must not be saved in
+  // a plaintext feed URL. This check is syntax-only and does not call DNS.
+  if (type === "trigger.rss.new-item" && config.url !== undefined && config.url !== "") {
+    try { parsePublicRssUrl(typeof config.url === "string" ? config.url.trim() : config.url); }
+    catch { invalid("Use a public RSS URL without embedded credentials or secret query parameters."); }
+  }
+  const nodeVersion = record.nodeVersion === undefined ? data?.nodeVersion : record.nodeVersion;
+  if (nodeVersion !== undefined && !isSupportedWorkflowNodeVersion(nodeVersion)) invalid("Node version is not supported.");
+  return { id: readString(record.id, "Node ID is required."), type, position: { x, y }, config, ...(nodeVersion === undefined ? {} : { nodeVersion }) };
 }
 
 function parseEdge(value: unknown): StoredWorkflowEdge {
@@ -82,12 +105,6 @@ function containsCycle(nodes: StoredWorkflowNode[], edges: StoredWorkflowEdge[])
     return false;
   };
   return nodes.some((node) => visit(node.id));
-}
-
-function outputKinds(type: WorkflowNodeType): WorkflowEdgeKind[] {
-  if (type === "condition.if") return ["true", "false"];
-  if (type === "condition.switch") return ["case", "default"];
-  return type.startsWith("trigger.") ? ["success"] : ["success", "error"];
 }
 
 function switchCaseValues(config: Record<string, unknown>) {

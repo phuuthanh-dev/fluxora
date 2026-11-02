@@ -38,7 +38,7 @@ test("node library keeps roadmap nodes out of the default view", () => {
 test("node library separates core nodes from app operations", () => {
   assert.ok(coreNodeDefinitions().every((node) => !node.appId));
   assert.ok(appCatalog.some((app) => app.id === "telegram" && app.category === "communication"));
-  assert.deepEqual(operationsForApp("telegram").map((node) => node.operationId), ["send-message"]);
+  assert.deepEqual(operationsForApp("telegram").map((node) => node.operationId), ["receive-update", "send-message", "reply", "edit-message"]);
   assert.ok(nodeCatalog.filter((node) => matchesNodeLibraryFilter(node, "communication")).some((node) => node.type === "action.telegram.message"));
   assert.ok(nodeCatalog.filter((node) => matchesNodeLibraryFilter(node, "developer-devops")).some((node) => node.type === "action.http-request"));
 });

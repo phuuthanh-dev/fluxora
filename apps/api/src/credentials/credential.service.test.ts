@@ -41,12 +41,11 @@ test("credential hints are not loaded when workspace ownership fails", async () 
 
 test("expired Google OAuth credentials refresh on the server before execution", async () => {
   const updated: Array<{ encryptedData: string }> = [];
-  const prisma = {
-    credential: {
-      findFirst: async () => ({ id: "credential-1", encryptedData: "encrypted" }),
-      update: async ({ data }: { data: { encryptedData: string } }) => { updated.push(data); },
-    },
-  } as unknown as PrismaService;
+  const credential = {
+    findFirst: async () => ({ id: "credential-1", encryptedData: "encrypted" }),
+    updateMany: async ({ data }: { data: { encryptedData: string } }) => { updated.push(data); return { count: 1 }; },
+  };
+  const prisma = { credential, $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({ credential, $executeRaw: async () => 0, $queryRaw: async () => [{ locked: true }] }) } as unknown as PrismaService;
   const vault = {
     decrypt: () => ({ accessToken: "old-token", refreshToken: "refresh-token", expiresAt: "2020-01-01T00:00:00.000Z" }),
     encrypt: (value: Record<string, unknown>) => JSON.stringify(value),
@@ -202,7 +201,7 @@ test("Vercel rejects invalid token before encryption", async () => {
 
 test("Supabase rejects arbitrary hosts and malformed keys before encryption", async () => {
   const service = new CredentialService({} as never, { requireOwner: async () => {} } as never, {} as never);
-  for (const data of [{ projectRef: "evil.example", apiKey: "fixture" }, { projectRef: "abcdefghijklmnopqrst", apiKey: "bad key" }, { projectRef: "abcdefghijklmnopqrst", apiKey: "fixture", managementToken: "invalid\r\nheader" }]) {
+  for (const data of [{ projectRef: "evil.example", apiKey: "fixture" }, { projectRef: "abcdefghijklmnopqrst", apiKey: "bad key" }, { projectRef: "abcdefghijklmnopqrst", apiKey: "fixture", managementToken: "invalid\r\nheader" }, { projectRef: "abcdefghijklmnopqrst", apiKey: "fixture", userAccessToken: "invalid\r\nheader" }]) {
     await assert.rejects(() => service.create("ws-1", "user-1", { provider: "SUPABASE", label: "Supabase", data }), (err: unknown) => {
       const error = err as HttpErrorShape; assert.equal(error.response?.code, "INVALID_INPUT"); return true;
     });
@@ -387,33 +386,16 @@ test("update allows renaming a manual Google credential to names that contain OA
   assert.equal(updated.isManaged, false);
 });
 
-test("delete rejects canonical Google OAuth credential with CREDENTIAL_MANAGED_BY_OAUTH", async () => {
-  const existing = {
-    id: "google-oauth-1",
-    workspaceId: "ws-1",
-    provider: "GOOGLE",
-    label: "Google OAuth",
-    encryptedData: "encrypted-oauth",
-  };
-  const prisma = {
-    credential: {
-      findFirst: async () => existing,
-    },
-  } as unknown as PrismaService;
-  const workspaces = { requireOwner: async () => {} } as never;
-  const service = new CredentialService(prisma, workspaces, {} as never);
-
-  await assert.rejects(
-    async () => {
-      await service.delete("ws-1", "google-oauth-1", "user-1");
-    },
-    (err: unknown) => {
-      const error = err as HttpErrorShape;
-      assert.equal(error.response?.code, "CREDENTIAL_MANAGED_BY_OAUTH");
-      assert.match(error.response?.message ?? "", /managed through Google sign-in/);
-      return true;
-    },
-  );
+test("managed Google credentials cannot be deleted through the ordinary credential endpoint", async () => {
+  let scans = 0; let deletes = 0;
+  for (const [provider, label] of [["GOOGLE", "Google OAuth"], ["GMAIL", "Gmail OAuth · owner@example.test · 0123456789abcdef"], ["GOOGLE_CHAT_OAUTH", "Google Chat OAuth"], ["GOOGLE_CALENDAR", "Google Calendar OAuth"]]) {
+    const existing = { id: "managed", workspaceId: "ws-1", provider, label, encryptedData: "encrypted" };
+    const prisma = { credential: { findFirst: async () => existing, delete: async () => { deletes++; } }, workflow: { findMany: async () => { scans++; return []; } } } as unknown as PrismaService;
+    const service = new CredentialService(prisma, { requireOwner: async () => {} } as never, {} as never);
+    await assert.rejects(service.delete("ws-1", existing.id, "user-1"), (error: unknown) => (error as HttpErrorShape).response?.code === "CREDENTIAL_MANAGED_BY_OAUTH");
+  }
+  assert.equal(scans, 0);
+  assert.equal(deletes, 0);
 });
 
 test("manual Google credentials can be updated and deleted normally", async () => {

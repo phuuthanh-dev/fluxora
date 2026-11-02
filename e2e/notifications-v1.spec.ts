@@ -82,7 +82,7 @@ test("configure Discord and Telegram notification nodes with encrypted credentia
   await expect(page.getByLabel(/Supergroup chat ID/)).toBeVisible();
   await expect(page.getByLabel("Topic / thread ID (optional)")).toBeVisible();
   await page.getByLabel(/Supergroup chat ID/).fill("-1004413027775");
-  await page.getByLabel("Message text").fill("Status update: All systems operational");
+  await page.getByRole("textbox", { name: "Message text", exact: true }).fill("Status update: All systems operational");
 
   // Save the draft with added nodes
   await page.getByRole("button", { name: "Save draft" }).click();

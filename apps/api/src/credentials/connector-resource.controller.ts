@@ -4,16 +4,18 @@ import { AuthenticationGuard } from "../auth/authentication.guard";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { listMongoCollections, listMongoDatabases } from "../execution/mongodb-find";
 import { listGoogleChatSpaces } from "../execution/google-chat-oauth";
-import { listPostgresSchemas, listPostgresTables, validatePostgresCredential } from "../execution/postgres-read";
+import { listPostgresColumns, listPostgresSchemas, listPostgresTables, validatePostgresCredential } from "../execution/postgres-read";
 import { listTrelloBoards, listTrelloLists } from "../execution/trello";
-import { listSentryOrganizations, listSentryProjects } from "../execution/sentry";
+import { listSentryInstallations, listSentryOrganizations, listSentryProjects } from "../execution/sentry";
 import { listVercelProjects, listVercelTeams } from "../execution/vercel";
-import { listSupabaseTables } from "../execution/supabase";
+import { listSupabaseColumns, listSupabaseTables } from "../execution/supabase";
+import { executeGitHubListIssues, executeGitHubListPullRequests } from "../execution/github-read";
 import { CredentialService } from "./credential.service";
 import { NodeFailure } from "../execution/node-failure";
+import { listNotionPages, listTrelloCards } from "./connector-resource-discovery";
 
-export function trelloDiscoveryError(error: unknown, resource: "boards" | "lists") {
-  const prefix = resource === "boards" ? "Boards" : "Lists";
+export function trelloDiscoveryError(error: unknown, resource: "boards" | "lists" | "cards") {
+  const prefix = resource === "boards" ? "Boards" : resource === "lists" ? "Lists" : "Cards";
   let guidance = "Check your connection or enter the ID manually.";
   if (error instanceof NodeFailure) {
     if (error.code === "CREDENTIAL_INVALID") guidance = "The Trello API key or token is missing or has an invalid format. Update the connection and retry.";
@@ -22,7 +24,8 @@ export function trelloDiscoveryError(error: unknown, resource: "boards" | "lists
     else if (error.statusCode === 429) guidance = "Trello rate limited the request. Wait and retry.";
     else if (error.code === "TIMEOUT" || error.code === "NETWORK_ERROR") guidance = "The Trello request could not reach the provider. Check network access and retry.";
   }
-  return new BadRequestException({ code: resource === "boards" ? "TRELLO_BOARDS_UNAVAILABLE" : "TRELLO_LISTS_UNAVAILABLE", message: `${prefix} could not be loaded. ${guidance}` });
+  const fallback = resource === "cards" && !guidance.includes("manually") ? " Enter the card ID manually if needed." : "";
+  return new BadRequestException({ code: `TRELLO_${resource.toUpperCase()}_UNAVAILABLE`, message: `${prefix} could not be loaded. ${guidance}${fallback}` });
 }
 
 export function supabaseDiscoveryError(error: unknown) {
@@ -47,6 +50,26 @@ export function supabaseDiscoveryError(error: unknown) {
 export class ConnectorResourceController {
   constructor(@Inject(CredentialService) private readonly credentials: CredentialService) {}
 
+  @Get("github/issues")
+  async githubIssues(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Query("repository") repository: string | undefined, @Query("page") page: string | undefined, @Req() request: AuthenticatedRequest) {
+    return this.githubItems(workspaceId, credentialId, repository, page, request, "issue");
+  }
+
+  @Get("github/pull-requests")
+  async githubPullRequests(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Query("repository") repository: string | undefined, @Query("page") page: string | undefined, @Req() request: AuthenticatedRequest) {
+    return this.githubItems(workspaceId, credentialId, repository, page, request, "pull-request");
+  }
+
+  private async githubItems(workspaceId: string, credentialId: string, repository: string | undefined, page: string | undefined, request: AuthenticatedRequest, kind: "issue" | "pull-request") {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    try {
+      const config = { credentialId, repository: repository ?? "", state: "all", page: page || 1, pageSize: 50 };
+      const result = kind === "issue" ? await executeGitHubListIssues(config, "live", workspaceId, this.credentials) : await executeGitHubListPullRequests(config, "live", workspaceId, this.credentials);
+      return { items: (result.output.items ?? []).map((item) => ({ id: String(item.number), name: `#${item.number} · ${item.title}` })), nextPage: result.output.nextPage ?? null, truncated: result.output.truncated === true };
+    } catch { throw new BadRequestException({ code: "GITHUB_ITEMS_UNAVAILABLE", message: "Items could not be loaded. Check repository permissions or enter a number manually." }); }
+  }
+
   @Get("supabase/tables")
   async supabaseTables(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Req() request: AuthenticatedRequest) {
     if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
@@ -54,6 +77,15 @@ export class ConnectorResourceController {
     const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.SUPABASE);
     try { return await listSupabaseTables(credential); }
     catch (error) { throw supabaseDiscoveryError(error); }
+  }
+
+  @Get("supabase/columns")
+  async supabaseColumns(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Query("table") table: string | undefined, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.SUPABASE);
+    try { return await listSupabaseColumns(credential, table ?? ""); }
+    catch { throw new BadRequestException({ code: "SUPABASE_COLUMNS_UNAVAILABLE", message: "Columns could not be loaded. Check access or enter column names manually." }); }
   }
 
   @Get("vercel/teams")
@@ -92,6 +124,15 @@ export class ConnectorResourceController {
     catch { throw new BadRequestException({ code: "SENTRY_PROJECTS_UNAVAILABLE", message: "Projects could not be loaded. Check your organization and permissions, or enter a slug manually." }); }
   }
 
+  @Get("sentry/installations")
+  async sentryInstallations(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Query("organization") organization: string | undefined, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.SENTRY);
+    try { return await listSentryInstallations(credential, organization ?? ""); }
+    catch { throw new BadRequestException({ code: "SENTRY_INSTALLATIONS_UNAVAILABLE", message: "Installations could not be loaded. Check your organization and permissions, or enter the installation UUID manually." }); }
+  }
+
   @Get("trello/boards")
   async trelloBoards(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Req() request: AuthenticatedRequest) {
     if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
@@ -110,6 +151,24 @@ export class ConnectorResourceController {
     catch (error) { throw trelloDiscoveryError(error, "lists"); }
   }
 
+  @Get("trello/cards")
+  async trelloCards(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Query("board") board: string | undefined, @Req() request: AuthenticatedRequest, @Query("before") before?: string) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.TRELLO);
+    try { return await listTrelloCards(credential, board ?? "", undefined, before || undefined); }
+    catch (error) { throw trelloDiscoveryError(error, "cards"); }
+  }
+
+  @Get("notion/pages")
+  async notionPages(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Query("query") query: string | undefined, @Query("cursor") cursor: string | undefined, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.NOTION);
+    try { return await listNotionPages(credential, query ?? "", cursor); }
+    catch { throw new BadRequestException({ code: "NOTION_PAGES_UNAVAILABLE", message: "Pages could not be loaded. Check the connection, search parameters and integration access, or enter a page ID manually." }); }
+  }
+
   @Get("postgres/schemas")
   async postgresSchemas(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Req() request: AuthenticatedRequest) {
     if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
@@ -126,6 +185,15 @@ export class ConnectorResourceController {
     const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.POSTGRES);
     try { return await listPostgresTables(validatePostgresCredential(credential), schema ?? ""); }
     catch { throw new BadRequestException({ code: "POSTGRES_TABLES_UNAVAILABLE", message: "Tables could not be loaded. Check permissions or enter a table manually." }); }
+  }
+
+  @Get("postgres/columns")
+  async postgresColumns(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Query("schema") schema: string | undefined, @Query("table") table: string | undefined, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.POSTGRES);
+    try { return await listPostgresColumns(validatePostgresCredential(credential), schema ?? "", table ?? ""); }
+    catch { throw new BadRequestException({ code: "POSTGRES_COLUMNS_UNAVAILABLE", message: "Columns could not be loaded. Check permissions or enter a column name manually." }); }
   }
 
   @Get("mongodb/databases")

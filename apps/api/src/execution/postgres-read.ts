@@ -3,7 +3,8 @@ import QueryStream from "pg-query-stream";
 import { X509Certificate } from "node:crypto";
 import { rootCertificates } from "node:tls";
 import { NodeFailure } from "./node-failure";
-import { buildPostgresSelect } from "./postgres-select-query";
+import { requireResolvedSelection } from "./relational-selection-validation";
+import { buildPostgresSelect, type PostgresSelection } from "./postgres-select-query";
 import { resolvePostgresTarget } from "./postgres-target";
 import { CredentialProvider } from "@prisma/client";
 import type { CredentialService } from "../credentials/credential.service";
@@ -36,8 +37,8 @@ export function validatePostgresCredential(value: Record<string, unknown>): Post
 type ReadClient = { connect(): Promise<void>; query(sql: string): Promise<unknown>; query(query: QueryStream): QueryStream; end(): Promise<void> };
 type Dependencies = { resolve: typeof resolvePostgresTarget; createClient: (config: ClientConfig) => ReadClient };
 
-export async function readPostgresRows(credential: PostgresCredential, schema: string, table: string, limit: number, dependencies?: Dependencies) {
-  return readPostgresQuery(credential, buildPostgresSelect({ schema, table, columns: [], conditions: [], limit }), dependencies);
+export async function readPostgresRows(credential: PostgresCredential, schema: string, table: string, limit: number, dependencies?: Dependencies, selection: PostgresSelection = { columns: [], conditions: [] }) {
+  return readPostgresQuery(credential, buildPostgresSelect({ schema, table, limit, ...selection }), dependencies);
 }
 
 async function readPostgresQuery(credential: PostgresCredential, query: { text: string; values: Array<string | number | boolean> }, dependencies: Dependencies = { resolve: resolvePostgresTarget, createClient: (config) => new Client(config) as unknown as ReadClient }) {
@@ -75,15 +76,47 @@ export async function listPostgresTables(credential: PostgresCredential, schema:
   return { tables: result.rows.slice(0, 100).flatMap((row) => typeof row.name === "string" && /^[A-Za-z_][A-Za-z0-9_$]{0,62}$/.test(row.name) ? [{ id: row.name, name: row.name }] : []), hasMore: result.count > 100 };
 }
 
-export async function executePostgresSelect(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, read: typeof readPostgresRows = readPostgresRows) {
+export async function listPostgresColumns(credential: PostgresCredential, schema: string, table: string) {
+  // Validate identifiers and bind metadata predicates; never interpolate user SQL.
+  buildPostgresSelect({ schema, table, columns: [], conditions: [], limit: 1 });
+  const result = await readPostgresQuery(credential, { text: "SELECT column_name AS name, data_type AS type FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 ORDER BY ordinal_position LIMIT 101", values: [schema, table] });
+  return { columns: result.rows.slice(0, 100).flatMap((row) => typeof row.name === "string" && /^[A-Za-z_][A-Za-z0-9_$]{0,62}$/.test(row.name) ? [{ id: row.name, name: row.name, type: typeof row.type === "string" ? row.type.slice(0, 100) : "" }] : []), hasMore: result.count > 100 };
+}
+
+const postgresConfigKeys = new Set(["credentialId", "schema", "table", "limit", "columns", "conditions", "orderBy", "orderDirection", "offset", "retryAttempts", "timeoutMs"]);
+const postgresSelectionKeys = ["limit", "columns", "conditions", "orderBy", "orderDirection", "offset"] as const;
+
+export async function executePostgresSelect(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, read: typeof readPostgresRows = readPostgresRows, nodeVersion: number = 1): Promise<{ status: "succeeded"; output: { rows: Record<string, unknown>[]; count: number; returnedCount?: number; page?: { limit: number; offset: number; completeness: "unknown" } }; route: "success" }> {
+  if (nodeVersion !== 1 && nodeVersion !== 2) throw new NodeFailure("INVALID_CONFIGURATION", "PostgreSQL node version is not supported.", false);
+  if (nodeVersion === 1) {
+    const schema = typeof config.schema === "string" ? config.schema : "";
+    const table = typeof config.table === "string" ? config.table : "";
+    const limit = config.limit === undefined ? 20 : config.limit;
+    if (typeof limit !== "number") throw new NodeFailure("INVALID_INPUT", "Enter a valid row limit.", false);
+    buildPostgresSelect({ schema, table, columns: [], conditions: [], limit });
+    if (mode === "mock") return { status: "succeeded" as const, output: { rows: [{ example: true }], count: 1 }, route: "success" as const };
+    const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
+    if (!credentialId) throw new NodeFailure("CREDENTIAL_REQUIRED", "Select a PostgreSQL connection.", false);
+    const credential = validatePostgresCredential(await credentials.readForExecution(credentialId, workspaceId, CredentialProvider.POSTGRES));
+    return { status: "succeeded" as const, output: await read(credential, schema, table, limit), route: "success" as const };
+  }
+  if (Object.keys(config).some((key) => !postgresConfigKeys.has(key))) throw new NodeFailure("INVALID_INPUT", "PostgreSQL configuration contains an unsupported field.", false);
+  requireResolvedSelection(config, postgresSelectionKeys, "PostgreSQL");
   const schema = typeof config.schema === "string" ? config.schema : "";
   const table = typeof config.table === "string" ? config.table : "";
-  const limit = config.limit === undefined ? 20 : config.limit;
+  const limit = Object.hasOwn(config, "limit") ? config.limit : 20;
   if (typeof limit !== "number") throw new NodeFailure("INVALID_INPUT", "Enter a valid row limit.", false);
-  buildPostgresSelect({ schema, table, columns: [], conditions: [], limit });
-  if (mode === "mock") return { status: "succeeded" as const, output: { rows: [{ example: true }], count: 1 }, route: "success" as const };
+  const columns = Object.hasOwn(config, "columns") ? config.columns : [];
+  const conditions = Object.hasOwn(config, "conditions") ? config.conditions : [];
+  const orderBy = config.orderBy === undefined || config.orderBy === "" ? undefined : config.orderBy;
+  const orderDirection = config.orderDirection === undefined || config.orderDirection === "" ? undefined : config.orderDirection;
+  const offset = Object.hasOwn(config, "offset") ? config.offset : 0;
+  const selection = { columns, conditions, orderBy, orderDirection, offset } as PostgresSelection;
+  buildPostgresSelect({ schema, table, limit, ...selection });
+  const output = (result: { rows: Record<string, unknown>[]; count: number }) => ({ ...result, returnedCount: result.rows.length, page: { limit, offset: selection.offset ?? 0, completeness: "unknown" as const } });
+  if (mode === "mock") return { status: "succeeded" as const, output: output({ rows: [{ example: true }], count: 1 }), route: "success" as const };
   const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
   if (!credentialId) throw new NodeFailure("CREDENTIAL_REQUIRED", "Select a PostgreSQL connection.", false);
   const credential = validatePostgresCredential(await credentials.readForExecution(credentialId, workspaceId, CredentialProvider.POSTGRES));
-  return { status: "succeeded" as const, output: await read(credential, schema, table, limit), route: "success" as const };
+  return { status: "succeeded" as const, output: output(await read(credential, schema, table, limit, undefined, selection)), route: "success" as const };
 }

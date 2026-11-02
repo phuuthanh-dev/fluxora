@@ -1,15 +1,16 @@
 import { isExecutableWorkflowNodeType, type WorkflowEdge, type WorkflowEdgeKind, type WorkflowGraph, type WorkflowNode } from "@workflow/contracts";
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { ApprovalRequestStatus, CredentialProvider, ExecutionStatus, NodeExecutionStatus, Prisma } from "@prisma/client";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { CredentialService } from "../credentials/credential.service";
 import { PrismaService } from "../database/prisma.service";
 import { ExecutionEventsService } from "./execution-events.service";
 import { applyHttpCredential, HttpCredentialError } from "./http-credential";
-import { fetchSafeOutbound } from "./outbound-url-policy";
+import { fetchSafeOutbound, fetchSafeOutboundWrite } from "./outbound-url-policy";
 import { resolveExpressions } from "./expression";
 import { redactValue } from "./redaction";
 import { isRetryableFailure, retryDelayMs } from "./retry-policy";
+import { driveListOutput, driveListUrl, readDrivePageToken } from "./google-drive-pagination";
 import { readBoundedProviderText } from "./provider-json";
 import { isReadOnlyMethod, requireProviderSuccess, readProviderJson, uncertainDelivery } from "./provider-request-policy";
 import { parseWorkflowGraph } from "../workflows/workflow-graph";
@@ -20,20 +21,28 @@ import { executeGeminiText } from "./gemini-text";
 import { executeOpenAIText } from "./openai-text";
 import { executeMongoFind, executeMongoInsert } from "./mongodb-find";
 import { executeNotionSearch } from "./notion-search";
+import { executeNotionOperation } from "./notion-operations";
 import { executeRssRead } from "./rss-read";
 import { executeTrelloCreateCard } from "./trello";
+import { executeTrelloOperation } from "./trello-operations";
 import { executeSentryListIssues } from "./sentry";
 import { executeVercelListDeployments } from "./vercel";
 import { executeSupabaseSelect } from "./supabase";
+import { executeSentryGetIssue } from "./sentry-observability";
+import { executeVercelPublicDeploymentLookup } from "./vercel-observability";
 import { executeRedditListPosts } from "./reddit";
 import { executePostgresSelect } from "./postgres-read";
 import { executeGmailRead } from "./gmail-read";
+import { executeGmailGetMessage } from "./gmail-get-message";
+import { executeGmailWrite } from "./gmail-write";
 import { executeGoogleCalendar, executeGoogleCalendarAvailability, executeGoogleCalendarCreate, executeGoogleCalendarEvent } from "./google-calendar";
-import { executeGoogleChatOAuth } from "./google-chat-oauth";
+import { executeGoogleChatEdit, executeGoogleChatOAuth } from "./google-chat-oauth";
+import { executeTelegramMessageOperation } from "./telegram-message-operations";
+import { executeGitHubGetIssue, executeGitHubGetPullRequest, executeGitHubListIssues, executeGitHubListPullRequests } from "./github-read";
 
 type RunMode = "mock" | "live";
 export type ExecutionTriageFilter = "ALL" | "ATTENTION" | "IN_PROGRESS" | "FAILED" | "SUCCEEDED";
-type NodeResult = { status: "succeeded" | "failed" | "waiting"; output: Record<string, unknown>; route?: WorkflowEdgeKind; error?: NodeFailure };
+type NodeResult = { status: "succeeded" | "failed" | "waiting" | "interrupted"; output: Record<string, unknown>; route?: WorkflowEdgeKind; error?: NodeFailure };
 const executionLeaseMs = 5 * 60 * 1000;
 
 import { NodeFailure, nodeFailureFromExecutionError, nodeFailureFromOutboundPolicy } from "./node-failure";
@@ -86,6 +95,64 @@ export class ExecutionService {
       }
       throw reason;
     }
+  }
+
+  /** Persist a filtered Kuma delivery before queueing. The workflow lock
+   * serializes duplicate delivery IDs and endpoint changes for this workflow. */
+  async createKumaScheduledExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey?: string }) {
+    return this.createGuardedWebhookExecution(input, "kuma");
+  }
+
+  async createTelegramScheduledExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey: string }) {
+    return this.createGuardedWebhookExecution(input, "telegram");
+  }
+
+  async createVercelScheduledExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey: string }) {
+    return this.createGuardedWebhookExecution(input, "vercel");
+  }
+
+  async createTrelloScheduledExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey: string }) {
+    return this.createGuardedWebhookExecution(input, "trello");
+  }
+
+  async createSentryScheduledExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey: string }) {
+    return this.createGuardedWebhookExecution(input, "sentry");
+  }
+
+  private async createGuardedWebhookExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey?: string }, provider: "kuma" | "telegram" | "vercel" | "trello" | "sentry") {
+    const version = await this.prisma.workflowVersion.findUnique({ where: { id: input.workflowVersionId }, include: { workflow: true } });
+    if (!version || version.workflowId !== input.workflowId) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
+    await this.assertLiveReady(version.workflow.workspaceId, parseWorkflowGraph(version.graph));
+    const key = Buffer.from(process.env.APP_ENCRYPTION_KEY ?? "", "base64");
+    if (key.length !== 32) throw new BadRequestException({ code: "ENCRYPTION_KEY_INVALID", message: "A valid encryption key is required for webhook delivery." });
+    // Never store the incoming key or raw payload as a fingerprint. The
+    // payload is already normalized to an explicit, stable field order.
+    if (provider === "telegram" && (!input.deliveryKey || !/^\d{1,16}$/.test(input.deliveryKey))) throw new BadRequestException({ code: "TELEGRAM_UPDATE_INVALID", message: "Telegram update is invalid." });
+    if (provider === "vercel" && (!input.deliveryKey || !/^[A-Za-z0-9_-]{1,160}$/.test(input.deliveryKey))) throw new BadRequestException({ code: "VERCEL_WEBHOOK_INVALID", message: "Vercel webhook data is invalid." });
+    if (provider === "trello" && (!input.deliveryKey || !/^[a-f0-9]{24}$/.test(input.deliveryKey))) throw new BadRequestException({ code: "TRELLO_WEBHOOK_INVALID", message: "Trello webhook data is invalid." });
+    if (provider === "sentry" && (!input.deliveryKey || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}:[1-9][0-9]{0,29}$/.test(input.deliveryKey))) throw new BadRequestException({ code: "SENTRY_WEBHOOK_INVALID", message: "Sentry webhook data is invalid." });
+    const identityParts = provider === "kuma" ? ["kuma-delivery-v2", input.endpointId, input.workflowVersionId, input.deliveryKey === undefined ? "generated" : "provided", input.deliveryKey ?? randomBytes(24).toString("hex")] : [`${provider}-delivery-v1`, input.endpointId, input.deliveryKey];
+    const identity = createHmac("sha256", key).update(JSON.stringify(identityParts)).digest("hex");
+    const idempotencyKey = `${provider === "kuma" ? "kuma-v2" : `${provider}-v1`}:${identity}`;
+    const digest = createHmac("sha256", key).update(provider === "kuma" ? "kuma-payload-v2\0" : `${provider}-payload-v1\0`).update(JSON.stringify(input.payload)).digest("hex");
+    return this.prisma.$transaction(async (transaction) => {
+      const workflows = await transaction.$queryRaw<Array<{ isActive: boolean; archivedAt: Date | null; publishedVersionId: string | null }>>`SELECT "isActive", "archivedAt", "publishedVersionId" FROM "Workflow" WHERE id = ${input.workflowId} FOR UPDATE`;
+      if (!workflows[0]?.isActive || workflows[0].archivedAt || workflows[0].publishedVersionId !== input.workflowVersionId) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
+      const endpoints = await transaction.$queryRaw<Array<{ workflowId: string; workflowVersionId: string; path: string; secretHash: string | null; isActive: boolean }>>`SELECT "workflowId", "workflowVersionId", "path", "secretHash", "isActive" FROM "WebhookEndpoint" WHERE id = ${input.endpointId} FOR UPDATE`;
+      const endpoint = endpoints[0];
+      if (!endpoint?.isActive || endpoint.workflowId !== input.workflowId || endpoint.workflowVersionId !== input.workflowVersionId || endpoint.path !== input.path || endpoint.secretHash !== input.secretHash) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
+      const existing = await transaction.execution.findUnique({ where: { idempotencyKey } });
+      if (existing) {
+        const rows = await transaction.$queryRaw<Array<{ webhookPayloadDigest: string | null }>>`SELECT "webhookPayloadDigest" FROM "Execution" WHERE id = ${existing.id}`;
+        const old = rows[0]?.webhookPayloadDigest;
+        const same = typeof old === "string" && /^[a-f0-9]{64}$/.test(old) && timingSafeEqual(Buffer.from(old, "hex"), Buffer.from(digest, "hex"));
+        if (!same) throw new ConflictException({ code: "WEBHOOK_DELIVERY_CONFLICT", message: "The delivery key was already used for different content." });
+        return existing;
+      }
+      const execution = await transaction.execution.create({ data: { workflowVersionId: input.workflowVersionId, mode: "LIVE", triggerData: redactValue(input.payload) as Prisma.InputJsonValue, idempotencyKey } });
+      await transaction.$executeRaw`UPDATE "Execution" SET "webhookPayloadDigest" = ${digest} WHERE id = ${execution.id}`;
+      return execution;
+    });
   }
 
   async createGmailScheduledExecution(workflowVersionId: string, workflowId: string, nodeId: string, messageId: string, leaseToken: string, triggerData: Record<string, unknown>, idempotencyKey: string) {
@@ -327,34 +394,53 @@ export class ExecutionService {
       throw new BadRequestException({ code: "EXECUTION_NOT_CANCELLABLE", message: "Only queued, running, or waiting executions can be cancelled." });
     }
     const completedAt = new Date();
-    await this.prisma.$transaction([
-      this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.CANCELLED, completedAt, leaseExpiresAt: null } }),
-      this.prisma.nodeExecution.updateMany({ where: { executionId, status: { in: [NodeExecutionStatus.PENDING, NodeExecutionStatus.RUNNING, NodeExecutionStatus.WAITING] } }, data: { status: NodeExecutionStatus.SKIPPED, completedAt } }),
-      this.prisma.approvalRequest.updateMany({ where: { executionId, status: ApprovalRequestStatus.PENDING }, data: { status: ApprovalRequestStatus.EXPIRED, resolvedAt: completedAt } }),
-      this.prisma.auditLog.create({ data: { workspaceId: execution.workflowVersion.workflow.workspaceId, actorId: userId, action: "execution.cancelled", targetType: "execution", targetId: executionId } }),
-    ]);
+    await this.prisma.$transaction(async (transaction) => {
+      // Claim the current state inside the same transaction as the remaining
+      // cancellation changes. A stale read must not overwrite a completed run.
+      const claimed = await transaction.execution.updateMany({ where: { id: executionId, status: { in: [ExecutionStatus.QUEUED, ExecutionStatus.RUNNING, ExecutionStatus.WAITING_APPROVAL] } }, data: { status: ExecutionStatus.CANCELLED, completedAt, leaseExpiresAt: null, runToken: null, resumeToken: null, resumeNodeIds: Prisma.DbNull, resumeQueuedAt: null } });
+      if (!claimed.count) throw new BadRequestException({ code: "EXECUTION_NOT_CANCELLABLE", message: "Only queued, running, or waiting executions can be cancelled." });
+      await transaction.nodeExecution.updateMany({ where: { executionId, status: { in: [NodeExecutionStatus.PENDING, NodeExecutionStatus.RUNNING, NodeExecutionStatus.WAITING] } }, data: { status: NodeExecutionStatus.SKIPPED, completedAt } });
+      await transaction.approvalRequest.updateMany({ where: { executionId, status: ApprovalRequestStatus.PENDING }, data: { status: ApprovalRequestStatus.EXPIRED, resolvedAt: completedAt } });
+      await transaction.auditLog.create({ data: { workspaceId: execution.workflowVersion.workflow.workspaceId, actorId: userId, action: "execution.cancelled", targetType: "execution", targetId: executionId } });
+    });
     this.events.publish(executionId, "execution.cancelled");
     return this.get(executionId, userId);
   }
 
-  async run(executionId: string, mode: RunMode, startNodeIds?: string[], debugNodeId?: string) {
+  async run(executionId: string, mode: RunMode, startNodeIds?: string[], debugNodeId?: string, initialOnly = false, resumeToken?: string) {
     const execution = await this.prisma.execution.findUnique({ include: { workflowVersion: { include: { workflow: true } }, nodeExecutions: true }, where: { id: executionId } });
     if (!execution) throw new NotFoundException({ code: "EXECUTION_NOT_FOUND", message: "Execution was not found." });
     if (execution.status !== ExecutionStatus.QUEUED) return execution;
+    // Only the exact persisted continuation can consume a resumed phase.
+    // Legacy initial/continuation jobs may run only when no nonce is pending.
+    if ((execution.resumeToken ?? null) !== (resumeToken ?? null) || (resumeToken && (initialOnly || debugNodeId))) return execution;
+    // An initial job that arrived late cannot resume an approval or any
+    // previously-started execution. The atomic claim below repeats this check.
+    if (initialOnly && execution.startedAt !== null) return execution;
     const graph = parseWorkflowGraph(execution.workflowVersion.graph);
+    if (resumeToken) {
+      const stored = execution.resumeNodeIds;
+      if (!Array.isArray(stored) || !stored.length || stored.some((id) => typeof id !== "string" || !graph.nodes.some((node) => node.id === id)) || new Set(stored).size !== stored.length || mode !== (execution.mode === "MOCK" ? "mock" : "live")) throw new NodeFailure("APPROVAL_CONTINUATION_INVALID", "The approval continuation requires review.", false);
+      startNodeIds = stored as string[];
+    }
     const now = new Date();
+    const runToken = randomBytes(24).toString("hex");
     const claimed = await this.prisma.execution.updateMany({
-      where: { id: executionId, status: ExecutionStatus.QUEUED },
-      data: { status: ExecutionStatus.RUNNING, startedAt: execution.startedAt ?? now, completedAt: null, errorCode: null, errorMessage: null, errorRetryable: null, leaseExpiresAt: leaseExpiry(now) },
+      where: { id: executionId, status: ExecutionStatus.QUEUED, resumeToken: resumeToken ?? null, ...(initialOnly ? { startedAt: null } : {}) },
+      data: { status: ExecutionStatus.RUNNING, startedAt: execution.startedAt ?? now, completedAt: null, errorCode: null, errorMessage: null, errorRetryable: null, leaseExpiresAt: leaseExpiry(now), runToken, resumeToken: null, resumeNodeIds: Prisma.DbNull, resumeQueuedAt: null },
     });
     if (!claimed.count) return execution;
-    await this.prisma.$transaction([
-      ...graph.nodes.map((node) => this.prisma.nodeExecution.upsert({
+    const initialized = await this.prisma.$transaction(async (transaction) => {
+      const rows = await transaction.$queryRaw<Array<{ status: ExecutionStatus; runToken: string | null }>>`SELECT status, "runToken" FROM "Execution" WHERE id = ${executionId} FOR UPDATE`;
+      if (rows[0]?.status !== ExecutionStatus.RUNNING || rows[0].runToken !== runToken) return false;
+      for (const node of graph.nodes) await transaction.nodeExecution.upsert({
         where: { executionId_nodeId: { executionId, nodeId: node.id } },
         create: { executionId, nodeId: node.id, status: NodeExecutionStatus.PENDING },
         update: {},
-      })),
-    ]);
+      });
+      return true;
+    });
+    if (!initialized) return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
     this.events.publish(executionId, "execution.running");
 
     const context: Record<string, unknown> = { trigger: execution.triggerData ?? {}, steps: {} };
@@ -370,49 +456,59 @@ export class ExecutionService {
     const visited = new Set(execution.nodeExecutions.filter((node) => node.status !== NodeExecutionStatus.PENDING && node.status !== NodeExecutionStatus.SKIPPED).map((node) => node.nodeId));
 
     while (pending.length) {
-      if (await this.isCancelled(executionId)) return execution;
-      await this.renewLease(executionId);
+      if (await this.isCancelled(executionId)) return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
+      // Do not begin another node if cancellation or lease maintenance has
+      // already ended this execution while the previous node was running.
+      if (!await this.renewLease(executionId, runToken)) return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
       const node = pending.shift();
       if (!node || visited.has(node.id)) continue;
       visited.add(node.id);
-      const result = await this.runNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, mode, execution.idempotencyRootId ?? execution.id);
+      const result = await this.runNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, mode, execution.idempotencyRootId ?? execution.id, runToken);
+      if (result.status === "interrupted") return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
       if (debugNodeId) {
-        await this.markUnvisitedSkipped(executionId, graph, visited);
+        await this.markUnvisitedSkipped(executionId, runToken, graph, visited);
         const completedAt = new Date();
         if (result.status === "failed") {
-          const failed = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.FAILED, completedAt, leaseExpiresAt: null, errorCode: result.error?.code ?? "NODE_FAILED", errorMessage: result.error?.message ?? "Workflow node failed.", errorRetryable: result.error?.retryable ?? false } });
-          this.events.publish(executionId, "execution.failed");
-          return failed;
+          return this.finishRunning(executionId, runToken, { status: ExecutionStatus.FAILED, completedAt, leaseExpiresAt: null, errorCode: result.error?.code ?? "NODE_FAILED", errorMessage: result.error?.message ?? "Workflow node failed.", errorRetryable: result.error?.retryable ?? false }, "execution.failed");
         }
-        const succeeded = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.SUCCEEDED, completedAt, leaseExpiresAt: null } });
-        this.events.publish(executionId, "execution.succeeded");
-        return succeeded;
+        return this.finishRunning(executionId, runToken, { status: ExecutionStatus.SUCCEEDED, completedAt, leaseExpiresAt: null }, "execution.succeeded");
       }
       if (result.status === "waiting") {
-        const approval = await this.prisma.approvalRequest.create({
-          data: {
+        const approval = await this.prisma.$transaction(async (transaction) => {
+          // Use the same execution-first lock order as cancel/resolve. The
+          // request and WAITING state must become visible together, or not at all.
+          const claimed = await transaction.execution.updateMany({ where: { id: executionId, status: ExecutionStatus.RUNNING, runToken }, data: { status: ExecutionStatus.WAITING_APPROVAL, leaseExpiresAt: null, runToken: null } });
+          if (!claimed.count) return null;
+          const created = await transaction.approvalRequest.create({ data: {
             executionId,
             tokenHash: createHash("sha256").update(randomBytes(32)).digest("hex"),
             expiresAt: new Date(Date.now() + approvalExpiryMs(result.output)),
-          },
+          } });
+          const waitingNode = await transaction.nodeExecution.updateMany({
+            where: { executionId, nodeId: node.id, status: NodeExecutionStatus.WAITING },
+            data: { output: { ...result.output, approvalRequestId: created.id, notificationStatus: "pending" } as Prisma.InputJsonValue },
+          });
+          if (!waitingNode.count) throw new Error("Approval node is no longer waiting");
+          const remaining = graph.nodes.filter((item) => !visited.has(item.id)).map((item) => item.id);
+          if (remaining.length) await transaction.nodeExecution.updateMany({ where: { executionId, nodeId: { in: remaining }, status: NodeExecutionStatus.PENDING }, data: { status: NodeExecutionStatus.SKIPPED, completedAt: new Date() } });
+          return created;
         });
+        if (!approval) return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
+        this.events.publish(executionId, "execution.waiting_approval");
+        // Notification is a best-effort side effect after commit. It cannot be
+        // made atomic with cancellation or guaranteed exactly once.
         const notificationStatus = await this.notifyApproval(execution.workflowVersion.workflow.workspaceId, approval.id, result.output, mode);
-        await this.prisma.nodeExecution.update({
-          where: { executionId_nodeId: { executionId, nodeId: node.id } },
+        await this.prisma.nodeExecution.updateMany({
+          where: { executionId, nodeId: node.id, status: NodeExecutionStatus.WAITING, execution: { status: ExecutionStatus.WAITING_APPROVAL }, output: { path: ["approvalRequestId"], equals: approval.id } },
           data: { output: { ...result.output, approvalRequestId: approval.id, notificationStatus } as Prisma.InputJsonValue },
         });
-        await this.markUnvisitedSkipped(executionId, graph, visited);
-        const waiting = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.WAITING_APPROVAL, leaseExpiresAt: null } });
-        this.events.publish(executionId, "execution.waiting_approval");
-        return waiting;
+        return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
       }
       if (result.status === "failed") {
         const errorTargets = graph.edges.filter((edge) => edge.source === node.id && edge.kind === "error");
         if (!errorTargets.length) {
-          await this.markUnvisitedSkipped(executionId, graph, visited);
-          const failed = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.FAILED, completedAt: new Date(), leaseExpiresAt: null, errorCode: result.error?.code ?? "NODE_FAILED", errorMessage: result.error?.message ?? "Workflow node failed.", errorRetryable: result.error?.retryable ?? false } });
-          this.events.publish(executionId, "execution.failed");
-          return failed;
+          await this.markUnvisitedSkipped(executionId, runToken, graph, visited);
+          return this.finishRunning(executionId, runToken, { status: ExecutionStatus.FAILED, completedAt: new Date(), leaseExpiresAt: null, errorCode: result.error?.code ?? "NODE_FAILED", errorMessage: result.error?.message ?? "Workflow node failed.", errorRetryable: result.error?.retryable ?? false }, "execution.failed");
         }
         pending.push(...this.targets(graph, errorTargets));
         continue;
@@ -422,11 +518,17 @@ export class ExecutionService {
       pending.push(...this.targets(graph, nextEdges));
     }
 
-    if (await this.isCancelled(executionId)) return execution;
-    await this.markUnvisitedSkipped(executionId, graph, visited);
-    const succeeded = await this.prisma.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.SUCCEEDED, completedAt: new Date(), leaseExpiresAt: null } });
-    this.events.publish(executionId, "execution.succeeded");
-    return succeeded;
+    if (await this.isCancelled(executionId)) return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
+    await this.markUnvisitedSkipped(executionId, runToken, graph, visited);
+    return this.finishRunning(executionId, runToken, { status: ExecutionStatus.SUCCEEDED, completedAt: new Date(), leaseExpiresAt: null }, "execution.succeeded");
+  }
+
+  private async finishRunning(executionId: string, runToken: string, data: Prisma.ExecutionUpdateManyMutationInput, event: "execution.failed" | "execution.succeeded") {
+    // A cancellation or lease expiry can win while a provider request is in
+    // flight. Never replace that terminal state or publish a false completion.
+    const updated = await this.prisma.execution.updateMany({ where: { id: executionId, status: ExecutionStatus.RUNNING, runToken }, data: { ...data, runToken: null } });
+    if (updated.count) this.events.publish(executionId, event);
+    return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
   }
 
   async resolveApproval(approvalId: string, userId: string, decision: "approved" | "rejected") {
@@ -437,37 +539,35 @@ export class ExecutionService {
     if (!approval) throw new NotFoundException({ code: "APPROVAL_NOT_FOUND", message: "Approval request was not found." });
     if (approval.status !== ApprovalRequestStatus.PENDING) throw new NotFoundException({ code: "APPROVAL_NOT_PENDING", message: "Approval request has already been resolved." });
     if (approval.expiresAt <= new Date()) {
-      await this.prisma.approvalRequest.update({ where: { id: approval.id }, data: { status: ApprovalRequestStatus.EXPIRED, resolvedAt: new Date() } });
+      await this.prisma.approvalRequest.updateMany({ where: { id: approval.id, status: ApprovalRequestStatus.PENDING, expiresAt: { lte: new Date() } }, data: { status: ApprovalRequestStatus.EXPIRED, resolvedAt: new Date() } });
       throw new NotFoundException({ code: "APPROVAL_EXPIRED", message: "Approval request has expired." });
     }
     const waitingNode = await this.prisma.nodeExecution.findFirst({ where: { executionId: approval.executionId, status: NodeExecutionStatus.WAITING } });
     if (!waitingNode) throw new NotFoundException({ code: "APPROVAL_NODE_NOT_FOUND", message: "Execution is not waiting on an approval node." });
     const resolvedAt = new Date();
-    if (decision === "rejected") {
-      await this.prisma.$transaction([
-        this.prisma.approvalRequest.update({ where: { id: approval.id }, data: { status: ApprovalRequestStatus.REJECTED, resolvedAt } }),
-        this.prisma.nodeExecution.update({ where: { id: waitingNode.id }, data: { status: NodeExecutionStatus.FAILED, errorCode: "APPROVAL_REJECTED", errorMessage: "Approval was rejected.", errorRetryable: false, completedAt: resolvedAt } }),
-        this.prisma.execution.update({ where: { id: approval.executionId }, data: { status: ExecutionStatus.FAILED, completedAt: resolvedAt, leaseExpiresAt: null, errorCode: "APPROVAL_REJECTED", errorMessage: "Approval was rejected.", errorRetryable: false } }),
-      ]);
-      this.events.publish(approval.executionId, "execution.failed");
-      return { executionId: approval.executionId, resumed: false, startNodeIds: [], mode: approval.execution.mode === "MOCK" ? "mock" as const : "live" as const };
-    }
     const graph = parseWorkflowGraph(approval.execution.workflowVersion.graph);
-    const nextNodeIds = graph.edges.filter((edge) => edge.source === waitingNode.nodeId && edge.kind === "success").map((edge) => edge.target);
-    await this.prisma.$transaction([
-      this.prisma.approvalRequest.update({ where: { id: approval.id }, data: { status: ApprovalRequestStatus.APPROVED, resolvedAt } }),
-      this.prisma.nodeExecution.update({ where: { id: waitingNode.id }, data: { status: NodeExecutionStatus.SUCCEEDED, completedAt: resolvedAt } }),
-      this.prisma.execution.update({ where: { id: approval.executionId }, data: { status: ExecutionStatus.QUEUED, completedAt: null, leaseExpiresAt: null, errorCode: null, errorMessage: null, errorRetryable: null } }),
-    ]);
-    this.events.publish(approval.executionId, "execution.queued");
-    return { executionId: approval.executionId, resumed: nextNodeIds.length > 0, startNodeIds: nextNodeIds, mode: approval.execution.mode === "MOCK" ? "mock" as const : "live" as const };
+    const nextNodeIds = decision === "approved" ? [...new Set(graph.edges.filter((edge) => edge.source === waitingNode.nodeId && edge.kind === "success").map((edge) => edge.target))] : [];
+    const finalStatus = decision === "rejected" ? ExecutionStatus.FAILED : nextNodeIds.length ? ExecutionStatus.QUEUED : ExecutionStatus.SUCCEEDED;
+    const resumeToken = finalStatus === ExecutionStatus.QUEUED ? randomBytes(24).toString("hex") : undefined;
+    await this.prisma.$transaction(async (transaction) => {
+      // Use the execution as the serialization point, in the same lock order
+      // as cancellation. All guarded updates roll back together on a race.
+      const claimed = await transaction.execution.updateMany({ where: { id: approval.executionId, status: ExecutionStatus.WAITING_APPROVAL }, data: { status: finalStatus, completedAt: finalStatus === ExecutionStatus.QUEUED ? null : resolvedAt, leaseExpiresAt: null, errorCode: decision === "rejected" ? "APPROVAL_REJECTED" : null, errorMessage: decision === "rejected" ? "Approval was rejected." : null, errorRetryable: decision === "rejected" ? false : null, resumeToken: resumeToken ?? null, resumeNodeIds: resumeToken ? nextNodeIds : Prisma.DbNull, resumeQueuedAt: resumeToken ? resolvedAt : null } });
+      if (!claimed.count) throw new ConflictException({ code: "APPROVAL_NOT_WAITING", message: "The execution is no longer waiting for this approval." });
+      const node = await transaction.nodeExecution.updateMany({ where: { id: waitingNode.id, executionId: approval.executionId, status: NodeExecutionStatus.WAITING }, data: { status: decision === "rejected" ? NodeExecutionStatus.FAILED : NodeExecutionStatus.SUCCEEDED, completedAt: resolvedAt, ...(decision === "rejected" ? { errorCode: "APPROVAL_REJECTED", errorMessage: "Approval was rejected.", errorRetryable: false } : {}) } });
+      if (!node.count) throw new ConflictException({ code: "APPROVAL_NOT_WAITING", message: "The execution is no longer waiting for this approval." });
+      const resolved = await transaction.approvalRequest.updateMany({ where: { id: approval.id, executionId: approval.executionId, status: ApprovalRequestStatus.PENDING, expiresAt: { gt: resolvedAt } }, data: { status: decision === "rejected" ? ApprovalRequestStatus.REJECTED : ApprovalRequestStatus.APPROVED, resolvedAt } });
+      if (!resolved.count) throw new ConflictException({ code: "APPROVAL_NOT_PENDING", message: "Approval has expired or was already resolved." });
+    });
+    this.events.publish(approval.executionId, finalStatus === ExecutionStatus.FAILED ? "execution.failed" : finalStatus === ExecutionStatus.SUCCEEDED ? "execution.succeeded" : "execution.queued");
+    return { executionId: approval.executionId, resumed: nextNodeIds.length > 0, startNodeIds: nextNodeIds, mode: approval.execution.mode === "MOCK" ? "mock" as const : "live" as const, ...(resumeToken ? { resumeToken } : {}) };
   }
 
   async failFromMaintenance(executionId: string, code: string, message: string, expiredBefore = new Date()) {
     const completedAt = new Date();
     const failed = await this.prisma.execution.updateMany({
       where: { id: executionId, status: ExecutionStatus.RUNNING, leaseExpiresAt: { lte: expiredBefore } },
-      data: { status: ExecutionStatus.FAILED, completedAt, leaseExpiresAt: null, errorCode: code, errorMessage: message, errorRetryable: false, recoveryCount: { increment: 1 } },
+      data: { status: ExecutionStatus.FAILED, completedAt, leaseExpiresAt: null, runToken: null, errorCode: code, errorMessage: message, errorRetryable: false, recoveryCount: { increment: 1 } },
     });
     if (!failed.count) return false;
     await this.prisma.$transaction([
@@ -478,55 +578,73 @@ export class ExecutionService {
     return true;
   }
 
-  async failFromWorker(executionId: string) {
+  /** A late initial job must never fail a later approval continuation. */
+  async failUnstartedFromWorker(executionId: string) {
     const completedAt = new Date();
     const failed = await this.prisma.execution.updateMany({
-      where: { id: executionId, status: { in: [ExecutionStatus.QUEUED, ExecutionStatus.RUNNING] } },
-      data: { status: ExecutionStatus.FAILED, completedAt, leaseExpiresAt: null, errorCode: "WORKER_EXECUTION_ERROR", errorMessage: "Execution worker stopped unexpectedly.", errorRetryable: false },
+      where: { id: executionId, status: ExecutionStatus.QUEUED, startedAt: null },
+      data: { status: ExecutionStatus.FAILED, completedAt, leaseExpiresAt: null, errorCode: "WORKER_EXECUTION_ERROR", errorMessage: "Execution worker stopped before starting.", errorRetryable: false },
     });
-    if (!failed.count) return;
-    await this.prisma.nodeExecution.updateMany({ where: { executionId, status: { in: [NodeExecutionStatus.PENDING, NodeExecutionStatus.RUNNING] } }, data: { status: NodeExecutionStatus.FAILED, completedAt, errorCode: "WORKER_EXECUTION_ERROR", errorMessage: "Execution worker stopped unexpectedly.", errorRetryable: false } });
-    this.events.publish(executionId, "execution.failed");
+    if (failed.count) this.events.publish(executionId, "execution.failed");
+    // If the execution had already started, lease maintenance owns failure
+    // handling; this job cannot prove it owns the current execution phase.
   }
 
-  private async runNode(executionId: string, workspaceId: string, node: WorkflowNode, context: Record<string, unknown>, mode: RunMode, idempotencyRootId: string): Promise<NodeResult> {
+  /** A stale continuation job cannot fail a later phase or another worker. */
+  async failUnstartedResumeFromWorker(executionId: string, resumeToken: string) {
+    const completedAt = new Date();
+    const failed = await this.prisma.execution.updateMany({ where: { id: executionId, status: ExecutionStatus.QUEUED, resumeToken }, data: { status: ExecutionStatus.FAILED, completedAt, errorCode: "APPROVAL_CONTINUATION_INVALID", errorMessage: "The approval continuation could not start.", errorRetryable: false, resumeToken: null, resumeNodeIds: Prisma.DbNull, resumeQueuedAt: null } });
+    if (failed.count) this.events.publish(executionId, "execution.failed");
+  }
+
+  private async runNode(executionId: string, workspaceId: string, node: WorkflowNode, context: Record<string, unknown>, mode: RunMode, idempotencyRootId: string, runToken: string): Promise<NodeResult> {
     const rawConfig = node.config as Record<string, unknown>;
     const retries = readRetries(rawConfig);
     let attempt = 0;
     while (attempt < retries) {
       attempt += 1;
       const startedAt = new Date();
-      await this.prisma.nodeExecution.update({
-        where: { executionId_nodeId: { executionId, nodeId: node.id } },
-        data: { status: NodeExecutionStatus.RUNNING, attempt, input: redactValue({ config: rawConfig, trigger: context.trigger }) as Prisma.InputJsonValue, startedAt, completedAt: null, errorCode: null, errorMessage: null, errorRetryable: null },
-      });
+      const started = await this.updateNodeWhileRunning(executionId, runToken, node.id, { status: NodeExecutionStatus.RUNNING, attempt, input: redactValue({ config: rawConfig, trigger: context.trigger }) as Prisma.InputJsonValue, startedAt, completedAt: null, errorCode: null, errorMessage: null, errorRetryable: null });
+      if (!started) return { status: "interrupted", output: {} };
       try {
-        const config = resolveExpressions(rawConfig, context) as Record<string, unknown>;
+        // Schema objects are literal contracts; template-like examples inside a
+        // field description must not be interpreted as workflow expressions.
+        // A whole-schema expression remains supported and fails closed if absent.
+        const schemaValue = rawConfig.outputSchema;
+        const literalSchema = (node.type === "action.openai" || node.type === "action.gemini") && schemaValue !== null && typeof schemaValue === "object" && !Array.isArray(schemaValue);
+        const config = resolveExpressions(literalSchema ? { ...rawConfig, outputSchema: undefined } : rawConfig, context) as Record<string, unknown>;
+        if (literalSchema) config.outputSchema = schemaValue;
         const input = { config, trigger: context.trigger };
-        await this.prisma.nodeExecution.update({
-          where: { executionId_nodeId: { executionId, nodeId: node.id } },
-          data: { input: redactValue(input) as Prisma.InputJsonValue },
-        });
+        if (!await this.updateNodeWhileRunning(executionId, runToken, node.id, { input: redactValue(input) as Prisma.InputJsonValue })) return { status: "interrupted", output: {} };
         const result = await executeNode(node, config, context, mode, workspaceId, this.credentials, idempotencyRootId);
-        await this.prisma.nodeExecution.update({
-          where: { executionId_nodeId: { executionId, nodeId: node.id } },
-          data: { status: result.status === "waiting" ? NodeExecutionStatus.WAITING : NodeExecutionStatus.SUCCEEDED, output: redactValue(result.output) as Prisma.InputJsonValue, completedAt: new Date() },
-        });
+        if (!await this.updateNodeWhileRunning(executionId, runToken, node.id, { status: result.status === "waiting" ? NodeExecutionStatus.WAITING : NodeExecutionStatus.SUCCEEDED, output: redactValue(result.output) as Prisma.InputJsonValue, completedAt: new Date() })) return { status: "interrupted", output: {} };
         this.events.publish(executionId, "node.updated");
         return result;
       } catch (reason) {
         const failure = nodeFailureFromExecutionError(reason);
         const retryable = isRetryableFailure(failure);
-        await this.prisma.nodeExecution.update({
-          where: { executionId_nodeId: { executionId, nodeId: node.id } },
-          data: { status: NodeExecutionStatus.FAILED, errorCode: failure.code, errorMessage: failure.message, errorRetryable: retryable, completedAt: new Date() },
-        });
+        if (!await this.updateNodeWhileRunning(executionId, runToken, node.id, { status: NodeExecutionStatus.FAILED, errorCode: failure.code, errorMessage: failure.message, errorRetryable: retryable, completedAt: new Date() })) return { status: "interrupted", output: {} };
         this.events.publish(executionId, "node.updated");
         if (!retryable || attempt >= retries) return { status: "failed", output: {}, error: failure };
-        await delay(retryDelayMs(attempt));
+        await delay(retryDelayMs(attempt, failure.retryAfterMs));
+        // A retry is another provider call, not merely a continuation of the
+        // first attempt. Stop if cancellation or lease maintenance won.
+        if (!await this.renewLease(executionId, runToken)) return { status: "interrupted", output: {} };
       }
     }
     return { status: "failed", output: {}, error: new NodeFailure("RETRY_EXHAUSTED", "Retry attempts were exhausted.", false) };
+  }
+
+  private async updateNodeWhileRunning(executionId: string, runToken: string, nodeId: string, data: Prisma.NodeExecutionUpdateInput) {
+    return this.prisma.$transaction(async (transaction) => {
+      // Serialize with cancellation, lease expiry and approval resolution using
+      // the same execution-first lock order. Do not keep a DB lock while
+      // performing provider I/O.
+      const rows = await transaction.$queryRaw<Array<{ status: ExecutionStatus; runToken: string | null }>>`SELECT status, "runToken" FROM "Execution" WHERE id = ${executionId} FOR UPDATE`;
+      if (rows[0]?.status !== ExecutionStatus.RUNNING || rows[0].runToken !== runToken) return false;
+      await transaction.nodeExecution.update({ where: { executionId_nodeId: { executionId, nodeId } }, data });
+      return true;
+    });
   }
 
   async notifyApproval(workspaceId: string, approvalId: string, output: Record<string, unknown>, mode: RunMode): Promise<string> {
@@ -560,10 +678,14 @@ export class ExecutionService {
     return edges.map((edge) => graph.nodes.find((node) => node.id === edge.target)).filter((node): node is WorkflowNode => node !== undefined);
   }
 
-  private async markUnvisitedSkipped(executionId: string, graph: WorkflowGraph, visited: Set<string>) {
+  private async markUnvisitedSkipped(executionId: string, runToken: string, graph: WorkflowGraph, visited: Set<string>) {
     const remaining = graph.nodes.filter((node) => !visited.has(node.id)).map((node) => node.id);
     if (!remaining.length) return;
-    await this.prisma.nodeExecution.updateMany({ where: { executionId, nodeId: { in: remaining }, status: NodeExecutionStatus.PENDING }, data: { status: NodeExecutionStatus.SKIPPED, completedAt: new Date() } });
+    await this.prisma.$transaction(async (transaction) => {
+      const rows = await transaction.$queryRaw<Array<{ status: ExecutionStatus; runToken: string | null }>>`SELECT status, "runToken" FROM "Execution" WHERE id = ${executionId} FOR UPDATE`;
+      if (rows[0]?.status !== ExecutionStatus.RUNNING || rows[0].runToken !== runToken) return;
+      await transaction.nodeExecution.updateMany({ where: { executionId, nodeId: { in: remaining }, status: NodeExecutionStatus.PENDING }, data: { status: NodeExecutionStatus.SKIPPED, completedAt: new Date() } });
+    });
   }
 
   private async isCancelled(executionId: string) {
@@ -571,8 +693,9 @@ export class ExecutionService {
     return execution?.status === ExecutionStatus.CANCELLED;
   }
 
-  private async renewLease(executionId: string) {
-    await this.prisma.execution.updateMany({ where: { id: executionId, status: ExecutionStatus.RUNNING }, data: { leaseExpiresAt: leaseExpiry(new Date()) } });
+  private async renewLease(executionId: string, runToken: string) {
+    const renewed = await this.prisma.execution.updateMany({ where: { id: executionId, status: ExecutionStatus.RUNNING, runToken }, data: { leaseExpiresAt: leaseExpiry(new Date()) } });
+    return renewed.count === 1;
   }
 
   private async assertLiveReady(workspaceId: string, graph: WorkflowGraph) {
@@ -634,9 +757,14 @@ function leaseExpiry(now: Date) {
   return new Date(now.getTime() + executionLeaseMs);
 }
 
-async function executeNode(node: WorkflowNode, config: Record<string, unknown>, context: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService, executionId: string): Promise<NodeResult> {
+export async function executeNode(node: WorkflowNode, config: Record<string, unknown>, context: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService, executionId: string): Promise<NodeResult> {
   if (!isExecutableWorkflowNodeType(node.type)) throw new NodeFailure("NODE_UNAVAILABLE", `${node.type} is not available in this MVP execution engine.`, false);
   if (node.type === "trigger.gmail" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "gmail", message: { id: "example-message", from: "sender@example.test", to: "owner@example.test", subject: "Example message", text: "Synthetic test message", labels: ["INBOX"] } } }, route: "success" };
+  if (node.type === "trigger.rss.new-item" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "rss", item: { id: "example-item", title: "Example item", link: "https://example.test/item", publishedAt: "", summary: "Synthetic feed item" } } }, route: "success" };
+  if (node.type === "trigger.telegram.update" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "telegram", event: "message", updateId: 1, message: { chatId: "123456", messageId: 1, senderId: "123456", threadId: null, text: "Example message" } } }, route: "success" };
+  if (node.type === "trigger.vercel.deployment" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "vercel", event: config.event || "deployment.created", eventId: "evt_example", projectId: "prj_example", deploymentId: "dpl_example", teamId: null } }, route: "success" };
+  if (node.type === "trigger.trello.board-action" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "trello", event: config.action === "all" ? "createCard" : config.action, actionId: "5d5ea62fd76aa1136000000c", boardId: config.boardId || "4d5ea62fd76aa1136000000c", cardId: "6d5ea62fd76aa1136000000c", listId: null, cardName: "Sample card", text: null } }, route: "success" };
+  if (node.type === "trigger.sentry.issue-created" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "sentry", event: "issue.created", installationId: config.installationId, project: config.project, issueId: "12345", title: "Example issue", level: "error" } }, route: "success" };
   if (node.type.startsWith("trigger.")) return { status: "succeeded", output: { received: context.trigger ?? {} }, route: "success" };
   if (node.type === "condition.if") {
     const matches = compare(config.left, String(config.operator ?? "equals"), config.right);
@@ -662,12 +790,15 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
   if (node.type === "action.google-chat.oauth") {
     return executeGoogleChatOAuth(config, mode, workspaceId, credentials);
   }
+  if (node.type === "action.google-chat.oauth.v2" || node.type === "action.google-chat.reply") return executeGoogleChatOAuth(config, mode, workspaceId, credentials, undefined, node.type === "action.google-chat.reply" ? "reply" : "send");
+  if (node.type === "action.google-chat.edit-message") return executeGoogleChatEdit(config, mode, workspaceId, credentials);
   if (node.type === "action.discord.webhook") {
     return executeDiscordWebhook(config, mode, workspaceId, credentials);
   }
   if (node.type === "action.telegram.message") {
     return executeTelegramMessage(config, mode, workspaceId, credentials);
   }
+  if (node.type === "action.telegram.reply" || node.type === "action.telegram.edit-message") return executeTelegramMessageOperation(node.type === "action.telegram.reply" ? "reply" : "edit", config, mode, workspaceId, credentials);
   if (node.type === "action.email") {
     return executeSmtpEmail(config, mode, workspaceId, credentials);
   }
@@ -677,21 +808,36 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
   if (node.type === "action.mongodb.insert") {
     return executeMongoInsert(config, mode, workspaceId, credentials);
   }
-  if (node.type === "action.notion.search-pages") {
-    return executeNotionSearch(config, mode, workspaceId, credentials);
-  }
+  if (node.type === "action.notion.search-pages") return executeNotionSearch(config, mode, workspaceId, credentials, undefined, 1);
+  if (node.type === "action.notion.search-pages.v2") return executeNotionSearch(config, mode, workspaceId, credentials, undefined, 2);
+  if (node.type === "action.notion.retrieve-page") return executeNotionOperation(config, "retrievePage", mode, workspaceId, credentials);
+  if (node.type === "action.notion.list-children") return executeNotionOperation(config, "listChildren", mode, workspaceId, credentials);
+  if (node.type === "action.notion.retrieve-property") return executeNotionOperation(config, "retrieveProperty", mode, workspaceId, credentials);
   if (node.type === "action.rss.read") return executeRssRead(config, mode);
   if (node.type === "action.trello.create-card") return executeTrelloCreateCard(config, mode, workspaceId, credentials);
-  if (node.type === "action.sentry.list-issues") return executeSentryListIssues(config, mode, workspaceId, credentials);
-  if (node.type === "action.vercel.list-deployments") return executeVercelListDeployments(config, mode, workspaceId, credentials);
-  if (node.type === "action.supabase.select") return executeSupabaseSelect(config, mode, workspaceId, credentials);
+  if (node.type === "action.trello.get-card") return executeTrelloOperation("get", config, mode, workspaceId, credentials);
+  if (node.type === "action.trello.update-card") return executeTrelloOperation("update", config, mode, workspaceId, credentials);
+  if (node.type === "action.trello.move-card") return executeTrelloOperation("move", config, mode, workspaceId, credentials);
+  if (node.type === "action.trello.archive-card") return executeTrelloOperation("archive", config, mode, workspaceId, credentials);
+  if (node.type === "action.trello.list-cards") return executeTrelloOperation("list", config, mode, workspaceId, credentials);
+  if (node.type === "action.trello.find-cards") return executeTrelloOperation("find", config, mode, workspaceId, credentials);
+  if (node.type === "action.sentry.list-issues") return executeSentryListIssues(config, mode, workspaceId, credentials, undefined, 1);
+  if (node.type === "action.sentry.list-issues.v2") return executeSentryListIssues(config, mode, workspaceId, credentials, undefined, 2);
+  if (node.type === "action.sentry.get-issue") return executeSentryGetIssue(config, mode, workspaceId, credentials);
+  if (node.type === "action.vercel.list-deployments") return executeVercelListDeployments(config, mode, workspaceId, credentials, undefined, 1);
+  if (node.type === "action.vercel.list-deployments.v2") return executeVercelListDeployments(config, mode, workspaceId, credentials, undefined, 2);
+  if (node.type === "action.vercel.public-deployment-lookup") return executeVercelPublicDeploymentLookup(config, mode, workspaceId, credentials);
+  if (node.type === "action.supabase.select") return executeSupabaseSelect(config, mode, workspaceId, credentials, undefined, 1);
+  if (node.type === "action.supabase.select.v2") return executeSupabaseSelect(config, mode, workspaceId, credentials, undefined, 2);
   if (node.type === "action.reddit.list-posts") return executeRedditListPosts(config, mode, workspaceId, credentials);
   if (node.type === "action.postgres.select") {
-    return executePostgresSelect(config, mode, workspaceId, credentials);
+    return executePostgresSelect(config, mode, workspaceId, credentials, undefined, 1);
   }
-  if (node.type === "action.gmail.read") {
-    return executeGmailRead(config, mode, workspaceId, credentials);
-  }
+  if (node.type === "action.postgres.select.v2") return executePostgresSelect(config, mode, workspaceId, credentials, undefined, 2);
+  if (node.type === "action.gmail.read") return executeGmailRead(config, mode, workspaceId, credentials, undefined, 1);
+  if (node.type === "action.gmail.read.v2") return executeGmailRead(config, mode, workspaceId, credentials, undefined, 2);
+  if (node.type === "action.gmail.get-message") return executeGmailGetMessage(config, mode, workspaceId, credentials);
+  if (node.type === "action.gmail.send" || node.type === "action.gmail.reply" || node.type === "action.gmail.create-draft" || node.type === "action.gmail.update-draft" || node.type === "action.gmail.modify-label") return executeGmailWrite(config, node.type === "action.gmail.send" ? "send" : node.type === "action.gmail.reply" ? "reply" : node.type === "action.gmail.create-draft" ? "draft" : node.type === "action.gmail.update-draft" ? "updateDraft" : "label", mode, workspaceId, credentials);
   if (node.type === "action.google-calendar.list-events") {
     return executeGoogleCalendar(config, mode, workspaceId, credentials);
   }
@@ -723,10 +869,17 @@ async function executeNode(node: WorkflowNode, config: Record<string, unknown>, 
   if (node.type === "action.github.merge-pull-request") {
     return executeGitHubMergePullRequest(config, mode, workspaceId, credentials);
   }
-  if (node.type === "action.google-drive") {
-    if (mode === "mock") return { status: "succeeded", output: mockDrive(config), route: "success" };
+  if (node.type === "action.github.list-issues") return executeGitHubListIssues(config, mode, workspaceId, credentials);
+  if (node.type === "action.github.get-issue") return executeGitHubGetIssue(config, mode, workspaceId, credentials);
+  if (node.type === "action.github.list-pull-requests") return executeGitHubListPullRequests(config, mode, workspaceId, credentials);
+  if (node.type === "action.github.get-pull-request") return executeGitHubGetPullRequest(config, mode, workspaceId, credentials);
+  if (node.type === "action.google-drive" || node.type === "action.google-drive.v2") {
+    const paginated = node.type === "action.google-drive.v2";
+    const driveOperation = readOperation(config, ["list", "search", "uploadText", "downloadText"], "list");
+    if (paginated && (driveOperation === "list" || driveOperation === "search")) readDrivePageToken(config);
+    if (mode === "mock") return { status: "succeeded", output: mockDrive(config, paginated), route: "success" };
     const credential = await credentials.readGoogleForExecution(readCredentialId(config), workspaceId);
-    return { status: "succeeded", output: await executeGoogleDrive(credential, config), route: "success" };
+    return { status: "succeeded", output: await executeGoogleDrive(credential, config, paginated), route: "success" };
   }
   if (node.type === "action.google-sheets") {
     if (mode === "mock") return { status: "succeeded", output: mockSheets(config), route: "success" };
@@ -759,7 +912,7 @@ async function executeHttpRequest(config: Record<string, unknown>, credential?: 
   }
   const body = method === "GET" || method === "HEAD" ? undefined : requestBody(config.body, headers);
   try {
-    const response = await fetchSafeOutbound(url, { method, headers, body, signal: AbortSignal.timeout(timeoutMs) });
+    const response = await (write ? fetchSafeOutboundWrite : fetchSafeOutbound)(url, { method, headers, body, signal: AbortSignal.timeout(timeoutMs) });
     await requireProviderSuccess(response, "HTTP request", write);
     let raw: string;
     try {
@@ -773,7 +926,7 @@ async function executeHttpRequest(config: Record<string, unknown>, credential?: 
   } catch (reason) {
     if (reason instanceof NodeFailure) throw reason;
     const policyFailure = nodeFailureFromOutboundPolicy(reason);
-    if (policyFailure.code === "OUTBOUND_URL_BLOCKED" || policyFailure.code === "OUTBOUND_REDIRECT_BLOCKED") throw policyFailure;
+    if (policyFailure.code === "OUTBOUND_URL_BLOCKED" || (!write && policyFailure.code === "OUTBOUND_REDIRECT_BLOCKED")) throw policyFailure;
     if (write) throw uncertainDelivery("HTTP request");
     const timeout = reason instanceof Error && reason.name === "TimeoutError";
     throw new NodeFailure(timeout ? "TIMEOUT" : "NETWORK_ERROR", timeout ? "HTTP request timed out." : "HTTP request failed.", true);
@@ -907,14 +1060,15 @@ function readCredentialValue(credential: Record<string, unknown>, key: string) {
   return value;
 }
 
-function mockDrive(config: Record<string, unknown>) {
+export function mockDrive(config: Record<string, unknown>, paginated: boolean) {
   const operation = readOperation(config, ["list", "search", "uploadText", "downloadText"], "list");
   if (operation === "downloadText") return { operation, file: { id: String(config.fileId ?? "mock-file-1"), name: "daily-report.txt", text: "Mock Drive report" } };
   if (operation === "uploadText") return { operation, file: { id: "mock-upload-1", name: String(config.name ?? "daily-report.txt"), mimeType: "text/plain" } };
-  return { operation, files: [{ id: "mock-file-1", name: "Steam report", mimeType: "text/plain", modifiedTime: "2026-10-23T08:00:00.000Z" }] };
+  const body = { files: [{ id: "mock-file-1", name: "Steam report", mimeType: "text/plain", modifiedTime: "2026-10-23T08:00:00.000Z" }] };
+  return paginated ? driveListOutput(operation, body) : { operation, ...body };
 }
 
-async function executeGoogleDrive(credential: Record<string, unknown>, config: Record<string, unknown>) {
+export async function executeGoogleDrive(credential: Record<string, unknown>, config: Record<string, unknown>, paginated: boolean) {
   const accessToken = readCredentialValue(credential, "accessToken");
   const operation = readOperation(config, ["list", "search", "uploadText", "downloadText"], "list");
   if (operation === "downloadText") {
@@ -937,11 +1091,17 @@ async function executeGoogleDrive(credential: Record<string, unknown>, config: R
     if (!file || typeof file !== "object" || Array.isArray(file) || typeof (file as Record<string, unknown>).id !== "string") throw uncertainDelivery("Google Drive", response.status);
     return { operation, file };
   }
-  const query = operation === "search" && typeof config.query === "string" && config.query ? `&q=${encodeURIComponent(config.query)}` : "";
-  const response = await googleFetch(`https://www.googleapis.com/drive/v3/files?fields=files(id,name,mimeType,modifiedTime,webViewLink)${query}`, accessToken);
-  const body = await readProviderJson(response, "Google Drive") as { files?: unknown[] } | null;
-  if (!body || !Array.isArray(body.files)) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Google Drive returned an invalid file list.", false);
-  return { operation, files: body.files ?? [] };
+  if (!paginated) {
+    const query = operation === "search" && typeof config.query === "string" && config.query ? `&q=${encodeURIComponent(config.query)}` : "";
+    const response = await googleFetch(`https://www.googleapis.com/drive/v3/files?fields=files(id,name,mimeType,modifiedTime,webViewLink)${query}`, accessToken);
+    const body = await readProviderJson(response, "Google Drive") as { files?: unknown[] } | null;
+    if (!body || !Array.isArray(body.files)) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Google Drive returned an invalid file list.", false);
+    return { operation, files: body.files };
+  }
+  const pageToken = readDrivePageToken(config);
+  const response = await googleFetch(driveListUrl(operation, config, pageToken), accessToken);
+  const body = await readProviderJson(response, "Google Drive");
+  return driveListOutput(operation, body, accessToken);
 }
 
 function mockSheets(config: Record<string, unknown>) {
@@ -979,7 +1139,12 @@ async function readGoogleRecord(response: Response, write: boolean) {
 async function googleFetch(url: string, accessToken: string, init: RequestInit = {}) {
   const write = !isReadOnlyMethod(init.method);
   try {
-    const response = await fetch(url, { ...init, headers: { Authorization: `Bearer ${accessToken}`, ...init.headers }, signal: AbortSignal.timeout(20_000) });
+    // Do not let fetch replay a write automatically on a 307/308 redirect.
+    const response = await fetch(url, { ...init, ...(write ? { redirect: "manual" as const } : {}), headers: { Authorization: `Bearer ${accessToken}`, ...init.headers }, signal: AbortSignal.timeout(20_000) });
+    if (write && response.status >= 300 && response.status < 400) {
+      await response.body?.cancel().catch(() => undefined);
+      throw uncertainDelivery("Google API", response.status);
+    }
     await requireProviderSuccess(response, "Google API", write, "GOOGLE_API_ERROR");
     return response;
   } catch (reason) {
@@ -1159,7 +1324,7 @@ export async function executeGitHubCreateIssue(config: Record<string, unknown>, 
       }
     }
     const issueBody = marker ? appendGitHubIdempotencyMarker(body, marker) : body;
-    const response = await fetchSafeOutbound(url, {
+    const response = await fetchSafeOutboundWrite(url, {
       method: "POST",
       headers,
       body: JSON.stringify({ title, body: issueBody, ...(labels.length ? { labels } : {}) }),
@@ -1189,7 +1354,7 @@ export async function executeGitHubCreateIssue(config: Record<string, unknown>, 
   } catch (reason) {
     if (reason instanceof NodeFailure) throw reason;
     const policyFailure = nodeFailureFromOutboundPolicy(reason);
-    if (policyFailure.code === "OUTBOUND_URL_BLOCKED" || policyFailure.code === "OUTBOUND_REDIRECT_BLOCKED") throw policyFailure;
+    if (policyFailure.code === "OUTBOUND_URL_BLOCKED") throw policyFailure;
     throw uncertainDelivery("GitHub");
   }
 }
@@ -1223,7 +1388,7 @@ export async function executeGitHubAddLabel(config: Record<string, unknown>, mod
   const [owner, repo] = readGitHubRepositoryParts(repository);
   const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/labels`;
   try {
-    const response = await fetchSafeOutbound(url, {
+    const response = await fetchSafeOutboundWrite(url, {
       method: "POST",
       headers: {
         Accept: "application/vnd.github+json",
@@ -1259,7 +1424,7 @@ export async function executeGitHubAddLabel(config: Record<string, unknown>, mod
   } catch (reason) {
     if (reason instanceof NodeFailure) throw reason;
     const policyFailure = nodeFailureFromOutboundPolicy(reason);
-    if (policyFailure.code === "OUTBOUND_URL_BLOCKED" || policyFailure.code === "OUTBOUND_REDIRECT_BLOCKED") throw policyFailure;
+    if (policyFailure.code === "OUTBOUND_URL_BLOCKED") throw policyFailure;
     throw uncertainDelivery("GitHub");
   }
 }
@@ -1293,7 +1458,7 @@ export async function executeGitHubAddComment(config: Record<string, unknown>, m
   const [owner, repo] = readGitHubRepositoryParts(repository);
   const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/comments`;
   try {
-    const response = await fetchSafeOutbound(url, {
+    const response = await fetchSafeOutboundWrite(url, {
       method: "POST",
       headers: {
         Accept: "application/vnd.github+json",
@@ -1329,7 +1494,7 @@ export async function executeGitHubAddComment(config: Record<string, unknown>, m
   } catch (reason) {
     if (reason instanceof NodeFailure) throw reason;
     const policyFailure = nodeFailureFromOutboundPolicy(reason);
-    if (policyFailure.code === "OUTBOUND_URL_BLOCKED" || policyFailure.code === "OUTBOUND_REDIRECT_BLOCKED") throw policyFailure;
+    if (policyFailure.code === "OUTBOUND_URL_BLOCKED") throw policyFailure;
     throw uncertainDelivery("GitHub");
   }
 }
@@ -1338,6 +1503,7 @@ export async function executeGitHubMergePullRequest(config: Record<string, unkno
   const repository = readGitHubRepository(config.repository);
   const pullRequestNumber = readGitHubIssueNumber(config.pullRequestNumber);
   const mergeMethod = readGitHubMergeMethod(config.mergeMethod);
+  const expectedHeadSha = readGitHubExpectedHeadSha(config.expectedHeadSha);
 
   if (mode === "mock") {
     return {
@@ -1365,7 +1531,7 @@ export async function executeGitHubMergePullRequest(config: Record<string, unkno
   const [owner, repo] = readGitHubRepositoryParts(repository);
   const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${pullRequestNumber}/merge`;
   try {
-    const response = await fetchSafeOutbound(url, {
+    const response = await fetchSafeOutboundWrite(url, {
       method: "PUT",
       headers: {
         Accept: "application/vnd.github+json",
@@ -1374,12 +1540,16 @@ export async function executeGitHubMergePullRequest(config: Record<string, unkno
         "X-GitHub-Api-Version": "2022-11-28",
         "User-Agent": "Fluxora",
       },
-      body: JSON.stringify({ merge_method: mergeMethod }),
+      body: JSON.stringify({ merge_method: mergeMethod, ...(expectedHeadSha ? { sha: expectedHeadSha } : {}) }),
       signal: AbortSignal.timeout(15_000),
     });
+    if (response.status === 409 && expectedHeadSha) {
+      await response.body?.cancel().catch(() => undefined);
+      throw new NodeFailure("GITHUB_HEAD_CHANGED", "GitHub rejected the merge because the pull request head no longer matches. Review it before running again.", false, 409);
+    }
     await requireProviderSuccess(response, "GitHub", true);
     const payload = await readProviderJson(response, "GitHub", true) as { merged?: unknown; sha?: unknown; message?: unknown };
-    if (!payload || typeof payload.merged !== "boolean" || typeof payload.sha !== "string" || typeof payload.message !== "string") {
+    if (!payload || payload.merged !== true || typeof payload.sha !== "string" || typeof payload.message !== "string") {
       throw uncertainDelivery("GitHub", response.status);
     }
     return {
@@ -1403,7 +1573,7 @@ export async function executeGitHubMergePullRequest(config: Record<string, unkno
   } catch (reason) {
     if (reason instanceof NodeFailure) throw reason;
     const policyFailure = nodeFailureFromOutboundPolicy(reason);
-    if (policyFailure.code === "OUTBOUND_URL_BLOCKED" || policyFailure.code === "OUTBOUND_REDIRECT_BLOCKED") throw policyFailure;
+    if (policyFailure.code === "OUTBOUND_URL_BLOCKED") throw policyFailure;
     throw uncertainDelivery("GitHub");
   }
 }
@@ -1455,6 +1625,12 @@ function readGitHubMergeMethod(value: unknown) {
     throw new NodeFailure("INVALID_CONFIGURATION", "GitHub merge method must be merge, squash, or rebase.", false);
   }
   return mergeMethod;
+}
+
+function readGitHubExpectedHeadSha(value: unknown) {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value !== "string" || !/^[a-f0-9]{40}$/i.test(value.trim())) throw new NodeFailure("INVALID_CONFIGURATION", "Expected pull request head must be a full 40-character commit SHA.", false);
+  return value.trim().toLowerCase();
 }
 
 function readGitHubIdempotencyKey(value: unknown) {

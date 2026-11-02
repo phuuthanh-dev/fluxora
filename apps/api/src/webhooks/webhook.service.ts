@@ -7,6 +7,11 @@ import { CredentialProvider } from "@prisma/client";
 import { CredentialService } from "../credentials/credential.service";
 import { CredentialVaultService } from "../credentials/credential-vault.service";
 import { parseWorkflowGraph } from "../workflows/workflow-graph";
+import { matchesUptimeKumaFilter } from "./uptime-kuma-filter";
+import { normalizeTelegramUpdate, telegramTriggerFilterFromConfig, telegramWebhookSecretMatches } from "./telegram-trigger-protocol";
+import { normalizeVercelDeployment, vercelTriggerFilterFromConfig, verifyVercelSignature } from "./vercel-trigger-protocol";
+import { normalizeTrelloAction, readTrelloCallbackUrl, readTrelloTriggerFilter, verifyTrelloSignature } from "./trello-trigger-protocol";
+import { normalizeSentryIssueCreated, readSentryIssueCreatedFilter, verifySentryIntegrationSignature } from "./sentry-trigger-protocol";
 
 @Injectable()
 export class WebhookService {
@@ -21,22 +26,35 @@ export class WebhookService {
   async getEndpoint(workflowId: string, userId: string) {
     const workflow = await this.findOwned(workflowId, userId);
     const endpoint = await this.prisma.webhookEndpoint.findFirst({ where: { workflowId: workflow.id } });
-    return endpoint ? { id: endpoint.id, path: endpoint.path, secretRequired: Boolean(endpoint.secretHash || endpoint.encryptedSigningSecret), signingMode: endpoint.encryptedSigningSecret ? "registration" : "legacy", workflowVersionId: endpoint.workflowVersionId, createdAt: endpoint.createdAt, updatedAt: endpoint.updatedAt } : null;
+    if (!endpoint) return null;
+    const isCurrentTrello = workflow.publishedVersion && endpoint.workflowVersionId === workflow.publishedVersion.id && parseWorkflowGraph(workflow.publishedVersion.graph).nodes.some((node) => node.type === "trigger.trello.board-action");
+    const stored = isCurrentTrello && endpoint.encryptedSigningSecret ? this.vault.decrypt(endpoint.encryptedSigningSecret) : undefined;
+    const callbackUrl = isCurrentTrello && typeof stored?.callbackUrl === "string" ? readTrelloCallbackUrl(stored.callbackUrl, endpoint.path) : undefined;
+    return { id: endpoint.id, path: endpoint.path, secretRequired: Boolean(endpoint.secretHash || endpoint.encryptedSigningSecret), signingMode: endpoint.encryptedSigningSecret ? "registration" : "legacy", workflowVersionId: endpoint.workflowVersionId, createdAt: endpoint.createdAt, updatedAt: endpoint.updatedAt, ...(callbackUrl ? { callbackUrl } : {}) };
   }
 
-  async createEndpoint(workflowId: string, userId: string, path: string, secretRequired: boolean, expected: { publishedVersionId: string; endpoint: { id: string; updatedAt: string } | null }) {
+  async createEndpoint(workflowId: string, userId: string, path: string, secretRequired: boolean, expected: { publishedVersionId: string; endpoint: { id: string; updatedAt: string } | null }, importedSigningSecret?: unknown, importedCallbackUrl?: unknown) {
     const workflow = await this.findOwned(workflowId, userId);
     if (!workflow.publishedVersion) throw new NotFoundException({ code: "PUBLISHED_VERSION_REQUIRED", message: "Publish this workflow before creating a webhook endpoint." });
     const graph = parseWorkflowGraph(workflow.publishedVersion.graph);
     const githubTrigger = githubWebhookTrigger(graph);
-    const kumaTrigger = graph.nodes.some((node) => node.type === "trigger.uptime-kuma.alert");
-    if (!graph.nodes.some((node) => node.type === "trigger.webhook") && !githubTrigger && !kumaTrigger) {
+    const kumaTrigger = graph.nodes.some((node) => isUptimeKumaTrigger(node.type));
+    const telegramTrigger = graph.nodes.some((node) => node.type === "trigger.telegram.update");
+    const vercelTrigger = graph.nodes.some((node) => node.type === "trigger.vercel.deployment");
+    const trelloTrigger = graph.nodes.some((node) => node.type === "trigger.trello.board-action");
+    const sentryTrigger = graph.nodes.some((node) => node.type === "trigger.sentry.issue-created");
+    if (!graph.nodes.some((node) => node.type === "trigger.webhook") && !githubTrigger && !kumaTrigger && !telegramTrigger && !vercelTrigger && !trelloTrigger && !sentryTrigger) {
       throw new BadRequestException({ code: "WEBHOOK_TRIGGER_REQUIRED", message: "Publish a workflow version containing a Webhook or GitHub event trigger before creating an endpoint." });
     }
     const conflictingEndpoint = await this.prisma.webhookEndpoint.findFirst({ where: { path, NOT: { workflowId } } });
     if (conflictingEndpoint) throw new ConflictException({ code: "WEBHOOK_PATH_IN_USE", message: "This webhook path is already in use by another workflow." });
-    const secret = githubTrigger || kumaTrigger || secretRequired ? randomBytes(24).toString("base64url") : null;
-    const encryptedSigningSecret = githubTrigger && secret ? this.vault.encrypt({ secret }) : null;
+    if ((vercelTrigger || trelloTrigger || sentryTrigger) && (typeof importedSigningSecret !== "string" || !/^[\x21-\x7e]{1,1024}$/.test(importedSigningSecret))) throw new BadRequestException({ code: vercelTrigger ? "VERCEL_SIGNING_SECRET_REQUIRED" : trelloTrigger ? "TRELLO_SIGNING_SECRET_REQUIRED" : "SENTRY_SIGNING_SECRET_REQUIRED", message: "Enter the provider webhook signing secret." });
+    if (!vercelTrigger && !trelloTrigger && !sentryTrigger && importedSigningSecret !== undefined) throw new BadRequestException({ code: "INVALID_INPUT", message: "A provider signing secret is not used by this endpoint." });
+    if (!trelloTrigger && importedCallbackUrl !== undefined) throw new BadRequestException({ code: "INVALID_INPUT", message: "A callback URL is not used by this endpoint." });
+    const callbackUrl = trelloTrigger ? readTrelloCallbackUrl(importedCallbackUrl, path) : undefined;
+    const secret = vercelTrigger || trelloTrigger || sentryTrigger ? importedSigningSecret as string : githubTrigger || kumaTrigger || telegramTrigger || secretRequired ? randomBytes(24).toString("base64url") : null;
+    const encryptedSigningSecret = (githubTrigger || vercelTrigger || trelloTrigger || sentryTrigger) && secret ? this.vault.encrypt({ secret, ...(callbackUrl ? { callbackUrl } : {}) }) : null;
+    const identitySecret = trelloTrigger ? JSON.stringify([secret, callbackUrl]) : secret;
     const publishedVersionId = workflow.publishedVersion.id;
     const endpoint = await this.prisma.$transaction(async (transaction) => {
       const locked = await transaction.$queryRaw<Array<{ publishedVersionId: string | null }>>`SELECT "publishedVersionId" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
@@ -52,15 +70,20 @@ export class WebhookService {
       }
       const updatedAt = existing ? new Date(Math.max(Date.now(), existing.updatedAt.getTime() + 1)) : undefined;
       const saved = existing
-        ? await transaction.webhookEndpoint.update({ where: { id: existing.id }, data: { path, secretHash: !githubTrigger && secret ? hashWebhookSecret(secret) : null, encryptedSigningSecret, workflowVersionId: publishedVersionId, isActive: true, updatedAt } })
-        : await transaction.webhookEndpoint.create({ data: { workflowId, workflowVersionId: publishedVersionId, path, secretHash: !githubTrigger && secret ? hashWebhookSecret(secret) : null, encryptedSigningSecret } });
-      await transaction.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "webhook.created", targetType: "webhook", targetId: saved.id, metadata: { path, secretRequired: Boolean(secretRequired) || Boolean(githubTrigger) || kumaTrigger } } });
+        ? await transaction.webhookEndpoint.update({ where: { id: existing.id }, data: { path, secretHash: !githubTrigger && identitySecret ? hashWebhookSecret(identitySecret) : null, encryptedSigningSecret, workflowVersionId: publishedVersionId, isActive: true, updatedAt } })
+        : await transaction.webhookEndpoint.create({ data: { workflowId, workflowVersionId: publishedVersionId, path, secretHash: !githubTrigger && identitySecret ? hashWebhookSecret(identitySecret) : null, encryptedSigningSecret } });
+      await transaction.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "webhook.created", targetType: "webhook", targetId: saved.id, metadata: { path, secretRequired: Boolean(secretRequired) || Boolean(githubTrigger) || kumaTrigger || telegramTrigger || vercelTrigger || trelloTrigger || sentryTrigger } } });
       return saved;
     }).catch((error: unknown) => {
       if (error && typeof error === "object" && "code" in error && error.code === "P2002") throw new ConflictException({ code: "WEBHOOK_PATH_IN_USE", message: "This webhook path is already in use by another workflow." });
       throw error;
     });
-    return { id: endpoint.id, path: endpoint.path, secret, workflowVersionId: endpoint.workflowVersionId, createdAt: endpoint.createdAt, updatedAt: endpoint.updatedAt };
+    return { id: endpoint.id, path: endpoint.path, secret: vercelTrigger || trelloTrigger || sentryTrigger ? null : secret, workflowVersionId: endpoint.workflowVersionId, createdAt: endpoint.createdAt, updatedAt: endpoint.updatedAt };
+  }
+
+  async checkTrelloEndpoint(path: string) {
+    const endpoint = await this.prisma.webhookEndpoint.findUnique({ where: { path }, include: { workflow: true, workflowVersion: true } });
+    if (!endpoint || !endpoint.isActive || endpoint.workflow.archivedAt || endpoint.workflow.publishedVersionId !== endpoint.workflowVersionId || !parseWorkflowGraph(endpoint.workflowVersion.graph).nodes.some((node) => node.type === "trigger.trello.board-action")) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
   }
 
   private async findOwned(workflowId: string, userId: string) {
@@ -72,22 +95,74 @@ export class WebhookService {
     return workflow;
   }
 
-  async receive(path: string, secret: string | undefined, payload: unknown, idempotencyKey?: string, githubEventHeaders: GitHubEventHeaders = {}) {
+  async receive(path: string, secret: string | undefined, payload: unknown, idempotencyKey?: string, githubEventHeaders: GitHubEventHeaders = {}, telegramSecret?: string, vercelSignature?: string, trelloSignature?: string, sentrySignature?: string, sentryResource?: string) {
     const endpoint = await this.prisma.webhookEndpoint.findUnique({ where: { path }, include: { workflow: true, workflowVersion: true } });
     if (!endpoint || !endpoint.isActive || endpoint.workflow.archivedAt) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
     const graph = parseWorkflowGraph(endpoint.workflowVersion.graph);
     const githubTrigger = githubWebhookTrigger(graph);
-    const kumaTrigger = graph.nodes.some((node) => node.type === "trigger.uptime-kuma.alert");
+    const kumaTrigger = graph.nodes.find((node) => isUptimeKumaTrigger(node.type));
+    const telegramTrigger = graph.nodes.find((node) => node.type === "trigger.telegram.update");
+    const vercelTrigger = graph.nodes.find((node) => node.type === "trigger.vercel.deployment");
+    const trelloTrigger = graph.nodes.find((node) => node.type === "trigger.trello.board-action");
+    const sentryTrigger = graph.nodes.find((node) => node.type === "trigger.sentry.issue-created");
+    if (sentryTrigger) {
+      const signingSecret = endpoint.encryptedSigningSecret ? this.vault.decrypt(endpoint.encryptedSigningSecret).secret : undefined;
+      if (!verifySentryIntegrationSignature(githubEventHeaders.rawBody, sentrySignature, signingSecret) || !endpoint.secretHash) throw new ForbiddenException({ code: "WEBHOOK_SECRET_INVALID", message: "Webhook secret is invalid." });
+      if (!endpoint.workflow.isActive) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
+      const event = normalizeSentryIssueCreated(githubEventHeaders.rawBody!, sentryResource, readSentryIssueCreatedFilter(sentryTrigger.config), typeof signingSecret === "string" ? signingSecret : undefined);
+      if (event.kind === "ignored") return { acknowledged: true };
+      const execution = await this.executions.createSentryScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, path: endpoint.path, secretHash: endpoint.secretHash, payload: event.payload, deliveryKey: event.deliveryKey });
+      if (execution.status === "QUEUED" && execution.startedAt === null) await this.queue.ensureDispatched({ executionId: execution.id, mode: "live", initialOnly: true });
+      return { executionId: execution.id };
+    }
+    if (trelloTrigger) {
+      const signing = endpoint.encryptedSigningSecret ? this.vault.decrypt(endpoint.encryptedSigningSecret) : undefined;
+      if (!verifyTrelloSignature(githubEventHeaders.rawBody, trelloSignature, signing?.secret, signing?.callbackUrl) || !endpoint.secretHash) throw new ForbiddenException({ code: "WEBHOOK_SECRET_INVALID", message: "Webhook secret is invalid." });
+      if (!endpoint.workflow.isActive) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
+      const event = normalizeTrelloAction(githubEventHeaders.rawBody!, readTrelloTriggerFilter(trelloTrigger.config), typeof signing?.secret === "string" ? signing.secret : undefined);
+      if (event.kind === "ignored") return { acknowledged: true };
+      const execution = await this.executions.createTrelloScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, path: endpoint.path, secretHash: endpoint.secretHash, payload: event.payload, deliveryKey: event.actionId });
+      if (execution.status === "QUEUED" && execution.startedAt === null) await this.queue.ensureDispatched({ executionId: execution.id, mode: "live", initialOnly: true });
+      return { executionId: execution.id };
+    }
+    if (vercelTrigger) {
+      const signingSecret = endpoint.encryptedSigningSecret ? this.vault.decrypt(endpoint.encryptedSigningSecret).secret : undefined;
+      if (!verifyVercelSignature(githubEventHeaders.rawBody, vercelSignature, signingSecret) || !endpoint.secretHash) throw new ForbiddenException({ code: "WEBHOOK_SECRET_INVALID", message: "Webhook secret is invalid." });
+      if (!endpoint.workflow.isActive) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
+      const event = normalizeVercelDeployment(githubEventHeaders.rawBody!, vercelTriggerFilterFromConfig(vercelTrigger.config));
+      if (event.kind === "ignored") return { acknowledged: true };
+      const execution = await this.executions.createVercelScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, path: endpoint.path, secretHash: endpoint.secretHash, payload: event.payload, deliveryKey: event.eventId });
+      if (execution.status === "QUEUED" && execution.startedAt === null) await this.queue.ensureDispatched({ executionId: execution.id, mode: "live", initialOnly: true });
+      return { executionId: execution.id };
+    }
+    if (telegramTrigger && (githubTrigger || kumaTrigger || !telegramWebhookSecretMatches(telegramSecret, endpoint.secretHash))) throw new ForbiddenException({ code: "WEBHOOK_SECRET_INVALID", message: "Webhook secret is invalid." });
     if (kumaTrigger && (githubTrigger || !endpoint.secretHash)) throw new ForbiddenException({ code: "WEBHOOK_SECRET_INVALID", message: "Webhook secret is invalid." });
     if (githubTrigger) {
       await this.verifyGitHubWebhook(endpoint.workflow.workspaceId, githubTrigger.config, payload, githubEventHeaders, endpoint.encryptedSigningSecret);
       if (githubEventHeaders.githubEvent === "ping") return { acknowledged: true };
-    } else if (endpoint.secretHash && (!secret || !matchesWebhookSecret(secret, endpoint.secretHash))) {
+    } else if (!telegramTrigger && endpoint.secretHash && (!secret || !matchesWebhookSecret(secret, endpoint.secretHash))) {
       throw new ForbiddenException({ code: "WEBHOOK_SECRET_INVALID", message: "Webhook secret is invalid." });
     }
     const normalized = kumaTrigger ? normalizeUptimeKumaAlert(payload) : null;
     if (normalized?.test) return { acknowledged: true };
     if (!endpoint.workflow.isActive) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
+    if (telegramTrigger) {
+      const update = normalizeTelegramUpdate(payload, telegramTriggerFilterFromConfig(telegramTrigger.config));
+      if (update.kind === "ignored") return { acknowledged: true };
+      const execution = await this.executions.createTelegramScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, path: endpoint.path, secretHash: endpoint.secretHash!, payload: update.payload, deliveryKey: String(update.updateId) });
+      if (execution.status === "QUEUED" && execution.startedAt === null) await this.queue.ensureDispatched({ executionId: execution.id, mode: "live", initialOnly: true });
+      return { executionId: execution.id };
+    }
+    if (normalized && !normalized.test && kumaTrigger?.type === "trigger.uptime-kuma.alert.v2") {
+      const monitor = normalized.payload.monitor as { id: string };
+      const heartbeat = normalized.payload.heartbeat as { status: number };
+      if (!matchesUptimeKumaFilter(kumaTrigger.config, monitor.id, heartbeat.status)) return { acknowledged: true };
+      const execution = await this.executions.createKumaScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, path: endpoint.path, secretHash: endpoint.secretHash!, payload: normalized.payload, deliveryKey: idempotencyKey });
+      // A persisted delivery is recovered after a queue outage. This job is
+      // explicitly initial-only, so a duplicate cannot resume an approval.
+      if (execution.status === "QUEUED" && execution.startedAt === null) await this.queue.ensureDispatched({ executionId: execution.id, mode: "live", initialOnly: true });
+      return { executionId: execution.id };
+    }
     const deliveryKey = githubTrigger && githubEventHeaders.githubDelivery ? `github:${githubEventHeaders.githubDelivery}` : idempotencyKey;
     const execution = await this.executions.createScheduledExecution(
       endpoint.workflowVersionId,
@@ -122,6 +197,10 @@ export class WebhookService {
 }
 
 export type GitHubEventHeaders = { githubEvent?: string; githubSignature?: string; githubDelivery?: string; rawBody?: Buffer };
+
+function isUptimeKumaTrigger(type: string) {
+  return type === "trigger.uptime-kuma.alert" || type === "trigger.uptime-kuma.alert.v2";
+}
 
 function githubWebhookTrigger(graph: ReturnType<typeof parseWorkflowGraph>) {
   return graph.nodes.find((node) => node.type === "trigger.github.issue-opened" || node.type === "trigger.github.pull-request-opened" || node.type === "trigger.github.push" || node.type === "trigger.github.workflow-run-completed");

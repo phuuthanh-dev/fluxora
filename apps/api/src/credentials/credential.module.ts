@@ -5,6 +5,7 @@ import { CredentialController } from "./credential.controller";
 import { CredentialService } from "./credential.service";
 import { CredentialVaultService } from "./credential-vault.service";
 import { GoogleOAuthController } from "./google-oauth.controller";
+import { GoogleOAuthStateService } from "./google-oauth-state.service";
 import { GitHubResourceController } from "./github-resource.controller";
 import { GitHubResourceService } from "./github-resource.service";
 import { GoogleResourceController } from "./google-resource.controller";
@@ -18,7 +19,7 @@ import { GmailResourceController } from "./gmail-resource.controller";
 @Module({
   imports: [AuthModule, WorkspaceModule],
   controllers: [CredentialController, GoogleOAuthController, GitHubResourceController, GoogleResourceController, GeminiResourceController, OpenAIResourceController, ConnectorResourceController, GoogleCalendarResourceController, GmailResourceController],
-  providers: [CredentialService, CredentialVaultService, GitHubResourceService, GoogleResourceService],
+  providers: [CredentialService, CredentialVaultService, GoogleOAuthStateService, GitHubResourceService, GoogleResourceService],
   exports: [CredentialService, CredentialVaultService],
 })
 export class CredentialModule {}

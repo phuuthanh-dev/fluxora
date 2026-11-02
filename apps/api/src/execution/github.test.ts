@@ -457,7 +457,50 @@ test("GitHub Merge Pull Request validates merge method and retry classification"
       () => executeGitHubMergePullRequest({ credentialId: "github-credential", repository: "acme/automation", pullRequestNumber: 12 }, "live", "workspace-1", credentials),
       (error: any) => error.code === "DELIVERY_UNCERTAIN" && error.statusCode === 503 && error.retryable === false,
     );
+    globalThis.fetch = (async () => Response.json({ merged: false, sha: "abc123", message: "Not merged" })) as typeof fetch;
+    await assert.rejects(
+      () => executeGitHubMergePullRequest({ credentialId: "github-credential", repository: "acme/automation", pullRequestNumber: 12 }, "live", "workspace-1", credentials),
+      (error: any) => error.code === "DELIVERY_UNCERTAIN" && error.retryable === false,
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("GitHub merge can require the exact reviewed pull request head", async () => {
+  const credentials = createMockCredentials({ "github-credential": { provider: CredentialProvider.GITHUB, data: { token: "ghs_test_secret" } } });
+  const config = { credentialId: "github-credential", repository: "acme/automation", pullRequestNumber: 12, expectedHeadSha: "A".repeat(40) };
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  try {
+    globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+      calls++;
+      assert.deepEqual(JSON.parse(String(init?.body)), { merge_method: "merge", sha: "a".repeat(40) });
+      return new Response("provider details", { status: 409 });
+    }) as typeof fetch;
+    await assert.rejects(executeGitHubMergePullRequest(config, "live", "workspace-1", credentials), (error: any) => error.code === "GITHUB_HEAD_CHANGED" && error.statusCode === 409 && error.retryable === false && !error.message.includes("provider details"));
+    assert.equal(calls, 1);
+    await assert.rejects(executeGitHubMergePullRequest({ ...config, expectedHeadSha: "abc" }, "live", "workspace-1", credentials), (error: any) => error.code === "INVALID_CONFIGURATION" && !error.retryable);
+    assert.equal(calls, 1);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("GitHub writes do not replay their bodies on redirects", async () => {
+  const credentials = createMockCredentials({ "github-credential": { provider: CredentialProvider.GITHUB, data: { token: "ghs_test_secret" } } });
+  const base = { credentialId: "github-credential", repository: "acme/automation" };
+  const operations = [
+    () => executeGitHubCreateIssue({ ...base, title: "Test" }, "live", "workspace-1", credentials),
+    () => executeGitHubAddLabel({ ...base, issueNumber: 12, label: "test" }, "live", "workspace-1", credentials),
+    () => executeGitHubAddComment({ ...base, issueNumber: 12, body: "Test" }, "live", "workspace-1", credentials),
+    () => executeGitHubMergePullRequest({ ...base, pullRequestNumber: 12 }, "live", "workspace-1", credentials),
+  ];
+  const originalFetch = globalThis.fetch;
+  try {
+    for (const status of [307, 308]) for (const operation of operations) {
+      let calls = 0;
+      globalThis.fetch = (async () => { calls++; return new Response(null, { status, headers: { location: "https://api.github.com/redirected" } }); }) as typeof fetch;
+      await assert.rejects(operation(), (error: any) => error.code === "DELIVERY_UNCERTAIN" && error.retryable === false);
+      assert.equal(calls, 1);
+    }
+  } finally { globalThis.fetch = originalFetch; }
 });

@@ -15,6 +15,7 @@ import {
   appCatalog,
   coreNodeDefinitions,
   getAppDefinition,
+  libraryNodeType,
   matchesNodeLibraryFilter,
   nodeCatalog,
   nodeLibraryFilters,
@@ -45,7 +46,11 @@ function readStoredNodeTypes(key: string) {
     const parsed = JSON.parse(window.localStorage.getItem(key) ?? "[]") as unknown;
     if (!Array.isArray(parsed)) return [];
     const knownTypes = new Set(nodeCatalog.map((definition) => definition.type));
-    return parsed.filter((value): value is string => typeof value === "string" && knownTypes.has(value as NodeDefinition["type"]));
+    return [...new Set(
+      parsed.filter((value): value is string => typeof value === "string")
+        .map(libraryNodeType)
+        .filter((value) => knownTypes.has(value as NodeDefinition["type"])),
+    )];
   } catch {
     return [];
   }
@@ -223,8 +228,8 @@ export const NodeLibrary = forwardRef<NodeLibraryHandle, NodeLibraryProps>(funct
         <button className="palette-back" type="button" onClick={returnToApps}><ArrowLeft size={14} /> All apps</button>
       ) : (
         <div className="node-palette__summary" aria-label="Node availability">
-          <span><i className="status-dot status-dot--ready" />{nodeCatalog.filter((node) => node.available).length} ready</span>
-          <span><i className="status-dot" />{nodeCatalog.filter((node) => !node.available).length} roadmap</span>
+          <span><i className="status-dot status-dot--ready" />{nodeCatalog.filter((node) => node.available && !node.hiddenFromLibrary).length} ready</span>
+          <span><i className="status-dot" />{nodeCatalog.filter((node) => !node.available && !node.hiddenFromLibrary).length} roadmap</span>
         </div>
       )}
       <p className="node-palette__hint">{selectedApp ? selectedApp.description : "Choose a core step or open an app to select one operation."}</p>

@@ -2,12 +2,27 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { CredentialProvider } from "@prisma/client";
 import type { CredentialService } from "../credentials/credential.service";
-import { executeSentryListIssues, listSentryOrganizations, listSentryProjects } from "./sentry";
+import { executeSentryListIssues, listSentryInstallations, listSentryOrganizations, listSentryProjects } from "./sentry";
 
 const credential = { token: "fixture-token", region: "de" };
 const credentials = { readForExecution: async (id: string, workspace: string, provider: CredentialProvider) => {
   assert.equal(id, "connection"); assert.equal(workspace, "workspace"); assert.equal(provider, CredentialProvider.SENTRY); return credential;
 } } as unknown as CredentialService;
+
+test("Sentry installation discovery limits results to the selected organization and installed apps", async () => {
+  const uuid = "64bf2cf2-37ee-46ae-a093-b7a52bd41a2a";
+  const result = await listSentryInstallations(credential, "example-org", async (url, init) => {
+    assert.equal(new URL(url).pathname, "/api/0/organizations/example-org/sentry-app-installations/");
+    assert.equal((init.headers as Record<string, string>).authorization, "Bearer fixture-token");
+    return Response.json([
+      { uuid, status: "installed", organization: { slug: "example-org" }, app: { slug: "fluxora-test" } },
+      { uuid, status: "pending", organization: { slug: "example-org" }, app: { slug: "pending-app" } },
+      { uuid, status: "installed", organization: { slug: "other-org" }, app: { slug: "other-app" } },
+    ]);
+  });
+  assert.deepEqual(result.installations, [{ id: uuid, name: "fluxora-test" }]);
+  assert.ok(!JSON.stringify(result).includes(credential.token));
+});
 
 test("Sentry discovery uses region, bearer header and organization-scoped projects", async () => {
   const urls: string[] = [];

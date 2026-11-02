@@ -42,7 +42,33 @@ export function ConnectionsDashboard() {
 
   const activeWorkspace = useMemo(() => workspaces.find((workspace) => workspace.id === workspaceId), [workspaceId, workspaces]);
   const oauthRecovery = searchParams.get("google_oauth");
-  const googleRefreshMissing = (oauthRecovery === "missing_refresh" || oauthRecovery === "chat_missing_refresh" || oauthRecovery === "gmail_missing_refresh" || oauthRecovery === "calendar_missing_refresh") && searchParams.get("workspace") === workspaceId;
+  const recoveryMessages: Record<string, string> = {
+    missing_refresh: "Google did not return an offline refresh token. Try again and grant offline access.",
+    chat_missing_refresh: "Google did not return an offline refresh token. Try again and grant offline access.",
+    gmail_missing_refresh: "Google did not return an offline refresh token. Try again and grant offline access.",
+    calendar_missing_refresh: "Google did not return an offline refresh token. Try again and grant offline access.",
+    denied: "Google authorization was cancelled or denied. Try again when you are ready.",
+    invalid_state: "This authorization expired, was already used, or came from another browser session. Start a new connection from this page.",
+    redis_unavailable: "The authorization state service (Redis) is unavailable. Ask your administrator to restore the shared Redis service, then start the connection again.",
+    token_failed: "Google could not complete the token exchange. Start the connection again.",
+    scope_missing: "Google did not grant all required permissions. Try again and grant the requested permissions.",
+    identity_failed: "The Google account identity could not be verified. Try again and allow account email access.",
+    account_mismatch: "Choose the same Google account originally used for this connection.",
+    legacy_identity_unknown: "The original account cannot be verified. Add a new connection, select it in each affected workflow, and republish workflows where needed. The old connection is unchanged.",
+    changed: "The connection changed during authorization. Try reconnecting again.",
+    failed: "The connection service may be unavailable, or your workspace access may have changed. Try again or contact an administrator.",
+  };
+  const recoveryKind = searchParams.get("kind") ?? (oauthRecovery === "missing_refresh" ? "google" : oauthRecovery === "chat_missing_refresh" ? "chat" : oauthRecovery === "gmail_missing_refresh" ? "gmail" : oauthRecovery === "calendar_missing_refresh" ? "calendar" : null);
+  const recoveryMessage = oauthRecovery === "legacy_identity_unknown" && recoveryKind === "gmail"
+    ? "The original account cannot be verified. Add a new connection and select it in each affected workflow. For a Gmail trigger, deactivate before publishing the changed connection and review the message-gap confirmation. Reactivation creates a new checkpoint; messages received while inactive or before the new checkpoint may not be processed, so reconcile them manually."
+    : oauthRecovery ? recoveryMessages[oauthRecovery] : undefined;
+  const recoveryPath = recoveryKind === "chat" ? "google-chat" : recoveryKind === "gmail" ? "gmail" : recoveryKind === "calendar" ? "google-calendar" : recoveryKind === "google" ? "google" : undefined;
+  const retryParams = new URLSearchParams();
+  if (oauthRecovery !== "legacy_identity_unknown" && searchParams.get("credentialId")) retryParams.set("credentialId", searchParams.get("credentialId")!);
+  if (recoveryKind === "gmail" && searchParams.get("capabilities")) retryParams.set("capabilities", searchParams.get("capabilities")!);
+  const retryQuery = retryParams.toString();
+  const recoveryWorkspace = searchParams.get("workspace");
+  const showRecovery = Boolean(recoveryMessage && (!recoveryWorkspace || recoveryWorkspace === workspaceId));
 
   const switchWorkspace = (nextWorkspaceId: string) => {
     setWorkspaceId(nextWorkspaceId);
@@ -70,14 +96,11 @@ export function ConnectionsDashboard() {
           actions={<Button variant="secondary" onClick={() => router.push("/dashboard")}><ArrowLeft size={15} /> Dashboard</Button>}
         />
         {error ? <Status tone="error" className="connections-error">{error}<Button variant="ghost" onClick={() => window.location.reload()}>Retry</Button></Status> : null}
-        {!error && googleRefreshMissing && activeWorkspace ? (
+        {!error && showRecovery && activeWorkspace ? (
           <Status tone="error" className="connections-oauth-error">
-            <div>
-              <strong>{oauthRecovery === "chat_missing_refresh" ? "Google Chat" : oauthRecovery === "gmail_missing_refresh" ? "Gmail" : oauthRecovery === "calendar_missing_refresh" ? "Google Calendar" : "Google"} connection needs another try</strong>
-              <p>Google did not return a refresh token. Any existing connection was not changed. Try connecting again to allow workflows to run when you are away.</p>
-            </div>
+            <div><strong>Google connection needs another try</strong><p>{recoveryMessage} Any existing connection was not changed.</p></div>
             <div className="connections-oauth-error__actions">
-              <Button variant="secondary" onClick={() => window.location.assign(`${apiUrl}/workspaces/${encodeURIComponent(workspaceId)}/credentials/${oauthRecovery === "chat_missing_refresh" ? "google-chat" : oauthRecovery === "gmail_missing_refresh" ? "gmail" : oauthRecovery === "calendar_missing_refresh" ? "google-calendar" : "google"}/connect`)}>Try Google again</Button>
+              {recoveryPath ? <Button variant="secondary" onClick={() => window.location.assign(`${apiUrl}/workspaces/${encodeURIComponent(workspaceId)}/credentials/${recoveryPath}/connect${retryQuery ? `?${retryQuery}` : ""}`)}>{oauthRecovery === "legacy_identity_unknown" ? "Add new connection" : "Try Google again"}</Button> : null}
               <Button variant="ghost" onClick={() => router.replace(`/dashboard/connections?workspace=${encodeURIComponent(workspaceId)}`)}>Dismiss</Button>
             </div>
           </Status>

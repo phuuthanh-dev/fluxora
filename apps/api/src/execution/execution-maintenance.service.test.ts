@@ -21,6 +21,21 @@ test("maintenance marks every expired running execution with a lease failure", a
   assert.ok(calls.every((call) => call.code === "EXECUTION_LEASE_EXPIRED" && call.before === now));
 });
 
+test("a second lease scan does not overlap one already in progress", async () => {
+  let unblock: (() => void) | undefined;
+  const wait = new Promise<void>((resolve) => { unblock = resolve; });
+  let scans = 0;
+  const service = new ExecutionMaintenanceService(
+    { execution: { findMany: async () => { scans++; await wait; return [{ id: "expired" }]; } } } as never,
+    { failFromMaintenance: async () => true } as never,
+  );
+  const first = service.failExpiredLeases();
+  assert.equal(await service.failExpiredLeases(), 0);
+  unblock!();
+  assert.equal(await first, 1);
+  assert.equal(scans, 1);
+});
+
 test("pruning removes old terminal executions and applies a terminal-count ceiling", async () => {
   const deleted: unknown[] = [];
   const previousMaxCount = process.env.EXECUTION_RETENTION_MAX_COUNT;

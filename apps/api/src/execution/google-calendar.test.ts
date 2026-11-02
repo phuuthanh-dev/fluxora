@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { redactValue } from "./redaction";
 import test from "node:test";
 import { createCalendarEvent, executeGoogleCalendar, executeGoogleCalendarAvailability, executeGoogleCalendarCreate, executeGoogleCalendarEvent, listCalendarEvents } from "./google-calendar";
 
@@ -17,6 +18,8 @@ test("calendar list calls the fixed provider with read-only parameters and bound
   assert.equal(result.events[0]?.start, "2030-01-01");
   assert.equal(result.hasMore, true);
   assert.equal(result.nextPageToken, "next");
+  assert.equal((redactValue(result) as { nextPageToken: string }).nextPageToken, "next");
+  await assert.rejects(listCalendarEvents("synthetic-token", "primary", 1, async () => Response.json({ items: [], nextPageToken: "cursor-synthetic-token" }) as never), /invalid continuation token/);
   assert.equal(result.timeMin, "2029-12-01T00:00:00.000Z");
   assert.ok(!JSON.stringify(result).includes("synthetic-token"));
 });

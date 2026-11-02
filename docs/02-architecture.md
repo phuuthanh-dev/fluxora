@@ -30,6 +30,10 @@ adapters follow this boundary. Existing Calendar reconciliation and MongoDB/Trel
 write guards remain. This is not an exactly-once guarantee; a manual retry is a
 new owner decision after checking provider state.
 
+Local follow-up, pending validation: Drive uploads and Sheets writes request
+manual redirect handling. A 3xx response is treated as an uncertain write and
+is not replayed automatically, preventing 307/308 from forwarding the body.
+
 SMTP success requires complete, consistent acceptance for the intended envelope.
 `delivered: true` remains a legacy submission-accepted flag, with additive
 `submissionStatus: "accepted"`, `acceptedCount` and `deliveryConfirmed: false`.
@@ -43,7 +47,9 @@ stream and fail; no truncation is silently persisted as a complete response.
 Unreadable write receipts never justify replay. Existing workflow JSON, successful
 output keys and immutable versions are preserved; the retry change is a runtime
 safety correction, not a graph/schema migration. AI request-cost policy, durable
-Retry-After handling, registry/versioning and pagination remain separate backlog.
+Retry-After handling, registry/versioning and pagination are tracked separately;
+their current implementation and verification state is recorded in
+`docs/37-node-expansion-audit.md`.
 
 MongoDB uses a dedicated workspace credential and direct TLS adapter. Every
 socket uses guarded DNS lookup to reject private, loopback, link-local and
@@ -112,6 +118,35 @@ infra: Docker Compose, deployment scripts, and Nginx templates for the VPS runti
 ## Workflow model
 
 `Workflow` owns metadata and current draft pointer. `WorkflowVersion` stores the graph snapshot as JSONB and is immutable once published. An `Execution` references `workflowVersionId`; a `NodeExecution` references `executionId` and `nodeId`.
+
+Nodes may carry an explicit `nodeVersion`; the current supported node version is
+v1. Historical PostgreSQL and Supabase select types preserve their original
+`SELECT *`, limit, credential identity, ignored extra config and `{ rows, count }`
+output. New selections have distinct types `action.postgres.select.v2` and
+`action.supabase.select.v2`; they apply selection fields and strict validation.
+The editor upgrades a draft only after explicit consent, keeping all config;
+previously ignored fields take effect and unsupported fields may need correction.
+Published graphs and historical execution versions are not rewritten. A worker
+with the 3c9ac35 parser and its matching type registry rejects a graph containing
+the new types before executing any graph node. This does not guarantee job
+availability: an old worker can fail the job rather than defer it. The guarantee
+does not apply to an old parser paired with a newer shared registry, or to
+previously stored graphs that used the old types with `nodeVersion: 2`. Rollout,
+package pairing and rollback must be reviewed separately; see the integration
+handoff.
+
+The existing Drive, Gmail read, Notion page search, Sentry issues and Vercel
+deployments types likewise keep their original first-page requests and output.
+The distinct `.v2` types accept the new continuation fields. New nodes use v2;
+upgrades require an explicit draft action and retain the complete config. A saved
+cursor which was previously ignored can change results or fail after upgrade.
+Drive v2 also retains upload and download operations and existing write safety.
+Provider cursor redaction, bounded responses and write-retry protections remain
+independent of this compatibility boundary. Runtime helpers called directly
+without a selector retain their existing paginated defaults; the graph dispatcher
+explicitly chooses the legacy or v2 path based on node type.
+ Node branch kinds come from the shared contracts
+package for both API graph validation and editor handles.
 
 Node configuration must be validated twice: once in the web editor for feedback and once in the API/worker as the trust boundary.
 
@@ -415,3 +450,26 @@ marked `DRAFT` are skipped before fetching message content: Gmail can remove a
 draft when it is sent. A missing non-draft message still requires review. Delivery
 receipts currently have no automatic retention cleanup. Polling is not instant; Pub/Sub
 push and real-mailbox qualification remain separate work.
+
+
+### Google Drive pagination (NX-02 draft)
+
+The new `action.google-drive.v2` list and search operations return `operation`
+and `files` plus `nextPageToken` (null when absent). The legacy
+`action.google-drive` retains its old first-page request and output. Each v2
+request asks Drive for at most 100 files; oversized pages and malformed or
+over-1,024-character continuation tokens fail rather than silently dropping
+files or cursors. The bounded provider response reader remains in use.
+
+In the inspector, changing the connection, operation or query clears a saved
+page token. A token supplied via an expression or an imported/API-edited graph
+must still be paired by the caller with the same connection, operation and
+query: the opaque Drive token carries no locally verifiable context binding.
+Google may reject expired tokens; clear and restart from page one. Concurrent
+file changes can alter later pages. The reset does not rewrite published graph
+versions. Validated top-level Drive output cursors are preserved in execution
+history for continuation; input tokens and nested token fields remain redacted.
+Gmail and Calendar list adapters likewise mark their validated top-level
+continuation output for persistence; arbitrary or nested token fields remain
+redacted. Tokens matching the current provider access token are rejected.
+These changes have not been tested or qualified against a live provider.

@@ -1,10 +1,11 @@
 import type { Edge, Node } from "@xyflow/react";
-import type { WorkflowEdgeKind, WorkflowNodeCategory, WorkflowNodeType } from "@workflow/contracts";
+import { currentWorkflowNodeVersion, workflowNodeOutputKinds, type WorkflowEdgeKind, type WorkflowNodeCategory, type WorkflowNodeType } from "@workflow/contracts";
 import type { CredentialProvider } from "../credentials/credential-types";
 import type { NodeIconName } from "./node-icon";
 
 export type WorkflowNodeData = {
   nodeType: WorkflowNodeType;
+  nodeVersion?: number;
   label: string;
   description: string;
   category: WorkflowNodeCategory;
@@ -55,15 +56,16 @@ export type NodeDefinition = {
   aliases?: string[];
   icon: NodeIconName;
   available: boolean;
+  hiddenFromLibrary?: boolean;
   defaultConfig: Record<string, unknown>;
   configurationFields?: NodeConfigurationField[];
 };
 
 export type NodeSelectOption = { value: string; label: string };
 type NodeFieldVisibilityValue = string | number | boolean;
-export type NodeFieldVisibility = { visibleWhen?: { key: string; equals: NodeFieldVisibilityValue | readonly NodeFieldVisibilityValue[] } };
+export type NodeFieldVisibility = { visibleWhen?: { key: string; equals: NodeFieldVisibilityValue | readonly NodeFieldVisibilityValue[]; fallback?: NodeFieldVisibilityValue } };
 
-export type NodeResource = "github-repository" | "google-file" | "google-spreadsheet" | "google-calendar" | "google-calendar-event" | "gmail-label" | "gemini-model" | "openai-model" | "google-chat-space" | "mongodb-database" | "mongodb-collection" | "postgres-schema" | "postgres-table" | "trello-board" | "trello-list" | "sentry-organization" | "sentry-project" | "vercel-team" | "vercel-project" | "supabase-table";
+export type NodeResource = "github-issue" | "github-pull-request" | "github-repository" | "google-file" | "google-spreadsheet" | "google-calendar" | "google-calendar-event" | "gmail-label" | "gmail-draft" | "gemini-model" | "openai-model" | "google-chat-space" | "mongodb-database" | "mongodb-collection" | "postgres-schema" | "postgres-table" | "trello-board" | "trello-list" | "trello-card" | "notion-page" | "sentry-organization" | "sentry-project" | "sentry-installation" | "vercel-team" | "vercel-project" | "supabase-table";
 
 /**
  * Declarative fields that the inspector can render without growing another
@@ -73,12 +75,13 @@ export type NodeResource = "github-repository" | "google-file" | "google-spreads
 export type NodeConfigurationField =
   | ({ kind: "credential"; key: string; label: string; providers: CredentialProvider[]; optional?: boolean } & NodeFieldVisibility)
   | ({ kind: "boolean"; key: string; label: string } & NodeFieldVisibility)
-  | ({ kind: "text" | "textarea"; key: string; label: string } & NodeFieldVisibility)
+  | ({ kind: "text" | "textarea"; key: string; label: string; advanced?: { summary: string; help: string } } & NodeFieldVisibility)
   | ({ kind: "datetime"; key: string; label: string } & NodeFieldVisibility)
   | ({ kind: "number"; key: string; label: string; fallbackValue: number } & NodeFieldVisibility)
   | ({ kind: "select"; key: string; label: string; options: NodeSelectOption[] } & NodeFieldVisibility)
   | ({ kind: "key-value"; key: string; label: string; keyPlaceholder?: string; valuePlaceholder?: string } & NodeFieldVisibility)
   | ({ kind: "table"; key: string; label: string } & NodeFieldVisibility)
+  | ({ kind: "structured-output"; key: string; label: string } & NodeFieldVisibility)
   | ({ kind: "mongo-filter"; key: string; label: string } & NodeFieldVisibility)
   | ({ kind: "resource"; key: string; label: string; resource: NodeResource; credentialKey: string; dependencyKey?: string; placeholder?: string } & NodeFieldVisibility);
 
@@ -143,12 +146,7 @@ export const nodeLibraryGroups: Array<{ id: NodeLibraryGroup; label: string; des
   { id: "approval", label: "Human in the loop", description: "Pause and wait for a decision" },
 ];
 
-export function outputKindsForNodeType(nodeType: WorkflowNodeType): WorkflowEdgeKind[] {
-  if (nodeType === "condition.if") return ["true", "false"];
-  if (nodeType === "condition.switch") return ["case", "default"];
-  if (nodeType.startsWith("trigger.")) return ["success"];
-  return ["success", "error"];
-}
+export const outputKindsForNodeType = workflowNodeOutputKinds;
 
 export function edgeKindFromHandle(handle: string | null | undefined): WorkflowEdgeKind | null {
   return handle && ["success", "error", "true", "false", "case", "default"].includes(handle)
@@ -157,6 +155,48 @@ export function edgeKindFromHandle(handle: string | null | undefined): WorkflowE
 }
 
 export const nodeCatalog: NodeDefinition[] = [
+  {
+    type: "trigger.sentry.issue-created", label: "Sentry issue created", description: "Start when a Sentry custom integration reports a new issue.",
+    category: "trigger", libraryGroup: "developer-data", appId: "sentry", operationId: "issue-created", operationLabel: "Issue created", operationKind: "trigger", icon: "sentry", available: true,
+    defaultConfig: { credentialId: "", organization: "", project: "", installationId: "" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Sentry connection (for discovery)", providers: ["SENTRY"], optional: true },
+      { kind: "resource", key: "organization", label: "Organization", resource: "sentry-organization", credentialKey: "credentialId", placeholder: "Search organizations" },
+      { kind: "resource", key: "project", label: "Project", resource: "sentry-project", credentialKey: "credentialId", dependencyKey: "organization", placeholder: "Search projects" },
+      { kind: "resource", key: "installationId", label: "Custom integration installation", resource: "sentry-installation", credentialKey: "credentialId", dependencyKey: "organization", placeholder: "Search installations" },
+    ],
+  },
+  {
+    type: "trigger.trello.board-action", label: "Trello board event", description: "Start when a watched Trello board changes.",
+    category: "trigger", libraryGroup: "productivity", appId: "trello", operationId: "board-event", operationLabel: "Board event", operationKind: "trigger", icon: "trello", available: true,
+    defaultConfig: { credentialId: "", boardId: "", action: "all" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Trello connection (for discovery)", providers: ["TRELLO"], optional: true },
+      { kind: "resource", key: "boardId", label: "Board", resource: "trello-board", credentialKey: "credentialId", placeholder: "Search boards" },
+      { kind: "select", key: "action", label: "Event", options: [{ value: "all", label: "All board actions" }, { value: "createCard", label: "Card created" }, { value: "updateCard", label: "Card updated" }, { value: "commentCard", label: "Comment added" }, { value: "deleteCard", label: "Card deleted" }] },
+    ],
+  },
+  {
+    type: "trigger.vercel.deployment", label: "Vercel deployment event", description: "Start when a configured Vercel account webhook reports a deployment event.",
+    category: "trigger", libraryGroup: "developer-data", appId: "vercel", operationId: "deployment-event", operationLabel: "Deployment event", operationKind: "trigger", icon: "vercel", available: true,
+    defaultConfig: { credentialId: "", team: "personal", project: "", event: "deployment.created" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Vercel connection (for discovery)", providers: ["VERCEL"], optional: true },
+      { kind: "resource", key: "team", label: "Account or team", resource: "vercel-team", credentialKey: "credentialId", placeholder: "Search teams" },
+      { kind: "resource", key: "project", label: "Project", resource: "vercel-project", credentialKey: "credentialId", dependencyKey: "team", placeholder: "Search projects" },
+      { kind: "select", key: "event", label: "Event", options: [{ value: "deployment.created", label: "Deployment created" }, { value: "deployment.succeeded", label: "Deployment succeeded (after checks)" }, { value: "deployment.error", label: "Deployment failed" }, { value: "deployment.canceled", label: "Deployment canceled" }, { value: "deployment.ready", label: "Deployment ready (integration checks)" }] },
+    ],
+  },
+  {
+    type: "trigger.telegram.update", label: "Telegram update", description: "Start a workflow when a bot receives a supported update.",
+    category: "trigger", libraryGroup: "communication", appId: "telegram", operationId: "receive-update", operationLabel: "Receive update", operationKind: "trigger", icon: "telegram", available: true,
+    defaultConfig: { event: "message", chatMode: "allowlist", allowedChatIds: "" },
+    configurationFields: [
+      { kind: "select", key: "event", label: "Event", options: [{ value: "message", label: "Message" }, { value: "channel_post", label: "Channel post" }, { value: "callback_query", label: "Button callback" }, { value: "all", label: "All supported updates" }] },
+      { kind: "select", key: "chatMode", label: "Allowed chats", options: [{ value: "allowlist", label: "Only listed chat IDs" }, { value: "all", label: "All chats that reach this bot" }] },
+      { kind: "text", key: "allowedChatIds", label: "Allowed chat IDs (comma-separated)", visibleWhen: { key: "chatMode", equals: "allowlist" } },
+    ],
+  },
   {
     type: "trigger.manual",
     label: "Manual trigger",
@@ -197,9 +237,18 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { path: "steam-daily-report", secretRequired: true },
   },
   {
-    type: "trigger.uptime-kuma.alert", label: "Uptime Kuma alert", description: "Start when an Uptime Kuma monitor sends an alert.",
+    type: "trigger.uptime-kuma.alert", hiddenFromLibrary: true, label: "Uptime Kuma alert", description: "Start when an Uptime Kuma monitor sends an alert.",
     category: "trigger", libraryGroup: "developer-data", appId: "uptime-kuma", operationId: "monitor-alert", operationLabel: "Monitor alert", operationKind: "trigger", icon: "uptime-kuma", available: true,
     defaultConfig: { path: "uptime-kuma-alert", secretRequired: true },
+  },
+  {
+    type: "trigger.uptime-kuma.alert.v2", label: "Uptime Kuma alert", description: "Start when an Uptime Kuma monitor sends an alert.",
+    category: "trigger", libraryGroup: "developer-data", appId: "uptime-kuma", operationId: "monitor-alert", operationLabel: "Monitor alert", operationKind: "trigger", icon: "uptime-kuma", available: true,
+    defaultConfig: { path: "uptime-kuma-alert", secretRequired: true, monitorId: "", statusFilter: "any" },
+    configurationFields: [
+      { kind: "text", key: "monitorId", label: "Monitor ID (optional)" },
+      { kind: "select", key: "statusFilter", label: "Alert status", options: [{ value: "any", label: "All statuses" }, { value: "0", label: "Down" }, { value: "1", label: "Up" }, { value: "2", label: "Pending" }, { value: "3", label: "Maintenance" }] },
+    ],
   },
   {
     type: "trigger.github.issue-opened",
@@ -375,7 +424,17 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { credentialId: "", destinationType: "dm", chatId: "", messageThreadId: "", text: "", parseMode: "Markdown" },
   },
   {
-    type: "action.google-drive",
+    type: "action.telegram.reply", label: "Telegram reply", description: "Reply to an existing Telegram message.",
+    category: "action", libraryGroup: "communication", appId: "telegram", operationId: "reply", operationLabel: "Reply to message", operationKind: "action", icon: "telegram", available: true,
+    defaultConfig: { credentialId: "", destinationType: "dm", chatId: "", messageId: "", messageThreadId: "", text: "", parseMode: "" },
+  },
+  {
+    type: "action.telegram.edit-message", label: "Telegram edit message", description: "Edit a message the bot is allowed to change.",
+    category: "action", libraryGroup: "communication", appId: "telegram", operationId: "edit-message", operationLabel: "Edit message text", operationKind: "action", icon: "telegram", available: true,
+    defaultConfig: { credentialId: "", destinationType: "dm", chatId: "", messageId: "", text: "", parseMode: "" },
+  },
+  {
+    type: "action.google-drive", hiddenFromLibrary: true,
     label: "Google Drive",
     description: "Search, read, or upload a file.",
     category: "action",
@@ -396,6 +455,35 @@ export const nodeCatalog: NodeDefinition[] = [
         { value: "downloadText", label: "Download text file" },
       ] },
       { kind: "text", key: "query", label: "Search query", visibleWhen: { key: "operation", equals: "search" } },
+      { kind: "resource", key: "fileId", label: "Text file", resource: "google-file", credentialKey: "credentialId", placeholder: "Search loaded text files", visibleWhen: { key: "operation", equals: "downloadText" } },
+      { kind: "text", key: "name", label: "File name", visibleWhen: { key: "operation", equals: "uploadText" } },
+      { kind: "textarea", key: "text", label: "Text content", visibleWhen: { key: "operation", equals: "uploadText" } },
+    ],
+  },
+
+  {
+    type: "action.google-drive.v2",
+    label: "Google Drive",
+    description: "Search, read, or upload a file.",
+    category: "action",
+    libraryGroup: "google-workspace",
+    appId: "google-drive",
+    operationId: "manage-files",
+    operationLabel: "Manage files",
+    operationKind: "action",
+    icon: "google-drive",
+    available: true,
+    defaultConfig: { credentialId: "", operation: "search", query: "", fileId: "", name: "daily-report.txt", text: "" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Google credential", providers: ["GOOGLE"] },
+      { kind: "select", key: "operation", label: "Operation", options: [
+        { value: "list", label: "List files" },
+        { value: "search", label: "Search files" },
+        { value: "uploadText", label: "Upload text file" },
+        { value: "downloadText", label: "Download text file" },
+      ] },
+      { kind: "text", key: "query", label: "Search query", visibleWhen: { key: "operation", equals: "search" } },
+      { kind: "text", key: "pageToken", label: "Continuation token", visibleWhen: { key: "operation", equals: ["list", "search"], fallback: "list" }, advanced: { summary: "Advanced pagination", help: "Use nextPageToken from the previous output with the same connection, operation and query. Each page contains up to 100 files. If Drive rejects the token, clear it and start again; results can change between pages." } },
       { kind: "resource", key: "fileId", label: "Text file", resource: "google-file", credentialKey: "credentialId", placeholder: "Search loaded text files", visibleWhen: { key: "operation", equals: "downloadText" } },
       { kind: "text", key: "name", label: "File name", visibleWhen: { key: "operation", equals: "uploadText" } },
       { kind: "textarea", key: "text", label: "Text content", visibleWhen: { key: "operation", equals: "uploadText" } },
@@ -495,7 +583,7 @@ export const nodeCatalog: NodeDefinition[] = [
     ],
   },
   {
-    type: "action.google-chat.oauth",
+    type: "action.google-chat.oauth", hiddenFromLibrary: true,
     label: "Google Chat OAuth",
     description: "Send a Google Chat message with OAuth.",
     category: "action",
@@ -511,6 +599,38 @@ export const nodeCatalog: NodeDefinition[] = [
       { kind: "credential", key: "credentialId", label: "Google Chat credential", providers: ["GOOGLE_CHAT_OAUTH"] },
       { kind: "resource", key: "space", label: "Space", resource: "google-chat-space", credentialKey: "credentialId", placeholder: "Search spaces" },
       { kind: "textarea", key: "message", label: "Message template" },
+    ],
+  },
+  {
+    type: "action.google-chat.oauth.v2", label: "Google Chat OAuth", description: "Send a Google Chat message and return its thread when available.",
+    category: "action", libraryGroup: "google-workspace", appId: "google-chat", operationId: "send-oauth-message", operationLabel: "Send OAuth message", operationKind: "action", icon: "google-chat", available: true,
+    defaultConfig: { credentialId: "", space: "", message: "" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Google Chat credential", providers: ["GOOGLE_CHAT_OAUTH"] },
+      { kind: "resource", key: "space", label: "Space", resource: "google-chat-space", credentialKey: "credentialId", placeholder: "Search spaces" },
+      { kind: "textarea", key: "message", label: "Message template" },
+    ],
+  },
+  {
+    type: "action.google-chat.reply", label: "Google Chat reply", description: "Reply to an existing Google Chat thread.",
+    category: "action", libraryGroup: "google-workspace", appId: "google-chat", operationId: "reply-thread", operationLabel: "Reply to thread", operationKind: "action", icon: "google-chat", available: true,
+    defaultConfig: { credentialId: "", space: "", threadName: "", message: "" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Google Chat credential", providers: ["GOOGLE_CHAT_OAUTH"] },
+      { kind: "resource", key: "space", label: "Space", resource: "google-chat-space", credentialKey: "credentialId", placeholder: "Search spaces" },
+      { kind: "text", key: "threadName", label: "Thread resource name" },
+      { kind: "textarea", key: "message", label: "Message template" },
+    ],
+  },
+  {
+    type: "action.google-chat.edit-message", label: "Edit Google Chat message", description: "Update the text of an existing Google Chat message.",
+    category: "action", libraryGroup: "google-workspace", appId: "google-chat", operationId: "edit-message", operationLabel: "Edit message", operationKind: "action", icon: "google-chat", available: true,
+    defaultConfig: { credentialId: "", space: "", messageName: "", message: "" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Google Chat credential", providers: ["GOOGLE_CHAT_OAUTH"] },
+      { kind: "resource", key: "space", label: "Space", resource: "google-chat-space", credentialKey: "credentialId", placeholder: "Search spaces" },
+      { kind: "text", key: "messageName", label: "Message resource name or expression" },
+      { kind: "textarea", key: "message", label: "New message text" },
     ],
   },
   {
@@ -530,6 +650,7 @@ export const nodeCatalog: NodeDefinition[] = [
       { kind: "credential", key: "credentialId", label: "OpenAI credential", providers: ["OPENAI"] },
       { kind: "resource", key: "model", label: "Model", resource: "openai-model", credentialKey: "credentialId", placeholder: "Search OpenAI models" },
       { kind: "textarea", key: "prompt", label: "Prompt" },
+      { kind: "structured-output", key: "outputSchema", label: "Structured output" },
       { kind: "number", key: "maxOutputTokens", label: "Max output tokens", fallbackValue: 1024 },
       { kind: "number", key: "timeoutMs", label: "Timeout (ms)", fallbackValue: 30000 },
     ],
@@ -551,6 +672,7 @@ export const nodeCatalog: NodeDefinition[] = [
       { kind: "credential", key: "credentialId", label: "Gemini credential", providers: ["GEMINI"] },
       { kind: "resource", key: "model", label: "Model", resource: "gemini-model", credentialKey: "credentialId", placeholder: "Search Gemini models" },
       { kind: "textarea", key: "prompt", label: "Prompt" },
+      { kind: "structured-output", key: "outputSchema", label: "Structured output" },
       { kind: "number", key: "maxOutputTokens", label: "Max output tokens", fallbackValue: 1024 },
       { kind: "number", key: "timeoutMs", label: "Timeout (ms)", fallbackValue: 30000 },
     ],
@@ -574,7 +696,20 @@ export const nodeCatalog: NodeDefinition[] = [
     ],
   },
   {
-    type: "action.gmail.read",
+    type: "trigger.rss.new-item",
+    label: "RSS new item",
+    description: "Check a public RSS or Atom feed for new items.",
+    category: "trigger", libraryGroup: "start", appId: "rss",
+    operationId: "new-item", operationLabel: "New item", operationKind: "trigger",
+    icon: "rss", available: true,
+    defaultConfig: { url: "", pollMinutes: "5" },
+    configurationFields: [
+      { kind: "text", key: "url", label: "Public feed URL" },
+      { kind: "select", key: "pollMinutes", label: "Check for new items", options: [{ value: "1", label: "Every minute" }, { value: "5", label: "Every 5 minutes" }, { value: "15", label: "Every 15 minutes" }, { value: "60", label: "Every hour" }] },
+    ],
+  },
+  {
+    type: "action.gmail.read", hiddenFromLibrary: true,
     label: "Gmail messages",
     description: "Read recent messages without changing your inbox.",
     category: "action",
@@ -593,6 +728,63 @@ export const nodeCatalog: NodeDefinition[] = [
       { kind: "number", key: "limit", label: "Maximum messages (1–10)", fallbackValue: 5 },
     ],
   },
+
+  {
+    type: "action.gmail.read.v2",
+    label: "Gmail messages",
+    description: "Read recent messages without changing your inbox.",
+    category: "action",
+    libraryGroup: "communication",
+    appId: "gmail",
+    operationId: "read-messages",
+    operationLabel: "Read messages",
+    operationKind: "search",
+    icon: "gmail",
+    available: true,
+    defaultConfig: { credentialId: "", mailbox: "inbox", query: "", limit: 5 },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Gmail credential", providers: ["GMAIL"] },
+      { kind: "select", key: "mailbox", label: "Messages", options: [{ value: "inbox", label: "Inbox" }, { value: "unread", label: "Unread inbox" }, { value: "all", label: "All mail" }] },
+      { kind: "text", key: "query", label: "Additional Gmail search (optional)" },
+      { kind: "number", key: "limit", label: "Maximum messages (1–10)", fallbackValue: 5 },
+      { kind: "text", key: "pageToken", label: "Continuation token", advanced: { summary: "Continue a previous page", help: "Use nextPageToken from the previous output with the same connection, mailbox and search." } },
+    ],
+  },
+  {
+    type: "action.gmail.get-message",
+    label: "Get Gmail message",
+    description: "Read one message by ID.",
+    category: "action", libraryGroup: "communication", appId: "gmail",
+    operationId: "get-message", operationLabel: "Get message", operationKind: "search",
+    icon: "gmail", available: true,
+    defaultConfig: { credentialId: "", messageId: "" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Gmail connection", providers: ["GMAIL"] },
+      { kind: "text", key: "messageId", label: "Message ID or expression" },
+    ],
+  },
+  ...(["send", "reply", "draft", "updateDraft", "label"] as const).map((operation): NodeDefinition => ({
+    type: operation === "draft" ? "action.gmail.create-draft" : operation === "updateDraft" ? "action.gmail.update-draft" : operation === "label" ? "action.gmail.modify-label" : operation === "send" ? "action.gmail.send" : "action.gmail.reply",
+    label: operation === "send" ? "Send Gmail message" : operation === "reply" ? "Reply to Gmail message" : operation === "draft" ? "Create Gmail draft" : operation === "updateDraft" ? "Replace Gmail draft" : "Change Gmail message label",
+    description: operation === "send" ? "Send a message through the selected Gmail account." : operation === "reply" ? "Reply in the original message thread." : operation === "draft" ? "Create a draft without sending it." : operation === "updateDraft" ? "Replace an existing draft with a new message." : "Add or remove one label on a message.",
+    category: "action", libraryGroup: "communication", appId: "gmail", operationId: operation === "draft" ? "create-draft" : operation === "updateDraft" ? "update-draft" : operation === "label" ? "modify-label" : operation, operationLabel: operation === "send" ? "Send message" : operation === "reply" ? "Reply to message" : operation === "draft" ? "Create draft" : operation === "updateDraft" ? "Replace draft" : "Add or remove label", operationKind: "action", icon: "gmail", available: true,
+    defaultConfig: operation === "label" ? { credentialId: "", messageId: "", labelId: "", labelAction: "add" } : { credentialId: "", ...(operation === "reply" ? { messageId: "" } : { subject: "" }), ...(operation === "updateDraft" ? { draftId: "" } : {}), to: "", cc: "", bcc: "", text: "" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Gmail connection", providers: ["GMAIL"] },
+      ...((operation === "reply" || operation === "label") ? [{ kind: "text", key: "messageId", label: "Message ID or expression" } as NodeConfigurationField] : []),
+      ...(operation === "updateDraft" ? [{ kind: "resource", key: "draftId", label: "Draft", resource: "gmail-draft", credentialKey: "credentialId", placeholder: "Search drafts" } as NodeConfigurationField] : []),
+      ...(operation === "label" ? [
+        { kind: "resource", key: "labelId", label: "Label", resource: "gmail-label", credentialKey: "credentialId", placeholder: "Search labels" } as NodeConfigurationField,
+        { kind: "select", key: "labelAction", label: "Action", options: [{ value: "add", label: "Add label" }, { value: "remove", label: "Remove label" }] } as NodeConfigurationField,
+      ] : [
+        { kind: "text", key: "to", label: "To (comma-separated)" } as NodeConfigurationField,
+        { kind: "text", key: "cc", label: "Cc (optional)" } as NodeConfigurationField,
+        { kind: "text", key: "bcc", label: "Bcc (optional)" } as NodeConfigurationField,
+        ...(operation !== "reply" ? [{ kind: "text", key: "subject", label: "Subject" } as NodeConfigurationField] : []),
+        { kind: "textarea", key: "text", label: "Message text" } as NodeConfigurationField,
+      ]),
+    ],
+  })),
   {
     type: "action.google-calendar.list-events",
     label: "Google Calendar events",
@@ -606,7 +798,7 @@ export const nodeCatalog: NodeDefinition[] = [
       { kind: "resource", key: "calendarId", label: "Calendar", resource: "google-calendar", credentialKey: "credentialId", placeholder: "Search calendars" },
       { kind: "number", key: "limit", label: "Maximum events (1–50)", fallbackValue: 10 },
       { kind: "datetime", key: "timeMin", label: "Start after (optional)" },
-      { kind: "text", key: "pageToken", label: "Next page token (reuse original start and limit)" },
+      { kind: "text", key: "pageToken", label: "Next page token (reuse original start and limit)", advanced: { summary: "Advanced pagination", help: "Use the token and start time from the previous output. Keep the same calendar and limit." } },
     ],
   },
   {
@@ -677,7 +869,28 @@ export const nodeCatalog: NodeDefinition[] = [
     ],
   },
   {
-    type: "action.postgres.select",
+    type: "action.postgres.select", hiddenFromLibrary: true,
+    label: "PostgreSQL rows",
+    description: "Read a bounded set of rows from a table.",
+    category: "action",
+    libraryGroup: "developer-data",
+    appId: "postgres",
+    operationId: "select-rows",
+    operationLabel: "Select rows",
+    operationKind: "search",
+    icon: "postgres",
+    available: true,
+    defaultConfig: { credentialId: "", schema: "public", table: "", limit: 20 },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "PostgreSQL credential", providers: ["POSTGRES"] },
+      { kind: "resource", key: "schema", label: "Schema", resource: "postgres-schema", credentialKey: "credentialId", placeholder: "Search schemas" },
+      { kind: "resource", key: "table", label: "Table", resource: "postgres-table", credentialKey: "credentialId", dependencyKey: "schema", placeholder: "Search tables" },
+      { kind: "number", key: "limit", label: "Maximum rows (1–100)", fallbackValue: 20 },
+    ],
+  },
+
+  {
+    type: "action.postgres.select.v2",
     label: "PostgreSQL rows",
     description: "Read a bounded set of rows from a table.",
     category: "action",
@@ -717,8 +930,35 @@ export const nodeCatalog: NodeDefinition[] = [
       { kind: "textarea", key: "description", label: "Description (optional)" },
     ],
   },
+  ...([
+    ["action.trello.get-card", "Get card", "get"],
+    ["action.trello.update-card", "Update card", "update"],
+    ["action.trello.move-card", "Move card", "move"],
+    ["action.trello.archive-card", "Archive card", "archive"],
+    ["action.trello.list-cards", "List cards", "list"],
+    ["action.trello.find-cards", "Find cards", "find"],
+  ] as const).map(([type, label, operation]): NodeDefinition => {
+    const collection = operation === "list" || operation === "find";
+    const fields: NodeConfigurationField[] = [
+      { kind: "credential", key: "credentialId", label: "Trello connection", providers: ["TRELLO"] },
+      { kind: "resource", key: collection ? "boardId" : "sourceBoardId", label: collection ? "Board" : "Source board", resource: "trello-board", credentialKey: "credentialId", placeholder: "Search boards" },
+    ];
+    if (!collection) fields.push({ kind: "resource", key: "cardId", label: "Card", resource: "trello-card", credentialKey: "credentialId", dependencyKey: "sourceBoardId", placeholder: "Search cards" });
+    if (operation === "move") fields.push(
+      { kind: "resource", key: "boardId", label: "Destination board", resource: "trello-board", credentialKey: "credentialId", placeholder: "Search boards" },
+      { kind: "resource", key: "listId", label: "Destination list", resource: "trello-list", credentialKey: "credentialId", dependencyKey: "boardId", placeholder: "Search lists" },
+    );
+    if (operation === "update") fields.push({ kind: "text", key: "title", label: "New title (optional)" }, { kind: "textarea", key: "description", label: "New description (optional)" });
+    if (operation === "find") fields.push({ kind: "text", key: "query", label: "Search query" });
+    if (collection) fields.push({ kind: "number", key: "limit", label: "Maximum cards (1–50)", fallbackValue: 20 });
+    if (operation === "list") fields.push(
+      { kind: "select", key: "filter", label: "Card status", options: [{ value: "open", label: "Open" }, { value: "closed", label: "Archived" }, { value: "all", label: "All" }] },
+      { kind: "text", key: "before", label: "Continue before card ID (optional)", advanced: { summary: "Advanced pagination", help: "Use nextBefore from the previous output. Cards created in the same second at the boundary may be missed." } },
+    );
+    return { type, label: `Trello · ${label}`, description: `${label} in Trello.`, category: "action", libraryGroup: "productivity", appId: "trello", operationId: type.slice("action.trello.".length), operationLabel: label, operationKind: collection || operation === "get" ? "search" : "action", icon: "trello", available: true, defaultConfig: { credentialId: "", ...(collection ? { boardId: "", limit: 20 } : { sourceBoardId: "", cardId: "" }), ...(operation === "move" ? { boardId: "", listId: "" } : {}), ...(operation === "list" ? { filter: "open" } : {}), ...(operation === "find" ? { query: "" } : {}) }, configurationFields: fields };
+  }),
   {
-    type: "action.sentry.list-issues", label: "Sentry issues", description: "Read issues from a Sentry project.",
+    type: "action.sentry.list-issues", hiddenFromLibrary: true, label: "Sentry issues", description: "Read issues from a Sentry project.",
     category: "action", libraryGroup: "developer-data", appId: "sentry", operationId: "list-issues", operationLabel: "List issues", operationKind: "search", icon: "sentry", available: true,
     defaultConfig: { credentialId: "", organization: "", project: "", status: "unresolved", limit: 20 },
     configurationFields: [
@@ -729,8 +969,22 @@ export const nodeCatalog: NodeDefinition[] = [
       { kind: "number", key: "limit", label: "Maximum issues (1–100)", fallbackValue: 20 },
     ],
   },
+
   {
-    type: "action.vercel.list-deployments", label: "Vercel deployments", description: "Read recent deployments for a Vercel project.",
+    type: "action.sentry.list-issues.v2", label: "Sentry issues", description: "Read issues from a Sentry project.",
+    category: "action", libraryGroup: "developer-data", appId: "sentry", operationId: "list-issues", operationLabel: "List issues", operationKind: "search", icon: "sentry", available: true,
+    defaultConfig: { credentialId: "", organization: "", project: "", status: "unresolved", limit: 20 },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Sentry connection", providers: ["SENTRY"] },
+      { kind: "resource", key: "organization", label: "Organization", resource: "sentry-organization", credentialKey: "credentialId", placeholder: "Search organizations" },
+      { kind: "resource", key: "project", label: "Project", resource: "sentry-project", credentialKey: "credentialId", dependencyKey: "organization", placeholder: "Search projects" },
+      { kind: "select", key: "status", label: "Issue status", options: [{ value: "unresolved", label: "Unresolved" }, { value: "resolved", label: "Resolved" }, { value: "all", label: "All" }] },
+      { kind: "number", key: "limit", label: "Maximum issues (1–100)", fallbackValue: 20 },
+      { kind: "text", key: "cursor", label: "Continuation cursor", advanced: { summary: "Continue a previous page", help: "Use the previous nextCursor with the same organization, project and status. Continuation can be unknown." } },
+    ],
+  },
+  {
+    type: "action.vercel.list-deployments", hiddenFromLibrary: true, label: "Vercel deployments", description: "Read recent deployments for a Vercel project.",
     category: "action", libraryGroup: "developer-data", appId: "vercel", operationId: "list-deployments", operationLabel: "List deployments", operationKind: "search", icon: "vercel", available: true,
     defaultConfig: { credentialId: "", team: "personal", project: "", limit: 20 },
     configurationFields: [
@@ -738,6 +992,40 @@ export const nodeCatalog: NodeDefinition[] = [
       { kind: "resource", key: "team", label: "Account or team", resource: "vercel-team", credentialKey: "credentialId", placeholder: "Search teams" },
       { kind: "resource", key: "project", label: "Project", resource: "vercel-project", credentialKey: "credentialId", dependencyKey: "team", placeholder: "Search projects" },
       { kind: "number", key: "limit", label: "Maximum deployments (1–100)", fallbackValue: 20 },
+    ],
+  },
+
+  {
+    type: "action.vercel.list-deployments.v2", label: "Vercel deployments", description: "Read recent deployments for a Vercel project.",
+    category: "action", libraryGroup: "developer-data", appId: "vercel", operationId: "list-deployments", operationLabel: "List deployments", operationKind: "search", icon: "vercel", available: true,
+    defaultConfig: { credentialId: "", team: "personal", project: "", limit: 20 },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Vercel connection", providers: ["VERCEL"] },
+      { kind: "resource", key: "team", label: "Account or team", resource: "vercel-team", credentialKey: "credentialId", placeholder: "Search teams" },
+      { kind: "resource", key: "project", label: "Project", resource: "vercel-project", credentialKey: "credentialId", dependencyKey: "team", placeholder: "Search projects" },
+      { kind: "number", key: "limit", label: "Maximum deployments (1–100)", fallbackValue: 20 },
+      { kind: "text", key: "cursor", label: "Continuation cursor", advanced: { summary: "Continue a previous page", help: "Use the previous nextCursor with the same account and project. Continuation can be unknown." } },
+    ],
+  },
+  {
+    type: "action.sentry.get-issue", label: "Get Sentry issue", description: "Read a limited view of an issue in the selected project.",
+    category: "action", libraryGroup: "developer-data", appId: "sentry", operationId: "get-issue", operationLabel: "Get issue", operationKind: "action", icon: "sentry", available: true,
+    defaultConfig: { credentialId: "", organization: "", project: "", issueId: "" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Sentry connection", providers: ["SENTRY"] },
+      { kind: "resource", key: "organization", label: "Organization", resource: "sentry-organization", credentialKey: "credentialId", placeholder: "Search organizations" },
+      { kind: "resource", key: "project", label: "Project", resource: "sentry-project", credentialKey: "credentialId", dependencyKey: "organization", placeholder: "Search projects" },
+      { kind: "text", key: "issueId", label: "Numeric issue ID" },
+    ],
+  },
+  {
+    type: "action.vercel.public-deployment-lookup", label: "Look up public deployment", description: "Read a limited deployment view; ownership is not verified.",
+    category: "action", libraryGroup: "developer-data", appId: "vercel", operationId: "public-deployment-lookup", operationLabel: "Look up deployment", operationKind: "action", icon: "vercel", available: true,
+    defaultConfig: { credentialId: "", team: "personal", deploymentId: "" },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Vercel connection", providers: ["VERCEL"] },
+      { kind: "resource", key: "team", label: "Account or team", resource: "vercel-team", credentialKey: "credentialId", placeholder: "Search teams" },
+      { kind: "text", key: "deploymentId", label: "Deployment ID" },
     ],
   },
   {
@@ -752,7 +1040,18 @@ export const nodeCatalog: NodeDefinition[] = [
     ],
   },
   {
-    type: "action.supabase.select", label: "Supabase rows", description: "Read rows from a Supabase public-schema table.",
+    type: "action.supabase.select", hiddenFromLibrary: true, label: "Supabase rows", description: "Read rows from a Supabase public-schema table.",
+    category: "action", libraryGroup: "developer-data", appId: "supabase", operationId: "select-rows", operationLabel: "Select rows", operationKind: "search", icon: "supabase", available: true,
+    defaultConfig: { credentialId: "", table: "", limit: 20 },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Supabase connection", providers: ["SUPABASE"] },
+      { kind: "resource", key: "table", label: "Table", resource: "supabase-table", credentialKey: "credentialId", placeholder: "Search tables" },
+      { kind: "number", key: "limit", label: "Maximum rows (1–100)", fallbackValue: 20 },
+    ],
+  },
+
+  {
+    type: "action.supabase.select.v2", label: "Supabase rows", description: "Read rows from a Supabase public-schema table.",
     category: "action", libraryGroup: "developer-data", appId: "supabase", operationId: "select-rows", operationLabel: "Select rows", operationKind: "search", icon: "supabase", available: true,
     defaultConfig: { credentialId: "", table: "", limit: 20 },
     configurationFields: [
@@ -762,7 +1061,7 @@ export const nodeCatalog: NodeDefinition[] = [
     ],
   },
   {
-    type: "action.notion.search-pages",
+    type: "action.notion.search-pages", hiddenFromLibrary: true,
     label: "Notion pages",
     description: "Find pages shared with your Notion integration.",
     category: "action",
@@ -780,6 +1079,41 @@ export const nodeCatalog: NodeDefinition[] = [
       { kind: "number", key: "pageSize", label: "Maximum pages (1–100)", fallbackValue: 20 },
     ],
   },
+
+  {
+    type: "action.notion.search-pages.v2",
+    label: "Notion pages",
+    description: "Find pages shared with your Notion integration.",
+    category: "action",
+    libraryGroup: "productivity",
+    appId: "notion",
+    operationId: "search-pages",
+    operationLabel: "Search pages",
+    operationKind: "search",
+    icon: "notion",
+    available: true,
+    defaultConfig: { credentialId: "", query: "", pageSize: 20 },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Notion credential", providers: ["NOTION"] },
+      { kind: "text", key: "query", label: "Page title contains (optional)" },
+      { kind: "number", key: "pageSize", label: "Maximum pages (1–100)", fallbackValue: 20 },
+      { kind: "text", key: "cursor", label: "Next cursor (optional)", advanced: { summary: "Advanced pagination", help: "Use nextCursor from the previous Notion search output to continue with the same search." } },
+    ],
+  },
+  ...([
+    ["action.notion.retrieve-page", "Get page", "page"],
+    ["action.notion.list-children", "List page blocks", "children"],
+    ["action.notion.retrieve-property", "Get page property", "property"],
+  ] as const).map(([type, label, operation]): NodeDefinition => ({
+    type, label: `Notion · ${label}`, description: `${label} shared with your Notion connection.`, category: "action", libraryGroup: "productivity", appId: "notion", operationId: type.slice("action.notion.".length), operationLabel: label, operationKind: "search", icon: "notion", available: true,
+    defaultConfig: { credentialId: "", ...(operation === "children" ? { blockId: "" } : { pageId: "" }), ...(operation === "property" ? { propertyId: "" } : {}), ...(operation !== "page" ? { pageSize: 20 } : {}) },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "Notion connection", providers: ["NOTION"] },
+      { kind: "resource", key: operation === "children" ? "blockId" : "pageId", label: operation === "children" ? "Page or block" : "Page", resource: "notion-page", credentialKey: "credentialId", placeholder: "Search shared pages" },
+      ...(operation === "property" ? [{ kind: "text", key: "propertyId", label: "Property ID" } as NodeConfigurationField] : []),
+      ...(operation !== "page" ? [{ kind: "number", key: "pageSize", label: "Maximum results (1–100)", fallbackValue: 20 } as NodeConfigurationField, { kind: "text", key: "cursor", label: "Next cursor (optional)", advanced: { summary: "Advanced pagination", help: "Use nextCursor from the previous Notion output." } } as NodeConfigurationField] : []),
+    ],
+  })),
   {
     type: "action.mongodb",
     label: "MongoDB",
@@ -859,7 +1193,7 @@ export const nodeCatalog: NodeDefinition[] = [
     configurationFields: [
       { kind: "credential", key: "credentialId", label: "GitHub credential", providers: ["GITHUB"] },
       { kind: "resource", key: "repository", label: "Repository", resource: "github-repository", credentialKey: "credentialId", placeholder: "Search repositories" },
-      { kind: "text", key: "issueNumber", label: "Issue number" },
+      { kind: "resource", key: "issueNumber", label: "Issue number", resource: "github-issue", credentialKey: "credentialId", dependencyKey: "repository", placeholder: "Search issues" },
       { kind: "text", key: "label", label: "Label" },
     ],
   },
@@ -879,7 +1213,7 @@ export const nodeCatalog: NodeDefinition[] = [
     configurationFields: [
       { kind: "credential", key: "credentialId", label: "GitHub credential", providers: ["GITHUB"] },
       { kind: "resource", key: "repository", label: "Repository", resource: "github-repository", credentialKey: "credentialId", placeholder: "Search repositories" },
-      { kind: "text", key: "issueNumber", label: "Issue number" },
+      { kind: "resource", key: "issueNumber", label: "Issue number", resource: "github-issue", credentialKey: "credentialId", dependencyKey: "repository", placeholder: "Search issues" },
       { kind: "textarea", key: "body", label: "Comment" },
     ],
   },
@@ -899,7 +1233,8 @@ export const nodeCatalog: NodeDefinition[] = [
     configurationFields: [
       { kind: "credential", key: "credentialId", label: "GitHub credential", providers: ["GITHUB"] },
       { kind: "resource", key: "repository", label: "Repository", resource: "github-repository", credentialKey: "credentialId", placeholder: "Search repositories" },
-      { kind: "text", key: "pullRequestNumber", label: "Pull request number" },
+      { kind: "resource", key: "pullRequestNumber", label: "Pull request number", resource: "github-pull-request", credentialKey: "credentialId", dependencyKey: "repository", placeholder: "Search pull requests" },
+      { kind: "text", key: "expectedHeadSha", label: "Expected head commit SHA (optional)" },
       { kind: "select", key: "mergeMethod", label: "Merge method", options: [
         { value: "merge", label: "Merge commit" },
         { value: "squash", label: "Squash and merge" },
@@ -907,6 +1242,24 @@ export const nodeCatalog: NodeDefinition[] = [
       ] },
     ],
   },
+  ...([
+    ["action.github.list-issues", "List issues", "issue", true],
+    ["action.github.get-issue", "Get issue", "issue", false],
+    ["action.github.list-pull-requests", "List pull requests", "pull-request", true],
+    ["action.github.get-pull-request", "Get pull request", "pull-request", false],
+  ] as const).map(([type, label, kind, list]): NodeDefinition => ({
+    type, label: `GitHub · ${label}`, description: `${label} in a connected repository.`, category: "action", libraryGroup: "developer-data", appId: "github", operationId: type.slice("action.github.".length), operationLabel: label, operationKind: "search", icon: "github", available: true,
+    defaultConfig: { credentialId: "", repository: "", ...(list ? { state: "open", page: 1, pageSize: 30 } : kind === "issue" ? { issueNumber: "" } : { pullRequestNumber: "" }) },
+    configurationFields: [
+      { kind: "credential", key: "credentialId", label: "GitHub credential", providers: ["GITHUB"] },
+      { kind: "resource", key: "repository", label: "Repository", resource: "github-repository", credentialKey: "credentialId", placeholder: "Search repositories" },
+      ...(list ? [
+        { kind: "select", key: "state", label: "State", options: [{ value: "open", label: "Open" }, { value: "closed", label: "Closed" }, { value: "all", label: "All" }] } as NodeConfigurationField,
+        { kind: "number", key: "pageSize", label: "Results per page (1–100)", fallbackValue: 30 } as NodeConfigurationField,
+        { kind: "number", key: "page", label: "Page (1–1,000)", fallbackValue: 1 } as NodeConfigurationField,
+      ] : [{ kind: "resource", key: kind === "issue" ? "issueNumber" : "pullRequestNumber", label: kind === "issue" ? "Issue number" : "Pull request number", resource: kind === "issue" ? "github-issue" : "github-pull-request", credentialKey: "credentialId", dependencyKey: "repository", placeholder: kind === "issue" ? "Search issues" : "Search pull requests" } as NodeConfigurationField]),
+    ],
+  })),
   {
     type: "action.facebook-meta",
     label: "Facebook Meta",
@@ -946,7 +1299,7 @@ export function matchesNodeSearch(node: NodeDefinition, query: string) {
 }
 
 export function matchesNodeLibraryFilter(node: NodeDefinition, filter: NodeLibraryFilter, query = "") {
-  if (!matchesNodeSearch(node, query)) return false;
+  if (node.hiddenFromLibrary || !matchesNodeSearch(node, query)) return false;
   if (filter === "roadmap") return !node.available;
   if (!query.trim() && !node.available) return false;
   if (filter === "all") return true;
@@ -960,7 +1313,25 @@ export function getAppDefinition(appId: string) {
 }
 
 export function operationsForApp(appId: string) {
-  return nodeCatalog.filter((definition) => definition.appId === appId);
+  return nodeCatalog.filter((definition) => definition.appId === appId && !definition.hiddenFromLibrary);
+}
+
+/** Preserve old favorites/recent preferences without offering legacy nodes for new graphs. */
+export function libraryNodeType(type: string): string {
+  if (["trigger.uptime-kuma.alert", "action.postgres.select", "action.supabase.select", "action.google-drive", "action.gmail.read", "action.notion.search-pages", "action.sentry.list-issues", "action.vercel.list-deployments", "action.google-chat.oauth"].includes(type)) return `${type}.v2`;
+  return type;
+}
+
+/** Only an explicit draft action may change a legacy type; preserve all config. */
+export function upgradePaginationNode(data: WorkflowNodeData): WorkflowNodeData | undefined {
+  const replacements: Partial<Record<WorkflowNodeType, WorkflowNodeType>> = {
+    "action.google-drive": "action.google-drive.v2", "action.gmail.read": "action.gmail.read.v2",
+    "action.notion.search-pages": "action.notion.search-pages.v2", "action.sentry.list-issues": "action.sentry.list-issues.v2",
+    "action.vercel.list-deployments": "action.vercel.list-deployments.v2",
+  };
+  const next = replacements[data.nodeType];
+  if (!next || (data.nodeVersion !== undefined && data.nodeVersion !== 1)) return undefined;
+  return { ...data, nodeType: next, nodeVersion: currentWorkflowNodeVersion };
 }
 
 export function coreNodeDefinitions() {
@@ -985,6 +1356,7 @@ export function availableCatalogTypes() {
 export function createNodeData(definition: NodeDefinition): WorkflowNodeData {
   return {
     nodeType: definition.type,
+    nodeVersion: currentWorkflowNodeVersion,
     label: definition.label,
     description: definition.description,
     category: definition.category,

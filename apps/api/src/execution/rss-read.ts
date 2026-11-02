@@ -26,7 +26,7 @@ function link(value: unknown): string {
   return "";
 }
 
-async function readBounded(response: Response) {
+export async function readBoundedRss(response: Response) {
   if (Number(response.headers.get("content-length")) > maxBytes) throw new NodeFailure("RESPONSE_TOO_LARGE", "Feed exceeds the size limit.", false);
   if (!response.body) throw new NodeFailure("INVALID_RESPONSE", "Feed response is empty.", false);
   const reader = response.body.getReader();
@@ -105,7 +105,7 @@ export async function executeRssRead(config: Record<string, unknown>, mode: "moc
   catch (error) { throw nodeFailureFromOutboundPolicy(error); }
   if (!response.ok) throw new NodeFailure("HTTP_ERROR", `Feed returned ${response.status}.`, response.status === 429 || response.status >= 500, response.status);
   let body: string;
-  try { body = await readBounded(response); }
+  try { body = await readBoundedRss(response); }
   catch (error) { throw nodeFailureFromOutboundPolicy(error); }
   return { status: "succeeded" as const, output: parseRssFeed(body, limit), route: "success" as const };
 }
