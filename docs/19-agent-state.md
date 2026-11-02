@@ -6,6 +6,8 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
+- A separate owner-authorized local Calendar read-only workflow successfully listed zero events after a future test date and reported a 15-minute interval as free. Both nodes and the live execution succeeded; the workflow was deactivated. Populated events, busy intervals, production and sustained behavior remain unqualified. See `docs/35-connector-coverage-and-discovery.md`.
+
 - After the owner rotated the local PostgreSQL connection with the Supabase CA,
   a direct verified-TLS read and one manual LIVE workflow run each succeeded on
   `public.fluxora_connector_test` with a one-row limit. Schema/table discovery
