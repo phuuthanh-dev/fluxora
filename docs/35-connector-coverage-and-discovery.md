@@ -2,7 +2,7 @@
 
 ## Comparison and design decision
 
-Zapier's editor asks for app, event and account, then configuration and test; n8n documents operations by app and resource. Fluxora keeps the existing App → Operation model, with app categories that can be collapsed, operations grouped as triggers/actions/search/utilities, search, recent/favorites, and explicit unavailable states. Existing graph node IDs are unchanged. The grouping is presentation metadata, not a new workflow type or promise of a complete provider API.
+Zapier's editor asks for app, event and account, then configuration and test; n8n documents operations by app and resource. Fluxora keeps the existing App → Operation model, with app categories that can be collapsed, operations grouped as triggers/actions/search/utilities, search, recent/favorites, and explicit unavailable states. Existing graph node IDs are unchanged. The grouping is presentation metadata, not a new workflow type or promise of a complete provider API. A local keyboard focus follow-up makes planned operations reachable after opening their app and scopes app-list arrow navigation to app buttons; release remains pending.
 
 Sources: [Zapier action setup](https://help.zapier.com/hc/en-us/articles/8496257774221-Set-up-your-Zap-action), [Zapier editor](https://help.zapier.com/hc/en-us/articles/16722578092429-Use-the-editor-to-build-and-view-your-Zap-workflows), [n8n Trello operations](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.trello/), [n8n Gmail message operations](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.gmail/message-operations/).
 

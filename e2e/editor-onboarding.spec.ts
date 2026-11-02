@@ -329,6 +329,20 @@ test("node library and editor menus support keyboard-only navigation", async ({ 
   await expect(coreFilter).toHaveAttribute("aria-pressed", "true");
   await allFilter.click();
 
+  const communication = page.getByRole("button", { name: "Collapse Communication" });
+  await communication.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(communication).toBeFocused();
+
+  await page.getByRole("button", { name: "Roadmap", exact: true }).click();
+  const instagramApp = page.getByRole("button", { name: /Open Instagram/ });
+  await instagramApp.focus();
+  await page.keyboard.press("Enter");
+  await expect(plannedInstagram).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(instagramApp).toBeFocused();
+  await allFilter.click();
+
   const emailApp = page.getByRole("button", { name: /Open Email/ });
   await emailApp.focus();
   await page.keyboard.press("ArrowUp");

@@ -78,9 +78,11 @@ function moveCollectionFocus(event: ReactKeyboardEvent<HTMLElement>, selector: s
   if (!["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
   const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>(selector))
     .filter((item) => !item.disabled);
-  if (items.length === 0) return;
+  // Category toggles share the app-list container but are not app items.
+  // Do not steal their arrow keys or move focus from unrelated controls.
+  const currentIndex = items.indexOf(event.target as HTMLButtonElement);
+  if (currentIndex === -1) return;
   event.preventDefault();
-  const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement);
   const forward = event.key === "ArrowDown" || event.key === "ArrowRight";
   const nextIndex = event.key === "Home"
     ? 0
@@ -180,7 +182,9 @@ export const NodeLibrary = forwardRef<NodeLibraryHandle, NodeLibraryProps>(funct
     lastAppIdRef.current = appId;
     setSelectedAppId(appId);
     window.requestAnimationFrame(() => {
-      libraryRef.current?.querySelector<HTMLButtonElement>('.palette-operation .palette-node:not([aria-disabled="true"])')?.focus();
+      // Planned operations remain focusable so keyboard users can discover why
+      // they are unavailable and navigate back to the app list.
+      libraryRef.current?.querySelector<HTMLButtonElement>(".palette-operation .palette-node")?.focus();
     });
   };
 
