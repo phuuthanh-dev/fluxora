@@ -6,12 +6,23 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
-- A local node-library fix prevents browser preference write failures from
+- A local diagnostic of the designated Supabase test connection returned HTTP
+  401 for schema discovery and HTTP 200 for a bounded one-row read with the
+  same publishable key. The precise cause of the 401 and the production key's
+  identity remain unknown. Local guidance now explains the distinction and
+  existing options. Final isolated verify passed (API 352 and one skipped,
+  web 32, Playwright 145); release remains pending. Two prior full runs each
+  had a different timeout which passed targeted and final reruns, with causes
+  unconfirmed. See
+  `.agent/reports/2026-11-02-supabase-discovery-401.md`.
+
+- A node-library fix prevents browser preference write failures from
   blocking node addition. Favorites and collapsed categories remain usable in
   the current session. Isolated final verify passed: API 352 plus one skipped,
   web 32, and Playwright 145. An earlier navigation timeout passed twice in
-  isolation and in the full rerun; its cause is unconfirmed. The fix is not
-  yet released. See `.agent/reports/2026-11-02-node-library-storage.md`.
+  isolation and in the full rerun; its cause is unconfirmed. PR #66 merged as
+  `af55a06`, both quality gates passed and production deployment succeeded.
+  See `.agent/reports/2026-11-02-node-library-storage.md`.
 
 - PR #65 merged as `87542ed`; PR and main quality gates passed and production
   deployment succeeded. Production home, login, API health and readiness and
