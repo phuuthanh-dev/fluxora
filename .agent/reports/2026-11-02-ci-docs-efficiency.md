@@ -3,7 +3,7 @@
 ## Outcome
 
 - Status: complete locally; GitHub deployment and scheduling validation pending.
-- Documentation-only pushes skip full verification and application deployment without cancelling an earlier product verification.
+- The proposed workflow skips full verification and application deployment for documentation-only pushes without cancelling an earlier product verification; this behavior is not yet live.
 
 ## Commit and scope
 
@@ -28,6 +28,8 @@
 | `npm run verify` | pass | API 352 passed and 1 skipped; web 32 passed; Playwright 145 passed, synthetic local database and Redis |
 
 The first verify attempt used a non-default `WEB_ORIGIN`, conflicting with two existing tests that expect port 3000; rerunning with the expected origin passed.
+
+A subsequent read-only check piped the real GitHub API jobs response for completed main quality run `41410307068`, attempt 1, into `ci-upstream-verification.mjs` with its exact head SHA. The classifier returned `verified`. This confirms the current GitHub response shape is accepted for one successful run; it does not exercise the new hosted workflow, skipped jobs, reruns, scheduling, or deployment.
 
 ## Files changed
 
