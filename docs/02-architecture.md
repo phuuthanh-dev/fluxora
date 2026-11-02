@@ -19,6 +19,32 @@ Retention, activation and known boundaries: `docs/29-account-recovery.md`.
 
 ## System shape
 
+### Delivery safety (NX-01)
+
+An adapter's explicit retry decision is authoritative. The runner uses legacy
+status/code inference only when no decision was recorded. Read-only requests and
+confirmed 429 rejections retain bounded retries; ambiguous mutations (network
+loss, timeout, 5xx or an unreadable success receipt) stop without automatic replay.
+HTTP mutations, Drive uploads, Sheets writes, GitHub writes and notification
+adapters follow this boundary. Existing Calendar reconciliation and MongoDB/Trello
+write guards remain. This is not an exactly-once guarantee; a manual retry is a
+new owner decision after checking provider state.
+
+SMTP success requires complete, consistent acceptance for the intended envelope.
+`delivered: true` remains a legacy submission-accepted flag, with additive
+`submissionStatus: "accepted"`, `acceptedCount` and `deliveryConfirmed: false`.
+Partial/unconfirmed submissions fail without retry and expose counts, not SMTP
+replies or recipient addresses. Only confirmed temporary rejection before DATA
+may retry. See [Nodemailer's response contract](https://nodemailer.com/#response-object).
+
+HTTP and Drive/Sheets bodies share the bounded streaming reader (1,000,000 bytes),
+including providers without honest Content-Length. Oversize reads cancel the
+stream and fail; no truncation is silently persisted as a complete response.
+Unreadable write receipts never justify replay. Existing workflow JSON, successful
+output keys and immutable versions are preserved; the retry change is a runtime
+safety correction, not a graph/schema migration. AI request-cost policy, durable
+Retry-After handling, registry/versioning and pagination remain separate backlog.
+
 MongoDB uses a dedicated workspace credential and direct TLS adapter. Every
 socket uses guarded DNS lookup to reject private, loopback, link-local and
 mixed public/private results; URI options, SRV, replica discovery and arbitrary

@@ -5,6 +5,12 @@ in [`05-implementation-plan.md`](./05-implementation-plan.md) and
 [`06-loop-engineering.md`](./06-loop-engineering.md); an item listed in a later
 phase here may already have a locally verified foundation.
 
+For the 2026-11-02 app/node expansion audit, actual implemented operations,
+n8n comparisons and the proposed next sequence, see
+[`37-node-expansion-audit.md`](./37-node-expansion-audit.md). That audit separates
+existing functionality from remaining work; its checklist does not itself
+authorize every provider operation or change the current MVP engine scope.
+
 ## Three-day MVP
 
 ### Day 1 — foundation and editor

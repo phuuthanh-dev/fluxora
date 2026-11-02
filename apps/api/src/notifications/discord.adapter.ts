@@ -1,5 +1,7 @@
-import { fetchSafeOutbound } from "../execution/outbound-url-policy";
-import { NodeFailure, nodeFailureFromOutboundPolicy } from "../execution/node-failure";
+import { fetchSafeOutbound, wasOutboundRedirected } from "../execution/outbound-url-policy";
+import { NodeFailure } from "../execution/node-failure";
+import { readBoundedProviderJson } from "../execution/provider-json";
+import { notificationReceiptFailure, notificationWriteFailure } from "./notification-write-failure";
 import type { DiscordAllowedMentions, NotificationAdapter, NotificationPayload, NormalizedDeliveryResult } from "./notification-contracts";
 
 export function validateDiscordWebhookUrl(rawUrl: string): { webhookId: string; webhookToken: string } {
@@ -166,29 +168,33 @@ export class DiscordNotificationAdapter implements NotificationAdapter {
         signal: AbortSignal.timeout(15_000),
       });
     } catch (reason) {
-      throw nodeFailureFromOutboundPolicy(reason);
+      throw notificationWriteFailure(reason);
     }
 
     if (!response.ok) {
+      await response.body?.cancel().catch(() => undefined);
       throw new NodeFailure(
         "HTTP_ERROR",
         `Discord returned ${response.status}.`,
-        response.status === 429 || response.status >= 500,
+        response.status === 429 && !wasOutboundRedirected(response),
         response.status,
       );
     }
 
     let messageId: string | undefined;
-    try {
-      const text = await response.text();
-      if (text) {
-        const json = JSON.parse(text) as { id?: string | number };
-        if (json && json.id !== undefined) {
-          messageId = String(json.id);
-        }
+    // Discord also supports a bodyless acknowledgement when wait is false.
+    if (response.status !== 204) {
+      let receipt: { id?: unknown } | null;
+      try {
+        receipt = await readBoundedProviderJson(response) as typeof receipt;
+      } catch {
+        throw notificationReceiptFailure("Discord");
       }
-    } catch {
-      // not JSON or 204 no content
+      const id = receipt?.id;
+      if (!((typeof id === "string" && /^[1-9]\d*$/.test(id)) || (typeof id === "number" && Number.isSafeInteger(id) && id > 0))) {
+        throw notificationReceiptFailure("Discord");
+      }
+      messageId = String(id);
     }
 
     return {

@@ -10,6 +10,8 @@ import { fetchSafeOutbound } from "./outbound-url-policy";
 import { resolveExpressions } from "./expression";
 import { redactValue } from "./redaction";
 import { isRetryableFailure, retryDelayMs } from "./retry-policy";
+import { readBoundedProviderText } from "./provider-json";
+import { isReadOnlyMethod, requireProviderSuccess, readProviderJson, uncertainDelivery } from "./provider-request-policy";
 import { parseWorkflowGraph } from "../workflows/workflow-graph";
 import { liveCredentialRequirements } from "./live-readiness";
 import { executionRetentionPolicy } from "./retention-policy";
@@ -514,7 +516,7 @@ export class ExecutionService {
         return result;
       } catch (reason) {
         const failure = nodeFailureFromExecutionError(reason);
-        const retryable = failure.retryable || isRetryableFailure(failure);
+        const retryable = isRetryableFailure(failure);
         await this.prisma.nodeExecution.update({
           where: { executionId_nodeId: { executionId, nodeId: node.id } },
           data: { status: NodeExecutionStatus.FAILED, errorCode: failure.code, errorMessage: failure.message, errorRetryable: retryable, completedAt: new Date() },
@@ -744,6 +746,7 @@ async function executeHttpRequest(config: Record<string, unknown>, credential?: 
   if (!/^https?:\/\//.test(url)) throw new NodeFailure("INVALID_CONFIGURATION", "HTTP request requires an http(s) URL.", false);
   const timeoutMs = typeof config.timeoutMs === "number" && config.timeoutMs > 0 ? Math.min(config.timeoutMs, 60_000) : 15_000;
   const method = typeof config.method === "string" ? config.method.toUpperCase() : "GET";
+  const write = !isReadOnlyMethod(method);
   const headers = readHttpHeaders(config.headers);
   if (credential) {
     try {
@@ -757,14 +760,21 @@ async function executeHttpRequest(config: Record<string, unknown>, credential?: 
   const body = method === "GET" || method === "HEAD" ? undefined : requestBody(config.body, headers);
   try {
     const response = await fetchSafeOutbound(url, { method, headers, body, signal: AbortSignal.timeout(timeoutMs) });
-    const raw = await response.text();
+    await requireProviderSuccess(response, "HTTP request", write);
+    let raw: string;
+    try {
+      raw = await readBoundedProviderText(response);
+    } catch (reason) {
+      if (write) throw uncertainDelivery("HTTP request", response.status);
+      throw reason;
+    }
     const responseBody: unknown = tryJson(raw);
-    if (!response.ok) throw new NodeFailure("HTTP_ERROR", `HTTP request returned ${response.status}.`, response.status === 429 || response.status >= 500, response.status);
     return { status: "succeeded", output: { status: response.status, body: responseBody }, route: "success" };
   } catch (reason) {
     if (reason instanceof NodeFailure) throw reason;
     const policyFailure = nodeFailureFromOutboundPolicy(reason);
     if (policyFailure.code === "OUTBOUND_URL_BLOCKED" || policyFailure.code === "OUTBOUND_REDIRECT_BLOCKED") throw policyFailure;
+    if (write) throw uncertainDelivery("HTTP request");
     const timeout = reason instanceof Error && reason.name === "TimeoutError";
     throw new NodeFailure(timeout ? "TIMEOUT" : "NETWORK_ERROR", timeout ? "HTTP request timed out." : "HTTP request failed.", true);
   }
@@ -910,7 +920,12 @@ async function executeGoogleDrive(credential: Record<string, unknown>, config: R
   if (operation === "downloadText") {
     const fileId = readConfigString(config, "fileId");
     const response = await googleFetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`, accessToken);
-    return { operation, file: { id: fileId, text: await response.text() } };
+    try {
+      return { operation, file: { id: fileId, text: await readBoundedProviderText(response) } };
+    } catch (reason) {
+      if (reason instanceof NodeFailure) throw reason;
+      throw new NodeFailure("NETWORK_ERROR", "Google Drive response could not be read.", true);
+    }
   }
   if (operation === "uploadText") {
     const name = readConfigString(config, "name");
@@ -918,11 +933,14 @@ async function executeGoogleDrive(credential: Record<string, unknown>, config: R
     const boundary = `workflow-${randomBytes(8).toString("hex")}`;
     const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name, mimeType: "text/plain" })}\r\n--${boundary}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n${content}\r\n--${boundary}--`;
     const response = await googleFetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType", accessToken, { method: "POST", headers: { "Content-Type": `multipart/related; boundary=${boundary}` }, body });
-    return { operation, file: await response.json() as unknown };
+    const file = await readProviderJson(response, "Google Drive", true);
+    if (!file || typeof file !== "object" || Array.isArray(file) || typeof (file as Record<string, unknown>).id !== "string") throw uncertainDelivery("Google Drive", response.status);
+    return { operation, file };
   }
   const query = operation === "search" && typeof config.query === "string" && config.query ? `&q=${encodeURIComponent(config.query)}` : "";
   const response = await googleFetch(`https://www.googleapis.com/drive/v3/files?fields=files(id,name,mimeType,modifiedTime,webViewLink)${query}`, accessToken);
-  const body = await response.json() as { files?: unknown[] };
+  const body = await readProviderJson(response, "Google Drive") as { files?: unknown[] } | null;
+  if (!body || !Array.isArray(body.files)) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Google Drive returned an invalid file list.", false);
   return { operation, files: body.files ?? [] };
 }
 
@@ -940,22 +958,33 @@ async function executeGoogleSheets(credential: Record<string, unknown>, config: 
   const base = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(range)}`;
   if (operation === "read") {
     const response = await googleFetch(base, accessToken);
-    return { operation, ...(await response.json() as Record<string, unknown>) };
+    return { operation, ...await readGoogleRecord(response, false) };
   }
   const values = normalizeValues(config.values);
   const response = operation === "append"
     ? await googleFetch(`${base}:append?valueInputOption=USER_ENTERED`, accessToken, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ values }) })
     : await googleFetch(`${base}?valueInputOption=USER_ENTERED`, accessToken, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ values }) });
-  return { operation, ...(await response.json() as Record<string, unknown>) };
+  return { operation, ...await readGoogleRecord(response, true) };
+}
+
+async function readGoogleRecord(response: Response, write: boolean) {
+  const value = await readProviderJson(response, "Google Sheets", write);
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    if (write) throw uncertainDelivery("Google Sheets", response.status);
+    throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Google Sheets returned an invalid response.", false);
+  }
+  return value as Record<string, unknown>;
 }
 
 async function googleFetch(url: string, accessToken: string, init: RequestInit = {}) {
+  const write = !isReadOnlyMethod(init.method);
   try {
     const response = await fetch(url, { ...init, headers: { Authorization: `Bearer ${accessToken}`, ...init.headers }, signal: AbortSignal.timeout(20_000) });
-    if (!response.ok) throw new NodeFailure("GOOGLE_API_ERROR", `Google API returned ${response.status}.`, response.status === 429 || response.status >= 500, response.status);
+    await requireProviderSuccess(response, "Google API", write, "GOOGLE_API_ERROR");
     return response;
   } catch (reason) {
     if (reason instanceof NodeFailure) throw reason;
+    if (write) throw uncertainDelivery("Google API");
     throw new NodeFailure("NETWORK_ERROR", "Google API request failed.", true);
   }
 }
@@ -1136,13 +1165,10 @@ export async function executeGitHubCreateIssue(config: Record<string, unknown>, 
       body: JSON.stringify({ title, body: issueBody, ...(labels.length ? { labels } : {}) }),
       signal: AbortSignal.timeout(15_000),
     });
-    const payload = await response.json().catch(() => ({})) as { number?: unknown; html_url?: unknown };
-    if (!response.ok) {
-      const retryable = response.status === 429 || response.status >= 500;
-      throw new NodeFailure("HTTP_ERROR", `GitHub returned ${response.status}.`, retryable, response.status);
-    }
-    if (typeof payload.number !== "number" || typeof payload.html_url !== "string") {
-      throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "GitHub returned an invalid issue response.", false);
+    await requireProviderSuccess(response, "GitHub", true);
+    const payload = await readProviderJson(response, "GitHub", true) as { number?: unknown; html_url?: unknown };
+    if (!payload || typeof payload.number !== "number" || typeof payload.html_url !== "string") {
+      throw uncertainDelivery("GitHub", response.status);
     }
     return {
       status: "succeeded",
@@ -1164,8 +1190,7 @@ export async function executeGitHubCreateIssue(config: Record<string, unknown>, 
     if (reason instanceof NodeFailure) throw reason;
     const policyFailure = nodeFailureFromOutboundPolicy(reason);
     if (policyFailure.code === "OUTBOUND_URL_BLOCKED" || policyFailure.code === "OUTBOUND_REDIRECT_BLOCKED") throw policyFailure;
-    const timeout = reason instanceof Error && reason.name === "TimeoutError";
-    throw new NodeFailure(timeout ? "TIMEOUT" : "NETWORK_ERROR", timeout ? "GitHub request timed out." : "GitHub request failed.", true);
+    throw uncertainDelivery("GitHub");
   }
 }
 
@@ -1210,13 +1235,10 @@ export async function executeGitHubAddLabel(config: Record<string, unknown>, mod
       body: JSON.stringify({ labels: [label] }),
       signal: AbortSignal.timeout(15_000),
     });
-    const payload = await response.json().catch(() => ({})) as unknown;
-    if (!response.ok) {
-      const retryable = response.status === 429 || response.status >= 500;
-      throw new NodeFailure("HTTP_ERROR", `GitHub returned ${response.status}.`, retryable, response.status);
-    }
+    await requireProviderSuccess(response, "GitHub", true);
+    const payload = await readProviderJson(response, "GitHub", true) as unknown;
     if (!Array.isArray(payload) || !payload.every((item) => item && typeof item === "object" && typeof (item as Record<string, unknown>).name === "string")) {
-      throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "GitHub returned an invalid labels response.", false);
+      throw uncertainDelivery("GitHub", response.status);
     }
     const labels = payload.map((item) => (item as { name: string }).name);
     return {
@@ -1238,8 +1260,7 @@ export async function executeGitHubAddLabel(config: Record<string, unknown>, mod
     if (reason instanceof NodeFailure) throw reason;
     const policyFailure = nodeFailureFromOutboundPolicy(reason);
     if (policyFailure.code === "OUTBOUND_URL_BLOCKED" || policyFailure.code === "OUTBOUND_REDIRECT_BLOCKED") throw policyFailure;
-    const timeout = reason instanceof Error && reason.name === "TimeoutError";
-    throw new NodeFailure(timeout ? "TIMEOUT" : "NETWORK_ERROR", timeout ? "GitHub request timed out." : "GitHub request failed.", true);
+    throw uncertainDelivery("GitHub");
   }
 }
 
@@ -1284,13 +1305,10 @@ export async function executeGitHubAddComment(config: Record<string, unknown>, m
       body: JSON.stringify({ body }),
       signal: AbortSignal.timeout(15_000),
     });
-    const payload = await response.json().catch(() => ({})) as { id?: unknown; html_url?: unknown; body?: unknown };
-    if (!response.ok) {
-      const retryable = response.status === 429 || response.status >= 500;
-      throw new NodeFailure("HTTP_ERROR", `GitHub returned ${response.status}.`, retryable, response.status);
-    }
-    if (typeof payload.id !== "number" || !Number.isSafeInteger(payload.id) || typeof payload.html_url !== "string") {
-      throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "GitHub returned an invalid comment response.", false);
+    await requireProviderSuccess(response, "GitHub", true);
+    const payload = await readProviderJson(response, "GitHub", true) as { id?: unknown; html_url?: unknown; body?: unknown };
+    if (!payload || typeof payload.id !== "number" || !Number.isSafeInteger(payload.id) || typeof payload.html_url !== "string") {
+      throw uncertainDelivery("GitHub", response.status);
     }
     return {
       status: "succeeded",
@@ -1312,8 +1330,7 @@ export async function executeGitHubAddComment(config: Record<string, unknown>, m
     if (reason instanceof NodeFailure) throw reason;
     const policyFailure = nodeFailureFromOutboundPolicy(reason);
     if (policyFailure.code === "OUTBOUND_URL_BLOCKED" || policyFailure.code === "OUTBOUND_REDIRECT_BLOCKED") throw policyFailure;
-    const timeout = reason instanceof Error && reason.name === "TimeoutError";
-    throw new NodeFailure(timeout ? "TIMEOUT" : "NETWORK_ERROR", timeout ? "GitHub request timed out." : "GitHub request failed.", true);
+    throw uncertainDelivery("GitHub");
   }
 }
 
@@ -1360,13 +1377,10 @@ export async function executeGitHubMergePullRequest(config: Record<string, unkno
       body: JSON.stringify({ merge_method: mergeMethod }),
       signal: AbortSignal.timeout(15_000),
     });
-    const payload = await response.json().catch(() => ({})) as { merged?: unknown; sha?: unknown; message?: unknown };
-    if (!response.ok) {
-      const retryable = response.status === 429 || response.status >= 500;
-      throw new NodeFailure("HTTP_ERROR", `GitHub returned ${response.status}.`, retryable, response.status);
-    }
-    if (typeof payload.merged !== "boolean" || typeof payload.sha !== "string" || typeof payload.message !== "string") {
-      throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "GitHub returned an invalid merge response.", false);
+    await requireProviderSuccess(response, "GitHub", true);
+    const payload = await readProviderJson(response, "GitHub", true) as { merged?: unknown; sha?: unknown; message?: unknown };
+    if (!payload || typeof payload.merged !== "boolean" || typeof payload.sha !== "string" || typeof payload.message !== "string") {
+      throw uncertainDelivery("GitHub", response.status);
     }
     return {
       status: "succeeded",
@@ -1390,8 +1404,7 @@ export async function executeGitHubMergePullRequest(config: Record<string, unkno
     if (reason instanceof NodeFailure) throw reason;
     const policyFailure = nodeFailureFromOutboundPolicy(reason);
     if (policyFailure.code === "OUTBOUND_URL_BLOCKED" || policyFailure.code === "OUTBOUND_REDIRECT_BLOCKED") throw policyFailure;
-    const timeout = reason instanceof Error && reason.name === "TimeoutError";
-    throw new NodeFailure(timeout ? "TIMEOUT" : "NETWORK_ERROR", timeout ? "GitHub request timed out." : "GitHub request failed.", true);
+    throw uncertainDelivery("GitHub");
   }
 }
 
@@ -1464,13 +1477,15 @@ function appendGitHubIdempotencyMarker(body: string, marker: string) {
 async function findGitHubIssueByMarker(owner: string, repo: string, marker: string, headers: Record<string, string>) {
   const query = encodeURIComponent(`repo:${owner}/${repo} ${marker}`);
   const url = `https://api.github.com/search/issues?q=${query}&per_page=10`;
-  const response = await fetchSafeOutbound(url, { method: "GET", headers, signal: AbortSignal.timeout(15_000) });
-  const payload = await response.json().catch(() => ({})) as { items?: unknown };
-  if (!response.ok) {
-    const retryable = response.status === 429 || response.status >= 500;
-    throw new NodeFailure("HTTP_ERROR", `GitHub returned ${response.status}.`, retryable, response.status);
+  let response: Response;
+  try {
+    response = await fetchSafeOutbound(url, { method: "GET", headers, signal: AbortSignal.timeout(15_000) });
+  } catch (reason) {
+    throw nodeFailureFromOutboundPolicy(reason);
   }
-  if (!Array.isArray(payload.items)) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "GitHub returned an invalid search response.", false);
+  await requireProviderSuccess(response, "GitHub", false);
+  const payload = await readProviderJson(response, "GitHub") as { items?: unknown } | null;
+  if (!payload || !Array.isArray(payload.items)) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "GitHub returned an invalid search response.", false);
   const match = payload.items.find((item): item is { number: number; html_url: string; body: string } => {
     if (!item || typeof item !== "object" || Array.isArray(item)) return false;
     const record = item as Record<string, unknown>;

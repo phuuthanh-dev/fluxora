@@ -1,9 +1,11 @@
-import { fetchSafeOutbound } from "../execution/outbound-url-policy";
-import { NodeFailure, nodeFailureFromOutboundPolicy } from "../execution/node-failure";
+import { fetchSafeOutbound, wasOutboundRedirected } from "../execution/outbound-url-policy";
+import { NodeFailure } from "../execution/node-failure";
+import { readBoundedProviderJson } from "../execution/provider-json";
+import { notificationReceiptFailure, notificationWriteFailure } from "./notification-write-failure";
 import type { NotificationAdapter, NotificationPayload, NormalizedDeliveryResult } from "./notification-contracts";
 
 export function sanitizeTelegramFailure(reason: unknown, token?: string): NodeFailure {
-  const failure = nodeFailureFromOutboundPolicy(reason);
+  const failure = notificationWriteFailure(reason);
   const rawMessage = reason instanceof Error && reason.message ? reason.message : failure.message;
   let message = rawMessage;
   if (token) {
@@ -81,25 +83,35 @@ export class TelegramNotificationAdapter implements NotificationAdapter {
       throw sanitizeTelegramFailure(reason, botToken);
     }
 
-    let json: { ok?: boolean; error_code?: number; description?: string; result?: { message_id?: number | string } } | undefined;
-    try {
-      json = await response.json() as typeof json;
-    } catch {
-      // response could not be parsed as JSON
+    // A known HTTP rejection does not depend on its body being readable. In
+    // particular, a contradictory body must not make an ambiguous 5xx retryable.
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => undefined);
+      throw new NodeFailure("HTTP_ERROR", `Telegram returned ${response.status}.`, response.status === 429 && !wasOutboundRedirected(response), response.status);
     }
 
-    if (!response.ok || !json || json.ok !== true) {
-      const errorCode = typeof json?.error_code === "number" ? json.error_code : response.status;
-      const retryable = errorCode === 429 || errorCode >= 500;
+    let json: { ok?: unknown; error_code?: unknown; result?: { message_id?: unknown } } | null;
+    try {
+      json = await readBoundedProviderJson(response) as typeof json;
+    } catch {
+      throw notificationReceiptFailure("Telegram");
+    }
+
+    if (json?.ok === false && typeof json.error_code === "number" && Number.isInteger(json.error_code) && json.error_code >= 400 && json.error_code <= 599) {
+      const errorCode = json.error_code;
       throw new NodeFailure(
         "HTTP_ERROR",
         `Telegram returned ${errorCode}.`,
-        retryable,
+        errorCode === 429 && !wasOutboundRedirected(response),
         errorCode,
       );
     }
 
-    const messageId = json?.result?.message_id !== undefined ? String(json.result.message_id) : undefined;
+    const id = json?.result?.message_id;
+    if (json?.ok !== true || !((typeof id === "string" && /^\d+$/.test(id)) || (typeof id === "number" && Number.isSafeInteger(id) && id >= 0))) {
+      throw notificationReceiptFailure("Telegram");
+    }
+    const messageId = String(id);
 
     return {
       delivered: true,

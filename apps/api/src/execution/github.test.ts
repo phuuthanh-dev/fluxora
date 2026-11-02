@@ -188,7 +188,7 @@ test("GitHub Create Issue validates repository and classifies provider failures"
     globalThis.fetch = (async () => Response.json({ message: "Server unavailable" }, { status: 503 })) as typeof fetch;
     await assert.rejects(
       () => executeGitHubCreateIssue({ credentialId: "github-credential", repository: "acme/automation", title: "Issue" }, "live", "workspace-1", credentials),
-      (error: any) => error.code === "HTTP_ERROR" && error.statusCode === 503 && error.retryable === true,
+      (error: any) => error.code === "DELIVERY_UNCERTAIN" && error.statusCode === 503 && error.retryable === false,
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -275,7 +275,7 @@ test("GitHub Add Label validates issue number and retry classification", async (
     globalThis.fetch = (async () => Response.json({ message: "Server unavailable" }, { status: 503 })) as typeof fetch;
     await assert.rejects(
       () => executeGitHubAddLabel({ credentialId: "github-credential", repository: "acme/automation", issueNumber: 42, label: "bug" }, "live", "workspace-1", credentials),
-      (error: any) => error.code === "HTTP_ERROR" && error.statusCode === 503 && error.retryable === true,
+      (error: any) => error.code === "DELIVERY_UNCERTAIN" && error.statusCode === 503 && error.retryable === false,
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -364,7 +364,7 @@ test("GitHub Add Comment validates body and retry classification", async () => {
     globalThis.fetch = (async () => Response.json({ message: "Server unavailable" }, { status: 503 })) as typeof fetch;
     await assert.rejects(
       () => executeGitHubAddComment({ credentialId: "github-credential", repository: "acme/automation", issueNumber: 42, body: "Comment" }, "live", "workspace-1", credentials),
-      (error: any) => error.code === "HTTP_ERROR" && error.statusCode === 503 && error.retryable === true,
+      (error: any) => error.code === "DELIVERY_UNCERTAIN" && error.statusCode === 503 && error.retryable === false,
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -455,7 +455,7 @@ test("GitHub Merge Pull Request validates merge method and retry classification"
     globalThis.fetch = (async () => Response.json({ message: "Server unavailable" }, { status: 503 })) as typeof fetch;
     await assert.rejects(
       () => executeGitHubMergePullRequest({ credentialId: "github-credential", repository: "acme/automation", pullRequestNumber: 12 }, "live", "workspace-1", credentials),
-      (error: any) => error.code === "HTTP_ERROR" && error.statusCode === 503 && error.retryable === true,
+      (error: any) => error.code === "DELIVERY_UNCERTAIN" && error.statusCode === 503 && error.retryable === false,
     );
   } finally {
     globalThis.fetch = originalFetch;

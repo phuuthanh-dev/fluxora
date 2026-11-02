@@ -39,8 +39,13 @@ export async function executeGoogleChatOAuth(config: Record<string, unknown>, mo
   let response: Response;
   try { response = await transport(`https://chat.googleapis.com/v1/${space}/messages`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ text: message }), signal: AbortSignal.timeout(15_000) }); }
   catch { throw new NodeFailure("DELIVERY_UNCERTAIN", "Google Chat did not confirm delivery. Check the destination before retrying.", false); }
-  if (!response.ok) throw new NodeFailure("GOOGLE_CHAT_ERROR", `Google Chat returned ${response.status}.`, response.status === 429, response.status);
-  const payload = await readBoundedProviderJson(response) as { name?: unknown };
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new NodeFailure("GOOGLE_CHAT_ERROR", `Google Chat returned ${response.status}.`, response.status === 429 && !response.redirected, response.status);
+  }
+  let payload: { name?: unknown } | null;
+  try { payload = await readBoundedProviderJson(response) as typeof payload; }
+  catch { throw new NodeFailure("DELIVERY_UNCERTAIN", "Google Chat did not confirm the message receipt. Check the destination before retrying.", false); }
   if (!payload || typeof payload.name !== "string" || !/^spaces\/[A-Za-z0-9_-]+\/messages\/[A-Za-z0-9._-]+$/.test(payload.name)) throw new NodeFailure("DELIVERY_UNCERTAIN", "Google Chat did not confirm the message ID. Check the destination before retrying.", false);
   return { status: "succeeded" as const, output: { delivered: true, provider: "google_chat_oauth", destination: space, messageId: payload.name, sentAt: new Date().toISOString() }, route: "success" as const };
 }

@@ -81,6 +81,13 @@ export async function assertSafeOutboundHostname(rawHostname: string, dependenci
   }
 }
 
+const redirectedResponses = new WeakSet<Response>();
+
+/** Manual safe redirects do not set the native Response.redirected flag. */
+export function wasOutboundRedirected(response: Response) {
+  return response.redirected || redirectedResponses.has(response);
+}
+
 export async function fetchSafeOutbound(rawUrl: string, init: RequestInit = {}, dependencies: PolicyDependencies = {}) {
   const fetchImplementation = dependencies.fetchImplementation ?? fetch;
   let currentUrl = await assertSafeOutboundUrl(rawUrl, dependencies);
@@ -91,6 +98,7 @@ export async function fetchSafeOutbound(rawUrl: string, init: RequestInit = {}, 
     // runtime interfaces, but their independent declaration versions differ.
     const dispatchInit = { ...requestInit, dispatcher: dependencies.dispatcher ?? safeDispatcher } as unknown as RequestInit;
     const response = await fetchImplementation(currentUrl, dependencies.fetchImplementation ? requestInit : dispatchInit);
+    if (redirectCount > 0) redirectedResponses.add(response);
     if (!isRedirect(response.status)) return response;
 
     const location = response.headers.get("location");
