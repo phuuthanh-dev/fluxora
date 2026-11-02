@@ -6,12 +6,19 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
-- A newly saved local Supabase connection successfully read one row from the
-  designated test table in a live manual workflow; the workflow was then
-  deactivated. The table picker still fell back to manual input. The owner
-  confirmed that only a publishable key was entered; the saved secret was not
-  inspected and the precise discovery failure remains unconfirmed. Management
-  API token discovery remains untested. See `docs/35` before repeating work.
+- A newly saved local Trello connection loaded the designated `Fluxora
+  connector test` board and its three lists. A manual live workflow created
+  one test card in `To Do`; both node and execution succeeded, and the test
+  workflow was deactivated. This does not validate the previously failing
+  production credential, other Trello operations, or sustained reliability.
+  See `docs/35` before repeating the provider write.
+
+- After the owner reported updating the local Supabase connection, the table
+  picker listed the designated test table and a manual live run successfully
+  returned one row. The test workflow was deactivated afterwards. A Management
+  token was requested for this follow-up, but the saved secret and discovery
+  request path were not inspected; do not claim independent verification of
+  Management API authentication. See `docs/35` before repeating work.
 
 - PostgreSQL select runtime read a synthetic local PostgreSQL 16 table over
   verified TLS with SCRAM authentication, a test-only DNS resolver and a
@@ -35,8 +42,9 @@ complete in the delivery ledger.
   passed GitHub CI and deployed the combined code as described above.
 
 - The optional Supabase Management API table discovery change is released by
-  PR #63's deployment, but has not been qualified with a real Management API
-  token. The isolated `npm run verify`
+  PR #63's deployment; local table discovery succeeded after the owner's
+  connection update, with the request path not independently verified. The
+  isolated `npm run verify`
   passed after the Uptime Kuma setup-copy change, including 144 E2E tests.
   Uptime Kuma 2.5.9 and a real synthetic HTTP monitor subsequently ran against
   an isolated Fluxora API and database: DOWN and recovery executions succeeded.
@@ -192,8 +200,8 @@ evidence only; it does not substitute for future provider-specific smoke tests.
 Owner follow-up in progress on `codex/connector-discovery-qualification`: see
 `.agent/tasks/2026-11-01-connector-qualification.md` and
 `docs/35-connector-coverage-and-discovery.md`. Production Sentry, Vercel and
-Supabase read evidence has been recorded; Trello board discovery remains
-unqualified. PRs #60 and #61 passed their local and GitHub gates and were
+Supabase read evidence and local Trello discovery/create evidence are recorded;
+the production Trello credential remains unqualified. PRs #60 and #61 passed their local and GitHub gates and were
 deployed; this is not a completion claim for all connector operations or
 provider qualification.
 
