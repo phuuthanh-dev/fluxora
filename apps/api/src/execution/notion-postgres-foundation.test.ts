@@ -6,7 +6,8 @@ import { buildPostgresSelect } from "./postgres-select-query";
 import { resolvePostgresTarget } from "./postgres-target";
 import type { lookup } from "node:dns/promises";
 import { Readable } from "node:stream";
-import { executePostgresSelect, readPostgresRows } from "./postgres-read";
+import { rootCertificates } from "node:tls";
+import { executePostgresSelect, readPostgresRows, validatePostgresCredential } from "./postgres-read";
 
 test("Notion search sends bounded request and returns only page identifiers and titles", async () => {
   let captured: { url: string; init: RequestInit } | undefined;
@@ -75,6 +76,31 @@ test("PostgreSQL read pins the address, requires verified TLS and bounds streame
   rows = [{ text: "x".repeat(201_000) }];
   await assert.rejects(readPostgresRows(credential, "public", "items", 20, dependencies), /output size limit/);
   assert.equal(events.at(-1), "end");
+});
+
+test("PostgreSQL custom CA is bounded, validated and used without weakening TLS", async () => {
+  const base = { host: "db.example.com", port: 5432, database: "test", username: "user", password: "secret" };
+  const ca = rootCertificates[0]!;
+  const privateKeyMarker = "-----BEGIN " + "PRIVATE KEY-----\nfixture\n-----END " + "PRIVATE KEY-----";
+  assert.equal(validatePostgresCredential({ ...base, caCertificate: "" }).caCertificate, undefined);
+  assert.equal(validatePostgresCredential({ ...base, caCertificate: `\n${ca}\n` }).caCertificate, ca.trim());
+  for (const invalid of [null, 42, "not a certificate", `${ca}\n${privateKeyMarker}`, ca.repeat(5), "x".repeat(32_769)]) {
+    assert.throws(() => validatePostgresCredential({ ...base, caCertificate: invalid }), /valid PostgreSQL CA certificate/);
+  }
+  let config: Record<string, unknown> = {};
+  const dependencies = {
+    resolve: async () => ({ address: "8.8.8.8", servername: "db.example.com" }),
+    createClient: (value: Record<string, unknown>) => {
+      config = value;
+      return { connect: async () => {}, query: (q: unknown) => typeof q === "string" ? Promise.resolve() : Readable.from([]), end: async () => {} };
+    },
+  } as unknown as NonNullable<Parameters<typeof readPostgresRows>[4]>;
+  await readPostgresRows({ ...base, caCertificate: ca }, "public", "items", 1, dependencies);
+  const ssl = config.ssl as { servername: string; rejectUnauthorized: boolean; ca: string[] };
+  assert.equal(ssl.servername, "db.example.com");
+  assert.equal(ssl.rejectUnauthorized, true);
+  assert.equal(ssl.ca.at(-1), ca.trim());
+  assert.ok(ssl.ca.length > 1);
 });
 
 test("PostgreSQL mock does not read credentials and live selection uses its workspace credential", async () => {

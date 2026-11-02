@@ -176,6 +176,11 @@ Action nodes support timeout, retry with exponential backoff, and an error edge.
 - Generic HTTP: API key, bearer token, basic auth, or headers.
 - Gemini: a dedicated encrypted workspace API key, separate from Google sign-in and Drive OAuth. The server lists up to 100 text-generation models and the editor retains a manual model ID/expression fallback. Output length and request timeout are bounded; retries follow the shared failure policy. Provider calls occur only in confirmed live execution.
 - OpenAI: a separate encrypted workspace API key. The server lists up to 100 models available to that key; the provider's list does not guarantee Responses API text compatibility. Manual model ID/expression fallback is available. Execution uses the Responses API with `store: false`, bounded output and timeout, and the same live confirmation boundary.
+- PostgreSQL: a workspace-owned connection supports an optional provider CA
+  certificate in PEM format, entered by paste or file selection. TLS certificate
+  and hostname verification remain mandatory; the user is responsible for
+  obtaining the CA from their database provider. The connection remains scoped
+  to public DNS targets and bounded read-only operations.
 - All credential values are encrypted at rest and never returned to the client after save.
 - Credential lifecycle: Workspace owners can rename credentials or rotate secret payloads while preserving their immutable ID, provider, and node bindings. Existing secrets cannot be exported or viewed; rotation requires a full replacement payload. Google OAuth credentials direct owners to reconnect via OAuth.
 - Safe deletion & conflict handling: Duplicate `(workspaceId, provider, label)` combinations are rejected with a stable conflict error. Deletion is blocked with a stable `CREDENTIAL_IN_USE` error whenever the credential is referenced by a workflow's current draft or published version, or by an active (queued, running, waiting) execution. Historic versions without active executions do not permanently prevent cleanup.

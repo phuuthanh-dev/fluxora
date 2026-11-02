@@ -1,5 +1,6 @@
 import { CredentialProvider, ExecutionStatus } from "@prisma/client";
 import { validatePostgresCredential } from "../execution/postgres-read";
+import { NodeFailure } from "../execution/node-failure";
 import { validateMongoCredential } from "../execution/mongodb-find";
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../database/prisma.service";
@@ -420,7 +421,10 @@ function validateCredentialPayload(provider: CredentialProvider, data: Record<st
     return;
   }
   if (provider === CredentialProvider.POSTGRES) {
-    try { validatePostgresCredential(data); } catch { throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid PostgreSQL connection." }); }
+    try { validatePostgresCredential(data); } catch (error) {
+      if (error instanceof NodeFailure && error.code === "POSTGRES_CA_INVALID") throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid PostgreSQL CA certificate in PEM format." });
+      throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid PostgreSQL connection." });
+    }
     return;
   }
   if (provider === CredentialProvider.NOTION) {

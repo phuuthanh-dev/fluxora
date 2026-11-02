@@ -1,17 +1,35 @@
 import { Client, type ClientConfig } from "pg";
 import QueryStream from "pg-query-stream";
+import { X509Certificate } from "node:crypto";
+import { rootCertificates } from "node:tls";
 import { NodeFailure } from "./node-failure";
 import { buildPostgresSelect } from "./postgres-select-query";
 import { resolvePostgresTarget } from "./postgres-target";
 import { CredentialProvider } from "@prisma/client";
 import type { CredentialService } from "../credentials/credential.service";
 
-export type PostgresCredential = { host: string; port: number; database: string; username: string; password: string };
+export type PostgresCredential = { host: string; port: number; database: string; username: string; password: string; caCertificate?: string };
+
+/** Accept only bounded CA certificate PEM blocks, never private keys or arbitrary text. */
+function postgresCaCertificates(value: unknown): string[] | undefined {
+  if (value === undefined || value === "") return undefined;
+  if (typeof value !== "string" || value.length > 32_768) throw new NodeFailure("POSTGRES_CA_INVALID", "Enter a valid PostgreSQL CA certificate in PEM format.", false);
+  const pemPattern = /-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g;
+  const certificates = value.match(pemPattern) ?? [];
+  if (certificates.length < 1 || certificates.length > 4 || value.replace(pemPattern, "").trim() !== "") throw new NodeFailure("POSTGRES_CA_INVALID", "Enter a valid PostgreSQL CA certificate in PEM format.", false);
+  try {
+    if (certificates.some((pem) => !new X509Certificate(pem).ca)) throw new Error("Not a CA certificate");
+  } catch {
+    throw new NodeFailure("POSTGRES_CA_INVALID", "Enter a valid PostgreSQL CA certificate in PEM format.", false);
+  }
+  return certificates;
+}
 
 export function validatePostgresCredential(value: Record<string, unknown>): PostgresCredential {
   const { host, database, username, password, port } = value;
   if (typeof host !== "string" || !/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{1,62}$/i.test(host) || typeof database !== "string" || !database || database.length > 63 || /[\0\r\n]/.test(database) || typeof username !== "string" || !username || username.length > 256 || /[\0\r\n]/.test(username) || typeof password !== "string" || !password || password.length > 1024 || typeof port !== "number" || !Number.isInteger(port) || port < 1 || port > 65535) throw new NodeFailure("CREDENTIAL_INVALID", "Enter a PostgreSQL host, port, database, username and password.", false);
-  return { host, port, database, username, password };
+  const ca = postgresCaCertificates(value.caCertificate);
+  return { host, port, database, username, password, ...(ca ? { caCertificate: ca.join("\n") } : {}) };
 }
 
 /** Read-only transaction, pinned DNS result, verified TLS and bounded streamed output. */
@@ -24,7 +42,8 @@ export async function readPostgresRows(credential: PostgresCredential, schema: s
 
 async function readPostgresQuery(credential: PostgresCredential, query: { text: string; values: Array<string | number | boolean> }, dependencies: Dependencies = { resolve: resolvePostgresTarget, createClient: (config) => new Client(config) as unknown as ReadClient }) {
   const target = await dependencies.resolve(credential.host);
-  const client = dependencies.createClient({ host: target.address, port: credential.port, database: credential.database, user: credential.username, password: credential.password, ssl: { servername: target.servername, rejectUnauthorized: true }, connectionTimeoutMillis: 10_000, statement_timeout: 10_000, query_timeout: 15_000 });
+  const ca = postgresCaCertificates(credential.caCertificate);
+  const client = dependencies.createClient({ host: target.address, port: credential.port, database: credential.database, user: credential.username, password: credential.password, ssl: { servername: target.servername, rejectUnauthorized: true, ...(ca ? { ca: [...rootCertificates, ...ca] } : {}) }, connectionTimeoutMillis: 10_000, statement_timeout: 10_000, query_timeout: 15_000 });
   try {
     await client.connect();
     await client.query("BEGIN READ ONLY");

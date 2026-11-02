@@ -6,19 +6,48 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
+- A local PostgreSQL credential enhancement accepts an optional provider CA
+  while retaining verified TLS and pinned DNS. Supabase's official CA passed a
+  no-credential Node TLS handshake; the connection is not yet authenticated
+  or live-read qualified. Full isolated verify passed (API 353, web 32,
+  Playwright 144) after an earlier onboarding timeout of unconfirmed cause. The change
+  has not been released. See `.agent/reports/2026-11-02-postgres-custom-ca.md`.
+
+- A further isolated PostgreSQL 16 test exercised `readPostgresRows` against a
+  real TLS/SCRAM server with a synthetic custom CA. A bounded read succeeded;
+  missing/wrong CA, wrong hostname/password, and missing table permission were
+  rejected. The test injected a loopback resolver and did not authenticate to
+  Supabase or exercise the complete workflow and vault.
+
+- Reddit's credential form and node description now warn about retirement of
+  its public Data API and link to the provider timeline. This is local only;
+  no Reddit access has been qualified. Isolated full `npm run verify` passed
+  (API 352, web 32, Playwright 144). See `.agent/reports/2026-11-02-reddit-access-guidance.md`.
+
+- PR #64 merged as `393c097`; main quality run `41382040879` and production
+  deployment `41382980015` succeeded. The public homepage and login and the
+  separate API host's health and readiness endpoints each returned HTTP 200
+  after deployment. These checks do not establish sustained reliability.
+
+- Google Cloud Verification Center was checked again on 2026-11-02: data
+  access is still under review, with homepage and branding complete and five
+  remaining steps in progress. Google has not reported approval; see `docs/35`.
+
 - A newly saved local Trello connection loaded the designated `Fluxora
   connector test` board and its three lists. A manual live workflow created
   one test card in `To Do`; both node and execution succeeded, and the test
-  workflow was deactivated. This does not validate the previously failing
-  production credential, other Trello operations, or sustained reliability.
+  workflow was deactivated. After the owner rotated the production credential,
+  its picker also loaded the test board and all three lists. No production
+  card was created; other operations and sustained reliability remain untested.
   See `docs/35` before repeating the provider write.
 
 - After the owner reported updating the local Supabase connection, the table
   picker listed the designated test table and a manual live run successfully
-  returned one row. The test workflow was deactivated afterwards. A Management
-  token was requested for this follow-up, but the saved secret and discovery
-  request path were not inspected; do not claim independent verification of
-  Management API authentication. See `docs/35` before repeating work.
+  returned one row. The test workflow was deactivated afterwards. A subsequent
+  bounded live diagnostic confirmed the Management token is present and that
+  the existing safe transport reached `api.supabase.com` and returned the test
+  table; only booleans and the table count were output. This does not establish
+  production Management API access. See `docs/35` before repeating work.
 
 - PostgreSQL select runtime read a synthetic local PostgreSQL 16 table over
   verified TLS with SCRAM authentication, a test-only DNS resolver and a
@@ -42,8 +71,8 @@ complete in the delivery ledger.
   passed GitHub CI and deployed the combined code as described above.
 
 - The optional Supabase Management API table discovery change is released by
-  PR #63's deployment; local table discovery succeeded after the owner's
-  connection update, with the request path not independently verified. The
+  PR #63's deployment; local Management API discovery succeeded after the
+  owner's connection update. The
   isolated `npm run verify`
   passed after the Uptime Kuma setup-copy change, including 144 E2E tests.
   Uptime Kuma 2.5.9 and a real synthetic HTTP monitor subsequently ran against
@@ -200,8 +229,8 @@ evidence only; it does not substitute for future provider-specific smoke tests.
 Owner follow-up in progress on `codex/connector-discovery-qualification`: see
 `.agent/tasks/2026-11-01-connector-qualification.md` and
 `docs/35-connector-coverage-and-discovery.md`. Production Sentry, Vercel and
-Supabase read evidence and local Trello discovery/create evidence are recorded;
-the production Trello credential remains unqualified. PRs #60 and #61 passed their local and GitHub gates and were
+Supabase read evidence and Trello production discovery/local create evidence
+are recorded. PRs #60 and #61 passed their local and GitHub gates and were
 deployed; this is not a completion claim for all connector operations or
 provider qualification.
 

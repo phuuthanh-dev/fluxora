@@ -314,6 +314,7 @@
         "apps/api/src/credentials/credential-vault.service.ts",
         "apps/api/src/database/prisma.service.ts",
         "apps/api/src/execution/mongodb-find.ts",
+        "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/postgres-read.ts",
         "apps/api/src/execution/smtp-email.ts",
         "apps/api/src/workspaces/workspace.service.ts"
@@ -737,6 +738,8 @@
       ],
       "externalImports": [
         "@prisma/client",
+        "node:crypto",
+        "node:tls",
         "pg",
         "pg-query-stream"
       ]
@@ -2713,6 +2716,10 @@
     {
       "from": "apps/api/src/credentials/credential.service.ts",
       "to": "apps/api/src/execution/mongodb-find.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.service.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
     },
     {
       "from": "apps/api/src/credentials/credential.service.ts",

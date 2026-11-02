@@ -741,7 +741,7 @@ export const nodeCatalog: NodeDefinition[] = [
     ],
   },
   {
-    type: "action.reddit.list-posts", label: "Reddit posts", description: "Read recent or popular posts from a public community.",
+    type: "action.reddit.list-posts", label: "Reddit posts", description: "Read public posts with an approved Reddit app. Public Data API access is being retired.",
     category: "action", libraryGroup: "developer-data", appId: "reddit", operationId: "list-posts", operationLabel: "List posts", operationKind: "search", icon: "reddit", available: true,
     defaultConfig: { credentialId: "", subreddit: "", sort: "new", limit: 20 },
     configurationFields: [

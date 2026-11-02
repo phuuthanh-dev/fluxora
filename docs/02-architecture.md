@@ -143,6 +143,15 @@ separate supported design is needed for private databases, and the read path
   was tested against an isolated server using a synthetic certificate.
 Provider data must not enter logs or tests with real credentials.
 
+PostgreSQL connections may optionally include an owner-supplied PEM CA chain
+for providers whose roots are not in Node's default trust store. The API accepts
+at most four valid CA certificates and 32 KB, encrypts them with the rest of
+the connection, and adds them only to that connection's trust anchors. Both
+certificate verification and hostname checking remain mandatory for discovery
+and reads. Existing connections without a custom CA continue using Node's
+default trust store. Supplying an untrusted CA changes what that connection
+trusts, so the owner must obtain it directly from their database provider.
+
 Each integration supplies:
 
 - App manifest: stable app identity, label, icon, discovery category, and aliases.
