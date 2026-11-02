@@ -6,22 +6,50 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
+- A newly saved local Trello connection loaded the designated `Fluxora
+  connector test` board and its three lists. A manual live workflow created
+  one test card in `To Do`; both node and execution succeeded, and the test
+  workflow was deactivated. This does not validate the previously failing
+  production credential, other Trello operations, or sustained reliability.
+  See `docs/35` before repeating the provider write.
+
+- After the owner reported updating the local Supabase connection, the table
+  picker listed the designated test table and a manual live run successfully
+  returned one row. The test workflow was deactivated afterwards. A Management
+  token was requested for this follow-up, but the saved secret and discovery
+  request path were not inspected; do not claim independent verification of
+  Management API authentication. See `docs/35` before repeating work.
+
+- PostgreSQL select runtime read a synthetic local PostgreSQL 16 table over
+  verified TLS with SCRAM authentication, a test-only DNS resolver and a
+  credential-service stub. It enforced the row limit and rejected invalid
+  authentication, missing table permission and a mismatched certificate. This
+  is not cloud, picker or full workflow qualification; see `docs/35`.
+
+- PR #63 merged as `ccbf167` after PR CI passed; its main quality gate
+  `41340683966` and production deployment `41341549749` succeeded. After the
+  deployment, public home, login, API health and readiness returned HTTP 200;
+  local web and API also returned HTTP 200. These are point-in-time checks,
+  not proof of live provider access or sustained production reliability.
+
 - PR #62 merged as `dec5b65` after its PR quality gate passed, but main quality
   run `41338466267` failed the execution-center pagination E2E; its deploy was
   skipped. The fixture used request order rather than the requested cursor, so
   a local follow-up makes its response selection deterministic. The exact
   request ordering was not captured; do not claim the production UI was proven
   defective or that PR #62 was deployed. The targeted test passed 5 consecutive
-  isolated runs and full `npm run verify` passed with 144 E2E; the follow-up
-  still needs the GitHub gate and release.
+  isolated runs and full `npm run verify` passed with 144 E2E; PR #63 then
+  passed GitHub CI and deployed the combined code as described above.
 
-- The optional Supabase Management API table discovery change is implemented on
-  local branch `codex/connector-discovery-qualification`, not yet released or
-  qualified with a real Management API token. The isolated `npm run verify`
+- The optional Supabase Management API table discovery change is released by
+  PR #63's deployment; local table discovery succeeded after the owner's
+  connection update, with the request path not independently verified. The
+  isolated `npm run verify`
   passed after the Uptime Kuma setup-copy change, including 144 E2E tests.
-  Uptime Kuma's upstream webhook sender passed an isolated HTTP contract
-  experiment using a minimal test superclass, but no complete Uptime Kuma
-  instance or live monitor has been tested. See `docs/35` for exact limits.
+  Uptime Kuma 2.5.9 and a real synthetic HTTP monitor subsequently ran against
+  an isolated Fluxora API and database: DOWN and recovery executions succeeded.
+  Production, TLS, retry, replay and sustained delivery remain unqualified.
+  See `docs/35` for exact limits.
 
 - PR #60 merged as `2eebdbc` and PR #61 as `2cc2537`; their production
   deployments succeeded. The RSS CDATA fix passed a production live read of
@@ -172,8 +200,8 @@ evidence only; it does not substitute for future provider-specific smoke tests.
 Owner follow-up in progress on `codex/connector-discovery-qualification`: see
 `.agent/tasks/2026-11-01-connector-qualification.md` and
 `docs/35-connector-coverage-and-discovery.md`. Production Sentry, Vercel and
-Supabase read evidence has been recorded; Trello board discovery remains
-unqualified. PRs #60 and #61 passed their local and GitHub gates and were
+Supabase read evidence and local Trello discovery/create evidence are recorded;
+the production Trello credential remains unqualified. PRs #60 and #61 passed their local and GitHub gates and were
 deployed; this is not a completion claim for all connector operations or
 provider qualification.
 
