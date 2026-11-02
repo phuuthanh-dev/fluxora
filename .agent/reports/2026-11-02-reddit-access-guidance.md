@@ -18,5 +18,6 @@ dependencies were symlinked outside Turbopack's root; installing dependencies
 in the isolated worktree resolved it. Existing GSAP/WebGL warnings occurred
 without test failures. No live Reddit request or approval was obtained.
 
-The change is local until delivered through the agreed PR workflow. Test
-coverage does not establish a future Reddit access grant or continued access.
+The change was released in PR [#65](https://github.com/phuuthanh-dev/fluxora/pull/65),
+merged as `87542ed` and successfully deployed. Test coverage does not establish
+a future Reddit access grant or continued access.
