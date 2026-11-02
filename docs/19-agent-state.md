@@ -6,6 +6,8 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
+- Follow-up direct Calendar adapter diagnostics found the designated test event and pagination in a 2030 provider page. At the 2100 test interval, the raw Google list response itself had no items or next-page token while free/busy showed busy. Two marker-verified test events were deleted. This does not establish a universal provider date limit or prove the complete UI workflow for populated pages; see `docs/35-connector-coverage-and-discovery.md`.
+
 - An owner-authorized local Calendar test event produced a successful busy-interval result, but List upcoming events unexpectedly returned an empty page with `hasMore: false` for the far-future test range. The exact cause is unknown; do not claim a fix or a successful populated-list test. The test event was deleted, and all three qualification workflows were deactivated. See `docs/35-connector-coverage-and-discovery.md`.
 
 - A separate owner-authorized local Calendar read-only workflow successfully listed zero events after a future test date and reported a 15-minute interval as free. Both nodes and the live execution succeeded; the workflow was deactivated. Populated events, busy intervals, production and sustained behavior remain unqualified. See `docs/35-connector-coverage-and-discovery.md`.
