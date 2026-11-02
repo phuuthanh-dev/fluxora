@@ -19,7 +19,7 @@ test("Supabase discovery guidance is actionable and excludes provider messages",
   assert.equal(managed.code, "SUPABASE_TABLES_UNAVAILABLE");
   assert.match(managed.message, /management token/);
   assert.ok(!managed.message.includes("private response"));
-  for (const [status, code, expected] of [[401, "SUPABASE_TABLES_UNAVAILABLE", /API key/], [403, "SUPABASE_DISCOVERY_RESTRICTED", /denied schema discovery/], [429, "SUPABASE_TABLES_UNAVAILABLE", /rate limited/], [500, "SUPABASE_TABLES_UNAVAILABLE", /Check the connection/]] as const) {
+  for (const [status, code, expected] of [[401, "SUPABASE_TABLES_UNAVAILABLE", /permitted row reads may still work.*manually.*Management token/], [403, "SUPABASE_DISCOVERY_RESTRICTED", /denied schema discovery/], [429, "SUPABASE_TABLES_UNAVAILABLE", /rate limited/], [500, "SUPABASE_TABLES_UNAVAILABLE", /Check the connection/]] as const) {
     const response = supabaseDiscoveryError(new NodeFailure("HTTP_ERROR", "private provider response", false, status)).getResponse() as { code: string; message: string };
     assert.equal(response.code, code);
     assert.match(response.message, expected);

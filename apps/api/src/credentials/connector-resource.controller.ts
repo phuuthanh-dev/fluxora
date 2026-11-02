@@ -34,7 +34,8 @@ export function supabaseDiscoveryError(error: unknown) {
   }
   let guidance = "Check the connection or enter the table name manually.";
   if (error instanceof NodeFailure) {
-    if (error.code === "CREDENTIAL_INVALID" || error.statusCode === 401) guidance = "Check the project reference and API key, or enter the table name manually.";
+    if (error.code === "CREDENTIAL_INVALID") guidance = "Check the project reference and API key, or enter the table name manually.";
+    else if (error.statusCode === 401) guidance = "Supabase did not authorize schema discovery. Check the connection and schema access; permitted row reads may still work. Enter the table name manually, or optionally add a Management token with database read access.";
     else if (error.statusCode === 429) guidance = "Supabase rate limited the request. Retry later or enter the table name manually.";
     else if (error.code === "TIMEOUT" || error.code === "NETWORK_ERROR") guidance = "Supabase could not be reached. Retry or enter the table name manually.";
   }

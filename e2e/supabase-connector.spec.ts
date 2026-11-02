@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 for (const failure of [
   { code: "SUPABASE_DISCOVERY_RESTRICTED", message: "Schema discovery is unavailable; enter the table name manually." },
-  { code: "SUPABASE_TABLES_UNAVAILABLE", message: "Tables could not be listed. Check the connection or enter the table name manually." },
+  { code: "SUPABASE_TABLES_UNAVAILABLE", message: "Tables could not be listed. Supabase did not authorize schema discovery. Check the connection and schema access; permitted row reads may still work. Enter the table name manually, or optionally add a Management token with database read access." },
 ]) test(`Supabase table discovery falls back and retries after ${failure.code}`, async ({ page }) => {
   const graph = { nodes: [
     { id: "manual", type: "trigger.manual", position: { x: 100, y: 100 }, config: {} },

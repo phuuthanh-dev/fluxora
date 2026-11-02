@@ -18,4 +18,9 @@ for unit-test fixtures. The next full run passed 144/145 browser cases, with
 one unrelated Connections-to-Executions navigation timeout; that case passed
 twice in isolation and in the final full run. The timeout cause remains
 unconfirmed. The local Redis test instance was stopped after verification.
-The change has not been released to production.
+PR [#66](https://github.com/phuuthanh-dev/fluxora/pull/66) merged as `af55a06`.
+Both PR and main quality gates passed, and
+[production deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/41396672353)
+completed successfully. Production home, login, API health and readiness and
+the local web/API responded HTTP 200. This is an availability check; the
+blocked-storage interaction was verified in the isolated browser test.
