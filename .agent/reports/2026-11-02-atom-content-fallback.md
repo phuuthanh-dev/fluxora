@@ -2,7 +2,7 @@
 
 ## Outcome
 
-- Status: complete locally; production release pending.
+- Status: released in PR #70; production deployment and one full live workflow check succeeded.
 - Atom content is retained as the existing bounded summary when a description or summary is absent.
 
 ## Commit and scope
@@ -34,5 +34,5 @@
 ## Risks and follow-up
 
 - Content may contain HTML, as RSS descriptions already can; this change does not render or sanitize it. The existing 10,000-character bound applies.
-- The public-feed check called the adapter directly; it does not establish a complete live workflow, production deployment, every Atom variant or sustained behavior.
+- The public-feed check also succeeded through a production LIVE workflow after PR #70; it does not establish coverage of every Atom variant or sustained behavior.
 - The suite emitted GSAP missing-target warnings in landing tests and a WebGL extension warning; the suite passed and their causes are not investigated by this RSS change.

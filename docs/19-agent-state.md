@@ -6,7 +6,7 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
-- A public GitHub CLI releases Atom feed exposed a missing-content case: its entries use `content` without `summary`. A local RSS adapter follow-up supplies bounded `content` as the existing summary only when description and summary are absent. Isolated verify passed: API 355, web 32 and Playwright 145. Release remains pending; see `docs/35-connector-coverage-and-discovery.md`.
+- A public GitHub CLI releases Atom feed exposed a missing-content case: its entries use `content` without `summary`. An RSS adapter follow-up supplies bounded `content` as the existing summary only when description and summary are absent. PR #70 merged and deployment succeeded; a manual production LIVE workflow read three entries from the public GitHub CLI releases Atom feed with nonempty summaries. The test workflow was deactivated afterward. Isolated verify passed: API 355, web 32 and Playwright 145. See `docs/35-connector-coverage-and-discovery.md`.
 
 - After the Trello production credential rotation, a manual LIVE run of the designated Trello test workflow created one clearly labelled card in `Fluxora connector test` / `To Do`. Both the node and execution succeeded; the workflow was deactivated afterward and the card and execution history remain. This confirms one production create at that time, not repeat-delivery safety or sustained operation; see `docs/35-connector-coverage-and-discovery.md`.
 
