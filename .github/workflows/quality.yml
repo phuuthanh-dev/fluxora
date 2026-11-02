@@ -8,8 +8,10 @@ on:
 permissions:
   contents: read
 
+# Main commits have separate groups, so a docs-only run cannot cancel an
+# earlier product run. Superseded runs of the same PR are still cancelled.
 concurrency:
-  group: quality-${{ github.event.pull_request.number || github.ref }}
+  group: quality-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
 jobs:
@@ -27,36 +29,26 @@ jobs:
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
-          # Every main head gets full verification: an earlier product run may
-          # have been cancelled by this push, even when this push is docs-only.
-          if [[ "$EVENT_NAME" != "pull_request" ]]; then
-            echo "run_verify=true" >> "$GITHUB_OUTPUT"
-            echo "Verification required: true (main)"
-            exit 0
-          fi
           base="$BASE_SHA"
           head="$HEAD_SHA"
-          if [[ -z "$base" || "$base" =~ ^0+$ || -z "$head" ]]; then
+          if [[ -z "$base" || "$base" =~ ^0+$ || -z "$head" || "$base" == "$head" ]]; then
             echo "run_verify=true" >> "$GITHUB_OUTPUT"
             echo "Verification required: true (missing comparison revision)"
             exit 0
           fi
-
-          changed_files="$(git diff --no-renames --name-only "$base" "$head")"
-          run_verify=false
-          if [[ -z "$changed_files" ]]; then
-            run_verify=true
+          # A force push or unavailable ancestry cannot safely use a short diff.
+          if [[ "$EVENT_NAME" == "push" ]] && ! git merge-base --is-ancestor "$base" "$head"; then
+            echo "run_verify=true" >> "$GITHUB_OUTPUT"
+            echo "Verification required: true (non-fast-forward or unknown ancestry)"
+            exit 0
           fi
-          while IFS= read -r file; do
-            case "$file" in
-              docs/*|.agent/*|*.md|.gitignore|LICENSE) ;;
-              *) run_verify=true; break ;;
-            esac
-          done <<< "$changed_files"
+          scope="$(node scripts/ci-change-scope.mjs "$base" "$head")"
+          run_verify=false
+          if [[ "$scope" == "product" ]]; then run_verify=true; fi
           echo "run_verify=$run_verify" >> "$GITHUB_OUTPUT"
           echo "Verification required: $run_verify"
 
