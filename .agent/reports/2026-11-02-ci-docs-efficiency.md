@@ -2,8 +2,8 @@
 
 ## Outcome
 
-- Status: complete locally; GitHub deployment and scheduling validation pending.
-- The proposed workflow skips full verification and application deployment for documentation-only pushes without cancelling an earlier product verification; this behavior is not yet live.
+- Status: released in PR #69; production deployment qualification succeeded for merge `64e9e66`. Docs-only and overlapping-run scheduling validation remains pending.
+- The proposed workflow skips full verification and application deployment for documentation-only pushes without cancelling an earlier product verification; the workflow is deployed, but docs-only and overlap behavior have not yet been observed on GitHub.
 
 ## Commit and scope
 
@@ -16,7 +16,7 @@
 | Criterion | Evidence | Status |
 |---|---|---|
 | Conservative diff classification and product-then-docs safety | `scripts/deployment-contract.test.mjs`; per-main-SHA concurrency | Local pass |
-| Automatic deploy requires matching successful verification and non-stale product SHA | `scripts/ci-upstream-verification.mjs`; deployment qualification step | Local pass; actual GitHub execution pending |
+| Automatic deploy requires matching successful verification and non-stale product SHA | `scripts/ci-upstream-verification.mjs`; deployment qualification step | Production qualification accepted one matching verified commit; overlap behavior remains pending |
 | Serial deploy and manual immutable-SHA dispatch preserved | Workflow contract test | Local pass |
 
 ## Validation receipts

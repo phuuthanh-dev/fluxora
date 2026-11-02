@@ -86,7 +86,7 @@ export function parseRssFeed(xml: string, limit: number) {
     .slice(0, limit).flatMap((item: unknown) => {
       const entry = record(item);
       if (!entry) return [];
-      return [{ title: text(entry.title), link: link(entry.link), id: text(entry.guid ?? entry.id), publishedAt: text(entry.pubDate ?? entry.published ?? entry.updated), summary: text(entry.description ?? entry.summary) }];
+      return [{ title: text(entry.title), link: link(entry.link), id: text(entry.guid ?? entry.id), publishedAt: text(entry.pubDate ?? entry.published ?? entry.updated), summary: text(entry.description ?? entry.summary ?? entry.content) }];
     });
   return { title: text(container.title), items };
 }

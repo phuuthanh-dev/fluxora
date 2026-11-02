@@ -2,7 +2,7 @@
 
 ## Outcome
 
-- Status: complete locally; production release pending.
+- Status: released in PR #69; production deployment succeeded for merge `64e9e66`.
 - Removed Reddit OAuth app client-secret hints from saved connection summaries. Existing eligible non-OAuth opaque-token hints are unchanged.
 
 ## Commit and scope
@@ -28,5 +28,5 @@
 
 ## Risks and follow-up
 
-- Existing production summaries can expose the final two characters of qualifying Reddit app client secrets to the authenticated workspace owner until this local correction is released. Existing endpoints set `Cache-Control: no-store`; this finding does not establish exposure of full secrets or access by unauthorized users.
+- Before PR #69, production summaries could expose the final two characters of qualifying Reddit app client secrets to the authenticated workspace owner. Existing endpoints set `Cache-Control: no-store`; this finding does not establish exposure of full secrets or access by unauthorized users.
 - No claim of real Reddit access or Google/OAuth review approval is implied.
