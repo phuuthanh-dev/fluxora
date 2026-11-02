@@ -8,9 +8,10 @@ complete in the delivery ledger.
 
 - A newly saved local Supabase connection successfully read one row from the
   designated test table in a live manual workflow; the workflow was then
-  deactivated. The table picker still fell back to manual input. The saved
-  secret was not inspected, so management-token presence and discovery failure
-  cause remain unconfirmed. See `docs/35` before repeating qualification.
+  deactivated. The table picker still fell back to manual input. The owner
+  confirmed that only a publishable key was entered; the saved secret was not
+  inspected and the precise discovery failure remains unconfirmed. Management
+  API token discovery remains untested. See `docs/35` before repeating work.
 
 - PostgreSQL select runtime read a synthetic local PostgreSQL 16 table over
   verified TLS with SCRAM authentication, a test-only DNS resolver and a
