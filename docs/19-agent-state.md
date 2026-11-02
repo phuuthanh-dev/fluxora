@@ -6,6 +6,13 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
+- A local node-library fix prevents browser preference write failures from
+  blocking node addition. Favorites and collapsed categories remain usable in
+  the current session. Isolated final verify passed: API 352 plus one skipped,
+  web 32, and Playwright 145. An earlier navigation timeout passed twice in
+  isolation and in the full rerun; its cause is unconfirmed. The fix is not
+  yet released. See `.agent/reports/2026-11-02-node-library-storage.md`.
+
 - PR #65 merged as `87542ed`; PR and main quality gates passed and production
   deployment succeeded. Production home, login, API health and readiness and
   local web/API returned HTTP 200. Actual Supabase PostgreSQL authentication
