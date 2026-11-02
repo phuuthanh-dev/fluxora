@@ -10,7 +10,10 @@ complete in the delivery ledger.
   401 for schema discovery and HTTP 200 for a bounded one-row read with the
   same publishable key. The precise cause of the 401 and the production key's
   identity remain unknown. Local guidance now explains the distinction and
-  existing options; verification and release remain pending. See
+  existing options. Final isolated verify passed (API 352 and one skipped,
+  web 32, Playwright 145); release remains pending. Two prior full runs each
+  had a different timeout which passed targeted and final reruns, with causes
+  unconfirmed. See
   `.agent/reports/2026-11-02-supabase-discovery-401.md`.
 
 - A node-library fix prevents browser preference write failures from

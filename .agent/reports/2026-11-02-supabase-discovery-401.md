@@ -15,4 +15,12 @@ with database-read access. It does not assert that every 401 is a valid key or
 that a management token bypasses row-level security. Existing error codes and
 the separate management-token denial message remain unchanged.
 
-Final isolated verification and release status are pending.
+Final isolated `npm run verify` passed: 352 API tests passed with one skipped,
+32 web tests passed and 145 Playwright tests passed. The API and browser tests
+cover the revised guidance and manual fallback using mocked provider responses.
+Two prior full runs each had 144/145 Playwright cases pass: an editor loading
+timeout and, separately, a landing chart animation sampling timeout. Those cases
+passed 2/2 and 3/3 isolated reruns respectively, and both passed in the final
+full run. Their precise causes remain unconfirmed. The isolated Redis instance
+was stopped and the user's local web/API continued to respond. This change is
+local and has not been released.
