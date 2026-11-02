@@ -6,7 +6,7 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
-- After the owner rotated the Supabase production connection, Fluxora confirmed rotation and the existing test draft picker loaded the designated table (1 of 1). No secret was inspected and no workflow was saved or run. The exact provider discovery path, post-rotation live row read, and sustained behavior remain unqualified. See `docs/35-connector-coverage-and-discovery.md`.
+- After the owner rotated the Supabase production connection, the designated table appeared in the picker (1 of 1), and one LIVE run of the designated test workflow succeeded with a one-row limit. The workflow was deactivated afterward and its execution history retained. No secret was inspected. The precise discovery path and sustained behavior remain unqualified. See `docs/35-connector-coverage-and-discovery.md`.
 
 - Local follow-up removes the two-character hint previously shown for a Reddit OAuth app client secret, which conflicts with the documented OAuth-credential exclusion. Other allowlisted opaque-token hints are unchanged. Verification and release status are recorded in `.agent/reports/2026-11-02-reddit-client-secret-hint.md`; production remains unchanged until release.
 
