@@ -22,8 +22,8 @@ test("node library remains usable when preference storage rejects writes", async
   await page.goto("/editor?workflow=storage-test");
   await expect(page.locator(".react-flow__node")).toHaveCount(1);
   await page.getByRole("button", { name: /Open Telegram/ }).click();
-  await page.getByRole("button", { name: "Add Send message to favorites" }).click();
-  await expect(page.getByRole("button", { name: "Remove Send message from favorites" })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Add Send message to favorites (Telegram)" }).click();
+  await expect(page.getByRole("button", { name: "Remove Send message from favorites (Telegram)" })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: /Telegram: Send message/ }).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(2);
   await page.getByRole("button", { name: "All apps" }).click();

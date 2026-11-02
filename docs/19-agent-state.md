@@ -6,6 +6,8 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
+- Local node-library favorites follow-up hides favorite actions for unavailable planned operations and identifies the app in favorite control labels. Isolated full verify passed (API 355, web 32, Playwright 145); release remains pending. An initial naming collision caused six E2E failures before the label was revised and the affected journeys passed. See `.agent/reports/2026-11-02-node-library-favorites.md`.
+
 - Local node-library keyboard follow-up fixes focus when opening roadmap-only apps and prevents category toggles from triggering app-list arrow navigation. Isolated verify passed: API 355, web 32 and Playwright 145, including the keyboard journey. Release remains pending; see `.agent/reports/2026-11-02-node-library-keyboard-focus.md`.
 
 - A public GitHub CLI releases Atom feed exposed a missing-content case: its entries use `content` without `summary`. An RSS adapter follow-up supplies bounded `content` as the existing summary only when description and summary are absent. PR #70 merged and deployment succeeded; a manual production LIVE workflow read three entries from the public GitHub CLI releases Atom feed with nonempty summaries. The test workflow was deactivated afterward. Isolated verify passed: API 355, web 32 and Playwright 145. See `docs/35-connector-coverage-and-discovery.md`.

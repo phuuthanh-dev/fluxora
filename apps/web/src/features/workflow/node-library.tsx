@@ -300,7 +300,7 @@ function OperationSection({ id, label, description, definitions, favoriteTypes, 
             <span className="palette-node__icon"><NodeIcon name={definition.icon} size={16} /></span>
             <span className="palette-node__body"><span className="palette-node__title"><strong>{definition.operationLabel}</strong>{!definition.available && <em>Planned</em>}</span><small>{app ? `${app.label} · ` : ""}{definition.description}</small></span>
           </button>
-          <button className={favorite ? "palette-favorite palette-favorite--active" : "palette-favorite"} type="button" aria-label={`${favorite ? "Remove" : "Add"} ${definition.operationLabel} ${favorite ? "from" : "to"} favorites`} aria-pressed={favorite} onClick={() => onToggleFavorite(definition)}><Star size={13} fill={favorite ? "currentColor" : "none"} /></button>
+          {definition.available && <button className={favorite ? "palette-favorite palette-favorite--active" : "palette-favorite"} type="button" aria-label={`${favorite ? "Remove" : "Add"} ${definition.operationLabel} ${favorite ? "from" : "to"} favorites${app ? ` (${app.label})` : ""}`} aria-pressed={favorite} onClick={() => onToggleFavorite(definition)}><Star size={13} fill={favorite ? "currentColor" : "none"} /></button>}
         </div>;
       })}
     </section>
