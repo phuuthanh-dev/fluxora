@@ -65,14 +65,20 @@ test("account settings and recovery remain readable in both themes on desktop an
     await page.setViewportSize({ width, height: 960 });
     for (const route of ["/settings/account", "/forgot-password", `/reset-password#token=${randomBytes(32).toString("base64url")}`]) {
       await page.goto(route);
-      await expect(page.locator("input").first()).toBeVisible();
+      const fields = page.locator(".account-content, .auth-panel").locator("input:not([readonly])");
+      await expect(fields.first()).toBeVisible();
       for (const theme of ["light", "dark"]) {
-        if (await page.locator("html").getAttribute("data-theme") !== theme) await page.getByRole("button", { name: `Switch to ${theme} mode` }).click();
+        if (await page.locator("html").getAttribute("data-theme") !== theme) {
+          const mobileSidebar = width === 390 && route === "/settings/account";
+          if (mobileSidebar) await page.getByRole("button", { name: "Open navigation", exact: true }).click();
+          await page.getByRole("button", { name: `Switch to ${theme} mode` }).click();
+          if (mobileSidebar) await page.getByRole("button", { name: "Close navigation", exact: true }).click();
+        }
         await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
         await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
         expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
-        await page.locator("input:not([readonly])").first().focus();
-        await expect(page.locator("input:not([readonly])").first()).toHaveCSS("outline-style", "solid");
+        await fields.first().focus();
+        await expect(fields.first()).toHaveCSS("outline-style", "solid");
         await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
         await page.screenshot({ path: info.outputPath(`${route.split("#")[0]!.replaceAll("/", "-")}-${theme}-${width}.png`), fullPage: true });
       }

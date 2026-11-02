@@ -7,6 +7,7 @@ import { apiRequest, apiUrl } from "../api/api-client";
 import { ThemeToggle } from "../theme/theme-toggle";
 import { Button, Menu, Select } from "../../components/ui";
 import { BrandLockup } from "../../components/brand/brand-lockup";
+import { WorkspaceSidebar } from "./workspace-sidebar";
 
 export type AppShellWorkspace = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
 type Identity = { provider: "GOOGLE" | "GITHUB" | "STEAM"; providerAccountId: string };
@@ -74,20 +75,8 @@ export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, act
   const navPath = (target: "dashboard" | "connections" | "executions") => target === "dashboard" ? `/dashboard?workspace=${encodeURIComponent(workspaceId)}` : `/dashboard/${target}?workspace=${encodeURIComponent(workspaceId)}`;
   const navigate = (path: string) => { if (onBeforeNavigate?.() !== false) router.push(path); };
 
-  return (
-    <header className="app-shell-header">
-      <button className="app-shell-brand" type="button" aria-label="Fluxora home" onClick={() => navigate(navPath("dashboard"))}><BrandLockup /></button>
-      <div className="app-shell-navigation">
-        <label className="app-shell-workspace" htmlFor="app-shell-workspace"><span>Workspace</span><Select id="app-shell-workspace" value={workspaceId} disabled={workspaces.length === 0} onChange={(event) => { if (onBeforeNavigate?.() !== false) onWorkspaceChange(event.target.value); }}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</Select></label>
-        <nav aria-label="Workspace navigation">
-          <Button variant="ghost" className={`app-shell-nav-link${active === "dashboard" ? " is-active" : ""}`} aria-current={active === "dashboard" ? "page" : undefined} onClick={() => navigate(navPath("dashboard"))}><LayoutDashboard size={15} /> Dashboard</Button>
-          <Button variant="ghost" className={`app-shell-nav-link${active === "connections" ? " is-active" : ""}`} aria-current={active === "connections" ? "page" : undefined} onClick={() => navigate(navPath("connections"))}><PlugZap size={15} /> Connections</Button>
-          <Button variant="ghost" className={`app-shell-nav-link${active === "executions" ? " is-active" : ""}`} aria-current={active === "executions" ? "page" : undefined} onClick={() => navigate(navPath("executions"))}><History size={15} /> Executions</Button>
-        </nav>
-      </div>
-      <div className="app-shell-account">
-        <ThemeToggle />
-        <Menu label="Account" trigger={<span className={`app-shell-avatar app-shell-avatar--${user?.avatarColor ?? "lime"}`} aria-hidden="true">{avatarInitials(user)}</span>} className="app-shell-account-menu">
+  const workspacePicker = <label className="app-shell-workspace" htmlFor="app-shell-workspace"><span>Workspace</span><Select id="app-shell-workspace" value={workspaceId} disabled={workspaces.length === 0} onChange={(event) => { if (onBeforeNavigate?.() !== false) onWorkspaceChange(event.target.value); }}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</Select></label>;
+  const accountMenu = <Menu label="Account" trigger={<><span className={`app-shell-avatar app-shell-avatar--${user?.avatarColor ?? "lime"}`} aria-hidden="true">{avatarInitials(user)}</span><span className="sidebar-account-copy"><strong>{user?.displayName ?? "Your account"}</strong><span>Account & preferences</span></span></>} className="app-shell-account-menu">
           <p className="app-shell-account-menu__user">{user?.displayName ?? user?.email ?? "Your account"}</p>
           <Button variant="ghost" onClick={() => navigate(`/settings/account?workspace=${encodeURIComponent(workspaceId)}`)}><Settings size={14} /> Account settings</Button>
           {identityError && <p role="alert">{identityError}</p>}
@@ -95,7 +84,24 @@ export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, act
           {!identities.some((identity) => identity.provider === "STEAM") && <Button variant="ghost" disabled={!providers.steam} onClick={() => { if (onBeforeNavigate?.() !== false) window.location.assign(`${apiUrl}/auth/steam/connect`); }}>{providers.steam ? "Link Steam" : "Steam setup"}</Button>}
           <hr className="app-shell-account-menu__divider" />
           <Button variant="ghost" className="app-shell-account-menu__sign-out" onClick={() => void logout()}><LogOut size={14} /> Sign out</Button>
-        </Menu>
+        </Menu>;
+
+  if (active !== "editor") return <WorkspaceSidebar active={active} workspaceId={workspaceId} workspacePicker={workspacePicker} accountMenu={accountMenu} navigate={navigate} />;
+
+  return (
+    <header className="app-shell-header">
+      <button className="app-shell-brand" type="button" aria-label="Fluxora home" onClick={() => navigate(navPath("dashboard"))}><BrandLockup /></button>
+      <div className="app-shell-navigation">
+        {workspacePicker}
+        <nav aria-label="Workspace navigation">
+          <Button variant="ghost" className="app-shell-nav-link" onClick={() => navigate(navPath("dashboard"))}><LayoutDashboard size={15} /> Dashboard</Button>
+          <Button variant="ghost" className="app-shell-nav-link" onClick={() => navigate(navPath("connections"))}><PlugZap size={15} /> Connections</Button>
+          <Button variant="ghost" className="app-shell-nav-link" onClick={() => navigate(navPath("executions"))}><History size={15} /> Executions</Button>
+        </nav>
+      </div>
+      <div className="app-shell-account">
+        <ThemeToggle />
+        {accountMenu}
       </div>
     </header>
   );

@@ -47,6 +47,7 @@ export function Menu({ label, children, trigger, className, contentClassName }: 
       items[edge === "first" ? 0 : items.length - 1]?.focus();
     } else if (event.key === "Escape" && open) {
       event.preventDefault();
+      event.stopPropagation();
       closeAndRestoreFocus();
     }
   };
@@ -90,7 +91,7 @@ export function Menu({ label, children, trigger, className, contentClassName }: 
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={contentId}
-        onClick={(event) => { event.preventDefault(); setOpen((current) => !current); }}
+        onClick={(event) => { event.preventDefault(); triggerRef.current?.focus(); setOpen((current) => !current); }}
         onKeyDown={onTriggerKeyDown}
       >
         {trigger ?? <><span>{label}</span><ChevronDown size={14} aria-hidden="true" /></>}

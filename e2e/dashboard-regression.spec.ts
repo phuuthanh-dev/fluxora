@@ -267,7 +267,7 @@ test("editor text, controls, and provider icons meet contrast targets in both th
   await assertDisabledActionDuringThemeChange();
 });
 
-test("account dropdown keeps its trigger inline and opens below the header", async ({ page }) => {
+test("sidebar account menu stays above its avatar and inside the viewport", async ({ page }) => {
   const email = `regression-connections-${Date.now()}@example.test`;
   await signUpAndDashboard(page, email);
 
@@ -287,7 +287,9 @@ test("account dropdown keeps its trigger inline and opens below the header", asy
   await expect(menu).toBeVisible();
   const menuBox = await menu.boundingBox();
   expect(menuBox).not.toBeNull();
-  expect(menuBox!.y).toBeGreaterThan(triggerBox!.y + triggerBox!.height);
+  expect(menuBox!.y + menuBox!.height).toBeLessThan(triggerBox!.y);
+  expect(menuBox!.x).toBeGreaterThanOrEqual(0);
+  expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
   await expect(menu).toContainText("No external identities linked.");
   await expect(menu.getByRole("button", { name: "Sign out" })).toBeVisible();
 });
