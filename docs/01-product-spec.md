@@ -46,7 +46,7 @@ The Steam profile is public. The Steam node returns every field available throug
 | Trigger | GitHub Pull request opened | Receive a signed GitHub `pull_request` webhook with `action: opened` using the registration signing secret. |
 | Trigger | GitHub Push | Receive a signed GitHub `push` webhook using the registration signing secret. |
 | Trigger | GitHub Workflow run completed | Receive a signed GitHub `workflow_run` webhook with `action: completed` using the registration signing secret. |
-| Trigger | Gmail new message | Poll Gmail history with a workspace-owned connection, selectable interval and optional sender/subject/label filters. Implemented in draft PR #57; live qualification and release remain. |
+| Trigger | Gmail new message | Poll Gmail history with a workspace-owned connection, selectable interval and optional sender/subject/label filters. Released in PR #57; one targeted local poll succeeded. Sustained polling and Google scope verification remain open. |
 | Condition | If/Else | Comparison operators and true/false paths. |
 | Condition | Switch | Multiple cases and a default path. |
 | Action | Steam Account Snapshot | Profile, current game, owned/recent games, playtime, and optional per-game achievements. |
@@ -60,21 +60,30 @@ The Steam profile is public. The Steam node returns every field available throug
 | Action | Google Drive | List/search file metadata and upload/download text assets. |
 | Action | Google Sheets | Read ranges, append rows, update ranges. |
 | Action | HTTP Request | Generic REST request with structured response. |
-| Action | SMTP Email | Dedicated encrypted SMTP credential, TLS-only submission and normalized delivery result; real-provider qualification remains separate. |
-| Action | Gmail Read | Read bounded inbox results using a dedicated Gmail connection. Implemented in draft PR #57; live qualification and release remain. |
-| Action | Google Calendar | List, get, create, update and delete events or check availability using a dedicated Calendar connection. Implemented in draft PR #57; live qualification and release remain. |
+| Action | SMTP Email | Dedicated encrypted SMTP credential, TLS-only submission and normalized delivery result. One owner-approved local submission reached the intended inbox; production delivery and sustained behavior remain unqualified. |
+| Action | Gmail Read | Read bounded inbox results using a dedicated Gmail connection. Released in PR #57; one targeted local read succeeded. Google scope verification and sustained behavior remain open. |
+| Action | Google Calendar | List, get, create, update and delete events or check availability using a dedicated Calendar connection. Released in PR #57; bounded local tests cover these modes, with a far-future list anomaly and production qualification still open. |
 | Action | Gemini Generate Text | Dedicated workspace API-key connection, model discovery, prompt and bounded output, with mock and confirmed live modes. |
 | Action | OpenAI Generate Text | Dedicated workspace API-key connection, model discovery and Responses API text output, with mock and confirmed live modes. |
 | Action | MongoDB Find / Insert document | Dedicated credential, public single-server TLS, bounded data and database/collection pickers with manual fallback. |
 | Action | Google Chat OAuth message | Dedicated Chat OAuth connection and space picker, sending on behalf of the consenting user. |
+| Action | Notion Search pages | Search accessible pages using a dedicated connection; other Notion operations are not implied. |
+| Action | PostgreSQL Select rows | Read bounded rows with a dedicated connection and verified TLS; an optional provider CA is supported. |
+| Action | RSS Read feed | Read bounded RSS or Atom entries over guarded outbound HTTP; no new-item trigger is implemented. |
+| Action | Trello Create card | Create a card in a chosen board and list using a workspace connection. |
+| Action | Sentry List issues | Read issues from an accessible Sentry project. |
+| Action | Vercel List deployments | Read deployments for an accessible project, with a personal-account fallback when team discovery is denied. |
+| Action | Supabase Select rows | Read bounded rows from an accessible public-schema table using Data API permissions. |
+| Action | Reddit List posts | List public posts only when provider access is available; real access has not been qualified. |
+| Trigger | Uptime Kuma alert | Receive and normalize an authorized monitor alert; local UP/DOWN delivery was tested. |
 | Approval | Approval | Pause, notify by Chat/webhook with an app link, then resume after UI approve/reject. |
 
-### UI/schema-only nodes
+See `docs/35-connector-coverage-and-discovery.md` for the exact operations, point-in-time live evidence, provider restrictions and remaining coverage. An executable node is not a claim of full provider feature parity.
 
-- Gmail OAuth, read action and polling trigger are implemented in draft PR #57;
-  live qualification and release remain. Gmail attachments are unavailable;
-  SMTP Email is executable (EMAIL-SMTP-1).
-- MongoDB update/delete and replica/SRV discovery, remaining GitHub operations, Facebook Meta, Instagram.
+### Not yet implemented or outside current runtime scope
+
+- Gmail attachments, push notifications and sending through Gmail API are unavailable; Gmail read and polling and SMTP sending are runtime features.
+- MongoDB update/delete, unrestricted replica topology discovery, remaining GitHub operations, Facebook Meta and Instagram remain unavailable. Guarded SRV seed discovery is implemented for the existing MongoDB operations; this is not unrestricted replica discovery.
 
 ### Explicitly out of scope
 
@@ -83,7 +92,7 @@ The Steam profile is public. The Steam node returns every field available throug
 - Connector marketplace/SDK.
 - Production RBAC and multi-stage approvals.
 - Mobile-first editor.
-- Deployment and VPS setup.
+- Deployment and VPS setup were outside the original three-day MVP; the later production deployment and its qualification limits are tracked in `docs/15-deployment.md` and `docs/35-connector-coverage-and-discovery.md`.
 
 ## 5. Workflow editor requirements
 

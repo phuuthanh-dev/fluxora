@@ -2,7 +2,7 @@
 
 ## Outcome
 
-- Status: complete locally; production release pending.
+- Status: released in PR #71; production deployment and a limited editor check succeeded.
 - Opening a roadmap-only app retains focus on its first planned operation, and category toggles no longer trigger app-list arrow navigation.
 
 ## Commit and scope
@@ -32,5 +32,5 @@
 
 ## Risks and follow-up
 
-- No release or production browser verification has been performed for this change.
+- Production editor smoke checked the planned Instagram focus/return path after deployment; this does not cover every device and theme.
 - Existing landing GSAP missing-target and WebGL-extension warnings occurred during passing E2E; their causes are outside this focus fix.

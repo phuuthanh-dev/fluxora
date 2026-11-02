@@ -6,9 +6,11 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
-- Local node-library favorites follow-up hides favorite actions for unavailable planned operations and identifies the app in favorite control labels. Isolated full verify passed (API 355, web 32, Playwright 145); release remains pending. An initial naming collision caused six E2E failures before the label was revised and the affected journeys passed. See `.agent/reports/2026-11-02-node-library-favorites.md`.
+- PR [#71](https://github.com/phuuthanh-dev/fluxora/pull/71) merged as `6f09d8f`; PR/main quality gates and [production deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/41440411080) succeeded. In the production editor, opening planned Instagram focused the unavailable operation, no favorite control appeared, and Escape returned focus to the app. A ready operation showed an app-specific favorite label. These checks do not establish every device, theme or provider operation.
 
-- Local node-library keyboard follow-up fixes focus when opening roadmap-only apps and prevents category toggles from triggering app-list arrow navigation. Isolated verify passed: API 355, web 32 and Playwright 145, including the keyboard journey. Release remains pending; see `.agent/reports/2026-11-02-node-library-keyboard-focus.md`.
+- Local node-library favorites follow-up hides favorite actions for unavailable planned operations and identifies the app in favorite control labels. Isolated full verify passed (API 355, web 32, Playwright 145); PR #71 was deployed. An initial naming collision caused six E2E failures before the label was revised and the affected journeys passed. See `.agent/reports/2026-11-02-node-library-favorites.md`.
+
+- Local node-library keyboard follow-up fixes focus when opening roadmap-only apps and prevents category toggles from triggering app-list arrow navigation. Isolated verify passed: API 355, web 32 and Playwright 145, including the keyboard journey. PR #71 was deployed; see `.agent/reports/2026-11-02-node-library-keyboard-focus.md`.
 
 - A public GitHub CLI releases Atom feed exposed a missing-content case: its entries use `content` without `summary`. An RSS adapter follow-up supplies bounded `content` as the existing summary only when description and summary are absent. PR #70 merged and deployment succeeded; a manual production LIVE workflow read three entries from the public GitHub CLI releases Atom feed with nonempty summaries. The test workflow was deactivated afterward. Isolated verify passed: API 355, web 32 and Playwright 145. See `docs/35-connector-coverage-and-discovery.md`.
 
@@ -302,7 +304,7 @@ one of these IDs or explicitly reopen a completed ledger slice.
 | `NOTION-1` | Add Notion connector with user-owned credential and guided page operations | pending | Search pages implemented in PR #56; live search qualified once locally. More operations and production qualification remain. |
 | `POSTGRES-1` | Add PostgreSQL connector with user-owned credential and guided operations | pending | Select rows implemented in PR #56; one local Supabase PostgreSQL LIVE workflow read succeeded with verified TLS and a one-row limit. Production qualification, sustained behavior and further operations remain. |
 | `GMAIL-1` | Add Gmail read operations and a durable new-message trigger with a separate owner-authorized Google connection | pending | Released in PR #57. Gmail Read and one targeted local trigger poll succeeded against a test email; sustained polling and restricted-scope approval remain. Pub/Sub push is not implemented. See `.agent/reports/2026-11-01-gmail-trigger-calendar-expansion.md`. |
-| `CALENDAR-1` | Add Google Calendar connection and actions | pending | Released in PR #57. Picker plus one local create/get/update/delete sequence succeeded against a test event. Live list-events, availability and public scope approval remain; a Calendar trigger is not implemented. |
+| `CALENDAR-1` | Add Google Calendar connection and actions | pending | Released in PR #57. Local test evidence includes create/get/update/delete, free/busy intervals and a populated 2030 list page through a direct adapter diagnostic; a far-future list anomaly, production qualification and public scope approval remain. A Calendar trigger is not implemented. |
 | `EMAIL-UX-1` | Group Gmail and SMTP connection choices in the UI | pending | Released in PR #57; Gmail and SMTP keep separate providers and nodes. Further UX qualification remains separate. |
 
 ## Closed boundary

@@ -2,7 +2,7 @@
 
 ## Outcome
 
-- Status: complete locally; production release pending.
+- Status: released in PR #71; production deployment and a limited editor check succeeded.
 - Unavailable operations no longer expose a favorite action, and favorite controls identify their app without colliding with node names.
 
 ## Commit and scope
@@ -36,4 +36,4 @@
 ## Risks and follow-up
 
 - Persisted favorites are not modified; previously saved planned types can become visible if made available in a future release.
-- No production release or production browser verification has been performed for this change.
+- Production editor smoke confirmed no favorite action for the planned Instagram operation and an app-specific label for a ready operation; this is not an exhaustive accessibility audit.
