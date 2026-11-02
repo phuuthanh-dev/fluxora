@@ -6,6 +6,8 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
+- An owner-authorized local Calendar test event produced a successful busy-interval result, but List upcoming events unexpectedly returned an empty page with `hasMore: false` for the far-future test range. The exact cause is unknown; do not claim a fix or a successful populated-list test. The test event was deleted, and all three qualification workflows were deactivated. See `docs/35-connector-coverage-and-discovery.md`.
+
 - A separate owner-authorized local Calendar read-only workflow successfully listed zero events after a future test date and reported a 15-minute interval as free. Both nodes and the live execution succeeded; the workflow was deactivated. Populated events, busy intervals, production and sustained behavior remain unqualified. See `docs/35-connector-coverage-and-discovery.md`.
 
 - After the owner rotated the local PostgreSQL connection with the Supabase CA,
