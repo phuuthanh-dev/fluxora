@@ -158,7 +158,16 @@ Each node execution stores:
 - redacted input and output
 - normalized error `{ code, message, retryable }`
 
-Action nodes support timeout, retry with exponential backoff, and an error edge. Retry only network, timeout, 429, and 5xx-like failures; do not retry invalid configuration or authorization failures by default.
+Action nodes support timeout, retry with exponential backoff, and an error edge.
+An explicit adapter retry denial always wins over status/code inference. Transient
+reads and confirmed temporary rejections may retry; ambiguous writes must stop
+without automatic replay, including loss of a successful receipt and rejection
+after a redirect. The owner checks provider state before manually retrying.
+Invalid configuration and authorization failures are terminal by default.
+HTTP and Drive/Sheets response bodies have a streaming 1,000,000-byte limit.
+SMTP success means all envelope recipients were accepted for submission, not
+confirmed inbox delivery; partial/uncertain submission fails without auto-retry.
+Existing SMTP `delivered` stays compatible and gains explicit submission metadata.
 
 ## 8. Credentials and integrations
 

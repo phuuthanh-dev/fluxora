@@ -557,6 +557,8 @@
         "apps/api/src/execution/openai-text.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
         "apps/api/src/execution/postgres-read.ts",
+        "apps/api/src/execution/provider-json.ts",
+        "apps/api/src/execution/provider-request-policy.ts",
         "apps/api/src/execution/redaction.ts",
         "apps/api/src/execution/reddit.ts",
         "apps/api/src/execution/retention-policy.ts",
@@ -773,6 +775,16 @@
       "externalImports": []
     },
     {
+      "id": "apps/api/src/execution/provider-request-policy.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-json.ts"
+      ],
+      "externalImports": []
+    },
+    {
       "id": "apps/api/src/execution/redaction.ts",
       "boundary": "api",
       "internalImports": [],
@@ -839,6 +851,7 @@
         "), ",
         "@prisma/client",
         "node:net",
+        "node:url",
         "nodemailer"
       ]
     },
@@ -937,7 +950,9 @@
       "internalImports": [
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
-        "apps/api/src/notifications/notification-contracts.ts"
+        "apps/api/src/execution/provider-json.ts",
+        "apps/api/src/notifications/notification-contracts.ts",
+        "apps/api/src/notifications/notification-write-failure.ts"
       ],
       "externalImports": []
     },
@@ -947,7 +962,9 @@
       "internalImports": [
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
-        "apps/api/src/notifications/notification-contracts.ts"
+        "apps/api/src/execution/provider-json.ts",
+        "apps/api/src/notifications/notification-contracts.ts",
+        "apps/api/src/notifications/notification-write-failure.ts"
       ],
       "externalImports": []
     },
@@ -958,7 +975,8 @@
         "apps/api/src/execution/http-credential.ts",
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
-        "apps/api/src/notifications/notification-contracts.ts"
+        "apps/api/src/notifications/notification-contracts.ts",
+        "apps/api/src/notifications/notification-write-failure.ts"
       ],
       "externalImports": []
     },
@@ -996,6 +1014,14 @@
       "externalImports": []
     },
     {
+      "id": "apps/api/src/notifications/notification-write-failure.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts"
+      ],
+      "externalImports": []
+    },
+    {
       "id": "apps/api/src/notifications/telegram-destination.ts",
       "boundary": "api",
       "internalImports": [
@@ -1009,7 +1035,9 @@
       "internalImports": [
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
-        "apps/api/src/notifications/notification-contracts.ts"
+        "apps/api/src/execution/provider-json.ts",
+        "apps/api/src/notifications/notification-contracts.ts",
+        "apps/api/src/notifications/notification-write-failure.ts"
       ],
       "externalImports": []
     },
@@ -3013,6 +3041,14 @@
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/provider-request-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/execution/redaction.ts"
     },
     {
@@ -3212,6 +3248,18 @@
       "to": "apps/api/src/execution/node-failure.ts"
     },
     {
+      "from": "apps/api/src/execution/provider-request-policy.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/provider-request-policy.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/provider-request-policy.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
       "from": "apps/api/src/execution/reddit.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
     },
@@ -3361,7 +3409,15 @@
     },
     {
       "from": "apps/api/src/notifications/discord.adapter.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/discord.adapter.ts",
       "to": "apps/api/src/notifications/notification-contracts.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/discord.adapter.ts",
+      "to": "apps/api/src/notifications/notification-write-failure.ts"
     },
     {
       "from": "apps/api/src/notifications/google-chat.adapter.ts",
@@ -3373,7 +3429,15 @@
     },
     {
       "from": "apps/api/src/notifications/google-chat.adapter.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/google-chat.adapter.ts",
       "to": "apps/api/src/notifications/notification-contracts.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/google-chat.adapter.ts",
+      "to": "apps/api/src/notifications/notification-write-failure.ts"
     },
     {
       "from": "apps/api/src/notifications/http-webhook.adapter.ts",
@@ -3390,6 +3454,10 @@
     {
       "from": "apps/api/src/notifications/http-webhook.adapter.ts",
       "to": "apps/api/src/notifications/notification-contracts.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/http-webhook.adapter.ts",
+      "to": "apps/api/src/notifications/notification-write-failure.ts"
     },
     {
       "from": "apps/api/src/notifications/index.ts",
@@ -3444,6 +3512,10 @@
       "to": "apps/api/src/notifications/telegram.adapter.ts"
     },
     {
+      "from": "apps/api/src/notifications/notification-write-failure.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
       "from": "apps/api/src/notifications/telegram-destination.ts",
       "to": "apps/api/src/execution/node-failure.ts"
     },
@@ -3457,7 +3529,15 @@
     },
     {
       "from": "apps/api/src/notifications/telegram.adapter.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/telegram.adapter.ts",
       "to": "apps/api/src/notifications/notification-contracts.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/telegram.adapter.ts",
+      "to": "apps/api/src/notifications/notification-write-failure.ts"
     },
     {
       "from": "apps/api/src/platform/environment.ts",

@@ -115,11 +115,11 @@ Giữ node library App → Operation, categories, search, favorites/recent và s
 
 ## 6. Thứ tự thi công đề xuất
 
-Đây là backlog đã audit, **không phải công việc đã được implementation trong goal này**. Các mã `NX-*` chỉ là checklist của báo cáo, không thay ID được phê duyệt trong `docs/19-agent-state.md`.
+Đây là backlog từ audit tại `04d67b6`. NX-01 được triển khai trong đợt tiếp theo; trạng thái validation/release nằm trong report bên dưới. Các mã `NX-*` chỉ là checklist của báo cáo, không thay ID được phê duyệt trong `docs/19-agent-state.md`.
 
 | Thứ tự | Checklist / phạm vi | Phụ thuộc và done criteria |
 |---|---|---|
-| 1 — NX-01 | [ ] Retry explicit deny; SMTP accepted/uncertain; bounds HTTP/Drive/Sheets; đối chiếu các write đang có. | Giữ behavior workflow cũ có migration/version rõ. Test engine→adapter, không resend ambiguous write; đọc 429 vẫn retry bounded. Đây là việc nên làm tiếp theo. |
+| 1 — NX-01 | [x] Implementation: retry explicit deny; SMTP accepted/partial/uncertain; bounded HTTP/Drive/Sheets; HTTP/Google/GitHub/notification write ambiguity. | Không đổi graph/schema; giữ output keys thành công và bổ sung SMTP submission metadata. Final verification/release: `.agent/reports/2026-11-02-connector-delivery-safety.md`. Không tuyên bố live qualification mới hoặc exactly-once. |
 | 2 — NX-02 | [ ] Typed operation metadata/registries và field help; versioning tối thiểu; expose pagination thống nhất; account-aware OAuth. | Refactor theo app, không big-bang rewrite; mọi executable type có executor/schema/mock/redaction metadata, planned node không chạy. Default v1 đọc graph cũ. Không cần public SDK. |
 | 3 — NX-03 | [ ] PostgreSQL/Supabase filters/columns/order; Sheets tab/header mapping; Notion cursor/content/properties; Trello get/find/update/move/archive. | NX-01; schema/discovery từ NX-02. Resource permission denial vẫn dùng ID; keyed writes có ceiling; old saved graphs không mất config. Mỗi app có workflow mẫu có ích từ đầu đến cuối. |
 | 4 — NX-04 | [ ] Gmail get/cursor rồi label/draft/send/reply; Chat thread/edit; Telegram reply/edit; GitHub issue/PR reads và guarded updates; Sentry/Vercel detail/cursor. | NX-01–02. Xin scope mới chỉ khi cần; token phù hợp từng operation; message/write ambiguity hiển thị được. Không làm lại existing create/read/CRUD đã có. |

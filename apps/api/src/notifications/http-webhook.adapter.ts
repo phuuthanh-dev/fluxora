@@ -1,5 +1,6 @@
-import { fetchSafeOutbound } from "../execution/outbound-url-policy";
-import { NodeFailure, nodeFailureFromOutboundPolicy } from "../execution/node-failure";
+import { fetchSafeOutbound, wasOutboundRedirected } from "../execution/outbound-url-policy";
+import { NodeFailure } from "../execution/node-failure";
+import { notificationWriteFailure } from "./notification-write-failure";
 import { applyHttpCredential, HttpCredentialError } from "../execution/http-credential";
 import type { NotificationAdapter, NotificationPayload, NormalizedDeliveryResult } from "./notification-contracts";
 
@@ -79,14 +80,16 @@ export class HttpWebhookNotificationAdapter implements NotificationAdapter {
         signal: AbortSignal.timeout(15_000),
       });
     } catch (reason) {
-      throw nodeFailureFromOutboundPolicy(reason);
+      throw notificationWriteFailure(reason);
     }
 
+    // Only the HTTP acknowledgement is used; release the unread body.
+    await response.body?.cancel().catch(() => undefined);
     if (!response.ok) {
       throw new NodeFailure(
         "HTTP_ERROR",
         `HTTP webhook returned ${response.status}.`,
-        response.status === 429 || response.status >= 500,
+        response.status === 429 && !wasOutboundRedirected(response),
         response.status,
       );
     }

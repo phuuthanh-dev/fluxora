@@ -1,9 +1,10 @@
 import nodemailer from "nodemailer";
 import { isIP } from "node:net";
+import { domainToASCII } from "node:url";
 import { CredentialProvider } from "@prisma/client";
 import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
-import { assertSafeOutboundHostname, OutboundRequestPolicyError } from "./outbound-url-policy";
+import { assertSafeOutboundHostname } from "./outbound-url-policy";
 
 type RunMode = "mock" | "live";
 
@@ -30,9 +31,8 @@ export function validateSmtpCredentialData(value: Record<string, unknown>) {
   readSmtpCredential(value);
 }
 
-type SendMailResult = { messageId?: unknown; accepted?: unknown };
 export type SmtpEmailDependencies = {
-  sendMail?: (credential: SmtpCredential, message: SmtpMessage) => Promise<SendMailResult>;
+  sendMail?: (credential: SmtpCredential, message: SmtpMessage) => Promise<unknown>;
   assertSafeHost?: (host: string) => Promise<void>;
 };
 
@@ -44,10 +44,11 @@ export async function executeSmtpEmail(
   dependencies: SmtpEmailDependencies = {},
 ) {
   const message = readSmtpMessage(config);
+  const recipients = intendedRecipients(message);
   if (mode === "mock") {
     return {
       status: "succeeded" as const,
-      output: normalizedDelivery("mock", message, "mock-smtp-message-id"),
+      output: normalizedDelivery("mock", message, recipients.size, "mock-smtp-message-id"),
       route: "success" as const,
     };
   }
@@ -57,17 +58,22 @@ export async function executeSmtpEmail(
   );
   try {
     await (dependencies.assertSafeHost ?? assertSafeOutboundHostname)(credential.host);
-    const result = await (dependencies.sendMail ?? sendSmtpMail)(credential, message);
-    return {
-      status: "succeeded" as const,
-      output: normalizedDelivery("live", message, typeof result.messageId === "string" ? result.messageId : undefined),
-      route: "success" as const,
-    };
   } catch (reason) {
-    if (reason instanceof NodeFailure) throw reason;
-    if (reason instanceof OutboundRequestPolicyError) throw nodeFailureFromOutboundPolicy(reason);
-    throw smtpFailure(reason);
+    // No submission has started, so the outbound policy may safely classify retries.
+    throw nodeFailureFromOutboundPolicy(reason);
   }
+  let result: unknown;
+  try {
+    result = await (dependencies.sendMail ?? sendSmtpMail)(credential, message);
+  } catch (reason) {
+    throw smtpFailure(reason, recipients.size);
+  }
+  const receipt = readSubmissionReceipt(result, recipients);
+  return {
+    status: "succeeded" as const,
+    output: normalizedDelivery("live", message, receipt.acceptedCount, receipt.messageId),
+    route: "success" as const,
+  };
 }
 
 function readSmtpCredential(value: Record<string, unknown>): SmtpCredential {
@@ -102,7 +108,7 @@ function readSmtpMessage(config: Record<string, unknown>): SmtpMessage {
   };
 }
 
-async function sendSmtpMail(credential: SmtpCredential, message: SmtpMessage): Promise<SendMailResult> {
+async function sendSmtpMail(credential: SmtpCredential, message: SmtpMessage): Promise<unknown> {
   const transporter = nodemailer.createTransport({
     host: credential.host,
     port: credential.port,
@@ -131,10 +137,14 @@ async function sendSmtpMail(credential: SmtpCredential, message: SmtpMessage): P
   }
 }
 
-function normalizedDelivery(mode: RunMode, message: SmtpMessage, messageId?: string) {
+function normalizedDelivery(mode: RunMode, message: SmtpMessage, acceptedCount: number, messageId?: string) {
   const count = message.to.length + message.cc.length + message.bcc.length;
   return {
+    // Legacy compatibility: accepted for submission, never proof of inbox delivery.
     delivered: true,
+    submissionStatus: "accepted" as const,
+    acceptedCount,
+    deliveryConfirmed: false,
     provider: "smtp",
     destination: `${count} recipient${count === 1 ? "" : "s"}`,
     ...(messageId ? { messageId } : {}),
@@ -143,18 +153,106 @@ function normalizedDelivery(mode: RunMode, message: SmtpMessage, messageId?: str
   };
 }
 
-function smtpFailure(reason: unknown): NodeFailure {
-  const error = reason && typeof reason === "object" ? reason as { code?: unknown; responseCode?: unknown; name?: unknown } : {};
-  const code = typeof error.code === "string" ? error.code : "";
-  const responseCode = typeof error.responseCode === "number" ? error.responseCode : undefined;
-  if (code === "EAUTH") return new NodeFailure("SMTP_AUTH_FAILED", "SMTP authentication failed.", false, responseCode);
-  if (code === "EENVELOPE") return new NodeFailure("SMTP_REJECTED", "SMTP rejected the message envelope.", false, responseCode);
-  if (code === "ETIMEDOUT" || error.name === "TimeoutError") return new NodeFailure("TIMEOUT", "SMTP delivery timed out.", true);
-  if (responseCode !== undefined) {
-    if (responseCode >= 400 && responseCode < 500) return new NodeFailure("SMTP_TEMPORARY", "SMTP temporarily rejected the message.", true, responseCode);
-    return new NodeFailure("SMTP_REJECTED", "SMTP rejected the message.", false, responseCode);
+function intendedRecipients(message: SmtpMessage) {
+  // Nodemailer merges and deduplicates To/Cc/Bcc when building the SMTP envelope.
+  return new Set([...message.to, ...message.cc, ...message.bcc].map((address) => receiptAddress(address) ?? address));
+}
+
+function receiptAddress(value: unknown): string | undefined {
+  const address = typeof value === "string" ? value : smtpRecord(value).address;
+  if (typeof address !== "string" || !/^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/u.test(address)) return undefined;
+  const separator = address.lastIndexOf("@");
+  const domain = domainToASCII(address.slice(separator + 1)).toLowerCase();
+  // Domains are case-insensitive and may be punycoded; mailbox local parts are not.
+  return domain ? `${address.slice(0, separator)}@${domain}` : undefined;
+}
+
+function smtpRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function receiptRecipients(value: unknown, intended: Set<string>) {
+  const addresses = new Set<string>();
+  if (!Array.isArray(value)) return { addresses, valid: false };
+  let valid = value.length <= intended.size;
+  // Bound malformed receipts too; the configured recipient lists already have limits.
+  for (const entry of value.slice(0, intended.size + 1)) {
+    const address = receiptAddress(entry);
+    if (!address || !intended.has(address) || addresses.has(address)) valid = false;
+    else addresses.add(address);
   }
-  return new NodeFailure("NETWORK_ERROR", "SMTP delivery failed.", true);
+  return { addresses, valid };
+}
+
+function readSubmissionReceipt(result: unknown, intended: Set<string>) {
+  const receipt = smtpRecord(result);
+  const accepted = receiptRecipients(receipt.accepted, intended);
+  const rejected = receiptRecipients(receipt.rejected, intended);
+  let consistent = accepted.valid && rejected.valid;
+  for (const address of accepted.addresses) {
+    if (rejected.addresses.delete(address)) {
+      accepted.addresses.delete(address);
+      consistent = false;
+    }
+  }
+  if (receipt.pending !== undefined && (!Array.isArray(receipt.pending) || receipt.pending.length !== 0)) consistent = false;
+  if (receipt.rejectedErrors !== undefined) {
+    const errors = receipt.rejectedErrors;
+    if (!Array.isArray(errors) || errors.length !== rejected.addresses.size) consistent = false;
+    else {
+      const errorRecipients = receiptRecipients(errors.map((error) => smtpRecord(error).recipient), rejected.addresses);
+      if (!errorRecipients.valid) consistent = false;
+    }
+  }
+  const counts = {
+    recipientCount: intended.size,
+    acceptedCount: accepted.addresses.size,
+    rejectedCount: rejected.addresses.size,
+    unconfirmedCount: intended.size - accepted.addresses.size - rejected.addresses.size,
+  };
+  if (!consistent || counts.unconfirmedCount !== 0 || counts.acceptedCount === 0) {
+    throw submissionFailure("DELIVERY_UNCERTAIN", counts);
+  }
+  if (counts.rejectedCount !== 0) throw submissionFailure("SMTP_PARTIAL_REJECTION", counts);
+  return { acceptedCount: counts.acceptedCount, messageId: typeof receipt.messageId === "string" ? receipt.messageId : undefined };
+}
+
+function submissionFailure(
+  code: "SMTP_PARTIAL_REJECTION" | "DELIVERY_UNCERTAIN",
+  counts: { recipientCount: number; acceptedCount: number; rejectedCount: number; unconfirmedCount: number },
+) {
+  const summary = code === "SMTP_PARTIAL_REJECTION" ? "SMTP submission was only partially accepted." : "SMTP submission could not be confirmed.";
+  return new NodeFailure(code,
+    `${summary} recipientCount=${counts.recipientCount}, acceptedCount=${counts.acceptedCount}, rejectedCount=${counts.rejectedCount}, unconfirmedCount=${counts.unconfirmedCount}. Check the destination before retrying.`,
+    false);
+}
+
+function smtpFailure(reason: unknown, recipientCount: number): NodeFailure {
+  const error = smtpRecord(reason);
+  const code = typeof error.code === "string" ? error.code : "";
+  const responseCode = typeof error.responseCode === "number" && Number.isInteger(error.responseCode)
+    && error.responseCode >= 400 && error.responseCode <= 599 ? error.responseCode : undefined;
+  if (code === "EAUTH") return new NodeFailure("SMTP_AUTH_FAILED", "SMTP authentication failed.", false, responseCode);
+  const uncertain = () => submissionFailure("DELIVERY_UNCERTAIN", {
+    recipientCount, acceptedCount: 0, rejectedCount: 0, unconfirmedCount: recipientCount,
+  });
+  // A rejected promise with reported acceptance cannot prove a clean pre-submission rejection.
+  if (error.accepted !== undefined && (!Array.isArray(error.accepted) || error.accepted.length > 0)) return uncertain();
+  // A socket failure can occur after the server accepted DATA, even if its reply was lost.
+  if (["ETIMEDOUT", "ECONNECTION", "ESOCKET", "ECONNRESET", "EPIPE", "ECONNABORTED"].includes(code)
+    || error.name === "TimeoutError" || error.name === "AbortError") return uncertain();
+  const command = typeof error.command === "string" ? error.command : "";
+  const beforeData = ["CONN", "EHLO", "HELO", "STARTTLS", "MAIL FROM", "RCPT TO"].includes(command);
+  const rejectionCode = ["", "EENVELOPE", "EPROTOCOL", "ETLS"].includes(code);
+  if (beforeData && rejectionCode && responseCode !== undefined) {
+    if (responseCode < 500) return new NodeFailure("SMTP_TEMPORARY", "SMTP temporarily rejected the message before submission.", true, responseCode);
+    return new NodeFailure("SMTP_REJECTED", "SMTP rejected the message before submission.", false, responseCode);
+  }
+  // Without a known pre-DATA command, even a 4xx/5xx must not trigger a resend.
+  if (code === "EENVELOPE" && !command && (responseCode === undefined || responseCode >= 500)) {
+    return new NodeFailure("SMTP_REJECTED", "SMTP rejected the message envelope.", false, responseCode);
+  }
+  return uncertain();
 }
 
 function readRecipients(value: unknown, label: string, optional = false) {

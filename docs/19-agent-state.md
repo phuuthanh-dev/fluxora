@@ -6,6 +6,16 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
+- NX-01 implementation under `APP-EXPANSION-1` respects explicit adapter retry
+  denial, distinguishes SMTP accepted/partial/uncertain submission, and bounds
+  HTTP/Drive/Sheets responses. Existing unsafe ambiguous write retries are
+  disabled across HTTP, Google/GitHub writes and notification adapters. Three
+  isolated implementation agents were integrated by the coordinator; no real
+  provider calls or credential changes. Final isolated verify passed: API 521
+  tests/subtests, web 32, E2E 147. Verification/release evidence:
+  `.agent/reports/2026-11-02-connector-delivery-safety.md`. Broader app expansion
+  remains pending; NX-02 metadata/versioning is next, not reimplementing NX-01.
+
 - Owner-requested parallel app/node expansion audit at `04d67b6` is recorded in
   `docs/37-node-expansion-audit.md`. Inventory: 25 catalog apps, 46 node types,
   44 executable (including six core types), two planned Meta/Instagram types.

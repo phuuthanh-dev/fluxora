@@ -1,5 +1,7 @@
-import { fetchSafeOutbound } from "../execution/outbound-url-policy";
-import { NodeFailure, nodeFailureFromOutboundPolicy } from "../execution/node-failure";
+import { fetchSafeOutbound, wasOutboundRedirected } from "../execution/outbound-url-policy";
+import { NodeFailure } from "../execution/node-failure";
+import { readBoundedProviderJson } from "../execution/provider-json";
+import { notificationReceiptFailure, notificationWriteFailure } from "./notification-write-failure";
 import type { NotificationAdapter, NotificationPayload, NormalizedDeliveryResult } from "./notification-contracts";
 
 export function maskGoogleChatWebhookUrl(rawUrl: string): string {
@@ -55,36 +57,34 @@ export class GoogleChatNotificationAdapter implements NotificationAdapter {
         signal: AbortSignal.timeout(15_000),
       });
     } catch (reason) {
-      throw nodeFailureFromOutboundPolicy(reason);
+      throw notificationWriteFailure(reason);
     }
 
     if (!response.ok) {
+      await response.body?.cancel().catch(() => undefined);
       throw new NodeFailure(
         "HTTP_ERROR",
         `Google Chat returned ${response.status}.`,
-        response.status === 429 || response.status >= 500,
+        response.status === 429 && !wasOutboundRedirected(response),
         response.status,
       );
     }
 
-    let messageId: string | undefined;
+    let receipt: { name?: unknown } | null;
     try {
-      const text = await response.text();
-      if (text) {
-        const json = JSON.parse(text) as { name?: string };
-        if (json && typeof json.name === "string") {
-          messageId = json.name;
-        }
-      }
+      receipt = await readBoundedProviderJson(response) as typeof receipt;
     } catch {
-      // not JSON or body already read
+      throw notificationReceiptFailure("Google Chat");
+    }
+    if (!receipt || typeof receipt.name !== "string" || !/^spaces\/[A-Za-z0-9_-]+\/messages\/[A-Za-z0-9._-]+$/.test(receipt.name)) {
+      throw notificationReceiptFailure("Google Chat");
     }
 
     return {
       delivered: true,
       provider: this.provider,
       destination,
-      messageId,
+      messageId: receipt.name,
       sentAt: new Date().toISOString(),
       mode: "live",
     };

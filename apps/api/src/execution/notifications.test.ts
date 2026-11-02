@@ -6,6 +6,8 @@ import type { CredentialService } from "../credentials/credential.service";
 import type { PrismaService } from "../database/prisma.service";
 import type { ExecutionEventsService } from "./execution-events.service";
 import { isRetryableFailure } from "./retry-policy";
+import { NodeFailure } from "./node-failure";
+import { OutboundRequestPolicyError } from "./outbound-url-policy";
 import { redactValue } from "./redaction";
 import {
   NotificationDispatcher,
@@ -15,9 +17,211 @@ import {
   HttpWebhookNotificationAdapter,
   sanitizeHttpDestination,
   defaultNotificationDispatcher,
+  type NotificationPayload,
 } from "../notifications";
 
 process.env.OUTBOUND_ALLOWED_HOSTNAMES = "discord.com,discordapp.com,api.telegram.org,chat.googleapis.com,example.com";
+
+const notificationWriteCases: Array<{ payload: NotificationPayload; credential: Record<string, unknown> }> = [
+  {
+    payload: { provider: "google_chat", message: "Synthetic notification" },
+    credential: { webhookUrl: "https://chat.googleapis.com/v1/spaces/abc/messages?key=synthetic-secret" },
+  },
+  {
+    payload: { provider: "discord", content: "Synthetic notification" },
+    credential: { webhookUrl: "https://discord.com/api/webhooks/123/synthetic-secret" },
+  },
+  {
+    payload: { provider: "telegram", text: "Synthetic notification", chatId: "123" },
+    credential: { botToken: "123:synthetic-secret" },
+  },
+  {
+    payload: { provider: "http_webhook", message: "Synthetic approval", approvalUrl: "https://example.com/editor?approval=synthetic" },
+    credential: { webhookUrl: "https://example.com/approval?key=synthetic-secret", authType: "bearer", token: "synthetic-secret" },
+  },
+];
+
+test("notification writes do not treat a redirected 429 as permission to resend", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    for (const { payload, credential } of notificationWriteCases) {
+      const methods: string[] = [];
+      globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+        methods.push(init?.method ?? "GET");
+        return methods.length === 1
+          ? new Response(null, { status: 303, headers: { location: "/receipt" } })
+          : new Response(null, { status: 429 });
+      }) as typeof fetch;
+      await assert.rejects(defaultNotificationDispatcher.dispatch(payload, credential, "live"), (error: unknown) => {
+        assert.ok(error instanceof NodeFailure);
+        assert.equal(error.retryable, false);
+        assert.equal(error.statusCode, 429);
+        return true;
+      });
+      assert.deepEqual(methods, ["POST", "GET"]);
+    }
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+function interruptedNotificationReceipt(name: string): Response {
+  let started = false;
+  return new Response(new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (!started) {
+        started = true;
+        controller.enqueue(new TextEncoder().encode('{"'));
+      } else {
+        controller.error(Object.assign(new Error("synthetic-secret"), { name }));
+      }
+    },
+  }));
+}
+
+for (const { payload, credential } of notificationWriteCases) {
+  test(`${payload.provider}: ambiguous transport failures remain nonretryable after one POST`, async (t) => {
+    for (const name of ["TypeError", "TimeoutError", "AbortError"]) {
+      await t.test(name, async () => {
+        const originalFetch = globalThis.fetch;
+        let writes = 0;
+        globalThis.fetch = async (input, init) => {
+          writes += 1;
+          assert.equal(init?.method, "POST");
+          throw Object.assign(new Error(`Failed to fetch ${String(input)}`), { name });
+        };
+        try {
+          await assert.rejects(defaultNotificationDispatcher.dispatch(payload, credential, "live"), (error: unknown) => {
+            assert.ok(error instanceof NodeFailure);
+            assert.equal(error.retryable, false);
+            assert.equal(error.code, name === "TimeoutError" ? "TIMEOUT" : "NETWORK_ERROR");
+            assert.equal(error.message.includes("synthetic-secret"), false);
+            return true;
+          });
+          assert.equal(writes, 1);
+        } finally {
+          globalThis.fetch = originalFetch;
+        }
+      });
+    }
+  });
+
+  test(`${payload.provider}: only confirmed HTTP 429 rejection permits retry`, async (t) => {
+    for (const status of [400, 401, 403, 408, 429, 500, 502, 503]) {
+      await t.test(String(status), async () => {
+        const originalFetch = globalThis.fetch;
+        let writes = 0;
+        // Deliberately unreadable: status classification must not depend on an
+        // error receipt, nor downgrade a known 429 to a transport failure.
+        const response = new Response(new ReadableStream<Uint8Array>({
+          start(controller) { controller.error(new Error("synthetic-secret")); },
+        }), { status });
+        globalThis.fetch = async () => { writes += 1; return response; };
+        try {
+          await assert.rejects(defaultNotificationDispatcher.dispatch(payload, credential, "live"), (error: unknown) => {
+            assert.ok(error instanceof NodeFailure);
+            assert.equal(error.code, "HTTP_ERROR");
+            assert.equal(error.statusCode, status);
+            assert.equal(error.retryable, status === 429);
+            assert.equal(error.message.includes("synthetic-secret"), false);
+            return true;
+          });
+          assert.equal(writes, 1);
+          assert.equal(response.body?.locked, false, "error body is cancelled and unlocked");
+        } finally {
+          globalThis.fetch = originalFetch;
+        }
+      });
+    }
+  });
+
+  test(`${payload.provider}: preserves nested outbound-policy denial`, async () => {
+    const originalFetch = globalThis.fetch;
+    let writes = 0;
+    globalThis.fetch = async () => {
+      writes += 1;
+      throw new TypeError("fetch failed", { cause: new OutboundRequestPolicyError("OUTBOUND_URL_BLOCKED", "Outbound request target is not permitted.") });
+    };
+    try {
+      await assert.rejects(defaultNotificationDispatcher.dispatch(payload, credential, "live"), (error: unknown) => {
+        assert.ok(error instanceof NodeFailure);
+        assert.equal(error.code, "OUTBOUND_URL_BLOCKED");
+        assert.equal(error.retryable, false);
+        return true;
+      });
+      assert.equal(writes, 1);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  if (payload.provider === "http_webhook") continue;
+  test(`${payload.provider}: unreadable or invalid accepted-write receipts never permit replay`, async (t) => {
+    const receipts: Array<{ name: string; response: () => Response }> = [
+      { name: "malformed JSON", response: () => new Response('{"synthetic-secret":') },
+      { name: "empty body", response: () => new Response("") },
+      { name: "null", response: () => new Response("null") },
+      { name: "missing message identity", response: () => new Response('{"ok":true}') },
+      { name: "invalid identity types", response: () => new Response('{"ok":true,"name":{},"id":{},"result":{"message_id":{}}}') },
+      { name: "unconfirmed 429 envelope", response: () => new Response('{"error_code":429}') },
+      { name: "stream network failure", response: () => interruptedNotificationReceipt("TypeError") },
+      { name: "stream timeout", response: () => interruptedNotificationReceipt("TimeoutError") },
+      { name: "advertised oversized body", response: () => new Response("{}", { headers: { "Content-Length": "1000001" } }) },
+      { name: "unadvertised oversized body", response: () => new Response("x".repeat(1_000_001)) },
+    ];
+    for (const receipt of receipts) {
+      await t.test(receipt.name, async () => {
+        const originalFetch = globalThis.fetch;
+        let writes = 0;
+        globalThis.fetch = async () => { writes += 1; return receipt.response(); };
+        try {
+          await assert.rejects(defaultNotificationDispatcher.dispatch(payload, credential, "live"), (error: unknown) => {
+            assert.ok(error instanceof NodeFailure);
+            assert.equal(error.code, "DELIVERY_UNCERTAIN");
+            assert.equal(error.retryable, false);
+            assert.match(error.message, /Check the destination before retrying/);
+            assert.equal(error.message.includes("synthetic-secret"), false);
+            return true;
+          });
+          assert.equal(writes, 1);
+        } finally {
+          globalThis.fetch = originalFetch;
+        }
+      });
+    }
+  });
+}
+
+test("Telegram: HTTP rejection takes precedence over a contradictory retryable envelope", async () => {
+  const originalFetch = globalThis.fetch;
+  let writes = 0;
+  globalThis.fetch = async () => {
+    writes += 1;
+    return new Response(JSON.stringify({ ok: false, error_code: 429 }), { status: 502 });
+  };
+  try {
+    await assert.rejects(new TelegramNotificationAdapter().send(
+      { provider: "telegram", text: "Synthetic notification", chatId: "123" },
+      { botToken: "123:synthetic-secret" },
+    ), (error: unknown) => error instanceof NodeFailure && error.statusCode === 502 && error.retryable === false);
+    assert.equal(writes, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Approval webhook: rejects private destinations before sending", async () => {
+  const originalFetch = globalThis.fetch;
+  let writes = 0;
+  globalThis.fetch = async () => { writes += 1; return new Response(null, { status: 204 }); };
+  try {
+    await assert.rejects(new HttpWebhookNotificationAdapter().send(
+      { provider: "http_webhook", message: "Synthetic approval" },
+      { webhookUrl: "http://127.0.0.1/approval", authType: "headers", headers: {} },
+    ), (error: unknown) => error instanceof NodeFailure && error.code === "OUTBOUND_URL_BLOCKED" && error.retryable === false);
+    assert.equal(writes, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
 
 function createMockCredentials(store: Record<string, { provider: CredentialProvider; data: Record<string, unknown> }>): CredentialService {
   return {
@@ -116,7 +320,7 @@ test("Discord webhook: validates empty content and missing credentials", async (
   );
 });
 
-test("Discord webhook: classifies 429 and 5xx as retryable, 400 as non-retryable", async () => {
+test("Discord webhook: permits 429 retry but denies ambiguous 5xx and permanent 400 retry", async () => {
   const credentials = createMockCredentials({
     "discord-cred": {
       provider: CredentialProvider.DISCORD_WEBHOOK,
@@ -135,7 +339,7 @@ test("Discord webhook: classifies 429 and 5xx as retryable, 400 as non-retryable
     globalThis.fetch = (async () => new Response("Server error", { status: 500 })) as typeof fetch;
     await assert.rejects(
       () => executeDiscordWebhook({ credentialId: "discord-cred", content: "hi" }, "live", "workspace-1", credentials),
-      (err: any) => err.statusCode === 500 && isRetryableFailure(err) === true,
+      (err: unknown) => err instanceof NodeFailure && err.statusCode === 500 && err.retryable === false,
     );
 
     globalThis.fetch = (async () => new Response("Bad request", { status: 400 })) as typeof fetch;
@@ -223,7 +427,7 @@ test("Discord webhook: validates HTTPS scheme, official hosts, and /api/webhooks
   );
 });
 
-test("Discord webhook: classifies simulated TimeoutError as retryable TIMEOUT failure", async () => {
+test("Discord webhook: denies retry after an ambiguous timeout", async () => {
   const credentials = createMockCredentials({
     "discord-cred": {
       provider: CredentialProvider.DISCORD_WEBHOOK,
@@ -241,14 +445,14 @@ test("Discord webhook: classifies simulated TimeoutError as retryable TIMEOUT fa
   try {
     await assert.rejects(
       () => executeDiscordWebhook({ credentialId: "discord-cred", content: "hi" }, "live", "workspace-1", credentials),
-      (err: any) => err.code === "TIMEOUT" && isRetryableFailure(err) === true,
+      (err: unknown) => err instanceof NodeFailure && err.code === "TIMEOUT" && err.retryable === false,
     );
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test("Discord webhook: classifies simulated network fetch failure as retryable NETWORK_ERROR failure", async () => {
+test("Discord webhook: denies retry after an ambiguous network failure", async () => {
   const credentials = createMockCredentials({
     "discord-cred": {
       provider: CredentialProvider.DISCORD_WEBHOOK,
@@ -264,7 +468,7 @@ test("Discord webhook: classifies simulated network fetch failure as retryable N
   try {
     await assert.rejects(
       () => executeDiscordWebhook({ credentialId: "discord-cred", content: "hi" }, "live", "workspace-1", credentials),
-      (err: any) => err.code === "NETWORK_ERROR" && isRetryableFailure(err) === true,
+      (err: unknown) => err instanceof NodeFailure && err.code === "NETWORK_ERROR" && err.retryable === false,
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -348,7 +552,7 @@ test("Telegram message: overrides chatId in node config if provided", async () =
 
   globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
     sentBody = JSON.parse(String(init?.body ?? "{}"));
-    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    return new Response(JSON.stringify({ ok: true, result: { message_id: 42 } }), { status: 200 });
   }) as typeof fetch;
 
   try {
@@ -435,7 +639,7 @@ test("Telegram message: redacts bot token in error messages", async () => {
   }
 });
 
-test("Telegram message: classifies 429 and 5xx as retryable, 401 as non-retryable", async () => {
+test("Telegram message: permits 429 retry but denies ambiguous 5xx and permanent 401 retry", async () => {
   const credentials = createMockCredentials({
     "tg-cred": {
       provider: CredentialProvider.TELEGRAM_BOT,
@@ -454,7 +658,7 @@ test("Telegram message: classifies 429 and 5xx as retryable, 401 as non-retryabl
     globalThis.fetch = (async () => new Response("Telegram server error", { status: 502 })) as typeof fetch;
     await assert.rejects(
       () => executeTelegramMessage({ credentialId: "tg-cred", text: "hi" }, "live", "workspace-1", credentials),
-      (err: any) => err.statusCode === 502 && isRetryableFailure(err) === true,
+      (err: unknown) => err instanceof NodeFailure && err.statusCode === 502 && err.retryable === false,
     );
 
     globalThis.fetch = (async () => new Response("Unauthorized", { status: 401 })) as typeof fetch;
@@ -467,7 +671,7 @@ test("Telegram message: classifies 429 and 5xx as retryable, 401 as non-retryabl
   }
 });
 
-test("Telegram message: classifies simulated TimeoutError as retryable TIMEOUT failure", async () => {
+test("Telegram message: denies retry after an ambiguous timeout", async () => {
   const credentials = createMockCredentials({
     "tg-cred": {
       provider: CredentialProvider.TELEGRAM_BOT,
@@ -485,14 +689,14 @@ test("Telegram message: classifies simulated TimeoutError as retryable TIMEOUT f
   try {
     await assert.rejects(
       () => executeTelegramMessage({ credentialId: "tg-cred", text: "hi" }, "live", "workspace-1", credentials),
-      (err: any) => err.code === "TIMEOUT" && isRetryableFailure(err) === true,
+      (err: unknown) => err instanceof NodeFailure && err.code === "TIMEOUT" && err.retryable === false,
     );
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test("Telegram message: classifies simulated network fetch failure as retryable NETWORK_ERROR failure", async () => {
+test("Telegram message: denies retry after an ambiguous network failure", async () => {
   const credentials = createMockCredentials({
     "tg-cred": {
       provider: CredentialProvider.TELEGRAM_BOT,
@@ -508,7 +712,7 @@ test("Telegram message: classifies simulated network fetch failure as retryable 
   try {
     await assert.rejects(
       () => executeTelegramMessage({ credentialId: "tg-cred", text: "hi" }, "live", "workspace-1", credentials),
-      (err: any) => err.code === "NETWORK_ERROR" && isRetryableFailure(err) === true,
+      (err: unknown) => err instanceof NodeFailure && err.code === "NETWORK_ERROR" && err.retryable === false,
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -909,9 +1113,11 @@ test("Telegram message: maps retryability from error_code on 200 ok: false respo
   });
 
   const originalFetch = globalThis.fetch;
+  let writes = 0;
   try {
     // 429 rate limit inside 200 ok: false
     globalThis.fetch = (async () => {
+      writes += 1;
       return new Response(
         JSON.stringify({ ok: false, error_code: 429, description: "Too Many Requests" }),
         { status: 200, headers: { "Content-Type": "application/json" } },
@@ -920,11 +1126,13 @@ test("Telegram message: maps retryability from error_code on 200 ok: false respo
 
     await assert.rejects(
       () => executeTelegramMessage({ credentialId: "tg-cred", text: "Rate limit test" }, "live", "workspace-1", credentials),
-      (err: any) => err.statusCode === 429 && isRetryableFailure(err) === true,
+      (err: unknown) => err instanceof NodeFailure && err.statusCode === 429 && err.retryable === true,
     );
+    assert.equal(writes, 1);
 
     // 502 bad gateway inside 200 ok: false
     globalThis.fetch = (async () => {
+      writes += 1;
       return new Response(
         JSON.stringify({ ok: false, error_code: 502, description: "Bad Gateway" }),
         { status: 200, headers: { "Content-Type": "application/json" } },
@@ -933,8 +1141,9 @@ test("Telegram message: maps retryability from error_code on 200 ok: false respo
 
     await assert.rejects(
       () => executeTelegramMessage({ credentialId: "tg-cred", text: "Gateway test" }, "live", "workspace-1", credentials),
-      (err: any) => err.statusCode === 502 && isRetryableFailure(err) === true,
+      (err: unknown) => err instanceof NodeFailure && err.statusCode === 502 && err.retryable === false,
     );
+    assert.equal(writes, 2);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -960,10 +1169,9 @@ test("Telegram message: treats HTTP 200 with malformed JSON as a failed delivery
     await assert.rejects(
       () => executeTelegramMessage({ credentialId: "tg-cred", text: "Malformed JSON test" }, "live", "workspace-1", credentials),
       (err: any) => {
-        assert.equal(err.code, "HTTP_ERROR");
-        assert.equal(err.statusCode, 200);
+        assert.equal(err.code, "DELIVERY_UNCERTAIN");
         assert.equal(err.retryable, false);
-        assert.equal(err.message, "Telegram returned 200.");
+        assert.match(err.message, /Check the destination before retrying/);
         assert.equal(err.message.includes("987654:TOKEN"), false);
         return true;
       },
@@ -993,10 +1201,9 @@ test("Telegram message: treats HTTP 200 with empty JSON object {} as a failed de
     await assert.rejects(
       () => executeTelegramMessage({ credentialId: "tg-cred", text: "Empty JSON test" }, "live", "workspace-1", credentials),
       (err: any) => {
-        assert.equal(err.code, "HTTP_ERROR");
-        assert.equal(err.statusCode, 200);
+        assert.equal(err.code, "DELIVERY_UNCERTAIN");
         assert.equal(err.retryable, false);
-        assert.equal(err.message, "Telegram returned 200.");
+        assert.match(err.message, /Check the destination before retrying/);
         assert.equal(err.message.includes("987654:TOKEN"), false);
         return true;
       },
@@ -1223,5 +1430,47 @@ test("Approval notification: preserves failed, mock_not_sent, and not_configured
     assert.equal(unconfiguredStatus, "not_configured");
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("Approval notifications: ambiguous sends fail after one dispatch", async (t) => {
+  const credentials = createMockCredentials({
+    chat: {
+      provider: CredentialProvider.GOOGLE_CHAT_WEBHOOK,
+      data: { webhookUrl: "https://chat.googleapis.com/v1/spaces/abc/messages?key=synthetic-secret" },
+    },
+    webhook: {
+      provider: CredentialProvider.HTTP,
+      data: { webhookUrl: "https://example.com/approval", authType: "bearer", token: "synthetic-secret" },
+    },
+  });
+  const executionService = new ExecutionService({} as PrismaService, credentials, {} as ExecutionEventsService);
+  for (const provider of ["google_chat", "http_webhook"] as const) {
+    const failures: Array<{ name: string; send: () => Promise<Response> }> = [
+      { name: "network", send: async () => { throw new TypeError("synthetic-secret"); } },
+      { name: "timeout", send: async () => { throw Object.assign(new Error("synthetic-secret"), { name: "TimeoutError" }); } },
+      { name: "server error", send: async () => new Response(null, { status: 503 }) },
+    ];
+    if (provider === "google_chat") {
+      failures.push({ name: "unreadable accepted receipt", send: async () => interruptedNotificationReceipt("TypeError") });
+    }
+    for (const failure of failures) {
+      await t.test(`${provider}: ${failure.name}`, async () => {
+        const originalFetch = globalThis.fetch;
+        let writes = 0;
+        globalThis.fetch = async () => { writes += 1; return failure.send(); };
+        try {
+          const status = await executionService.notifyApproval("workspace-1", "synthetic-approval", {
+            message: "Synthetic approval",
+            notificationProvider: provider,
+            notificationCredentialId: provider === "google_chat" ? "chat" : "webhook",
+          }, "live");
+          assert.equal(status, "failed");
+          assert.equal(writes, 1);
+        } finally {
+          globalThis.fetch = originalFetch;
+        }
+      });
+    }
   }
 });
