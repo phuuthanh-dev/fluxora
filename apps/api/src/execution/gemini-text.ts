@@ -3,7 +3,7 @@ import { fetchSafeOutbound, fetchSafeOutboundWrite } from "./outbound-url-policy
 import { CredentialProvider } from "@prisma/client";
 import type { CredentialService } from "../credentials/credential.service";
 import { readBoundedProviderJson } from "./provider-json";
-import { mockAiOutput, normalizeAiUsage, parseAiOutput, parseAiSchema } from "./ai-structured-output";
+import { assertNoAiCredentialEcho, mockAiOutput, normalizeAiUsage, parseAiOutput, parseAiSchema } from "./ai-structured-output";
 import type { AiSchema } from "./ai-structured-output";
 import { assertAiRequestLimits } from "./ai-request-limits";
 
@@ -89,8 +89,11 @@ export async function generateGeminiText(input: GeminiTextInput, transport: Gemi
   if (outputSchema && first?.finishReason !== "STOP") throw new NodeFailure("INCOMPLETE_RESPONSE", "Gemini did not complete the response.", false);
   if (!text) throw new NodeFailure("EMPTY_RESPONSE", "Gemini returned no text; the response may have been blocked or empty.", false);
   if (text.length > 100_000) throw new NodeFailure("RESPONSE_TOO_LARGE", "Gemini returned too much text.", false);
+  const json = outputSchema ? parseAiOutput(text, outputSchema) : undefined;
+  const finishReason = typeof first?.finishReason === "string" ? first.finishReason : null;
+  assertNoAiCredentialEcho([text, json, model, finishReason], input.apiKey);
   const usage = normalizeAiUsage(root?.usageMetadata, { input: "promptTokenCount", output: "candidatesTokenCount", total: "totalTokenCount", thoughts: "thoughtsTokenCount" });
-  return { text, model, finishReason: typeof first?.finishReason === "string" ? first.finishReason : null, ...(outputSchema ? { json: parseAiOutput(text, outputSchema) } : {}), ...(usage ? { usage } : {}) };
+  return { text, model, finishReason, ...(outputSchema ? { json } : {}), ...(usage ? { usage } : {}) };
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {

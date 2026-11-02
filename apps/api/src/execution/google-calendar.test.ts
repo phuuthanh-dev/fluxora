@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { redactValue } from "./redaction";
 import test from "node:test";
 import { createCalendarEvent, executeGoogleCalendar, executeGoogleCalendarAvailability, executeGoogleCalendarCreate, executeGoogleCalendarEvent, listCalendarEvents } from "./google-calendar";
+import { NodeFailure } from "./node-failure";
 
 test("calendar mock never reads a credential and uses bounded synthetic events", async () => {
   const result = await executeGoogleCalendar({}, "mock", "workspace", { readGoogleForExecution: () => { throw new Error("should not read"); } } as never);
@@ -28,6 +29,36 @@ test("calendar pagination requires a stable start time", async () => {
   await assert.rejects(executeGoogleCalendar({ calendarId: "primary", pageToken: "next" }, "mock", "workspace", {} as never));
   const output = await executeGoogleCalendar({ calendarId: "primary", pageToken: "next", timeMin: "2030-01-01T00:00:00Z" }, "mock", "workspace", {} as never);
   assert.equal(output.output.timeMin, "2030-01-01T00:00:00.000Z");
+});
+
+test("calendar rejects unresolved resource and pagination expressions before using credentials", async () => {
+  const credentials = { readGoogleForExecution: () => { throw new Error("credential should not be read"); } } as never;
+  for (const key of ["calendarId", "pageToken", "timeMin"]) {
+    for (const value of [undefined, null, false, 1, {}]) {
+      const config = { credentialId: "google", calendarId: "primary", timeMin: "2030-01-01T00:00:00Z", [key]: value };
+      for (const mode of ["mock", "live"] as const) {
+        await assert.rejects(executeGoogleCalendar(config, mode, "workspace", credentials), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT");
+      }
+    }
+  }
+  // Existing graphs without the new optional fields retain their default.
+  const legacy = await executeGoogleCalendar({}, "mock", "workspace", credentials);
+  assert.equal(legacy.status, "succeeded");
+  const cleared = await executeGoogleCalendar({ pageToken: "", timeMin: "" }, "mock", "workspace", credentials);
+  assert.equal(cleared.status, "succeeded");
+});
+
+test("calendar rejects malformed provider continuation tokens instead of claiming the last page", async () => {
+  const token = "synthetic-token";
+  for (const nextPageToken of [null, 42, "", "bad\nvalue", "x".repeat(513), `cursor-${token}`]) {
+    await assert.rejects(
+      listCalendarEvents(token, "primary", 1, (async () => Response.json({ items: [], nextPageToken })) as never),
+      (error: unknown) => Boolean(error && typeof error === "object" && "code" in error && error.code === "INVALID_RESPONSE" && "retryable" in error && error.retryable === false && error instanceof Error && !error.message.includes(token)),
+    );
+  }
+  const last = await listCalendarEvents(token, "primary", 1, (async () => Response.json({ items: [] })) as never);
+  assert.equal(last.nextPageToken, null);
+  assert.equal(last.hasMore, false);
 });
 
 test("calendar failures do not expose credentials or provider response", async () => {
@@ -92,11 +123,32 @@ test("calendar delete does not claim that a missing or inaccessible event was de
 test("calendar availability does not report free when the provider reports a calendar error", async () => {
   const config = { credentialId: "credential", calendarId: "primary", start: "2030-01-01T09:00:00Z", end: "2030-01-01T10:00:00Z" };
   const credentials = { readGoogleForExecution: async () => ({ accessToken: "token" }) } as never;
-  const busy = async () => Response.json({ calendars: { primary: { busy: [{ start: "2030-01-01T09:30:00Z", end: "2030-01-01T10:00:00Z" }] } } });
+  const busy = async (url: string | URL | Request) => String(url).endsWith("/calendarList/primary") ? Response.json({ id: "owner@example.test", primary: true }) : Response.json({ calendars: { "owner@example.test": { busy: [{ start: "2030-01-01T09:30:00Z", end: "2030-01-01T10:00:00Z" }] } } });
   const result = await executeGoogleCalendarAvailability(config, "live", "workspace", credentials, busy as never);
   assert.equal(result.output.available, false);
-  const error = async () => Response.json({ calendars: { primary: { errors: [{ reason: "notFound" }], busy: [] } } });
+  const error = async (url: string | URL | Request) => String(url).endsWith("/calendarList/primary") ? Response.json({ id: "owner@example.test", primary: true }) : Response.json({ calendars: { "owner@example.test": { errors: [{ reason: "notFound" }], busy: [] } } });
   await assert.rejects(executeGoogleCalendarAvailability(config, "live", "workspace", credentials, error as never), /could not be determined/);
+});
+
+test("calendar availability identifies the requested calendar before reporting free", async () => {
+  const config = { credentialId: "credential", calendarId: "primary", start: "2030-01-01T09:00:00Z", end: "2030-01-01T10:00:00Z" };
+  const credentials = { readGoogleForExecution: async () => ({ accessToken: "synthetic-token" }) } as never;
+  const requests: Array<{ url: string; body?: unknown }> = [];
+  const transport = async (url: string | URL | Request, init?: RequestInit) => {
+    requests.push({ url: String(url), ...(init?.body ? { body: JSON.parse(String(init.body)) } : {}) });
+    if (String(url).endsWith("/calendarList/primary")) return Response.json({ id: "owner@example.test", primary: true });
+    return Response.json({ calendars: { "owner@example.test": { busy: [] } } });
+  };
+  const result = await executeGoogleCalendarAvailability(config, "live", "workspace", credentials, transport as never);
+  assert.equal(result.output.available, true);
+  assert.equal(requests.length, 2);
+  assert.deepEqual((requests[1]?.body as { items: unknown }).items, [{ id: "owner@example.test" }]);
+  const unrelated = async () => Response.json({ calendars: { "unrelated@example.test": { busy: [] } } });
+  await assert.rejects(executeGoogleCalendarAvailability({ ...config, calendarId: "selected@example.test" }, "live", "workspace", credentials, unrelated as never), (error: unknown) => error instanceof NodeFailure && error.code === "CALENDAR_AVAILABILITY_UNAVAILABLE");
+  let calls = 0;
+  const invalidPrimary = async () => { calls += 1; return Response.json({ id: "unrelated@example.test", primary: false }); };
+  await assert.rejects(executeGoogleCalendarAvailability(config, "live", "workspace", credentials, invalidPrimary as never), (error: unknown) => error instanceof NodeFailure && error.code === "CALENDAR_AVAILABILITY_UNAVAILABLE");
+  assert.equal(calls, 1);
 });
 
 test("an ambiguous update with notifications is not retried automatically", async () => {
@@ -104,4 +156,39 @@ test("an ambiguous update with notifications is not retried automatically", asyn
   const config = { credentialId: "credential", calendarId: "primary", eventId: "event-id", summary: "New title", sendUpdates: "all" };
   const transport = async () => { throw new Error("network"); };
   await assert.rejects(executeGoogleCalendarEvent(config, "update", "live", "workspace", credentials, transport as never), (error: unknown) => Boolean(error && typeof error === "object" && "code" in error && error.code === "CALENDAR_UPDATE_OUTCOME_UNKNOWN" && "retryable" in error && error.retryable === false));
+});
+
+test("calendar writes do not follow redirects or automatically retry an uncertain result", async () => {
+  const originalFetch = globalThis.fetch;
+  const previousAllowed = process.env.OUTBOUND_ALLOWED_HOSTNAMES;
+  process.env.OUTBOUND_ALLOWED_HOSTNAMES = "www.googleapis.com";
+  let calls = 0;
+  const credentials = { readGoogleForExecution: async () => ({ accessToken: "synthetic-token" }) } as never;
+  const config = { credentialId: "credential", calendarId: "primary", eventId: "event-id", summary: "Updated", sendUpdates: "all" };
+  const input = { calendarId: "primary", summary: "Meeting", start: "2030-01-01T09:00:00Z", end: "2030-01-01T10:00:00Z", description: "", location: "", attendees: [], sendUpdates: "none" as const };
+  try {
+    for (const status of [301, 302, 303, 307, 308]) {
+      globalThis.fetch = (async () => { calls += 1; return new Response(null, { status, headers: { location: "https://www.googleapis.com/calendar/v3/redirected" } }); }) as typeof fetch;
+      for (const operation of ["update", "delete"] as const) {
+        const before = calls;
+        await assert.rejects(executeGoogleCalendarEvent(config, operation, "live", "workspace", credentials), (error: unknown) => error instanceof NodeFailure && error.code === `CALENDAR_${operation.toUpperCase()}_OUTCOME_UNKNOWN` && error.retryable === false && !error.message.includes("synthetic-token"));
+        assert.equal(calls, before + 1);
+      }
+      const beforeCreate = calls;
+      await assert.rejects(createCalendarEvent("synthetic-token", input, "execution", "node"), (error: unknown) => error instanceof NodeFailure && error.code === "CALENDAR_CONFIRMATION_UNKNOWN" && error.retryable === false);
+      assert.equal(calls, beforeCreate + 1);
+    }
+    for (const status of [408, 429, 500, 503]) {
+      for (const operation of ["update", "delete"] as const) {
+        await assert.rejects(executeGoogleCalendarEvent({ ...config, sendUpdates: "none" }, operation, "live", "workspace", credentials, (async () => new Response(null, { status })) as never), (error: unknown) => error instanceof NodeFailure && error.code === `CALENDAR_${operation.toUpperCase()}_OUTCOME_UNKNOWN` && error.retryable === false);
+      }
+    }
+    for (const operation of ["update", "delete"] as const) {
+      await assert.rejects(executeGoogleCalendarEvent({ ...config, sendUpdates: "none" }, operation, "live", "workspace", credentials, (async () => { throw new Error("synthetic-token"); }) as never), (error: unknown) => error instanceof NodeFailure && error.code === `CALENDAR_${operation.toUpperCase()}_OUTCOME_UNKNOWN` && error.retryable === false && !error.message.includes("synthetic-token"));
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousAllowed === undefined) delete process.env.OUTBOUND_ALLOWED_HOSTNAMES;
+    else process.env.OUTBOUND_ALLOWED_HOSTNAMES = previousAllowed;
+  }
 });

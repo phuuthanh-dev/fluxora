@@ -1,7 +1,8 @@
 import type { Edge, Node } from "@xyflow/react";
-import { currentWorkflowNodeVersion, workflowNodeOutputKinds, type WorkflowEdgeKind, type WorkflowNodeCategory, type WorkflowNodeType } from "@workflow/contracts";
-import type { CredentialProvider } from "../credentials/credential-types";
+import { currentWorkflowNodeVersion, getSharedNodeConfigurationFields, workflowNodeOutputKinds, type WorkflowEdgeKind, type WorkflowNodeCategory, type WorkflowNodeType } from "@workflow/contracts";
+import type { NodeConfigurationField } from "@workflow/contracts";
 import type { NodeIconName } from "./node-icon";
+export type { NodeConfigurationField, NodeFieldVisibility, NodeResource, NodeSelectOption } from "@workflow/contracts";
 
 export type WorkflowNodeData = {
   nodeType: WorkflowNodeType;
@@ -60,30 +61,6 @@ export type NodeDefinition = {
   defaultConfig: Record<string, unknown>;
   configurationFields?: NodeConfigurationField[];
 };
-
-export type NodeSelectOption = { value: string; label: string };
-type NodeFieldVisibilityValue = string | number | boolean;
-export type NodeFieldVisibility = { visibleWhen?: { key: string; equals: NodeFieldVisibilityValue | readonly NodeFieldVisibilityValue[]; fallback?: NodeFieldVisibilityValue } };
-
-export type NodeResource = "github-issue" | "github-pull-request" | "github-repository" | "google-file" | "google-spreadsheet" | "google-calendar" | "google-calendar-event" | "gmail-label" | "gmail-draft" | "gemini-model" | "openai-model" | "google-chat-space" | "mongodb-database" | "mongodb-collection" | "postgres-schema" | "postgres-table" | "trello-board" | "trello-list" | "trello-card" | "notion-page" | "sentry-organization" | "sentry-project" | "sentry-installation" | "vercel-team" | "vercel-project" | "supabase-table";
-
-/**
- * Declarative fields that the inspector can render without growing another
- * provider-specific branch. Complex controls (such as Telegram destinations)
- * remain intentionally bespoke in the editor.
- */
-export type NodeConfigurationField =
-  | ({ kind: "credential"; key: string; label: string; providers: CredentialProvider[]; optional?: boolean } & NodeFieldVisibility)
-  | ({ kind: "boolean"; key: string; label: string } & NodeFieldVisibility)
-  | ({ kind: "text" | "textarea"; key: string; label: string; advanced?: { summary: string; help: string } } & NodeFieldVisibility)
-  | ({ kind: "datetime"; key: string; label: string } & NodeFieldVisibility)
-  | ({ kind: "number"; key: string; label: string; fallbackValue: number } & NodeFieldVisibility)
-  | ({ kind: "select"; key: string; label: string; options: NodeSelectOption[] } & NodeFieldVisibility)
-  | ({ kind: "key-value"; key: string; label: string; keyPlaceholder?: string; valuePlaceholder?: string } & NodeFieldVisibility)
-  | ({ kind: "table"; key: string; label: string } & NodeFieldVisibility)
-  | ({ kind: "structured-output"; key: string; label: string } & NodeFieldVisibility)
-  | ({ kind: "mongo-filter"; key: string; label: string } & NodeFieldVisibility)
-  | ({ kind: "resource"; key: string; label: string; resource: NodeResource; credentialKey: string; dependencyKey?: string; placeholder?: string } & NodeFieldVisibility);
 
 export const categoryOrder: WorkflowNodeCategory[] = ["trigger", "condition", "action", "approval"];
 
@@ -159,43 +136,25 @@ export const nodeCatalog: NodeDefinition[] = [
     type: "trigger.sentry.issue-created", label: "Sentry issue created", description: "Start when a Sentry custom integration reports a new issue.",
     category: "trigger", libraryGroup: "developer-data", appId: "sentry", operationId: "issue-created", operationLabel: "Issue created", operationKind: "trigger", icon: "sentry", available: true,
     defaultConfig: { credentialId: "", organization: "", project: "", installationId: "" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Sentry connection (for discovery)", providers: ["SENTRY"], optional: true },
-      { kind: "resource", key: "organization", label: "Organization", resource: "sentry-organization", credentialKey: "credentialId", placeholder: "Search organizations" },
-      { kind: "resource", key: "project", label: "Project", resource: "sentry-project", credentialKey: "credentialId", dependencyKey: "organization", placeholder: "Search projects" },
-      { kind: "resource", key: "installationId", label: "Custom integration installation", resource: "sentry-installation", credentialKey: "credentialId", dependencyKey: "organization", placeholder: "Search installations" },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("trigger.sentry.issue-created"),
   },
   {
     type: "trigger.trello.board-action", label: "Trello board event", description: "Start when a watched Trello board changes.",
     category: "trigger", libraryGroup: "productivity", appId: "trello", operationId: "board-event", operationLabel: "Board event", operationKind: "trigger", icon: "trello", available: true,
     defaultConfig: { credentialId: "", boardId: "", action: "all" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Trello connection (for discovery)", providers: ["TRELLO"], optional: true },
-      { kind: "resource", key: "boardId", label: "Board", resource: "trello-board", credentialKey: "credentialId", placeholder: "Search boards" },
-      { kind: "select", key: "action", label: "Event", options: [{ value: "all", label: "All board actions" }, { value: "createCard", label: "Card created" }, { value: "updateCard", label: "Card updated" }, { value: "commentCard", label: "Comment added" }, { value: "deleteCard", label: "Card deleted" }] },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("trigger.trello.board-action"),
   },
   {
     type: "trigger.vercel.deployment", label: "Vercel deployment event", description: "Start when a configured Vercel account webhook reports a deployment event.",
     category: "trigger", libraryGroup: "developer-data", appId: "vercel", operationId: "deployment-event", operationLabel: "Deployment event", operationKind: "trigger", icon: "vercel", available: true,
     defaultConfig: { credentialId: "", team: "personal", project: "", event: "deployment.created" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Vercel connection (for discovery)", providers: ["VERCEL"], optional: true },
-      { kind: "resource", key: "team", label: "Account or team", resource: "vercel-team", credentialKey: "credentialId", placeholder: "Search teams" },
-      { kind: "resource", key: "project", label: "Project", resource: "vercel-project", credentialKey: "credentialId", dependencyKey: "team", placeholder: "Search projects" },
-      { kind: "select", key: "event", label: "Event", options: [{ value: "deployment.created", label: "Deployment created" }, { value: "deployment.succeeded", label: "Deployment succeeded (after checks)" }, { value: "deployment.error", label: "Deployment failed" }, { value: "deployment.canceled", label: "Deployment canceled" }, { value: "deployment.ready", label: "Deployment ready (integration checks)" }] },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("trigger.vercel.deployment"),
   },
   {
     type: "trigger.telegram.update", label: "Telegram update", description: "Start a workflow when a bot receives a supported update.",
     category: "trigger", libraryGroup: "communication", appId: "telegram", operationId: "receive-update", operationLabel: "Receive update", operationKind: "trigger", icon: "telegram", available: true,
     defaultConfig: { event: "message", chatMode: "allowlist", allowedChatIds: "" },
-    configurationFields: [
-      { kind: "select", key: "event", label: "Event", options: [{ value: "message", label: "Message" }, { value: "channel_post", label: "Channel post" }, { value: "callback_query", label: "Button callback" }, { value: "all", label: "All supported updates" }] },
-      { kind: "select", key: "chatMode", label: "Allowed chats", options: [{ value: "allowlist", label: "Only listed chat IDs" }, { value: "all", label: "All chats that reach this bot" }] },
-      { kind: "text", key: "allowedChatIds", label: "Allowed chat IDs (comma-separated)", visibleWhen: { key: "chatMode", equals: "allowlist" } },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("trigger.telegram.update"),
   },
   {
     type: "trigger.manual",
@@ -245,10 +204,7 @@ export const nodeCatalog: NodeDefinition[] = [
     type: "trigger.uptime-kuma.alert.v2", label: "Uptime Kuma alert", description: "Start when an Uptime Kuma monitor sends an alert.",
     category: "trigger", libraryGroup: "developer-data", appId: "uptime-kuma", operationId: "monitor-alert", operationLabel: "Monitor alert", operationKind: "trigger", icon: "uptime-kuma", available: true,
     defaultConfig: { path: "uptime-kuma-alert", secretRequired: true, monitorId: "", statusFilter: "any" },
-    configurationFields: [
-      { kind: "text", key: "monitorId", label: "Monitor ID (optional)" },
-      { kind: "select", key: "statusFilter", label: "Alert status", options: [{ value: "any", label: "All statuses" }, { value: "0", label: "Down" }, { value: "1", label: "Up" }, { value: "2", label: "Pending" }, { value: "3", label: "Maintenance" }] },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("trigger.uptime-kuma.alert.v2"),
   },
   {
     type: "trigger.github.issue-opened",
@@ -263,10 +219,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "github",
     available: true,
     defaultConfig: { path: "github-issue-opened", credentialId: "", event: "issues", action: "opened" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "GitHub connector credential", providers: ["GITHUB"] },
-      { kind: "resource", key: "repository", label: "Repository filter (optional)", resource: "github-repository", credentialKey: "credentialId", placeholder: "Filter by repository" },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("trigger.github.issue-opened"),
   },
   {
     type: "trigger.github.pull-request-opened",
@@ -281,10 +234,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "github",
     available: true,
     defaultConfig: { path: "github-pull-request-opened", credentialId: "", event: "pull_request", action: "opened" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "GitHub connector credential", providers: ["GITHUB"] },
-      { kind: "resource", key: "repository", label: "Repository filter (optional)", resource: "github-repository", credentialKey: "credentialId", placeholder: "Filter by repository" },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("trigger.github.pull-request-opened"),
   },
   {
     type: "trigger.github.push",
@@ -299,10 +249,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "github",
     available: true,
     defaultConfig: { path: "github-push", credentialId: "", event: "push", action: "" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "GitHub connector credential", providers: ["GITHUB"] },
-      { kind: "resource", key: "repository", label: "Repository filter (optional)", resource: "github-repository", credentialKey: "credentialId", placeholder: "Filter by repository" },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("trigger.github.push"),
   },
   {
     type: "trigger.github.workflow-run-completed",
@@ -317,10 +264,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "github",
     available: true,
     defaultConfig: { path: "github-workflow-run-completed", credentialId: "", event: "workflow_run", action: "completed" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "GitHub connector credential", providers: ["GITHUB"] },
-      { kind: "resource", key: "repository", label: "Repository filter (optional)", resource: "github-repository", credentialKey: "credentialId", placeholder: "Filter by repository" },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("trigger.github.workflow-run-completed"),
   },
   {
     type: "condition.if",
@@ -361,13 +305,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "steam",
     available: true,
     defaultConfig: { credentialId: "", steamId: "", includeOwnedGames: true, includeRecentGames: true, achievementAppId: "" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Steam credential", providers: ["STEAM"] },
-      { kind: "text", key: "steamId", label: "Steam ID 64" },
-      { kind: "boolean", key: "includeOwnedGames", label: "Include owned games and playtime" },
-      { kind: "boolean", key: "includeRecentGames", label: "Include recently played games" },
-      { kind: "text", key: "achievementAppId", label: "Achievement app ID (optional)" },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.steam.account-snapshot"),
   },
   {
     type: "action.google-chat.webhook",
@@ -382,10 +320,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "google-chat",
     available: true,
     defaultConfig: { credentialId: "", message: "" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Google Chat credential", providers: ["GOOGLE_CHAT_WEBHOOK"] },
-      { kind: "textarea", key: "message", label: "Message template" },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.google-chat.webhook"),
   },
   {
     type: "action.discord.webhook",
@@ -400,14 +335,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "discord",
     available: true,
     defaultConfig: { credentialId: "", content: "", username: "", avatarUrl: "", embeds: "", allowedMentions: "" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Discord credential", providers: ["DISCORD_WEBHOOK"] },
-      { kind: "textarea", key: "content", label: "Message content" },
-      { kind: "text", key: "username", label: "Username (optional)" },
-      { kind: "text", key: "avatarUrl", label: "Avatar URL (optional)" },
-      { kind: "textarea", key: "embeds", label: "Embeds JSON (optional)" },
-      { kind: "textarea", key: "allowedMentions", label: "Allowed mentions JSON (optional)" },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.discord.webhook"),
   },
   {
     type: "action.telegram.message",
@@ -446,19 +374,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "google-drive",
     available: true,
     defaultConfig: { credentialId: "", operation: "search", query: "", fileId: "", name: "daily-report.txt", text: "" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Google credential", providers: ["GOOGLE"] },
-      { kind: "select", key: "operation", label: "Operation", options: [
-        { value: "list", label: "List files" },
-        { value: "search", label: "Search files" },
-        { value: "uploadText", label: "Upload text file" },
-        { value: "downloadText", label: "Download text file" },
-      ] },
-      { kind: "text", key: "query", label: "Search query", visibleWhen: { key: "operation", equals: "search" } },
-      { kind: "resource", key: "fileId", label: "Text file", resource: "google-file", credentialKey: "credentialId", placeholder: "Search loaded text files", visibleWhen: { key: "operation", equals: "downloadText" } },
-      { kind: "text", key: "name", label: "File name", visibleWhen: { key: "operation", equals: "uploadText" } },
-      { kind: "textarea", key: "text", label: "Text content", visibleWhen: { key: "operation", equals: "uploadText" } },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.google-drive"),
   },
 
   {
@@ -474,20 +390,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "google-drive",
     available: true,
     defaultConfig: { credentialId: "", operation: "search", query: "", fileId: "", name: "daily-report.txt", text: "" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Google credential", providers: ["GOOGLE"] },
-      { kind: "select", key: "operation", label: "Operation", options: [
-        { value: "list", label: "List files" },
-        { value: "search", label: "Search files" },
-        { value: "uploadText", label: "Upload text file" },
-        { value: "downloadText", label: "Download text file" },
-      ] },
-      { kind: "text", key: "query", label: "Search query", visibleWhen: { key: "operation", equals: "search" } },
-      { kind: "text", key: "pageToken", label: "Continuation token", visibleWhen: { key: "operation", equals: ["list", "search"], fallback: "list" }, advanced: { summary: "Advanced pagination", help: "Use nextPageToken from the previous output with the same connection, operation and query. Each page contains up to 100 files. If Drive rejects the token, clear it and start again; results can change between pages." } },
-      { kind: "resource", key: "fileId", label: "Text file", resource: "google-file", credentialKey: "credentialId", placeholder: "Search loaded text files", visibleWhen: { key: "operation", equals: "downloadText" } },
-      { kind: "text", key: "name", label: "File name", visibleWhen: { key: "operation", equals: "uploadText" } },
-      { kind: "textarea", key: "text", label: "Text content", visibleWhen: { key: "operation", equals: "uploadText" } },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.google-drive.v2"),
   },
   {
     type: "action.google-sheets",
@@ -502,17 +405,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "google-sheets",
     available: true,
     defaultConfig: { credentialId: "", operation: "append", spreadsheetId: "", range: "Sheet1!A1", values: [["", ""]] },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Google credential", providers: ["GOOGLE"] },
-      { kind: "resource", key: "spreadsheetId", label: "Spreadsheet", resource: "google-spreadsheet", credentialKey: "credentialId", placeholder: "Search loaded spreadsheets" },
-      { kind: "select", key: "operation", label: "Operation", options: [
-        { value: "read", label: "Read rows" },
-        { value: "append", label: "Append rows" },
-        { value: "update", label: "Update rows" },
-      ] },
-      { kind: "text", key: "range", label: "Range" },
-      { kind: "table", key: "values", label: "Values", visibleWhen: { key: "operation", equals: ["append", "update"] } },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.google-sheets"),
   },
   {
     type: "action.http-request",
@@ -527,20 +420,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "http",
     available: true,
     defaultConfig: { credentialId: "", method: "GET", url: "", headers: {}, body: "", timeoutMs: 15_000 },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "HTTP credential (optional)", providers: ["HTTP"], optional: true },
-      { kind: "select", key: "method", label: "Method", options: [
-        { value: "GET", label: "GET" },
-        { value: "POST", label: "POST" },
-        { value: "PUT", label: "PUT" },
-        { value: "PATCH", label: "PATCH" },
-        { value: "DELETE", label: "DELETE" },
-      ] },
-      { kind: "text", key: "url", label: "URL" },
-      { kind: "key-value", key: "headers", label: "Headers (optional)", keyPlaceholder: "Header name", valuePlaceholder: "Header value" },
-      { kind: "textarea", key: "body", label: "Request body" },
-      { kind: "number", key: "timeoutMs", label: "Timeout (ms)", fallbackValue: 15_000 },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.http-request"),
   },
   {
     type: "approval.request",
@@ -568,19 +448,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "email",
     available: true,
     defaultConfig: { credentialId: "", to: "", cc: "", bcc: "", subject: "", body: "", bodyFormat: "text", replyTo: "" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "SMTP credential", providers: ["SMTP"] },
-      { kind: "text", key: "to", label: "To (comma-separated)" },
-      { kind: "text", key: "cc", label: "Cc (optional, comma-separated)" },
-      { kind: "text", key: "bcc", label: "Bcc (optional, comma-separated)" },
-      { kind: "text", key: "subject", label: "Subject" },
-      { kind: "select", key: "bodyFormat", label: "Body format", options: [
-        { value: "text", label: "Plain text" },
-        { value: "html", label: "HTML" },
-      ] },
-      { kind: "textarea", key: "body", label: "Message" },
-      { kind: "text", key: "replyTo", label: "Reply-to (optional)" },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.email"),
   },
   {
     type: "action.google-chat.oauth", hiddenFromLibrary: true,
@@ -595,43 +463,25 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "google-chat",
     available: true,
     defaultConfig: { credentialId: "", space: "", message: "" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Google Chat credential", providers: ["GOOGLE_CHAT_OAUTH"] },
-      { kind: "resource", key: "space", label: "Space", resource: "google-chat-space", credentialKey: "credentialId", placeholder: "Search spaces" },
-      { kind: "textarea", key: "message", label: "Message template" },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.google-chat.oauth"),
   },
   {
     type: "action.google-chat.oauth.v2", label: "Google Chat OAuth", description: "Send a Google Chat message and return its thread when available.",
     category: "action", libraryGroup: "google-workspace", appId: "google-chat", operationId: "send-oauth-message", operationLabel: "Send OAuth message", operationKind: "action", icon: "google-chat", available: true,
     defaultConfig: { credentialId: "", space: "", message: "" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Google Chat credential", providers: ["GOOGLE_CHAT_OAUTH"] },
-      { kind: "resource", key: "space", label: "Space", resource: "google-chat-space", credentialKey: "credentialId", placeholder: "Search spaces" },
-      { kind: "textarea", key: "message", label: "Message template" },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.google-chat.oauth.v2"),
   },
   {
     type: "action.google-chat.reply", label: "Google Chat reply", description: "Reply to an existing Google Chat thread.",
     category: "action", libraryGroup: "google-workspace", appId: "google-chat", operationId: "reply-thread", operationLabel: "Reply to thread", operationKind: "action", icon: "google-chat", available: true,
     defaultConfig: { credentialId: "", space: "", threadName: "", message: "" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Google Chat credential", providers: ["GOOGLE_CHAT_OAUTH"] },
-      { kind: "resource", key: "space", label: "Space", resource: "google-chat-space", credentialKey: "credentialId", placeholder: "Search spaces" },
-      { kind: "text", key: "threadName", label: "Thread resource name" },
-      { kind: "textarea", key: "message", label: "Message template" },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.google-chat.reply"),
   },
   {
     type: "action.google-chat.edit-message", label: "Edit Google Chat message", description: "Update the text of an existing Google Chat message.",
     category: "action", libraryGroup: "google-workspace", appId: "google-chat", operationId: "edit-message", operationLabel: "Edit message", operationKind: "action", icon: "google-chat", available: true,
     defaultConfig: { credentialId: "", space: "", messageName: "", message: "" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Google Chat credential", providers: ["GOOGLE_CHAT_OAUTH"] },
-      { kind: "resource", key: "space", label: "Space", resource: "google-chat-space", credentialKey: "credentialId", placeholder: "Search spaces" },
-      { kind: "text", key: "messageName", label: "Message resource name or expression" },
-      { kind: "textarea", key: "message", label: "New message text" },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.google-chat.edit-message"),
   },
   {
     type: "action.openai",
@@ -646,14 +496,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "openai",
     available: true,
     defaultConfig: { credentialId: "", model: "", prompt: "", maxOutputTokens: 1024, timeoutMs: 30000 },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "OpenAI credential", providers: ["OPENAI"] },
-      { kind: "resource", key: "model", label: "Model", resource: "openai-model", credentialKey: "credentialId", placeholder: "Search OpenAI models" },
-      { kind: "textarea", key: "prompt", label: "Prompt" },
-      { kind: "structured-output", key: "outputSchema", label: "Structured output" },
-      { kind: "number", key: "maxOutputTokens", label: "Max output tokens", fallbackValue: 1024 },
-      { kind: "number", key: "timeoutMs", label: "Timeout (ms)", fallbackValue: 30000 },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.openai"),
   },
   {
     type: "action.gemini",
@@ -668,14 +511,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "gemini",
     available: true,
     defaultConfig: { credentialId: "", model: "gemini-2.5-flash", prompt: "", maxOutputTokens: 1024, timeoutMs: 30000 },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Gemini credential", providers: ["GEMINI"] },
-      { kind: "resource", key: "model", label: "Model", resource: "gemini-model", credentialKey: "credentialId", placeholder: "Search Gemini models" },
-      { kind: "textarea", key: "prompt", label: "Prompt" },
-      { kind: "structured-output", key: "outputSchema", label: "Structured output" },
-      { kind: "number", key: "maxOutputTokens", label: "Max output tokens", fallbackValue: 1024 },
-      { kind: "number", key: "timeoutMs", label: "Timeout (ms)", fallbackValue: 30000 },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.gemini"),
   },
   {
     type: "trigger.gmail",
@@ -685,15 +521,7 @@ export const nodeCatalog: NodeDefinition[] = [
     operationId: "message-received", operationLabel: "New message", operationKind: "trigger",
     icon: "gmail", available: true,
     defaultConfig: { credentialId: "", mailbox: "inbox", labelId: "", sender: "", subject: "", pollMinutes: "1", maxMessages: "10" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Gmail credential", providers: ["GMAIL"] },
-      { kind: "select", key: "mailbox", label: "Messages", options: [{ value: "inbox", label: "Inbox" }, { value: "all", label: "All mail, including Sent and Spam" }] },
-      { kind: "resource", key: "labelId", label: "Label (optional)", resource: "gmail-label", credentialKey: "credentialId", placeholder: "Search labels" },
-      { kind: "text", key: "sender", label: "Sender contains (optional)" },
-      { kind: "text", key: "subject", label: "Subject contains (optional)" },
-      { kind: "select", key: "pollMinutes", label: "Check for new mail", options: [{ value: "1", label: "Every minute" }, { value: "5", label: "Every 5 minutes" }, { value: "15", label: "Every 15 minutes" }, { value: "60", label: "Every hour" }] },
-      { kind: "select", key: "maxMessages", label: "Maximum messages per check", options: [{ value: "10", label: "10 messages" }, { value: "25", label: "25 messages" }, { value: "50", label: "50 messages" }] },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("trigger.gmail"),
   },
   {
     type: "trigger.rss.new-item",
@@ -703,10 +531,7 @@ export const nodeCatalog: NodeDefinition[] = [
     operationId: "new-item", operationLabel: "New item", operationKind: "trigger",
     icon: "rss", available: true,
     defaultConfig: { url: "", pollMinutes: "5" },
-    configurationFields: [
-      { kind: "text", key: "url", label: "Public feed URL" },
-      { kind: "select", key: "pollMinutes", label: "Check for new items", options: [{ value: "1", label: "Every minute" }, { value: "5", label: "Every 5 minutes" }, { value: "15", label: "Every 15 minutes" }, { value: "60", label: "Every hour" }] },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("trigger.rss.new-item"),
   },
   {
     type: "action.gmail.read", hiddenFromLibrary: true,
@@ -721,12 +546,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "gmail",
     available: true,
     defaultConfig: { credentialId: "", mailbox: "inbox", query: "", limit: 5 },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Gmail credential", providers: ["GMAIL"] },
-      { kind: "select", key: "mailbox", label: "Messages", options: [{ value: "inbox", label: "Inbox" }, { value: "unread", label: "Unread inbox" }, { value: "all", label: "All mail" }] },
-      { kind: "text", key: "query", label: "Additional Gmail search (optional)" },
-      { kind: "number", key: "limit", label: "Maximum messages (1–10)", fallbackValue: 5 },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.gmail.read"),
   },
 
   {
@@ -742,13 +562,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "gmail",
     available: true,
     defaultConfig: { credentialId: "", mailbox: "inbox", query: "", limit: 5 },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Gmail credential", providers: ["GMAIL"] },
-      { kind: "select", key: "mailbox", label: "Messages", options: [{ value: "inbox", label: "Inbox" }, { value: "unread", label: "Unread inbox" }, { value: "all", label: "All mail" }] },
-      { kind: "text", key: "query", label: "Additional Gmail search (optional)" },
-      { kind: "number", key: "limit", label: "Maximum messages (1–10)", fallbackValue: 5 },
-      { kind: "text", key: "pageToken", label: "Continuation token", advanced: { summary: "Continue a previous page", help: "Use nextPageToken from the previous output with the same connection, mailbox and search." } },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.gmail.read.v2"),
   },
   {
     type: "action.gmail.get-message",
@@ -758,33 +572,19 @@ export const nodeCatalog: NodeDefinition[] = [
     operationId: "get-message", operationLabel: "Get message", operationKind: "search",
     icon: "gmail", available: true,
     defaultConfig: { credentialId: "", messageId: "" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Gmail connection", providers: ["GMAIL"] },
-      { kind: "text", key: "messageId", label: "Message ID or expression" },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.gmail.get-message"),
   },
-  ...(["send", "reply", "draft", "updateDraft", "label"] as const).map((operation): NodeDefinition => ({
-    type: operation === "draft" ? "action.gmail.create-draft" : operation === "updateDraft" ? "action.gmail.update-draft" : operation === "label" ? "action.gmail.modify-label" : operation === "send" ? "action.gmail.send" : "action.gmail.reply",
-    label: operation === "send" ? "Send Gmail message" : operation === "reply" ? "Reply to Gmail message" : operation === "draft" ? "Create Gmail draft" : operation === "updateDraft" ? "Replace Gmail draft" : "Change Gmail message label",
-    description: operation === "send" ? "Send a message through the selected Gmail account." : operation === "reply" ? "Reply in the original message thread." : operation === "draft" ? "Create a draft without sending it." : operation === "updateDraft" ? "Replace an existing draft with a new message." : "Add or remove one label on a message.",
-    category: "action", libraryGroup: "communication", appId: "gmail", operationId: operation === "draft" ? "create-draft" : operation === "updateDraft" ? "update-draft" : operation === "label" ? "modify-label" : operation, operationLabel: operation === "send" ? "Send message" : operation === "reply" ? "Reply to message" : operation === "draft" ? "Create draft" : operation === "updateDraft" ? "Replace draft" : "Add or remove label", operationKind: "action", icon: "gmail", available: true,
-    defaultConfig: operation === "label" ? { credentialId: "", messageId: "", labelId: "", labelAction: "add" } : { credentialId: "", ...(operation === "reply" ? { messageId: "" } : { subject: "" }), ...(operation === "updateDraft" ? { draftId: "" } : {}), to: "", cc: "", bcc: "", text: "" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Gmail connection", providers: ["GMAIL"] },
-      ...((operation === "reply" || operation === "label") ? [{ kind: "text", key: "messageId", label: "Message ID or expression" } as NodeConfigurationField] : []),
-      ...(operation === "updateDraft" ? [{ kind: "resource", key: "draftId", label: "Draft", resource: "gmail-draft", credentialKey: "credentialId", placeholder: "Search drafts" } as NodeConfigurationField] : []),
-      ...(operation === "label" ? [
-        { kind: "resource", key: "labelId", label: "Label", resource: "gmail-label", credentialKey: "credentialId", placeholder: "Search labels" } as NodeConfigurationField,
-        { kind: "select", key: "labelAction", label: "Action", options: [{ value: "add", label: "Add label" }, { value: "remove", label: "Remove label" }] } as NodeConfigurationField,
-      ] : [
-        { kind: "text", key: "to", label: "To (comma-separated)" } as NodeConfigurationField,
-        { kind: "text", key: "cc", label: "Cc (optional)" } as NodeConfigurationField,
-        { kind: "text", key: "bcc", label: "Bcc (optional)" } as NodeConfigurationField,
-        ...(operation !== "reply" ? [{ kind: "text", key: "subject", label: "Subject" } as NodeConfigurationField] : []),
-        { kind: "textarea", key: "text", label: "Message text" } as NodeConfigurationField,
-      ]),
-    ],
-  })),
+  ...(["send", "reply", "draft", "updateDraft", "label"] as const).map((operation): NodeDefinition => {
+    const type = operation === "draft" ? "action.gmail.create-draft" : operation === "updateDraft" ? "action.gmail.update-draft" : operation === "label" ? "action.gmail.modify-label" : operation === "send" ? "action.gmail.send" : "action.gmail.reply";
+    return {
+      type,
+      label: operation === "send" ? "Send Gmail message" : operation === "reply" ? "Reply to Gmail message" : operation === "draft" ? "Create Gmail draft" : operation === "updateDraft" ? "Replace Gmail draft" : "Change Gmail message label",
+      description: operation === "send" ? "Send a message through the selected Gmail account." : operation === "reply" ? "Reply in the original message thread." : operation === "draft" ? "Create a draft without sending it." : operation === "updateDraft" ? "Replace an existing draft with a new message." : "Add or remove one label on a message.",
+      category: "action", libraryGroup: "communication", appId: "gmail", operationId: operation === "draft" ? "create-draft" : operation === "updateDraft" ? "update-draft" : operation === "label" ? "modify-label" : operation, operationLabel: operation === "send" ? "Send message" : operation === "reply" ? "Reply to message" : operation === "draft" ? "Create draft" : operation === "updateDraft" ? "Replace draft" : "Add or remove label", operationKind: "action", icon: "gmail", available: true,
+      defaultConfig: operation === "label" ? { credentialId: "", messageId: "", labelId: "", labelAction: "add" } : { credentialId: "", ...(operation === "reply" ? { messageId: "" } : { subject: "" }), ...(operation === "updateDraft" ? { draftId: "" } : {}), to: "", cc: "", bcc: "", text: "" },
+      configurationFields: getSharedNodeConfigurationFields(type),
+    };
+  }),
   {
     type: "action.google-calendar.list-events",
     label: "Google Calendar events",
@@ -793,13 +593,7 @@ export const nodeCatalog: NodeDefinition[] = [
     operationId: "list-events", operationLabel: "List upcoming events", operationKind: "search",
     icon: "google-calendar", available: true,
     defaultConfig: { credentialId: "", calendarId: "primary", limit: 10, timeMin: "", pageToken: "" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Google Calendar credential", providers: ["GOOGLE_CALENDAR"] },
-      { kind: "resource", key: "calendarId", label: "Calendar", resource: "google-calendar", credentialKey: "credentialId", placeholder: "Search calendars" },
-      { kind: "number", key: "limit", label: "Maximum events (1–50)", fallbackValue: 10 },
-      { kind: "datetime", key: "timeMin", label: "Start after (optional)" },
-      { kind: "text", key: "pageToken", label: "Next page token (reuse original start and limit)", advanced: { summary: "Advanced pagination", help: "Use the token and start time from the previous output. Keep the same calendar and limit." } },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.google-calendar.list-events"),
   },
   {
     type: "action.google-calendar.create-event", label: "Create calendar event",
@@ -808,65 +602,31 @@ export const nodeCatalog: NodeDefinition[] = [
     operationId: "create-event", operationLabel: "Create event", operationKind: "action",
     icon: "google-calendar", available: true,
     defaultConfig: { credentialId: "", calendarId: "primary", summary: "", start: "", end: "", description: "", location: "", attendees: "", sendUpdates: "none" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Google Calendar credential", providers: ["GOOGLE_CALENDAR"] },
-      { kind: "resource", key: "calendarId", label: "Calendar", resource: "google-calendar", credentialKey: "credentialId", placeholder: "Search calendars" },
-      { kind: "text", key: "summary", label: "Event title" },
-      { kind: "datetime", key: "start", label: "Start" },
-      { kind: "datetime", key: "end", label: "End" },
-      { kind: "textarea", key: "description", label: "Description (optional)" },
-      { kind: "text", key: "location", label: "Location (optional)" },
-      { kind: "text", key: "attendees", label: "Attendee emails (comma separated)" },
-      { kind: "select", key: "sendUpdates", label: "Send email invitations", options: [{ value: "none", label: "Do not send" }, { value: "all", label: "Send to all attendees" }, { value: "externalOnly", label: "Send to external attendees" }] },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.google-calendar.create-event"),
   },
   {
     type: "action.google-calendar.get-event", label: "Get calendar event", description: "Read details for a selected event.",
     category: "action", libraryGroup: "google-workspace", appId: "google-calendar", operationId: "get-event", operationLabel: "Get event", operationKind: "search", icon: "google-calendar", available: true,
     defaultConfig: { credentialId: "", calendarId: "primary", eventId: "" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Google Calendar credential", providers: ["GOOGLE_CALENDAR"] },
-      { kind: "resource", key: "calendarId", label: "Calendar", resource: "google-calendar", credentialKey: "credentialId", placeholder: "Search calendars" },
-      { kind: "resource", key: "eventId", label: "Event", resource: "google-calendar-event", credentialKey: "credentialId", dependencyKey: "calendarId", placeholder: "Search upcoming events" },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.google-calendar.get-event"),
   },
   {
     type: "action.google-calendar.update-event", label: "Update calendar event", description: "Change selected event details; leave other fields blank to keep them.",
     category: "action", libraryGroup: "google-workspace", appId: "google-calendar", operationId: "update-event", operationLabel: "Update event", operationKind: "action", icon: "google-calendar", available: true,
     defaultConfig: { credentialId: "", calendarId: "primary", eventId: "", summary: "", start: "", end: "", description: "", location: "", sendUpdates: "none" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Google Calendar credential", providers: ["GOOGLE_CALENDAR"] },
-      { kind: "resource", key: "calendarId", label: "Calendar", resource: "google-calendar", credentialKey: "credentialId", placeholder: "Search calendars" },
-      { kind: "resource", key: "eventId", label: "Event", resource: "google-calendar-event", credentialKey: "credentialId", dependencyKey: "calendarId", placeholder: "Search upcoming events" },
-      { kind: "text", key: "summary", label: "New title (optional)" },
-      { kind: "datetime", key: "start", label: "New start (optional)" },
-      { kind: "datetime", key: "end", label: "New end (optional)" },
-      { kind: "textarea", key: "description", label: "New description (optional)" },
-      { kind: "text", key: "location", label: "New location (optional)" },
-      { kind: "select", key: "sendUpdates", label: "Notify attendees", options: [{ value: "none", label: "Do not send" }, { value: "all", label: "Send to all attendees" }, { value: "externalOnly", label: "Send to external attendees" }] },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.google-calendar.update-event"),
   },
   {
     type: "action.google-calendar.delete-event", label: "Delete calendar event", description: "Delete the selected event when the workflow runs live.",
     category: "action", libraryGroup: "google-workspace", appId: "google-calendar", operationId: "delete-event", operationLabel: "Delete event", operationKind: "action", icon: "google-calendar", available: true,
     defaultConfig: { credentialId: "", calendarId: "primary", eventId: "", sendUpdates: "none" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Google Calendar credential", providers: ["GOOGLE_CALENDAR"] },
-      { kind: "resource", key: "calendarId", label: "Calendar", resource: "google-calendar", credentialKey: "credentialId", placeholder: "Search calendars" },
-      { kind: "resource", key: "eventId", label: "Event", resource: "google-calendar-event", credentialKey: "credentialId", dependencyKey: "calendarId", placeholder: "Search upcoming events" },
-      { kind: "select", key: "sendUpdates", label: "Notify attendees", options: [{ value: "none", label: "Do not send" }, { value: "all", label: "Send to all attendees" }, { value: "externalOnly", label: "Send to external attendees" }] },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.google-calendar.delete-event"),
   },
   {
     type: "action.google-calendar.availability", label: "Check calendar availability", description: "Check whether a calendar is free during a time range.",
     category: "action", libraryGroup: "google-workspace", appId: "google-calendar", operationId: "availability", operationLabel: "Check availability", operationKind: "search", icon: "google-calendar", available: true,
     defaultConfig: { credentialId: "", calendarId: "primary", start: "", end: "" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Google Calendar credential", providers: ["GOOGLE_CALENDAR"] },
-      { kind: "resource", key: "calendarId", label: "Calendar", resource: "google-calendar", credentialKey: "credentialId", placeholder: "Search calendars" },
-      { kind: "datetime", key: "start", label: "Start" },
-      { kind: "datetime", key: "end", label: "End" },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.google-calendar.availability"),
   },
   {
     type: "action.postgres.select", hiddenFromLibrary: true,
@@ -881,12 +641,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "postgres",
     available: true,
     defaultConfig: { credentialId: "", schema: "public", table: "", limit: 20 },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "PostgreSQL credential", providers: ["POSTGRES"] },
-      { kind: "resource", key: "schema", label: "Schema", resource: "postgres-schema", credentialKey: "credentialId", placeholder: "Search schemas" },
-      { kind: "resource", key: "table", label: "Table", resource: "postgres-table", credentialKey: "credentialId", dependencyKey: "schema", placeholder: "Search tables" },
-      { kind: "number", key: "limit", label: "Maximum rows (1–100)", fallbackValue: 20 },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.postgres.select"),
   },
 
   {
@@ -902,33 +657,19 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "postgres",
     available: true,
     defaultConfig: { credentialId: "", schema: "public", table: "", limit: 20 },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "PostgreSQL credential", providers: ["POSTGRES"] },
-      { kind: "resource", key: "schema", label: "Schema", resource: "postgres-schema", credentialKey: "credentialId", placeholder: "Search schemas" },
-      { kind: "resource", key: "table", label: "Table", resource: "postgres-table", credentialKey: "credentialId", dependencyKey: "schema", placeholder: "Search tables" },
-      { kind: "number", key: "limit", label: "Maximum rows (1–100)", fallbackValue: 20 },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.postgres.select.v2"),
   },
   {
     type: "action.rss.read", label: "Read RSS feed", description: "Read recent items from a public RSS or Atom feed.",
     category: "action", libraryGroup: "developer-data", appId: "rss", operationId: "read-feed", operationLabel: "Read feed", operationKind: "search", icon: "rss", available: true,
     defaultConfig: { url: "", limit: 20 },
-    configurationFields: [
-      { kind: "text", key: "url", label: "Public feed URL (no secrets)" },
-      { kind: "number", key: "limit", label: "Maximum items (1–100)", fallbackValue: 20 },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.rss.read"),
   },
   {
     type: "action.trello.create-card", label: "Trello card", description: "Create a card in a selected Trello list.",
     category: "action", libraryGroup: "productivity", appId: "trello", operationId: "create-card", operationLabel: "Create card", operationKind: "action", icon: "trello", available: true,
     defaultConfig: { credentialId: "", boardId: "", listId: "", title: "", description: "" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Trello connection", providers: ["TRELLO"] },
-      { kind: "resource", key: "boardId", label: "Board", resource: "trello-board", credentialKey: "credentialId", placeholder: "Search boards" },
-      { kind: "resource", key: "listId", label: "List", resource: "trello-list", credentialKey: "credentialId", dependencyKey: "boardId", placeholder: "Search lists" },
-      { kind: "text", key: "title", label: "Card title" },
-      { kind: "textarea", key: "description", label: "Description (optional)" },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.trello.create-card"),
   },
   ...([
     ["action.trello.get-card", "Get card", "get"],
@@ -939,126 +680,65 @@ export const nodeCatalog: NodeDefinition[] = [
     ["action.trello.find-cards", "Find cards", "find"],
   ] as const).map(([type, label, operation]): NodeDefinition => {
     const collection = operation === "list" || operation === "find";
-    const fields: NodeConfigurationField[] = [
-      { kind: "credential", key: "credentialId", label: "Trello connection", providers: ["TRELLO"] },
-      { kind: "resource", key: collection ? "boardId" : "sourceBoardId", label: collection ? "Board" : "Source board", resource: "trello-board", credentialKey: "credentialId", placeholder: "Search boards" },
-    ];
-    if (!collection) fields.push({ kind: "resource", key: "cardId", label: "Card", resource: "trello-card", credentialKey: "credentialId", dependencyKey: "sourceBoardId", placeholder: "Search cards" });
-    if (operation === "move") fields.push(
-      { kind: "resource", key: "boardId", label: "Destination board", resource: "trello-board", credentialKey: "credentialId", placeholder: "Search boards" },
-      { kind: "resource", key: "listId", label: "Destination list", resource: "trello-list", credentialKey: "credentialId", dependencyKey: "boardId", placeholder: "Search lists" },
-    );
-    if (operation === "update") fields.push({ kind: "text", key: "title", label: "New title (optional)" }, { kind: "textarea", key: "description", label: "New description (optional)" });
-    if (operation === "find") fields.push({ kind: "text", key: "query", label: "Search query" });
-    if (collection) fields.push({ kind: "number", key: "limit", label: "Maximum cards (1–50)", fallbackValue: 20 });
-    if (operation === "list") fields.push(
-      { kind: "select", key: "filter", label: "Card status", options: [{ value: "open", label: "Open" }, { value: "closed", label: "Archived" }, { value: "all", label: "All" }] },
-      { kind: "text", key: "before", label: "Continue before card ID (optional)", advanced: { summary: "Advanced pagination", help: "Use nextBefore from the previous output. Cards created in the same second at the boundary may be missed." } },
-    );
+    const fields = getSharedNodeConfigurationFields(type);
     return { type, label: `Trello · ${label}`, description: `${label} in Trello.`, category: "action", libraryGroup: "productivity", appId: "trello", operationId: type.slice("action.trello.".length), operationLabel: label, operationKind: collection || operation === "get" ? "search" : "action", icon: "trello", available: true, defaultConfig: { credentialId: "", ...(collection ? { boardId: "", limit: 20 } : { sourceBoardId: "", cardId: "" }), ...(operation === "move" ? { boardId: "", listId: "" } : {}), ...(operation === "list" ? { filter: "open" } : {}), ...(operation === "find" ? { query: "" } : {}) }, configurationFields: fields };
   }),
   {
     type: "action.sentry.list-issues", hiddenFromLibrary: true, label: "Sentry issues", description: "Read issues from a Sentry project.",
     category: "action", libraryGroup: "developer-data", appId: "sentry", operationId: "list-issues", operationLabel: "List issues", operationKind: "search", icon: "sentry", available: true,
     defaultConfig: { credentialId: "", organization: "", project: "", status: "unresolved", limit: 20 },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Sentry connection", providers: ["SENTRY"] },
-      { kind: "resource", key: "organization", label: "Organization", resource: "sentry-organization", credentialKey: "credentialId", placeholder: "Search organizations" },
-      { kind: "resource", key: "project", label: "Project", resource: "sentry-project", credentialKey: "credentialId", dependencyKey: "organization", placeholder: "Search projects" },
-      { kind: "select", key: "status", label: "Issue status", options: [{ value: "unresolved", label: "Unresolved" }, { value: "resolved", label: "Resolved" }, { value: "all", label: "All" }] },
-      { kind: "number", key: "limit", label: "Maximum issues (1–100)", fallbackValue: 20 },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.sentry.list-issues"),
   },
 
   {
     type: "action.sentry.list-issues.v2", label: "Sentry issues", description: "Read issues from a Sentry project.",
     category: "action", libraryGroup: "developer-data", appId: "sentry", operationId: "list-issues", operationLabel: "List issues", operationKind: "search", icon: "sentry", available: true,
     defaultConfig: { credentialId: "", organization: "", project: "", status: "unresolved", limit: 20 },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Sentry connection", providers: ["SENTRY"] },
-      { kind: "resource", key: "organization", label: "Organization", resource: "sentry-organization", credentialKey: "credentialId", placeholder: "Search organizations" },
-      { kind: "resource", key: "project", label: "Project", resource: "sentry-project", credentialKey: "credentialId", dependencyKey: "organization", placeholder: "Search projects" },
-      { kind: "select", key: "status", label: "Issue status", options: [{ value: "unresolved", label: "Unresolved" }, { value: "resolved", label: "Resolved" }, { value: "all", label: "All" }] },
-      { kind: "number", key: "limit", label: "Maximum issues (1–100)", fallbackValue: 20 },
-      { kind: "text", key: "cursor", label: "Continuation cursor", advanced: { summary: "Continue a previous page", help: "Use the previous nextCursor with the same organization, project and status. Continuation can be unknown." } },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.sentry.list-issues.v2"),
   },
   {
     type: "action.vercel.list-deployments", hiddenFromLibrary: true, label: "Vercel deployments", description: "Read recent deployments for a Vercel project.",
     category: "action", libraryGroup: "developer-data", appId: "vercel", operationId: "list-deployments", operationLabel: "List deployments", operationKind: "search", icon: "vercel", available: true,
     defaultConfig: { credentialId: "", team: "personal", project: "", limit: 20 },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Vercel connection", providers: ["VERCEL"] },
-      { kind: "resource", key: "team", label: "Account or team", resource: "vercel-team", credentialKey: "credentialId", placeholder: "Search teams" },
-      { kind: "resource", key: "project", label: "Project", resource: "vercel-project", credentialKey: "credentialId", dependencyKey: "team", placeholder: "Search projects" },
-      { kind: "number", key: "limit", label: "Maximum deployments (1–100)", fallbackValue: 20 },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.vercel.list-deployments"),
   },
 
   {
     type: "action.vercel.list-deployments.v2", label: "Vercel deployments", description: "Read recent deployments for a Vercel project.",
     category: "action", libraryGroup: "developer-data", appId: "vercel", operationId: "list-deployments", operationLabel: "List deployments", operationKind: "search", icon: "vercel", available: true,
     defaultConfig: { credentialId: "", team: "personal", project: "", limit: 20 },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Vercel connection", providers: ["VERCEL"] },
-      { kind: "resource", key: "team", label: "Account or team", resource: "vercel-team", credentialKey: "credentialId", placeholder: "Search teams" },
-      { kind: "resource", key: "project", label: "Project", resource: "vercel-project", credentialKey: "credentialId", dependencyKey: "team", placeholder: "Search projects" },
-      { kind: "number", key: "limit", label: "Maximum deployments (1–100)", fallbackValue: 20 },
-      { kind: "text", key: "cursor", label: "Continuation cursor", advanced: { summary: "Continue a previous page", help: "Use the previous nextCursor with the same account and project. Continuation can be unknown." } },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.vercel.list-deployments.v2"),
   },
   {
     type: "action.sentry.get-issue", label: "Get Sentry issue", description: "Read a limited view of an issue in the selected project.",
     category: "action", libraryGroup: "developer-data", appId: "sentry", operationId: "get-issue", operationLabel: "Get issue", operationKind: "action", icon: "sentry", available: true,
     defaultConfig: { credentialId: "", organization: "", project: "", issueId: "" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Sentry connection", providers: ["SENTRY"] },
-      { kind: "resource", key: "organization", label: "Organization", resource: "sentry-organization", credentialKey: "credentialId", placeholder: "Search organizations" },
-      { kind: "resource", key: "project", label: "Project", resource: "sentry-project", credentialKey: "credentialId", dependencyKey: "organization", placeholder: "Search projects" },
-      { kind: "text", key: "issueId", label: "Numeric issue ID" },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.sentry.get-issue"),
   },
   {
     type: "action.vercel.public-deployment-lookup", label: "Look up public deployment", description: "Read a limited deployment view; ownership is not verified.",
     category: "action", libraryGroup: "developer-data", appId: "vercel", operationId: "public-deployment-lookup", operationLabel: "Look up deployment", operationKind: "action", icon: "vercel", available: true,
     defaultConfig: { credentialId: "", team: "personal", deploymentId: "" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Vercel connection", providers: ["VERCEL"] },
-      { kind: "resource", key: "team", label: "Account or team", resource: "vercel-team", credentialKey: "credentialId", placeholder: "Search teams" },
-      { kind: "text", key: "deploymentId", label: "Deployment ID" },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.vercel.public-deployment-lookup"),
   },
   {
     type: "action.reddit.list-posts", label: "Reddit posts", description: "Read public posts with an approved Reddit app. Public Data API access is being retired.",
     category: "action", libraryGroup: "developer-data", appId: "reddit", operationId: "list-posts", operationLabel: "List posts", operationKind: "search", icon: "reddit", available: true,
     defaultConfig: { credentialId: "", subreddit: "", sort: "new", limit: 20 },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Reddit connection", providers: ["REDDIT"] },
-      { kind: "text", key: "subreddit", label: "Public community (e.g. technology)" },
-      { kind: "select", key: "sort", label: "Sort posts", options: [{ value: "new", label: "Newest" }, { value: "hot", label: "Popular" }] },
-      { kind: "number", key: "limit", label: "Maximum posts (1–100)", fallbackValue: 20 },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.reddit.list-posts"),
   },
   {
     type: "action.supabase.select", hiddenFromLibrary: true, label: "Supabase rows", description: "Read rows from a Supabase public-schema table.",
     category: "action", libraryGroup: "developer-data", appId: "supabase", operationId: "select-rows", operationLabel: "Select rows", operationKind: "search", icon: "supabase", available: true,
     defaultConfig: { credentialId: "", table: "", limit: 20 },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Supabase connection", providers: ["SUPABASE"] },
-      { kind: "resource", key: "table", label: "Table", resource: "supabase-table", credentialKey: "credentialId", placeholder: "Search tables" },
-      { kind: "number", key: "limit", label: "Maximum rows (1–100)", fallbackValue: 20 },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.supabase.select"),
   },
 
   {
     type: "action.supabase.select.v2", label: "Supabase rows", description: "Read rows from a Supabase public-schema table.",
     category: "action", libraryGroup: "developer-data", appId: "supabase", operationId: "select-rows", operationLabel: "Select rows", operationKind: "search", icon: "supabase", available: true,
     defaultConfig: { credentialId: "", table: "", limit: 20 },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Supabase connection", providers: ["SUPABASE"] },
-      { kind: "resource", key: "table", label: "Table", resource: "supabase-table", credentialKey: "credentialId", placeholder: "Search tables" },
-      { kind: "number", key: "limit", label: "Maximum rows (1–100)", fallbackValue: 20 },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.supabase.select.v2"),
   },
   {
     type: "action.notion.search-pages", hiddenFromLibrary: true,
@@ -1073,11 +753,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "notion",
     available: true,
     defaultConfig: { credentialId: "", query: "", pageSize: 20 },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Notion credential", providers: ["NOTION"] },
-      { kind: "text", key: "query", label: "Page title contains (optional)" },
-      { kind: "number", key: "pageSize", label: "Maximum pages (1–100)", fallbackValue: 20 },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.notion.search-pages"),
   },
 
   {
@@ -1093,12 +769,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "notion",
     available: true,
     defaultConfig: { credentialId: "", query: "", pageSize: 20 },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Notion credential", providers: ["NOTION"] },
-      { kind: "text", key: "query", label: "Page title contains (optional)" },
-      { kind: "number", key: "pageSize", label: "Maximum pages (1–100)", fallbackValue: 20 },
-      { kind: "text", key: "cursor", label: "Next cursor (optional)", advanced: { summary: "Advanced pagination", help: "Use nextCursor from the previous Notion search output to continue with the same search." } },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.notion.search-pages.v2"),
   },
   ...([
     ["action.notion.retrieve-page", "Get page", "page"],
@@ -1107,12 +778,7 @@ export const nodeCatalog: NodeDefinition[] = [
   ] as const).map(([type, label, operation]): NodeDefinition => ({
     type, label: `Notion · ${label}`, description: `${label} shared with your Notion connection.`, category: "action", libraryGroup: "productivity", appId: "notion", operationId: type.slice("action.notion.".length), operationLabel: label, operationKind: "search", icon: "notion", available: true,
     defaultConfig: { credentialId: "", ...(operation === "children" ? { blockId: "" } : { pageId: "" }), ...(operation === "property" ? { propertyId: "" } : {}), ...(operation !== "page" ? { pageSize: 20 } : {}) },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "Notion connection", providers: ["NOTION"] },
-      { kind: "resource", key: operation === "children" ? "blockId" : "pageId", label: operation === "children" ? "Page or block" : "Page", resource: "notion-page", credentialKey: "credentialId", placeholder: "Search shared pages" },
-      ...(operation === "property" ? [{ kind: "text", key: "propertyId", label: "Property ID" } as NodeConfigurationField] : []),
-      ...(operation !== "page" ? [{ kind: "number", key: "pageSize", label: "Maximum results (1–100)", fallbackValue: 20 } as NodeConfigurationField, { kind: "text", key: "cursor", label: "Next cursor (optional)", advanced: { summary: "Advanced pagination", help: "Use nextCursor from the previous Notion output." } } as NodeConfigurationField] : []),
-    ],
+    configurationFields: getSharedNodeConfigurationFields(type),
   })),
   {
     type: "action.mongodb",
@@ -1127,13 +793,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "mongodb",
     available: true,
     defaultConfig: { credentialId: "", database: "", collection: "", operation: "find", filter: "{}", limit: 20 },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "MongoDB credential", providers: ["MONGODB"] },
-      { kind: "resource", key: "database", label: "Database", resource: "mongodb-database", credentialKey: "credentialId", placeholder: "Search databases" },
-      { kind: "resource", key: "collection", label: "Collection", resource: "mongodb-collection", credentialKey: "credentialId", dependencyKey: "database", placeholder: "Search collections" },
-      { kind: "mongo-filter", key: "filter", label: "Filter documents" },
-      { kind: "number", key: "limit", label: "Maximum documents (1–100)", fallbackValue: 20 },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.mongodb"),
   },
   {
     type: "action.mongodb.insert",
@@ -1148,12 +808,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "mongodb",
     available: true,
     defaultConfig: { credentialId: "", database: "", collection: "", document: "{}" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "MongoDB credential", providers: ["MONGODB"] },
-      { kind: "resource", key: "database", label: "Database", resource: "mongodb-database", credentialKey: "credentialId", placeholder: "Search databases" },
-      { kind: "resource", key: "collection", label: "Collection", resource: "mongodb-collection", credentialKey: "credentialId", dependencyKey: "database", placeholder: "Search collections" },
-      { kind: "textarea", key: "document", label: "Document (JSON)" },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.mongodb.insert"),
   },
   {
     type: "action.github",
@@ -1168,14 +823,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "github",
     available: true,
     defaultConfig: { credentialId: "", repository: "", title: "", body: "", labels: "", idempotencyKey: "" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "GitHub credential", providers: ["GITHUB"] },
-      { kind: "resource", key: "repository", label: "Repository", resource: "github-repository", credentialKey: "credentialId", placeholder: "Search repositories" },
-      { kind: "text", key: "title", label: "Issue title" },
-      { kind: "textarea", key: "body", label: "Issue body" },
-      { kind: "text", key: "labels", label: "Labels (comma-separated, optional)" },
-      { kind: "text", key: "idempotencyKey", label: "Idempotency key (optional)" },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.github"),
   },
   {
     type: "action.github.add-label",
@@ -1190,12 +838,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "github",
     available: true,
     defaultConfig: { credentialId: "", repository: "", issueNumber: "", label: "" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "GitHub credential", providers: ["GITHUB"] },
-      { kind: "resource", key: "repository", label: "Repository", resource: "github-repository", credentialKey: "credentialId", placeholder: "Search repositories" },
-      { kind: "resource", key: "issueNumber", label: "Issue number", resource: "github-issue", credentialKey: "credentialId", dependencyKey: "repository", placeholder: "Search issues" },
-      { kind: "text", key: "label", label: "Label" },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.github.add-label"),
   },
   {
     type: "action.github.add-comment",
@@ -1210,12 +853,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "github",
     available: true,
     defaultConfig: { credentialId: "", repository: "", issueNumber: "", body: "" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "GitHub credential", providers: ["GITHUB"] },
-      { kind: "resource", key: "repository", label: "Repository", resource: "github-repository", credentialKey: "credentialId", placeholder: "Search repositories" },
-      { kind: "resource", key: "issueNumber", label: "Issue number", resource: "github-issue", credentialKey: "credentialId", dependencyKey: "repository", placeholder: "Search issues" },
-      { kind: "textarea", key: "body", label: "Comment" },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.github.add-comment"),
   },
   {
     type: "action.github.merge-pull-request",
@@ -1230,17 +868,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "github",
     available: true,
     defaultConfig: { credentialId: "", repository: "", pullRequestNumber: "", mergeMethod: "merge" },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "GitHub credential", providers: ["GITHUB"] },
-      { kind: "resource", key: "repository", label: "Repository", resource: "github-repository", credentialKey: "credentialId", placeholder: "Search repositories" },
-      { kind: "resource", key: "pullRequestNumber", label: "Pull request number", resource: "github-pull-request", credentialKey: "credentialId", dependencyKey: "repository", placeholder: "Search pull requests" },
-      { kind: "text", key: "expectedHeadSha", label: "Expected head commit SHA (optional)" },
-      { kind: "select", key: "mergeMethod", label: "Merge method", options: [
-        { value: "merge", label: "Merge commit" },
-        { value: "squash", label: "Squash and merge" },
-        { value: "rebase", label: "Rebase and merge" },
-      ] },
-    ],
+    configurationFields: getSharedNodeConfigurationFields("action.github.merge-pull-request"),
   },
   ...([
     ["action.github.list-issues", "List issues", "issue", true],
@@ -1250,15 +878,7 @@ export const nodeCatalog: NodeDefinition[] = [
   ] as const).map(([type, label, kind, list]): NodeDefinition => ({
     type, label: `GitHub · ${label}`, description: `${label} in a connected repository.`, category: "action", libraryGroup: "developer-data", appId: "github", operationId: type.slice("action.github.".length), operationLabel: label, operationKind: "search", icon: "github", available: true,
     defaultConfig: { credentialId: "", repository: "", ...(list ? { state: "open", page: 1, pageSize: 30 } : kind === "issue" ? { issueNumber: "" } : { pullRequestNumber: "" }) },
-    configurationFields: [
-      { kind: "credential", key: "credentialId", label: "GitHub credential", providers: ["GITHUB"] },
-      { kind: "resource", key: "repository", label: "Repository", resource: "github-repository", credentialKey: "credentialId", placeholder: "Search repositories" },
-      ...(list ? [
-        { kind: "select", key: "state", label: "State", options: [{ value: "open", label: "Open" }, { value: "closed", label: "Closed" }, { value: "all", label: "All" }] } as NodeConfigurationField,
-        { kind: "number", key: "pageSize", label: "Results per page (1–100)", fallbackValue: 30 } as NodeConfigurationField,
-        { kind: "number", key: "page", label: "Page (1–1,000)", fallbackValue: 1 } as NodeConfigurationField,
-      ] : [{ kind: "resource", key: kind === "issue" ? "issueNumber" : "pullRequestNumber", label: kind === "issue" ? "Issue number" : "Pull request number", resource: kind === "issue" ? "github-issue" : "github-pull-request", credentialKey: "credentialId", dependencyKey: "repository", placeholder: kind === "issue" ? "Search issues" : "Search pull requests" } as NodeConfigurationField]),
-    ],
+    configurationFields: getSharedNodeConfigurationFields(type),
   })),
   {
     type: "action.facebook-meta",

@@ -1,4 +1,6 @@
-export type CredentialProvider = "GOOGLE" | "STEAM" | "GOOGLE_CHAT_WEBHOOK" | "GOOGLE_CHAT_OAUTH" | "GMAIL" | "GOOGLE_CALENDAR" | "MONGODB" | "NOTION" | "POSTGRES" | "HTTP" | "DISCORD_WEBHOOK" | "TELEGRAM_BOT" | "GITHUB" | "SMTP" | "GEMINI" | "OPENAI" | "TRELLO" | "SENTRY" | "VERCEL" | "SUPABASE" | "REDDIT";
+import type { OperationCredentialProvider } from "@workflow/contracts";
+
+export type CredentialProvider = OperationCredentialProvider;
 
 export type GmailCapability = "readonly" | "send" | "compose" | "modify" | "labels";
 

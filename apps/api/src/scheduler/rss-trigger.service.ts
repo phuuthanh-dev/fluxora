@@ -7,6 +7,7 @@ import { NodeFailure } from "../execution/node-failure";
 import { parseWorkflowGraph } from "../workflows/workflow-graph";
 import { RssTriggerPoller, rssFeedUrlHash, rssTargets, type RssTarget } from "./rss-trigger-poller";
 import { PrismaRssTriggerStore } from "./rss-trigger.store";
+import { BackgroundWork } from "../platform/background-work";
 
 @Injectable()
 export class RssTriggerService implements OnModuleInit, OnModuleDestroy {
@@ -15,16 +16,18 @@ export class RssTriggerService implements OnModuleInit, OnModuleDestroy {
   private timer: NodeJS.Timeout | null = null;
   private scanning = false;
   private recoveryCursor = "";
+  private readonly background = new BackgroundWork();
 
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService, @Inject(ExecutionQueueService) private readonly queue: ExecutionQueueService) {
     this.poller = new RssTriggerPoller(new PrismaRssTriggerStore(prisma));
   }
   onModuleInit() {
     if (process.env.PROCESS_ROLE === "worker" || process.env.SCHEDULER_ENABLED === "false") return;
-    void this.tick();
-    this.timer = setInterval(() => { void this.tick(); }, 60_000);
+    const scan = () => this.background.start(() => this.tick(), () => this.logger.error("RSS trigger scheduler failed."));
+    scan();
+    this.timer = setInterval(scan, 60_000);
   }
-  onModuleDestroy() { if (this.timer) clearInterval(this.timer); }
+  async onModuleDestroy() { if (this.timer) clearInterval(this.timer); this.timer = null; await this.background.drain(); }
 
   /** Only first activation performs an external baseline request. Existing
    * checkpoints resume; the workflow transaction rechecks version and state. */

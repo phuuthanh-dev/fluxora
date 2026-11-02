@@ -1,4 +1,4 @@
-import { Inject, Injectable, OnModuleDestroy } from "@nestjs/common";
+import { Inject, Injectable, OnApplicationShutdown } from "@nestjs/common";
 import { Queue } from "bullmq";
 import IORedis from "ioredis";
 import { ExecutionService } from "./execution.service";
@@ -9,7 +9,7 @@ export type ExecutionJob = { executionId: string; mode: "mock" | "live"; startNo
 export type QueueHealth = { status: "ready" | "unavailable"; mode: QueueMode; configuredWorkerConcurrency: number; waiting: number; active: number; delayed: number; failed: number };
 
 @Injectable()
-export class ExecutionQueueService implements OnModuleDestroy {
+export class ExecutionQueueService implements OnApplicationShutdown {
   private readonly mode = resolveQueueMode();
   private connection: IORedis | null = null;
   private queue: Queue<ExecutionJob> | null = null;
@@ -48,7 +48,7 @@ export class ExecutionQueueService implements OnModuleDestroy {
     }
   }
 
-  async onModuleDestroy() {
+  async onApplicationShutdown() {
     await this.queue?.close();
     await this.connection?.quit();
   }

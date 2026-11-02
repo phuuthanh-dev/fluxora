@@ -127,18 +127,33 @@ Giữ node library App → Operation, categories, search, favorites/recent và s
 | 6 — NX-06 | [ ] Gemini/OpenAI structured output + validated schema/usage/model capabilities; media/binary sau khi có lifecycle. | Có output contract và cost limits. Mock/provider compatibility tests; real AI test vẫn tùy credential và ngân sách được chủ dự án cho phép. |
 | 7 — NX-07 | [ ] Quyết định riêng về item/batch engine, binary storage, DB change listeners, Meta/Instagram và Reddit migration. | Các ranh giới và đề xuất ban đầu được ghi trong [NX-07 decisions](38-nx07-design-decisions.md); implementation, môi trường và điều kiện provider chưa được xác nhận là hoàn tất. Không dùng như lý do chặn các bước 1–6. Không cam kết đầy đủ n8n endpoint parity. |
 
-Các bước 3–4 có thể chia agent theo app sau khi metadata contract ổn định. Một agent sở hữu shared contracts/engine; các worker khác chỉ sửa adapter/form/test được phân công trong worktree riêng. Mọi agent nhận base SHA, file ownership, acceptance criteria, không credential và không tự release. Coordinator tích hợp rồi chạy **một final quality gate**; chỉ rerun khi có failure hoặc sửa mới. Không kỳ vọng tốc độ tăng tuyến tính theo số agent; shared schema/API cần tuần tự và review độc lập.
+Theo yêu cầu hiện tại của chủ dự án, phần NX còn lại do coordinator trực tiếp thực hiện và tự audit code đã nhận từ sub-agent; không phân thêm sub-agent cho đợt này. Báo cáo từ agent chỉ là đầu mối để kiểm tra source và bằng chứng, không thay thế review. Chạy **một final quality gate** sau khi hoàn tất chỉnh sửa; chỉ rerun khi có failure hoặc sửa mới.
 
 ### Tiến độ bản nháp sau audit — chưa phát hành
 
 Các thay đổi sau đang nằm ở checkout local, chưa được quality gate xác nhận:
 
 - NX-02: metadata mô tả, node version, một số cursor và Google OAuth nhiều tài khoản. Metadata chưa thay thế authorization hay retry policy.
+- NX-02 audit bổ sung: probe dispatcher ở chế độ mock đã đi qua toàn bộ loại node đăng ký với cấu hình rỗng, chấp nhận lỗi validation có cấu trúc, xác nhận node planned bị từ chối và không đọc vault. Kiểm tra này phát hiện handler thiếu, nhưng không chứng minh mock với cấu hình hợp lệ hoặc output schema của từng node. Registry hiện chưa cung cấp đầy đủ metadata executor/schema/mock/redaction như tiêu chí NX-02; mục này vẫn chưa hoàn tất.
+- NX-02 shared fields: kiểu field và registry mô tả UI cho 73 node dùng declarative fields đã chuyển vào contracts; editor đọc từ cùng nguồn. Một số node core và Telegram vẫn dùng form chuyên biệt. Đây không phải validation schema hay chính sách bảo mật, vốn tiếp tục thuộc backend. Kiểm tra so sánh trước/sau cho thấy 85 định nghĩa catalog không thay đổi; final verification và release chưa thực hiện.
+- NX-02 executor registry: toàn bộ 65 node action thực thi đã dùng registry có kiểu ở server và gọi lại adapter cũ, giữ variant v1/v2 và tham số workspace/node/execution. Các adapter Steam, Google, HTTP, thông báo và GitHub cũ đã tách khỏi runner; core trigger/condition/approval vẫn ở runner. So sánh 195 trường hợp mock giữa dispatcher trước và sau cho kết quả giống nhau; 226 kiểm tra có mục tiêu đạt. Validation/redaction registry đầy đủ, final verify và kiểm thử provider thật chưa hoàn tất. Không sử dụng metadata UI để quyết định quyền hoặc retry.
+- NX-02 registry audit: TypeScript hiện yêu cầu mọi action được khai báo thực thi phải có executor và từ chối action không thuộc danh sách đó khi biên dịch. Kiểm tra này chỉ đảm bảo có đăng ký, không chứng minh adapter hoạt động đúng hoặc đủ validation, mock và redaction.
+- NX-02 dispatch live giả lập: GitHub, Notion, Trello, Google Drive và Gemini đã chạy qua registry với workspace/credential giả; test chặn mạng bằng transport giả và xác nhận header, output cùng phân trang Drive v1/v2. Đây là kiểm tra routing có chọn mẫu, không phải thử provider thật hay bảo đảm mọi operation đã live-qualified.
+- NX-02 pagination metadata: Drive v2 mô tả cursor theo operation (`list`/`search`; không áp dụng cho upload/download), còn Drive v1 giữ nguyên. Gmail và Calendar bổ sung các cấu hình cần giữ khi lấy trang sau. Kiểm tra dispatcher giả lập đạt; metadata chỉ mô tả, chưa tự chạy phân trang hoặc thay validation của adapter.
+- NX-02 pagination audit: Google Calendar báo lỗi phản hồi không hợp lệ khi provider trả cursor sai định dạng thay vì âm thầm báo hết trang. Cursor hợp lệ và phản hồi không có cursor giữ hành vi cũ; 12 kiểm tra Calendar giả lập đạt.
+- NX-02 pagination/filter audit: bản local từ chối một số expression không phân giải được ở tài nguyên, filter và cursor của Calendar, Notion, Gmail, Drive, Sentry và Vercel trước khi đọc credential; tránh tự trở lại trang đầu hoặc chọn bộ lọc mặc định. Các node v1 có phiên bản v2 riêng tiếp tục giữ hành vi cũ; field tùy chọn bị xóa hoặc để trống vẫn cho phép bắt đầu trang đầu. 39 kiểm tra Calendar, Notion và tương thích phân trang giả lập cùng API typecheck đã đạt; không chứng minh mọi node đều có validation thống nhất và chưa phải final verify.
+- Release script review: `deploy.sh` nay truyền thống nhất image và commit đã chọn cho mọi lệnh Compose, kể cả khi caller không export tên image. Đây là sửa lỗi cấu hình sẵn có; không giải quyết rủi ro mixed-fleet hay cho phép deploy production khi guard chưa đạt.
 - NX-03: selector cột/điều kiện PostgreSQL và Supabase, mapping Google Sheets, Notion và Trello operations. Bản nháp giữ hành vi node quan hệ cũ và yêu cầu nâng cấp draft có chủ đích sang loại `.v2` riêng; tương thích này chưa được kiểm chứng.
 - NX-03 examples: the local draft adds selectable starter workflows for PostgreSQL, Supabase, Google Sheets, Notion and Trello. These create drafts with manual triggers and example resource values; users must choose their own connection and resources before live execution. The starter flows and dashboard selector have not yet passed the final gate.
 - NX-04: GitHub issue/PR reads, Gmail get-message/cursor, Sentry và Vercel detail/cursor; GitHub merge có tùy chọn ràng buộc head SHA theo [GitHub API](https://docs.github.com/en/rest/pulls/pulls#merge-a-pull-request), còn graph cũ không cung cấp SHA giữ hành vi cũ. Telegram reply/edit có bản nháp dùng connection của workspace và không tự retry khi kết quả POST không chắc chắn. [n8n](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.telegram/) có edit-message; reply dùng `sendMessage` với `reply_parameters` theo [Telegram Bot API](https://core.telegram.org/bots/api#sendmessage). Google Chat có bản nháp send trả thread, reply và edit; edit yêu cầu người dùng chọn riêng quyền `chat.messages` theo [Google Chat API](https://developers.google.com/workspace/chat/api/reference/rest/v1/spaces.messages/patch). Gmail send/reply/create/replace-draft/change-label đã được kết nối trong bản nháp local, yêu cầu scope tương ứng và test mode giả lập; adapter không tự retry kết quả ghi không chắc chắn. Chưa chạy verify, chưa có live qualification và chưa được phát hành; các rủi ro rollout/recovery và Google verification vẫn là điều kiện trước release.
+- NX-03/04 write-guard audit: expression không phân giải được trong GitHub expected head SHA, merge method hoặc issue idempotency key bị từ chối thay vì âm thầm bỏ bảo vệ hay chọn mặc định, kể cả khi expression nằm trong chuỗi có tiền tố. Graph cũ không cấu hình các trường này giữ hành vi cũ. Trello update và pagination cũng từ chối field hiện diện nhưng không phân giải được để tránh ghi thiếu hoặc đọc lại trang đầu. Các kiểm tra dùng connector giả, không gọi GitHub/Trello thật; chưa qua final verify.
+- NX-04 calendar write audit: create/update/delete không tự theo redirect; update/delete trả lỗi không tự retry khi network, redirect, 408, 429 hoặc 5xx làm kết quả không chắc chắn. Create vẫn dùng ID xác định và đối chiếu conflict cho retry thông thường, nhưng redirect cần người dùng kiểm tra. 24 kiểm tra Calendar và outbound giả lập đạt; chưa có live qualification mới.
+- NX-04 calendar availability audit: FreeBusy chỉ được đọc từ ID của lịch được chọn; không suy ra lịch duy nhất được trả về là lịch cần kiểm tra. Nếu chọn `primary`, Fluxora gọi CalendarList trước để lấy ID thực và xác nhận cờ primary, rồi dùng ID đó cho FreeBusy. Điều này thêm một request đọc, cần quyền CalendarList hiện có trong connection; lỗi hoặc kết quả không khớp báo không xác định thay vì khẳng định lịch rảnh. [CalendarList.get](https://developers.google.com/workspace/calendar/api/v3/reference/calendarList/get), [FreeBusy.query](https://developers.google.com/workspace/calendar/api/v3/reference/freebusy/query). 14 kiểm tra Calendar giả lập đạt; thay đổi chưa được thử với Google thật.
+- NX-04 observability output audit: Sentry/Vercel resource pickers, danh sách và chi tiết liên quan từ chối phản hồi khi các trường provider sẽ được hiển thị hoặc lưu chứa nguyên token hiện tại. Kiểm tra xảy ra trước khi cắt ngắn nội dung, áp dụng cả node v1/v2 và có thể báo lỗi cho một kết quả vốn hợp lệ nếu nội dung trùng token. Các kiểm tra dùng token và provider giả; đây không phải cơ chế phát hiện mọi bí mật, và chưa qua final verify hoặc thử provider thật.
 - NX-06: structured output Gemini/OpenAI có kiểm tra schema và giới hạn output theo từng request. Giới hạn token không phải giới hạn chi tiêu; chưa chạy provider thật trong đợt này.
+- NX-06 audit: phản hồi Gemini/OpenAI có chứa nguyên API key đang dùng sẽ bị từ chối bằng lỗi không ghi key; kiểm tra cả text, giá trị JSON đã giải mã, tên trường và metadata trả về. Đây là bảo vệ cho key của connection hiện tại, không phải cơ chế phát hiện mọi bí mật có thể xuất hiện trong nội dung AI. Các test dùng phản hồi và key giả; chưa có live qualification hay final verification sau thay đổi.
 - NX-05: Kuma v2, RSS new-item, Telegram update và Vercel deployment có bản nháp local cho nhận sự kiện và phục hồi lượt chưa bắt đầu. Telegram dùng webhook do chủ bot tự cấu hình, xác thực secret header, lọc chat/event và dedup theo update ID; Fluxora không tự thay thế webhook trên bot. Vercel nhận secret ký từ account webhook, xác thực raw body và lọc event/project/account; Fluxora không tạo hoặc xác nhận webhook từ xa. Vercel account webhook tùy thuộc gói dịch vụ và event bị bỏ lỡ trong lúc chưa cấu hình có thể hết hạn sau thời gian retry của provider. Dedup phụ thuộc thời gian giữ execution và khóa mã hóa, không đảm bảo exactly-once; execution Vercel được giữ tối thiểu 24 giờ kể từ khi hoàn tất để bảo vệ cửa sổ retry, nên tổng lịch sử có thể vượt giới hạn số lượng trong thời gian này. Các migration mới đã áp dụng trên database local để mở preview; chưa kiểm thử hoặc deploy production. Trello và Sentry issue-created triggers đã được nối trong bản nháp local và chưa verify hay live-qualify. Cần hoàn thiện lifecycle, xác minh tương thích mixed fleet và khôi phục sau sự cố trước khi phát hành.
+- NX-05 webhook audit: Trello, Sentry và Vercel từ chối event phù hợp nếu signing secret hiện tại xuất hiện trong identifier sẽ được lưu; không thay đổi identifier dùng định tuyến và dedup. Nội dung tự do của Trello/Sentry vẫn được xử lý riêng. 15 kiểm tra protocol/ingress giả lập đạt, chưa chứng minh provider thật hoặc bảo vệ mọi bí mật khác.
 - NX-07: các quyết định và điều kiện provider nằm ở [NX-07 decisions](38-nx07-design-decisions.md); không đồng nghĩa các tính năng đó đã được triển khai.
 
 Vercel event choice is deliberately explicit: its [account webhook setup](https://vercel.com/docs/webhooks) lists created, succeeded, error and canceled deployments, while its [integration guidance](https://vercel.com/docs/integrations/create-integration/submit-integration) places `deployment.ready` under Checks. The [event reference](https://vercel.com/docs/webhooks/webhooks-api) also describes `deployment.succeeded` as dependent on registered checks. A new node therefore defaults to `deployment.created`; event availability and exact account-webhook behavior remain to be confirmed on a real eligible account. Existing draft `deployment.ready` values remain supported rather than silently remapped.
@@ -149,7 +164,107 @@ On 2026-11-03 a read-only GitHub Actions check showed the most recent successful
 
 A subsequent read-only SSH inspection using the existing deployment key confirmed that the production web, API and worker containers were running image `3c9ac35560126d6f7240f428efe0734275896218`. The database had four active workflows and no execution in a non-terminal status at that instant. This is a point-in-time observation, not a drain: a webhook, schedule or OAuth refresh may start immediately afterward. The production deploy script currently replaces services without fencing incoming requests and draining the old processes, while rollback can reintroduce a worker that does not understand new continuation and graph semantics. Keep this release out of automatic deployment until a concrete cutover and rollback procedure has been validated against the actual host; do not infer safety from an idle snapshot.
 
+The next local draft adds an NX migration/image-label check to rollback, a lock shared by new deploy/rollback scripts, and a forward-deploy check that refuses an uncertified target or a still-active incompatible Compose API/worker before migration. These measures fail closed for the covered boundaries and prevent overlap between scripts that both honor the lock. A migration record marked rolled back remains a blocking signal because that marker does not prove the schema or saved data was restored. The focused deployment suite passed 28 checks locally, including the migration query against a disposable PostgreSQL database and simulated mixed fleets. The previous full `verify` and PR CI passed before this additional draft, not after it. The new changes do not fence the old API, drain old workers, protect against old scripts that ignore the lock, or validate future schema changes. They have not been deployed to production or included in the existing green PR commit.
+
+A read-only check against the actual VPS found both Compose API/worker containers running without the NX image label. The new forward gate would therefore refuse the present fleet; the check did not run the deployment script or alter either container. Stopping containers solely to satisfy this gate is not a safe cutover procedure.
+
+The local gate now inspects the immutable image ID backing each active
+container, rather than looking up a mutable tag recorded in its configuration.
+The post-replacement worker check also compares the actual running image ID to
+the requested image. Synthetic tests cover a tag repointed to a compatible
+image while an incompatible image is still running, and a replacement worker
+whose tag matches but image ID does not. These checks do not fence the legacy
+API or establish an atomic release.
+
+The previous Actions workflow copied deployment files over the active `infra`
+directory before acquiring its lock or checking compatibility. The current
+local draft uploads a separate bundle per Actions run and executes the staged
+script. It takes the release lock and checks target/fleet compatibility before
+promoting tooling; prior script versions are backed up, and the guarded lock,
+rollback and deploy scripts are installed first using per-file atomic renames.
+If promotion is interrupted, the lock is retained for inspection. Compose is
+not promoted: if the bundle differs from the active Compose contract, release
+fails closed. It is checked again before promotion and before migration.
+Synthetic tests exercise rejected fleets, differing Compose, incomplete
+bundles, promotion failure, retained locks and successful tooling backup.
+An additional synthetic shell test delivers SIGTERM during a tooling rename;
+it observes the saved prior rollback script, retained lock and no migration.
+The broader deployment contract suite also passed locally. Neither test
+simulates a host crash, a lost filesystem write, or an old script already
+executing concurrently.
+
+The script set is not promoted as a single atomic transaction. In particular,
+an already-running legacy manual deploy or rollback may ignore the new lock;
+this remains an operator coordination requirement. Staged bundles and tooling
+backups consume disk and have no automatic cleanup policy. These changes do
+not fence the legacy API, implement the first cutover, or establish real VPS
+behavior; final verification and an isolated interruption rehearsal remain
+outstanding. No production files were changed in this audit.
+
+The next draft additionally stops a compatible worker with an indefinite Docker timeout before migration or rollback, checks that the previously running containers exited successfully without OOM, retains the release lock on an uncertain stop or partially started migration, and checks that the requested replacement worker is running before releasing that lock. Repeated SIGTERM/SIGINT signals are handled idempotently by the new worker. Focused synthetic deployment tests passed for an unclean worker exit and the lock; the worker drain was also exercised using isolated Redis and repeated OS signals. These checks do not prove provider side effects, and the changes have not yet completed final verification. None of them makes the first legacy API shutdown graceful. If the SSH client or Actions times out while Docker is still stopping a worker, inspect the daemon and retained lock rather than retrying blindly.
+
+The release draft also checks for already-started, queued legacy executions without a continuation token after worker drain. Legacy approval dispatch had no durable token and could leave such a run without a matching job; an old initial job can also be confused with the intended continuation. The scripts stop and retain the release lock for operator investigation instead of guessing or automatically restarting workers. This is a conservative detector, not recovery and not a substitute for fencing the legacy API; its new integration check has not yet run through the final gate. When preparation fails before migration for unrelated dependency or backup reasons, only the exact workers that were running before the attempt are restarted.
+
+An isolated mixed-version rehearsal on 2026-11-03 used an API/worker built from the actual `3c9ac35` source, the new worker, a disposable PostgreSQL database with NX migrations, a separate Redis instance and a synthetic approval graph. A stale `initialOnly` job was delivered to an execution that already had an approval continuation token. The new worker ignored the stale job and subsequently executed the matching continuation; the old worker accepted the stale job, marked the execution `SUCCEEDED` and left its successor `SKIPPED`. This proves an incorrect outcome is possible when old workers consume new jobs; it is not a live-provider or production test.
+
+For the first cutover, the unresolved engineering requirement is to prevent new API requests, webhooks and scheduler jobs while in-flight old API work is drained; then drain every old worker before the new API can enqueue NX jobs. The procedure must preserve queued work, treat in-flight OAuth refresh or provider writes as potentially uncertain, account for missed schedules during maintenance, and verify that a compatible recovery image is available before lifting the fence. A point-in-time count of running executions and a Docker health check cannot establish these properties. Test interruptions at each cutover phase in an isolated stack before using the procedure on the VPS. The existing `3c9ac35` API does not install graceful shutdown hooks, so simply issuing `docker compose up` or stopping its container with a longer timeout is not a proven drain.
+
+The owner accepted a short maintenance window with API/workflow interruption and
+reconciliation of schedules during the window. This approval removes the need
+to preserve continuous availability; it is not evidence that old in-flight work
+has finished. An isolated, network-free experiment extracted the actual
+`3c9ac35` cron `tick` and `createScheduledExecution` methods, held a previously
+selected workflow across deactivation, and observed a new synthetic execution
+and queue dispatch afterward. The legacy scheduled-execution method does not
+recheck `isActive`. Thus merely deactivating workflows and seeing a zero count
+once is not a scheduler fence. The existing Gmail activation path preserves an
+existing history checkpoint but resets its lease after obtaining a baseline;
+do not reactivate while a previous poll may still be running. No production
+data or provider was touched by this experiment.
+
+The local NX draft now tracks timer-started cron, Gmail, RSS, approval,
+webhook-recovery and execution-maintenance jobs; their destroy hooks stop the
+timers and wait for accepted scans. A synthetic blocked cron scan and 36
+focused scheduler/recovery tests passed. A later local draft enables Nest
+shutdown hooks, rejects new HTTP requests during shutdown, ends execution SSE
+streams and closes Prisma/Redis dependencies after module destruction and HTTP
+server disposal. A synthetic test then demonstrated that an ordinary handler
+could continue after its client disconnected while those dependencies closed.
+The local draft now tracks ordinary controller observables until completion and
+rejects a handler reaching the interceptor after shutdown begins. Synthetic
+Nest tests exercise a connected request, a disconnected asynchronous handler,
+a delayed guard, blocked timer work and an open SSE stream. An idle HTTP
+keep-alive connection in the test delayed server closure for about four
+seconds; terminating the SSE stream does not imply immediate process exit.
+The interceptor deliberately excludes SSE, and RxJS teardown, detached work,
+OAuth refresh and external side effects are not exhaustively proven. A stuck
+handler can prolong shutdown. This is a building block only; it does not change
+the legacy API already running on production or authorize the first cutover.
+Final verification has not been run on this draft.
+
 Gmail polling now marks new and recovered initial jobs as initial-only; recovery of a legacy approval continuation remains separate. A filtered-out message is recorded only while the workflow version and polling lease still match, so a provider read finishing after deactivation or reset cannot commit a stale filter decision. These changes are pending the final integration suite and do not assert exactly-once external delivery.
+
+Cron now also has bounded recovery for a scheduled execution committed before a Redis dispatch failure. It only requeues live executions still queued and never started, after a two-minute delay, with an initial-only job. A targeted synthetic queue-outage test passed. A separate isolated PostgreSQL/Redis test also ran recovery twice, verified only the eligible execution entered the queue once, and processed it through the real worker; previously started and recent executions were left queued. Recovery can run a previously accepted schedule late; it does not recreate occurrences missed while the scheduler itself was offline or replay an execution that may have contacted a provider. Final verification and production qualification remain pending.
+
+The cron scheduler's in-memory dispatch markers now expire after their relevant
+time window instead of growing for the life of the process. The persistent
+execution idempotency key remains the cross-process and restart boundary. Six
+focused scheduler tests and API typechecking passed; this does not establish
+catch-up for schedules missed while the scheduler was offline.
+
+The cron scan now contains database read failures, skips an invalid published
+graph instead of stopping the other schedules, and avoids logging raw provider
+or database exceptions. Eight focused synthetic scheduler tests passed. An
+occurrence missed while the database is unavailable is still not guaranteed
+to run after recovery; this change does not implement schedule catch-up.
+
+Lease maintenance now changes the execution and its running/pending nodes in
+one database transaction. An injected failure after the node update rolled the
+transaction back on a disposable PostgreSQL database, and a subsequent attempt
+completed it once. The scan also isolates individual failures and advances a
+bounded cursor to avoid starving later executions. Eight focused maintenance
+and approval tests passed; this does not cancel already-sent provider requests
+or retroactively repair executions left inconsistent by older releases.
 
 Trello board trigger is connected in the local draft with manual provider registration, HEAD validation, signed raw-body ingress, board/event filtering, bounded output and queued-delivery recovery. Trello requires the app secret (not just the connector's API key/token), a successful HEAD handshake, and an HMAC over the raw body plus the exact registered callback URL. See [Trello's webhook protocol](https://developer.atlassian.com/cloud/trello/guides/rest-api/webhooks/). The owner supplies the callback and Fluxora stores it encrypted with the app secret; the request Host header is not used to reconstruct it. The code and synthetic tests have not run through final verification, nor has the provider integration been qualified live. Remote webhook creation, reconciliation and deletion remain manual.
 

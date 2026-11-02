@@ -129,7 +129,7 @@ export class WebhookService {
       const signingSecret = endpoint.encryptedSigningSecret ? this.vault.decrypt(endpoint.encryptedSigningSecret).secret : undefined;
       if (!verifyVercelSignature(githubEventHeaders.rawBody, vercelSignature, signingSecret) || !endpoint.secretHash) throw new ForbiddenException({ code: "WEBHOOK_SECRET_INVALID", message: "Webhook secret is invalid." });
       if (!endpoint.workflow.isActive) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
-      const event = normalizeVercelDeployment(githubEventHeaders.rawBody!, vercelTriggerFilterFromConfig(vercelTrigger.config));
+      const event = normalizeVercelDeployment(githubEventHeaders.rawBody!, vercelTriggerFilterFromConfig(vercelTrigger.config), typeof signingSecret === "string" ? signingSecret : undefined);
       if (event.kind === "ignored") return { acknowledged: true };
       const execution = await this.executions.createVercelScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, path: endpoint.path, secretHash: endpoint.secretHash, payload: event.payload, deliveryKey: event.eventId });
       if (execution.status === "QUEUED" && execution.startedAt === null) await this.queue.ensureDispatched({ executionId: execution.id, mode: "live", initialOnly: true });

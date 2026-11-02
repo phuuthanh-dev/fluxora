@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { ProviderWebhookState } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
+import { BackgroundWork } from "../platform/background-work";
 
 // Longer than the provider's 15-second request timeout. An expired operation
 // is uncertain, never silently retried or assumed to have failed.
@@ -12,6 +13,7 @@ export class ProviderWebhookRecoveryService implements OnModuleInit, OnModuleDes
   private readonly logger = new Logger(ProviderWebhookRecoveryService.name);
   private timer: NodeJS.Timeout | null = null;
   private running = false;
+  private readonly background = new BackgroundWork();
 
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
@@ -19,14 +21,16 @@ export class ProviderWebhookRecoveryService implements OnModuleInit, OnModuleDes
     // The automatic webhook feature is not exposed yet; enable recovery only
     // alongside its future lifecycle API and after the migration is applied.
     if (process.env.GITHUB_WEBHOOK_AUTOMATION_ENABLED !== "true" || process.env.PROCESS_ROLE === "worker") return;
-    void this.tick();
-    this.timer = setInterval(() => { void this.tick(); }, INTERVAL_MS);
+    const scan = () => this.background.start(() => this.tick(), () => this.logger.error("Provider webhook recovery failed."));
+    scan();
+    this.timer = setInterval(scan, INTERVAL_MS);
     this.timer.unref();
   }
 
-  onModuleDestroy() {
+  async onModuleDestroy() {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+    await this.background.drain();
   }
 
   async recover(now = new Date()) {

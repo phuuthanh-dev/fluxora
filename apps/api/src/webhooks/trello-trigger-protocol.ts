@@ -54,5 +54,7 @@ export function normalizeTrelloAction(raw: Buffer, filter: TrelloTriggerFilter, 
   const scrub = (value: unknown, limit: number) => typeof value === "string" ? (signingSecret ? value.split(signingSecret).join("[REDACTED]") : value).slice(0, limit) : null;
   const cardName = scrub(card?.name, 512);
   const text = scrub(data?.text, 4096);
+  // IDs feed the deduplication key and cannot be altered safely.
+  if (signingSecret && [action.type, action.id.toLowerCase(), config.boardId, cardId, listId, cardName, text, "trello"].some((value) => value?.includes(signingSecret))) throw invalid();
   return { kind: "accepted" as const, actionId: action.id.toLowerCase(), payload: { source: "trello", event: action.type, actionId: action.id.toLowerCase(), boardId: config.boardId, cardId, listId, cardName, text } };
 }

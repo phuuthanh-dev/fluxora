@@ -78,6 +78,15 @@ test("Gemini live uses workspace-scoped credential and does not return its key",
 
 const structuredSchema = { type: "object" as const, properties: { answer: { type: "string" as const } }, required: ["answer"], additionalProperties: false as const };
 
+test("Gemini rejects credential echoes in text, decoded JSON and finish reason", async () => {
+  const apiKey = 'synthetic"key';
+  for (const kind of ["text", "json", "finishReason"]) {
+    const text = kind === "json" ? JSON.stringify({ answer: `prefix ${apiKey} suffix` }) : kind === "text" ? `prefix ${apiKey} suffix` : "ordinary answer";
+    const finishReason = kind === "finishReason" ? apiKey : "STOP";
+    await assert.rejects(generateGeminiText({ ...input, apiKey, ...(kind === "json" ? { outputSchema: structuredSchema } : {}) }, async () => Response.json({ candidates: [{ content: { parts: [{ text }] }, finishReason }] })), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_RESPONSE" && !error.retryable && !error.message.includes(apiKey));
+  }
+});
+
 test("Gemini structured generation requests JSON, validates it and normalizes usage", async () => {
   const output = await generateGeminiText({ ...input, maxOutputTokens: 100, outputSchema: structuredSchema }, async (_url, init) => {
     const body = JSON.parse(String(init.body));

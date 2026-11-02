@@ -39,6 +39,19 @@ export function parseAiOutput(text: string, schema: AiSchema): unknown {
   return value;
 }
 
+/** A provider must never echo the active credential into execution history.
+ * Reject instead of replacing values, which could falsify structured output. */
+export function assertNoAiCredentialEcho(value: unknown, credential: string): void {
+  if (!credential) return;
+  const contains = (item: unknown): boolean => {
+    if (typeof item === "string") return item.includes(credential);
+    if (Array.isArray(item)) return item.some(contains);
+    if (item && typeof item === "object") return Object.entries(item).some(([key, entry]) => key.includes(credential) || contains(entry));
+    return false;
+  };
+  if (contains(value)) throw new NodeFailure("INVALID_RESPONSE", "The AI provider returned content that cannot be stored safely.", false);
+}
+
 export function mockAiOutput(schema: AiSchema): unknown {
   switch (schema.type) {
     case "object": return Object.fromEntries(Object.entries(schema.properties!).map(([key, value]) => [key, mockAiOutput(value)]));

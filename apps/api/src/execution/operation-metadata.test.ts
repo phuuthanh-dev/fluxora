@@ -3,12 +3,15 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import ts from "typescript";
-import { executableWorkflowNodeTypes } from "@workflow/contracts";
+import { executableWorkflowNodeTypes, workflowNodeTypes } from "@workflow/contracts";
 import { getOperationMetadata } from "@workflow/contracts/dist/operation-metadata";
 import { executeGoogleCalendar, listCalendarEvents } from "./google-calendar";
 import { executeNotionSearch } from "./notion-search";
+import { executeNode } from "./execution.service";
+import { NodeFailure } from "./node-failure";
+import { getConnectorExecutor, registeredConnectorNodeTypes } from "./connector-executors";
 
-test("each executable node has a dispatcher branch or the shared trigger branch", () => {
+test("each executable node has a registry executor, dispatcher branch or shared trigger branch", () => {
   const source = ts.createSourceFile("execution.service.ts", readFileSync(join(__dirname, "execution.service.ts"), "utf8"), ts.ScriptTarget.Latest, true);
   const dispatch = source.statements.find((statement): statement is ts.FunctionDeclaration => ts.isFunctionDeclaration(statement) && statement.name?.text === "executeNode");
   assert.ok(dispatch?.body);
@@ -28,7 +31,30 @@ test("each executable node has a dispatcher branch or the shared trigger branch"
   };
   visit(dispatch.body);
   assert.equal(sharedTriggers, true);
-  for (const type of executableWorkflowNodeTypes) assert.ok(type.startsWith("trigger.") ? sharedTriggers : branches.has(type), `missing dispatch branch: ${type}`);
+  for (const type of registeredConnectorNodeTypes) {
+    assert.ok(executableWorkflowNodeTypes.includes(type), type);
+    assert.equal(branches.has(type), false, `${type} has duplicate handlers`);
+    assert.equal(getOperationMetadata(type)?.availability, "executable", type);
+  }
+  for (const type of executableWorkflowNodeTypes.filter((candidate) => candidate.startsWith("action."))) assert.ok(getConnectorExecutor(type), `${type} is missing from the action registry`);
+  for (const type of executableWorkflowNodeTypes) assert.ok(type.startsWith("trigger.") ? sharedTriggers : branches.has(type) || getConnectorExecutor(type), `missing executor: ${type}`);
+  for (const type of ["__proto__", "toString", "action.facebook-meta", "action.imaginary"]) assert.equal(getConnectorExecutor(type), undefined);
+});
+
+test("catalog executable nodes reach a mock handler without reading credentials", async () => {
+  const credentials = new Proxy({}, { get() { throw new Error("Mock execution attempted to read a credential"); } }) as never;
+  for (const type of workflowNodeTypes) {
+    const node = { id: "test", type, position: { x: 0, y: 0 }, config: {} };
+    try {
+      const result = await executeNode(node, {}, {}, "mock", "synthetic-workspace", credentials, "synthetic-execution");
+      assert.ok(executableWorkflowNodeTypes.includes(type as typeof executableWorkflowNodeTypes[number]), `${type} is planned but executed`);
+      assert.ok(result.status === "succeeded" || result.status === "waiting", `${type} returned an unexpected status`);
+    } catch (error) {
+      assert.ok(error instanceof NodeFailure, `${type} raised an unexpected error: ${error instanceof Error ? error.message : String(error)}`);
+      if (executableWorkflowNodeTypes.includes(type as typeof executableWorkflowNodeTypes[number])) assert.notEqual(error.code, "NODE_UNAVAILABLE", `${type} is declared executable but has no mock handler`);
+      else assert.equal(error.code, "NODE_UNAVAILABLE", `${type} is planned but did not fail closed`);
+    }
+  }
 });
 
 test("calendar metadata describes the actual synthetic continuation and stable start time", async () => {
@@ -54,4 +80,29 @@ test("Notion search exposes an input cursor and the advertised output fields", a
   assert.ok(metadata.pagination.next in result.output);
   assert.ok(metadata.pagination.hasMore! in result.output);
   if ("knownFields" in metadata.output) for (const key of metadata.output.knownFields) assert.ok(key in result.output, key);
+});
+
+test("Drive v2 advertises pagination only for list and search, matching the dispatcher", async () => {
+  const metadata = getOperationMetadata("action.google-drive.v2");
+  assert.ok(metadata && metadata.pagination.kind === "conditional");
+  const pagination = metadata.pagination;
+  assert.equal(pagination.selector, "operation");
+  assert.equal(pagination.fallback, "list");
+  assert.deepEqual(pagination.cases[0]?.values, ["list", "search"]);
+  const continuation = pagination.cases[0]!.pagination;
+  assert.equal(continuation.input, "pageToken");
+  assert.equal(continuation.next, "nextPageToken");
+  for (const operation of ["list", "search", "uploadText", "downloadText"]) {
+    const config = { operation, pageToken: "synthetic-page" };
+    const node = { id: "drive", type: "action.google-drive.v2" as const, position: { x: 0, y: 0 }, config };
+    const result = await executeNode(node, config, {}, "mock", "workspace", {} as never, "execution");
+    assert.equal(continuation.next in result.output, operation === "list" || operation === "search", operation);
+  }
+  const config = {};
+  const node = { id: "drive", type: "action.google-drive.v2" as const, position: { x: 0, y: 0 }, config };
+  const result = await executeNode(node, config, {}, "mock", "workspace", {} as never, "execution");
+  assert.equal(result.output.operation, pagination.fallback);
+  assert.ok(continuation.next in result.output);
+  await assert.rejects(executeNode({ ...node, config: { operation: "unknown" } }, { operation: "unknown" }, {}, "mock", "workspace", {} as never, "execution"), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT");
+  assert.equal(getOperationMetadata("action.google-drive")?.pagination.kind, "unspecified");
 });

@@ -36,7 +36,7 @@ export function vercelTriggerFilterFromConfig(config: Record<string, unknown>) {
 }
 
 /** Call only after verifying the signature; never persist raw deployment metadata. */
-export function normalizeVercelDeployment(raw: Buffer, filter: VercelDeploymentFilter) {
+export function normalizeVercelDeployment(raw: Buffer, filter: VercelDeploymentFilter, signingSecret?: string) {
   const config = readVercelDeploymentFilter(filter);
   if (!Buffer.isBuffer(raw) || raw.length > VERCEL_WEBHOOK_MAX_BYTES) throw invalid();
   let body: Record<string, unknown> | undefined;
@@ -49,5 +49,8 @@ export function normalizeVercelDeployment(raw: Buffer, filter: VercelDeploymentF
   const teamId = team === null ? null : team?.id;
   if (teamId !== null && !id(teamId)) throw invalid();
   if (project.id !== config.projectId || (config.owner === "team" ? teamId !== config.teamId : teamId !== null)) return { kind: "ignored" as const, eventId: body.id };
+  // These identifiers are used for routing and deduplication: do not redact
+  // them into a different value if the provider echoes the signing secret.
+  if (signingSecret && [body.id, config.event, project.id, deployment.id, teamId, "vercel"].some((value) => value?.includes(signingSecret))) throw invalid();
   return { kind: "accepted" as const, eventId: body.id, payload: { source: "vercel", event: config.event, eventId: body.id, projectId: project.id, deploymentId: deployment.id, teamId } };
 }

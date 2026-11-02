@@ -98,6 +98,21 @@ Only the API process runs scheduler ingress. The worker starts the Nest applicat
 
 Every active execution owns a short lease. The runner renews it while progressing nodes. BullMQ stalled-job replay is disabled for execution workers because a live provider may already have accepted a side effect. API maintenance marks a lease that expires as a terminal `EXECUTION_LEASE_EXPIRED` failure; a human may then explicitly retry with a fresh live confirmation. Maintenance also prunes terminal execution records by outcome-specific age and total count; waiting and running executions are never eligible.
 
+Calendar event writes do not follow HTTP redirects. Update and delete failures
+whose outcome is uncertain are terminal for automatic retry, including network
+failure, redirects, timeouts, throttling and server errors. Event creation
+uses a deterministic event ID and reconciles conflicts on ordinary retry; a
+redirect still requires manual review. These boundaries do not guarantee that
+an already-sent invitation or provider-side write can be cancelled.
+
+For lease expiration, the execution claim and its running/pending node status
+changes commit in one transaction, with the execution row locked first. A
+database error rolls back the whole transition for a later scan; a compatible
+NX worker cannot finish a node after the terminal transition. Maintenance
+continues past individual failures and scans expired executions in bounded,
+ordered batches. Provider requests already sent may still complete, and the
+post-commit invalidation event is best-effort rather than a delivery guarantee.
+
 The web dashboard is the authenticated control plane: it selects a workspace, lists workflows, and routes into a workflow-scoped editor URL. The editor distinguishes a deterministic mock test run from a guarded live run. Live requests use only `publishedVersion`; the API remains the final authorization and version-pinning boundary.
 
 Workspace activity aggregates execution status in the API after owner
@@ -234,6 +249,22 @@ App and operation metadata is source-owned in the MVP. Workflow graphs persist
 only stable node type identifiers and configuration, so discovery taxonomy can
 evolve without migrating immutable workflow versions. See
 `docs/16-node-library-information-architecture.md`.
+
+The manifest is being consolidated incrementally. The shared contracts package
+defines inspector-field descriptors for the 73 catalog entries that use the
+declarative field renderer; the editor reads the same descriptors. Some core
+nodes and Telegram destinations still use bespoke editor controls. Descriptors
+are presentation metadata rather than a server-side validation schema. The
+adapter remains authoritative for validation, credentials, redaction and retry.
+An absent shared descriptor does not imply an operation has no configuration.
+
+The server dispatches all 65 executable action node types through a typed,
+server-only executor registry. The registration maps each persisted node type
+to its existing adapter and explicitly preserves legacy/v2 variants. The runner
+still rejects unavailable types first, and still applies its existing output
+redaction and retry rules. Core triggers, conditions and approval remain in the
+runner; a registry entry is not proof of complete provider coverage or a
+replacement for the adapter's validation.
 
 The generic executor contract is:
 

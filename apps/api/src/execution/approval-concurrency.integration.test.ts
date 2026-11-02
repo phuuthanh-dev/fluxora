@@ -95,3 +95,56 @@ test("concurrent decisions resolve an approval once and a terminal approval comp
     await prisma.$disconnect();
   }
 });
+
+test("expired execution and node transitions roll back together on database failure", { skip: process.env.FLUXORA_APPROVAL_INTEGRATION !== "1" }, async () => {
+  const database = new URL(process.env.DATABASE_URL ?? "");
+  if (!/^\/fluxora_[a-z0-9_]*test[a-z0-9_]*$/.test(database.pathname) || !["localhost", "127.0.0.1"].includes(database.hostname)) throw new Error("Lease integration requires a disposable local fluxora_*test* database.");
+  const prisma = new PrismaClient();
+  const suffix = randomUUID();
+  const userId = `lease-user-${suffix}`, workspaceId = `lease-workspace-${suffix}`, workflowId = `lease-workflow-${suffix}`, versionId = `lease-version-${suffix}`, executionId = `lease-execution-${suffix}`;
+  const events: string[] = [];
+  const service = new ExecutionService(prisma as never, {} as never, { publish: (_id: string, event: string) => { events.push(event); } } as never);
+  const failingPrisma = {
+    $transaction: async (callback: (transaction: unknown) => Promise<unknown>) => prisma.$transaction(async (transaction) => callback({
+      execution: transaction.execution,
+      nodeExecution: { updateMany: async (args: Parameters<typeof transaction.nodeExecution.updateMany>[0]) => {
+        await transaction.nodeExecution.updateMany(args);
+        throw new Error("synthetic failure after node update");
+      } },
+    })),
+  };
+  const failingService = new ExecutionService(failingPrisma as never, {} as never, { publish: (_id: string, event: string) => { events.push(event); } } as never);
+  try {
+    await prisma.user.create({ data: { id: userId, email: `${suffix}@example.test` } });
+    await prisma.workspace.create({ data: { id: workspaceId, ownerId: userId, name: "Synthetic", slug: `lease-${suffix}` } });
+    await prisma.workflow.create({ data: { id: workflowId, workspaceId, name: "Synthetic" } });
+    await prisma.workflowVersion.create({ data: { id: versionId, workflowId, version: 1, graph: { nodes: [], edges: [] } } });
+    await prisma.execution.create({ data: { id: executionId, workflowVersionId: versionId, mode: "MOCK", status: "RUNNING", startedAt: new Date(), leaseExpiresAt: new Date("2020-01-01T00:00:00Z"), runToken: "synthetic-phase" } });
+    await prisma.nodeExecution.createMany({ data: [{ executionId, nodeId: "running", status: "RUNNING" }, { executionId, nodeId: "pending", status: "PENDING" }] });
+    await assert.rejects(failingService.failFromMaintenance(executionId, "TEST", "Synthetic"), /synthetic failure/);
+    const unchanged = await prisma.execution.findUniqueOrThrow({ where: { id: executionId }, include: { nodeExecutions: true } });
+    assert.equal(unchanged.status, "RUNNING");
+    assert.equal(unchanged.runToken, "synthetic-phase");
+    assert.deepEqual(unchanged.nodeExecutions.map((node) => node.status).sort(), ["PENDING", "RUNNING"]);
+    assert.deepEqual(events, []);
+
+    await prisma.execution.update({ where: { id: executionId }, data: { leaseExpiresAt: new Date(Date.now() + 60_000) } });
+    assert.equal(await service.failFromMaintenance(executionId, "TEST", "Synthetic"), false);
+    assert.deepEqual(events, []);
+    await prisma.execution.update({ where: { id: executionId }, data: { leaseExpiresAt: new Date("2020-01-01T00:00:00Z") } });
+    assert.equal(await service.failFromMaintenance(executionId, "TEST", "Synthetic"), true);
+    assert.equal(await service.failFromMaintenance(executionId, "TEST", "Synthetic"), false);
+    const finished = await prisma.execution.findUniqueOrThrow({ where: { id: executionId }, include: { nodeExecutions: true } });
+    assert.equal(finished.status, "FAILED");
+    assert.equal(finished.runToken, null);
+    assert.equal(finished.recoveryCount, 1);
+    assert.deepEqual(finished.nodeExecutions.map((node) => node.status).sort(), ["FAILED", "SKIPPED"]);
+    assert.deepEqual(events, ["execution.failed"]);
+  } finally {
+    await prisma.execution.deleteMany({ where: { id: executionId } });
+    await prisma.workflow.deleteMany({ where: { id: workflowId } });
+    await prisma.workspace.deleteMany({ where: { id: workspaceId } });
+    await prisma.user.deleteMany({ where: { id: userId } });
+    await prisma.$disconnect();
+  }
+});

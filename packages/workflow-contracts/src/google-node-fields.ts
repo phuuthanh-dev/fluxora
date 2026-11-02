@@ -1,0 +1,116 @@
+import type { WorkflowNodeType } from "./index";
+import type { NodeConfigurationField } from "./node-configuration-fields";
+
+/** Inspector descriptors only; backend validation remains authoritative. */
+export const googleNodeFields = {
+  "action.google-drive": (): NodeConfigurationField[] => [
+      { kind: "credential", key: "credentialId", label: "Google credential", providers: ["GOOGLE"] },
+      { kind: "select", key: "operation", label: "Operation", options: [
+        { value: "list", label: "List files" },
+        { value: "search", label: "Search files" },
+        { value: "uploadText", label: "Upload text file" },
+        { value: "downloadText", label: "Download text file" },
+      ] },
+      { kind: "text", key: "query", label: "Search query", visibleWhen: { key: "operation", equals: "search" } },
+      { kind: "resource", key: "fileId", label: "Text file", resource: "google-file", credentialKey: "credentialId", placeholder: "Search loaded text files", visibleWhen: { key: "operation", equals: "downloadText" } },
+      { kind: "text", key: "name", label: "File name", visibleWhen: { key: "operation", equals: "uploadText" } },
+      { kind: "textarea", key: "text", label: "Text content", visibleWhen: { key: "operation", equals: "uploadText" } },
+    ],
+  "action.google-drive.v2": (): NodeConfigurationField[] => [
+      { kind: "credential", key: "credentialId", label: "Google credential", providers: ["GOOGLE"] },
+      { kind: "select", key: "operation", label: "Operation", options: [
+        { value: "list", label: "List files" },
+        { value: "search", label: "Search files" },
+        { value: "uploadText", label: "Upload text file" },
+        { value: "downloadText", label: "Download text file" },
+      ] },
+      { kind: "text", key: "query", label: "Search query", visibleWhen: { key: "operation", equals: "search" } },
+      { kind: "text", key: "pageToken", label: "Continuation token", visibleWhen: { key: "operation", equals: ["list", "search"], fallback: "list" }, advanced: { summary: "Advanced pagination", help: "Use nextPageToken from the previous output with the same connection, operation and query. Each page contains up to 100 files. If Drive rejects the token, clear it and start again; results can change between pages." } },
+      { kind: "resource", key: "fileId", label: "Text file", resource: "google-file", credentialKey: "credentialId", placeholder: "Search loaded text files", visibleWhen: { key: "operation", equals: "downloadText" } },
+      { kind: "text", key: "name", label: "File name", visibleWhen: { key: "operation", equals: "uploadText" } },
+      { kind: "textarea", key: "text", label: "Text content", visibleWhen: { key: "operation", equals: "uploadText" } },
+    ],
+  "action.google-sheets": (): NodeConfigurationField[] => [
+      { kind: "credential", key: "credentialId", label: "Google credential", providers: ["GOOGLE"] },
+      { kind: "resource", key: "spreadsheetId", label: "Spreadsheet", resource: "google-spreadsheet", credentialKey: "credentialId", placeholder: "Search loaded spreadsheets" },
+      { kind: "select", key: "operation", label: "Operation", options: [
+        { value: "read", label: "Read rows" },
+        { value: "append", label: "Append rows" },
+        { value: "update", label: "Update rows" },
+      ] },
+      { kind: "text", key: "range", label: "Range" },
+      { kind: "table", key: "values", label: "Values", visibleWhen: { key: "operation", equals: ["append", "update"] } },
+    ],
+  "trigger.gmail": (): NodeConfigurationField[] => [
+      { kind: "credential", key: "credentialId", label: "Gmail credential", providers: ["GMAIL"] },
+      { kind: "select", key: "mailbox", label: "Messages", options: [{ value: "inbox", label: "Inbox" }, { value: "all", label: "All mail, including Sent and Spam" }] },
+      { kind: "resource", key: "labelId", label: "Label (optional)", resource: "gmail-label", credentialKey: "credentialId", placeholder: "Search labels" },
+      { kind: "text", key: "sender", label: "Sender contains (optional)" },
+      { kind: "text", key: "subject", label: "Subject contains (optional)" },
+      { kind: "select", key: "pollMinutes", label: "Check for new mail", options: [{ value: "1", label: "Every minute" }, { value: "5", label: "Every 5 minutes" }, { value: "15", label: "Every 15 minutes" }, { value: "60", label: "Every hour" }] },
+      { kind: "select", key: "maxMessages", label: "Maximum messages per check", options: [{ value: "10", label: "10 messages" }, { value: "25", label: "25 messages" }, { value: "50", label: "50 messages" }] },
+    ],
+  "action.gmail.read": (): NodeConfigurationField[] => [
+      { kind: "credential", key: "credentialId", label: "Gmail credential", providers: ["GMAIL"] },
+      { kind: "select", key: "mailbox", label: "Messages", options: [{ value: "inbox", label: "Inbox" }, { value: "unread", label: "Unread inbox" }, { value: "all", label: "All mail" }] },
+      { kind: "text", key: "query", label: "Additional Gmail search (optional)" },
+      { kind: "number", key: "limit", label: "Maximum messages (1–10)", fallbackValue: 5 },
+    ],
+  "action.gmail.read.v2": (): NodeConfigurationField[] => [
+      { kind: "credential", key: "credentialId", label: "Gmail credential", providers: ["GMAIL"] },
+      { kind: "select", key: "mailbox", label: "Messages", options: [{ value: "inbox", label: "Inbox" }, { value: "unread", label: "Unread inbox" }, { value: "all", label: "All mail" }] },
+      { kind: "text", key: "query", label: "Additional Gmail search (optional)" },
+      { kind: "number", key: "limit", label: "Maximum messages (1–10)", fallbackValue: 5 },
+      { kind: "text", key: "pageToken", label: "Continuation token", advanced: { summary: "Continue a previous page", help: "Use nextPageToken from the previous output with the same connection, mailbox and search." } },
+    ],
+  "action.gmail.get-message": (): NodeConfigurationField[] => [
+      { kind: "credential", key: "credentialId", label: "Gmail connection", providers: ["GMAIL"] },
+      { kind: "text", key: "messageId", label: "Message ID or expression" },
+    ],
+  "action.google-calendar.list-events": (): NodeConfigurationField[] => [
+      { kind: "credential", key: "credentialId", label: "Google Calendar credential", providers: ["GOOGLE_CALENDAR"] },
+      { kind: "resource", key: "calendarId", label: "Calendar", resource: "google-calendar", credentialKey: "credentialId", placeholder: "Search calendars" },
+      { kind: "number", key: "limit", label: "Maximum events (1–50)", fallbackValue: 10 },
+      { kind: "datetime", key: "timeMin", label: "Start after (optional)" },
+      { kind: "text", key: "pageToken", label: "Next page token (reuse original start and limit)", advanced: { summary: "Advanced pagination", help: "Use the token and start time from the previous output. Keep the same calendar and limit." } },
+    ],
+  "action.google-calendar.create-event": (): NodeConfigurationField[] => [
+      { kind: "credential", key: "credentialId", label: "Google Calendar credential", providers: ["GOOGLE_CALENDAR"] },
+      { kind: "resource", key: "calendarId", label: "Calendar", resource: "google-calendar", credentialKey: "credentialId", placeholder: "Search calendars" },
+      { kind: "text", key: "summary", label: "Event title" },
+      { kind: "datetime", key: "start", label: "Start" },
+      { kind: "datetime", key: "end", label: "End" },
+      { kind: "textarea", key: "description", label: "Description (optional)" },
+      { kind: "text", key: "location", label: "Location (optional)" },
+      { kind: "text", key: "attendees", label: "Attendee emails (comma separated)" },
+      { kind: "select", key: "sendUpdates", label: "Send email invitations", options: [{ value: "none", label: "Do not send" }, { value: "all", label: "Send to all attendees" }, { value: "externalOnly", label: "Send to external attendees" }] },
+    ],
+  "action.google-calendar.get-event": (): NodeConfigurationField[] => [
+      { kind: "credential", key: "credentialId", label: "Google Calendar credential", providers: ["GOOGLE_CALENDAR"] },
+      { kind: "resource", key: "calendarId", label: "Calendar", resource: "google-calendar", credentialKey: "credentialId", placeholder: "Search calendars" },
+      { kind: "resource", key: "eventId", label: "Event", resource: "google-calendar-event", credentialKey: "credentialId", dependencyKey: "calendarId", placeholder: "Search upcoming events" },
+    ],
+  "action.google-calendar.update-event": (): NodeConfigurationField[] => [
+      { kind: "credential", key: "credentialId", label: "Google Calendar credential", providers: ["GOOGLE_CALENDAR"] },
+      { kind: "resource", key: "calendarId", label: "Calendar", resource: "google-calendar", credentialKey: "credentialId", placeholder: "Search calendars" },
+      { kind: "resource", key: "eventId", label: "Event", resource: "google-calendar-event", credentialKey: "credentialId", dependencyKey: "calendarId", placeholder: "Search upcoming events" },
+      { kind: "text", key: "summary", label: "New title (optional)" },
+      { kind: "datetime", key: "start", label: "New start (optional)" },
+      { kind: "datetime", key: "end", label: "New end (optional)" },
+      { kind: "textarea", key: "description", label: "New description (optional)" },
+      { kind: "text", key: "location", label: "New location (optional)" },
+      { kind: "select", key: "sendUpdates", label: "Notify attendees", options: [{ value: "none", label: "Do not send" }, { value: "all", label: "Send to all attendees" }, { value: "externalOnly", label: "Send to external attendees" }] },
+    ],
+  "action.google-calendar.delete-event": (): NodeConfigurationField[] => [
+      { kind: "credential", key: "credentialId", label: "Google Calendar credential", providers: ["GOOGLE_CALENDAR"] },
+      { kind: "resource", key: "calendarId", label: "Calendar", resource: "google-calendar", credentialKey: "credentialId", placeholder: "Search calendars" },
+      { kind: "resource", key: "eventId", label: "Event", resource: "google-calendar-event", credentialKey: "credentialId", dependencyKey: "calendarId", placeholder: "Search upcoming events" },
+      { kind: "select", key: "sendUpdates", label: "Notify attendees", options: [{ value: "none", label: "Do not send" }, { value: "all", label: "Send to all attendees" }, { value: "externalOnly", label: "Send to external attendees" }] },
+    ],
+  "action.google-calendar.availability": (): NodeConfigurationField[] => [
+      { kind: "credential", key: "credentialId", label: "Google Calendar credential", providers: ["GOOGLE_CALENDAR"] },
+      { kind: "resource", key: "calendarId", label: "Calendar", resource: "google-calendar", credentialKey: "credentialId", placeholder: "Search calendars" },
+      { kind: "datetime", key: "start", label: "Start" },
+      { kind: "datetime", key: "end", label: "End" },
+    ],
+} satisfies Partial<Record<WorkflowNodeType, () => NodeConfigurationField[]>>;

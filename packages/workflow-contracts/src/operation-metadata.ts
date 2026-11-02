@@ -14,10 +14,13 @@ export type OperationAuth =
 /** External data effects, not a claim about local state, billing, idempotency or retry safety. */
 export type OperationEffect = "read" | "write" | "configuration-dependent" | "unspecified";
 
+type ContinuationPagination = { kind: "continuation"; input: string; next: string; hasMore?: string; preserve?: readonly string[]; caveat?: string };
 export type OperationPagination =
   | { kind: "unspecified" }
   | { kind: "output-only"; next: string; hasMore?: string }
-  | { kind: "continuation"; input: string; next: string; hasMore?: string; preserve?: readonly string[]; caveat?: string };
+  | ContinuationPagination
+  /** Fallback applies when the selector is absent; other operations have no advertised pagination and can be invalid. */
+  | { kind: "conditional"; selector: string; fallback: string; cases: readonly { values: readonly string[]; pagination: ContinuationPagination }[] };
 
 export type OperationMetadata = {
   readonly availability: "executable" | "planned";
@@ -92,7 +95,12 @@ const definitions = {
   "action.telegram.reply": executable(credential("TELEGRAM_BOT"), "write"),
   "action.telegram.edit-message": executable(credential("TELEGRAM_BOT"), "write"),
   "action.google-drive": executable(credential("GOOGLE"), "configuration-dependent"),
-  "action.google-drive.v2": executable(credential("GOOGLE"), "configuration-dependent"),
+  "action.google-drive.v2": executable(credential("GOOGLE"), "configuration-dependent", fields("operation"), {
+    kind: "conditional", selector: "operation", fallback: "list", cases: [{
+      values: ["list", "search"],
+      pagination: { kind: "continuation", input: "pageToken", next: "nextPageToken", preserve: ["credentialId", "operation", "query"], caveat: "Drive continuation applies only to list and search; results can change between pages." },
+    }],
+  }),
   "action.google-sheets": executable(credential("GOOGLE"), "configuration-dependent"),
   "action.http-request": executable(credential("HTTP", "optional"), "configuration-dependent"),
   "action.email": executable(credential("SMTP"), "write"),
@@ -116,14 +124,14 @@ const definitions = {
   "action.postgres.select": executable(credential("POSTGRES"), "read"),
   "action.postgres.select.v2": executable(credential("POSTGRES"), "read"),
   "action.gmail.read": executable(credential("GMAIL"), "read", fields("messages", "count", "hasMore")),
-  "action.gmail.read.v2": executable(credential("GMAIL"), "read", fields("messages", "count", "hasMore", "nextPageToken"), { kind: "continuation", input: "pageToken", next: "nextPageToken", hasMore: "hasMore", preserve: ["mailbox", "query"] }),
+  "action.gmail.read.v2": executable(credential("GMAIL"), "read", fields("messages", "count", "hasMore", "nextPageToken"), { kind: "continuation", input: "pageToken", next: "nextPageToken", hasMore: "hasMore", preserve: ["credentialId", "mailbox", "query", "limit"] }),
   "action.gmail.get-message": executable(credential("GMAIL"), "read", fields("message")),
   "action.gmail.send": executable(credential("GMAIL"), "write", fields("result")),
   "action.gmail.reply": executable(credential("GMAIL"), "write", fields("result")),
   "action.gmail.create-draft": executable(credential("GMAIL"), "write", fields("result")),
   "action.gmail.update-draft": executable(credential("GMAIL"), "write", fields("result")),
   "action.gmail.modify-label": executable(credential("GMAIL"), "write", fields("result")),
-  "action.google-calendar.list-events": executable(credential("GOOGLE_CALENDAR"), "read", fields("events", "count", "hasMore", "nextPageToken", "timeMin"), { kind: "continuation", input: "pageToken", next: "nextPageToken", hasMore: "hasMore", preserve: ["timeMin"] }),
+  "action.google-calendar.list-events": executable(credential("GOOGLE_CALENDAR"), "read", fields("events", "count", "hasMore", "nextPageToken", "timeMin"), { kind: "continuation", input: "pageToken", next: "nextPageToken", hasMore: "hasMore", preserve: ["timeMin", "credentialId", "calendarId", "limit"] }),
   "action.google-calendar.create-event": executable(credential("GOOGLE_CALENDAR"), "write"),
   "action.google-calendar.get-event": executable(credential("GOOGLE_CALENDAR"), "read"),
   "action.google-calendar.update-event": executable(credential("GOOGLE_CALENDAR"), "write"),

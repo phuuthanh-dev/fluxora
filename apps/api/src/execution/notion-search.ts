@@ -47,6 +47,9 @@ export async function searchNotionPages(input: SearchInput, transport: Transport
 }
 
 export async function executeNotionSearch(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, search: typeof searchNotionPages = searchNotionPages, paginationVersion: 1 | 2 = 2) {
+  if (paginationVersion === 2 && ((Object.hasOwn(config, "cursor") && config.cursor === undefined) || (Object.hasOwn(config, "pageSize") && config.pageSize === undefined) || (Object.hasOwn(config, "query") && typeof config.query !== "string"))) {
+    throw new NodeFailure("INVALID_INPUT", "Notion search or pagination could not be resolved.", false);
+  }
   const query = typeof config.query === "string" ? config.query : "";
   const pageSize = config.pageSize === undefined ? 20 : config.pageSize;
   const cursor = paginationVersion === 1 || config.cursor === undefined || config.cursor === "" ? undefined : config.cursor;

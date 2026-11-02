@@ -2,6 +2,7 @@ import { CredentialProvider } from "@prisma/client";
 import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure } from "./node-failure";
 import { getJson, observabilityTransport, record, token, type ObservabilityTransport } from "./observability-read";
+import { assertNoCredentialInProviderFields } from "./provider-credential-safety";
 
 const validTeam = (value: unknown): value is string => typeof value === "string" && (value === "personal" || /^team_[A-Za-z0-9]{1,100}$/.test(value));
 const validDeployment = (value: unknown): value is string => typeof value === "string" && /^dpl_[A-Za-z0-9]{1,100}$/.test(value);
@@ -36,8 +37,10 @@ export async function executeVercelPublicDeploymentLookup(config: Record<string,
   if (!validTeam(team) || !validDeployment(config.deploymentId)) throw new NodeFailure("INVALID_INPUT", "Choose an account and deployment ID.", false);
   if (mode === "mock") return { status: "succeeded" as const, output: { lookup: "public" as const, ownershipVerified: false as const, deployment: { id: config.deploymentId, state: "READY", target: "production", createdAt: null, partial: true } }, route: "success" as const };
   const params = teamParams(team);
-  const result = await getJson(`https://api.vercel.com/v13/deployments/${config.deploymentId}?${params}`, await accessToken(config, workspaceId, credentials), "Vercel", transport);
+  const activeToken = await accessToken(config, workspaceId, credentials);
+  const result = await getJson(`https://api.vercel.com/v13/deployments/${config.deploymentId}?${params}`, activeToken, "Vercel", transport);
   const deployment = normalizeDeployment(result.data);
   if (!deployment || deployment.id !== config.deploymentId) throw new NodeFailure("INVALID_RESPONSE", "Vercel returned an invalid deployment.", false);
+  assertNoCredentialInProviderFields([deployment.id, deployment.state, deployment.target], activeToken);
   return { status: "succeeded" as const, output: { lookup: "public" as const, ownershipVerified: false as const, deployment }, route: "success" as const };
 }

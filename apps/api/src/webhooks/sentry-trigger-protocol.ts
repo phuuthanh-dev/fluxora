@@ -38,5 +38,8 @@ export function normalizeSentryIssueCreated(raw: Buffer, resource: unknown, filt
   if (installation.uuid.toLowerCase() !== config.installationId || project.slug.toLowerCase() !== config.project) return { kind: "ignored" as const };
   const title = typeof issue.title === "string" ? (clientSecret ? issue.title.split(clientSecret).join("[REDACTED]") : issue.title).slice(0, 500) : null;
   const level = typeof issue.level === "string" && ["fatal", "error", "warning", "info", "debug"].includes(issue.level) ? issue.level : null;
+  // Identifiers must remain exact for filtering and deduplication. Reject a
+  // secret echo instead of storing it or silently changing an identifier.
+  if (clientSecret && [config.installationId, config.project, issue.id, title, level, "sentry", "issue.created"].some((value) => value?.includes(clientSecret))) throw invalid();
   return { kind: "accepted" as const, deliveryKey: `${config.installationId}:${issue.id}`, payload: { source: "sentry", event: "issue.created", installationId: config.installationId, project: config.project, issueId: issue.id, title, level } };
 }

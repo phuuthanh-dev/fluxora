@@ -8,13 +8,14 @@ import { validateEnvironment } from "./platform/environment";
 
 async function bootstrap() {
   validateEnvironment();
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true, return503OnClosing: true });
   app.useSecurityHeaders();
   if (process.env.TRUST_PROXY === "true") app.set("trust proxy", "loopback");
   app.setGlobalPrefix("api/v1");
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
   app.useGlobalFilters(new ApiExceptionFilter());
   app.enableCors({ origin: process.env.WEB_ORIGIN ?? "http://localhost:3000", credentials: true });
+  app.enableShutdownHooks(["SIGINT", "SIGTERM"]);
   await app.listen(process.env.PORT ?? 3001);
 }
 

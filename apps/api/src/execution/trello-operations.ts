@@ -131,6 +131,8 @@ export async function findTrelloCards(credential: Record<string, unknown>, input
 
 export async function executeTrelloOperation(operation: Operation, config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport?: Transport) {
   if (!["get", "update", "move", "archive", "list", "find"].includes(operation)) throw new NodeFailure("INVALID_INPUT", "Invalid Trello operation.", false);
+  const optionalFields = operation === "list" ? ["limit", "before", "filter"] : operation === "find" ? ["limit"] : operation === "update" ? ["title", "description"] : [];
+  if (optionalFields.some((key) => Object.hasOwn(config, key) && config[key] === undefined)) throw new NodeFailure("INVALID_INPUT", "Trello configuration could not be resolved.", false);
   const isCollection = operation === "list" || operation === "find";
   const cardId = isCollection ? "" : resourceId(config.cardId, "card");
   const boardId = isCollection || operation === "move" ? resourceId(config.boardId, "board") : "";

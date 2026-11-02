@@ -10,6 +10,7 @@ import { getGmailHistoryBaseline, getGmailHistoryPage } from "../execution/gmail
 import { getGmailMessage } from "../execution/gmail-read";
 import { NodeFailure } from "../execution/node-failure";
 import { parseWorkflowGraph } from "../workflows/workflow-graph";
+import { BackgroundWork } from "../platform/background-work";
 
 const leaseMs = 5 * 60_000;
 export type GmailBaseline = { nodeId: string; historyId: string; mailboxHash: string };
@@ -19,6 +20,7 @@ export class GmailTriggerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(GmailTriggerService.name);
   private timer: NodeJS.Timeout | null = null;
   private recoveryCursor = "";
+  private readonly background = new BackgroundWork();
   protected readonly provider = { getGmailHistoryBaseline, getGmailHistoryPage, getGmailMessage };
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
@@ -29,10 +31,11 @@ export class GmailTriggerService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit() {
     if (process.env.PROCESS_ROLE === "worker" || process.env.SCHEDULER_ENABLED === "false") return;
-    void this.tick();
-    this.timer = setInterval(() => { void this.tick(); }, 60_000);
+    const scan = () => this.background.start(() => this.tick(), () => this.logger.error("Gmail trigger scheduler failed."));
+    scan();
+    this.timer = setInterval(scan, 60_000);
   }
-  onModuleDestroy() { if (this.timer) clearInterval(this.timer); }
+  async onModuleDestroy() { if (this.timer) clearInterval(this.timer); this.timer = null; await this.background.drain(); }
 
   async baseline(workspaceId: string, graph: WorkflowGraph): Promise<GmailBaseline[]> {
     const nodes = graph.nodes.filter((node) => node.type === "trigger.gmail");

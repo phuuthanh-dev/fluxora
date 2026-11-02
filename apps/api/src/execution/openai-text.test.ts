@@ -56,6 +56,14 @@ test("OpenAI mock avoids credentials, live reads only its workspace connection",
 
 const structuredSchema = { type: "object" as const, properties: { answer: { type: "string" as const } }, required: ["answer"], additionalProperties: false as const };
 
+test("OpenAI rejects credential echoes in text and decoded structured output", async () => {
+  for (const structured of [false, true]) {
+    const apiKey = structured ? 'synthetic"key' : "synthetic-key";
+    const text = structured ? JSON.stringify({ answer: `prefix ${apiKey} suffix` }) : `prefix ${apiKey} suffix`;
+    await assert.rejects(generateOpenAIText({ ...input, apiKey, ...(structured ? { outputSchema: structuredSchema } : {}) }, async () => Response.json({ status: "completed", output: [{ type: "message", role: "assistant", content: [{ type: "output_text", text }] }] })), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_RESPONSE" && !error.retryable && !error.message.includes(apiKey));
+  }
+});
+
 test("OpenAI structured generation requests a strict schema and normalizes usage", async () => {
   const result = await generateOpenAIText({ ...input, outputSchema: structuredSchema }, async (_url, init) => {
     const body = JSON.parse(String(init.body));

@@ -36,3 +36,8 @@ test("created and canceled deployments preserve event filtering", () => {
     assert.equal(normalizeVercelDeployment(payload, filter).kind, "ignored");
   }
 });
+
+test("Vercel rejects a signing secret echoed in an accepted event identifier", () => {
+  const payload = Buffer.from(JSON.stringify({ id: secret, type: "deployment.ready", payload: { team: { id: "team_example" }, project: { id: "prj_example" }, deployment: { id: "dpl_example" } } }));
+  assert.throws(() => normalizeVercelDeployment(payload, filter, secret), (error: unknown) => error instanceof Error && !error.message.includes(secret));
+});

@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, OnApplicationShutdown, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import IORedis from "ioredis";
 import { Subject, filter } from "rxjs";
 import { resolveQueueMode } from "./execution-queue.config";
@@ -7,7 +7,7 @@ export type ExecutionEvent = { data: { executionId: string; kind: string } };
 const defaultChannel = "workflow-execution-events";
 
 @Injectable()
-export class ExecutionEventsService implements OnModuleInit, OnModuleDestroy {
+export class ExecutionEventsService implements OnModuleInit, OnModuleDestroy, OnApplicationShutdown {
   private readonly logger = new Logger(ExecutionEventsService.name);
   private readonly events = new Subject<ExecutionEvent>();
   private readonly mode = resolveQueueMode();
@@ -49,8 +49,11 @@ export class ExecutionEventsService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  async onModuleDestroy() {
+  onModuleDestroy() {
     this.events.complete();
+  }
+
+  async onApplicationShutdown() {
     await Promise.allSettled([
       this.subscriber?.unsubscribe(this.channel),
       this.publisher?.quit(),

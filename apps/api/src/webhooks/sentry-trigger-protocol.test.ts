@@ -22,3 +22,7 @@ test("Sentry issue-created filtering uses signed installation and project identi
   assert.equal(normalizeSentryIssueCreated(payload(), "installation", filter).kind, "ignored");
   assert.throws(() => readSentryIssueCreatedFilter({ installationId: "bad", project: "fluxora-test" }));
 });
+
+test("Sentry refuses to persist a signing secret echoed in an identifier", () => {
+  assert.throws(() => normalizeSentryIssueCreated(payload(), "issue", filter, "12345"), (error: unknown) => error instanceof Error && !error.message.includes("12345"));
+});

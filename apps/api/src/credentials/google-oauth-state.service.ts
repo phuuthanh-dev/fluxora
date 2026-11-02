@@ -1,4 +1,4 @@
-import { Injectable, OnModuleDestroy } from "@nestjs/common";
+import { Injectable, OnApplicationShutdown } from "@nestjs/common";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import IORedis from "ioredis";
 import type { Request, Response } from "express";
@@ -11,11 +11,11 @@ export class GoogleOAuthStateUnavailableError extends Error {}
 type State = { workspaceId: string; userId: string; kind: GoogleConnectionKind; credentialId?: string; gmailCapabilities?: GmailCapability[]; chatManage?: boolean; nonce: string; issuedAt: number };
 
 @Injectable()
-export class GoogleOAuthStateService implements OnModuleDestroy {
+export class GoogleOAuthStateService implements OnApplicationShutdown {
   private readonly redis = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", { lazyConnect: true, connectTimeout: 2000, commandTimeout: 3000, maxRetriesPerRequest: 1 });
 
   constructor() { this.redis.on("error", () => {}); }
-  onModuleDestroy() { this.redis.disconnect(); }
+  onApplicationShutdown() { this.redis.disconnect(); }
 
   async issue(input: Omit<State, "nonce" | "issuedAt">, request: Request, response: Response) {
     const session = cookie(request, "workflow_session");

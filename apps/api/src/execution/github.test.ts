@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { CredentialProvider } from "@prisma/client";
 import type { CredentialService } from "../credentials/credential.service";
-import { executeGitHubAddComment, executeGitHubAddLabel, executeGitHubCreateIssue, executeGitHubMergePullRequest } from "./execution.service";
+import { executeGitHubAddComment, executeGitHubAddLabel, executeGitHubCreateIssue, executeGitHubMergePullRequest, executeNode } from "./execution.service";
+import { resolveExpressions } from "./expression";
+import type { WorkflowNode } from "@workflow/contracts";
 
 process.env.OUTBOUND_ALLOWED_HOSTNAMES = "api.github.com";
 
@@ -483,6 +485,51 @@ test("GitHub merge can require the exact reviewed pull request head", async () =
     await assert.rejects(executeGitHubMergePullRequest({ ...config, expectedHeadSha: "abc" }, "live", "workspace-1", credentials), (error: any) => error.code === "INVALID_CONFIGURATION" && !error.retryable);
     assert.equal(calls, 1);
   } finally { globalThis.fetch = originalFetch; }
+});
+
+test("GitHub never drops an expression-backed merge guard when it cannot resolve", async () => {
+  const noCredential = { readForExecution: () => { throw new Error("credential must not be read"); } } as never;
+  for (const [expression, context] of [
+    ["{{ input.head }}", {}],
+    ["{{ input.head }}", { input: { head: null } }],
+    [" {{ input.head }} ", {}],
+  ] as const) {
+    const raw = { repository: "acme/automation", pullRequestNumber: 12, expectedHeadSha: expression };
+    const node: WorkflowNode = { id: "merge", type: "action.github.merge-pull-request", config: raw, position: { x: 0, y: 0 } };
+    const resolved = resolveExpressions(raw, context) as Record<string, unknown>;
+    for (const mode of ["mock", "live"] as const) {
+      await assert.rejects(executeNode(node, resolved, context, mode, "workspace", noCredential, "execution"), (error: any) => error.code === "INVALID_CONFIGURATION" && !error.retryable);
+    }
+  }
+  await assert.rejects(executeGitHubMergePullRequest({ repository: "acme/automation", pullRequestNumber: 12, expectedHeadSha: undefined }, "live", "workspace", noCredential), (error: any) => error.code === "INVALID_CONFIGURATION");
+  // Saved graphs that never requested the guard retain the legacy behavior.
+  for (const value of [undefined, null, ""]) {
+    const raw = { repository: "acme/automation", pullRequestNumber: 12, ...(value === undefined ? {} : { expectedHeadSha: value }) };
+    const node: WorkflowNode = { id: "merge", type: "action.github.merge-pull-request", config: raw, position: { x: 0, y: 0 } };
+    assert.equal((await executeNode(node, raw, {}, "mock", "workspace", noCredential, "execution")).status, "succeeded");
+  }
+  const raw = { repository: "acme/automation", pullRequestNumber: 12, expectedHeadSha: "{{ input.head }}" };
+  const node: WorkflowNode = { id: "merge", type: "action.github.merge-pull-request", config: raw, position: { x: 0, y: 0 } };
+  const context = { input: { head: "a".repeat(40) } };
+  const resolved = resolveExpressions(raw, context) as Record<string, unknown>;
+  assert.equal((await executeNode(node, resolved, context, "mock", "workspace", noCredential, "execution")).status, "succeeded");
+});
+
+test("GitHub never drops expression-backed merge method or issue idempotency", async () => {
+  const noCredential = { readForExecution: () => { throw new Error("credential must not be read"); } } as never;
+  const cases = [
+    { type: "action.github.merge-pull-request" as const, raw: { repository: "acme/automation", pullRequestNumber: 12, mergeMethod: "{{ input.method }}" }, input: { method: "squash" } },
+    { type: "action.github" as const, raw: { repository: "acme/automation", title: "Example", idempotencyKey: "{{ input.key }}" }, input: { key: "stable-key" } },
+    { type: "action.github" as const, raw: { repository: "acme/automation", title: "Example", idempotencyKey: "issue-{{ input.key }}" }, input: { key: "stable-key" } },
+  ];
+  for (const { type, raw, input } of cases) {
+    const node: WorkflowNode = { id: "github", type, config: raw, position: { x: 0, y: 0 } };
+    const missing = resolveExpressions(raw, {}) as Record<string, unknown>;
+    for (const mode of ["mock", "live"] as const) await assert.rejects(executeNode(node, missing, {}, mode, "workspace", noCredential, "execution"), (error: any) => error.code === "INVALID_CONFIGURATION" && !error.retryable);
+    const context = { input };
+    const resolved = resolveExpressions(raw, context) as Record<string, unknown>;
+    assert.equal((await executeNode(node, resolved, context, "mock", "workspace", noCredential, "execution")).status, "succeeded");
+  }
 });
 
 test("GitHub writes do not replay their bodies on redirects", async () => {

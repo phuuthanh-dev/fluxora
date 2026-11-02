@@ -10,6 +10,7 @@ import { executeSentryListIssues } from "./sentry";
 import { executeVercelListDeployments } from "./vercel";
 import { redactValue } from "./redaction";
 import { liveCredentialRequirements } from "./live-readiness";
+import { NodeFailure } from "./node-failure";
 
 const synthetic = { readForExecution: async (_id: string, _workspace: string, provider: CredentialProvider) => {
   if (provider === CredentialProvider.NOTION) return { token: "synthetic" };
@@ -29,6 +30,24 @@ test("legacy Gmail ignores a saved page token and retains request and output", a
   await assert.rejects(executeGmailRead({ pageToken: { invalid: true } }, "mock", "workspace", synthetic, undefined, 2));
 });
 
+test("Gmail and Drive v2 reject unresolved filters before accessing credentials", async () => {
+  const noCredential = { readForExecution: () => { throw new Error("credential must not be read"); }, readGoogleForExecution: () => { throw new Error("credential must not be read"); } } as never;
+  for (const config of [{ query: undefined }, { query: null }, { limit: undefined }, { mailbox: undefined }]) {
+    for (const mode of ["mock", "live"] as const) {
+      await assert.rejects(executeGmailRead(config, mode, "workspace", noCredential, undefined, 2), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT");
+    }
+  }
+  for (const config of [{ operation: undefined }, { operation: "unknown" }, { operation: "search", query: undefined }, { operation: "search", query: null }]) {
+    const node: WorkflowNode = { id: "drive", type: "action.google-drive.v2", config, position: { x: 0, y: 0 } };
+    for (const mode of ["mock", "live"] as const) {
+      await assert.rejects(executeNode(node, config, {}, mode, "workspace", noCredential, "execution"), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT");
+    }
+  }
+  assert.equal((await executeGmailRead({ query: undefined }, "mock", "workspace", noCredential, undefined, 1)).status, "succeeded");
+  const legacy: WorkflowNode = { id: "drive", type: "action.google-drive", config: {}, position: { x: 0, y: 0 } };
+  assert.equal((await executeNode(legacy, { operation: "unknown" }, {}, "mock", "workspace", noCredential, "execution")).status, "succeeded");
+});
+
 test("Notion legacy ignores cursor and accepts the old receipt contract", async () => {
   let body: Record<string, unknown> = {};
   const search: typeof searchNotionPages = (input) => searchNotionPages(input, async (_url, init) => {
@@ -39,6 +58,36 @@ test("Notion legacy ignores cursor and accepts the old receipt contract", async 
   assert.equal(Object.hasOwn(body, "start_cursor"), false);
   assert.deepEqual(result.output, { pages: [], hasMore: false, nextCursor: "legacy-opaque" });
   await assert.rejects(executeNotionSearch({ credentialId: "n", cursor: { ignored: true } }, "live", "workspace", synthetic, search, 2));
+});
+
+test("Notion v2 rejects unresolved pagination and search expressions while legacy behavior remains", async () => {
+  const noCredential = { readForExecution: () => { throw new Error("credential must not be read"); } } as never;
+  for (const config of [{ cursor: undefined }, { pageSize: undefined }, { query: undefined }, { query: null }, { cursor: null }]) {
+    for (const mode of ["mock", "live"] as const) {
+      await assert.rejects(executeNotionSearch(config, mode, "workspace", noCredential, undefined, 2), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT");
+    }
+  }
+  const old = await executeNotionSearch({ cursor: undefined, query: undefined, pageSize: undefined }, "mock", "workspace", noCredential, undefined, 1);
+  assert.equal(old.status, "succeeded");
+  const cleared = await executeNotionSearch({ cursor: "", query: "" }, "mock", "workspace", noCredential, undefined, 2);
+  assert.equal(cleared.status, "succeeded");
+});
+
+test("Sentry and Vercel v2 reject unresolved cursors and filters without changing legacy behavior", async () => {
+  const noCredential = { readForExecution: () => { throw new Error("credential must not be read"); } } as never;
+  const cases = [
+    { base: { organization: "example", project: "app" }, run: executeSentryListIssues, bad: [{ cursor: undefined }, { cursor: null }, { limit: undefined }, { status: undefined }] },
+    { base: { project: "prj_example" }, run: executeVercelListDeployments, bad: [{ cursor: undefined }, { cursor: null }, { limit: undefined }, { team: undefined }, { team: null }] },
+  ];
+  for (const { base, run, bad } of cases) {
+    for (const input of bad) {
+      for (const mode of ["mock", "live"] as const) {
+        await assert.rejects(run({ ...base, ...input }, mode, "workspace", noCredential, undefined, 2), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT");
+      }
+    }
+    assert.equal((await run({ ...base, cursor: null }, "mock", "workspace", noCredential, undefined, 1)).status, "succeeded");
+    assert.equal((await run({ ...base, cursor: "" }, "mock", "workspace", noCredential, undefined, 2)).status, "succeeded");
+  }
 });
 
 test("Sentry and Vercel legacy requests ignore cursor and return the old output keys", async () => {

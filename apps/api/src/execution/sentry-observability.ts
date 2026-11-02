@@ -2,6 +2,7 @@ import { CredentialProvider } from "@prisma/client";
 import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure } from "./node-failure";
 import { getJson, observabilityTransport, record, token, type ObservabilityTransport } from "./observability-read";
+import { assertNoCredentialInProviderFields } from "./provider-credential-safety";
 
 const hosts: Record<string, string> = { global: "sentry.io", us: "us.sentry.io", de: "de.sentry.io" };
 const slug = (value: unknown): value is string => typeof value === "string" && /^[a-z0-9][a-z0-9_-]{0,99}$/i.test(value);
@@ -22,6 +23,7 @@ function normalizeIssue(value: unknown, accessToken: string) {
   const firstSeen = date(item.firstSeen);
   const lastSeen = date(item.lastSeen);
   const count = typeof item.count === "string" && /^[0-9]{1,30}$/.test(item.count) ? item.count : null;
+  assertNoCredentialInProviderFields([item.id, status, level, firstSeen, lastSeen, count], accessToken);
   const partial = status === null || level === null || firstSeen === null || lastSeen === null || count === null;
   // Issue titles are user content; strip the current credential before bounding.
   const safeTitle = typeof item.title === "string" ? item.title.split(accessToken).join("[REDACTED]") : null;

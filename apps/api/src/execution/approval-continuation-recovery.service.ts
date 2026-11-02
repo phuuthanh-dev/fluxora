@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nest
 import { ExecutionStatus } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
 import { ExecutionQueueService } from "./execution-queue.service";
+import { BackgroundWork } from "../platform/background-work";
 
 /** Recover persisted approval continuations whose first queue dispatch failed. */
 @Injectable()
@@ -10,15 +11,17 @@ export class ApprovalContinuationRecoveryService implements OnModuleInit, OnModu
   private timer: NodeJS.Timeout | null = null;
   private scanning = false;
   private cursor = "";
+  private readonly background = new BackgroundWork();
 
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService, @Inject(ExecutionQueueService) private readonly queue: ExecutionQueueService) {}
 
   onModuleInit() {
     if (process.env.PROCESS_ROLE === "worker" || process.env.SCHEDULER_ENABLED === "false") return;
-    void this.recover();
-    this.timer = setInterval(() => { void this.recover(); }, 60_000);
+    const scan = () => this.background.start(() => this.recover(), () => this.logger.warn("Approval continuation recovery failed."));
+    scan();
+    this.timer = setInterval(scan, 60_000);
   }
-  onModuleDestroy() { if (this.timer) clearInterval(this.timer); }
+  async onModuleDestroy() { if (this.timer) clearInterval(this.timer); this.timer = null; await this.background.drain(); }
 
   async recover(now = new Date()) {
     if (this.scanning) return;

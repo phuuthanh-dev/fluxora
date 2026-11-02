@@ -45,6 +45,23 @@ test("provider card content cannot echo either Trello credential into downstream
   assert.equal((read.output as { name: string }).name, "Card ");
 });
 
+test("Trello rejects unresolved update and pagination fields before reading credentials", async () => {
+  const noCredential = { readForExecution: () => { throw new Error("credential must not be read"); } } as never;
+  const cases = [
+    { operation: "update" as const, config: { cardId, title: undefined, description: "Keep this" } },
+    { operation: "update" as const, config: { cardId, title: "Keep this", description: undefined } },
+    { operation: "list" as const, config: { boardId: board, before: undefined } },
+    { operation: "list" as const, config: { boardId: board, filter: undefined } },
+    { operation: "list" as const, config: { boardId: board, limit: undefined } },
+    { operation: "find" as const, config: { boardId: board, query: "sample", limit: undefined } },
+  ];
+  for (const { operation, config } of cases) {
+    for (const mode of ["mock", "live"] as const) await assert.rejects(executeTrelloOperation(operation, config, mode, "workspace", noCredential), failure("INVALID_INPUT", false));
+  }
+  assert.equal((await executeTrelloOperation("update", { cardId, title: "New title" }, "mock", "workspace", noCredential)).status, "succeeded");
+  assert.equal((await executeTrelloOperation("list", { boardId: board, before: "" }, "mock", "workspace", noCredential)).status, "succeeded");
+});
+
 test("credential echoes in card identity fail closed without inventing a cursor", async () => {
   const embeddedCredential = { apiKey: "fixturekey", token: cardId };
   const embeddedCredentials = { readForExecution: async () => embeddedCredential } as unknown as CredentialService;

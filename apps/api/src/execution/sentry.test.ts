@@ -50,6 +50,25 @@ test("Sentry issue query limits results and avoids returning extra private provi
   assert.ok(!JSON.stringify(result.output).includes("private@example.test"));
 });
 
+test("Sentry refuses credential echoes in displayed resources and issue fields before truncation", async () => {
+  const safeFailure = (error: unknown) => {
+    const failure = error as { code?: string; message?: string };
+    assert.equal(failure.code, "INVALID_RESPONSE");
+    assert.ok(!failure.message?.includes(credential.token));
+    return true;
+  };
+  await assert.rejects(listSentryOrganizations(credential, async () => Response.json([{ slug: "example", name: `${"x".repeat(297)}fixture-token` }])), safeFailure);
+  await assert.rejects(listSentryProjects(credential, "example", async () => Response.json([{ slug: "fixture-token", name: "Example" }])), safeFailure);
+  for (const version of [1, 2] as const) {
+    await assert.rejects(executeSentryListIssues({ credentialId: "connection", organization: "example", project: "web" }, "live", "workspace", credentials, async () => Response.json([{ id: "1", title: `${"x".repeat(497)}fixture-token` }]), version), safeFailure);
+  }
+  const numericToken = { readForExecution: async () => ({ token: "123", region: "de" }) } as unknown as CredentialService;
+  await assert.rejects(executeSentryListIssues({ credentialId: "connection", organization: "example", project: "web" }, "live", "workspace", numericToken, async (url) => {
+    const next = new URL(url); next.searchParams.set("cursor", "123:0:1");
+    return Response.json([], { headers: { link: `<${next}>; rel="next"; results="true"; cursor="123:0:1"` } });
+  }, 2), (error: unknown) => (error as { code?: string }).code === "INVALID_RESPONSE");
+});
+
 test("Sentry rejects invalid regions and classifies rate limits without exposing tokens", async () => {
   await assert.rejects(listSentryOrganizations({ token: "fixture-token", region: "__proto__" }, async () => { throw new Error("must not call"); }), /supported region/);
   await assert.rejects(executeSentryListIssues({ credentialId: "connection", organization: "example-org", project: "web" }, "live", "workspace", credentials, async () => new Response("provider secret detail", { status: 429 })), (error: unknown) => {

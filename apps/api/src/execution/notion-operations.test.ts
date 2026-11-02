@@ -84,6 +84,22 @@ test("rejects invalid input before any request, including path and cursor inject
   assert.equal(calls, 0);
 });
 
+test("Notion list operations reject unresolved pagination before using a connection", async () => {
+  const noCredential = { readForExecution: () => { throw new Error("credential must not be read"); } } as never;
+  const cases = [
+    { operation: "listChildren" as const, base: { blockId } },
+    { operation: "retrieveProperty" as const, base: { pageId, propertyId: "title" } },
+  ];
+  for (const { operation, base } of cases) {
+    for (const input of [{ cursor: undefined }, { cursor: null }, { pageSize: undefined }]) {
+      for (const mode of ["mock", "live"] as const) {
+        await assert.rejects(executeNotionOperation({ ...base, ...input }, operation, mode, "workspace", noCredential), failure("INVALID_INPUT", false));
+      }
+    }
+    assert.equal((await executeNotionOperation({ ...base, cursor: "" }, operation, "mock", "workspace", noCredential)).status, "succeeded");
+  }
+});
+
 test("malformed pagination and provider responses fail without exposing details", async () => {
   const invalid = [
     { object: "list", results: [], has_more: true, next_cursor: null },

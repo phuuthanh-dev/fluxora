@@ -126,3 +126,10 @@ test("Vercel public detail never claims ownership and rejects IDs and redirects"
   await assert.rejects(executeVercelPublicDeploymentLookup({ ...config, deploymentId: "https://evil.example" }, "live", "workspace", credentials, async () => { throw new Error("unexpected request"); }));
   await assert.rejects(executeVercelPublicDeploymentLookup(config, "live", "workspace", credentials, async () => new Response(null, { status: 302, headers: { location: "https://evil.example" } })));
 });
+
+test("detail lookups reject a provider identifier matching the active credential", async () => {
+  const numericCredential = { readForExecution: async () => ({ token: "123", region: "de" }) } as unknown as CredentialService;
+  await assert.rejects(executeSentryGetIssue({ credentialId: "connection", organization: "acme", project: "web", issueId: "123" }, "live", "workspace", numericCredential, async () => Response.json({ ...issue, id: "123", project: { slug: "web" } })), (error: unknown) => (error as { code?: string }).code === "INVALID_RESPONSE");
+  const vercelCredential = { readForExecution: async () => ({ token: "abc" }) } as unknown as CredentialService;
+  await assert.rejects(executeVercelPublicDeploymentLookup({ credentialId: "connection", team: "personal", deploymentId: "dpl_abc" }, "live", "workspace", vercelCredential, async () => Response.json({ id: "dpl_abc", readyState: "READY", target: "production" })), (error: unknown) => (error as { code?: string }).code === "INVALID_RESPONSE");
+});

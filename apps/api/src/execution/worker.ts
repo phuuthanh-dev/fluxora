@@ -26,6 +26,18 @@ export async function markWorkerJobFailure(executions: Pick<ExecutionService, "f
   else await executions.failUnstartedFromWorker(job.executionId);
 }
 
+/** Repeated stop signals must not terminate an active graceful drain. */
+export function registerWorkerShutdown(signals: { on(event: "SIGINT" | "SIGTERM", listener: () => void): unknown }, shutdown: () => Promise<void>, onFailure: () => void) {
+  let started = false;
+  const requestShutdown = () => {
+    if (started) return;
+    started = true;
+    void shutdown().catch(onFailure);
+  };
+  signals.on("SIGINT", requestShutdown);
+  signals.on("SIGTERM", requestShutdown);
+}
+
 export async function bootstrapExecutionWorker() {
   validateEnvironment();
   process.env.PROCESS_ROLE = "worker";
@@ -46,8 +58,7 @@ export async function bootstrapExecutionWorker() {
     await connection.quit();
     await app.close();
   };
-  process.once("SIGINT", () => { void shutdown(); });
-  process.once("SIGTERM", () => { void shutdown(); });
+  registerWorkerShutdown(process, shutdown, () => { console.error("Worker shutdown did not complete; inspect the queue before restarting."); process.exitCode = 1; });
 }
 
 if (require.main === module) void bootstrapExecutionWorker();

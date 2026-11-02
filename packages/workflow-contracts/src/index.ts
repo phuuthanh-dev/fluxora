@@ -1,5 +1,13 @@
 export * from "./ai-schema";
 export * from "./operation-metadata";
+export type { NodeConfigurationField, NodeFieldVisibility, NodeResource, NodeSelectOption } from "./node-configuration-fields";
+export { trelloCardConfigurationFields } from "./trello-card-fields";
+export type { TrelloCardOperation } from "./trello-card-fields";
+export { gmailWriteConfigurationFields } from "./gmail-write-fields";
+export type { GmailWriteOperation } from "./gmail-write-fields";
+export { notionReadConfigurationFields } from "./notion-read-fields";
+export type { NotionReadOperation } from "./notion-read-fields";
+export { getSharedNodeConfigurationFields, sharedNodeConfigurationTypes } from "./configuration-fields-registry";
 
 export const workflowNodeCategories = ["trigger", "condition", "action", "approval"] as const;
 

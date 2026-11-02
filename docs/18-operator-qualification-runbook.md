@@ -105,8 +105,13 @@ Also record `docker compose ps` status for `db`, `redis`, `api`, `worker`, and
 
 Keep the current candidate and known-good image SHA. If rollback is needed, run
 the guarded immutable rollback script with the known-good SHA, then repeat the
-health smoke and readiness checks. Confirm that PostgreSQL and Redis volumes are
-preserved and that no mutable image tag was used.
+health smoke and readiness checks. The script refuses an image lacking the NX
+compatibility label after an NX migration begins and stops if the database cannot
+be inspected; do not bypass this check by relabeling an old image. Deploy and
+rollback share a lock, but an old script does not honor it. The guard does not
+prove that a target can handle every future migration or that in-flight work was
+drained. Confirm that PostgreSQL and Redis volumes are preserved and that no
+mutable image tag was used.
 
 ## 7. Go/No-Go decision
 

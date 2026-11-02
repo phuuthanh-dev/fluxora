@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { executableWorkflowNodeTypes, workflowNodeTypes } from "@workflow/contracts";
+import { executableWorkflowNodeTypes, getSharedNodeConfigurationFields, sharedNodeConfigurationTypes, workflowNodeTypes } from "@workflow/contracts";
 import { getOperationMetadata, getOperationMetadataRegistry } from "@workflow/contracts/dist/operation-metadata";
 import { nodeCatalog } from "./node-catalog";
 
@@ -28,4 +28,18 @@ test("unknown and planned nodes do not acquire executable metadata", () => {
   for (const type of ["action.facebook-meta", "action.instagram"]) assert.equal(getOperationMetadata(type)?.availability, "planned");
   for (const type of ["action.http-request", "action.google-drive", "action.google-sheets"]) assert.equal(getOperationMetadata(type)?.effect, "configuration-dependent");
   assert.deepEqual(getOperationMetadata("action.http-request")?.auth, { kind: "credential", provider: "HTTP", requirement: "optional", context: "execution" });
+});
+
+test("shared fields preserve the editor catalog and return independent descriptors", () => {
+  assert.equal(sharedNodeConfigurationTypes.length, 73);
+  for (const type of sharedNodeConfigurationTypes) {
+    const shared = getSharedNodeConfigurationFields(type);
+    assert.ok(shared, type);
+    assert.deepEqual(shared, nodeCatalog.find((node) => node.type === type)?.configurationFields, type);
+    shared[0]!.label = "locally changed";
+    assert.notEqual(getSharedNodeConfigurationFields(type)?.[0]?.label, "locally changed", type);
+  }
+  for (const node of nodeCatalog) if (node.configurationFields) assert.ok(getSharedNodeConfigurationFields(node.type), `${node.type} has local-only field descriptors`);
+  assert.ok(getSharedNodeConfigurationFields("action.http-request"));
+  assert.equal(getSharedNodeConfigurationFields("__proto__"), undefined);
 });

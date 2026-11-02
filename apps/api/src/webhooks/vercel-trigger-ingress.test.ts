@@ -37,6 +37,8 @@ test("Vercel ingress verifies raw bytes and dispatches only the selected project
   await assert.rejects(service.receive("vercel-test", undefined, {}, undefined, { rawBody: selected }, undefined, "bad-signature"));
   assert.deepEqual(await service.receive("vercel-test", undefined, {}, undefined, { rawBody: other }, undefined, sign(other)), { acknowledged: true });
   assert.deepEqual(await service.receive("vercel-test", undefined, {}, undefined, { rawBody: selected }, undefined, sign(selected)), { executionId: "run" });
+  const echoed = Buffer.from(JSON.stringify({ id: secret, type: "deployment.ready", payload: { team: { id: null }, project: { id: "prj_example" }, deployment: { id: "dpl_example" } } }));
+  await assert.rejects(service.receive("vercel-test", undefined, {}, undefined, { rawBody: echoed }, undefined, sign(echoed)), (error: unknown) => error instanceof Error && !error.message.includes(secret));
   assert.equal(captured.length, 1);
   assert.ok(!JSON.stringify(captured).includes(secret));
   assert.ok(!JSON.stringify(captured).includes("not forwarded"));

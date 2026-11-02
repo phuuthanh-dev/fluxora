@@ -3,7 +3,7 @@ import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
 import { fetchSafeOutbound, fetchSafeOutboundWrite } from "./outbound-url-policy";
 import { readBoundedProviderJson } from "./provider-json";
-import { mockAiOutput, normalizeAiUsage, parseAiOutput, parseAiSchema } from "./ai-structured-output";
+import { assertNoAiCredentialEcho, mockAiOutput, normalizeAiUsage, parseAiOutput, parseAiSchema } from "./ai-structured-output";
 import type { AiSchema } from "./ai-structured-output";
 import { assertAiRequestLimits } from "./ai-request-limits";
 
@@ -63,8 +63,10 @@ export async function generateOpenAIText(input: OpenAIInput, transport: Transpor
   if (outputSchema && refused) throw new NodeFailure("PROVIDER_REFUSAL", "OpenAI declined the request.", false);
   if (!text) throw new NodeFailure(refused ? "PROVIDER_REFUSAL" : "EMPTY_RESPONSE", refused ? "OpenAI declined the request." : "OpenAI returned no text.", false);
   if (text.length > 100_000) throw new NodeFailure("RESPONSE_TOO_LARGE", "OpenAI returned too much text.", false);
+  const json = outputSchema ? parseAiOutput(text, outputSchema) : undefined;
+  assertNoAiCredentialEcho([text, json, input.model], input.apiKey);
   const usage = normalizeAiUsage(root.usage, { input: "input_tokens", output: "output_tokens", total: "total_tokens" });
-  return { text, model: input.model, finishReason: "completed", ...(outputSchema ? { json: parseAiOutput(text, outputSchema) } : {}), ...(usage ? { usage } : {}) };
+  return { text, model: input.model, finishReason: "completed", ...(outputSchema ? { json } : {}), ...(usage ? { usage } : {}) };
 }
 
 export async function executeOpenAIText(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, generate: typeof generateOpenAIText = generateOpenAIText) {

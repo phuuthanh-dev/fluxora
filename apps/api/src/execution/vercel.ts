@@ -4,6 +4,7 @@ import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
 import { fetchSafeOutbound } from "./outbound-url-policy";
 import { readBoundedProviderJson } from "./provider-json";
 import { observabilityTransport } from "./observability-read";
+import { assertNoCredentialInProviderFields } from "./provider-credential-safety";
 
 type Transport = (url: string, init: RequestInit) => Promise<Response>;
 function object(value: unknown): Record<string, unknown> | undefined { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined; }
@@ -29,10 +30,11 @@ async function get(path: string, token: string, transport: Transport) {
   return result;
 }
 function nextPage(result: Record<string, unknown>) { return object(result.pagination)?.next != null; }
-function optionList(value: unknown, valid: (value: string) => boolean) {
+function optionList(value: unknown, valid: (value: string) => boolean, accessToken: string) {
   if (!Array.isArray(value)) throw new NodeFailure("INVALID_RESPONSE", "Vercel returned an invalid resource list.", false);
   return value.flatMap((item: unknown) => {
     const entry = object(item); const id = text(entry?.id, 110);
+    if (valid(id) && typeof entry?.name === "string") assertNoCredentialInProviderFields([entry.id, entry.name], accessToken);
     return valid(id) && typeof entry?.name === "string" ? [{ id, name: text(entry.name) || id }] : [];
   });
 }
@@ -53,19 +55,22 @@ export async function listVercelTeams(credential: Record<string, unknown>, trans
     };
     throw error;
   }
-  const teams = optionList(result.teams, (id) => id !== "personal" && validTeam(id));
+  const teams = optionList(result.teams, (id) => id !== "personal" && validTeam(id), tokenFrom(credential));
   return { teams: [{ id: "personal", name: "Personal account" }, ...teams.slice(0, 100)], hasMore: nextPage(result) || teams.length > 100 };
 }
 
 export async function listVercelProjects(credential: Record<string, unknown>, team: string, transport: Transport = fetchSafeOutbound) {
   if (!validTeam(team)) throw new NodeFailure("INVALID_INPUT", "Choose a Vercel account or team.", false);
   const result = await get(`v10/projects?${parameters(team, 100)}`, tokenFrom(credential), transport);
-  const projects = optionList(result.projects, validProject);
+  const projects = optionList(result.projects, validProject, tokenFrom(credential));
   return { projects: projects.slice(0, 100), hasMore: nextPage(result) || projects.length > 100 };
 }
 
 type VercelDeploymentsOutput = { deployments: Array<{ id: string; name: string; state: string; target: string; createdAt: number | null; url: string }>; hasMore: boolean; nextCursor?: string | null; partial?: boolean; partialReasons?: string[] };
 export async function executeVercelListDeployments(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport | undefined = undefined, paginationVersion: 1 | 2 = 2): Promise<{ status: "succeeded"; output: VercelDeploymentsOutput; route: "success" }> {
+  if (paginationVersion === 2 && ((Object.hasOwn(config, "cursor") && (config.cursor === undefined || config.cursor === null)) || (Object.hasOwn(config, "limit") && config.limit === undefined) || (Object.hasOwn(config, "team") && typeof config.team !== "string"))) {
+    throw new NodeFailure("INVALID_INPUT", "Vercel account or pagination could not be resolved.", false);
+  }
   const team = typeof config.team === "string" ? config.team : "personal";
   const project = typeof config.project === "string" ? config.project : "";
   const limit = config.limit === undefined ? 20 : config.limit;
@@ -81,10 +86,12 @@ export async function executeVercelListDeployments(config: Record<string, unknow
   const params = parameters(team, limit); params.set("projectId", project);
   if (cursor !== null) params.set("until", cursor);
   const result = await get(`v6/deployments?${params}`, tokenFrom(credential), transport ?? (paginationVersion === 1 ? fetchSafeOutbound : observabilityTransport));
+  const accessToken = tokenFrom(credential);
   if (!Array.isArray(result.deployments)) throw new NodeFailure("INVALID_RESPONSE", "Vercel returned an invalid deployment list.", false);
   const deployments = result.deployments.slice(0, limit).flatMap((value: unknown) => {
     const entry = object(value); const id = text(entry?.uid, 110);
     if (!/^dpl_[A-Za-z0-9]{1,100}$/.test(id)) return [];
+    assertNoCredentialInProviderFields([entry?.uid, entry?.name, entry?.state, entry?.readyState, entry?.target, entry?.url], accessToken);
     const url = text(entry?.url, 253);
     return [{ id, name: text(entry?.name), state: text(entry?.state ?? entry?.readyState, 50), target: text(entry?.target, 50), createdAt: typeof entry?.created === "number" ? entry.created : null, url: /^[a-z0-9.-]+\.vercel\.app$/i.test(url) ? url : "" }];
   });
@@ -93,6 +100,7 @@ export async function executeVercelListDeployments(config: Record<string, unknow
   const hasNext = pagination !== undefined && Object.hasOwn(pagination, "next");
   const rawNext = pagination?.next;
   const nextCursor = rawNext === null ? null : cursorValue(rawNext);
+  assertNoCredentialInProviderFields([nextCursor], accessToken);
   const reasons: string[] = [];
   if (deployments.length < Math.min(result.deployments.length, limit)) reasons.push("invalid_items_omitted");
   if (result.deployments.length > limit) reasons.push("provider_page_exceeded_limit");

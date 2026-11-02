@@ -104,7 +104,7 @@ test("concurrent Gmail deliveries atomically share one queued execution", { skip
     const resumed = await service.createGmailScheduledExecution(draftId, workflowId, "mail", "message", "new-lease", { source: "gmail" }, `new-${id}`);
     assert.equal(resumed.execution?.id, first.execution?.id);
   } finally {
-    await worker?.close(); await events?.close(); await workerRedis?.quit(); await eventsRedis?.quit(); await queueService?.onModuleDestroy();
+    await worker?.close(); await events?.close(); await workerRedis?.quit(); await eventsRedis?.quit(); await queueService?.onApplicationShutdown();
     if (inspectionQueue) { await inspectionQueue.obliterate({ force: true }); await inspectionQueue.close(); }
     await redis?.quit();
     if (previousQueueMode === undefined) delete process.env.EXECUTION_QUEUE_MODE; else process.env.EXECUTION_QUEUE_MODE = previousQueueMode;

@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nest
 import { ExecutionStatus } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
 import { ExecutionQueueService } from "../execution/execution-queue.service";
+import { BackgroundWork } from "../platform/background-work";
 
 /** Recover only accepted Kuma deliveries that have never begun execution. */
 @Injectable()
@@ -10,6 +11,7 @@ export class KumaDeliveryRecoveryService implements OnModuleInit, OnModuleDestro
   private timer: NodeJS.Timeout | null = null;
   private cursor = "";
   private scanning = false;
+  private readonly background = new BackgroundWork();
 
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService, @Inject(ExecutionQueueService) private readonly queue: ExecutionQueueService) {}
   protected get deliveryPrefix(): string { return "kuma-v2:"; }
@@ -17,10 +19,11 @@ export class KumaDeliveryRecoveryService implements OnModuleInit, OnModuleDestro
 
   onModuleInit() {
     if (process.env.PROCESS_ROLE === "worker" || process.env.SCHEDULER_ENABLED === "false") return;
-    void this.recover();
-    this.timer = setInterval(() => { void this.recover(); }, 60_000);
+    const scan = () => this.background.start(() => this.recover(), () => this.logger.warn(`${this.providerName} delivery recovery failed.`));
+    scan();
+    this.timer = setInterval(scan, 60_000);
   }
-  onModuleDestroy() { if (this.timer) clearInterval(this.timer); }
+  async onModuleDestroy() { if (this.timer) clearInterval(this.timer); this.timer = null; await this.background.drain(); }
 
   async recover(now = new Date()) {
     if (this.scanning) return;

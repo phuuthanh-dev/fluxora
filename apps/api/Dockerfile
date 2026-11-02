@@ -25,6 +25,8 @@ RUN apt-get update \
 ENV NODE_ENV=production
 WORKDIR /app
 LABEL org.opencontainers.image.source="https://github.com/phuuthanh-dev/workflow-automation"
+# This image understands the NX execution, continuation and saved-graph contract.
+LABEL io.fluxora.execution-compatibility="nx-v1"
 COPY package.json package-lock.json ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json

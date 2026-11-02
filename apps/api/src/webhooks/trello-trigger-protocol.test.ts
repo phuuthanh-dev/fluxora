@@ -31,3 +31,7 @@ test("Trello normalizes the watched board and selected action without passing pr
   assert.throws(() => readTrelloTriggerFilter({ boardId: "other", action: "all" }));
   assert.throws(() => normalizeTrelloAction(Buffer.from("{"), filter));
 });
+
+test("Trello refuses a signing secret echoed in a routing or deduplication identifier", () => {
+  assert.throws(() => normalizeTrelloAction(event(), { boardId, action: "createCard" }, actionId), (error: unknown) => error instanceof Error && !error.message.includes(actionId));
+});

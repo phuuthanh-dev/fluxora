@@ -164,6 +164,9 @@ export async function retrieveNotionPageProperty(input: PropertyInput, transport
 
 /** Entry point for future dispatcher integration; mock mode never opens the vault. */
 export async function executeNotionOperation(config: Record<string, unknown>, operation: "retrievePage" | "listChildren" | "retrieveProperty", mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport = fetchSafeOutbound) {
+  if (operation !== "retrievePage" && ((Object.hasOwn(config, "cursor") && config.cursor === undefined) || (Object.hasOwn(config, "pageSize") && config.pageSize === undefined))) {
+    throw new NodeFailure("INVALID_INPUT", "Notion pagination could not be resolved.", false);
+  }
   const pageId = typeof config.pageId === "string" ? config.pageId : "";
   const blockId = typeof config.blockId === "string" ? config.blockId : "";
   const propertyId = config.propertyId;

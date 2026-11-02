@@ -78,6 +78,9 @@ export async function listGmailMessages(token: string, query: string, limit: num
 }
 
 export async function executeGmailRead(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, read: typeof listGmailMessages = listGmailMessages, paginationVersion: 1 | 2 = 2): Promise<{ status: "succeeded"; output: GmailListOutput; route: "success" }> {
+  if (paginationVersion === 2 && ((Object.hasOwn(config, "query") && typeof config.query !== "string") || (Object.hasOwn(config, "limit") && config.limit === undefined) || (Object.hasOwn(config, "mailbox") && config.mailbox === undefined))) {
+    throw new NodeFailure("INVALID_INPUT", "Gmail filters or pagination could not be resolved.", false);
+  }
   const query = typeof config.query === "string" ? config.query : "";
   const limit = config.limit === undefined ? 5 : config.limit;
   const mailbox = config.mailbox === undefined ? "inbox" : config.mailbox;
