@@ -6,6 +6,15 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
+- PR #64 merged as `393c097`; main quality run `41382040879` and production
+  deployment `41382980015` succeeded. The public homepage and login and the
+  separate API host's health and readiness endpoints each returned HTTP 200
+  after deployment. These checks do not establish sustained reliability.
+
+- Google Cloud Verification Center was checked again on 2026-11-02: data
+  access is still under review, with homepage and branding complete and five
+  remaining steps in progress. Google has not reported approval; see `docs/35`.
+
 - A newly saved local Trello connection loaded the designated `Fluxora
   connector test` board and its three lists. A manual live workflow created
   one test card in `To Do`; both node and execution succeeded, and the test
