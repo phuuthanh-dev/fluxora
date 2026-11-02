@@ -6,6 +6,14 @@ complete in the delivery ledger.
 
 ## Latest verified snapshot — 2026-11-02
 
+- After the owner rotated the local PostgreSQL connection with the Supabase CA,
+  a direct verified-TLS read and one manual LIVE workflow run each succeeded on
+  `public.fluxora_connector_test` with a one-row limit. Schema/table discovery
+  succeeded; both nodes and the execution succeeded. The test workflow was
+  deactivated and its local execution history retained. Production PostgreSQL
+  and sustained behavior are not qualified. See
+  `.agent/reports/2026-11-02-postgres-custom-ca.md`.
+
 - A local diagnostic of the designated Supabase test connection returned HTTP
   401 for schema discovery and HTTP 200 for a bounded one-row read with the
   same publishable key. The precise cause of the 401 and the production key's
@@ -28,13 +36,13 @@ complete in the delivery ledger.
 
 - PR #65 merged as `87542ed`; PR and main quality gates passed and production
   deployment succeeded. Production home, login, API health and readiness and
-  local web/API returned HTTP 200. Actual Supabase PostgreSQL authentication
-  remains unqualified. See `.agent/reports/2026-11-02-postgres-custom-ca.md`.
+  local web/API returned HTTP 200. The later local Supabase PostgreSQL run is
+  recorded above. See `.agent/reports/2026-11-02-postgres-custom-ca.md`.
 
 - A PostgreSQL credential enhancement accepts an optional provider CA
   while retaining verified TLS and pinned DNS. Supabase's official CA passed a
-  no-credential Node TLS handshake; the connection is not yet authenticated
-  or live-read qualified. Full isolated verify passed (API 353, web 32,
+  no-credential Node TLS handshake; the later local authenticated read is
+  recorded above. Full isolated verify passed (API 353, web 32,
   Playwright 144) after an earlier onboarding timeout of unconfirmed cause. The change
   was subsequently released. See `.agent/reports/2026-11-02-postgres-custom-ca.md`.
 
@@ -271,7 +279,7 @@ one of these IDs or explicitly reopen a completed ledger slice.
 | `AI-OPENAI-1` | OpenAI text generation with workspace credential, model discovery and execution | pending | Implemented and verified locally; owner deferred real-provider testing. Migration applied only to local database. |
 | `EDITOR-QUALIFICATION-1` | Audit credential status, picker, validation and mock/live node-debug UX | planned | Reuse completed editor work; implement only evidenced gaps |
 | `NOTION-1` | Add Notion connector with user-owned credential and guided page operations | pending | Search pages implemented in PR #56; live search qualified once locally. More operations and production qualification remain. |
-| `POSTGRES-1` | Add PostgreSQL connector with user-owned credential and guided operations | pending | Select rows implemented in PR #56; live qualification and further operations remain. |
+| `POSTGRES-1` | Add PostgreSQL connector with user-owned credential and guided operations | pending | Select rows implemented in PR #56; one local Supabase PostgreSQL LIVE workflow read succeeded with verified TLS and a one-row limit. Production qualification, sustained behavior and further operations remain. |
 | `GMAIL-1` | Add Gmail read operations and a durable new-message trigger with a separate owner-authorized Google connection | pending | Released in PR #57. Gmail Read and one targeted local trigger poll succeeded against a test email; sustained polling and restricted-scope approval remain. Pub/Sub push is not implemented. See `.agent/reports/2026-11-01-gmail-trigger-calendar-expansion.md`. |
 | `CALENDAR-1` | Add Google Calendar connection and actions | pending | Released in PR #57. Picker plus one local create/get/update/delete sequence succeeded against a test event. Live list-events, availability and public scope approval remain; a Calendar trigger is not implemented. |
 | `EMAIL-UX-1` | Group Gmail and SMTP connection choices in the UI | pending | Released in PR #57; Gmail and SMTP keep separate providers and nodes. Further UX qualification remains separate. |
