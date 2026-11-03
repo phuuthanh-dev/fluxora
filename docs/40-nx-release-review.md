@@ -6,47 +6,39 @@ line-by-line audit of every change. Recheck the base and head before using it
 for a release decision. The later isolated handoff observations in this file
 are local documentation and are not part of the PR head.
 
-The runtime version guard added after the verification described below has not
-yet passed a full quality gate. It rejects unsupported versions before adapter
+The runtime guard at `388ac7b` rejects unsupported versions before adapter
 selection and credential access, but does not implement multiple versions of
-one node type. Do not apply the earlier verification result to this change.
-The later mixed OpenAI refusal handling also changes plain-text execution
-behavior and has not passed the final gate; see [AI limits](39-nx06-ai-cost-controls.md).
-The later backup-script draft also has not passed that gate: it avoids
-overwriting an existing archive or publishing a failed dump, but a successful
-dump is not a tested restore or proof of a safe production rollback.
+one node type. Mixed OpenAI refusal handling changes plain-text execution
+behavior; see [AI limits](39-nx06-ai-cost-controls.md).
+The backup-script draft avoids overwriting an existing archive or publishing a
+failed dump, but a successful dump is not a tested restore or proof of a safe
+production rollback.
 The later restore draft uses the shared release lock, blocks named active
 API/worker containers and requests a single PostgreSQL transaction. It has not
-passed the final gate or an isolated restore drill; it cannot fence unmanaged
+passed an isolated restore drill; it cannot fence unmanaged
 clients, recover writes after a snapshot, or by itself restore a previous release.
 The later Trello Find Cards pagination draft uses an explicit opt-in for
 historical nodes, bounded lookahead, and the documented page ceiling; it has
-not passed the final gate or been exercised against the actual provider.
+not been exercised against the actual provider.
 
-Local preview observation on 2026-11-03: both ports 3000 and 3001 belong to
-this checkout, but the API process was started before these later commits and
-is not using watch mode. The shared contracts build also predates Trello search
-pagination, so a healthy response alone does not show that the preview runs the
-latest source. A read-only local database check found one active cron workflow,
-no `RUNNING` executions, and six older `QUEUED` mock executions. Restarting the
-API or enabling a second scheduler can cause scheduled work; preserve these
-records and inspect scheduler/provider effects before changing local processes.
-This observation is point-in-time and says nothing about production state.
+Local preview observation on 2026-11-03: the previous API and contracts build
+predated the later commits. With the user's consent to pause local scheduling,
+the API was restarted from this checkout and contracts rebuilt. Both scheduler
+and execution maintenance are disabled in that local process to prevent
+automatic provider activity and history pruning. Health endpoints responded;
+that alone does not prove end-to-end behavior. One cron workflow and six older
+queued mock executions were observed before restart; records were not modified
+by the restart procedure. This says nothing about production state.
 
-Verification update on 2026-11-03: the source recorded in local commit
-`13bc0a0` passed a complete
-`npm run verify` on isolated PostgreSQL/Redis and test ports, with 52 deployment
-checks, 904 API tests, 61 web tests and 201 Playwright tests, plus typecheck
-and build. All listed database integration flags were enabled; API/web tests
-reported zero skipped. The source matched the tested snapshot except for the
-generated `apps/web/next-env.d.ts`, which is excluded from the intended commit;
-this documentation update was made after verification. An earlier attempt on
-the same draft failed because two test fixtures reused a workflow version;
-the fixture was corrected before the successful full rerun.
-This local run used Node 23. GitHub CI, using Node 22, passed Quality gate on
-PR head `20858a6` (run `41625821559`). The earlier pending-test statements below describe the findings when
-they were recorded, not a newer result. The run used synthetic credentials and
-data and does not prove live providers, first cutover or prior-release rollback.
+Verification update on 2026-11-03: exact code snapshot `388ac7b` passed
+`npm run verify` using isolated PostgreSQL/Redis and test ports: 54 deployment
+checks, 909 API tests, 61 web tests, 202 Playwright tests, typecheck and build.
+The database integration flags were enabled, with no skipped API/web tests.
+The local run used Node 23; this documentation update was made afterward.
+GitHub CI using Node 22 previously passed only PR head `20858a6` (run
+`41625821559`); the updated head still needs CI. Synthetic tests do not prove
+live providers, first cutover or prior-release rollback. Earlier pending-test
+statements below describe the findings when they were recorded.
 
 ## Scope and evidence
 

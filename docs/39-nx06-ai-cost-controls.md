@@ -38,8 +38,8 @@ When an operator runs the local production environment validator, it now checks
 these optional variables against the same ranges, including rejecting an
 explicitly empty value. The deploy script does not automatically invoke this
 validator. It does not validate a running process or guarantee all workers
-actually received the same value. The new validation test awaits the final
-quality gate.
+actually received the same value. The validation test passed in the isolated
+full quality gate for snapshot `388ac7b`.
 
 Each node invocation issues at most one generation request in the production
 transport: unsafe redirects are rejected and provider, transport, timeout,
@@ -77,8 +77,8 @@ as a non-retryable `PROVIDER_REFUSAL` in plain-text mode, as it already did for
 structured output. Previously a plain-text workflow could receive partial text
 as success and continue to later nodes; this intentional safety correction can
 instead take its error branch. The refusal text and partial content are not
-stored in the error. Regression coverage has been added but this change has not
-yet passed the final quality gate. OpenAI documents refusals as a distinct
+stored in the error. Regression coverage passed in the isolated full quality
+gate for snapshot `388ac7b`. OpenAI documents refusals as a distinct
 response content type; this policy is Fluxora's handling of a mixed response.
 
 References, consulted 2026-11-03:
@@ -91,7 +91,6 @@ References, consulted 2026-11-03:
 - [Gemini billing and spend caps](https://ai.google.dev/gemini-api/docs/billing)
 
 Draft only: provider qualification and actual spending behavior remain
-unverified. An isolated local quality gate was run on an earlier snapshot;
-the current release status and exact scope of that evidence are tracked in
-[the NX audit](37-node-expansion-audit.md). Subsequent local changes need the
-final gate and CI on the eventual PR head.
+unverified. The isolated quality gate and exact scope of its evidence are
+tracked in [the NX audit](37-node-expansion-audit.md). CI on the eventual PR
+head and a safe production release remain outstanding.

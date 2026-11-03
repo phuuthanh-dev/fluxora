@@ -132,8 +132,8 @@ deploying the containers.
   dump does not publish the final path; a duplicate timestamp or explicitly
   reused `BACKUP_FILE` fails instead of overwriting the earlier archive. This
   requires hard-link support on that filesystem and does not verify the dump's
-  contents or durability. The change and its synthetic tests await the next
-  full quality gate.
+  contents or durability. Synthetic tests passed in the isolated full quality
+  gate for snapshot `388ac7b`.
 
 - Test restoration only into an isolated database/stack. The restore command is destructive and deliberately requires `CONFIRM_RESTORE=RESTORE`:
 
@@ -149,8 +149,8 @@ deploying the containers.
   The check does not discover unmanaged clients or tools that ignore the lock.
   `--clean` removes objects represented in the archive, not necessarily objects
   created after it; this command alone is not a complete downgrade or a safe
-  way to preserve writes made after the backup. The changed script and its
-  synthetic tests await the final quality gate and an isolated restore drill.
+  way to preserve writes made after the backup. Synthetic tests passed in the
+  isolated full quality gate for `388ac7b`; an isolated restore drill remains.
 
 - Preserve the `postgres_data` volume and never use `docker compose down -v` in production.
 - After a successful health check, deploy scripts retain the current and previous API/Web commit-SHA images and remove only older SHA-tagged images from those two application repositories. PostgreSQL/Redis images and volumes are never part of this cleanup. An older image's presence in GHCR does not establish that it can safely read the current database or queued work.
