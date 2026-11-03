@@ -416,7 +416,18 @@ test("execution center loads stable cursor pages without losing existing runs", 
   await signUpAndDashboard(page, email);
   await page.getByRole("button", { name: "Expand execution center" }).click();
   await expect(page.getByText("Newest report", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Load more runs" }).click();
+  // This test covers pagination; the disclosure's interruptible animation is
+  // exercised separately. Wait until the moving panel has settled before
+  // clicking and verify that the cursor request actually received a response.
+  await expect(page.locator("#dashboard-execution-content")).not.toHaveAttribute("data-animating", "true");
+  const [nextPage] = await Promise.all([
+    page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return url.pathname.endsWith("/executions") && url.searchParams.get("cursor") === "execution-new";
+    }),
+    page.getByRole("button", { name: "Load more runs" }).click(),
+  ]);
+  expect(nextPage.ok()).toBe(true);
   await expect(page.getByText("Older report", { exact: true })).toBeVisible();
   await expect(page.getByText("Newest report", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Load more runs" })).toHaveCount(0);
