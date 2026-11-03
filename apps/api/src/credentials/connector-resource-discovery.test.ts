@@ -22,15 +22,22 @@ test("Trello card discovery sends credentials only in the header and bounds boar
     assert.ok(init.signal);
     return Response.json([
       { id: card, idBoard: board, name: "x".repeat(400), secret: trello.token },
-      ...Array.from({ length: 100 }, () => ({ id: card, idBoard: board, name: "Card" })),
+      ...Array.from({ length: 100 }, (_, index) => ({ id: (0x65000000 - index).toString(16).padStart(8, "0") + "0".repeat(16), idBoard: board, name: "Card" })),
     ]);
   });
   assert.equal(result.hasMore, true);
   assert.equal(result.cards.length, 100);
-  assert.equal(result.nextBefore, card);
+  assert.equal(result.nextBefore, (0x65000000 - 98).toString(16).padStart(8, "0") + "0".repeat(16));
   assert.equal(result.cards[0]?.name.length, 300);
   assert.ok(!JSON.stringify(result).includes(trello.token));
   await assert.rejects(listTrelloCards(trello, board, async () => Response.json([{ id: card, idBoard: otherBoard, name: "wrong board" }])));
+});
+
+test("Trello discovery warns and stops pagination for an ambiguous boundary", async () => {
+  const result = await listTrelloCards(trello, board, async () => Response.json(Array.from({ length: 101 }, () => ({ id: card, idBoard: board, name: "Card" }))));
+  assert.equal(result.hasMore, true);
+  assert.equal(result.nextBefore, null);
+  assert.match(result.warning ?? "", /ambiguous/);
 });
 
 test("Trello rejects unsafe board IDs and malformed credentials before transport", async () => {

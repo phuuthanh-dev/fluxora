@@ -11,6 +11,11 @@ export type RssTarget = { workflowId: string; versionId: string; nodeId: string;
 export type RssSnapshot = { keys: string[]; etag: string | null; lastModified: string | null };
 export type RssCheckpoint = RssSnapshot & { feedUrlHash: string };
 export type RssObservation = ReturnType<typeof parseRssTriggerSnapshot>["observations"][number];
+/** Only a missing connection is safe to retry without replacing the snapshot.
+ * Gaps, invalid checkpoints and other errors still require explicit review. */
+export function canResumeRssCheckpoint(state: string, lastErrorCode: string | null | undefined) {
+  return state === "READY" || (state === "ERROR" && lastErrorCode === "RSS_NOT_READY");
+}
 export interface RssTriggerStore {
   claim(target: RssTarget, leaseToken: string, now: Date, leaseUntil: Date): Promise<RssCheckpoint | null>;
   /** Fence active version and lease, persist accepted deliveries + snapshot in

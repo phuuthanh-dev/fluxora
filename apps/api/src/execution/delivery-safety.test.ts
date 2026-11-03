@@ -11,7 +11,7 @@ async function runAction(type: string, config: Record<string, unknown>, errorBra
   const executionUpdates: Array<Record<string, unknown>> = [];
   let credentialReads = 0;
   const execution = {
-    id: "delivery-safety", status: ExecutionStatus.QUEUED, triggerData: {}, nodeExecutions: [],
+    id: "delivery-safety", mode: mode === "mock" ? "MOCK" : "LIVE", status: ExecutionStatus.QUEUED, triggerData: {}, nodeExecutions: [],
     workflowVersion: {
       workflow: { workspaceId: "test-workspace" },
       graph: {
@@ -58,7 +58,7 @@ test("a cancelled execution does not retry a failed node", async () => {
   let credentialReads = 0;
   const events: string[] = [];
   const execution = {
-    id: "cancel-retry", status: ExecutionStatus.QUEUED as ExecutionStatus, startedAt: null, resumeToken: null,
+    id: "cancel-retry", mode: "LIVE", status: ExecutionStatus.QUEUED as ExecutionStatus, startedAt: null, resumeToken: null,
     triggerData: {}, nodeExecutions: [], workflowVersion: { workflow: { workspaceId: "test-workspace" }, graph: {
       nodes: [
         { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },

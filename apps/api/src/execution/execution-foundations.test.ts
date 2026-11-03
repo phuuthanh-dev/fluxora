@@ -51,6 +51,7 @@ test("normalizes safe-expression errors into terminal node failures", () => {
 test("stale initial-only jobs cannot claim an execution resumed after approval", async () => {
   const execution = {
     id: "approval-resume",
+    mode: "LIVE",
     status: ExecutionStatus.QUEUED,
     startedAt: new Date("2026-11-01T00:00:00Z"),
     nodeExecutions: [],
@@ -61,6 +62,19 @@ test("stale initial-only jobs cannot claim an execution resumed after approval",
   const service = new ExecutionService(prisma as never, {} as never, {} as never);
   await service.run(execution.id, "live", undefined, undefined, true);
   assert.equal(claims, 0);
+});
+
+test("jobs with a mismatched execution mode cannot claim or call a provider", async () => {
+  for (const [storedMode, jobMode] of [["MOCK", "live"], ["LIVE", "mock"], ["MOCK", "unexpected"]] as const) {
+    const execution = { id: "mode-mismatch", mode: storedMode, status: ExecutionStatus.QUEUED, startedAt: null, resumeToken: null, nodeExecutions: [], workflowVersion: { workflow: { workspaceId: "workspace" }, graph: { nodes: [{ id: "send", type: "action.telegram.message", position: { x: 0, y: 0 }, config: { credentialId: "bot", text: "test" } }], edges: [] } } };
+    let claims = 0;
+    let credentialReads = 0;
+    const prisma = { execution: { findUnique: async () => execution, updateMany: async () => { claims++; return { count: 1 }; } } };
+    const service = new ExecutionService(prisma as never, { readForExecution: async () => { credentialReads++; throw new Error("unexpected credential read"); } } as never, {} as never);
+    assert.equal(await service.run(execution.id, jobMode as "mock" | "live"), execution);
+    assert.equal(claims, 0);
+    assert.equal(credentialReads, 0);
+  }
 });
 
 test("a previously queued live graph with an unavailable node fails before any provider action", async () => {
@@ -88,6 +102,7 @@ test("a previously queued live graph with an unavailable node fails before any p
 test("an initial-only claim remains conditional if the execution starts concurrently", async () => {
   const execution = {
     id: "racing-initial",
+    mode: "LIVE",
     status: ExecutionStatus.QUEUED,
     startedAt: null,
     nodeExecutions: [],
@@ -97,11 +112,11 @@ test("an initial-only claim remains conditional if the execution starts concurre
   const prisma = { execution: { findUnique: async () => execution, updateMany: async ({ where }: { where: Record<string, unknown> }) => { claimWhere = where; return { count: 0 }; } } };
   const service = new ExecutionService(prisma as never, {} as never, {} as never);
   await service.run(execution.id, "live", undefined, undefined, true);
-  assert.deepEqual(claimWhere, { id: execution.id, status: ExecutionStatus.QUEUED, resumeToken: null, startedAt: null });
+  assert.deepEqual(claimWhere, { id: execution.id, status: ExecutionStatus.QUEUED, mode: "LIVE", resumeToken: null, startedAt: null });
 });
 
 test("a stale job cannot claim a queued approval continuation", async () => {
-  const execution = { id: "resume", status: ExecutionStatus.QUEUED, startedAt: new Date(), resumeToken: "current-token", nodeExecutions: [], workflowVersion: { graph: { nodes: [], edges: [] }, workflow: { workspaceId: "workspace" } } };
+  const execution = { id: "resume", mode: "LIVE", status: ExecutionStatus.QUEUED, startedAt: new Date(), resumeToken: "current-token", nodeExecutions: [], workflowVersion: { graph: { nodes: [], edges: [] }, workflow: { workspaceId: "workspace" } } };
   let claims = 0;
   const service = new ExecutionService({ execution: { findUnique: async () => execution, updateMany: async () => { claims++; return { count: 1 }; } } } as never, {} as never, {} as never);
   await service.run("resume", "live");
@@ -124,6 +139,7 @@ test("invalid expressions fail the execution instead of leaving it running", asy
   const nodeUpdates: Array<Record<string, unknown>> = [];
   const execution = {
     id: "execution-expression-error",
+    mode: "MOCK",
     status: ExecutionStatus.QUEUED,
     triggerData: {},
     nodeExecutions: [],
@@ -170,7 +186,7 @@ test("AI schema descriptions are literal while unresolved whole-schema expressio
     "{{ steps.missing.output.schema }}",
   ]) {
     const updates: Array<Record<string, unknown>> = [];
-    const execution = { id: "schema-run", status: ExecutionStatus.QUEUED, triggerData: {}, nodeExecutions: [], workflowVersion: { workflow: { workspaceId: "workspace-1" }, graph: { nodes: [
+    const execution = { id: "schema-run", mode: "MOCK", status: ExecutionStatus.QUEUED, triggerData: {}, nodeExecutions: [], workflowVersion: { workflow: { workspaceId: "workspace-1" }, graph: { nodes: [
       { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
       { id: "ai", type: "action.gemini", position: { x: 200, y: 0 }, config: { model: "gemini-2.5-flash", prompt: "Summarize", outputSchema: configuredSchema } },
     ], edges: [{ id: "start", source: "manual", target: "ai", kind: "success" }] } } };
@@ -189,6 +205,7 @@ test("node debug executes only the selected mock node and skips downstream nodes
   const nodeUpdates: Array<{ where: Record<string, unknown>; data: Record<string, unknown> }> = [];
   const execution = {
     id: "execution-node-debug",
+    mode: "MOCK",
     status: ExecutionStatus.QUEUED,
     triggerData: { source: "debug" },
     nodeExecutions: [],
@@ -235,7 +252,7 @@ test("node debug executes only the selected mock node and skips downstream nodes
 test("cancellation during a node is not replaced by a successful debug completion", async () => {
   const events: string[] = [];
   const execution = {
-    id: "cancel-race", status: ExecutionStatus.QUEUED as ExecutionStatus, startedAt: null, resumeToken: null,
+    id: "cancel-race", mode: "MOCK", status: ExecutionStatus.QUEUED as ExecutionStatus, startedAt: null, resumeToken: null,
     triggerData: {}, nodeExecutions: [],
     workflowVersion: { workflow: { workspaceId: "workspace-1" }, graph: { nodes: [
       { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
@@ -276,7 +293,7 @@ test("an execution that lost its lease does not start another node", async () =>
   let activeRunToken: string | undefined;
   let transactionPrisma: unknown;
   const execution = {
-    id: "expired-run", status: ExecutionStatus.QUEUED, startedAt: null, resumeToken: null,
+    id: "expired-run", mode: "MOCK", status: ExecutionStatus.QUEUED, startedAt: null, resumeToken: null,
     triggerData: {}, nodeExecutions: [],
     workflowVersion: { workflow: { workspaceId: "workspace-1" }, graph: { nodes: [
       { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
@@ -305,7 +322,7 @@ test("approval is created only if the execution can atomically enter waiting sta
     const approvalOutputs: unknown[] = [];
     let approvalCount = 0;
     const execution = {
-      id: "approval-race", status: ExecutionStatus.QUEUED as ExecutionStatus, startedAt: null, resumeToken: null,
+      id: "approval-race", mode: "MOCK", status: ExecutionStatus.QUEUED as ExecutionStatus, startedAt: null, resumeToken: null,
       triggerData: {}, nodeExecutions: [],
       workflowVersion: { workflow: { workspaceId: "workspace-1" }, graph: { nodes: [
         { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },

@@ -2,6 +2,7 @@ import { NodeFailure, nodeFailureFromOutboundPolicy } from "../execution/node-fa
 import { searchNotionPages, validNotionCursor } from "../execution/notion-search";
 import { fetchSafeOutbound } from "../execution/outbound-url-policy";
 import { readBoundedProviderJson } from "../execution/provider-json";
+import { trelloPageBoundary } from "../execution/trello-pagination";
 
 type Transport = (url: string, init: RequestInit) => Promise<Response>;
 const trelloId = /^[a-f0-9]{24}$/i;
@@ -27,7 +28,7 @@ export async function listTrelloCards(credential: Record<string, unknown>, board
   catch (error) { if (error instanceof NodeFailure) throw error; throw new NodeFailure("INVALID_RESPONSE", "Trello returned an invalid card list.", false); }
   if (!Array.isArray(payload)) throw new NodeFailure("INVALID_RESPONSE", "Trello returned an invalid card list.", false);
   if (payload.length > 101) throw new NodeFailure("INVALID_RESPONSE", "Trello returned an invalid card list.", false);
-  const cards = payload.slice(0, 100).map((value: unknown) => {
+  const allCards = payload.map((value: unknown) => {
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new NodeFailure("INVALID_RESPONSE", "Trello returned an invalid card list.", false);
     const card = value as Record<string, unknown>;
     if (typeof card.id !== "string" || !trelloId.test(card.id) || card.id.includes(apiKey) || card.id.includes(token) || typeof card.idBoard !== "string" || card.idBoard.toLowerCase() !== board.toLowerCase() || typeof card.name !== "string") throw new NodeFailure("INVALID_RESPONSE", "Trello returned an invalid card list.", false);
@@ -36,8 +37,11 @@ export async function listTrelloCards(credential: Record<string, unknown>, board
     const name = card.name.split(apiKey).join("[REDACTED]").split(token).join("[REDACTED]");
     return { id: card.id, name: name.slice(0, 300) };
   });
+  const cards = allCards.slice(0, 100);
   const hasMore = payload.length > 100;
-  return { cards, hasMore, nextBefore: hasMore ? cards.at(-1)?.id ?? null : null, ...(hasMore ? { warning: "Cards created in the same second at the page boundary may be missed; use a card ID if needed." } : {}) };
+  const boundary = trelloPageBoundary(allCards.map((item) => item.id), 100, before);
+  if (boundary.invalidCutoff) throw new NodeFailure("INVALID_RESPONSE", "Trello returned cards outside the requested page boundary.", false);
+  return { cards, hasMore, nextBefore: boundary.nextBefore, ...(boundary.warning ? { warning: boundary.warning } : {}) };
 }
 
 /** Search only pages shared with this integration, using the existing pinned API version. */

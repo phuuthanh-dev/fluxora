@@ -74,11 +74,22 @@ test("list asks for one extra card, scopes the board and returns a continuation"
     const target = new URL(url); assert.equal(target.pathname, `/1/boards/${board}/cards`);
     assert.equal(target.searchParams.get("limit"), "2"); assert.equal(target.searchParams.get("sort"), "-id");
     assert.equal(target.searchParams.get("before"), new Date(parseInt(another.slice(0, 8), 16) * 1000).toISOString()); assert.equal(target.searchParams.get("filter"), "all");
-    return Response.json([rawCard(), rawCard(another)]);
+    return Response.json([rawCard(), rawCard(list)]);
   });
-  assert.equal(result.count, 1); assert.equal(result.hasMore, true); assert.equal(result.nextBefore, cardId); assert.match(result.paginationWarning ?? "", /same second/);
+  assert.equal(result.count, 1); assert.equal(result.hasMore, true); assert.equal(result.nextBefore, cardId); assert.match(result.paginationWarning ?? "", /not guaranteed/);
   const empty = await listTrelloCards(credential, { boardId: board, limit: 1 }, async () => Response.json([]));
   assert.deepEqual(empty, { cards: [], count: 0, hasMore: false, nextBefore: null });
+});
+
+test("Trello does not advertise a cursor for a duplicate, unsorted or same-second boundary", async () => {
+  const sameSecond = "cccccccc0000000000000000";
+  for (const ids of [[cardId, cardId], [list, cardId], [cardId, sameSecond]]) {
+    const result = await listTrelloCards(credential, { boardId: board, limit: 1 }, async () => Response.json(ids.map((id) => rawCard(id))));
+    assert.equal(result.hasMore, true);
+    assert.equal(result.nextBefore, null);
+    assert.match(result.paginationWarning ?? "", /ambiguous/);
+  }
+  await assert.rejects(listTrelloCards(credential, { boardId: board, limit: 1, before: cardId }, async () => Response.json([rawCard(another)])), failure("INVALID_PROVIDER_RESPONSE", false));
 });
 
 test("find uses provider search on the chosen board and bounds results", async () => {

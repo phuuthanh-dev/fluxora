@@ -25,11 +25,14 @@ function assertStructuredModel(model: string, outputSchema: AiSchema | undefined
 }
 
 /** Return only provider model identifiers that advertise text generation. */
-export async function listGeminiTextModels(apiKey: string, transport: GeminiTransport = fetchSafeOutbound) {
+export async function listGeminiTextModels(apiKey: string, transport: GeminiTransport = fetchSafeOutbound, pageToken?: string) {
   if (!apiKey.trim()) throw new NodeFailure("INVALID_INPUT", "Gemini API key is required.", false);
+  if (pageToken !== undefined && (typeof pageToken !== "string" || !/^[\x21-\x7e]{1,1024}$/.test(pageToken) || pageToken.includes(apiKey))) throw new NodeFailure("INVALID_INPUT", "Invalid Gemini model page token.", false);
+  const params = new URLSearchParams({ pageSize: "100" });
+  if (pageToken) params.set("pageToken", pageToken);
   let response: Response;
   try {
-    response = await transport("https://generativelanguage.googleapis.com/v1beta/models?pageSize=100", {
+    response = await transport(`https://generativelanguage.googleapis.com/v1beta/models?${params}`, {
       method: "GET", headers: { "x-goog-api-key": apiKey }, signal: AbortSignal.timeout(10_000),
     });
   } catch (error) { throw nodeFailureFromOutboundPolicy(error); }
@@ -47,9 +50,15 @@ export async function listGeminiTextModels(apiKey: string, transport: GeminiTran
     const methods = model?.supportedGenerationMethods;
     if (typeof name !== "string" || !/^models\/[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(name) || name.includes(apiKey) || !Array.isArray(methods) || !methods.includes("generateContent")) return [];
     const label = typeof model?.displayName === "string" ? model.displayName.split(apiKey).join("").trim().slice(0, 160) : "";
-    return [{ id: name, label: label && !label.includes(apiKey) ? label : name }];
+    const tokenLimit = (value: unknown) => typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : undefined;
+    const inputTokenLimit = tokenLimit(model?.inputTokenLimit);
+    const outputTokenLimit = tokenLimit(model?.outputTokenLimit);
+    const thinking = typeof model?.thinking === "boolean" ? model.thinking : undefined;
+    return [{ id: name, label: label && !label.includes(apiKey) ? label : name, ...(inputTokenLimit === undefined ? {} : { inputTokenLimit }), ...(outputTokenLimit === undefined ? {} : { outputTokenLimit }), ...(thinking === undefined ? {} : { thinking }) }];
   });
-  return { models, hasMore: typeof root.nextPageToken === "string" && root.nextPageToken.length > 0 };
+  const rawNext = root.nextPageToken;
+  const nextPageToken = typeof rawNext === "string" && /^[\x21-\x7e]{1,1024}$/.test(rawNext) && !rawNext.includes(apiKey) && rawNext !== pageToken ? rawNext : null;
+  return { models, hasMore: Boolean(rawNext), nextPageToken, ...(rawNext && !nextPageToken ? { warning: "The next model page is unavailable. Enter a model ID manually if needed." } : {}) };
 }
 
 /** Server-side text-generation primitive; credentials never leave the server. */

@@ -5,7 +5,7 @@ import { PrismaService } from "../database/prisma.service";
 import { ExecutionQueueService } from "../execution/execution-queue.service";
 import { NodeFailure } from "../execution/node-failure";
 import { parseWorkflowGraph } from "../workflows/workflow-graph";
-import { RssTriggerPoller, rssFeedUrlHash, rssTargets, type RssTarget } from "./rss-trigger-poller";
+import { RssTriggerPoller, canResumeRssCheckpoint, rssFeedUrlHash, rssTargets, type RssTarget } from "./rss-trigger-poller";
 import { PrismaRssTriggerStore } from "./rss-trigger.store";
 import { BackgroundWork } from "../platform/background-work";
 
@@ -35,9 +35,9 @@ export class RssTriggerService implements OnModuleInit, OnModuleDestroy {
     const targets = rssTargets(workflowId, versionId, graph);
     const baselines: Array<{ target: RssTarget; baseline: Awaited<ReturnType<RssTriggerPoller["baseline"]>> | null }> = [];
     for (const target of targets) {
-      const existing = await this.prisma.$queryRaw<Array<{ feedUrlHash: string; state: string }>>`SELECT "feedUrlHash", "state" FROM "RssTriggerCheckpoint" WHERE "workflowId" = ${workflowId} AND "nodeId" = ${target.nodeId}`;
+      const existing = await this.prisma.$queryRaw<Array<{ feedUrlHash: string; state: string; lastErrorCode: string | null }>>`SELECT "feedUrlHash", "state", "lastErrorCode" FROM "RssTriggerCheckpoint" WHERE "workflowId" = ${workflowId} AND "nodeId" = ${target.nodeId}`;
       if (existing[0]) {
-        if (existing[0].state !== "READY") throw new BadRequestException({ code: "RSS_TRIGGER_RECOVERY_REQUIRED", message: "Review the RSS trigger before reactivating it." });
+        if (!canResumeRssCheckpoint(existing[0].state, existing[0].lastErrorCode)) throw new BadRequestException({ code: "RSS_TRIGGER_RECOVERY_REQUIRED", message: "Review the RSS trigger before reactivating it." });
         if (existing[0].feedUrlHash !== rssFeedUrlHash(target.url)) throw new BadRequestException({ code: "RSS_FEED_CHANGED", message: "The feed changed; reset the RSS trigger before activating it." });
         baselines.push({ target, baseline: null });
       } else {

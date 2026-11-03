@@ -59,7 +59,7 @@ const coordinatorAdditions = {
   "action.trello.update-card": executable(credential("TRELLO"), "write"),
   "action.trello.move-card": executable(credential("TRELLO"), "write"),
   "action.trello.archive-card": executable(credential("TRELLO"), "write"),
-  "action.trello.list-cards": executable(credential("TRELLO"), "read", fields("cards", "count", "hasMore", "nextBefore"), { kind: "continuation", input: "before", next: "nextBefore", hasMore: "hasMore", preserve: ["credentialId", "boardId", "filter", "limit"], caveat: "Cards created in the same second at a page boundary may be missed." }),
+  "action.trello.list-cards": executable(credential("TRELLO"), "read", fields("cards", "count", "hasMore", "nextBefore"), { kind: "continuation", input: "before", next: "nextBefore", hasMore: "hasMore", preserve: ["credentialId", "boardId", "filter", "limit"], caveat: "The next cursor is unavailable for ambiguous boundaries; changing provider data can still affect completeness." }),
   "action.trello.find-cards": executable(credential("TRELLO"), "read", fields("cards", "count", "hasMore")),
   "action.github.list-issues": executable(credential("GITHUB"), "read", fields("items", "page", "hasMore", "nextPage", "truncated"), { kind: "continuation", input: "page", next: "nextPage", hasMore: "hasMore", preserve: ["credentialId", "repository", "state", "pageSize"], caveat: "At the page ceiling hasMore can be true while nextPage is null." }),
   "action.github.get-issue": executable(credential("GITHUB"), "read"),

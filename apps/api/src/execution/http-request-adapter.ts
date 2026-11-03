@@ -1,11 +1,11 @@
 import type { NodeResult } from "./node-executor-contract";
-import { applyHttpCredential, HttpCredentialError } from "./http-credential";
+import { applyHttpCredential, httpCredentialSecrets, HttpCredentialError } from "./http-credential";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
 import { fetchSafeOutbound, fetchSafeOutboundWrite } from "./outbound-url-policy";
 import { readBoundedProviderText } from "./provider-json";
 import { isReadOnlyMethod, requireProviderSuccess, uncertainDelivery } from "./provider-request-policy";
 
-export async function executeHttpRequest(config: Record<string, unknown>, credential?: Record<string, unknown>): Promise<NodeResult> {
+export async function executeHttpRequest(config: Record<string, unknown>, credential?: Record<string, unknown>, transport?: (url: string, init: RequestInit) => Promise<Response>): Promise<NodeResult> {
   let url = typeof config.url === "string" ? config.url : "";
   if (!/^https?:\/\//.test(url)) throw new NodeFailure("INVALID_CONFIGURATION", "HTTP request requires an http(s) URL.", false);
   const timeoutMs = typeof config.timeoutMs === "number" && config.timeoutMs > 0 ? Math.min(config.timeoutMs, 60_000) : 15_000;
@@ -23,7 +23,7 @@ export async function executeHttpRequest(config: Record<string, unknown>, creden
   }
   const body = method === "GET" || method === "HEAD" ? undefined : requestBody(config.body, headers);
   try {
-    const response = await (write ? fetchSafeOutboundWrite : fetchSafeOutbound)(url, { method, headers, body, signal: AbortSignal.timeout(timeoutMs) });
+    const response = await (transport ?? (write ? fetchSafeOutboundWrite : fetchSafeOutbound))(url, { method, headers, body, signal: AbortSignal.timeout(timeoutMs) });
     await requireProviderSuccess(response, "HTTP request", write);
     let raw: string;
     try {
@@ -33,6 +33,12 @@ export async function executeHttpRequest(config: Record<string, unknown>, creden
       throw reason;
     }
     const responseBody: unknown = tryJson(raw);
+    if (credential && containsCredentialEcho(raw, responseBody, httpCredentialSecrets(credential))) {
+      // A write may already have succeeded. Never expose the provider's
+      // response or retry it automatically when the receipt is unsafe.
+      if (write) throw uncertainDelivery("HTTP request", response.status);
+      throw new NodeFailure("HTTP_RESPONSE_UNSAFE", "HTTP response cannot be stored safely. Check the provider response and connection.", false);
+    }
     return { status: "succeeded", output: { status: response.status, body: responseBody }, route: "success" };
   } catch (reason) {
     if (reason instanceof NodeFailure) throw reason;
@@ -42,6 +48,21 @@ export async function executeHttpRequest(config: Record<string, unknown>, creden
     const timeout = reason instanceof Error && reason.name === "TimeoutError";
     throw new NodeFailure(timeout ? "TIMEOUT" : "NETWORK_ERROR", timeout ? "HTTP request timed out." : "HTTP request failed.", true);
   }
+}
+
+function containsCredentialEcho(raw: string, body: unknown, secrets: string[]): boolean {
+  if (!secrets.length) return false;
+  const pending: unknown[] = [raw, body];
+  while (pending.length) {
+    const item = pending.pop();
+    if (typeof item === "string") {
+      if (secrets.some((secret) => item.includes(secret))) return true;
+    } else if (Array.isArray(item)) { for (const value of item) pending.push(value); }
+    else if (item && typeof item === "object") {
+      for (const [key, value] of Object.entries(item)) pending.push(key, value);
+    }
+  }
+  return false;
 }
 
 function readHttpHeaders(value: unknown) {

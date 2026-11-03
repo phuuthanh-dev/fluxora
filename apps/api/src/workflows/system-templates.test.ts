@@ -41,3 +41,10 @@ test("connector-to-chat templates compose mock output into a bounded summary wit
     assert.equal(notification.status, "succeeded", template.slug);
   }
 });
+
+test("Steam to Telegram template treats a dynamic player name as plain text", () => {
+  const telegram = systemWorkflowTemplates.find((template) => template.slug === "steam-telegram-daily-report")!.graph.nodes.find((node) => node.id === "telegram")!;
+  const config = resolveExpressions(telegram.config, { steps: { steam: { output: { profile: { personaname: "Player_[demo]" }, summary: { totalGames: 7 } } } } }) as Record<string, unknown>;
+  assert.equal(config.parseMode, "");
+  assert.equal(config.text, "Steam daily report for Player_[demo]: 7 games.");
+});

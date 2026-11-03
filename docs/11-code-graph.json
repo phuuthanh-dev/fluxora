@@ -241,7 +241,8 @@
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/notion-search.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
-        "apps/api/src/execution/provider-json.ts"
+        "apps/api/src/execution/provider-json.ts",
+        "apps/api/src/execution/trello-pagination.ts"
       ],
       "externalImports": []
     },
@@ -1288,12 +1289,19 @@
         "apps/api/src/credentials/credential.service.ts",
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
-        "apps/api/src/execution/provider-request-policy.ts"
+        "apps/api/src/execution/provider-request-policy.ts",
+        "apps/api/src/execution/trello-pagination.ts"
       ],
       "externalImports": [
         "@prisma/client",
         "undici"
       ]
+    },
+    {
+      "id": "apps/api/src/execution/trello-pagination.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": []
     },
     {
       "id": "apps/api/src/execution/trello.ts",
@@ -3503,6 +3511,10 @@
       "to": "apps/api/src/execution/provider-json.ts"
     },
     {
+      "from": "apps/api/src/credentials/connector-resource-discovery.ts",
+      "to": "apps/api/src/execution/trello-pagination.ts"
+    },
+    {
       "from": "apps/api/src/credentials/connector-resource.controller.ts",
       "to": "apps/api/src/auth/authenticated-request.ts"
     },
@@ -4757,6 +4769,10 @@
     {
       "from": "apps/api/src/execution/trello-operations.ts",
       "to": "apps/api/src/execution/provider-request-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/trello-operations.ts",
+      "to": "apps/api/src/execution/trello-pagination.ts"
     },
     {
       "from": "apps/api/src/execution/trello.ts",

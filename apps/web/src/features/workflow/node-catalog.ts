@@ -349,7 +349,7 @@ export const nodeCatalog: NodeDefinition[] = [
     operationKind: "action",
     icon: "telegram",
     available: true,
-    defaultConfig: { credentialId: "", destinationType: "dm", chatId: "", messageThreadId: "", text: "", parseMode: "Markdown" },
+    defaultConfig: { credentialId: "", destinationType: "dm", chatId: "", messageThreadId: "", text: "", parseMode: "" },
   },
   {
     type: "action.telegram.reply", label: "Telegram reply", description: "Reply to an existing Telegram message.",

@@ -404,6 +404,11 @@ export class ExecutionService {
     const execution = await this.prisma.execution.findUnique({ include: { workflowVersion: { include: { workflow: true } }, nodeExecutions: true }, where: { id: executionId } });
     if (!execution) throw new NotFoundException({ code: "EXECUTION_NOT_FOUND", message: "Execution was not found." });
     if (execution.status !== ExecutionStatus.QUEUED) return execution;
+    // Queue payloads are not authoritative. In particular, an incorrect live
+    // job must never execute a run created as mock against real providers.
+    // Ignore the mismatched job rather than failing a queued run which may
+    // also have a legitimate job waiting to claim it.
+    if ((mode !== "mock" && mode !== "live") || execution.mode !== (mode === "mock" ? "MOCK" : "LIVE")) return execution;
     // Only the exact persisted continuation can consume a resumed phase.
     // Legacy initial/continuation jobs may run only when no nonce is pending.
     if ((execution.resumeToken ?? null) !== (resumeToken ?? null) || (resumeToken && (initialOnly || debugNodeId))) return execution;
@@ -419,7 +424,7 @@ export class ExecutionService {
     const now = new Date();
     const runToken = randomBytes(24).toString("hex");
     const claimed = await this.prisma.execution.updateMany({
-      where: { id: executionId, status: ExecutionStatus.QUEUED, resumeToken: resumeToken ?? null, ...(initialOnly ? { startedAt: null } : {}) },
+      where: { id: executionId, status: ExecutionStatus.QUEUED, mode: execution.mode, resumeToken: resumeToken ?? null, ...(initialOnly ? { startedAt: null } : {}) },
       data: { status: ExecutionStatus.RUNNING, startedAt: execution.startedAt ?? now, completedAt: null, errorCode: null, errorMessage: null, errorRetryable: null, leaseExpiresAt: leaseExpiry(now), runToken, resumeToken: null, resumeNodeIds: Prisma.DbNull, resumeQueuedAt: null },
     });
     if (!claimed.count) return execution;

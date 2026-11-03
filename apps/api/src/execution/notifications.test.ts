@@ -41,24 +41,30 @@ const notificationWriteCases: Array<{ payload: NotificationPayload; credential: 
   },
 ];
 
-test("notification writes do not treat a redirected 429 as permission to resend", async () => {
+test("notification writes never follow redirects or resend a POST", async () => {
   const originalFetch = globalThis.fetch;
   try {
-    for (const { payload, credential } of notificationWriteCases) {
+    for (const { payload, credential } of notificationWriteCases) for (const status of [301, 302, 303, 307, 308]) {
       const methods: string[] = [];
       globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
         methods.push(init?.method ?? "GET");
         return methods.length === 1
-          ? new Response(null, { status: 303, headers: { location: "/receipt" } })
+          ? new Response(null, { status, headers: { location: "/receipt" } })
           : new Response(null, { status: 429 });
       }) as typeof fetch;
       await assert.rejects(defaultNotificationDispatcher.dispatch(payload, credential, "live"), (error: unknown) => {
         assert.ok(error instanceof NodeFailure);
         assert.equal(error.retryable, false);
-        assert.equal(error.statusCode, 429);
+        assert.equal(error.code, "OUTBOUND_REDIRECT_BLOCKED");
         return true;
       });
-      assert.deepEqual(methods, ["POST", "GET"]);
+      assert.deepEqual(methods, ["POST"]);
+    }
+    for (const { payload, credential } of notificationWriteCases) {
+      let calls = 0;
+      globalThis.fetch = (async () => { calls++; return new Response(null, { status: 307 }); }) as typeof fetch;
+      await assert.rejects(defaultNotificationDispatcher.dispatch(payload, credential, "live"), (error: unknown) => error instanceof NodeFailure && error.code === "DELIVERY_UNCERTAIN" && !error.retryable);
+      assert.equal(calls, 1);
     }
   } finally { globalThis.fetch = originalFetch; }
 });

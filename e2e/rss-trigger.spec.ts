@@ -4,6 +4,7 @@ test("RSS trigger explains a checkpoint gap and confirms an explicit reset", asy
   const graph = { nodes: [{ id: "rss", type: "trigger.rss.new-item", position: { x: 100, y: 100 }, config: { url: "https://example.test/feed?lang=vi", pollMinutes: "5" } }], edges: [] };
   const workflow = { id: "rss-test", workspaceId: "workspace-1", name: "RSS trigger", description: null, isActive: false, draft: { id: "draft", version: 2, graph }, published: { id: "published", version: 1, graph } };
   let resets = 0;
+  let errorCode = "RSS_SNAPSHOT_GAP";
   await page.route("**/api/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
@@ -11,7 +12,7 @@ test("RSS trigger explains a checkpoint gap and confirms an explicit reset", asy
     if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
     if (path.endsWith("/credentials")) return send({ credentials: [] });
     if (path.endsWith("/workflows/rss-test")) return send({ workflow });
-    if (path.endsWith("/rss-trigger-status")) return send({ active: false, checkpoints: [{ nodeId: "rss", state: "ERROR", lastErrorCode: "RSS_SNAPSHOT_GAP" }] });
+    if (path.endsWith("/rss-trigger-status")) return send({ active: false, checkpoints: [{ nodeId: "rss", state: "ERROR", lastErrorCode: errorCode }] });
     if (path.endsWith("/rss-trigger-reset")) {
       expect(route.request().postDataJSON()).toEqual({ confirmDataGap: true });
       resets++;
@@ -35,6 +36,9 @@ test("RSS trigger explains a checkpoint gap and confirms an explicit reset", asy
   await page.getByRole("button", { name: "Reset checkpoint…" }).click();
   await page.getByRole("dialog", { name: "Reset RSS checkpoint" }).getByRole("button", { name: "Reset checkpoint", exact: true }).click();
   await expect.poll(() => resets).toBe(1);
+  errorCode = "RSS_NOT_READY";
+  await page.getByRole("button", { name: "Refresh status" }).click();
+  await expect(page.getByText(/A required connection is unavailable/)).toContainText("saved checkpoint will be retained");
 });
 
 test("Reddit access changes are explained without mislabeling other RSS hosts", async ({ page }) => {

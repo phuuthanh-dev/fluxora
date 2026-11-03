@@ -14,6 +14,16 @@ test("RSS reactivation reuses the saved checkpoint without fetching the feed", a
   assert.equal(result[0]?.baseline, null);
 });
 
+test("RSS can resume a connection error without resetting the checkpoint, but not a data gap", async () => {
+  let lastErrorCode = "RSS_NOT_READY";
+  const prisma = { $queryRaw: async () => [{ feedUrlHash: rssFeedUrlHash("https://example.test/feed?lang=vi"), state: "ERROR", lastErrorCode }] };
+  const service = new RssTriggerService(prisma as never, {} as never);
+  Object.defineProperty(service, "poller", { value: { baseline: async () => { throw new Error("checkpoint must not be replaced"); } } });
+  assert.equal((await service.baselines("workflow", "version", graph as never))[0]?.baseline, null);
+  lastErrorCode = "RSS_SNAPSHOT_GAP";
+  await assert.rejects(service.baselines("workflow", "version", graph as never), /Review the RSS trigger/);
+});
+
 test("RSS recovery keeps trigger node identity and uses initial-only jobs", async () => {
   const prisma = { $queryRaw: async () => [{ id: "execution", nodeId: "rss" }] };
   const jobs: unknown[] = [];

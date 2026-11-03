@@ -4,6 +4,7 @@ import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
 import { createSafeSocketLookup, fetchSafeOutbound, wasOutboundRedirected } from "./outbound-url-policy";
 import { readProviderJson, requireProviderSuccess, uncertainDelivery } from "./provider-request-policy";
+import { trelloPageBoundary } from "./trello-pagination";
 
 type Transport = (url: string, init: RequestInit) => Promise<Response>;
 type Operation = "get" | "update" | "move" | "archive" | "list" | "find";
@@ -113,7 +114,9 @@ export async function listTrelloCards(credential: Record<string, unknown>, input
   if (cards.some((item) => item.boardId.toLowerCase() !== boardId.toLowerCase())) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Trello returned a card from another board.", false);
   const hasMore = cards.length > input.limit;
   const page = cards.slice(0, input.limit);
-  return protectOutput({ cards: page, count: page.length, hasMore, nextBefore: hasMore ? page[page.length - 1]!.id : null, ...(hasMore ? { paginationWarning: "Cards created in the same second at the page boundary may be missed." } : {}) }, credential);
+  const boundary = trelloPageBoundary(cards.map((item) => item.id), input.limit, input.before);
+  if (boundary.invalidCutoff) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Trello returned cards outside the requested page boundary.", false);
+  return protectOutput({ cards: page, count: page.length, hasMore, nextBefore: boundary.nextBefore, ...(boundary.warning ? { paginationWarning: boundary.warning } : {}) }, credential);
 }
 
 /** Search uses Trello's query language, scoped to one board; it is not exact-name matching. */

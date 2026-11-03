@@ -30,6 +30,17 @@ test("RSS activation, republish and confirmed reset preserve or discard progress
     const first = await prisma.$queryRaw<Array<{ workflowVersionId: string }>>`SELECT "workflowVersionId" FROM "RssTriggerCheckpoint" WHERE "workflowId" = ${workflowId}`;
     assert.equal(first[0]?.workflowVersionId, versionId);
     await service.deactivate(workflowId, userId);
+    await prisma.$executeRaw`UPDATE "RssTriggerCheckpoint" SET "state" = 'ERROR', "lastErrorCode" = 'RSS_NOT_READY' WHERE "workflowId" = ${workflowId}`;
+    await service.activate(workflowId, userId);
+    const recovered = await prisma.$queryRaw<Array<{ state: string; lastErrorCode: string | null; snapshot: unknown }>>`SELECT "state", "lastErrorCode", "snapshot" FROM "RssTriggerCheckpoint" WHERE "workflowId" = ${workflowId}`;
+    assert.equal(recovered[0]?.state, "READY");
+    assert.equal(recovered[0]?.lastErrorCode, null);
+    assert.deepEqual(recovered[0]?.snapshot, [key]);
+    assert.equal((await prisma.$queryRaw<Array<{ itemKey: string }>>`SELECT "itemKey" FROM "RssTriggerDelivery" WHERE "workflowId" = ${workflowId}`).length, 1);
+    await service.deactivate(workflowId, userId);
+    await prisma.$executeRaw`UPDATE "RssTriggerCheckpoint" SET "state" = 'ERROR', "lastErrorCode" = 'RSS_SNAPSHOT_GAP' WHERE "workflowId" = ${workflowId}`;
+    await assert.rejects(service.activate(workflowId, userId), (error: unknown) => error instanceof ConflictException && (error.getResponse() as { code: string }).code === "RSS_TRIGGER_RECOVERY_REQUIRED");
+    await prisma.$executeRaw`UPDATE "RssTriggerCheckpoint" SET "state" = 'READY', "lastErrorCode" = NULL WHERE "workflowId" = ${workflowId}`;
     await service.publish(workflowId, userId);
     const transferred = await prisma.$queryRaw<Array<{ workflowVersionId: string }>>`SELECT "workflowVersionId" FROM "RssTriggerCheckpoint" WHERE "workflowId" = ${workflowId}`;
     assert.equal(transferred[0]?.workflowVersionId, draftId);

@@ -37,12 +37,39 @@ test("Gemini model discovery returns bounded generation-capable identifiers only
     assert.equal(url, "https://generativelanguage.googleapis.com/v1beta/models?pageSize=100");
     assert.equal((init.headers as Record<string, string>)["x-goog-api-key"], "test-key");
     return Response.json({ models: [
-      { name: "models/example", displayName: "Example", supportedGenerationMethods: ["generateContent"] },
+      { name: "models/example", displayName: "Example", supportedGenerationMethods: ["generateContent"], inputTokenLimit: 1000000, outputTokenLimit: 8192, thinking: true },
       { name: "models/embed", supportedGenerationMethods: ["embedContent"] },
       { name: "models/../invalid", supportedGenerationMethods: ["generateContent"] },
     ], nextPageToken: "not-exposed" });
   });
-  assert.deepEqual(result, { models: [{ id: "models/example", label: "Example" }], hasMore: true });
+  assert.deepEqual(result, { models: [{ id: "models/example", label: "Example", inputTokenLimit: 1000000, outputTokenLimit: 8192, thinking: true }], hasMore: true, nextPageToken: "not-exposed" });
+});
+
+test("Gemini discovery omits invalid or missing provider limits rather than guessing", async () => {
+  const result = await listGeminiTextModels("test-key", async () => Response.json({ models: [
+    { name: "models/a", supportedGenerationMethods: ["generateContent"], inputTokenLimit: -1, outputTokenLimit: "8192", thinking: "true" },
+    { name: "models/b", supportedGenerationMethods: ["generateContent"], inputTokenLimit: 1024, outputTokenLimit: 0, thinking: false },
+  ] }));
+  assert.deepEqual(result.models, [{ id: "models/a", label: "models/a" }, { id: "models/b", label: "models/b", inputTokenLimit: 1024, thinking: false }]);
+});
+
+test("Gemini discovery sends the continuation safely and never exposes an unsafe or repeated token", async () => {
+  const transport = async (url: string) => {
+    const request = new URL(url);
+    assert.equal(request.searchParams.get("pageSize"), "100");
+    assert.equal(request.searchParams.get("pageToken"), "next+/=");
+    return Response.json({ models: [{ name: "models/second", supportedGenerationMethods: ["generateContent"] }] });
+  };
+  const result = await listGeminiTextModels("synthetic-key", transport, "next+/=");
+  assert.deepEqual(result, { models: [{ id: "models/second", label: "models/second" }], hasMore: false, nextPageToken: null });
+  for (const token of ["synthetic-key", "prefix-synthetic-key-suffix", "invalid\nvalue", "next+/="]) {
+    const unsafe = await listGeminiTextModels("synthetic-key", async () => Response.json({ models: [], nextPageToken: token }), "next+/=");
+    assert.equal(unsafe.nextPageToken, null);
+    assert.equal(unsafe.hasMore, true);
+    assert.ok(unsafe.warning);
+    assert.equal(JSON.stringify(unsafe).includes("synthetic-key"), false);
+  }
+  await assert.rejects(listGeminiTextModels("synthetic-key", async () => { throw new Error("unexpected provider request"); }, "synthetic-key"), /Invalid Gemini model page token/);
 });
 
 test("Gemini discovery does not expose a connection key echoed by provider metadata", async () => {

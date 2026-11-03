@@ -59,6 +59,26 @@ test("concurrent decisions resolve an approval once and a terminal approval comp
     assert.equal(finished.resumeToken, null);
     assert.equal((await prisma.nodeExecution.findUniqueOrThrow({ where: { executionId_nodeId: { executionId: continuation.executionId, nodeId: "next" } } })).status, "SUCCEEDED");
 
+    // A bad queue payload must not turn a saved mock run into a live send or
+    // consume the claim needed by the correct job. The credential service is
+    // intentionally empty; no real provider is contacted by either call.
+    const modeVersionId = `mode-version-${suffix}`, modeExecutionId = `mode-execution-${suffix}`;
+    const modeGraph = { nodes: [
+      { id: "start", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
+      { id: "send", type: "action.telegram.message", position: { x: 1, y: 0 }, config: { credentialId: "synthetic", chatId: "123", text: "synthetic" } },
+    ], edges: [{ id: "edge", source: "start", target: "send", kind: "success" }] };
+    await prisma.workflowVersion.create({ data: { id: modeVersionId, workflowId, version: 40, status: "PUBLISHED", graph: modeGraph } });
+    await prisma.execution.create({ data: { id: modeExecutionId, workflowVersionId: modeVersionId, mode: "MOCK" } });
+    await service.run(modeExecutionId, "live");
+    const stillQueued = await prisma.execution.findUniqueOrThrow({ where: { id: modeExecutionId }, include: { nodeExecutions: true } });
+    assert.equal(stillQueued.status, "QUEUED");
+    assert.equal(stillQueued.startedAt, null);
+    assert.equal(stillQueued.nodeExecutions.length, 0);
+    await service.run(modeExecutionId, "mock");
+    const mockFinished = await prisma.execution.findUniqueOrThrow({ where: { id: modeExecutionId }, include: { nodeExecutions: true } });
+    assert.equal(mockFinished.status, "SUCCEEDED");
+    assert.equal(mockFinished.nodeExecutions.find((node) => node.nodeId === "send")?.status, "SUCCEEDED");
+
     // Hold the approval row until after its deadline. The request must have
     // acquired the execution and node locks before reaching the locked
     // approval row, otherwise the intended lock-wait race is not tested.

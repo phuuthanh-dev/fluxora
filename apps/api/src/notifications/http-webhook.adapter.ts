@@ -1,6 +1,6 @@
-import { fetchSafeOutbound, wasOutboundRedirected } from "../execution/outbound-url-policy";
+import { fetchSafeOutboundWrite, wasOutboundRedirected } from "../execution/outbound-url-policy";
 import { NodeFailure } from "../execution/node-failure";
-import { notificationWriteFailure } from "./notification-write-failure";
+import { notificationReceiptFailure, notificationWriteFailure } from "./notification-write-failure";
 import { applyHttpCredential, HttpCredentialError } from "../execution/http-credential";
 import type { NotificationAdapter, NotificationPayload, NormalizedDeliveryResult } from "./notification-contracts";
 
@@ -73,7 +73,7 @@ export class HttpWebhookNotificationAdapter implements NotificationAdapter {
 
     let response: Response;
     try {
-      response = await fetchSafeOutbound(url, {
+      response = await fetchSafeOutboundWrite(url, {
         method: "POST",
         headers,
         body: JSON.stringify(body),
@@ -86,6 +86,7 @@ export class HttpWebhookNotificationAdapter implements NotificationAdapter {
     // Only the HTTP acknowledgement is used; release the unread body.
     await response.body?.cancel().catch(() => undefined);
     if (!response.ok) {
+      if (response.status >= 300 && response.status < 400) throw notificationReceiptFailure("HTTP webhook");
       throw new NodeFailure(
         "HTTP_ERROR",
         `HTTP webhook returned ${response.status}.`,

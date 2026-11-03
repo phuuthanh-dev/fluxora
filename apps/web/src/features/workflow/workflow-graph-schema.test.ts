@@ -21,6 +21,12 @@ test("API round-trip preserves unversioned legacy nodes and versioned new nodes"
   assert.throws(() => graphFromApi({ ...legacy, nodes: [{ ...legacy.nodes[0]!, nodeVersion: 2 }] }), /Unsupported node version/);
 });
 
+test("new Telegram message nodes use plain text while existing formatting survives a round trip", () => {
+  assert.equal(createNodeData(getNodeDefinition("action.telegram.message")!).config.parseMode, "");
+  const graph = { nodes: [{ id: "telegram", type: "action.telegram.message" as const, position: { x: 0, y: 0 }, config: { text: "*formatted*", parseMode: "Markdown" } }], edges: [] };
+  assert.deepEqual(graphForApi(graphFromApi(graph)), graph);
+});
+
 test("advanced pagination help belongs to the Calendar field, not its key globally", () => {
   const calendar = getNodeDefinition("action.google-calendar.list-events");
   const pagination = calendar?.configurationFields?.find((field) => field.key === "pageToken");

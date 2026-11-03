@@ -7,7 +7,7 @@ import { assertExecutableGraph, parseWorkflowGraph, validatePublishableGraph } f
 import { systemWorkflowTemplates } from "./system-templates";
 import { GmailTriggerService } from "../scheduler/gmail-trigger.service";
 import { RssTriggerService } from "../scheduler/rss-trigger.service";
-import { rssFeedUrlHash, rssTargets } from "../scheduler/rss-trigger-poller";
+import { canResumeRssCheckpoint, rssFeedUrlHash, rssTargets } from "../scheduler/rss-trigger-poller";
 
 type CreateWorkflowInput = { name: string; description?: string; graph?: unknown };
 type UpdateDraftInput = { name?: string; description?: string | null; graph: unknown };
@@ -287,11 +287,12 @@ export class WorkflowService {
           else await transaction.gmailTriggerCheckpoint.create({ data: { workflowVersionId: workflow.publishedVersion!.id, ...baseline } });
         }
         for (const { target, baseline } of rssBaselines) {
-          const rows = await transaction.$queryRaw<Array<{ feedUrlHash: string; workflowVersionId: string; state: string; leaseToken: string | null; leaseExpiresAt: Date | null }>>`SELECT "feedUrlHash", "workflowVersionId", "state", "leaseToken", "leaseExpiresAt" FROM "RssTriggerCheckpoint" WHERE "workflowId" = ${workflowId} AND "nodeId" = ${target.nodeId} FOR UPDATE`;
+          const rows = await transaction.$queryRaw<Array<{ feedUrlHash: string; workflowVersionId: string; state: string; lastErrorCode: string | null; leaseToken: string | null; leaseExpiresAt: Date | null }>>`SELECT "feedUrlHash", "workflowVersionId", "state", "lastErrorCode", "leaseToken", "leaseExpiresAt" FROM "RssTriggerCheckpoint" WHERE "workflowId" = ${workflowId} AND "nodeId" = ${target.nodeId} FOR UPDATE`;
           const existing = rows[0];
-          if (existing && (existing.state !== "READY" || existing.workflowVersionId !== target.versionId || existing.feedUrlHash !== rssFeedUrlHash(target.url))) throw new ConflictException({ code: "RSS_TRIGGER_RECOVERY_REQUIRED", message: "Review the RSS trigger before reactivating it." });
+          if (existing && (!canResumeRssCheckpoint(existing.state, existing.lastErrorCode) || existing.workflowVersionId !== target.versionId || existing.feedUrlHash !== rssFeedUrlHash(target.url))) throw new ConflictException({ code: "RSS_TRIGGER_RECOVERY_REQUIRED", message: "Review the RSS trigger before reactivating it." });
           if (existing?.leaseToken && existing.leaseExpiresAt && existing.leaseExpiresAt > activatedAt) throw new ConflictException({ code: "RSS_POLL_IN_PROGRESS", message: "Wait for the current RSS check to finish before activating." });
-          if (existing) await transaction.$executeRaw`UPDATE "RssTriggerCheckpoint" SET "leaseToken" = NULL, "leaseExpiresAt" = NULL, "nextPollAt" = NULL, "updatedAt" = ${activatedAt} WHERE "workflowId" = ${workflowId} AND "nodeId" = ${target.nodeId}`;
+          if (existing?.state === "ERROR") await transaction.$executeRaw`UPDATE "RssTriggerCheckpoint" SET "state" = 'READY', "lastErrorCode" = NULL, "leaseToken" = NULL, "leaseExpiresAt" = NULL, "nextPollAt" = NULL, "updatedAt" = ${activatedAt} WHERE "workflowId" = ${workflowId} AND "nodeId" = ${target.nodeId}`;
+          else if (existing) await transaction.$executeRaw`UPDATE "RssTriggerCheckpoint" SET "leaseToken" = NULL, "leaseExpiresAt" = NULL, "nextPollAt" = NULL, "updatedAt" = ${activatedAt} WHERE "workflowId" = ${workflowId} AND "nodeId" = ${target.nodeId}`;
           else {
             if (!baseline) throw new ConflictException({ code: "RSS_CHECKPOINT_CHANGED", message: "The RSS trigger changed. Reload and try again." });
             await transaction.$executeRaw`INSERT INTO "RssTriggerCheckpoint" ("workflowId", "nodeId", "workflowVersionId", "feedUrlHash", "snapshot", "etag", "lastModified", "updatedAt") VALUES (${workflowId}, ${target.nodeId}, ${target.versionId}, ${baseline.feedUrlHash}, ${JSON.stringify(baseline.keys)}::jsonb, ${baseline.etag}, ${baseline.lastModified}, ${activatedAt})`;

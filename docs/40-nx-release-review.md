@@ -1,29 +1,32 @@
 # NX draft: review boundaries and release decision
 
 Review snapshot: 2026-11-03, `origin/main` at `3c9ac35`, draft PR #75
-head `188a26f`. This is an initial risk-based review, not a completed
+head `20858a6`. This is an initial risk-based review, not a completed
 line-by-line audit of every change. Recheck the base and head before using it
-for a release decision. The Telegram/Kuma retention fix described below is a
-subsequent local change and is not part of that already-passing CI run.
+for a release decision. The later isolated handoff observations in this file
+are local documentation and are not part of the PR head.
 
 Verification update on 2026-11-03: the latest local draft passed a complete
 `npm run verify` on isolated PostgreSQL/Redis and test ports, with 52 deployment
-checks, 893 API tests, 60 web tests and 201 Playwright tests, plus typecheck
+checks, 904 API tests, 61 web tests and 201 Playwright tests, plus typecheck
 and build. All listed database integration flags were enabled; API/web tests
 reported zero skipped. The source matched the tested snapshot except for the
-generated `apps/web/next-env.d.ts`, which is excluded from the intended commit.
-This local run used Node 23; GitHub CI uses Node 22 and has not yet run this
-draft. The earlier pending-test statements below describe the findings when
+generated `apps/web/next-env.d.ts`, which is excluded from the intended commit;
+this documentation update was made after verification. An earlier attempt on
+the same draft failed because two test fixtures reused a workflow version;
+the fixture was corrected before the successful full rerun.
+This local run used Node 23. GitHub CI, using Node 22, passed Quality gate on
+PR head `20858a6` (run `41625821559`). The earlier pending-test statements below describe the findings when
 they were recorded, not a newer result. The run used synthetic credentials and
 data and does not prove live providers, first cutover or prior-release rollback.
 
 ## Scope and evidence
 
-The PR compares 284 files: 21,235 additions and 2,409 deletions, including
-tests, generated code graph and documentation. These numbers do not imply that
-all additions are production features. `docs/11-code-graph.json` alone accounts
-for 2,236 additions and 362 deletions. The execution directory includes 96
-changed files, including tests. GitHub Quality gate passed for the PR head;
+The local comparison of PR head `20858a6` with `origin/main` changes 296 files:
+22,123 additions and 2,483 deletions, including tests, generated code graph
+and documentation. These numbers do not imply that all additions are production
+features. `docs/11-code-graph.json` alone accounts for 2,259 additions and 356
+deletions. GitHub Quality gate passed for the PR head;
 that does not establish live-provider behavior or production cutover safety.
 
 | Area | Observed change | Release boundary |
@@ -52,6 +55,42 @@ undone by reverting a column.
    count is not a drain. See the detailed evidence in
    [the NX audit](37-node-expansion-audit.md) and
    [deployment runbook](15-deployment.md).
+   A subsequent isolated rehearsal tested whether separate Redis queue names
+   alone would remove this risk. A stale initial job was left in the old queue;
+   an approval continuation for the same synthetic execution was placed in a
+   distinct new queue, with both workers sharing the migrated test database.
+   The old worker consumed its own stale job and marked the run successful
+   while the next node remained skipped; the new worker then ignored the
+   continuation because the execution was already terminal. The old worker,
+   execution-service and contract source files were compared with `origin/main`
+   `3c9ac35`; the new worker came from the locally verified draft. This proves
+   that queue-name isolation by itself is insufficient, not that an isolated
+   queue plus a proven drain and reconciliation could not be part of a safe
+   procedure. The experiment used synthetic records and no provider calls.
+   In another isolated rehearsal, the actual legacy worker entry point ran an
+   active mock job held at a PostgreSQL row lock. After one SIGTERM, a second
+   legacy job remained waiting while the active job finished; the legacy
+   process exited with code 0, and the actual new worker entry point consumed
+   the waiting legacy job once. Both runs succeeded with one node attempt.
+   This establishes that controlled worker handoff for that synthetic case,
+   not API ingress fencing, provider-write outcomes, multi-worker topology,
+   crash recovery or first production cutover. Node processes ran locally with
+   disposable Docker PostgreSQL/Redis; no provider or production data was used.
+   A further isolated rehearsal used one actual legacy worker process with
+   `EXECUTION_WORKER_CONCURRENCY=2`, matching the observed production setting.
+   Two mock jobs were held on separate execution rows, then SIGTERM was sent;
+   a third job stayed queued while both active jobs finished and the legacy
+   process exited cleanly. The new worker consumed that queued job once; all
+   three mock executions succeeded with one node attempt each. This covers one
+   process and one controlled handoff, not multiple worker processes, real
+   provider effects, failure during shutdown, API drain, or rollback.
+   A read-only production inventory at 2026-11-03 12:00 UTC confirmed the
+   legacy production image, four active workflows (one cron and three manual),
+   no active webhook endpoints on those workflows, no pending approvals and
+   no nonterminal executions. API and worker used the same default queue; its
+   waiting, active and delayed counts were all zero. This is a momentary
+   observation, not a maintenance fence or proof that accepted API work has
+   drained. Workflow and queue state may change immediately after the query.
 2. **P0 — Previous-release rollback is not established.** The draft guard only
    permits an automated restart of the exact currently running images once NX
    migrations are present. It must not be presented as rollback to the prior

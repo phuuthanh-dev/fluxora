@@ -64,7 +64,7 @@ export const systemWorkflowTemplates: SystemWorkflowTemplate[] = [
       nodes: [
         { id: "daily-schedule", type: "trigger.cron", position: { x: 100, y: 220 }, config: { expression: "0 9 * * *", timezone: "Asia/Ho_Chi_Minh" } },
         { id: "steam", type: "action.steam.account-snapshot", position: { x: 400, y: 220 }, config: { credentialId: "", steamId: "" } },
-        { id: "telegram", type: "action.telegram.message", position: { x: 720, y: 220 }, config: { credentialId: "", destinationType: "dm", chatId: "", text: "Steam daily report for {{steps.steam.output.profile.personaname}}: {{steps.steam.output.summary.totalGames}} games.", parseMode: "Markdown" } },
+        { id: "telegram", type: "action.telegram.message", position: { x: 720, y: 220 }, config: { credentialId: "", destinationType: "dm", chatId: "", text: "Steam daily report for {{steps.steam.output.profile.personaname}}: {{steps.steam.output.summary.totalGames}} games.", parseMode: "" } },
       ],
       edges: [
         { id: "schedule-to-steam", source: "daily-schedule", target: "steam", kind: "success" },
