@@ -120,21 +120,33 @@ export async function listTrelloCards(credential: Record<string, unknown>, input
 }
 
 /** Search uses Trello's query language, scoped to one board; it is not exact-name matching. */
-export async function findTrelloCards(credential: Record<string, unknown>, input: { boardId: string; query: string; limit: number }, transport: Transport = fetchSafeOutbound) {
+export async function findTrelloCards(credential: Record<string, unknown>, input: { boardId: string; query: string; limit: number; page?: number }, transport: Transport = fetchSafeOutbound) {
   const boardId = resourceId(input.boardId, "board");
-  if (typeof input.query !== "string" || !input.query.trim() || input.query.length > 200 || !Number.isInteger(input.limit) || input.limit < 1 || input.limit > 50) throw new NodeFailure("INVALID_INPUT", "Enter a Trello search query and limit between 1 and 50.", false);
-  const params = new URLSearchParams({ query: input.query, idBoards: boardId, modelTypes: "cards", card_fields: fields, cards_limit: String(input.limit + 1) });
-  const result = object(await request(`search?${params}`, credential, transport));
-  if (!result || !Array.isArray(result.cards) || result.cards.length > input.limit + 1) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Trello returned an invalid search result.", false);
-  const cards = result.cards.map((item) => card(item));
-  if (cards.some((item) => item.boardId.toLowerCase() !== boardId.toLowerCase())) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Trello returned a card from another board.", false);
-  const page = cards.slice(0, input.limit);
-  return protectOutput({ cards: page, count: page.length, hasMore: cards.length > input.limit }, credential);
+  if (typeof input.query !== "string" || !input.query.trim() || input.query.length > 200 || !Number.isInteger(input.limit) || input.limit < 1 || input.limit > 50 || (input.page !== undefined && (!Number.isInteger(input.page) || input.page < 0 || input.page > 100))) throw new NodeFailure("INVALID_INPUT", "Enter a Trello search query, limit between 1 and 50, and page between 0 and 100.", false);
+  const fetchPage = async (limit: number, page?: number) => {
+    const params = new URLSearchParams({ query: input.query, idBoards: boardId, modelTypes: "cards", card_fields: fields, cards_limit: String(limit), ...(page === undefined ? {} : { cards_page: String(page) }) });
+    const result = object(await request(`search?${params}`, credential, transport));
+    if (!result || !Array.isArray(result.cards) || result.cards.length > limit) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Trello returned an invalid search result.", false);
+    const cards = result.cards.map((item) => card(item));
+    if (cards.some((item) => item.boardId.toLowerCase() !== boardId.toLowerCase())) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Trello returned a card from another board.", false);
+    return cards;
+  };
+  // Preserve the original output and single request for graphs saved before
+  // page selection existed. Explicit page mode uses equal-sized pages so the
+  // extra record used by the old first-page probe is never skipped.
+  if (input.page === undefined) {
+    const cards = await fetchPage(input.limit + 1);
+    const page = cards.slice(0, input.limit);
+    return protectOutput({ cards: page, count: page.length, hasMore: cards.length > input.limit }, credential);
+  }
+  const cards = await fetchPage(input.limit, input.page);
+  const hasMore = cards.length < input.limit ? false : input.page === 100 ? null : (await fetchPage(input.limit, input.page + 1)).length > 0;
+  return protectOutput({ cards, count: cards.length, page: input.page, hasMore, nextPage: hasMore === true ? input.page + 1 : null, continuationUnknown: hasMore === null }, credential);
 }
 
 export async function executeTrelloOperation(operation: Operation, config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport?: Transport) {
   if (!["get", "update", "move", "archive", "list", "find"].includes(operation)) throw new NodeFailure("INVALID_INPUT", "Invalid Trello operation.", false);
-  const optionalFields = operation === "list" ? ["limit", "before", "filter"] : operation === "find" ? ["limit"] : operation === "update" ? ["title", "description"] : [];
+  const optionalFields = operation === "list" ? ["limit", "before", "filter"] : operation === "find" ? ["limit", "searchPagination"] : operation === "update" ? ["title", "description"] : [];
   if (optionalFields.some((key) => Object.hasOwn(config, key) && config[key] === undefined)) throw new NodeFailure("INVALID_INPUT", "Trello configuration could not be resolved.", false);
   const isCollection = operation === "list" || operation === "find";
   const cardId = isCollection ? "" : resourceId(config.cardId, "card");
@@ -146,6 +158,9 @@ export async function executeTrelloOperation(operation: Operation, config: Recor
   if (isCollection && (typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > 50)) throw new NodeFailure("INVALID_INPUT", "Enter a limit between 1 and 50.", false);
   if (operation === "list" && ((before !== undefined && (typeof before !== "string" || !idPattern.test(before))) || typeof filter !== "string" || !["open", "closed", "all", "visible"].includes(filter))) throw new NodeFailure("INVALID_INPUT", "Invalid Trello card list parameters.", false);
   if (operation === "find" && (typeof config.query !== "string" || !config.query.trim() || config.query.length > 200)) throw new NodeFailure("INVALID_INPUT", "Enter a Trello search query of at most 200 characters.", false);
+  if (operation === "find" && config.searchPagination !== undefined && (typeof config.searchPagination !== "string" || !["first", "pages"].includes(config.searchPagination))) throw new NodeFailure("INVALID_INPUT", "Choose a valid Trello search pagination mode.", false);
+  const searchPage = operation === "find" && config.searchPagination === "pages" ? config.page : undefined;
+  if (operation === "find" && config.searchPagination === "pages" && (typeof searchPage !== "number" || !Number.isInteger(searchPage) || searchPage < 0 || searchPage > 100)) throw new NodeFailure("INVALID_INPUT", "Enter a Trello search page between 0 and 100.", false);
   const changes: Record<string, string | boolean> = {};
   if (operation === "update") {
     if (config.title !== undefined) {
@@ -161,14 +176,14 @@ export async function executeTrelloOperation(operation: Operation, config: Recor
   if (operation === "move") { changes.idBoard = boardId; changes.idList = listId; }
   if (operation === "archive") changes.closed = true;
   const mockCard = { id: cardId || "cccccccccccccccccccccccc", name: typeof changes.name === "string" ? changes.name : "Example card", description: typeof changes.desc === "string" ? changes.desc : "", boardId: boardId || "aaaaaaaaaaaaaaaaaaaaaaaa", listId: listId || "bbbbbbbbbbbbbbbbbbbbbbbb", closed: operation === "archive", url: "https://trello.com/c/example" };
-  if (mode === "mock") return { status: "succeeded" as const, output: isCollection ? { cards: [mockCard], count: 1, hasMore: false, ...(operation === "list" ? { nextBefore: null } : {}) } : mockCard, route: "success" as const };
+  if (mode === "mock") return { status: "succeeded" as const, output: isCollection ? { cards: [mockCard], count: 1, hasMore: false, ...(operation === "list" ? { nextBefore: null } : {}), ...(typeof searchPage === "number" ? { page: searchPage, nextPage: null, continuationUnknown: false } : {}) } : mockCard, route: "success" as const };
   const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
   if (!credentialId) throw new NodeFailure("CREDENTIAL_REQUIRED", "Select a Trello connection.", false);
   const credential = await credentials.readForExecution(credentialId, workspaceId, CredentialProvider.TRELLO);
   const readTransport = transport ?? fetchSafeOutbound;
   let output;
   if (operation === "list") output = await listTrelloCards(credential, { boardId, limit: limit as number, filter: filter as "open" | "closed" | "all" | "visible", ...(typeof before === "string" ? { before } : {}) }, readTransport);
-  else if (operation === "find") output = await findTrelloCards(credential, { boardId, query: config.query as string, limit: limit as number }, readTransport);
+  else if (operation === "find") output = await findTrelloCards(credential, { boardId, query: config.query as string, limit: limit as number, ...(typeof searchPage === "number" ? { page: searchPage } : {}) }, readTransport);
   else if (operation === "get") {
     output = card(await request(`cards/${cardId}?${new URLSearchParams({ fields })}`, credential, readTransport));
     if (output.id.toLowerCase() !== cardId.toLowerCase()) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Trello returned a different card.", false);

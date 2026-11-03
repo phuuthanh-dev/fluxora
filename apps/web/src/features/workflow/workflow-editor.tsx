@@ -903,6 +903,8 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       else if (key === "sourceBoardId" && "cardId" in config) config.cardId = "";
       else if (key === "boardId") { if ("listId" in config) config.listId = ""; if ("before" in config) config.before = ""; }
       else if (node.data.nodeType === "action.trello.list-cards" && ["filter", "limit"].includes(key) && "before" in config) config.before = "";
+      if (node.data.nodeType === "action.trello.find-cards" && ["credentialId", "boardId", "query", "limit"].includes(key) && "page" in config) config.page = 0;
+      if (node.data.nodeType === "action.trello.find-cards" && key === "searchPagination" && value === "pages") config.page = 0;
     }
     if (node.data.nodeType.startsWith("action.notion.") && node.data.config[key] !== value) {
       if (key === "credentialId") {
@@ -1018,7 +1020,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       {node.data.nodeType === "action.notion.create-page" && <Status tone="info" className="inspector-note">Creates a page inside the selected page. If delivery is uncertain, check Notion before running it again to avoid duplicates.</Status>}
       {node.data.nodeType === "action.notion.update-title" && <Status tone="info" className="inspector-note">Updates only the title. Changes made by someone else at the same time can be overwritten; check Notion before retrying an uncertain result.</Status>}
       {node.data.nodeType === "action.notion.list-children" && <Status tone="info" className="inspector-note">Returns direct child blocks only. Nested blocks require a separate request.</Status>}
-      {node.data.nodeType === "action.trello.find-cards" && <Status tone="info" className="inspector-note">Search returns a bounded first page using Trello search syntax.</Status>}
+      {node.data.nodeType === "action.trello.find-cards" && <Status tone="info" className="inspector-note">Search uses Trello syntax. To page through results, choose “Choose a page”, keep the same connection, board, query and limit, then enter nextPage from the previous output. Results can shift as cards change; a full page 100 cannot confirm further results. Older nodes keep first-page behavior until you change this setting.</Status>}
       {["action.sentry.list-issues", "action.sentry.list-issues.v2", "action.sentry.get-issue"].includes(node.data.nodeType) && <Status tone="info" className="inspector-note">Issue titles and metadata can be stored in execution history.</Status>}
       {["action.sentry.get-issue", "action.sentry.list-issues.v2", "action.vercel.list-deployments.v2"].includes(node.data.nodeType) && <Status tone="info" className="inspector-note">Only selected metadata is returned; check partial and continuation fields before treating a page as complete.</Status>}
       {node.data.nodeType === "action.vercel.public-deployment-lookup" && <Status tone="info" className="inspector-note">A public lookup can return deployments outside the selected account. It does not verify ownership.</Status>}

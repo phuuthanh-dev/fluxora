@@ -19,6 +19,9 @@ The later restore draft uses the shared release lock, blocks named active
 API/worker containers and requests a single PostgreSQL transaction. It has not
 passed the final gate or an isolated restore drill; it cannot fence unmanaged
 clients, recover writes after a snapshot, or by itself restore a previous release.
+The later Trello Find Cards pagination draft uses an explicit opt-in for
+historical nodes, bounded lookahead, and the documented page ceiling; it has
+not passed the final gate or been exercised against the actual provider.
 
 Verification update on 2026-11-03: the latest local draft passed a complete
 `npm run verify` on isolated PostgreSQL/Redis and test ports, with 52 deployment

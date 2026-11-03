@@ -54,6 +54,7 @@ test("Trello rejects unresolved update and pagination fields before reading cred
     { operation: "list" as const, config: { boardId: board, filter: undefined } },
     { operation: "list" as const, config: { boardId: board, limit: undefined } },
     { operation: "find" as const, config: { boardId: board, query: "sample", limit: undefined } },
+    { operation: "find" as const, config: { boardId: board, query: "sample", searchPagination: "pages", page: undefined } },
   ];
   for (const { operation, config } of cases) {
     for (const mode of ["mock", "live"] as const) await assert.rejects(executeTrelloOperation(operation, config, mode, "workspace", noCredential), failure("INVALID_INPUT", false));
@@ -101,6 +102,68 @@ test("find uses provider search on the chosen board and bounds results", async (
   });
   assert.equal(result.count, 1); assert.equal(result.hasMore, true);
   await assert.rejects(findTrelloCards(credential, { boardId: board, query: "x", limit: 1 }, async () => Response.json({ cards: [rawCard(cardId, { idBoard: another })] })), failure("INVALID_PROVIDER_RESPONSE", false));
+});
+
+test("find paginates with equal page sizes and a bounded lookahead without skipping a card", async () => {
+  const requested: number[] = [];
+  const transport = async (url: string) => {
+    const target = new URL(url);
+    assert.equal(target.searchParams.get("idBoards"), board);
+    assert.equal(target.searchParams.get("cards_limit"), "1");
+    const page = Number(target.searchParams.get("cards_page"));
+    requested.push(page);
+    return Response.json({ cards: page === 0 ? [rawCard(cardId)] : page === 1 ? [rawCard(another)] : [] });
+  };
+  const first = await findTrelloCards(credential, { boardId: board, query: "sample", limit: 1, page: 0 }, transport);
+  const second = await findTrelloCards(credential, { boardId: board, query: "sample", limit: 1, page: 1 }, transport);
+  assert.equal(first.cards[0]?.id, cardId);
+  assert.equal(first.hasMore, true);
+  assert.ok("nextPage" in first);
+  assert.equal(first.nextPage, 1);
+  assert.equal(second.cards[0]?.id, another);
+  assert.equal(second.hasMore, false);
+  assert.ok("nextPage" in second);
+  assert.equal(second.nextPage, null);
+  assert.deepEqual(requested, [0, 1, 1, 2]);
+});
+
+test("Trello search opts into paged output without changing historical node output", async () => {
+  const config = { credentialId: "connection", boardId: board, query: "sample", limit: 1, page: 99 };
+  const legacy = await executeTrelloOperation("find", config, "live", "workspace", credentials, async (url) => {
+    const target = new URL(url);
+    assert.equal(target.searchParams.get("cards_limit"), "2");
+    assert.equal(target.searchParams.has("cards_page"), false);
+    return Response.json({ cards: [rawCard(), rawCard(another)] });
+  });
+  assert.deepEqual(Object.keys(legacy.output).sort(), ["cards", "count", "hasMore"]);
+  const paged = await executeTrelloOperation("find", { ...config, searchPagination: "pages", page: 1 }, "live", "workspace", credentials, async (url) => {
+    const target = new URL(url);
+    assert.equal(target.searchParams.get("cards_limit"), "1");
+    return Response.json({ cards: target.searchParams.get("cards_page") === "1" ? [rawCard()] : [] });
+  });
+  assert.ok("page" in paged.output && "nextPage" in paged.output);
+  assert.equal(paged.output.page, 1);
+  assert.equal(paged.output.nextPage, null);
+});
+
+test("find reports unknown continuation at the provider page ceiling and validates before credential access", async () => {
+  let requests = 0;
+  const ceiling = await findTrelloCards(credential, { boardId: board, query: "sample", limit: 1, page: 100 }, async (url) => {
+    requests += 1;
+    assert.equal(new URL(url).searchParams.get("cards_page"), "100");
+    return Response.json({ cards: [rawCard()] });
+  });
+  assert.equal(requests, 1);
+  assert.equal(ceiling.hasMore, null);
+  assert.ok("nextPage" in ceiling && "continuationUnknown" in ceiling);
+  assert.equal(ceiling.nextPage, null);
+  assert.equal(ceiling.continuationUnknown, true);
+  const noCredential = { readForExecution: () => { throw new Error("unexpected credential access"); } } as never;
+  for (const page of [-1, 101, 1.5, "1", null]) {
+    await assert.rejects(executeTrelloOperation("find", { boardId: board, query: "sample", searchPagination: "pages", page }, "live", "workspace", noCredential), failure("INVALID_INPUT", false));
+  }
+  const legacy = await executeTrelloOperation("find", { boardId: board, query: "sample", page: 99 }, "mock", "workspace", noCredential);
+  assert.equal("nextPage" in legacy.output, false, "a previously ignored page field must not opt an old graph in");
 });
 
 test("update sends only explicit fields including an empty description", async () => {

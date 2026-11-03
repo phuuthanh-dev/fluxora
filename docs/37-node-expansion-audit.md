@@ -403,6 +403,8 @@ Diễn tập cron giả lập sau lượt verify: execution được tạo bằn
 
 NX-02 runtime guard bản local: `executeNode` và lookup adapter từ chối `nodeVersion` không được hỗ trợ trước khi đọc credential hoặc gọi provider; node lịch sử không có version và node khai báo `1` tiếp tục dùng cùng adapter. Regression test kiểm tra cả action và trigger đã được bổ sung, đang chờ quality gate sau thay đổi. Đây là bảo vệ v1, chưa phải cơ chế hỗ trợ nhiều phiên bản cho cùng một node type; các type `.v2` hiện hữu vẫn giữ contract riêng. [n8n versioning](https://docs.n8n.io/connect/create-nodes/build-your-node/reference/versioning/) giữ phiên bản node đã lưu trong workflow và chọn bản mới cho node được tạo sau; Fluxora chưa có đầy đủ cơ chế tương đương.
 
+NX-02/03 Trello Find Cards bản local: Trello mô tả `cards_page` từ 0 đến tối đa 100 trong [OpenAPI chính thức](https://dac-static.atlassian.com/cloud/trello/swagger.v3.json?_v=1.1274.0). Node mới chọn chế độ phân trang; node cũ không có `searchPagination` tiếp tục một request và output trang đầu như trước, kể cả khi có trường `page` vốn bị bỏ qua. Người dùng có thể đổi draft sang chế độ trang. Trang đầy sẽ đọc thêm tối đa một trang để xác định `hasMore`; trang 100 đầy trả `hasMore: null`, `continuationUnknown: true` và không hứa còn trang kế tiếp. Cùng connection/board/query/limit phải được giữ giữa các trang; kết quả vẫn có thể thay đổi khi dữ liệu Trello thay đổi. Chưa thử provider thật; test API/UI mới và toàn bộ thay đổi sau lượt verify trước đang chờ quality gate cuối.
+
 Review kiến trúc NX-05 chọn bắt đầu từ checkpoint, lease và recovery của Gmail
 hiện có, thay vì mặc định đưa thêm hệ thống guard/epoch toàn cục. Bản nháp cũ
 có migration ảnh hưởng đến các provider khác và chưa đủ điều kiện release.

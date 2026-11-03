@@ -696,7 +696,7 @@ export const nodeCatalog: NodeDefinition[] = [
   ] as const).map(([type, label, operation]): NodeDefinition => {
     const collection = operation === "list" || operation === "find";
     const fields = getSharedNodeConfigurationFields(type);
-    return { type, label: `Trello · ${label}`, description: `${label} in Trello.`, category: "action", libraryGroup: "productivity", appId: "trello", operationId: type.slice("action.trello.".length), operationLabel: label, operationKind: collection || operation === "get" ? "search" : "action", icon: "trello", available: true, defaultConfig: { credentialId: "", ...(collection ? { boardId: "", limit: 20 } : { sourceBoardId: "", cardId: "" }), ...(operation === "move" ? { boardId: "", listId: "" } : {}), ...(operation === "list" ? { filter: "open" } : {}), ...(operation === "find" ? { query: "" } : {}) }, configurationFields: fields };
+    return { type, label: `Trello · ${label}`, description: `${label} in Trello.`, category: "action", libraryGroup: "productivity", appId: "trello", operationId: type.slice("action.trello.".length), operationLabel: label, operationKind: collection || operation === "get" ? "search" : "action", icon: "trello", available: true, defaultConfig: { credentialId: "", ...(collection ? { boardId: "", limit: 20 } : { sourceBoardId: "", cardId: "" }), ...(operation === "move" ? { boardId: "", listId: "" } : {}), ...(operation === "list" ? { filter: "open" } : {}), ...(operation === "find" ? { query: "", searchPagination: "pages", page: 0 } : {}) }, configurationFields: fields };
   }),
   {
     type: "action.sentry.list-issues", hiddenFromLibrary: true, label: "Sentry issues", description: "Read issues from a Sentry project.",
