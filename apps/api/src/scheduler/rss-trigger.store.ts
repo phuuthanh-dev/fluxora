@@ -71,7 +71,15 @@ export class PrismaRssTriggerStore implements RssTriggerStore {
   async fail(target: RssTarget, token: string, failure: { code: string; retryable: boolean; retryAfterMs?: number }, now: Date) {
     const delay = Math.max(target.pollMinutes * 60_000, failure.retryAfterMs ?? 0);
     const code = /^[A-Z0-9_]{1,80}$/.test(failure.code) ? failure.code : "RSS_POLL_FAILED";
-    await this.prisma.$executeRaw`UPDATE "RssTriggerCheckpoint" SET "state" = ${failure.retryable ? "READY" : "ERROR"}, "lastErrorCode" = ${code}, "nextPollAt" = ${new Date(now.getTime() + delay)}, "updatedAt" = ${now} WHERE "workflowId" = ${target.workflowId} AND "nodeId" = ${target.nodeId} AND "workflowVersionId" = ${target.versionId} AND "leaseToken" = ${token} AND "leaseExpiresAt" > (clock_timestamp() AT TIME ZONE 'UTC')`;
+    await this.prisma.$transaction(async (tx) => {
+      // Serialize with deactivation and publishing in the same order as
+      // commit(). A failed provider call must not poison a checkpoint after
+      // its workflow has been deactivated or replaced.
+      const workflows = await tx.$queryRaw<Array<{ isActive: boolean; archivedAt: Date | null; publishedVersionId: string | null }>>`SELECT "isActive", "archivedAt", "publishedVersionId" FROM "Workflow" WHERE id = ${target.workflowId} FOR UPDATE`;
+      const workflow = workflows[0];
+      if (!workflow?.isActive || workflow.archivedAt || workflow.publishedVersionId !== target.versionId) return;
+      await tx.$executeRaw`UPDATE "RssTriggerCheckpoint" SET "state" = ${failure.retryable ? "READY" : "ERROR"}, "lastErrorCode" = ${code}, "nextPollAt" = ${new Date(now.getTime() + delay)}, "updatedAt" = ${now} WHERE "workflowId" = ${target.workflowId} AND "nodeId" = ${target.nodeId} AND "workflowVersionId" = ${target.versionId} AND "leaseToken" = ${token} AND "leaseExpiresAt" > (clock_timestamp() AT TIME ZONE 'UTC')`;
+    }, { maxWait: 2000, timeout: 15_000 });
   }
 
   async release(target: RssTarget, token: string) {

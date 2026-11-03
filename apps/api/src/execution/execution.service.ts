@@ -463,7 +463,7 @@ export class ExecutionService {
           } });
           const waitingNode = await transaction.nodeExecution.updateMany({
             where: { executionId, nodeId: node.id, status: NodeExecutionStatus.WAITING },
-            data: { output: { ...result.output, approvalRequestId: created.id, notificationStatus: "pending" } as Prisma.InputJsonValue },
+            data: { output: redactValue({ ...result.output, approvalRequestId: created.id, notificationStatus: "pending" }) as Prisma.InputJsonValue },
           });
           if (!waitingNode.count) throw new Error("Approval node is no longer waiting");
           const remaining = graph.nodes.filter((item) => !visited.has(item.id)).map((item) => item.id);
@@ -477,7 +477,7 @@ export class ExecutionService {
         const notificationStatus = await this.notifyApproval(execution.workflowVersion.workflow.workspaceId, approval.id, result.output, mode);
         await this.prisma.nodeExecution.updateMany({
           where: { executionId, nodeId: node.id, status: NodeExecutionStatus.WAITING, execution: { status: ExecutionStatus.WAITING_APPROVAL }, output: { path: ["approvalRequestId"], equals: approval.id } },
-          data: { output: { ...result.output, approvalRequestId: approval.id, notificationStatus } as Prisma.InputJsonValue },
+          data: { output: redactValue({ ...result.output, approvalRequestId: approval.id, notificationStatus }) as Prisma.InputJsonValue },
         });
         return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
       }

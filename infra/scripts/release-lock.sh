@@ -17,17 +17,23 @@ release_lock_when_safe() { release_lock_retained=0; }
 
 # Check containers' actual immutable image IDs, not their mutable tags.
 require_compatible_fleet() {
-  fleet_ids="$(API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" \
-    docker compose --env-file "$env_file" -f "$compose_file" ps -aq api worker)" || {
-    printf '%s\n' "Cannot inspect the current fleet; deployment was not started." >&2; return 1
-  }
+  fleet_ids=""
+  for service in api worker; do
+    service_ids="$(API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" \
+      docker compose --env-file "$env_file" -f "$compose_file" ps -aq "$service")" || {
+      printf '%s\n' "Cannot inspect the current fleet; deployment was not started." >&2; return 1
+    }
+    if [ -z "$service_ids" ]; then
+      printf '%s\n' "API or worker containers were not found; fleet compatibility cannot be established." >&2; return 1
+    fi
+    fleet_ids="$fleet_ids $service_ids"
+  done
   for container_id in $fleet_ids; do
     container_state="$(docker inspect --format '{{.State.Status}}' "$container_id")" || {
       printf '%s\n' "Cannot inspect a current container; deployment was not started." >&2; return 1
     }
     case "$container_state" in
-      exited|created|dead) continue ;;
-      running|paused|restarting) ;;
+      running|paused|restarting|exited|created|dead) ;;
       *) printf '%s\n' "Unexpected container state; deployment was not started." >&2; return 1 ;;
     esac
     current_image="$(docker inspect --format '{{.Image}}' "$container_id")" || {
@@ -37,7 +43,7 @@ require_compatible_fleet() {
       printf '%s\n' "Cannot inspect current API compatibility; deployment was not started." >&2; return 1
     }
     if [ "$current_compatibility" != nx-v1 ]; then
-      printf '%s\n' "An incompatible API or worker is still active; complete the verified cutover before deployment." >&2; return 1
+      printf '%s\n' "An incompatible API or worker container exists; complete the verified cutover before deployment." >&2; return 1
     fi
   done
 }

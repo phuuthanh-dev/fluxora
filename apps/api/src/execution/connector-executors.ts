@@ -33,6 +33,7 @@ import { executeGoogleCalendar, executeGoogleCalendarAvailability, executeGoogle
 import { executeGoogleChatEdit, executeGoogleChatOAuth } from "./google-chat-oauth";
 import { executeTelegramMessageOperation } from "./telegram-message-operations";
 import { executeGitHubGetIssue, executeGitHubGetPullRequest, executeGitHubListIssues, executeGitHubListPullRequests } from "./github-read";
+import { executeGitHubUpdateIssue } from "./github-update-issue";
 
 /** Server-only registry. Adapters retain validation, authorization, redaction
  * and retry semantics; registration is not a credential or policy bypass. */
@@ -114,6 +115,7 @@ const executors = {
   "action.telegram.edit-message": ({ config, mode, workspaceId, credentials }) => executeTelegramMessageOperation("edit", config, mode, workspaceId, credentials),
   "action.github.list-issues": ({ config, mode, workspaceId, credentials }) => executeGitHubListIssues(config, mode, workspaceId, credentials),
   "action.github.get-issue": ({ config, mode, workspaceId, credentials }) => executeGitHubGetIssue(config, mode, workspaceId, credentials),
+  "action.github.update-issue": ({ config, mode, workspaceId, credentials }) => executeGitHubUpdateIssue(config, mode, workspaceId, credentials),
   "action.github.list-pull-requests": ({ config, mode, workspaceId, credentials }) => executeGitHubListPullRequests(config, mode, workspaceId, credentials),
   "action.github.get-pull-request": ({ config, mode, workspaceId, credentials }) => executeGitHubGetPullRequest(config, mode, workspaceId, credentials),
 } satisfies Record<Extract<ExecutableWorkflowNodeType, `action.${string}`>, ConnectorExecutor>;

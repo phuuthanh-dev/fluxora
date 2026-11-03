@@ -131,7 +131,7 @@ Theo yêu cầu hiện tại của chủ dự án, phần NX còn lại do coord
 
 ### Tiến độ bản nháp sau audit — chưa phát hành
 
-Các thay đổi sau đang nằm ở checkout local, chưa được quality gate xác nhận:
+Các thay đổi sau thuộc bản nháp NX; kết quả quality gate mới nhất và giới hạn của bằng chứng được ghi ở cuối mục này:
 
 - NX-02: metadata mô tả, node version, một số cursor và Google OAuth nhiều tài khoản. Metadata chưa thay thế authorization hay retry policy.
 - NX-02 audit bổ sung: probe dispatcher ở chế độ mock đã đi qua toàn bộ loại node đăng ký với cấu hình rỗng, chấp nhận lỗi validation có cấu trúc, xác nhận node planned bị từ chối và không đọc vault. Kiểm tra này phát hiện handler thiếu, nhưng không chứng minh mock với cấu hình hợp lệ hoặc output schema của từng node. Registry hiện chưa cung cấp đầy đủ metadata executor/schema/mock/redaction như tiêu chí NX-02; mục này vẫn chưa hoàn tất.
@@ -146,6 +146,7 @@ Các thay đổi sau đang nằm ở checkout local, chưa được quality gate
 - NX-03: selector cột/điều kiện PostgreSQL và Supabase, mapping Google Sheets, Notion và Trello operations. Bản nháp giữ hành vi node quan hệ cũ và yêu cầu nâng cấp draft có chủ đích sang loại `.v2` riêng; tương thích này chưa được kiểm chứng.
 - NX-03 examples: the local draft adds selectable starter workflows for PostgreSQL, Supabase, Google Sheets, Notion and Trello. These create drafts with manual triggers and example resource values; users must choose their own connection and resources before live execution. The starter flows and dashboard selector have not yet passed the final gate.
 - NX-04: GitHub issue/PR reads, Gmail get-message/cursor, Sentry và Vercel detail/cursor; GitHub merge có tùy chọn ràng buộc head SHA theo [GitHub API](https://docs.github.com/en/rest/pulls/pulls#merge-a-pull-request), còn graph cũ không cung cấp SHA giữ hành vi cũ. Telegram reply/edit có bản nháp dùng connection của workspace và không tự retry khi kết quả POST không chắc chắn. [n8n](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.telegram/) có edit-message; reply dùng `sendMessage` với `reply_parameters` theo [Telegram Bot API](https://core.telegram.org/bots/api#sendmessage). Google Chat có bản nháp send trả thread, reply và edit; edit yêu cầu người dùng chọn riêng quyền `chat.messages` theo [Google Chat API](https://developers.google.com/workspace/chat/api/reference/rest/v1/spaces.messages/patch). Gmail send/reply/create/replace-draft/change-label đã được kết nối trong bản nháp local, yêu cầu scope tương ứng và test mode giả lập; adapter không tự retry kết quả ghi không chắc chắn. Chưa chạy verify, chưa có live qualification và chưa được phát hành; các rủi ro rollout/recovery và Google verification vẫn là điều kiện trước release.
+- NX-04 GitHub update: bản local thêm thao tác cập nhật một trường title, body hoặc state của issue, có picker repository/issue, kiểm tra resource không phải PR trước PATCH và không tự retry nếu kết quả ghi không chắc chắn. [n8n hỗ trợ Issue Edit](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.github/); [GitHub nói conditional request cho PATCH không được hỗ trợ trừ khi endpoint quy định khác](https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api#use-conditional-requests). Vì vậy bước đọc trước không khóa issue, thay đổi đồng thời vẫn có thể bị ghi đè và UI nêu rõ giới hạn. Test giả lập adapter, dispatcher, credential readiness và tương tác picker đã đạt trong lượt verify cô lập bên dưới; chưa thử provider thật hoặc phát hành.
 - NX-03/04 write-guard audit: expression không phân giải được trong GitHub expected head SHA, merge method hoặc issue idempotency key bị từ chối thay vì âm thầm bỏ bảo vệ hay chọn mặc định, kể cả khi expression nằm trong chuỗi có tiền tố. Graph cũ không cấu hình các trường này giữ hành vi cũ. Trello update và pagination cũng từ chối field hiện diện nhưng không phân giải được để tránh ghi thiếu hoặc đọc lại trang đầu. Các kiểm tra dùng connector giả, không gọi GitHub/Trello thật; chưa qua final verify.
 - NX-04 calendar write audit: create/update/delete không tự theo redirect; update/delete trả lỗi không tự retry khi network, redirect, 408, 429 hoặc 5xx làm kết quả không chắc chắn. Create vẫn dùng ID xác định và đối chiếu conflict cho retry thông thường, nhưng redirect cần người dùng kiểm tra. 24 kiểm tra Calendar và outbound giả lập đạt; chưa có live qualification mới.
 - NX-04 calendar availability audit: FreeBusy chỉ được đọc từ ID của lịch được chọn; không suy ra lịch duy nhất được trả về là lịch cần kiểm tra. Nếu chọn `primary`, Fluxora gọi CalendarList trước để lấy ID thực và xác nhận cờ primary, rồi dùng ID đó cho FreeBusy. Điều này thêm một request đọc, cần quyền CalendarList hiện có trong connection; lỗi hoặc kết quả không khớp báo không xác định thay vì khẳng định lịch rảnh. [CalendarList.get](https://developers.google.com/workspace/calendar/api/v3/reference/calendarList/get), [FreeBusy.query](https://developers.google.com/workspace/calendar/api/v3/reference/freebusy/query). 14 kiểm tra Calendar giả lập đạt; thay đổi chưa được thử với Google thật.
@@ -153,6 +154,8 @@ Các thay đổi sau đang nằm ở checkout local, chưa được quality gate
 - NX-06: structured output Gemini/OpenAI có kiểm tra schema và giới hạn output theo từng request. Giới hạn token không phải giới hạn chi tiêu; chưa chạy provider thật trong đợt này.
 - NX-06 audit: phản hồi Gemini/OpenAI có chứa nguyên API key đang dùng sẽ bị từ chối bằng lỗi không ghi key; kiểm tra cả text, giá trị JSON đã giải mã, tên trường và metadata trả về. Đây là bảo vệ cho key của connection hiện tại, không phải cơ chế phát hiện mọi bí mật có thể xuất hiện trong nội dung AI. Các test dùng phản hồi và key giả; chưa có live qualification hay final verification sau thay đổi.
 - NX-05: Kuma v2, RSS new-item, Telegram update và Vercel deployment có bản nháp local cho nhận sự kiện và phục hồi lượt chưa bắt đầu. Telegram dùng webhook do chủ bot tự cấu hình, xác thực secret header, lọc chat/event và dedup theo update ID; Fluxora không tự thay thế webhook trên bot. Vercel nhận secret ký từ account webhook, xác thực raw body và lọc event/project/account; Fluxora không tạo hoặc xác nhận webhook từ xa. Vercel account webhook tùy thuộc gói dịch vụ và event bị bỏ lỡ trong lúc chưa cấu hình có thể hết hạn sau thời gian retry của provider. Dedup phụ thuộc thời gian giữ execution và khóa mã hóa, không đảm bảo exactly-once; execution Vercel được giữ tối thiểu 24 giờ kể từ khi hoàn tất để bảo vệ cửa sổ retry, nên tổng lịch sử có thể vượt giới hạn số lượng trong thời gian này. Các migration mới đã áp dụng trên database local để mở preview; chưa kiểm thử hoặc deploy production. Trello và Sentry issue-created triggers đã được nối trong bản nháp local và chưa verify hay live-qualify. Cần hoàn thiện lifecycle, xác minh tương thích mixed fleet và khôi phục sau sự cố trước khi phát hành.
+- NX-05 editor audit: draft có nhiều trigger vẫn lưu được, nhưng backend chỉ cho publish graph có đúng một trigger. Cảnh báo trong editor hiện giải thích rõ giới hạn đó thay vì chỉ báo có nhiều trigger; đã có trong lượt verify cô lập bên dưới.
+- NX-05 RSS audit: ghi lỗi của lượt poll giờ khóa workflow trước checkpoint và kiểm tra lại trạng thái active, version và lease. Lỗi từ lượt đọc hoàn tất sau khi workflow đã tắt sẽ không chuyển checkpoint sang ERROR; test PostgreSQL cô lập mô phỏng thứ tự này đã đạt trong lượt verify bên dưới. Nếu lỗi ghi nhận trước khi thao tác tắt giành được khóa thì lỗi vẫn được lưu theo thứ tự giao dịch.
 - NX-05 webhook audit: Trello, Sentry và Vercel từ chối event phù hợp nếu signing secret hiện tại xuất hiện trong identifier sẽ được lưu; không thay đổi identifier dùng định tuyến và dedup. Nội dung tự do của Trello/Sentry vẫn được xử lý riêng. 15 kiểm tra protocol/ingress giả lập đạt, chưa chứng minh provider thật hoặc bảo vệ mọi bí mật khác.
 - NX-07: các quyết định và điều kiện provider nằm ở [NX-07 decisions](38-nx07-design-decisions.md); không đồng nghĩa các tính năng đó đã được triển khai.
 
@@ -167,6 +170,14 @@ A subsequent read-only SSH inspection using the existing deployment key confirme
 The next local draft adds an NX migration/image-label check to rollback, a lock shared by new deploy/rollback scripts, and a forward-deploy check that refuses an uncertified target or a still-active incompatible Compose API/worker before migration. These measures fail closed for the covered boundaries and prevent overlap between scripts that both honor the lock. A migration record marked rolled back remains a blocking signal because that marker does not prove the schema or saved data was restored. The focused deployment suite passed 28 checks locally, including the migration query against a disposable PostgreSQL database and simulated mixed fleets. The previous full `verify` and PR CI passed before this additional draft, not after it. The new changes do not fence the old API, drain old workers, protect against old scripts that ignore the lock, or validate future schema changes. They have not been deployed to production or included in the existing green PR commit.
 
 A read-only check against the actual VPS found both Compose API/worker containers running without the NX image label. The new forward gate would therefore refuse the present fleet; the check did not run the deployment script or alter either container. Stopping containers solely to satisfy this gate is not a safe cutover procedure.
+
+The local gate now also examines stopped, created and dead Compose API/worker
+containers and refuses a fleet missing either service. Stopping the legacy containers therefore
+cannot by itself satisfy the gate. This intentionally also blocks fresh or
+containerless recovery installations until a separate, verified bootstrap or
+cutover procedure exists. It is not a durable attestation: manually deleting
+containers, changing labels, or bypassing the script is outside the gate's
+proof. The amended synthetic tests passed in the isolated verification recorded below.
 
 The local gate now inspects the immutable image ID backing each active
 container, rather than looking up a mutable tag recorded in its configuration.
@@ -222,6 +233,16 @@ existing history checkpoint but resets its lease after obtaining a baseline;
 do not reactivate while a previous poll may still be running. No production
 data or provider was touched by this experiment.
 
+Read-only production inspection on 2026-11-03 found a separate staging worker
+as well as the production worker. Both use the same textual `db` and `redis`
+service aliases and default queue name, so comparing URLs alone would falsely
+suggest shared infrastructure. Docker inspection shows their networks are
+disjoint: each worker shares a network with its own Compose database and Redis,
+not with the other stack's containers. This is evidence of the observed Docker
+topology, not a proof against external forwarding, an unmanaged consumer or a
+future configuration change. Both workers must be accounted for in any
+rehearsal; no staging or production container was stopped or changed.
+
 The local NX draft now tracks timer-started cron, Gmail, RSS, approval,
 webhook-recovery and execution-maintenance jobs; their destroy hooks stop the
 timers and wait for accepted scans. A synthetic blocked cron scan and 36
@@ -240,7 +261,23 @@ The interceptor deliberately excludes SSE, and RxJS teardown, detached work,
 OAuth refresh and external side effects are not exhaustively proven. A stuck
 handler can prolong shutdown. This is a building block only; it does not change
 the legacy API already running on production or authorize the first cutover.
-Final verification has not been run on this draft.
+This code was included in the isolated verification recorded below.
+
+An additional review found that the request interceptor starts after guards,
+so a disconnected client could leave an authentication database lookup in
+flight while shutdown closed its dependencies. The local draft now tracks
+lookups inside the authentication guard and waits for them before closing;
+new guard calls are rejected once its shutdown begins. The added regression test passed in the isolated verification recorded below. This addresses that guard only, not arbitrary
+middleware or detached work, and does not make the legacy production API
+drainable.
+
+During the same review, the approval transition was found to overwrite the
+already-redacted node output with the raw result when storing the approval ID
+and notification status. The local draft applies the existing redaction to
+both writes and extends the approval regression test with a synthetic Telegram
+URL. This prevents that specific overwrite from undoing the existing URL
+redaction; it does not detect all secrets in arbitrary message text. The test
+and final verification are pending.
 
 Gmail polling now marks new and recovered initial jobs as initial-only; recovery of a legacy approval continuation remains separate. A filtered-out message is recorded only while the workflow version and polling lease still match, so a provider read finishing after deactivation or reset cannot commit a stale filter decision. These changes are pending the final integration suite and do not assert exactly-once external delivery.
 
@@ -270,7 +307,9 @@ Trello board trigger is connected in the local draft with manual provider regist
 
 For Sentry, the local draft connects a custom-integration `issue.created` webhook to the editor, signed ingress and queue recovery, and offers organization-scoped installation discovery with manual fallback. Sentry's [custom-integration guide](https://sentry-blog.sentry.dev/customize-your-sentry-workflow-a-sample-internal-integration/) distinguishes the resource header and body action, whereas [project service hooks](https://docs.sentry.io/api/projects/register-a-new-service-hook/) use a separate registration model. The [Sentry sender source](https://github.com/getsentry/sentry/blob/master/src/sentry/sentry_apps/api/serializers/app_platform_event.py) signs the body while generating the request ID and timestamp in headers. Those unsigned headers must not be assumed to provide authenticated replay protection. A created issue has a stable signed installation/issue identity; repeatable issue transitions need a separately proven delivery identity before they can be safely deduplicated without losing legitimate transitions. Tests remain unrun and actual Sentry installation/permissions are unqualified. Registration and remote status are manual; other issue transitions remain unsupported pending a trustworthy deduplication design.
 
-Lượt kiểm tra ngày 2026-11-03 trên PostgreSQL và Redis thử riêng, cổng web/API riêng và cấu hình provider giả đã chạy `npm run verify` thành công, gồm 191 bài Playwright. Sáu bài tích hợp bị bỏ qua mặc định cho approval, RSS, Kuma, Telegram và Vercel đã chạy riêng trên cùng loại môi trường cô lập và đều đạt. Khi kiểm tra, editor có lỗi trùng React key làm lặp các trường Sheets; lỗi đã được sửa và kiểm tra lại. Một số fixture OAuth và selector E2E cũng được cập nhật theo hành vi hiện tại. Các bài kiểm thử không chứng minh webhook từ xa đã cấu hình, provider thật hoạt động hoặc mixed-version deployment an toàn. Trình duyệt headless vẫn ghi cảnh báo GSAP không tìm thấy một số target và WebGL không hỗ trợ `KHR_parallel_shader_compile`; các ca landing tương ứng đã đạt.
+Lượt kiểm tra trước trên PostgreSQL và Redis thử riêng, cổng web/API riêng và cấu hình provider giả đã chạy `npm run verify` thành công, gồm 191 bài Playwright. Sáu bài tích hợp bị bỏ qua mặc định cho approval, RSS, Kuma, Telegram và Vercel đã chạy riêng trên cùng loại môi trường cô lập và đều đạt. Khi kiểm tra, editor có lỗi trùng React key làm lặp các trường Sheets; lỗi đã được sửa và kiểm tra lại. Một số fixture OAuth và selector E2E cũng được cập nhật theo hành vi hiện tại.
+
+Lượt `npm run verify` mới hơn ngày 2026-11-03 chạy trong checkout cô lập với PostgreSQL, Redis và cổng riêng, cấu hình provider giả và các bộ tích hợp được bật: **851 test API, 59 test web và 192 Playwright đều đạt**, không có test API/web bị bỏ qua. Bản source được đối chiếu theo SHA-256 với các file code đã kiểm thử; thay đổi tài liệu sau đó không thuộc lượt chạy này. Có cảnh báo GSAP không tìm thấy một số target và WebGL headless không hỗ trợ `KHR_parallel_shader_compile`. Kiểm thử này không chứng minh webhook từ xa đã cấu hình, provider thật hoạt động, cutover/mixed-version an toàn hay toàn bộ tiêu chí NX đã hoàn tất.
 
 Không đánh dấu hoàn tất release NX hoặc suy ra production readiness chỉ từ kiểm thử local. PR, CI, cutover, rollback và kiểm thử provider thật chỉ được ghi nhận khi thực sự hoàn thành.
 

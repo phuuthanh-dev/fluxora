@@ -4,6 +4,8 @@ import type { AddressInfo } from "node:net";
 import test from "node:test";
 import { Controller, Get, Inject, Injectable, Module, Sse, UseGuards, type CanActivate, type OnApplicationShutdown, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import { APP_INTERCEPTOR, NestFactory } from "@nestjs/core";
+import { AuthenticationGuard } from "../auth/authentication.guard";
+import { AuthService } from "../auth/auth.service";
 import { ExecutionEventsService } from "../execution/execution-events.service";
 import { BackgroundWork } from "./background-work";
 import { RequestDrainInterceptor } from "./request-drain.interceptor";
@@ -136,6 +138,54 @@ test("a request still in a guard cannot start its handler after shutdown begins"
     await close;
   } finally {
     releaseGuard.resolve();
+    await (close ?? app.close());
+  }
+});
+
+test("shutdown waits for an in-flight authentication lookup after client disconnect", async () => {
+  const started = deferred(), release = deferred(), stopping = deferred();
+  let resourceClosed = false;
+  @Injectable()
+  class SyntheticResource implements OnApplicationShutdown {
+    onApplicationShutdown() { resourceClosed = true; }
+  }
+  @Controller()
+  class GuardedController {
+    @Get("guarded-auth") @UseGuards(AuthenticationGuard) guarded() { return { ok: true }; }
+  }
+  @Module({
+    providers: [
+      SyntheticResource,
+      AuthenticationGuard,
+      RequestDrainInterceptor,
+      { provide: APP_INTERCEPTOR, useExisting: RequestDrainInterceptor },
+      { provide: AuthService, useValue: { async getCurrentUser() { started.resolve(); await release.promise; assert.equal(resourceClosed, false); return { id: "test" }; } } },
+    ],
+    controllers: [GuardedController],
+  })
+  class GuardedModule {}
+  const app = await NestFactory.create(GuardedModule, { logger: false, return503OnClosing: true });
+  const abort = new AbortController();
+  let close: Promise<void> | undefined;
+  try {
+    await app.listen(0, "127.0.0.1");
+    const port = (app.getHttpServer().address() as AddressInfo).port;
+    const request = fetch(`http://127.0.0.1:${port}/guarded-auth`, { signal: abort.signal, headers: { cookie: "workflow_session=test" } }).catch(() => undefined);
+    await started.promise;
+    abort.abort();
+    await request;
+    const guard = app.get(AuthenticationGuard);
+    const destroy = guard.onModuleDestroy.bind(guard);
+    guard.onModuleDestroy = async () => { const result = destroy(); stopping.resolve(); await result; };
+    close = app.close();
+    await stopping.promise;
+    assert.equal(resourceClosed, false);
+    release.resolve();
+    await close;
+    assert.equal(resourceClosed, true);
+  } finally {
+    abort.abort();
+    release.resolve();
     await (close ?? app.close());
   }
 });

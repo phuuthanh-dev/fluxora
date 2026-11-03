@@ -8,6 +8,7 @@
     "packages/*"
   ],
   "scripts": {
+    "predev": "npm run build:contracts",
     "dev": "concurrently --names web,api --prefix-colors blue,green \"npm run dev:web\" \"npm run dev:api\"",
     "dev:web": "npm run dev --workspace=@workflow/web",
     "dev:api": "npm run dev --workspace=@workflow/api",

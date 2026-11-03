@@ -22,6 +22,13 @@ const sharedFields = {
   ...otherNodeFields,
   "action.github.list-issues": () => githubReadConfigurationFields("issue", true),
   "action.github.get-issue": () => githubReadConfigurationFields("issue", false),
+  "action.github.update-issue": () => [
+    ...githubReadConfigurationFields("issue", false),
+    { kind: "select", key: "field", label: "Field to update", options: [{ value: "title", label: "Title" }, { value: "body", label: "Description" }, { value: "state", label: "State" }] },
+    { kind: "text", key: "title", label: "New title", visibleWhen: { key: "field", equals: "title", fallback: "title" } },
+    { kind: "textarea", key: "body", label: "New description (empty clears it)", visibleWhen: { key: "field", equals: "body" } },
+    { kind: "select", key: "state", label: "New state", options: [{ value: "open", label: "Open" }, { value: "closed", label: "Closed" }], visibleWhen: { key: "field", equals: "state" } },
+  ],
   "action.github.list-pull-requests": () => githubReadConfigurationFields("pull-request", true),
   "action.github.get-pull-request": () => githubReadConfigurationFields("pull-request", false),
   "action.gmail.send": () => gmailWriteConfigurationFields("send"),

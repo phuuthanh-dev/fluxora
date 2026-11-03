@@ -68,7 +68,29 @@ test("RSS store commits one delivery and checkpoint under a fenced lease", { ski
     assert.deepEqual(await store.commit(target, "after-history-retention", snapshot, next.observations, now), []);
     assert.equal(await prisma.execution.count({ where: { workflowVersionId: versionId } }), 0);
     await store.release(target, "after-history-retention");
-    await prisma.workflow.update({ where: { id: workflowId }, data: { isActive: false } });
+    await prisma.$executeRaw`UPDATE "RssTriggerCheckpoint" SET "nextPollAt" = NULL WHERE "workflowId" = ${workflowId} AND "nodeId" = ${nodeId}`;
+    const lateNow = new Date();
+    assert.ok(await store.claim(target, "late-failure", lateNow, new Date(lateNow.getTime() + 60_000)));
+    let unlocked!: () => void, locked!: () => void;
+    const releaseDeactivation = new Promise<void>((resolve) => { unlocked = resolve; });
+    const deactivationLocked = new Promise<void>((resolve) => { locked = resolve; });
+    const deactivate = prisma.$transaction(async (tx) => {
+      await tx.workflow.update({ where: { id: workflowId }, data: { isActive: false } });
+      locked();
+      await releaseDeactivation;
+    });
+    try {
+      await deactivationLocked;
+      const lateFailure = store.fail(target, "late-failure", { code: "RSS_HTTP_ERROR", retryable: false }, new Date());
+      unlocked();
+      await deactivate;
+      await lateFailure;
+    } finally { unlocked(); await deactivate; }
+    const checkpoint = await prisma.$queryRaw<Array<{ state: string; lastErrorCode: string | null; nextPollAt: Date | null }>>`SELECT "state", "lastErrorCode", "nextPollAt" FROM "RssTriggerCheckpoint" WHERE "workflowId" = ${workflowId} AND "nodeId" = ${nodeId}`;
+    assert.equal(checkpoint[0]?.state, "READY");
+    assert.equal(checkpoint[0]?.lastErrorCode, null);
+    assert.equal(checkpoint[0]?.nextPollAt, null);
+    await store.release(target, "late-failure");
     assert.equal(await store.claim(target, "inactive", now, new Date(now.getTime() + 60_000)), null);
   } finally {
     await prisma.execution.deleteMany({ where: { workflowVersion: { workflowId } } });

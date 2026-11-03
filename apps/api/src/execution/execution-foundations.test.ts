@@ -280,13 +280,14 @@ test("an execution that lost its lease does not start another node", async () =>
 test("approval is created only if the execution can atomically enter waiting state", async () => {
   for (const cancelBeforeApproval of [true, false]) {
     const events: string[] = [];
+    const approvalOutputs: unknown[] = [];
     let approvalCount = 0;
     const execution = {
       id: "approval-race", status: ExecutionStatus.QUEUED as ExecutionStatus, startedAt: null, resumeToken: null,
       triggerData: {}, nodeExecutions: [],
       workflowVersion: { workflow: { workspaceId: "workspace-1" }, graph: { nodes: [
         { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
-        { id: "approval", type: "approval.request", position: { x: 1, y: 0 }, config: {} },
+        { id: "approval", type: "approval.request", position: { x: 1, y: 0 }, config: { message: "Review https://api.telegram.org/botexample-secret/sendMessage" } },
       ], edges: [{ id: "edge", source: "manual", target: "approval", kind: "success" }] } },
     };
     const nodeStates = new Map<string, string>();
@@ -311,7 +312,10 @@ test("approval is created only if the execution can atomically enter waiting sta
           if (cancelBeforeApproval && nodeId === "approval" && data.status === "WAITING") execution.status = ExecutionStatus.CANCELLED;
           return {};
         },
-        updateMany: async ({ where }: { where: { nodeId?: string; status?: string } }) => ({ count: typeof where.nodeId !== "string" || !where.status || nodeStates.get(where.nodeId) === where.status ? 1 : 0 }),
+        updateMany: async ({ where, data }: { where: { nodeId?: string; status?: string }; data: { output?: unknown } }) => {
+          if (where.nodeId === "approval" && data.output) approvalOutputs.push(data.output);
+          return { count: typeof where.nodeId !== "string" || !where.status || nodeStates.get(where.nodeId) === where.status ? 1 : 0 };
+        },
       },
       approvalRequest: { create: async () => { approvalCount++; return { id: "approval-request" }; } },
       $transaction: async (action: Promise<unknown>[] | ((tx: unknown) => Promise<unknown>)) => Array.isArray(action) ? Promise.all(action) : action(transactionPrisma),
@@ -322,6 +326,13 @@ test("approval is created only if the execution can atomically enter waiting sta
     assert.equal(execution.status, cancelBeforeApproval ? ExecutionStatus.CANCELLED : ExecutionStatus.WAITING_APPROVAL);
     assert.equal(approvalCount, cancelBeforeApproval ? 0 : 1);
     assert.equal(events.includes("execution.waiting_approval"), !cancelBeforeApproval);
+    if (!cancelBeforeApproval) {
+      assert.equal(approvalOutputs.length, 2);
+      for (const output of approvalOutputs) {
+        assert.equal(JSON.stringify(output).includes("example-secret"), false);
+        assert.match(JSON.stringify(output), /\[REDACTED\]/);
+      }
+    }
   }
 });
 

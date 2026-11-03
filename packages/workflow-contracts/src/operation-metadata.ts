@@ -60,6 +60,7 @@ const coordinatorAdditions = {
   "action.trello.find-cards": executable(credential("TRELLO"), "read", fields("cards", "count", "hasMore")),
   "action.github.list-issues": executable(credential("GITHUB"), "read", fields("items", "page", "hasMore", "nextPage", "truncated"), { kind: "continuation", input: "page", next: "nextPage", hasMore: "hasMore", caveat: "At the page ceiling hasMore can be true while nextPage is null." }),
   "action.github.get-issue": executable(credential("GITHUB"), "read"),
+  "action.github.update-issue": executable(credential("GITHUB"), "write", fields("repository", "issueNumber", "updatedField")),
   "action.github.list-pull-requests": executable(credential("GITHUB"), "read", fields("items", "page", "hasMore", "nextPage", "truncated"), { kind: "continuation", input: "page", next: "nextPage", hasMore: "hasMore", caveat: "At the page ceiling hasMore can be true while nextPage is null." }),
   "action.github.get-pull-request": executable(credential("GITHUB"), "read"),
 } satisfies Record<string, OperationMetadata>;

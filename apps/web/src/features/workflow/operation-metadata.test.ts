@@ -31,7 +31,7 @@ test("unknown and planned nodes do not acquire executable metadata", () => {
 });
 
 test("shared fields preserve the editor catalog and return independent descriptors", () => {
-  assert.equal(sharedNodeConfigurationTypes.length, 73);
+  assert.equal(sharedNodeConfigurationTypes.length, 74);
   for (const type of sharedNodeConfigurationTypes) {
     const shared = getSharedNodeConfigurationFields(type);
     assert.ok(shared, type);

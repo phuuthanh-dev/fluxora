@@ -15,8 +15,8 @@ test("new Trello and Notion operations retain provider-specific live-readiness c
   }
 });
 
-test("GitHub read operations require the workspace GitHub credential", () => {
-  const types = ["action.github.list-issues", "action.github.get-issue", "action.github.list-pull-requests", "action.github.get-pull-request"] as const;
+test("GitHub issue and pull request operations require the workspace GitHub credential", () => {
+  const types = ["action.github.list-issues", "action.github.get-issue", "action.github.update-issue", "action.github.list-pull-requests", "action.github.get-pull-request"] as const;
   const requirements = liveCredentialRequirements({ nodes: types.map((type, index) => ({ id: String(index), type, position: { x: 0, y: 0 }, config: { credentialId: "github" } })), edges: [] });
   assert.equal(requirements.length, types.length);
   assert.ok(requirements.every((entry) => entry.provider === CredentialProvider.GITHUB && entry.credentialId === "github"));

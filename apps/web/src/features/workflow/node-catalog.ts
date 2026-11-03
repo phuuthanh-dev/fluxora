@@ -841,6 +841,11 @@ export const nodeCatalog: NodeDefinition[] = [
     configurationFields: getSharedNodeConfigurationFields("action.github.add-label"),
   },
   {
+    type: "action.github.update-issue", label: "GitHub · Update issue", description: "Update one issue field in a connected repository.", category: "action", libraryGroup: "developer-data", appId: "github", operationId: "update-issue", operationLabel: "Update issue", operationKind: "action", icon: "github", available: true,
+    defaultConfig: { credentialId: "", repository: "", issueNumber: "", field: "title", title: "", body: "", state: "open" },
+    configurationFields: getSharedNodeConfigurationFields("action.github.update-issue"),
+  },
+  {
     type: "action.github.add-comment",
     label: "GitHub add comment",
     description: "Post a comment on an existing GitHub issue.",

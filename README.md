@@ -104,9 +104,15 @@ Open:
 
 The root page is the public landing page; sign in at `/login` or create an account at `/register`. Registering creates a personal workspace and opens `/dashboard`. Local execution defaults to `EXECUTION_QUEUE_MODE=inline`, so the demo works without Redis or live provider credentials.
 
+`npm run dev` builds the shared contracts before starting the web and API
+processes. If contracts change while development servers are running, rebuild
+them once and restart the affected processes. A rebuild can trigger a browser
+refresh; save any editor changes first.
+
 To run the Redis-backed worker path:
 
 ```bash
+npm run build:contracts
 npm run dev:api
 npm run dev:worker
 npm run dev:web

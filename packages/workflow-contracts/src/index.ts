@@ -95,6 +95,7 @@ export const workflowNodeTypes = [
   "action.github.merge-pull-request",
   "action.github.list-issues",
   "action.github.get-issue",
+  "action.github.update-issue",
   "action.github.list-pull-requests",
   "action.github.get-pull-request",
   "action.facebook-meta",
@@ -193,6 +194,7 @@ export const executableWorkflowNodeTypes = [
   "action.github.merge-pull-request",
   "action.github.list-issues",
   "action.github.get-issue",
+  "action.github.update-issue",
   "action.github.list-pull-requests",
   "action.github.get-pull-request",
 ] as const satisfies readonly WorkflowNodeType[];

@@ -4,6 +4,13 @@ import { CredentialProvider } from "@prisma/client";
 import type { WorkflowNodeType } from "@workflow/contracts";
 import { executeNode } from "./execution.service";
 
+test("GitHub issue update is dispatched in mock mode without credentials", async () => {
+  const config = { repository: "owner/repo", issueNumber: "42", field: "state", state: "closed" };
+  const credentials = { readForExecution: () => { throw new Error("mock accessed credentials"); } } as never;
+  const result = await executeNode({ id: "issue", type: "action.github.update-issue", config, position: { x: 0, y: 0 } }, config, {}, "mock", "workspace", credentials, "execution");
+  assert.deepEqual(result.output, { repository: "owner/repo", issueNumber: 42, updatedField: "state" });
+});
+
 test("live registry dispatch uses the selected workspace connection and preserves legacy pagination", async () => {
   const originalFetch = globalThis.fetch;
   const originalAllowed = process.env.OUTBOUND_ALLOWED_HOSTNAMES;

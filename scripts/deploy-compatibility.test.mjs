@@ -45,7 +45,8 @@ if [ "$1" = compose ] && { [ "$API_IMAGE" != "$EXPECTED_API_IMAGE" ] || [ "$WEB_
 fi
 printf '%s\n' "$*" >> "$CALL_LOG"
 case "$*" in
-  *'ps -aq api worker'*) [ "$FAIL_AT" = fleet ] && exit 1; printf '%s\n' "$FLEET_IDS" ;;
+  *'ps -aq api') [ "$FAIL_AT" = fleet ] && exit 1; for item in $FLEET_IDS; do case "$item" in api-*) printf '%s\n' "$item";; esac; done ;;
+  *'ps -aq worker') [ "$FAIL_AT" = fleet ] && exit 1; for item in $FLEET_IDS; do case "$item" in worker-*) printf '%s\n' "$item";; esac; done ;;
   *'ps -q db'*) [ "$DB_RUNNING" = 1 ] && printf '%s\n' db-1 ;;
   *'ps -q worker'*) if [ -f "$REPLACED_FILE" ]; then [ "$FAIL_AT" = worker-missing ] || printf '%s\n' worker-1; else printf '%s\n' "$RUNNING_WORKERS"; fi ;;
   *'stop --timeout -1 worker'*) [ "$FAIL_AT" = stop ] && exit 1; touch "$DRAINED_FILE" ;;
@@ -149,8 +150,8 @@ test("SIGTERM during tooling promotion leaves the lock and skips migration", () 
   assert.doesNotMatch(calls, /stop --timeout|up -d migrate|up -d api worker web/);
 });
 
-test("deploy refuses an active old API or worker before migration", () => {
-  for (const containerState of ["running", "paused", "restarting"]) {
+test("deploy refuses an incompatible API or worker even when it is stopped", () => {
+  for (const containerState of ["running", "paused", "restarting", "exited", "created", "dead"]) {
     const { result, calls, lockStillPresent } = exercise({ fleet: "<no value>", containerState });
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /incompatible API or worker/);
@@ -169,14 +170,24 @@ test("deployment checks the running image ID even when its former tag was repoin
   }
 });
 
-test("deploy accepts compatible running containers or a stopped fleet", () => {
-  for (const options of [{}, { fleetIds: "" }, { fleet: "<no value>", containerState: "exited" }]) {
+test("deploy accepts a compatible running or stopped fleet", () => {
+  for (const options of [{}, { containerState: "exited", runningWorkers: "" }]) {
     const { result, calls } = exercise(options);
     assert.equal(result.status, 0, result.stderr);
     assert.match(calls, /backup-postgres/);
     assert.match(calls, /up -d migrate/);
     assert.match(calls, /up -d api worker web/);
     assert.ok(calls.indexOf("stop --timeout -1 worker") < calls.indexOf("up -d migrate"));
+  }
+});
+
+test("deploy refuses an absent API or worker before migration", () => {
+  for (const fleetIds of ["", "api-1", "worker-1"]) {
+    const { result, calls, lockStillPresent } = exercise({ fleetIds, runningWorkers: "" });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /fleet compatibility cannot be established/);
+    assert.doesNotMatch(calls, /stop --timeout|backup-postgres|up -d migrate|up -d api worker web/);
+    assert.equal(lockStillPresent, false);
   }
 });
 

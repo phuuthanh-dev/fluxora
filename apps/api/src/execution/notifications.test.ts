@@ -1313,7 +1313,7 @@ test("Approval notification: delegates through dispatcher and preserves Google C
     assert.equal(status, "sent");
     assert.equal(sentUrl, "https://chat.googleapis.com/v1/spaces/APPROVAL_SPACE/messages?key=KEY&token=TOK");
     assert.deepEqual(sentBody, {
-      text: "Staging deployment needs approval\n\nReview: http://localhost:3000/editor?approval=app-101",
+      text: `Staging deployment needs approval\n\nReview: ${process.env.WEB_ORIGIN ?? "http://localhost:3000"}/editor?approval=app-101`,
     });
   } finally {
     globalThis.fetch = originalFetch;
@@ -1366,7 +1366,7 @@ test("Approval notification: delegates through dispatcher and preserves HTTP web
     assert.deepEqual(sentBody, {
       type: "workflow.approval.requested",
       message: "Production deployment release",
-      approvalUrl: "http://localhost:3000/editor?approval=app-102",
+      approvalUrl: `${process.env.WEB_ORIGIN ?? "http://localhost:3000"}/editor?approval=app-102`,
     });
   } finally {
     globalThis.fetch = originalFetch;
