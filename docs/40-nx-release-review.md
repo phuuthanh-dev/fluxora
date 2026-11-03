@@ -23,6 +23,16 @@ The later Trello Find Cards pagination draft uses an explicit opt-in for
 historical nodes, bounded lookahead, and the documented page ceiling; it has
 not passed the final gate or been exercised against the actual provider.
 
+Local preview observation on 2026-11-03: both ports 3000 and 3001 belong to
+this checkout, but the API process was started before these later commits and
+is not using watch mode. The shared contracts build also predates Trello search
+pagination, so a healthy response alone does not show that the preview runs the
+latest source. A read-only local database check found one active cron workflow,
+no `RUNNING` executions, and six older `QUEUED` mock executions. Restarting the
+API or enabling a second scheduler can cause scheduled work; preserve these
+records and inspect scheduler/provider effects before changing local processes.
+This observation is point-in-time and says nothing about production state.
+
 Verification update on 2026-11-03: the source recorded in local commit
 `13bc0a0` passed a complete
 `npm run verify` on isolated PostgreSQL/Redis and test ports, with 52 deployment
