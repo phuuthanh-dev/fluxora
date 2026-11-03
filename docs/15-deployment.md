@@ -127,6 +127,14 @@ deploying the containers.
   APP_DIR=/opt/workflow-automation infra/scripts/backup-postgres.sh
   ```
 
+  The local NX draft writes the dump to a private temporary file beside the
+  destination, then publishes it without replacing an existing file. A failed
+  dump does not publish the final path; a duplicate timestamp or explicitly
+  reused `BACKUP_FILE` fails instead of overwriting the earlier archive. This
+  requires hard-link support on that filesystem and does not verify the dump's
+  contents or durability. The change and its synthetic tests await the next
+  full quality gate.
+
 - Test restoration only into an isolated database/stack. The restore command is destructive and deliberately requires `CONFIRM_RESTORE=RESTORE`:
 
   ```bash

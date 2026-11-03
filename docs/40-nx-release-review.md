@@ -12,6 +12,9 @@ selection and credential access, but does not implement multiple versions of
 one node type. Do not apply the earlier verification result to this change.
 The later mixed OpenAI refusal handling also changes plain-text execution
 behavior and has not passed the final gate; see [AI limits](39-nx06-ai-cost-controls.md).
+The later backup-script draft also has not passed that gate: it avoids
+overwriting an existing archive or publishing a failed dump, but a successful
+dump is not a tested restore or proof of a safe production rollback.
 
 Verification update on 2026-11-03: the latest local draft passed a complete
 `npm run verify` on isolated PostgreSQL/Redis and test ports, with 52 deployment

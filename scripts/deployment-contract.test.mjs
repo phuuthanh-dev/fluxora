@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { copyFileSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { test } from "node:test";
@@ -101,6 +101,30 @@ test("database recovery scripts require an explicit guarded workflow", () => {
   assert.match(restoreScript, /pg_restore/);
   assert.match(restoreScript, /--exit-on-error/);
   assert.doesNotMatch(restoreScript, /docker compose down/);
+});
+
+test("backup publishes only a successful dump and never overwrites an existing archive", () => {
+  const dir = mkdtempSync(resolve(tmpdir(), "fluxora-backup-contract-"));
+  try {
+    mkdirSync(resolve(dir, "infra"));
+    mkdirSync(resolve(dir, "bin"));
+    mkdirSync(resolve(dir, "backups"));
+    writeFileSync(resolve(dir, "infra/docker-compose.production.yml"), "# synthetic\n");
+    writeFileSync(resolve(dir, ".env.production"), "# synthetic\n");
+    writeFileSync(resolve(dir, "bin/docker"), '#!/bin/sh\nprintf "synthetic dump"\n[ "${SYNTHETIC_DUMP_FAIL:-}" != 1 ]\n', { mode: 0o755 });
+    const archive = resolve(dir, "backups/data.dump");
+    const run = (fail = false) => spawnSync("sh", [backupPostgres], { encoding: "utf8", env: { ...process.env, APP_DIR: dir, BACKUP_DIR: resolve(dir, "backups"), BACKUP_FILE: archive, PATH: `${resolve(dir, "bin")}:${process.env.PATH}`, SYNTHETIC_DUMP_FAIL: fail ? "1" : "0" } });
+    assert.notEqual(run(true).status, 0);
+    assert.deepEqual(readdirSync(resolve(dir, "backups")), []);
+    assert.equal(run().status, 0);
+    assert.equal(readFileSync(archive, "utf8"), "synthetic dump");
+    assert.equal(statSync(archive).mode & 0o777, 0o600);
+    assert.notEqual(run().status, 0);
+    assert.equal(readFileSync(archive, "utf8"), "synthetic dump");
+    assert.deepEqual(readdirSync(resolve(dir, "backups")), ["data.dump"]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("CI/CD workflow keeps bounded jobs, cache, and least-privilege deploy permissions", () => {
