@@ -45,6 +45,22 @@ if [ "$nx_state" = nx ]; then
     printf '%s\n' "Target image is not certified for NX execution and saved graphs; rollback was not started." >&2
     exit 1
   fi
+  target_drain="$(docker image inspect --format '{{ index .Config.Labels "io.fluxora.graceful-drain" }}' "$api_image:$image_tag")" || {
+    printf '%s\n' "Cannot inspect target drain support; rollback was not started." >&2; exit 1
+  }
+  if [ "$target_drain" != v1 ]; then
+    printf '%s\n' "Target image lacks the required graceful drain contract." >&2; exit 1
+  fi
+  require_compatible_fleet
+  stopping_api_ids="$(API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" \
+    docker compose --env-file "$env_file" -f "$compose_file" ps -q api)" || {
+    printf '%s\n' "Cannot list current API containers; rollback was not started." >&2; exit 1
+  }
+  retain_release_lock
+  if ! API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" docker compose --env-file "$env_file" -f "$compose_file" stop --timeout -1 api; then
+    printf '%s\n' "API drain outcome is uncertain; rollback was not started. Inspect the API and retained lock." >&2; exit 1
+  fi
+  require_clean_api_exit "$stopping_api_ids"
 fi
 # A compatible image must still wait for active provider calls to finish.
 # Jobs enqueued after this stop remain in Redis for the replacement worker.
@@ -62,6 +78,7 @@ require_unambiguous_continuations
 API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" docker compose --env-file "$env_file" -f "$compose_file" up -d api worker web
 APP_DIR="$app_dir" "$app_dir/infra/scripts/healthcheck.sh"
 require_target_worker
+require_target_api
 release_lock_when_safe
 API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" docker compose --env-file "$env_file" -f "$compose_file" ps
 

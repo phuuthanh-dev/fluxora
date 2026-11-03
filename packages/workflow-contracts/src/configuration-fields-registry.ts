@@ -39,6 +39,17 @@ const sharedFields = {
   "action.notion.retrieve-page": () => notionReadConfigurationFields("page"),
   "action.notion.list-children": () => notionReadConfigurationFields("children"),
   "action.notion.retrieve-property": () => notionReadConfigurationFields("property"),
+  "action.notion.create-page": () => [
+    { kind: "credential", key: "credentialId", label: "Notion connection", providers: ["NOTION"] },
+    { kind: "resource", key: "parentPageId", label: "Parent page", resource: "notion-page", credentialKey: "credentialId", placeholder: "Search shared pages" },
+    { kind: "text", key: "title", label: "Page title" },
+    { kind: "textarea", key: "content", label: "Page text (optional)" },
+  ],
+  "action.notion.update-title": () => [
+    { kind: "credential", key: "credentialId", label: "Notion connection", providers: ["NOTION"] },
+    { kind: "resource", key: "pageId", label: "Page", resource: "notion-page", credentialKey: "credentialId", placeholder: "Search shared pages" },
+    { kind: "text", key: "title", label: "New page title" },
+  ],
   "action.trello.get-card": () => trelloCardConfigurationFields("get"),
   "action.trello.update-card": () => trelloCardConfigurationFields("update"),
   "action.trello.move-card": () => trelloCardConfigurationFields("move"),

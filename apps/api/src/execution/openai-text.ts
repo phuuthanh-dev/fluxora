@@ -5,7 +5,7 @@ import { fetchSafeOutbound, fetchSafeOutboundWrite } from "./outbound-url-policy
 import { readBoundedProviderJson } from "./provider-json";
 import { assertNoAiCredentialEcho, mockAiOutput, normalizeAiUsage, parseAiOutput, parseAiSchema } from "./ai-structured-output";
 import type { AiSchema } from "./ai-structured-output";
-import { assertAiRequestLimits } from "./ai-request-limits";
+import { assertAiRequestLimits, assertResolvedAiLimits } from "./ai-request-limits";
 
 type Transport = (url: string, init: RequestInit) => Promise<Response>;
 type OpenAIInput = { apiKey: string; model: string; prompt: string; maxOutputTokens: number; timeoutMs: number; outputSchema?: AiSchema };
@@ -20,7 +20,10 @@ async function request(url: string, init: RequestInit, transport: Transport, pai
     const failure = nodeFailureFromOutboundPolicy(reason);
     throw paidGeneration ? new NodeFailure(failure.code, failure.message, false, failure.statusCode) : failure;
   }
-  if (!response.ok) throw new NodeFailure("HTTP_ERROR", response.status === 400 && structured ? "OpenAI rejected the structured output request; check model and schema support." : `OpenAI returned ${response.status}.`, paidGeneration ? false : response.status === 429 || response.status >= 500, response.status);
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new NodeFailure("HTTP_ERROR", response.status === 400 && structured ? "OpenAI rejected the structured output request; check model and schema support." : `OpenAI returned ${response.status}.`, paidGeneration ? false : response.status === 429 || response.status >= 500, response.status);
+  }
   try { return await readBoundedProviderJson(response); } catch (reason) {
     if (reason instanceof NodeFailure) throw paidGeneration ? new NodeFailure(reason.code, reason.message, false, reason.statusCode) : reason;
     throw new NodeFailure("INVALID_RESPONSE", "OpenAI returned an invalid response.", false);
@@ -70,6 +73,7 @@ export async function generateOpenAIText(input: OpenAIInput, transport: Transpor
 }
 
 export async function executeOpenAIText(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, generate: typeof generateOpenAIText = generateOpenAIText) {
+  assertResolvedAiLimits(config);
   const model = typeof config.model === "string" ? config.model : "";
   const prompt = typeof config.prompt === "string" ? config.prompt : "";
   const maxOutputTokens = config.maxOutputTokens === undefined ? 1024 : config.maxOutputTokens;

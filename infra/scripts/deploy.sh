@@ -68,6 +68,12 @@ if [ "$target_compatibility" != nx-v1 ]; then
   printf '%s\n' "Target API image is not certified for NX; deployment was not started." >&2
   exit 1
 fi
+target_drain="$(docker image inspect --format '{{ index .Config.Labels "io.fluxora.graceful-drain" }}' "$api_image:$image_tag")" || {
+  printf '%s\n' "Cannot inspect target drain support; deployment was not started." >&2; exit 1
+}
+if [ "$target_drain" != v1 ]; then
+  printf '%s\n' "Target API image lacks the required graceful drain contract." >&2; exit 1
+fi
 require_compatible_fleet
 
 # Inspect before stopping workers when the existing database is already up.
@@ -132,6 +138,18 @@ if [ "$bundle_dir" != "$app_dir" ]; then
   release_lock_when_safe
 fi
 
+# The compatible API gates requests, stops timers and waits for in-flight work.
+# Stop it before the worker so no scheduler or request can enqueue new jobs
+# while the worker is draining or while the schema is being migrated.
+stopping_api_ids="$(docker compose --env-file "$env_file" -f "$compose_file" ps -q api)" || {
+  printf '%s\n' "Cannot list current API containers; deployment was not started." >&2; exit 1
+}
+retain_release_lock
+if ! docker compose --env-file "$env_file" -f "$compose_file" stop --timeout -1 api; then
+  printf '%s\n' "API drain outcome is uncertain; migration was not started. Inspect the API and retained lock." >&2; exit 1
+fi
+require_clean_api_exit "$stopping_api_ids"
+
 # The worker handles SIGTERM by closing BullMQ and waiting for active jobs.
 # Do not use Compose's default finite stop timeout, which can SIGKILL a job
 # after it has already written to a provider. New jobs remain in Redis.
@@ -150,6 +168,15 @@ restore_stopped_worker() {
       return 1
     fi
   done
+  for stopped_api_id in $stopping_api_ids; do
+    if ! docker start "$stopped_api_id" >/dev/null; then
+      printf '%s\n' "Could not restart an original API; inspect the services." >&2; return 1
+    fi
+    restarted_api_state="$(docker inspect --format '{{.State.Status}}' "$stopped_api_id")" || return 1
+    if [ "$restarted_api_state" != running ]; then
+      printf '%s\n' "An original API did not remain running; inspect the services." >&2; return 1
+    fi
+  done
   release_lock_when_safe
 }
 stopping_worker_ids="$(API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" \
@@ -164,7 +191,6 @@ if ! docker compose --env-file "$env_file" -f "$compose_file" stop --timeout -1 
   exit 1
 fi
 require_clean_worker_exit "$stopping_worker_ids"
-release_lock_when_safe
 if ! docker compose --env-file "$env_file" -f "$compose_file" up -d --wait db redis; then
   printf '%s\n' "Dependencies were not ready; migration was not started." >&2
   restore_stopped_worker
@@ -173,7 +199,6 @@ fi
 # Do not guess or restart workers when legacy continuation state needs review.
 retain_release_lock
 require_unambiguous_continuations
-release_lock_when_safe
 if ! APP_DIR="$app_dir" ENV_FILE="$env_file" sh "$scripts_dir/backup-postgres.sh"; then
   printf '%s\n' "Backup failed; migration was not started." >&2
   restore_stopped_worker
@@ -190,6 +215,7 @@ docker compose --env-file "$env_file" -f "$compose_file" up -d api worker web
 
 APP_DIR="$app_dir" sh "$scripts_dir/healthcheck.sh"
 require_target_worker
+require_target_api
 release_lock_when_safe
 API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" \
 PREVIOUS_API_IMAGE_TAG="$previous_api_image_tag" PREVIOUS_WEB_IMAGE_TAG="$previous_web_image_tag" \

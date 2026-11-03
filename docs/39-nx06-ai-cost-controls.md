@@ -22,6 +22,13 @@ that a lower operator ceiling may apply; the failure gives the actual ceiling.
 The setting applies to both test and live node execution and to the server-side
 generation helpers. It does not modify saved or published graph JSON.
 
+The optional `AI_MAX_PROMPT_CHARACTERS` setting caps each prompt at 1–100000
+JavaScript UTF-16 code units, defaulting to 100000 for existing deployments.
+An invalid setting fails closed and an oversized prompt is rejected rather than
+truncated, before the credential is read or a generation request is sent.
+Set the same value on all API and worker processes and drain old workers before
+relying on a change. This is a size bound, not a token count or spending cap.
+
 Each node invocation issues at most one generation request in the production
 transport: unsafe redirects are rejected and provider, transport, timeout,
 response, and schema failures do not cause an automatic generation retry,

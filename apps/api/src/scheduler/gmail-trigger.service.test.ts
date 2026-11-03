@@ -8,7 +8,7 @@ function fixture() {
   const deliveries = new Map<string, Record<string, unknown>>();
   const executions = new Map<string, { id: string }>();
   const dispatches: string[] = [];
-  let failQueue = false; let failAfterEnqueue = false; let active = true; let expired = false; let missing = false; let deactivateDuringRead = false; let mailboxHash = "mailbox";
+  let failQueue = false; let failAfterEnqueue = false; let active = true; let expired = false; let missing = false; let deactivateDuringRead = false; let deactivateDuringHistory = false; let mailboxHash = "mailbox";
   const pages: Array<{ messageIds: string[]; historyId: string; nextPageToken: string | null }> = [{ messageIds: ["m1"], historyId: "2", nextPageToken: null }];
   let transactionPrisma: unknown;
   const prisma = {
@@ -47,10 +47,10 @@ function fixture() {
   const service = new GmailTriggerService(prisma as never, credentials as never, executionService as never, queue as never);
   Object.defineProperty(service, "provider", { value: {
     getGmailHistoryBaseline: async () => ({ historyId: "99", mailboxHash }),
-    getGmailHistoryPage: async () => { if (expired) throw new NodeFailure("GMAIL_HISTORY_EXPIRED", "expired", false); return pages.shift() ?? { messageIds: [], historyId: "2", nextPageToken: null }; },
+    getGmailHistoryPage: async () => { if (deactivateDuringHistory) active = false; if (expired) throw new NodeFailure("GMAIL_HISTORY_EXPIRED", "expired", false); return pages.shift() ?? { messageIds: [], historyId: "2", nextPageToken: null }; },
     getGmailMessage: async (_token: string, id: string) => { if (missing) throw new NodeFailure("GMAIL_ERROR", "not found", false, 404); if (deactivateDuringRead) active = false; return { id, labels: ["INBOX", "Label_1"], from: "Support <support@example.test>", subject: "Example request" }; },
   } });
-  return { service, checkpoint, deliveries, executions, dispatches, pages, setQueueFailure: () => { failQueue = true; }, loseQueueAck: () => { failAfterEnqueue = true; }, setActive: (value: boolean) => { active = value; }, deactivateDuringRead: () => { deactivateDuringRead = true; }, setExpired: () => { expired = true; }, setMissing: () => { missing = true; }, setMailbox: (value: string) => { mailboxHash = value; } };
+  return { service, checkpoint, deliveries, executions, dispatches, pages, setQueueFailure: () => { failQueue = true; }, loseQueueAck: () => { failAfterEnqueue = true; }, setActive: (value: boolean) => { active = value; }, deactivateDuringRead: () => { deactivateDuringRead = true; }, deactivateDuringHistory: () => { deactivateDuringHistory = true; }, setExpired: () => { expired = true; }, setMissing: () => { missing = true; }, setMailbox: (value: string) => { mailboxHash = value; } };
 }
 
 test("queue recovery resumes after the approved node and refuses ambiguous progress", async () => {
@@ -141,6 +141,20 @@ test("a Gmail read that finishes after deactivation cannot commit a filter decis
   assert.equal(f.deliveries.get("m1")?.skipReason, undefined);
   assert.equal(f.checkpoint.historyId, "1");
   assert.equal(f.dispatches.length, 0);
+});
+
+test("a history response or error after deactivation cannot change the checkpoint", async () => {
+  for (const fail of [false, true]) {
+    const f = fixture();
+    f.pages.splice(0, 1, { messageIds: [], historyId: "2", nextPageToken: null });
+    f.deactivateDuringHistory();
+    if (fail) f.setExpired();
+    await f.service.poll("v1", "flow", "space", "node", { credentialId: "cred" });
+    assert.equal(f.checkpoint.historyId, "1");
+    assert.equal(f.checkpoint.state, "READY");
+    assert.equal(f.checkpoint.lastErrorCode, null);
+    assert.equal(f.checkpoint.leaseToken, null);
+  }
 });
 
 test("expired history and changed mailboxes require an explicit restart", async () => {

@@ -52,6 +52,8 @@ const coordinatorAdditions = {
   "action.notion.retrieve-page": executable(credential("NOTION"), "read"),
   "action.notion.list-children": executable(credential("NOTION"), "read", fields("blocks", "hasMore", "nextCursor"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore" }),
   "action.notion.retrieve-property": executable(credential("NOTION"), "read", fields("kind", "hasMore", "nextCursor"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", caveat: "Only list-valued properties have further pages." }),
+  "action.notion.create-page": executable(credential("NOTION"), "write", fields("pageId", "parentPageId")),
+  "action.notion.update-title": executable(credential("NOTION"), "write", fields("pageId", "updatedField")),
   "action.trello.get-card": executable(credential("TRELLO"), "read"),
   "action.trello.update-card": executable(credential("TRELLO"), "write"),
   "action.trello.move-card": executable(credential("TRELLO"), "write"),

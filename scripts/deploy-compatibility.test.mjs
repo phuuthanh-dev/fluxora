@@ -9,7 +9,7 @@ import pg from "pg";
 const root = resolve(import.meta.dirname, "..");
 const sha = "0123456789abcdef0123456789abcdef01234567";
 
-function exercise({ target = "nx-v1", fleet = "nx-v1", apiLabel = fleet, workerLabel = fleet, containerState = "running", apiState = containerState, workerState = containerState, fleetIds = "api-1 worker-1", runningWorkers = "worker-1", fail = "", restartFailure = "", legacyPending = "clear", afterDrain = legacyPending, dbRunning = true, useDefaultImages = false, retagged = false, staged = false, composeMismatch = false, missingRequired = false } = {}) {
+function exercise({ target = "nx-v1", fleet = "nx-v1", apiLabel = fleet, workerLabel = fleet, targetDrain = "v1", fleetDrain = "v1", containerState = "running", apiState = containerState, workerState = containerState, fleetIds = "api-1 worker-1", runningApis = "api-1", runningWorkers = "worker-1", fail = "", restartFailure = "", legacyPending = "clear", afterDrain = legacyPending, dbRunning = true, useDefaultImages = false, retagged = false, staged = false, composeMismatch = false, missingRequired = false } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "fluxora-deploy-test-"));
   try {
     const scripts = join(dir, "infra/scripts");
@@ -48,7 +48,9 @@ case "$*" in
   *'ps -aq api') [ "$FAIL_AT" = fleet ] && exit 1; for item in $FLEET_IDS; do case "$item" in api-*) printf '%s\n' "$item";; esac; done ;;
   *'ps -aq worker') [ "$FAIL_AT" = fleet ] && exit 1; for item in $FLEET_IDS; do case "$item" in worker-*) printf '%s\n' "$item";; esac; done ;;
   *'ps -q db'*) [ "$DB_RUNNING" = 1 ] && printf '%s\n' db-1 ;;
+  *'ps -q api'*) if [ -f "$REPLACED_FILE" ]; then [ "$FAIL_AT" = api-missing ] || printf '%s\n' api-1; else printf '%s\n' "$RUNNING_APIS"; fi ;;
   *'ps -q worker'*) if [ -f "$REPLACED_FILE" ]; then [ "$FAIL_AT" = worker-missing ] || printf '%s\n' worker-1; else printf '%s\n' "$RUNNING_WORKERS"; fi ;;
+  *'stop --timeout -1 api'*) [ "$FAIL_AT" = api-stop ] && exit 1 ;;
   *'stop --timeout -1 worker'*) [ "$FAIL_AT" = stop ] && exit 1; touch "$DRAINED_FILE" ;;
   'start '*) [ "$RESTART_FAILURE" = start ] && exit 1; touch "$RESTARTED_FILE" ;;
   *'up -d --wait db redis'*) [ "$FAIL_AT" = dependencies ] && exit 1 ;;
@@ -56,21 +58,26 @@ case "$*" in
   *'up -d migrate'*) [ "$FAIL_AT" = migrate ] && exit 1 ;;
   *'up -d api worker web'*) touch "$REPLACED_FILE" ;;
   'inspect --format {{.State.Status}} {{.State.ExitCode}} {{.State.OOMKilled}} '*)
+    for last do :; done
+    case "$last:$FAIL_AT" in api-*:api-inspect) exit 1 ;; api-*:api-error) printf '%s\n' 'exited 1 false'; exit 0 ;; api-*:api-oom) printf '%s\n' 'exited 0 true'; exit 0 ;; api-*:*) printf '%s\n' 'exited 0 false'; exit 0 ;; esac
     [ "$FAIL_AT" = drain-inspect ] && exit 1
     case "$FAIL_AT" in drain-error) printf '%s\n' 'exited 1 false' ;; drain-oom) printf '%s\n' 'exited 0 true' ;; *) printf '%s\n' 'exited 0 false' ;; esac ;;
   'inspect --format {{.State.Status}} '*)
     [ "$FAIL_AT" = state ] && exit 1; for last do :; done
     if [ -f "$RESTARTED_FILE" ]; then [ "$RESTART_FAILURE" = state ] && printf '%s\n' exited || printf '%s\n' running
-    elif [ -f "$REPLACED_FILE" ]; then [ "$FAIL_AT" = worker-state ] && printf '%s\n' exited || printf '%s\n' running
+    elif [ -f "$REPLACED_FILE" ]; then case "$last:$FAIL_AT" in api-*:api-state|worker-*:worker-state) printf '%s\n' exited ;; *) printf '%s\n' running ;; esac
     elif [ "$last" = api-1 ]; then printf '%s\n' "$API_STATE"; else printf '%s\n' "$WORKER_STATE"; fi ;;
   'inspect --format {{.Config.Image}} '*)
     [ "$FAIL_AT" = image ] && exit 1; for last do :; done
     if [ -f "$REPLACED_FILE" ]; then printf '%s:%s\n' "$API_IMAGE" "$IMAGE_TAG"; elif [ "$RETAGGED" = 1 ]; then printf '%s\n' "$last-retagged"; else printf '%s\n' "$last-image"; fi ;;
   'inspect --format {{.Image}} '*)
     [ "$FAIL_AT" = image ] && exit 1; for last do :; done
-    if [ -f "$REPLACED_FILE" ]; then [ "$FAIL_AT" = worker-image-id ] && printf '%s\n' stale-image-id || printf '%s\n' target-image-id; else printf '%s\n' "$last-image"; fi ;;
+    if [ -f "$REPLACED_FILE" ]; then case "$last:$FAIL_AT" in api-*:api-image-id|worker-*:worker-image-id) printf '%s\n' stale-image-id ;; *) printf '%s\n' target-image-id ;; esac; else printf '%s\n' "$last-image"; fi ;;
   'image inspect --format {{.Id}} '*)
     [ "$FAIL_AT" = target-image-id ] && exit 1; printf '%s\n' target-image-id ;;
+  *'image inspect --format {{ index .Config.Labels "io.fluxora.graceful-drain" }}'*)
+    for last do :; done
+    case "$last" in api-*-image|worker-*-image) printf '%s\n' "$FLEET_DRAIN" ;; *) printf '%s\n' "$TARGET_DRAIN" ;; esac ;;
   'image inspect '*)
     for last do :; done
     case "$last" in
@@ -87,7 +94,7 @@ exit 0
     chmodSync(join(bin, "mv"), 0o755);
     const result = spawnSync("sh", [join(root, "infra/scripts/deploy.sh")], {
       encoding: "utf8",
-      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, APP_DIR: dir, RELEASE_BUNDLE: staged ? bundle : dir, ENV_FILE: envFile, IMAGE_TAG: sha, API_IMAGE: useDefaultImages ? "" : "synthetic-api", WEB_IMAGE: useDefaultImages ? "" : "synthetic-web", EXPECTED_API_IMAGE: useDefaultImages ? "ghcr.io/phuuthanh-dev/workflow-automation-api" : "synthetic-api", EXPECTED_WEB_IMAGE: useDefaultImages ? "ghcr.io/phuuthanh-dev/workflow-automation-web" : "synthetic-web", EXPECTED_TAG: sha, CALL_LOG: log, DRAINED_FILE: join(dir, "drained"), REPLACED_FILE: join(dir, "replaced"), RESTARTED_FILE: join(dir, "restarted"), TARGET_LABEL: target, API_LABEL: apiLabel, WORKER_LABEL: workerLabel, API_STATE: apiState, WORKER_STATE: workerState, FLEET_IDS: fleetIds, RUNNING_WORKERS: runningWorkers, FAIL_AT: fail, RESTART_FAILURE: restartFailure, LEGACY_PENDING: legacyPending, AFTER_DRAIN: afterDrain, DB_RUNNING: dbRunning ? "1" : "0", RETAGGED: retagged ? "1" : "0" },
+      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, APP_DIR: dir, RELEASE_BUNDLE: staged ? bundle : dir, ENV_FILE: envFile, IMAGE_TAG: sha, API_IMAGE: useDefaultImages ? "" : "synthetic-api", WEB_IMAGE: useDefaultImages ? "" : "synthetic-web", EXPECTED_API_IMAGE: useDefaultImages ? "ghcr.io/phuuthanh-dev/workflow-automation-api" : "synthetic-api", EXPECTED_WEB_IMAGE: useDefaultImages ? "ghcr.io/phuuthanh-dev/workflow-automation-web" : "synthetic-web", EXPECTED_TAG: sha, CALL_LOG: log, DRAINED_FILE: join(dir, "drained"), REPLACED_FILE: join(dir, "replaced"), RESTARTED_FILE: join(dir, "restarted"), TARGET_LABEL: target, API_LABEL: apiLabel, WORKER_LABEL: workerLabel, TARGET_DRAIN: targetDrain, FLEET_DRAIN: fleetDrain, API_STATE: apiState, WORKER_STATE: workerState, FLEET_IDS: fleetIds, RUNNING_APIS: runningApis, RUNNING_WORKERS: runningWorkers, FAIL_AT: fail, RESTART_FAILURE: restartFailure, LEGACY_PENDING: legacyPending, AFTER_DRAIN: afterDrain, DB_RUNNING: dbRunning ? "1" : "0", RETAGGED: retagged ? "1" : "0" },
     });
     const backups = join(dir, ".release-tooling-backups");
     const backupEntries = existsSync(backups) ? readdirSync(backups) : [];
@@ -160,6 +167,28 @@ test("deploy refuses an incompatible API or worker even when it is stopped", () 
   }
 });
 
+test("deploy requires explicit drain support and drains API before worker and migration", () => {
+  for (const options of [{ targetDrain: "<no value>" }, { fleetDrain: "<no value>" }]) {
+    const { result, calls } = exercise(options);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /drain/);
+    assert.doesNotMatch(calls, /stop --timeout|up -d migrate/);
+  }
+  const { result, calls } = exercise();
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(calls.indexOf("stop --timeout -1 api") < calls.indexOf("stop --timeout -1 worker"));
+  assert.ok(calls.indexOf("stop --timeout -1 worker") < calls.indexOf("up -d migrate"));
+});
+
+test("an uncertain API drain retains the lock without stopping the worker or migrating", () => {
+  for (const fail of ["api-stop", "api-inspect", "api-error", "api-oom"]) {
+    const { result, calls, lockStillPresent } = exercise({ fail });
+    assert.notEqual(result.status, 0);
+    assert.equal(lockStillPresent, true);
+    assert.doesNotMatch(calls, /stop --timeout -1 worker|up -d migrate|\nstart /);
+  }
+});
+
 test("deployment checks the running image ID even when its former tag was repointed", () => {
   for (const options of [{ apiLabel: "<no value>", workerLabel: "nx-v1" }, { apiLabel: "nx-v1", workerLabel: "<no value>" }]) {
     const { result, calls } = exercise({ ...options, retagged: true });
@@ -199,7 +228,7 @@ test("deploy supplies the resolved default images to every compose invocation", 
 });
 
 test("uncertain worker stop, migration or replacement retains the release lock", () => {
-  for (const fail of ["stop", "drain-inspect", "drain-error", "drain-oom", "migrate", "worker-missing", "worker-state", "worker-image-id", "target-image-id"]) {
+  for (const fail of ["stop", "drain-inspect", "drain-error", "drain-oom", "migrate", "worker-missing", "worker-state", "worker-image-id", "api-missing", "api-state", "api-image-id", "target-image-id"]) {
     const { result, calls, lockStillPresent } = exercise({ fail });
     assert.notEqual(result.status, 0);
     assert.equal(lockStillPresent, true);
@@ -210,11 +239,13 @@ test("uncertain worker stop, migration or replacement retains the release lock",
   }
 });
 
-test("pre-migration dependency or backup failures restart existing worker", () => {
+test("pre-migration dependency or backup failures restart existing workers and APIs", () => {
   for (const fail of ["dependencies", "backup-postgres.sh"]) {
     const { result, calls, lockStillPresent } = exercise({ fail });
     assert.notEqual(result.status, 0);
     assert.match(calls, /\nstart worker-1\n/);
+    assert.match(calls, /\nstart api-1\n/);
+    assert.ok(calls.indexOf("start worker-1") < calls.indexOf("start api-1"));
     assert.doesNotMatch(calls, /up -d migrate/);
     assert.equal(lockStillPresent, false);
   }
@@ -264,11 +295,14 @@ test("legacy continuation query handles schemas before and after the NX migratio
   } finally { await client.query("ROLLBACK"); await client.end(); }
 });
 
-test("failed preparation restores only the workers that were running before deployment", () => {
-  const none = exercise({ fail: "dependencies", runningWorkers: "" });
+test("failed preparation restores only the API and workers that were running before deployment", () => {
+  const none = exercise({ fail: "dependencies", runningApis: "", runningWorkers: "" });
   assert.notEqual(none.result.status, 0);
   assert.doesNotMatch(none.calls, /\nstart /);
   assert.equal(none.lockStillPresent, false);
+  const apiOnly = exercise({ fail: "dependencies", runningWorkers: "" });
+  assert.match(apiOnly.calls, /\nstart api-1\n/);
+  assert.doesNotMatch(apiOnly.calls, /\nstart worker/);
   const multiple = exercise({ fail: "dependencies", runningWorkers: "worker-1 worker-2" });
   assert.match(multiple.calls, /\nstart worker-1\n/);
   assert.match(multiple.calls, /\nstart worker-2\n/);

@@ -781,6 +781,18 @@ export const nodeCatalog: NodeDefinition[] = [
     configurationFields: getSharedNodeConfigurationFields(type),
   })),
   {
+    type: "action.notion.create-page", label: "Notion · Create page", description: "Create a child page in a shared Notion page.",
+    category: "action", libraryGroup: "productivity", appId: "notion", operationId: "create-page", operationLabel: "Create page", operationKind: "action", icon: "notion", available: true,
+    defaultConfig: { credentialId: "", parentPageId: "", title: "", content: "" },
+    configurationFields: getSharedNodeConfigurationFields("action.notion.create-page"),
+  },
+  {
+    type: "action.notion.update-title", label: "Notion · Update page title", description: "Rename a shared Notion page.",
+    category: "action", libraryGroup: "productivity", appId: "notion", operationId: "update-title", operationLabel: "Update page title", operationKind: "action", icon: "notion", available: true,
+    defaultConfig: { credentialId: "", pageId: "", title: "" },
+    configurationFields: getSharedNodeConfigurationFields("action.notion.update-title"),
+  },
+  {
     type: "action.mongodb",
     label: "MongoDB",
     description: "Find documents in a MongoDB collection.",

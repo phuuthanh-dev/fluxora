@@ -31,7 +31,8 @@ test("unknown and planned nodes do not acquire executable metadata", () => {
 });
 
 test("shared fields preserve the editor catalog and return independent descriptors", () => {
-  assert.equal(sharedNodeConfigurationTypes.length, 74);
+  assert.equal(new Set(sharedNodeConfigurationTypes).size, sharedNodeConfigurationTypes.length);
+  for (const type of ["action.notion.create-page", "action.notion.update-title"]) assert.ok(sharedNodeConfigurationTypes.includes(type as typeof sharedNodeConfigurationTypes[number]), type);
   for (const type of sharedNodeConfigurationTypes) {
     const shared = getSharedNodeConfigurationFields(type);
     assert.ok(shared, type);

@@ -16,6 +16,7 @@ import { executeOpenAIText } from "./openai-text";
 import { executeMongoFind, executeMongoInsert } from "./mongodb-find";
 import { executeNotionSearch } from "./notion-search";
 import { executeNotionOperation } from "./notion-operations";
+import { executeNotionCreatePage, executeNotionUpdateTitle } from "./notion-create-page";
 import { executeRssRead } from "./rss-read";
 import { executeTrelloCreateCard } from "./trello";
 import { executeTrelloOperation } from "./trello-operations";
@@ -74,6 +75,8 @@ const executors = {
   "action.notion.retrieve-page": ({ config, mode, workspaceId, credentials }) => executeNotionOperation(config, "retrievePage", mode, workspaceId, credentials),
   "action.notion.list-children": ({ config, mode, workspaceId, credentials }) => executeNotionOperation(config, "listChildren", mode, workspaceId, credentials),
   "action.notion.retrieve-property": ({ config, mode, workspaceId, credentials }) => executeNotionOperation(config, "retrieveProperty", mode, workspaceId, credentials),
+  "action.notion.create-page": ({ config, mode, workspaceId, credentials }) => executeNotionCreatePage(config, mode, workspaceId, credentials),
+  "action.notion.update-title": ({ config, mode, workspaceId, credentials }) => executeNotionUpdateTitle(config, mode, workspaceId, credentials),
   "action.rss.read": ({ config, mode }) => executeRssRead(config, mode),
   "action.trello.create-card": ({ config, mode, workspaceId, credentials }) => executeTrelloCreateCard(config, mode, workspaceId, credentials),
   "action.trello.get-card": ({ config, mode, workspaceId, credentials }) => executeTrelloOperation("get", config, mode, workspaceId, credentials),

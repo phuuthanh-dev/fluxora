@@ -5,7 +5,7 @@ import { liveCredentialRequirements } from "./live-readiness";
 import { ExecutionService } from "./execution.service";
 
 test("new Trello and Notion operations retain provider-specific live-readiness checks", () => {
-  const types = ["action.notion.retrieve-page", "action.notion.list-children", "action.notion.retrieve-property", "action.trello.get-card", "action.trello.update-card", "action.trello.move-card", "action.trello.archive-card", "action.trello.list-cards", "action.trello.find-cards"] as const;
+  const types = ["action.notion.retrieve-page", "action.notion.list-children", "action.notion.retrieve-property", "action.notion.create-page", "action.notion.update-title", "action.trello.get-card", "action.trello.update-card", "action.trello.move-card", "action.trello.archive-card", "action.trello.list-cards", "action.trello.find-cards"] as const;
   const nodes = types.map((type, index) => ({ id: String(index), type, position: { x: 0, y: 0 }, config: { credentialId: `credential-${index}` } }));
   const requirements = liveCredentialRequirements({ nodes, edges: [] });
   assert.equal(requirements.length, types.length);

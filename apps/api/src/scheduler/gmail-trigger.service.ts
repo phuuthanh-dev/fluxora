@@ -14,6 +14,7 @@ import { BackgroundWork } from "../platform/background-work";
 
 const leaseMs = 5 * 60_000;
 export type GmailBaseline = { nodeId: string; historyId: string; mailboxHash: string };
+type GmailCheckpointUpdate = { historyId: string; pageToken: string | null; nextPollAt: Date; lastErrorCode: null } | { state: "READY" | "ERROR"; lastErrorCode: string };
 
 @Injectable()
 export class GmailTriggerService implements OnModuleInit, OnModuleDestroy {
@@ -143,15 +144,26 @@ export class GmailTriggerService implements OnModuleInit, OnModuleDestroy {
       }
       const interval = ["1", "5", "15", "60"].includes(String(config.pollMinutes)) ? Number(config.pollMinutes) : 1;
       const moreWork = pageIncomplete || Boolean(page.nextPageToken);
-      await this.prisma.gmailTriggerCheckpoint.updateMany({ where: { workflowVersionId: versionId, nodeId, state: "READY", leaseToken, leaseExpiresAt: { gt: new Date() } }, data: { historyId: moreWork ? checkpoint.historyId : page.historyId, pageToken: pageIncomplete ? checkpoint.pageToken : page.nextPageToken, nextPollAt: new Date(Date.now() + (moreWork ? 1 : interval) * 60_000), lastErrorCode: null } });
+      await this.recordCheckpoint(workflowId, versionId, nodeId, leaseToken, { historyId: moreWork ? checkpoint.historyId : page.historyId, pageToken: pageIncomplete ? checkpoint.pageToken : page.nextPageToken, nextPollAt: new Date(Date.now() + (moreWork ? 1 : interval) * 60_000), lastErrorCode: null });
     } catch (error) {
       const code = error instanceof NodeFailure ? error.code : "GMAIL_POLL_FAILED";
       const needsAttention = code === "GMAIL_HISTORY_EXPIRED" || code === "GMAIL_MAILBOX_CHANGED" || code === "GMAIL_EXECUTION_MISSING" || code === "GMAIL_MESSAGE_MISSING";
-      await this.prisma.gmailTriggerCheckpoint.updateMany({ where: { workflowVersionId: versionId, nodeId, leaseToken }, data: { state: needsAttention ? "ERROR" : "READY", lastErrorCode: code } });
+      await this.recordCheckpoint(workflowId, versionId, nodeId, leaseToken, { state: needsAttention ? "ERROR" : "READY", lastErrorCode: code });
       this.logger.warn(`Gmail trigger poll failed (${code}) for workflow ${workflowId}.`);
     } finally {
       await this.prisma.gmailTriggerCheckpoint.updateMany({ where: { workflowVersionId: versionId, nodeId, leaseToken }, data: { leaseToken: null, leaseExpiresAt: null } });
     }
+  }
+
+  private async recordCheckpoint(workflowId: string, versionId: string, nodeId: string, leaseToken: string, data: GmailCheckpointUpdate) {
+    await this.prisma.$transaction(async (transaction) => {
+      // A provider response may arrive after deactivation or republishing.
+      // Serialize in the same workflow -> checkpoint lock order as lifecycle
+      // changes; never advance or poison an inactive version's checkpoint.
+      const workflows = await transaction.$queryRaw<Array<{ isActive: boolean; archivedAt: Date | null; publishedVersionId: string | null }>>`SELECT "isActive", "archivedAt", "publishedVersionId" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
+      if (!workflows[0]?.isActive || workflows[0].archivedAt || workflows[0].publishedVersionId !== versionId) return;
+      await transaction.gmailTriggerCheckpoint.updateMany({ where: { workflowVersionId: versionId, nodeId, state: "READY", leaseToken, leaseExpiresAt: { gt: new Date() } }, data });
+    });
   }
 
   private async recordFilteredDelivery(workflowId: string, versionId: string, nodeId: string, messageId: string, leaseToken: string) {

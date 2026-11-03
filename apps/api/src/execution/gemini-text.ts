@@ -5,7 +5,7 @@ import type { CredentialService } from "../credentials/credential.service";
 import { readBoundedProviderJson } from "./provider-json";
 import { assertNoAiCredentialEcho, mockAiOutput, normalizeAiUsage, parseAiOutput, parseAiSchema } from "./ai-structured-output";
 import type { AiSchema } from "./ai-structured-output";
-import { assertAiRequestLimits } from "./ai-request-limits";
+import { assertAiRequestLimits, assertResolvedAiLimits } from "./ai-request-limits";
 
 export type GeminiTextInput = {
   apiKey: string;
@@ -33,7 +33,10 @@ export async function listGeminiTextModels(apiKey: string, transport: GeminiTran
       method: "GET", headers: { "x-goog-api-key": apiKey }, signal: AbortSignal.timeout(10_000),
     });
   } catch (error) { throw nodeFailureFromOutboundPolicy(error); }
-  if (!response.ok) throw new NodeFailure("HTTP_ERROR", `Gemini returned ${response.status}.`, response.status === 429 || response.status >= 500, response.status);
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new NodeFailure("HTTP_ERROR", `Gemini returned ${response.status}.`, response.status === 429 || response.status >= 500, response.status);
+  }
   let payload: unknown;
   try { payload = await readBoundedProviderJson(response); } catch (error) { if (error instanceof NodeFailure) throw error; throw new NodeFailure("INVALID_RESPONSE", "Gemini returned an invalid model list.", false); }
   const root = asRecord(payload);
@@ -74,7 +77,10 @@ export async function generateGeminiText(input: GeminiTextInput, transport: Gemi
     const failure = nodeFailureFromOutboundPolicy(error);
     throw new NodeFailure(failure.code, failure.message, false, failure.statusCode);
   }
-  if (!response.ok) throw new NodeFailure("HTTP_ERROR", response.status === 400 && outputSchema ? "Gemini rejected the structured output request; check model and schema support." : `Gemini returned ${response.status}.`, false, response.status);
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new NodeFailure("HTTP_ERROR", response.status === 400 && outputSchema ? "Gemini rejected the structured output request; check model and schema support." : `Gemini returned ${response.status}.`, false, response.status);
+  }
   let payload: unknown;
   try { payload = await readBoundedProviderJson(response); } catch (error) { if (error instanceof NodeFailure) throw new NodeFailure(error.code, error.message, false, error.statusCode); throw new NodeFailure("INVALID_RESPONSE", "Gemini returned an invalid response.", false); }
   const root = asRecord(payload);
@@ -101,6 +107,7 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 }
 
 export async function executeGeminiText(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, generate: typeof generateGeminiText = generateGeminiText) {
+  assertResolvedAiLimits(config);
   const model = typeof config.model === "string" ? config.model : "";
   const prompt = typeof config.prompt === "string" ? config.prompt : "";
   const maxOutputTokens = config.maxOutputTokens === undefined ? 1024 : config.maxOutputTokens;

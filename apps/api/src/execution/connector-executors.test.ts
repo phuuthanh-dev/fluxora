@@ -4,6 +4,16 @@ import { CredentialProvider } from "@prisma/client";
 import type { WorkflowNodeType } from "@workflow/contracts";
 import { executeNode } from "./execution.service";
 
+test("Notion page creation is dispatched in mock mode without credentials", async () => {
+  const config = { parentPageId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", title: "Example", content: "" };
+  const credentials = { readForExecution: () => { throw new Error("mock accessed credentials"); } } as never;
+  const result = await executeNode({ id: "page", type: "action.notion.create-page", config, position: { x: 0, y: 0 } }, config, {}, "mock", "workspace", credentials, "execution");
+  assert.equal(result.output.parentPageId, config.parentPageId);
+  const update = { pageId: config.parentPageId, title: "Updated" };
+  const renamed = await executeNode({ id: "rename", type: "action.notion.update-title", config: update, position: { x: 0, y: 0 } }, update, {}, "mock", "workspace", credentials, "execution");
+  assert.deepEqual(renamed.output, { pageId: update.pageId, updatedField: "title" });
+});
+
 test("GitHub issue update is dispatched in mock mode without credentials", async () => {
   const config = { repository: "owner/repo", issueNumber: "42", field: "state", state: "closed" };
   const credentials = { readForExecution: () => { throw new Error("mock accessed credentials"); } } as never;

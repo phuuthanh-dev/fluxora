@@ -45,6 +45,12 @@ require_compatible_fleet() {
     if [ "$current_compatibility" != nx-v1 ]; then
       printf '%s\n' "An incompatible API or worker container exists; complete the verified cutover before deployment." >&2; return 1
     fi
+    current_drain="$(docker image inspect --format '{{ index .Config.Labels "io.fluxora.graceful-drain" }}' "$current_image")" || {
+      printf '%s\n' "Cannot inspect current drain support; deployment was not started." >&2; return 1
+    }
+    if [ "$current_drain" != v1 ]; then
+      printf '%s\n' "An API or worker image lacks the required graceful drain contract." >&2; return 1
+    fi
   done
 }
 
@@ -57,6 +63,19 @@ require_clean_worker_exit() {
     }
     if [ "$stopped_worker_state" != 'exited 0 false' ]; then
       printf '%s\n' "Worker did not exit cleanly; inspect execution state and retained lock." >&2; return 1
+    fi
+  done
+}
+
+# The API must finish accepted requests and its scheduler scans before any
+# migration. An uncertain exit is not evidence that provider work completed.
+require_clean_api_exit() {
+  for stopped_api_id in $1; do
+    stopped_api_state="$(docker inspect --format '{{.State.Status}} {{.State.ExitCode}} {{.State.OOMKilled}}' "$stopped_api_id")" || {
+      printf '%s\n' "Cannot inspect stopped API; release remains locked." >&2; return 1
+    }
+    if [ "$stopped_api_state" != 'exited 0 false' ]; then
+      printf '%s\n' "API did not exit cleanly; inspect request and scheduler state and retained lock." >&2; return 1
     fi
   done
 }
@@ -97,6 +116,32 @@ require_target_worker() {
     worker_image_id="$(docker inspect --format '{{.Image}}' "$worker_id")" || return 1
     if [ "$worker_state" != running ] || [ "$worker_image" != "$api_image:$image_tag" ] || [ "$worker_image_id" != "$target_image_id" ]; then
       printf '%s\n' "Replacement worker is not running the requested image." >&2; return 1
+    fi
+  done
+}
+
+# A successful health response could come from a stale API container. Verify
+# every running Compose API against the immutable target image as well.
+require_target_api() {
+  target_api_image_id="$(docker image inspect --format '{{.Id}}' "$api_image:$image_tag")" || {
+    printf '%s\n' "Could not inspect the replacement API image." >&2; return 1
+  }
+  if [ -z "$target_api_image_id" ]; then
+    printf '%s\n' "Replacement API image has no inspectable ID." >&2; return 1
+  fi
+  target_api_ids="$(API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" \
+    docker compose --env-file "$env_file" -f "$compose_file" ps -q api)" || {
+    printf '%s\n' "Could not inspect the replacement API." >&2; return 1
+  }
+  if [ -z "$target_api_ids" ]; then
+    printf '%s\n' "No replacement API is running." >&2; return 1
+  fi
+  for target_api_id in $target_api_ids; do
+    target_api_state="$(docker inspect --format '{{.State.Status}}' "$target_api_id")" || return 1
+    target_api_image="$(docker inspect --format '{{.Config.Image}}' "$target_api_id")" || return 1
+    target_api_actual_id="$(docker inspect --format '{{.Image}}' "$target_api_id")" || return 1
+    if [ "$target_api_state" != running ] || [ "$target_api_image" != "$api_image:$image_tag" ] || [ "$target_api_actual_id" != "$target_api_image_id" ]; then
+      printf '%s\n' "Replacement API is not running the requested image." >&2; return 1
     fi
   done
 }
