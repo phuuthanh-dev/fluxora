@@ -140,8 +140,23 @@ export async function findTrelloCards(credential: Record<string, unknown>, input
     return protectOutput({ cards: page, count: page.length, hasMore: cards.length > input.limit }, credential);
   }
   const cards = await fetchPage(input.limit, input.page);
-  const hasMore = cards.length < input.limit ? false : input.page === 100 ? null : (await fetchPage(input.limit, input.page + 1)).length > 0;
-  return protectOutput({ cards, count: cards.length, page: input.page, hasMore, nextPage: hasMore === true ? input.page + 1 : null, continuationUnknown: hasMore === null }, credential);
+  const ids = new Set(cards.map((item) => item.id.toLowerCase()));
+  if (ids.size !== cards.length) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Trello returned duplicate cards in a search page.", false);
+  let hasMore: boolean | null = false;
+  let paginationWarning: string | undefined;
+  if (cards.length === input.limit) {
+    if (input.page === 100) hasMore = null;
+    else {
+      const following = await fetchPage(input.limit, input.page + 1);
+      const followingIds = new Set(following.map((item) => item.id.toLowerCase()));
+      if (followingIds.size !== following.length) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Trello returned duplicate cards in a search page.", false);
+      if (following.some((item) => ids.has(item.id.toLowerCase()))) {
+        hasMore = null;
+        paginationWarning = "Trello returned overlapping search pages. Refine the search before continuing.";
+      } else hasMore = following.length > 0;
+    }
+  }
+  return protectOutput({ cards, count: cards.length, page: input.page, hasMore, nextPage: hasMore === true ? input.page + 1 : null, continuationUnknown: hasMore === null, ...(paginationWarning ? { paginationWarning } : {}) }, credential);
 }
 
 export async function executeTrelloOperation(operation: Operation, config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport?: Transport) {

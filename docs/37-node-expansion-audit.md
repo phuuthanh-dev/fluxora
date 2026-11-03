@@ -406,6 +406,8 @@ NX-02 runtime guard bản local: `executeNode` và lookup adapter từ chối `n
 
 NX-02/03 Trello Find Cards bản local: Trello mô tả `cards_page` từ 0 đến tối đa 100 trong [OpenAPI chính thức](https://dac-static.atlassian.com/cloud/trello/swagger.v3.json?_v=1.1274.0). Node mới chọn chế độ phân trang; node cũ không có `searchPagination` tiếp tục một request và output trang đầu như trước, kể cả khi có trường `page` vốn bị bỏ qua. Người dùng có thể đổi draft sang chế độ trang. Trang đầy sẽ đọc thêm tối đa một trang để xác định `hasMore`; trang 100 đầy trả `hasMore: null`, `continuationUnknown: true` và không hứa còn trang kế tiếp. Cùng connection/board/query/limit phải được giữ giữa các trang; kết quả vẫn có thể thay đổi khi dữ liệu Trello thay đổi. Chưa thử provider thật; test API/UI mới và toàn bộ thay đổi sau lượt verify trước đang chờ quality gate cuối.
 
+Trong chế độ chọn trang, nếu Trello trả trùng card trong một trang, node từ chối kết quả; nếu hai trang quan sát được chồng lặp, node không cấp `nextPage` và báo `continuationUnknown` kèm cảnh báo. Đây chỉ phát hiện trùng lặp trong hai phản hồi quan sát được, không chứng minh kết quả không bị thiếu hoặc thay đổi giữa các lần chạy. Test hồi quy đã thêm, chờ final verify.
+
 Review kiến trúc NX-05 chọn bắt đầu từ checkpoint, lease và recovery của Gmail
 hiện có, thay vì mặc định đưa thêm hệ thống guard/epoch toàn cục. Bản nháp cũ
 có migration ảnh hưởng đến các provider khác và chưa đủ điều kiện release.

@@ -146,6 +146,15 @@ test("Trello search opts into paged output without changing historical node outp
   assert.equal(paged.output.nextPage, null);
 });
 
+test("find does not offer a continuation for overlapping provider pages", async () => {
+  const result = await findTrelloCards(credential, { boardId: board, query: "sample", limit: 1, page: 0 }, async () => Response.json({ cards: [rawCard()] }));
+  assert.equal(result.hasMore, null);
+  assert.ok("nextPage" in result && "paginationWarning" in result);
+  assert.equal(result.nextPage, null);
+  assert.match(result.paginationWarning ?? "", /overlapping/);
+  await assert.rejects(findTrelloCards(credential, { boardId: board, query: "sample", limit: 2, page: 0 }, async () => Response.json({ cards: [rawCard(), rawCard()] })), failure("INVALID_PROVIDER_RESPONSE", false));
+});
+
 test("find reports unknown continuation at the provider page ceiling and validates before credential access", async () => {
   let requests = 0;
   const ceiling = await findTrelloCards(credential, { boardId: board, query: "sample", limit: 1, page: 100 }, async (url) => {
