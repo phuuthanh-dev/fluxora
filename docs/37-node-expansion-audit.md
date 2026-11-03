@@ -148,6 +148,17 @@ Restore archive bị cắt trả lỗi, giữ dữ liệu ngay trước lần th
 lock. Đây không phải diễn tập toàn bộ schema Fluxora, queue, credential hay
 khôi phục production; không suy ra rollback về release trước đã an toàn.
 
+Một diễn tập PostgreSQL 16 riêng tiếp theo đã áp dụng 34 migration Fluxora,
+backup bằng script thật và restore vào database mới trống. Prisma không phát
+hiện khác biệt schema; user, workspace/member, workflow đã publish, graph,
+execution, node output, continuation, ciphertext credential và migration
+records giả đã khớp. Credential chỉ giải mã bằng khóa thử tương ứng; backup
+database không chứa `APP_ENCRYPTION_KEY`. Một execution mock có continuation
+token được phục hồi vào Redis giả ban đầu trống và chạy đúng một lần, không đọc
+credential hay gọi provider; fixture không tạo/duyệt approval request. Chưa
+kiểm chứng mọi record/job, old worker, in-place restore hoặc
+cutover/rollback production; không tự động replay tác động provider.
+
 | Mục | Code bản nháp đã có | Còn thiếu bằng chứng hoặc công việc |
 |---|---|---|
 | NX-02 | Registry executor/operation, fields dùng chung, một số cursor, OAuth theo connection; graph cũ không bắt buộc `nodeVersion`. Một số thay đổi hành vi dùng type `.v2` riêng. | `nodeVersion` mới chỉ nhận `1`; registry chưa chứng minh đủ schema/mock/redaction cho từng executable node. Cần review compatibility theo operation và final verify. |

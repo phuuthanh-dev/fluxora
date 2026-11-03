@@ -23,6 +23,19 @@ created afterward remained. A truncated archive failed with an EOF error;
 the row from immediately before that attempt remained and the release lock
 was retained. This is not a full Fluxora schema, migration, queue, credential,
 provider, interruption or production recovery test.
+In a subsequent isolated PostgreSQL 16 drill, the actual 34 migrations were
+applied to a synthetic source, then the actual scripts backed it up and restored
+it into a fresh, empty target. Prisma schema diff reported no difference; a
+synthetic user, workspace/member, published workflow/graph, two executions,
+node output, credential ciphertext and migration records matched. The restored
+credential decrypted with the original synthetic key and failed with a different
+key; the database dump itself is not a backup of `APP_ENCRYPTION_KEY`. One
+synthetic mock execution with a continuation token was recovered twice into an
+empty isolated Redis and executed once with network and credential access
+blocked; the fixture did not create or resolve an approval request. This covers
+only the listed synthetic records and that NX continuation; it does not restore
+other Redis jobs, reconcile provider effects, establish behavior for old code,
+or prove an in-place restore, first production cutover or rollback.
 The later Trello Find Cards pagination draft uses an explicit opt-in for
 historical nodes, bounded lookahead, and the documented page ceiling; it has
 not been exercised against the actual provider.
