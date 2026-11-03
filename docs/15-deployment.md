@@ -142,6 +142,16 @@ deploying the containers.
     infra/scripts/restore-postgres.sh /path/to/postgres-YYYYMMDDTHHMMSSZ.dump
   ```
 
+  The local NX draft shares the release lock with deploy/rollback, refuses
+  to restore while named Compose API or worker containers are active, and
+  uses `pg_restore --single-transaction`. An interrupted or failed restore
+  retains the lock for inspection because the commit outcome can be uncertain.
+  The check does not discover unmanaged clients or tools that ignore the lock.
+  `--clean` removes objects represented in the archive, not necessarily objects
+  created after it; this command alone is not a complete downgrade or a safe
+  way to preserve writes made after the backup. The changed script and its
+  synthetic tests await the final quality gate and an isolated restore drill.
+
 - Preserve the `postgres_data` volume and never use `docker compose down -v` in production.
 - After a successful health check, deploy scripts retain the current and previous API/Web commit-SHA images and remove only older SHA-tagged images from those two application repositories. PostgreSQL/Redis images and volumes are never part of this cleanup. An older image's presence in GHCR does not establish that it can safely read the current database or queued work.
 - The new deploy and rollback scripts share an atomic directory lock at `$APP_DIR/.fluxora-release.lock`. A failed lock acquisition stops the operation. The lock is deliberately retained if worker stop, migration, service replacement or health verification has an uncertain outcome. Inspect running release processes, migration state, worker, queue and provider effects before removing it; do not automatically delete a lock belonging to another process. Scripts from older releases do not honor this lock.

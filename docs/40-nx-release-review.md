@@ -15,6 +15,10 @@ behavior and has not passed the final gate; see [AI limits](39-nx06-ai-cost-cont
 The later backup-script draft also has not passed that gate: it avoids
 overwriting an existing archive or publishing a failed dump, but a successful
 dump is not a tested restore or proof of a safe production rollback.
+The later restore draft uses the shared release lock, blocks named active
+API/worker containers and requests a single PostgreSQL transaction. It has not
+passed the final gate or an isolated restore drill; it cannot fence unmanaged
+clients, recover writes after a snapshot, or by itself restore a previous release.
 
 Verification update on 2026-11-03: the latest local draft passed a complete
 `npm run verify` on isolated PostgreSQL/Redis and test ports, with 52 deployment

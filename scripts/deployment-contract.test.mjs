@@ -127,6 +127,41 @@ test("backup publishes only a successful dump and never overwrites an existing a
   }
 });
 
+test("restore excludes concurrent releases and active services, retaining the lock for uncertain outcomes", () => {
+  const dir = mkdtempSync(resolve(tmpdir(), "fluxora-restore-contract-"));
+  try {
+    mkdirSync(resolve(dir, "infra"));
+    mkdirSync(resolve(dir, "bin"));
+    writeFileSync(resolve(dir, "infra/docker-compose.production.yml"), "# synthetic\n");
+    writeFileSync(resolve(dir, ".env.production"), "# synthetic\n");
+    writeFileSync(resolve(dir, "backup.dump"), "synthetic archive");
+    const log = resolve(dir, "docker.log");
+    writeFileSync(resolve(dir, "bin/docker"), `#!/bin/sh
+printf '%s\\n' "$*" >> "$SYNTHETIC_DOCKER_LOG"
+if [ "$1" = inspect ]; then printf '%s\\n' "$SYNTHETIC_CONTAINER_STATE"; exit 0; fi
+case " $* " in
+  *' ps -aq '*) printf 'synthetic-container\\n';;
+  *' exec -T db '*) cat >/dev/null; [ "$SYNTHETIC_RESTORE_FAIL" != 1 ];;
+esac
+`, { mode: 0o755 });
+    const lock = resolve(dir, ".fluxora-release.lock");
+    const run = (state, fail = false, confirm = "RESTORE") => spawnSync("sh", [restorePostgres, resolve(dir, "backup.dump")], { encoding: "utf8", env: { ...process.env, APP_DIR: dir, PATH: `${resolve(dir, "bin")}:${process.env.PATH}`, CONFIRM_RESTORE: confirm, SYNTHETIC_DOCKER_LOG: log, SYNTHETIC_CONTAINER_STATE: state, SYNTHETIC_RESTORE_FAIL: fail ? "1" : "0" } });
+    assert.notEqual(run("exited", false, "").status, 0);
+    assert.notEqual(run("running").status, 0);
+    assert.doesNotMatch(readFileSync(log, "utf8"), /exec -T db/);
+    assert.equal(readdirSync(dir).includes(".fluxora-release.lock"), false);
+    assert.notEqual(run("exited", true).status, 0);
+    assert.ok(readdirSync(dir).includes(".fluxora-release.lock"));
+    assert.match(readFileSync(log, "utf8"), /--single-transaction/);
+    assert.notEqual(run("exited").status, 0, "retained lock must block another restore");
+    rmSync(lock, { recursive: true }); // Synthetic fixture only, after verifying the failed run ended.
+    assert.equal(run("exited").status, 0);
+    assert.equal(readdirSync(dir).includes(".fluxora-release.lock"), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("CI/CD workflow keeps bounded jobs, cache, and least-privilege deploy permissions", () => {
   assert.match(qualityWorkflow, /timeout-minutes:\s*20/);
   assert.match(qualityWorkflow, /uses: actions\/cache@[0-9a-f]{40}/);
