@@ -216,10 +216,13 @@ export function isExecutableWorkflowNodeType(type: WorkflowNodeType | string): t
 }
 
 /** Absent versions on historical graphs retain the original v1 behavior. */
-export const currentWorkflowNodeVersion = 1 as const;
+export const legacyWorkflowNodeVersion = 1 as const;
+export const currentWorkflowNodeVersion = legacyWorkflowNodeVersion;
 
 export function isSupportedWorkflowNodeVersion(version: unknown): version is 1 {
-  return version === currentWorkflowNodeVersion;
+  // This must not follow a future default implicitly: supporting another
+  // version requires an explicit compatible parser and execution path.
+  return version === legacyWorkflowNodeVersion;
 }
 
 export type WorkflowNode = {

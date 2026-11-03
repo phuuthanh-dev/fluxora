@@ -3,6 +3,29 @@ import test from "node:test";
 import { CredentialProvider } from "@prisma/client";
 import type { WorkflowNodeType } from "@workflow/contracts";
 import { executeNode } from "./execution.service";
+import { getConnectorExecutor } from "./connector-executors";
+import { NodeFailure } from "./node-failure";
+
+test("executor selection rejects unknown versions before credentials and preserves legacy v1", async () => {
+  const config = { parentPageId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", title: "Example", content: "" };
+  const node = { id: "page", type: "action.notion.create-page" as const, config, position: { x: 0, y: 0 } };
+  const credentials = { readForExecution: () => { throw new Error("unexpected credential access"); } } as never;
+  assert.equal(getConnectorExecutor(node.type), getConnectorExecutor(node.type, 1));
+  for (const invalid of [2, 0, -1, null, "1"]) {
+    assert.equal(getConnectorExecutor(node.type, invalid), undefined);
+    await assert.rejects(
+      executeNode({ ...node, nodeVersion: invalid as number }, config, {}, "live", "workspace", credentials, "execution"),
+      (error: unknown) => error instanceof NodeFailure && error.code === "NODE_VERSION_UNSUPPORTED" && !error.retryable,
+    );
+  }
+  const legacy = await executeNode(node, config, {}, "mock", "workspace", credentials, "execution");
+  const explicit = await executeNode({ ...node, nodeVersion: 1 }, config, {}, "mock", "workspace", credentials, "execution");
+  assert.deepEqual(explicit, legacy);
+  await assert.rejects(
+    executeNode({ ...node, type: "trigger.manual", nodeVersion: 2 }, {}, {}, "mock", "workspace", credentials, "execution"),
+    (error: unknown) => error instanceof NodeFailure && error.code === "NODE_VERSION_UNSUPPORTED",
+  );
+});
 
 test("Notion page creation is dispatched in mock mode without credentials", async () => {
   const config = { parentPageId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", title: "Example", content: "" };

@@ -401,6 +401,8 @@ Lượt verify cô lập mới nhất ngày 2026-11-03 đạt 52 kiểm tra depl
 
 Diễn tập cron giả lập sau lượt verify: execution được tạo bằng service cũ tương ứng source `3c9ac35`; Redis thử chứa đồng thời job kiểu cũ và job phục hồi NX. Worker NX với concurrency 2 hoàn tất cả hai job nhưng mỗi node của workflow giả chỉ chạy một lần. Thử nghiệm không ngắt API cũ, không gọi provider và không chứng minh việc khôi phục mọi lịch bị bỏ lỡ, cutover hoặc rollback production.
 
+NX-02 runtime guard bản local: `executeNode` và lookup adapter từ chối `nodeVersion` không được hỗ trợ trước khi đọc credential hoặc gọi provider; node lịch sử không có version và node khai báo `1` tiếp tục dùng cùng adapter. Regression test kiểm tra cả action và trigger đã được bổ sung, đang chờ quality gate sau thay đổi. Đây là bảo vệ v1, chưa phải cơ chế hỗ trợ nhiều phiên bản cho cùng một node type; các type `.v2` hiện hữu vẫn giữ contract riêng. [n8n versioning](https://docs.n8n.io/connect/create-nodes/build-your-node/reference/versioning/) giữ phiên bản node đã lưu trong workflow và chọn bản mới cho node được tạo sau; Fluxora chưa có đầy đủ cơ chế tương đương.
+
 Review kiến trúc NX-05 chọn bắt đầu từ checkpoint, lease và recovery của Gmail
 hiện có, thay vì mặc định đưa thêm hệ thống guard/epoch toàn cục. Bản nháp cũ
 có migration ảnh hưởng đến các provider khác và chưa đủ điều kiện release.

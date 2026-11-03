@@ -4,7 +4,7 @@ export { mockDrive, executeGoogleDrive } from "./google-workspace-adapter";
 export { executeGoogleChatWebhook, executeDiscordWebhook, executeTelegramMessage } from "./notification-adapters";
 export { executeGitHubCreateIssue, executeGitHubAddLabel, executeGitHubAddComment, executeGitHubMergePullRequest } from "./github-write-adapter";
 import { getConnectorExecutor } from "./connector-executors";
-import { isExecutableWorkflowNodeType, type WorkflowEdge, type WorkflowEdgeKind, type WorkflowGraph, type WorkflowNode } from "@workflow/contracts";
+import { isExecutableWorkflowNodeType, isSupportedWorkflowNodeVersion, type WorkflowEdge, type WorkflowEdgeKind, type WorkflowGraph, type WorkflowNode } from "@workflow/contracts";
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { ApprovalRequestStatus, CredentialProvider, ExecutionStatus, NodeExecutionStatus, Prisma } from "@prisma/client";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
@@ -804,8 +804,11 @@ function assertGitHubSafetyExpressions(node: WorkflowNode, config: Record<string
 
 export async function executeNode(node: WorkflowNode, config: Record<string, unknown>, context: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService, executionId: string): Promise<NodeResult> {
   if (!isExecutableWorkflowNodeType(node.type)) throw new NodeFailure("NODE_UNAVAILABLE", `${node.type} is not available in this MVP execution engine.`, false);
+  // Execution can also be called outside the graph parser; fail before any
+  // credential access or provider side effect for an unknown version.
+  if (node.nodeVersion !== undefined && !isSupportedWorkflowNodeVersion(node.nodeVersion)) throw new NodeFailure("NODE_VERSION_UNSUPPORTED", "This node version is not supported by the execution engine.", false);
   assertGitHubSafetyExpressions(node, config, context);
-  const connectorExecutor = getConnectorExecutor(node.type);
+  const connectorExecutor = getConnectorExecutor(node.type, node.nodeVersion);
   if (connectorExecutor) return connectorExecutor({ config, mode, workspaceId, credentials, executionId, nodeId: node.id });
   if (node.type === "trigger.gmail" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "gmail", message: { id: "example-message", from: "sender@example.test", to: "owner@example.test", subject: "Example message", text: "Synthetic test message", labels: ["INBOX"] } } }, route: "success" };
   if (node.type === "trigger.rss.new-item" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "rss", item: { id: "example-item", title: "Example item", link: "https://example.test/item", publishedAt: "", summary: "Synthetic feed item" } } }, route: "success" };

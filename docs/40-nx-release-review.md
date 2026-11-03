@@ -6,6 +6,11 @@ line-by-line audit of every change. Recheck the base and head before using it
 for a release decision. The later isolated handoff observations in this file
 are local documentation and are not part of the PR head.
 
+The runtime version guard added after the verification described below has not
+yet passed a full quality gate. It rejects unsupported versions before adapter
+selection and credential access, but does not implement multiple versions of
+one node type. Do not apply the earlier verification result to this change.
+
 Verification update on 2026-11-03: the latest local draft passed a complete
 `npm run verify` on isolated PostgreSQL/Redis and test ports, with 52 deployment
 checks, 904 API tests, 61 web tests and 201 Playwright tests, plus typecheck
