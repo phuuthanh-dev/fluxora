@@ -131,8 +131,9 @@ Theo yêu cầu hiện tại của chủ dự án, phần NX còn lại do coord
 
 ### Đối chiếu code với tiêu chí NX — snapshot 2026-11-03
 
-Baseline `origin/main` `3c9ac35`, PR draft head `20858a6` và một số thay đổi
-đang ở local, chưa commit. Mục này tóm tắt trạng thái hiện tại; các ghi chú
+Baseline `origin/main` `3c9ac35`, PR draft head `20858a6` và local code head
+`9a3be90`. Các thay đổi sau PR head đã được commit local nhưng chưa có trên
+PR; code sau `13bc0a0` chưa qua full verify. Mục này tóm tắt trạng thái hiện tại; các ghi chú
 theo lượt bên dưới có thể nhắc đến kết quả hoặc việc chờ kiểm thử tại thời
 điểm cũ. Không đánh dấu hoàn thành chỉ dựa trên sự tồn tại của code.
 
@@ -144,7 +145,7 @@ theo lượt bên dưới có thể nhắc đến kết quả hoặc việc ch�
 | NX-05 | RSS checkpoint/receipt và recovery; Kuma, Telegram, Trello, Vercel, Sentry webhook receiver và bảo vệ delivery ở mức khác nhau. PR có fence khi Cron và webhook cũ nhận execution. | Webhook provider có thể vẫn cần đăng ký thủ công; kiểm tra điều kiện provider và recovery thực tế. Các fence và retention đã qua verify cô lập/CI tại `20858a6`, chưa qua production. Không cam kết exactly-once. |
 | NX-06 | Structured JSON schema/output cho Gemini/OpenAI, metadata usage và giới hạn theo request. | Chưa có kiểm soát tổng chi phí hoặc chứng minh model bất kỳ hỗ trợ schema; media/binary chưa triển khai. Xem [giới hạn chi phí](39-nx06-ai-cost-controls.md). |
 | NX-07 | Tài liệu quyết định cho item/batch, binary, database change capture, Reddit và Meta. | Các hệ thống này chưa được coi là đã triển khai chỉ vì có thiết kế; phụ thuộc provider và phạm vi triển khai phải xét riêng. |
-| Phát hành | Full verify cô lập và GitHub Quality gate đã pass tại PR head `20858a6`; có diễn tập cô lập và guard từ chối fleet legacy. | First cutover và rollback về release trước chưa được chứng minh. PR #75 vẫn draft; những ghi chú diễn tập mới trong review đang ở local, không thuộc PR head. Xem [review phát hành](40-nx-release-review.md). |
+| Phát hành | GitHub Quality gate đã pass tại PR head `20858a6`; full verify cô lập sau đó pass cho source tương ứng `13bc0a0`. Có diễn tập cô lập và guard từ chối fleet legacy. | Code sau `13bc0a0` chưa có full verify hoặc CI; first cutover và rollback về release trước chưa được chứng minh. PR #75 vẫn draft và chưa chứa các commit local. Xem [review phát hành](40-nx-release-review.md). |
 
 ### Tiến độ bản nháp sau audit — chưa phát hành
 

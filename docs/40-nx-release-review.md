@@ -23,7 +23,8 @@ The later Trello Find Cards pagination draft uses an explicit opt-in for
 historical nodes, bounded lookahead, and the documented page ceiling; it has
 not passed the final gate or been exercised against the actual provider.
 
-Verification update on 2026-11-03: the latest local draft passed a complete
+Verification update on 2026-11-03: the source recorded in local commit
+`13bc0a0` passed a complete
 `npm run verify` on isolated PostgreSQL/Redis and test ports, with 52 deployment
 checks, 904 API tests, 61 web tests and 201 Playwright tests, plus typecheck
 and build. All listed database integration flags were enabled; API/web tests
