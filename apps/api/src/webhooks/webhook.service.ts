@@ -137,8 +137,9 @@ export class WebhookService {
     }
     if (telegramTrigger && (githubTrigger || kumaTrigger || !telegramWebhookSecretMatches(telegramSecret, endpoint.secretHash))) throw new ForbiddenException({ code: "WEBHOOK_SECRET_INVALID", message: "Webhook secret is invalid." });
     if (kumaTrigger && (githubTrigger || !endpoint.secretHash)) throw new ForbiddenException({ code: "WEBHOOK_SECRET_INVALID", message: "Webhook secret is invalid." });
+    let credentialSnapshot: { id: string; encryptedData: string } | undefined;
     if (githubTrigger) {
-      await this.verifyGitHubWebhook(endpoint.workflow.workspaceId, githubTrigger.config, payload, githubEventHeaders, endpoint.encryptedSigningSecret);
+      credentialSnapshot = await this.verifyGitHubWebhook(endpoint.workflow.workspaceId, githubTrigger.config, payload, githubEventHeaders, endpoint.encryptedSigningSecret);
       if (githubEventHeaders.githubEvent === "ping") return { acknowledged: true };
     } else if (!telegramTrigger && endpoint.secretHash && (!secret || !matchesWebhookSecret(secret, endpoint.secretHash))) {
       throw new ForbiddenException({ code: "WEBHOOK_SECRET_INVALID", message: "Webhook secret is invalid." });
@@ -164,12 +165,18 @@ export class WebhookService {
       return { executionId: execution.id };
     }
     const deliveryKey = githubTrigger && githubEventHeaders.githubDelivery ? `github:${githubEventHeaders.githubDelivery}` : idempotencyKey;
-    const execution = await this.executions.createScheduledExecution(
-      endpoint.workflowVersionId,
-      normalized ? normalized.payload : payload && typeof payload === "object" && !Array.isArray(payload) ? payload as Record<string, unknown> : { payload },
-      deliveryKey ? `webhook:${endpoint.id}:${deliveryKey}` : undefined,
-    );
-    await this.queue.dispatch({ executionId: execution.id, mode: "live" });
+    const execution = await this.executions.createLegacyWebhookExecution({
+      workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, path: endpoint.path,
+      secretHash: endpoint.secretHash, encryptedSigningSecret: endpoint.encryptedSigningSecret, credentialSnapshot,
+      payload: normalized ? normalized.payload : payload && typeof payload === "object" && !Array.isArray(payload) ? payload as Record<string, unknown> : { payload },
+      // Even without a caller delivery ID, persist a unique local identity so
+      // an accepted, never-started execution can be recovered after an outage.
+      // Distinct requests without a caller ID cannot be deduplicated.
+      idempotencyKey: `webhook:${endpoint.id}:${deliveryKey ?? `generated:${randomBytes(24).toString("hex")}`}`,
+    });
+    // A redelivery can refer to a run already waiting for an approval or to a
+    // queued continuation. Never let a delivery job claim that later phase.
+    if (execution.status === "QUEUED" && execution.startedAt === null) await this.queue.ensureDispatched({ executionId: execution.id, mode: "live", initialOnly: true });
     return { executionId: execution.id };
   }
 
@@ -178,8 +185,8 @@ export class WebhookService {
     if (!headers.rawBody || !headers.githubSignature) {
       throw new ForbiddenException({ code: "GITHUB_WEBHOOK_SIGNATURE_INVALID", message: "The GitHub webhook signature is invalid." });
     }
-    const credential = !encryptedSigningSecret && credentialId ? await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.GITHUB) : null;
-    const webhookSecret = encryptedSigningSecret ? readSecret(this.vault.decrypt(encryptedSigningSecret).secret) : readSecret(credential?.webhookSecret);
+    const credential = !encryptedSigningSecret && credentialId ? await this.credentials.readForExecutionSnapshot(credentialId, workspaceId, CredentialProvider.GITHUB) : null;
+    const webhookSecret = encryptedSigningSecret ? readSecret(this.vault.decrypt(encryptedSigningSecret).secret) : readSecret(credential?.data.webhookSecret);
     if (!webhookSecret || !verifyGitHubWebhookSignature(headers.rawBody, headers.githubSignature, webhookSecret)) {
       throw new ForbiddenException({ code: "GITHUB_WEBHOOK_SIGNATURE_INVALID", message: "The GitHub webhook signature is invalid." });
     }
@@ -193,6 +200,7 @@ export class WebhookService {
     if (repositoryFilter && repositoryName !== repositoryFilter) {
       throw new ForbiddenException({ code: "GITHUB_REPOSITORY_NOT_MATCHED", message: "The GitHub webhook repository does not match this trigger." });
     }
+    return credential && credentialId ? { id: credentialId, encryptedData: credential.encryptedData } : undefined;
   }
 }
 

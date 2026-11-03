@@ -77,6 +77,7 @@ export class WorkflowController {
   @Post("workflows/:workflowId/activate")
   async activate(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
     const readiness = await this.executions.getLiveReadiness(workflowId, requireUserId(request));
+    if (readiness.unavailableNodes?.length) throw new BadRequestException({ code: "NODE_UNAVAILABLE", message: "Remove unavailable nodes and publish a new version before activation.", details: readiness.unavailableNodes });
     if (!readiness.ready) throw new BadRequestException({ code: "LIVE_CREDENTIAL_REQUIRED", message: "Configure every live integration before activating this workflow.", details: readiness.requirements.filter((requirement) => !requirement.ready) });
     return { workflow: await this.workflows.activate(workflowId, requireUserId(request)) };
   }

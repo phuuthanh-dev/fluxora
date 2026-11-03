@@ -3,6 +3,7 @@ import test from "node:test";
 import { ExecutionStatus } from "@prisma/client";
 import { KumaDeliveryRecoveryService } from "./kuma-delivery-recovery.service";
 import { TelegramDeliveryRecoveryService } from "./telegram-delivery-recovery.service";
+import { LegacyDeliveryRecoveryService } from "./legacy-delivery-recovery.service";
 
 test("Kuma recovery only queues old, never-started deliveries with the initial-phase guard", async () => {
   let where: Record<string, unknown> | undefined;
@@ -30,4 +31,14 @@ test("Telegram recovery reuses the initial-only fence with its own delivery pref
   await service.recover(new Date("2026-11-03T12:00:00Z"));
   assert.deepEqual(where?.idempotencyKey, { startsWith: "telegram-v1:" });
   assert.deepEqual(jobs, [{ executionId: "telegram-run", mode: "live", initialOnly: true }]);
+});
+
+test("legacy webhook recovery scans only queued never-started webhook deliveries", async () => {
+  let where: Record<string, unknown> | undefined;
+  const jobs: unknown[] = [];
+  const service = new LegacyDeliveryRecoveryService({ execution: { findMany: async (input: { where: Record<string, unknown> }) => { where = input.where; return [{ id: "webhook-run" }]; } } } as never, { ensureDispatched: async (job: unknown) => { jobs.push(job); } } as never);
+  const now = new Date("2026-11-03T12:00:00Z");
+  await service.recover(now);
+  assert.deepEqual(where, { status: ExecutionStatus.QUEUED, mode: "LIVE", startedAt: null, idempotencyKey: { startsWith: "webhook:" }, createdAt: { lt: new Date(now.getTime() - 120_000) } });
+  assert.deepEqual(jobs, [{ executionId: "webhook-run", mode: "live", initialOnly: true }]);
 });

@@ -76,15 +76,20 @@ export class ExecutionMaintenanceService implements OnModuleInit, OnModuleDestro
     const failedBefore = new Date(now.getTime() - policy.failedDays * 24 * 60 * 60 * 1000);
     // Preserve external delivery identities for a bounded replay window.
     // This is a minimum local retention window, not an exactly-once promise.
-    const vercelReplayCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const outsideVercelReplayWindow = { OR: [
+    // Telegram can retain incoming updates for up to 24 hours. Do not evict
+    // recently completed webhook identities solely to meet the count ceiling:
+    // a delayed delivery could otherwise execute the workflow a second time.
+    // Kuma and legacy webhook caller-provided delivery IDs get the same
+    // bounded local window; it is not a provider redelivery guarantee.
+    const webhookReplayCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const outsideWebhookReplayWindow = { OR: [
       { idempotencyKey: null },
-      { AND: [{ idempotencyKey: { not: { startsWith: "vercel-v1:" } } }, { idempotencyKey: { not: { startsWith: "trello-v1:" } } }, { idempotencyKey: { not: { startsWith: "sentry-v1:" } } }] },
-      { completedAt: { lte: vercelReplayCutoff } },
+      { AND: [{ idempotencyKey: { not: { startsWith: "vercel-v1:" } } }, { idempotencyKey: { not: { startsWith: "trello-v1:" } } }, { idempotencyKey: { not: { startsWith: "sentry-v1:" } } }, { idempotencyKey: { not: { startsWith: "telegram-v1:" } } }, { idempotencyKey: { not: { startsWith: "kuma-v2:" } } }, { idempotencyKey: { not: { startsWith: "webhook:" } } }] },
+      { completedAt: { lte: webhookReplayCutoff } },
     ] };
     const byAge = await this.prisma.execution.deleteMany({
       where: {
-        AND: [outsideVercelReplayWindow, { OR: [
+        AND: [outsideWebhookReplayWindow, { OR: [
           { status: ExecutionStatus.SUCCEEDED, completedAt: { lt: successBefore } },
           { status: { in: [ExecutionStatus.FAILED, ExecutionStatus.CANCELLED] }, completedAt: { lt: failedBefore } },
         ] }],
@@ -92,13 +97,13 @@ export class ExecutionMaintenanceService implements OnModuleInit, OnModuleDestro
     });
     if (policy.maxCount === 0) return byAge.count;
     const overflow = await this.prisma.execution.findMany({
-      where: { status: { in: terminalStatuses }, ...outsideVercelReplayWindow },
+      where: { status: { in: terminalStatuses }, ...outsideWebhookReplayWindow },
       orderBy: { completedAt: "desc" },
       skip: policy.maxCount,
       select: { id: true },
     });
     if (!overflow.length) return byAge.count;
-    const byCount = await this.prisma.execution.deleteMany({ where: { id: { in: overflow.map((execution) => execution.id) }, status: { in: terminalStatuses }, ...outsideVercelReplayWindow } });
+    const byCount = await this.prisma.execution.deleteMany({ where: { id: { in: overflow.map((execution) => execution.id) }, status: { in: terminalStatuses }, ...outsideWebhookReplayWindow } });
     return byAge.count + byCount.count;
   }
 }

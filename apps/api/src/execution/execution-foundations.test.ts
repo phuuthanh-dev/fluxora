@@ -63,6 +63,28 @@ test("stale initial-only jobs cannot claim an execution resumed after approval",
   assert.equal(claims, 0);
 });
 
+test("a previously queued live graph with an unavailable node fails before any provider action", async () => {
+  const execution = { id: "legacy-planned", mode: "LIVE", status: ExecutionStatus.QUEUED, startedAt: null, resumeToken: null, triggerData: {}, nodeExecutions: [], workflowVersion: { workflow: { workspaceId: "space" }, graph: { nodes: [
+    { id: "start", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
+    { id: "write", type: "action.telegram.message", position: { x: 1, y: 0 }, config: { credentialId: "bot", text: "hello" } },
+    { id: "planned", type: "action.instagram", position: { x: 2, y: 0 }, config: {} },
+  ], edges: [{ id: "one", source: "start", target: "write", kind: "success" }, { id: "two", source: "write", target: "planned", kind: "success" }] } } };
+  const updates: Array<Record<string, unknown>> = [];
+  let credentialReads = 0;
+  let tx: unknown;
+  const prisma = {
+    execution: { findUnique: async () => execution, findUniqueOrThrow: async () => execution, updateMany: async ({ data }: { data: Record<string, unknown> }) => { updates.push(data); return { count: 1 }; } },
+    nodeExecution: { upsert: async () => ({}), updateMany: async () => ({ count: 1 }) },
+    $transaction: async (fn: (client: unknown) => Promise<unknown>) => fn(tx),
+  };
+  tx = { ...prisma, $queryRaw: async () => [{ status: ExecutionStatus.RUNNING, runToken: updates[0]?.runToken }] };
+  const service = new ExecutionService(prisma as never, { readForExecution: async () => { credentialReads++; throw new Error("must not call provider"); } } as never, { publish: () => undefined } as never);
+  await service.run(execution.id, "live", undefined, undefined, true);
+  assert.equal(credentialReads, 0);
+  assert.equal(updates.at(-1)?.status, ExecutionStatus.FAILED);
+  assert.equal(updates.at(-1)?.errorCode, "NODE_UNAVAILABLE");
+});
+
 test("an initial-only claim remains conditional if the execution starts concurrently", async () => {
   const execution = {
     id: "racing-initial",
@@ -365,24 +387,6 @@ test("retry creates a new execution from the failed pinned version and original 
   source.id = "execution-retry"; source.idempotencyRootId = "execution-source";
   await service.retry("execution-retry", "user-1");
   assert.equal(created[1]?.idempotencyRootId, "execution-source");
-});
-
-test("trigger idempotency returns the existing pinned execution without creating another run", async () => {
-  const created: Array<Record<string, unknown>> = [];
-  const existing = { id: "execution-existing", workflowVersionId: "version-1", mode: "LIVE" };
-  const prisma = {
-    workflowVersion: { findUnique: async () => ({ id: "version-1", graph: { nodes: [], edges: [] }, workflow: { workspaceId: "workspace-1" } }) },
-    execution: {
-      findUnique: async () => existing,
-      create: async ({ data }: { data: Record<string, unknown> }) => { created.push(data); return { id: "execution-new", ...data }; },
-    },
-  };
-  const service = new ExecutionService(prisma as never, {} as never, {} as never);
-
-  const execution = await service.createScheduledExecution("version-1", { scheduledAt: "2026-10-25T10:30:00.000Z" }, "cron:version-1:cron:2026-10-25T10:30:00.000Z");
-
-  assert.equal(execution.id, "execution-existing");
-  assert.deepEqual(created, []);
 });
 
 test("execution history uses an owner-scoped stable cursor page", async () => {

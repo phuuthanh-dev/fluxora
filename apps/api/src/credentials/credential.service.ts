@@ -273,9 +273,14 @@ export class CredentialService {
   }
 
   async readForExecution(credentialId: string, workspaceId: string, provider: CredentialProvider) {
+    return (await this.readForExecutionSnapshot(credentialId, workspaceId, provider)).data;
+  }
+
+  /** Internal snapshot for operations that must fence concurrent secret rotation. */
+  async readForExecutionSnapshot(credentialId: string, workspaceId: string, provider: CredentialProvider) {
     const credential = await this.prisma.credential.findFirst({ where: { id: credentialId, workspaceId, provider } });
     if (!credential) throw new NotFoundException({ code: "CREDENTIAL_NOT_FOUND", message: "A matching credential was not found in this workspace." });
-    return this.vault.decrypt(credential.encryptedData);
+    return { data: this.vault.decrypt(credential.encryptedData), encryptedData: credential.encryptedData };
   }
 
   async readGoogleForExecution(credentialId: string, workspaceId: string, provider: typeof CredentialProvider.GOOGLE | typeof CredentialProvider.GOOGLE_CHAT_OAUTH | typeof CredentialProvider.GMAIL | typeof CredentialProvider.GOOGLE_CALENDAR = CredentialProvider.GOOGLE) {

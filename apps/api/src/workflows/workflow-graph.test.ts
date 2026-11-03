@@ -23,6 +23,16 @@ test("publishes a Switch graph only when case edges map to configured values", (
   assert.throws(() => validatePublishableGraph(invalid), BadRequestException);
 });
 
+test("planned nodes remain readable in drafts but cannot be published", () => {
+  for (const type of ["action.facebook-meta", "action.instagram"] as const) {
+    const graph = structuredClone(validSwitchGraph);
+    graph.nodes.push({ id: "planned", type, position: { x: 600, y: 0 }, config: {} });
+    const parsed = parseWorkflowGraph(graph);
+    assert.equal(parsed.nodes.at(-1)?.type, type);
+    assert.throws(() => validatePublishableGraph(parsed), (error: unknown) => error instanceof BadRequestException && (error.getResponse() as { code?: string }).code === "NODE_UNAVAILABLE");
+  }
+});
+
 test("node versions preserve legacy graphs, retain v1 and reject unsupported values", () => {
   const legacy = structuredClone(validSwitchGraph);
   assert.equal(Object.hasOwn(parseWorkflowGraph(legacy).nodes[0]!, "nodeVersion"), false);

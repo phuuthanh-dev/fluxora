@@ -40,8 +40,8 @@ async function setup(page: Page, options: HarnessOptions = {}) {
     const send = (value: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
     if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
     if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Workspace", slug: "test", role: "OWNER" }] });
-    if (path.endsWith("/credentials")) return send({ credentials: [{ id: "pg-1", provider: "POSTGRES", label: "Postgres" }, { id: "sb-1", provider: "SUPABASE", label: "Supabase" }] });
-    if (path.endsWith("/postgres/schemas")) return send({ schemas: [{ id: "public", name: "public" }] });
+    if (path.endsWith("/credentials")) return send({ credentials: [{ id: "pg-1", provider: "POSTGRES", label: "Postgres" }, { id: "pg-2", provider: "POSTGRES", label: "Second Postgres" }, { id: "sb-1", provider: "SUPABASE", label: "Supabase" }] });
+    if (path.endsWith("/postgres/schemas")) return send({ schemas: [{ id: "public", name: "public" }, { id: "analytics", name: "analytics" }] });
     if (path.endsWith("/postgres/tables") || path.endsWith("/supabase/tables")) return send({ tables: [{ id: "items", name: "items" }, { id: "other_items", name: "other_items" }] });
     if (path.endsWith("/postgres/columns") || path.endsWith("/supabase/columns")) {
       const endpointProvider = path.includes("/postgres/") ? "postgres" : "supabase";
@@ -76,6 +76,26 @@ const configFromSave = (save: Record<string, unknown>) => {
   const graph = save.graph as { nodes: Array<{ id: string; config: Record<string, unknown> }> };
   return graph.nodes.find((node) => node.id === "relational")!.config;
 };
+
+test("changing a PostgreSQL schema or connection clears dependent resource selections", async ({ page }) => {
+  const { saves } = await setup(page);
+  await selectRelational(page);
+  const schema = page.getByRole("group", { name: "Schema" }).getByLabel("Schema", { exact: true });
+  const table = page.getByRole("group", { name: "Table" }).getByLabel("Table", { exact: true });
+  await expect(schema).toHaveValue("public");
+  await expect(table).toHaveValue("items");
+  await schema.selectOption("analytics");
+  await expect(table).toHaveValue("");
+  await table.selectOption("other_items");
+  await page.getByLabel("PostgreSQL credential").selectOption("pg-2");
+  await expect(schema).toHaveValue("");
+  await expect(table).toHaveCount(0);
+  await expect(page.getByText("Choose the parent resource first, or enter a value manually.")).toBeVisible();
+  await expect(page.getByText(/Changing the connection, schema or table keeps these selection settings/)).toBeVisible();
+  await page.getByRole("button", { name: "Save draft" }).click();
+  await expect.poll(() => saves.length).toBe(1);
+  expect(configFromSave(saves[0]!)).toMatchObject({ credentialId: "pg-2", schema: "", table: "", columns: ["id"], orderBy: "id" });
+});
 
 test("PostgreSQL metadata and staged conditions survive inspector close; only applied values are saved", async ({ page }) => {
   await page.setViewportSize({ width: 1000, height: 800 });

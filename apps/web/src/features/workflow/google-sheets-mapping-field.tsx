@@ -89,6 +89,7 @@ export function GoogleSheetsMappingField({ workspaceId, config, draft, onDraftCh
   return <section className="config-field" aria-label="Google Sheets tab and header assistant">
     <strong>Tab and header assistant</strong>
     <small>Use the existing Range and Values fields for manual entry or expressions. This assistant changes nothing until you apply a preview.</small>
+    <small>Changing the connection or spreadsheet keeps the existing range and values. Review them before writing to a different spreadsheet.</small>
     {!canDiscover && <small>Select a Google connection and a literal spreadsheet ID to discover tabs and headers. Expressions can be entered in the fields above.</small>}
     {!draft && <>
       <Button type="button" variant="secondary" disabled={!canDiscover || loading !== null} onClick={() => void loadTabs()}>{loading === "tabs" ? "Loading tabs…" : "Load tabs"}</Button>

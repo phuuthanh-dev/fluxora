@@ -1,5 +1,43 @@
 import { expect, test } from "@playwright/test";
 
+test("MongoDB reads and inserts clear dependent targets when the database or connection changes", async ({ page }) => {
+  const graph = { nodes: [
+    { id: "manual", type: "trigger.manual", position: { x: 10, y: 500 }, config: {} },
+    { id: "find", type: "action.mongodb", position: { x: 100, y: 100 }, config: { credentialId: "mongo-1", database: "sample", collection: "items", operation: "find", filter: "{}", limit: 20 } },
+    { id: "insert", type: "action.mongodb.insert", position: { x: 100, y: 350 }, config: { credentialId: "mongo-1", database: "sample", collection: "items", document: '{"name":"sample"}' } },
+  ], edges: [] };
+  const workflow = { id: "mongo-target-test", workspaceId: "workspace-1", name: "MongoDB targets", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
+  const saves: Array<{ graph: { nodes: Array<{ id: string; config: Record<string, unknown> }> } }> = [];
+  await page.route("**/api/v1/**", async (route) => {
+    const request = route.request(); const url = new URL(request.url());
+    const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+    if (url.pathname.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
+    if (url.pathname.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
+    if (url.pathname.endsWith("/credentials")) return send({ credentials: [{ id: "mongo-1", provider: "MONGODB", label: "First database" }, { id: "mongo-2", provider: "MONGODB", label: "Second database" }] });
+    if (url.pathname.endsWith("/mongodb/databases")) return send({ databases: [{ id: "sample", name: "sample" }, { id: "other", name: "other" }] });
+    if (url.pathname.endsWith("/mongodb/collections")) return send({ collections: [{ id: "items", name: "items" }] });
+    if (url.pathname.endsWith("/workflows/mongo-target-test/draft") && request.method() === "PATCH") {
+      const body = request.postDataJSON() as { graph: { nodes: Array<{ id: string; config: Record<string, unknown> }> } };
+      saves.push(body); return send({ workflow: { ...workflow, draft: { ...workflow.draft, graph: body.graph } } });
+    }
+    if (url.pathname.endsWith("/workflows/mongo-target-test")) return send({ workflow });
+    return route.continue();
+  });
+  await page.goto("/editor?workflow=mongo-target-test");
+  await page.locator('.react-flow__node[data-id="find"]').click();
+  await page.getByRole("group", { name: "Database" }).getByLabel("Database", { exact: true }).selectOption("other");
+  await expect(page.getByRole("group", { name: "Collection" }).getByLabel("Collection", { exact: true })).toHaveValue("");
+  await page.locator('.react-flow__node[data-id="insert"]').click();
+  await page.getByLabel("MongoDB credential").selectOption("mongo-2");
+  await expect(page.getByRole("group", { name: "Database" }).getByLabel("Database", { exact: true })).toHaveValue("");
+  await expect(page.getByRole("group", { name: "Collection" }).getByLabel("Collection", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Document (JSON)")).toHaveValue('{"name":"sample"}');
+  await page.getByRole("button", { name: "Save draft" }).click();
+  await expect.poll(() => saves.length).toBe(1);
+  expect(saves[0]!.graph.nodes.find((node) => node.id === "find")!.config).toMatchObject({ database: "other", collection: "" });
+  expect(saves[0]!.graph.nodes.find((node) => node.id === "insert")!.config).toMatchObject({ credentialId: "mongo-2", database: "", collection: "", document: '{"name":"sample"}' });
+});
+
 test("MongoDB and Chat configure provider-scoped resources with manual fallback", async ({ page }) => {
   const graph = { nodes: [
     { id: "manual", type: "trigger.manual", position: { x: 10, y: 500 }, config: {} },

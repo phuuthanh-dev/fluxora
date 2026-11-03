@@ -63,7 +63,7 @@ export class CronSchedulerService implements OnModuleInit, OnModuleDestroy {
         const key = `${version.id}:${node.id}:${scheduledAt.toISOString()}`;
         if (this.dispatched.has(key)) continue;
         try {
-          const execution = await this.executions.createScheduledExecution(version.id, { scheduledAt: scheduledAt.toISOString(), timezone }, `cron:${key}`);
+          const execution = await this.executions.createCronScheduledExecution(version.id, { scheduledAt: scheduledAt.toISOString(), timezone }, `cron:${key}`);
           await this.queue.dispatch({ executionId: execution.id, mode: "live", initialOnly: true });
           this.dispatched.set(key, scheduledAt.getTime());
         } catch {

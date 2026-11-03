@@ -63,6 +63,7 @@ export function RelationalSelectionField({ provider, value, contextKey, metadata
   };
   return <div className="config-field mongo-filter">
     <div className="mongo-filter__heading"><strong>Choose rows and columns</strong><Button variant="ghost" disabled={draft !== undefined || (isManual && parsed === null)} onClick={() => { setManual(!isManual); setError(""); }}>{isManual ? "Use visual builder" : "Advanced settings"}</Button></div>
+    <small>Changing the connection, schema or table keeps these selection settings. Review columns, conditions, sort and offset for the new resource before running.</small>
     {isManual ? <>
       {parsed === null && <small role="status">These settings cannot be shown safely in the visual builder. They remain unchanged until you apply an edit.</small>}
       <Field label="Selection settings (JSON)"><textarea aria-label="Selection settings (JSON)" rows={7} value={draft?.mode === "manual" ? draft.text : JSON.stringify(value, null, 2)} onChange={(event) => { onDraftChange({ mode: "manual", baseline: draft?.baseline ?? relationalBaseline(value, contextKey, provider), text: event.target.value }); setError(""); }} /></Field>

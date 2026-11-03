@@ -14,7 +14,7 @@ import { ExecutionEventsService } from "./execution-events.service";
 import { resolveExpressions } from "./expression";
 import { redactValue } from "./redaction";
 import { isRetryableFailure, retryDelayMs } from "./retry-policy";
-import { parseWorkflowGraph } from "../workflows/workflow-graph";
+import { parseWorkflowGraph, unavailableWorkflowNodes } from "../workflows/workflow-graph";
 import { liveCredentialRequirements } from "./live-readiness";
 import { executionRetentionPolicy } from "./retention-policy";
 
@@ -53,25 +53,41 @@ export class ExecutionService {
     return execution;
   }
 
-  async createScheduledExecution(workflowVersionId: string, triggerData: Record<string, unknown>, idempotencyKey?: string) {
+  async createLegacyWebhookExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; path: string; secretHash: string | null; encryptedSigningSecret: string | null; credentialSnapshot?: { id: string; encryptedData: string }; payload: Record<string, unknown>; idempotencyKey?: string }) {
+    const version = await this.prisma.workflowVersion.findUnique({ where: { id: input.workflowVersionId }, include: { workflow: true } });
+    if (!version || version.workflowId !== input.workflowId) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
+    await this.assertLiveReady(version.workflow.workspaceId, parseWorkflowGraph(version.graph));
+    return this.prisma.$transaction(async (transaction) => {
+      const workflows = await transaction.$queryRaw<Array<{ isActive: boolean; archivedAt: Date | null; publishedVersionId: string | null }>>`SELECT "isActive", "archivedAt", "publishedVersionId" FROM "Workflow" WHERE id = ${input.workflowId} FOR UPDATE`;
+      if (!workflows[0]?.isActive || workflows[0].archivedAt || workflows[0].publishedVersionId !== input.workflowVersionId) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
+      const endpoints = await transaction.$queryRaw<Array<{ workflowId: string; workflowVersionId: string; path: string; secretHash: string | null; encryptedSigningSecret: string | null; isActive: boolean }>>`SELECT "workflowId", "workflowVersionId", path, "secretHash", "encryptedSigningSecret", "isActive" FROM "WebhookEndpoint" WHERE id = ${input.endpointId} FOR UPDATE`;
+      const endpoint = endpoints[0];
+      if (!endpoint?.isActive || endpoint.workflowId !== input.workflowId || endpoint.workflowVersionId !== input.workflowVersionId || endpoint.path !== input.path || endpoint.secretHash !== input.secretHash || endpoint.encryptedSigningSecret !== input.encryptedSigningSecret) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
+      if (input.credentialSnapshot) {
+        const rows = await transaction.$queryRaw<Array<{ encryptedData: string }>>`SELECT "encryptedData" FROM "Credential" WHERE id = ${input.credentialSnapshot.id} AND "workspaceId" = ${version.workflow.workspaceId} AND provider = 'GITHUB' FOR SHARE`;
+        if (!rows[0] || rows[0].encryptedData !== input.credentialSnapshot.encryptedData) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
+      }
+      if (input.idempotencyKey) {
+        const existing = await transaction.execution.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
+        if (existing) return existing;
+      }
+      return transaction.execution.create({ data: { workflowVersionId: input.workflowVersionId, mode: "LIVE", triggerData: redactValue(input.payload) as Prisma.InputJsonValue, ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}) } });
+    });
+  }
+
+  /** A cron scan can hold an old version across deactivation or publication.
+   * Serialize acceptance with those operations on the workflow row. */
+  async createCronScheduledExecution(workflowVersionId: string, triggerData: Record<string, unknown>, idempotencyKey: string) {
     const version = await this.prisma.workflowVersion.findUnique({ where: { id: workflowVersionId }, include: { workflow: true } });
     if (!version) throw new NotFoundException({ code: "WORKFLOW_VERSION_NOT_FOUND", message: "Workflow version was not found." });
     await this.assertLiveReady(version.workflow.workspaceId, parseWorkflowGraph(version.graph));
-    if (idempotencyKey) {
-      const existing = await this.prisma.execution.findUnique({ where: { idempotencyKey } });
+    return this.prisma.$transaction(async (transaction) => {
+      const rows = await transaction.$queryRaw<Array<{ isActive: boolean; archivedAt: Date | null; publishedVersionId: string | null }>>`SELECT "isActive", "archivedAt", "publishedVersionId" FROM "Workflow" WHERE id = ${version.workflowId} FOR UPDATE`;
+      if (!rows[0]?.isActive || rows[0].archivedAt || rows[0].publishedVersionId !== workflowVersionId) throw new ConflictException({ code: "WORKFLOW_CHANGED", message: "The workflow is no longer active at this version." });
+      const existing = await transaction.execution.findUnique({ where: { idempotencyKey } });
       if (existing) return existing;
-    }
-    try {
-      return await this.prisma.execution.create({
-        data: { workflowVersionId, mode: "LIVE", triggerData: redactValue(triggerData) as Prisma.InputJsonValue, ...(idempotencyKey ? { idempotencyKey } : {}) },
-      });
-    } catch (reason) {
-      if (idempotencyKey && isUniqueConstraintError(reason)) {
-        const existing = await this.prisma.execution.findUnique({ where: { idempotencyKey } });
-        if (existing) return existing;
-      }
-      throw reason;
-    }
+      return transaction.execution.create({ data: { workflowVersionId, mode: "LIVE", triggerData: redactValue(triggerData) as Prisma.InputJsonValue, idempotencyKey } });
+    });
   }
 
   /** Persist a filtered Kuma delivery before queueing. The workflow lock
@@ -420,6 +436,13 @@ export class ExecutionService {
     if (!initialized) return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
     this.events.publish(executionId, "execution.running");
 
+    // Existing queued/approval-continuation jobs can predate publish checks.
+    // Fail live jobs before calling any node rather than running earlier writes.
+    if (execution.mode === "LIVE" && unavailableWorkflowNodes(graph).length) {
+      await this.markUnvisitedSkipped(executionId, runToken, graph, new Set());
+      return this.finishRunning(executionId, runToken, { status: ExecutionStatus.FAILED, completedAt: new Date(), leaseExpiresAt: null, errorCode: "NODE_UNAVAILABLE", errorMessage: "This workflow contains unavailable nodes. Remove them and publish a new version.", errorRetryable: false }, "execution.failed");
+    }
+
     const context: Record<string, unknown> = { trigger: execution.triggerData ?? {}, steps: {} };
     const outputs = context.steps as Record<string, unknown>;
     for (const nodeExecution of execution.nodeExecutions) {
@@ -701,6 +724,7 @@ export class ExecutionService {
   private async assertLiveReady(workspaceId: string, graph: WorkflowGraph) {
     const readiness = await this.evaluateLiveReadiness(workspaceId, graph);
     if (readiness.ready) return;
+    if (readiness.unavailableNodes.length) throw new BadRequestException({ code: "NODE_UNAVAILABLE", message: "Remove unavailable nodes and publish a new version before running live.", details: readiness.unavailableNodes });
     throw new BadRequestException({
       code: "LIVE_CREDENTIAL_REQUIRED",
       message: "Select valid credentials for every live integration node before going live.",
@@ -709,6 +733,7 @@ export class ExecutionService {
   }
 
   private async evaluateLiveReadiness(workspaceId: string, graph: WorkflowGraph) {
+    const unavailableNodes = unavailableWorkflowNodes(graph);
     const requirements = liveCredentialRequirements(graph);
     const selectedIds = requirements.flatMap((requirement) => requirement.credentialId ? [requirement.credentialId] : []);
     const credentials = selectedIds.length
@@ -722,12 +747,8 @@ export class ExecutionService {
       if (provider !== requirement.provider) return { ...requirement, ready: false, reason: "CREDENTIAL_PROVIDER_MISMATCH" as const };
       return { ...requirement, ready: true, reason: null };
     });
-    return { ready: checked.every((requirement) => requirement.ready), requirements: checked };
+    return { ready: unavailableNodes.length === 0 && checked.every((requirement) => requirement.ready), requirements: checked, unavailableNodes };
   }
-}
-
-function isUniqueConstraintError(reason: unknown) {
-  return Boolean(reason && typeof reason === "object" && "code" in reason && (reason as { code?: unknown }).code === "P2002");
 }
 
 function failureHandling(graph: WorkflowGraph, nodeId: string) {

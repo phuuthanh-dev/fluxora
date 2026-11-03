@@ -75,5 +75,8 @@ References, consulted 2026-11-03:
 - [Gemini Generate Content thinking](https://ai.google.dev/gemini-api/docs/generate-content/thinking)
 - [Gemini billing and spend caps](https://ai.google.dev/gemini-api/docs/billing)
 
-Draft only: no provider calls or qualification, tests, build, typecheck or
-verification were run for this worktree.
+Draft only: provider qualification and actual spending behavior remain
+unverified. An isolated local quality gate was run on an earlier snapshot;
+the current release status and exact scope of that evidence are tracked in
+[the NX audit](37-node-expansion-audit.md). Subsequent local changes need the
+final gate and CI on the eventual PR head.

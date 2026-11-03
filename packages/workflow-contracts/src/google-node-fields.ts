@@ -79,7 +79,7 @@ export const googleNodeFields = {
       { kind: "resource", key: "calendarId", label: "Calendar", resource: "google-calendar", credentialKey: "credentialId", placeholder: "Search calendars" },
       { kind: "number", key: "limit", label: "Maximum events (1–50)", fallbackValue: 10 },
       { kind: "datetime", key: "timeMin", label: "Start after (optional)" },
-      { kind: "text", key: "pageToken", label: "Next page token (reuse original start and limit)", advanced: { summary: "Advanced pagination", help: "Use the token and start time from the previous output. Keep the same calendar and limit." } },
+      { kind: "text", key: "pageToken", label: "Next page token (reuse original start and limit)", advanced: { summary: "Advanced pagination", help: "Use the token and exact start time from the previous output, including seconds and milliseconds. Keep the same calendar and limit, and use the same connection." } },
     ],
   "action.google-calendar.create-event": (): NodeConfigurationField[] => [
       { kind: "credential", key: "credentialId", label: "Google Calendar credential", providers: ["GOOGLE_CALENDAR"] },

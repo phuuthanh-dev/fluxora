@@ -23,7 +23,7 @@ test("cron scheduler creates and dispatches one live execution for a due publish
     },
   } as never;
   const executions = {
-    createScheduledExecution: async (versionId: string, triggerData: Record<string, unknown>, idempotencyKey: string | undefined) => {
+    createCronScheduledExecution: async (versionId: string, triggerData: Record<string, unknown>, idempotencyKey: string | undefined) => {
       created.push({ versionId, triggerData, idempotencyKey });
       return { id: "execution-1" };
     },
@@ -89,7 +89,7 @@ test("cron keeps only recent dispatch markers while deduplicating the current oc
     execution: { findMany: async () => [] },
     workflowVersion: { findMany: async () => [{ id: "version-1", graph: { nodes: [{ id: "cron", type: "trigger.cron", position: { x: 0, y: 0 }, config: { expression: "* * * * *", timezone: "UTC" } }], edges: [] } }] },
   } as never;
-  const executions = { createScheduledExecution: async (_version: string, _data: unknown, key: string) => ({ id: key }) } as never;
+  const executions = { createCronScheduledExecution: async (_version: string, _data: unknown, key: string) => ({ id: key }) } as never;
   const scheduler = new CronSchedulerService(prisma, executions, { dispatch: async (job: unknown) => { jobs.push(job); } } as never);
   const internal = scheduler as unknown as { tick: (now: Date) => Promise<void>; dispatched: Map<string, number> };
   const start = Date.parse("2026-10-25T10:30:30.000Z");
@@ -117,7 +117,7 @@ test("a live-readiness failure for one schedule does not stop later cron dispatc
       }],
     },
   } as never;
-  const executions = { createScheduledExecution: async () => { created.push("attempt"); if (created.length === 1) throw new Error("synthetic-private-provider-detail"); return { id: "execution-2" }; } } as never;
+  const executions = { createCronScheduledExecution: async () => { created.push("attempt"); if (created.length === 1) throw new Error("synthetic-private-provider-detail"); return { id: "execution-2" }; } } as never;
   const jobs: unknown[] = [];
   const scheduler = new CronSchedulerService(prisma, executions, { dispatch: async (job: unknown) => { jobs.push(job); } } as never);
   const errors: unknown[][] = [];
@@ -133,7 +133,7 @@ test("a malformed published graph does not prevent another schedule from running
   const valid = { id: "valid-version", graph: { nodes: [{ id: "cron", type: "trigger.cron", position: { x: 0, y: 0 }, config: { expression: "* * * * *", timezone: "UTC" } }], edges: [] } };
   const prisma = { execution: { findMany: async () => [] }, workflowVersion: { findMany: async () => [{ id: "invalid-version", graph: { nodes: null, edges: [] } }, valid] } } as never;
   const jobs: unknown[] = [];
-  const scheduler = new CronSchedulerService(prisma, { createScheduledExecution: async (version: string) => ({ id: version }) } as never, { dispatch: async (job: unknown) => { jobs.push(job); } } as never);
+  const scheduler = new CronSchedulerService(prisma, { createCronScheduledExecution: async (version: string) => ({ id: version }) } as never, { dispatch: async (job: unknown) => { jobs.push(job); } } as never);
   (scheduler as unknown as { logger: { warn: () => void } }).logger.warn = () => undefined;
   await (scheduler as unknown as { tick: (now: Date) => Promise<void> }).tick(new Date("2026-10-25T10:30:30.000Z"));
   assert.deepEqual(jobs, [{ executionId: "valid-version", mode: "live", initialOnly: true }]);
@@ -146,7 +146,7 @@ test("a database outage during the cron scan is contained and a later scan can r
     if (++scans === 1) throw new Error("synthetic database failure");
     return [{ id: "version-1", graph: { nodes: [{ id: "cron", type: "trigger.cron", position: { x: 0, y: 0 }, config: { expression: "* * * * *", timezone: "UTC" } }], edges: [] } }];
   } } } as never;
-  const scheduler = new CronSchedulerService(prisma, { createScheduledExecution: async () => ({ id: "run" }) } as never, { dispatch: async (job: unknown) => { jobs.push(job); } } as never);
+  const scheduler = new CronSchedulerService(prisma, { createCronScheduledExecution: async () => ({ id: "run" }) } as never, { dispatch: async (job: unknown) => { jobs.push(job); } } as never);
   const errors: string[] = [];
   (scheduler as unknown as { logger: { error: (message: string) => void } }).logger.error = (message) => { errors.push(message); };
   const tick = (scheduler as unknown as { tick: (now: Date) => Promise<void> }).tick.bind(scheduler);
@@ -181,7 +181,7 @@ test("a scheduled execution survives a queue outage beyond the cron time window"
     execution: { findMany: async () => persisted && scan > 1 ? [{ id: "queued-cron" }] : [] },
     workflowVersion: { findMany: async () => { scan += 1; return scan === 1 ? [{ id: "version-1", graph: { nodes: [{ id: "cron", type: "trigger.cron", position: { x: 0, y: 0 }, config: { expression: "* * * * *", timezone: "UTC" } }], edges: [] } }] : []; } },
   } as never;
-  const executions = { createScheduledExecution: async () => { persisted = true; return { id: "queued-cron" }; } } as never;
+  const executions = { createCronScheduledExecution: async () => { persisted = true; return { id: "queued-cron" }; } } as never;
   const queue = { dispatch: async () => { throw new Error("queue offline"); }, ensureDispatched: async (job: unknown) => { recovered.push(job); } } as never;
   const scheduler = new CronSchedulerService(prisma, executions, queue);
   (scheduler as unknown as { logger: { error: () => void } }).logger.error = () => undefined;

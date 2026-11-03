@@ -120,3 +120,19 @@ test("live readiness marks missing credentials without reading secret payloads",
     { nodeId: "chat", provider: CredentialProvider.GOOGLE_CHAT_WEBHOOK, credentialId: null, ready: false, reason: "MISSING_CREDENTIAL" },
   ]);
 });
+
+test("published legacy graphs with unavailable nodes fail readiness before a live execution is created", async () => {
+  const graph = { nodes: [
+    { id: "start", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
+    { id: "later", type: "action.instagram", position: { x: 1, y: 0 }, config: {} },
+  ], edges: [] };
+  const version = { id: "version", graph };
+  let created = false;
+  const prisma = { workflow: { findFirst: async () => ({ workspaceId: "workspace", publishedVersion: version }) }, execution: { create: async () => { created = true; } } };
+  const service = new ExecutionService(prisma as never, {} as never, {} as never);
+  const readiness = await service.getLiveReadiness("flow", "owner");
+  assert.equal(readiness.ready, false);
+  assert.deepEqual(readiness.unavailableNodes, [{ nodeId: "later", type: "action.instagram" }]);
+  await assert.rejects(() => service.createManualExecution("flow", "owner", false), (error: any) => error.response?.code === "NODE_UNAVAILABLE");
+  assert.equal(created, false);
+});

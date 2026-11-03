@@ -1,4 +1,4 @@
-import { isSupportedWorkflowNodeVersion, workflowEdgeKinds, workflowNodeOutputKinds, workflowNodeTypes, type WorkflowEdgeKind, type WorkflowGraph, type WorkflowNodeType } from "@workflow/contracts";
+import { isExecutableWorkflowNodeType, isSupportedWorkflowNodeVersion, workflowEdgeKinds, workflowNodeOutputKinds, workflowNodeTypes, type WorkflowEdgeKind, type WorkflowGraph, type WorkflowNodeType } from "@workflow/contracts";
 import { BadRequestException } from "@nestjs/common";
 import { readUptimeKumaFilter } from "../webhooks/uptime-kuma-filter";
 import { rssTargets } from "../scheduler/rss-trigger-poller";
@@ -38,6 +38,7 @@ export function validatePublishableGraph(graph: WorkflowGraph) {
   const triggers = graph.nodes.filter((node) => node.type.startsWith("trigger."));
   if (triggers.length !== 1) invalid("A published workflow must have exactly one trigger.");
   if (!graph.nodes.length) invalid("A published workflow must contain at least one node.");
+  assertExecutableGraph(graph);
   try { rssTargets("", "", graph); }
   catch (error) { if (error instanceof NodeFailure) throw new BadRequestException({ code: error.code, message: error.message }); throw error; }
   for (const node of graph.nodes) {
@@ -54,6 +55,17 @@ export function validatePublishableGraph(graph: WorkflowGraph) {
       if (!edge.caseValue || !values.includes(edge.caseValue)) invalid(`Switch case edge ${edge.id} must map to a configured case value.`);
     }
   }
+}
+
+/** Drafts and historical versions remain readable, but an unavailable node
+ * must not allow earlier live nodes to produce side effects before failing. */
+export function unavailableWorkflowNodes(graph: WorkflowGraph) {
+  return graph.nodes.filter((node) => !isExecutableWorkflowNodeType(node.type)).map(({ id, type }) => ({ nodeId: id, type }));
+}
+
+export function assertExecutableGraph(graph: WorkflowGraph) {
+  const details = unavailableWorkflowNodes(graph);
+  if (details.length) throw new BadRequestException({ code: "NODE_UNAVAILABLE", message: "Remove unavailable nodes before publishing or activating this workflow.", details });
 }
 
 function parseNode(value: unknown): StoredWorkflowNode {

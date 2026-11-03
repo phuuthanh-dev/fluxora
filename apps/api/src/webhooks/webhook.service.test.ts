@@ -31,8 +31,8 @@ test("signed GitHub setup ping is acknowledged before activation without running
   const signature = `sha256=${createHmac("sha256", "registration-secret").update(body).digest("hex")}`;
   let dispatched = 0;
   const service = new WebhookService({ webhookEndpoint: { findUnique: async () => ({ id: "endpoint-1", isActive: true, encryptedSigningSecret: "ciphertext", workflow: { workspaceId: "workspace-1", isActive: false, archivedAt: null }, workflowVersion: { graph: { nodes: [{ id: "github", type: "trigger.github.push", position: { x: 0, y: 0 }, config: { event: "push", repository: "acme/project" } }], edges: [] } }, workflowVersionId: "version-1" }) } } as never,
-    { createScheduledExecution: async () => { throw new Error("ping must not create an execution"); } } as never,
-    { dispatch: async () => { dispatched++; } } as never, {} as never,
+    { createLegacyWebhookExecution: async () => { throw new Error("ping must not create an execution"); } } as never,
+    { ensureDispatched: async () => { dispatched++; } } as never, {} as never,
     { decrypt: () => ({ secret: "registration-secret" }) } as never);
   const payload = JSON.parse(body.toString());
   assert.deepEqual(await service.receive("github-push", undefined, payload, undefined, { githubEvent: "ping", githubSignature: signature, rawBody: body }), { acknowledged: true });
@@ -46,13 +46,40 @@ test("GitHub delivery IDs are scoped to the registration for idempotency", async
   const signature = `sha256=${createHmac("sha256", "registration-secret").update(body).digest("hex")}`;
   const keys: Array<string | undefined> = [];
   const service = new WebhookService({ webhookEndpoint: { findUnique: async () => ({ id: "endpoint-1", isActive: true, encryptedSigningSecret: "ciphertext", workflow: { workspaceId: "workspace-1", isActive: true, archivedAt: null }, workflowVersion: { graph: { nodes: [{ id: "github", type: "trigger.github.push", position: { x: 0, y: 0 }, config: { event: "push" } }], edges: [] } }, workflowVersionId: "version-1" }) } } as never,
-    { createScheduledExecution: async (_version: string, _payload: unknown, key?: string) => { keys.push(key); return { id: "same-execution" }; } } as never,
-    { dispatch: async () => undefined } as never, {} as never,
+    { createLegacyWebhookExecution: async ({ idempotencyKey }: { idempotencyKey?: string }) => { keys.push(idempotencyKey); return { id: "same-execution", status: "QUEUED", startedAt: null }; } } as never,
+    { ensureDispatched: async () => undefined } as never, {} as never,
     { decrypt: () => ({ secret: "registration-secret" }) } as never);
   const headers = { githubEvent: "push", githubSignature: signature, githubDelivery: "delivery-123", rawBody: body };
   await service.receive("github-push", undefined, JSON.parse(body.toString()), undefined, headers);
   await service.receive("github-push", undefined, JSON.parse(body.toString()), undefined, headers);
   assert.deepEqual(keys, ["webhook:endpoint-1:github:delivery-123", "webhook:endpoint-1:github:delivery-123"]);
+});
+
+test("GitHub redelivery never resumes an already-started execution", async () => {
+  const body = Buffer.from('{"ref":"refs/heads/main"}');
+  const signature = `sha256=${createHmac("sha256", "registration-secret").update(body).digest("hex")}`;
+  let startedAt: Date | null = null;
+  const jobs: unknown[] = [];
+  const service = new WebhookService({ webhookEndpoint: { findUnique: async () => ({ id: "endpoint-1", isActive: true, encryptedSigningSecret: "ciphertext", workflow: { workspaceId: "workspace-1", isActive: true, archivedAt: null }, workflowVersion: { graph: { nodes: [{ id: "github", type: "trigger.github.push", position: { x: 0, y: 0 }, config: { event: "push" } }], edges: [] } }, workflowVersionId: "version-1" }) } } as never,
+    { createLegacyWebhookExecution: async () => ({ id: "run-1", status: "QUEUED", startedAt }) } as never,
+    { ensureDispatched: async (job: unknown) => { jobs.push(job); } } as never, {} as never,
+    { decrypt: () => ({ secret: "registration-secret" }) } as never);
+  const headers = { githubEvent: "push", githubSignature: signature, githubDelivery: "delivery-1", rawBody: body };
+  await service.receive("github-push", undefined, JSON.parse(body.toString()), undefined, headers);
+  startedAt = new Date(); // A queued approval continuation belongs to a different phase.
+  await service.receive("github-push", undefined, JSON.parse(body.toString()), undefined, headers);
+  assert.deepEqual(jobs, [{ executionId: "run-1", mode: "live", initialOnly: true }]);
+});
+
+test("webhook requests without a delivery ID get distinct recovery identities", async () => {
+  const keys: string[] = [];
+  const service = new WebhookService({ webhookEndpoint: { findUnique: async () => ({ id: "endpoint-1", path: "hook", workflowId: "flow", isActive: true, secretHash: null, encryptedSigningSecret: null, workflow: { workspaceId: "workspace-1", isActive: true, archivedAt: null }, workflowVersion: { graph: { nodes: [{ id: "hook", type: "trigger.webhook", position: { x: 0, y: 0 }, config: {} }], edges: [] } }, workflowVersionId: "version-1" }) } } as never,
+    { createLegacyWebhookExecution: async ({ idempotencyKey }: { idempotencyKey: string }) => { keys.push(idempotencyKey); return { id: `run-${keys.length}`, status: "QUEUED", startedAt: null }; } } as never,
+    { ensureDispatched: async () => undefined } as never, {} as never);
+  await service.receive("hook", undefined, { item: 1 });
+  await service.receive("hook", undefined, { item: 1 });
+  assert.match(keys[0]!, /^webhook:endpoint-1:generated:[a-f0-9]{48}$/);
+  assert.notEqual(keys[0], keys[1]);
 });
 
 test("GitHub registration encrypts its own secret and never stores it in the credential", async () => {
@@ -140,9 +167,9 @@ test("GitHub delivery verifies the registration secret independently from the co
   const signature = `sha256=${createHmac("sha256", "registration-secret").update(body).digest("hex")}`;
   let credentialReads = 0;
   const service = new WebhookService({ webhookEndpoint: { findUnique: async () => ({ id: "endpoint-1", isActive: true, encryptedSigningSecret: "ciphertext", workflow: { workspaceId: "workspace-1", isActive: true, archivedAt: null }, workflowVersion: { graph: { nodes: [{ id: "github", type: "trigger.github.push", position: { x: 0, y: 0 }, config: { event: "push" } }], edges: [] } }, workflowVersionId: "version-1" }) } } as never,
-    { createScheduledExecution: async () => ({ id: "execution-1" }) } as never,
-    { dispatch: async () => undefined } as never,
-    { readForExecution: async () => { credentialReads++; return {}; } } as never,
+    { createLegacyWebhookExecution: async () => ({ id: "execution-1", status: "QUEUED", startedAt: null }) } as never,
+    { ensureDispatched: async () => undefined } as never,
+    { readForExecutionSnapshot: async () => { credentialReads++; return {}; } } as never,
     { decrypt: () => ({ secret: "registration-secret" }) } as never);
   assert.deepEqual(await service.receive("github-push", undefined, JSON.parse(body.toString()), undefined, { githubEvent: "push", githubSignature: signature, rawBody: body }), { executionId: "execution-1" });
   assert.equal(credentialReads, 0);
@@ -189,13 +216,13 @@ test("GitHub issue-opened webhook verifies event, signature, and dispatches the 
       },
     } as never,
     {
-      createScheduledExecution: async (_versionId: string, payload: Record<string, unknown>) => {
+      createLegacyWebhookExecution: async ({ payload }: { payload: Record<string, unknown> }) => {
         receivedPayload = payload;
-        return { id: "execution-1" };
+        return { id: "execution-1", status: "QUEUED", startedAt: null };
       },
     } as never,
-    { dispatch: async ({ executionId }: { executionId: string }) => { dispatchedExecutionId = executionId; } } as never,
-    { readForExecution: async () => ({ webhookSecret: "github-webhook-secret" }) } as never,
+    { ensureDispatched: async ({ executionId }: { executionId: string }) => { dispatchedExecutionId = executionId; } } as never,
+    { readForExecutionSnapshot: async () => ({ data: { webhookSecret: "github-webhook-secret" }, encryptedData: "ciphertext" }) } as never,
   );
 
   const result = await service.receive(
@@ -217,8 +244,8 @@ test("GitHub issue-opened webhook rejects a different action before dispatch", a
   const service = new WebhookService(
     { webhookEndpoint: { findUnique: async () => ({ id: "endpoint-1", isActive: true, secretHash: null, workflow: { workspaceId: "workspace-1", isActive: true, archivedAt: null }, workflowVersion: { graph: { nodes: [{ id: "github", type: "trigger.github.issue-opened", position: { x: 0, y: 0 }, config: { credentialId: "github-credential" } }], edges: [] } }, workflowVersionId: "version-1" }) } } as never,
     {} as never,
-    { dispatch: async () => { dispatched = true; } } as never,
-    { readForExecution: async () => ({ webhookSecret: "github-webhook-secret" }) } as never,
+    { ensureDispatched: async () => { dispatched = true; } } as never,
+    { readForExecutionSnapshot: async () => ({ data: { webhookSecret: "github-webhook-secret" }, encryptedData: "ciphertext" }) } as never,
   );
   await assert.rejects(
     () => service.receive("github-issues", undefined, JSON.parse(body.toString()), undefined, { githubEvent: "issues", githubSignature: signature, rawBody: body }),
@@ -234,8 +261,8 @@ test("GitHub webhook repository filters reject events from another repository", 
   const service = new WebhookService(
     { webhookEndpoint: { findUnique: async () => ({ id: "endpoint-1", isActive: true, secretHash: null, workflow: { workspaceId: "workspace-1", isActive: true, archivedAt: null }, workflowVersion: { graph: { nodes: [{ id: "github", type: "trigger.github.issue-opened", position: { x: 0, y: 0 }, config: { credentialId: "github-credential", repository: "acme/expected", event: "issues", action: "opened" } }], edges: [] } }, workflowVersionId: "version-1" }) } } as never,
     {} as never,
-    { dispatch: async () => { dispatched = true; } } as never,
-    { readForExecution: async () => ({ webhookSecret: "github-webhook-secret" }) } as never,
+    { ensureDispatched: async () => { dispatched = true; } } as never,
+    { readForExecutionSnapshot: async () => ({ data: { webhookSecret: "github-webhook-secret" }, encryptedData: "ciphertext" }) } as never,
   );
   await assert.rejects(
     () => service.receive("github-issues", undefined, JSON.parse(body.toString()), undefined, { githubEvent: "issues", githubSignature: signature, rawBody: body }),
@@ -261,9 +288,9 @@ test("GitHub pull-request-opened webhook verifies its event and dispatches the p
         }),
       },
     } as never,
-    { createScheduledExecution: async () => ({ id: "execution-pr-1" }) } as never,
-    { dispatch: async ({ executionId }: { executionId: string }) => { dispatchedExecutionId = executionId; } } as never,
-    { readForExecution: async () => ({ webhookSecret: "github-webhook-secret" }) } as never,
+    { createLegacyWebhookExecution: async () => ({ id: "execution-pr-1", status: "QUEUED", startedAt: null }) } as never,
+    { ensureDispatched: async ({ executionId }: { executionId: string }) => { dispatchedExecutionId = executionId; } } as never,
+    { readForExecutionSnapshot: async () => ({ data: { webhookSecret: "github-webhook-secret" }, encryptedData: "ciphertext" }) } as never,
   );
 
   const result = await service.receive(
@@ -294,9 +321,9 @@ test("GitHub push webhook accepts event-only delivery without an action field", 
         }),
       },
     } as never,
-    { createScheduledExecution: async () => ({ id: "execution-push-1" }) } as never,
-    { dispatch: async ({ executionId }: { executionId: string }) => { dispatchedExecutionId = executionId; } } as never,
-    { readForExecution: async () => ({ webhookSecret: "github-webhook-secret" }) } as never,
+    { createLegacyWebhookExecution: async () => ({ id: "execution-push-1", status: "QUEUED", startedAt: null }) } as never,
+    { ensureDispatched: async ({ executionId }: { executionId: string }) => { dispatchedExecutionId = executionId; } } as never,
+    { readForExecutionSnapshot: async () => ({ data: { webhookSecret: "github-webhook-secret" }, encryptedData: "ciphertext" }) } as never,
   );
 
   const result = await service.receive(
@@ -327,9 +354,9 @@ test("GitHub workflow-run completed webhook verifies its action and dispatches t
         }),
       },
     } as never,
-    { createScheduledExecution: async () => ({ id: "execution-workflow-1" }) } as never,
-    { dispatch: async ({ executionId }: { executionId: string }) => { dispatchedExecutionId = executionId; } } as never,
-    { readForExecution: async () => ({ webhookSecret: "github-webhook-secret" }) } as never,
+    { createLegacyWebhookExecution: async () => ({ id: "execution-workflow-1", status: "QUEUED", startedAt: null }) } as never,
+    { ensureDispatched: async ({ executionId }: { executionId: string }) => { dispatchedExecutionId = executionId; } } as never,
+    { readForExecutionSnapshot: async () => ({ data: { webhookSecret: "github-webhook-secret" }, encryptedData: "ciphertext" }) } as never,
   );
 
   const result = await service.receive(

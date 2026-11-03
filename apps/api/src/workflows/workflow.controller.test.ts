@@ -27,3 +27,11 @@ test("workflow activation rejects missing live credentials", async () => {
     (error: unknown) => error instanceof BadRequestException && (error.getResponse() as { code: string }).code === "LIVE_CREDENTIAL_REQUIRED",
   );
 });
+
+test("workflow activation reports unavailable nodes rather than asking for credentials", async () => {
+  const controller = new WorkflowController(
+    { activate: async () => { throw new Error("must not activate"); } } as never,
+    { getLiveReadiness: async () => ({ ready: false, requirements: [], unavailableNodes: [{ nodeId: "later", type: "action.instagram" }] }) } as never,
+  );
+  await assert.rejects(() => controller.activate("flow", { currentUser: { id: "owner" } } as never), (error: unknown) => error instanceof BadRequestException && (error.getResponse() as { code: string }).code === "NODE_UNAVAILABLE");
+});

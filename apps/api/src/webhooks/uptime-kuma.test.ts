@@ -22,7 +22,7 @@ test("Uptime Kuma endpoint always creates a secret, even if the client asks for 
 test("authenticated Kuma alert drops unrelated monitor fields before dispatch", async () => {
   let captured: unknown;
   const endpoint = { id: "endpoint", isActive: true, secretHash: hashWebhookSecret("fixture-secret"), encryptedSigningSecret: null, workflow: { workspaceId: "workspace", isActive: true, archivedAt: null }, workflowVersion: { graph }, workflowVersionId: "version-1" };
-  const service = new WebhookService({ webhookEndpoint: { findUnique: async () => endpoint } } as never, { createScheduledExecution: async (_version: string, payload: unknown) => { captured = payload; return { id: "run" }; } } as never, { dispatch: async () => undefined } as never, {} as never);
+  const service = new WebhookService({ webhookEndpoint: { findUnique: async () => endpoint } } as never, { createLegacyWebhookExecution: async ({ payload }: { payload: unknown }) => { captured = payload; return { id: "run", status: "QUEUED", startedAt: null }; } } as never, { ensureDispatched: async () => undefined } as never, {} as never);
   const payload = { msg: "Service down", monitor: { id: 4, name: "API", url: "https://private.example/?token=private" }, heartbeat: { status: 0, time: "2026-11-01", ping: 10, password: "private" } };
   await assert.rejects(service.receive("kuma", "wrong", payload));
   endpoint.workflow.isActive = false;
@@ -48,7 +48,7 @@ test("Kuma v2 filters authenticated alerts without changing legacy trigger behav
   const v2Graph = { nodes: [node], edges: [] };
   const endpoint = { id: "endpoint", path: "kuma", workflowId: "workflow", isActive: true, secretHash: hashWebhookSecret("fixture-secret"), encryptedSigningSecret: null, workflow: { workspaceId: "workspace", isActive: true, archivedAt: null }, workflowVersion: { graph: v2Graph }, workflowVersionId: "version-1" };
   const jobs: unknown[] = [];
-  const service = new WebhookService({ webhookEndpoint: { findUnique: async () => endpoint } } as never, { createScheduledExecution: async () => { created++; return { id: "run" }; }, createKumaScheduledExecution: async () => { created++; return { id: "run", status: "QUEUED", startedAt: null }; } } as never, { dispatch: async () => undefined, ensureDispatched: async (job: unknown) => { jobs.push(job); } } as never, {} as never);
+  const service = new WebhookService({ webhookEndpoint: { findUnique: async () => endpoint } } as never, { createLegacyWebhookExecution: async () => { created++; return { id: "run", status: "QUEUED", startedAt: null }; }, createKumaScheduledExecution: async () => { created++; return { id: "run", status: "QUEUED", startedAt: null }; } } as never, { dispatch: async () => undefined, ensureDispatched: async (job: unknown) => { jobs.push(job); } } as never, {} as never);
   const alert = (monitorId: number, status: number) => ({ msg: "Alert", monitor: { id: monitorId, name: "API" }, heartbeat: { status } });
   validatePublishableGraph(parseWorkflowGraph(v2Graph));
   await assert.rejects(service.receive("kuma", "wrong", alert(5, 0)));

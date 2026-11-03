@@ -12,6 +12,7 @@ import { TelegramDeliveryRecoveryService } from "./telegram-delivery-recovery.se
 import { VercelDeliveryRecoveryService } from "./vercel-delivery-recovery.service";
 import { TrelloDeliveryRecoveryService } from "./trello-delivery-recovery.service";
 import { SentryDeliveryRecoveryService } from "./sentry-delivery-recovery.service";
+import { LegacyDeliveryRecoveryService } from "./legacy-delivery-recovery.service";
 
 @Module({
   imports: [AuthModule, CredentialModule, ExecutionModule],
@@ -24,6 +25,7 @@ import { SentryDeliveryRecoveryService } from "./sentry-delivery-recovery.servic
     VercelDeliveryRecoveryService,
     TrelloDeliveryRecoveryService,
     SentryDeliveryRecoveryService,
+    LegacyDeliveryRecoveryService,
     { provide: GITHUB_WEBHOOK_FETCH, useValue: globalThis.fetch },
     GitHubWebhookAdapter,
     GitHubWebhookManagementService,

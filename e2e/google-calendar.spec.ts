@@ -46,6 +46,45 @@ test("calendar event selection resets when the calendar changes", async ({ page 
   await expect(page.getByRole("combobox", { name: "Event", exact: true })).toHaveValue("");
 });
 
+test("calendar continuation is cleared when its query context changes", async ({ page }) => {
+  const graph = { nodes: [{ id: "manual", type: "trigger.manual", position: { x: 10, y: 350 }, config: {} }, { id: "calendar", type: "action.google-calendar.list-events", position: { x: 100, y: 100 }, config: { credentialId: "calendar-1", calendarId: "primary", limit: 10, timeMin: "2030-01-01T09:00:00.000Z", pageToken: "previous-page" } }], edges: [] };
+  const workflow = { id: "calendar-page-test", workspaceId: "workspace-1", name: "Calendar pages", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
+  const saves: Array<{ graph: { nodes: Array<{ id: string; config: Record<string, unknown> }> } }> = [];
+  await page.route("**/api/v1/**", async (route) => {
+    const request = route.request(); const path = new URL(request.url()).pathname;
+    const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+    if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
+    if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
+    if (path.endsWith("/credentials")) return send({ credentials: [{ id: "calendar-1", provider: "GOOGLE_CALENDAR", label: "First calendar account" }, { id: "calendar-2", provider: "GOOGLE_CALENDAR", label: "Second calendar account" }] });
+    if (path.endsWith("/google-calendar/calendars")) return send({ calendars: [{ id: "primary", name: "Personal · primary" }, { id: "work", name: "Work" }] });
+    if (path.endsWith("/workflows/calendar-page-test/draft") && request.method() === "PATCH") {
+      const body = request.postDataJSON() as { graph: { nodes: Array<{ id: string; config: Record<string, unknown> }> } };
+      saves.push(body); return send({ workflow: { ...workflow, draft: { ...workflow.draft, graph: body.graph } } });
+    }
+    if (path.endsWith("/workflows/calendar-page-test")) return send({ workflow });
+    return route.continue();
+  });
+  await page.goto("/editor?workflow=calendar-page-test");
+  await page.locator('.react-flow__node[data-id="calendar"]').click();
+  await page.getByText("Advanced pagination", { exact: true }).click();
+  const token = page.getByLabel("Next page token (reuse original start and limit)");
+  await expect(token).toHaveValue("previous-page");
+  await page.getByLabel("Google Calendar credential").selectOption("calendar-2");
+  await expect(token).toHaveValue("");
+  await token.fill("previous-page");
+  await page.getByRole("combobox", { name: "Calendar", exact: true }).selectOption("work");
+  await expect(token).toHaveValue("");
+  await token.fill("previous-page");
+  await page.getByLabel("Maximum events (1–50)").fill("20");
+  await expect(token).toHaveValue("");
+  await token.fill("previous-page");
+  await page.getByLabel("Start after (optional)").fill("2030-02-01T09:00");
+  await expect(token).toHaveValue("");
+  await page.getByRole("button", { name: "Save draft" }).click();
+  await expect.poll(() => saves.length).toBe(1);
+  expect(saves[0]!.graph.nodes.find((node) => node.id === "calendar")!.config.pageToken).toBe("");
+});
+
 test("create event offers date controls and explicit invitation options", async ({ page }) => {
   const graph = { nodes: [{ id: "calendar", type: "action.google-calendar.create-event", position: { x: 100, y: 100 }, config: { credentialId: "calendar-1", calendarId: "primary", summary: "", start: "", end: "", sendUpdates: "none" } }], edges: [] };
   const workflow = { id: "calendar-create-test", workspaceId: "workspace-1", name: "Calendar test", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
@@ -65,4 +104,36 @@ test("create event offers date controls and explicit invitation options", async 
   await page.getByLabel("Start", { exact: true }).fill("2030-01-01T09:00");
   await expect(page.getByLabel("Start", { exact: true })).toHaveValue("2030-01-01T09:00");
   await expect(page.getByLabel("Send email invitations")).toHaveValue("none");
+});
+
+test.describe("Calendar timestamps retain their precision", () => {
+  test.use({ timezoneId: "UTC" });
+  test("shows and saves seconds and milliseconds in the start time", async ({ page }) => {
+    const graph = { nodes: [{ id: "manual", type: "trigger.manual", position: { x: 10, y: 350 }, config: {} }, { id: "calendar", type: "action.google-calendar.list-events", position: { x: 100, y: 100 }, config: { credentialId: "calendar-1", calendarId: "primary", limit: 10, timeMin: "2030-01-01T09:00:37.123Z", pageToken: "" } }], edges: [] };
+    const workflow = { id: "calendar-precision-test", workspaceId: "workspace-1", name: "Calendar precision", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
+    const saves: Array<{ graph: { nodes: Array<{ id: string; config: Record<string, unknown> }> } }> = [];
+    await page.route("**/api/v1/**", async (route) => {
+      const request = route.request(); const path = new URL(request.url()).pathname;
+      const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+      if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
+      if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
+      if (path.endsWith("/credentials")) return send({ credentials: [{ id: "calendar-1", provider: "GOOGLE_CALENDAR", label: "My calendar" }] });
+      if (path.endsWith("/google-calendar/calendars")) return send({ calendars: [{ id: "primary", name: "Personal · primary" }] });
+      if (path.endsWith("/workflows/calendar-precision-test/draft") && request.method() === "PATCH") {
+        const body = request.postDataJSON() as { graph: { nodes: Array<{ id: string; config: Record<string, unknown> }> } };
+        saves.push(body); return send({ workflow: { ...workflow, draft: { ...workflow.draft, graph: body.graph } } });
+      }
+      if (path.endsWith("/workflows/calendar-precision-test")) return send({ workflow });
+      return route.continue();
+    });
+    await page.goto("/editor?workflow=calendar-precision-test");
+    await page.locator('.react-flow__node[data-id="calendar"]').click();
+    const start = page.getByLabel("Start after (optional)");
+    await expect(start).toHaveValue("2030-01-01T09:00:37.123");
+    await start.fill("2030-02-01T09:00:42.456");
+    await expect(start).toHaveValue("2030-02-01T09:00:42.456");
+    await page.getByRole("button", { name: "Save draft" }).click();
+    await expect.poll(() => saves.length).toBe(1);
+    expect(saves[0]!.graph.nodes.find((node) => node.id === "calendar")!.config.timeMin).toBe("2030-02-01T09:00:42.456Z");
+  });
 });

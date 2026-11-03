@@ -3,7 +3,7 @@ import { BadRequestException, ConflictException, Inject, Injectable, NotFoundExc
 import { ExecutionStatus, Prisma, WorkflowVersionStatus } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
 import { WorkspaceService } from "../workspaces/workspace.service";
-import { parseWorkflowGraph, validatePublishableGraph } from "./workflow-graph";
+import { assertExecutableGraph, parseWorkflowGraph, validatePublishableGraph } from "./workflow-graph";
 import { systemWorkflowTemplates } from "./system-templates";
 import { GmailTriggerService } from "../scheduler/gmail-trigger.service";
 import { RssTriggerService } from "../scheduler/rss-trigger.service";
@@ -266,6 +266,7 @@ export class WorkflowService {
     if (!workflow.publishedVersion) throw new NotFoundException({ code: "PUBLISHED_VERSION_REQUIRED", message: "Publish this workflow before activating it." });
     if (workflow.isActive) return this.serialize(workflow);
     const graph = parseWorkflowGraph(workflow.publishedVersion.graph);
+    assertExecutableGraph(graph);
     const gmailNodes = graph.nodes.filter((node) => node.type === "trigger.gmail");
     const rssNodes = graph.nodes.filter((node) => node.type === "trigger.rss.new-item");
     if (gmailNodes.length && !this.gmailTriggers) throw new BadRequestException({ code: "GMAIL_TRIGGER_UNAVAILABLE", message: "Gmail trigger is unavailable." });
