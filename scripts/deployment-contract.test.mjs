@@ -141,15 +141,21 @@ printf '%s\\n' "$*" >> "$SYNTHETIC_DOCKER_LOG"
 if [ "$1" = inspect ]; then printf '%s\\n' "$SYNTHETIC_CONTAINER_STATE"; exit 0; fi
 case " $* " in
   *' ps -aq '*) printf 'synthetic-container\\n';;
+  *' psql '*) [ "$SYNTHETIC_CATALOG_FAIL" != 1 ] || exit 1; printf '%s\\n' "$SYNTHETIC_TARGET_STATE";;
   *' exec -T db '*) cat >/dev/null; [ "$SYNTHETIC_RESTORE_FAIL" != 1 ];;
 esac
 `, { mode: 0o755 });
     const lock = resolve(dir, ".fluxora-release.lock");
-    const run = (state, fail = false, confirm = "RESTORE") => spawnSync("sh", [restorePostgres, resolve(dir, "backup.dump")], { encoding: "utf8", env: { ...process.env, APP_DIR: dir, PATH: `${resolve(dir, "bin")}:${process.env.PATH}`, CONFIRM_RESTORE: confirm, SYNTHETIC_DOCKER_LOG: log, SYNTHETIC_CONTAINER_STATE: state, SYNTHETIC_RESTORE_FAIL: fail ? "1" : "0" } });
+    const run = (state, fail = false, confirm = "RESTORE", target = "clear", catalogFail = false) => spawnSync("sh", [restorePostgres, resolve(dir, "backup.dump")], { encoding: "utf8", env: { ...process.env, APP_DIR: dir, PATH: `${resolve(dir, "bin")}:${process.env.PATH}`, CONFIRM_RESTORE: confirm, SYNTHETIC_DOCKER_LOG: log, SYNTHETIC_CONTAINER_STATE: state, SYNTHETIC_RESTORE_FAIL: fail ? "1" : "0", SYNTHETIC_TARGET_STATE: target, SYNTHETIC_CATALOG_FAIL: catalogFail ? "1" : "0" } });
     assert.notEqual(run("exited", false, "").status, 0);
     assert.notEqual(run("running").status, 0);
     assert.doesNotMatch(readFileSync(log, "utf8"), /exec -T db/);
     assert.equal(readdirSync(dir).includes(".fluxora-release.lock"), false);
+    for (const [target, catalogFail] of [["populated", false], ["unexpected", false], ["clear", true]]) {
+      assert.notEqual(run("exited", false, "RESTORE", target, catalogFail).status, 0);
+      assert.doesNotMatch(readFileSync(log, "utf8"), /pg_restore/);
+      assert.equal(readdirSync(dir).includes(".fluxora-release.lock"), false);
+    }
     assert.notEqual(run("exited", true).status, 0);
     assert.ok(readdirSync(dir).includes(".fluxora-release.lock"));
     assert.match(readFileSync(log, "utf8"), /--single-transaction/);

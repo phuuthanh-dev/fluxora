@@ -180,6 +180,12 @@ có thể downgrade an toàn.
 
 ### Tiến độ bản nháp sau audit — chưa phát hành
 
+- NX-03 starter workflows, bản local sau `ff0740a`: mẫu PostgreSQL và Supabase
+  không điền sẵn `example_table`, mẫu Trello không điền ID board giả có định
+  dạng hợp lệ. Người dùng phải chọn bảng/board trước cả mock và live; live còn
+  cần connection. Test cho cấu hình thiếu, mock với fixture và luồng tạo mẫu
+  trên dashboard đã được cập nhật và pass trong lượt verify cô lập ngày
+  2026-11-04. Chỉ mẫu tạo workflow mới thay đổi; graph đã lưu không bị sửa.
 - NX-02, bổ sung sau CI `20858a6`: picker Gemini trước đây chỉ tải trang đầu dù provider có `nextPageToken`. Bản local thêm nút tải trang tiếp, kiểm tra token rỗng/không hợp lệ, tránh lặp token hoặc trả token chứa API key và vẫn cho nhập model thủ công. Test adapter và E2E được cập nhật nhưng chưa chạy; không coi CI trước đó là xác nhận cho thay đổi này. Theo [Google Models API](https://ai.google.dev/api/models), các trang phải giữ cùng tham số `pageSize`.
 - NX-06 sau CI `20858a6`: model picker Gemini hiển thị input/output token limit và trạng thái thinking nếu Google trả metadata hợp lệ cho model đã chọn; không suy đoán khi thiếu. Đây chỉ là thông tin tại thời điểm discovery, không xác nhận structured output hoặc bảo đảm giới hạn chi phí; backend vẫn áp dụng giới hạn cấu hình riêng. Thêm test adapter/UI, chưa chạy. [Google Model resource](https://aistudio.google.com/api-reference/models#Resource:Model).
 - Execution audit sau CI `20858a6`: `run()` trước đây chỉ đối chiếu mode của job với mode lưu trong database đối với approval continuation; job ban đầu sai mode có thể chạy adapter live cho một execution mock. Bản local bỏ qua job sai mode trước khi claim hoặc đọc credential và đưa mode đã lưu vào điều kiện claim nguyên tử. Bỏ qua không có nghĩa là tự khôi phục một execution chỉ có job sai: execution đó vẫn cần cơ chế recovery hoặc kiểm tra vận hành. Test giả lập đã bổ sung nhưng chưa chạy; guard này chưa xác nhận cutover hoặc an toàn khi chạy lẫn worker cũ/mới.

@@ -17,6 +17,20 @@ test("system workflow templates are valid executable graphs with declared connec
   for (const slug of ["inspect-postgres-rows", "inspect-supabase-rows", "inspect-sheet-rows", "find-notion-pages", "inspect-trello-cards"]) assert.ok(systemWorkflowTemplates.some((template) => template.slug === slug));
 });
 
+test("data starter templates require an explicit table or board before execution", async () => {
+  const credentials = new Proxy({}, { get() { throw new Error("incomplete templates must not access credentials"); } }) as never;
+  for (const [slug, key] of [["inspect-postgres-rows", "table"], ["inspect-supabase-rows", "table"], ["inspect-trello-cards", "boardId"]] as const) {
+    for (const suffix of ["", "-chat-summary"]) {
+      const template = systemWorkflowTemplates.find((item) => item.slug === slug + suffix)!;
+      const node = template.graph.nodes.find((item) => item.id === "inspect")!;
+      assert.equal(node.config[key], "", template.slug);
+      for (const mode of ["mock", "live"] as const) {
+        await assert.rejects(executeNode(node, node.config, {}, mode, "workspace", credentials, "execution"), { code: "INVALID_INPUT" }, template.slug);
+      }
+    }
+  }
+});
+
 test("connector-to-chat templates compose mock output into a bounded summary without credentials", async () => {
   const credentials = new Proxy({}, { get() { throw new Error("mock must not access credentials"); } }) as never;
   const summaries = systemWorkflowTemplates.filter((template) => template.slug.endsWith("-chat-summary"));
@@ -31,7 +45,10 @@ test("connector-to-chat templates compose mock output into a bounded summary wit
   for (const template of summaries) {
     const inspect = template.graph.nodes.find((node) => node.id === "inspect")!;
     const notify = template.graph.nodes.find((node) => node.id === "notify")!;
-    const result = await executeNode(inspect, inspect.config, {}, "mock", "workspace", credentials, "execution");
+    const fixture = inspect.type === "action.postgres.select.v2" || inspect.type === "action.supabase.select.v2"
+      ? { table: "fixture_table" }
+      : inspect.type === "action.trello.list-cards" ? { boardId: "aaaaaaaaaaaaaaaaaaaaaaaa" } : {};
+    const result = await executeNode(inspect, { ...inspect.config, ...fixture }, {}, "mock", "workspace", credentials, "execution");
     const config = resolveExpressions(notify.config, { steps: { inspect: { output: result.output } } }) as Record<string, unknown>;
     assert.equal(result.status, "succeeded", template.slug);
     assert.equal(config.message, expected[template.slug], template.slug);

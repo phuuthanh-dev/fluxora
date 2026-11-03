@@ -144,12 +144,18 @@ deploying the containers.
 
   The local NX draft shares the release lock with deploy/rollback, refuses
   to restore while named Compose API or worker containers are active, and
-  uses `pg_restore --single-transaction`. An interrupted or failed restore
+  uses `pg_restore --single-transaction`. The new local draft additionally
+  refuses targets with existing user schemas, common public-schema objects,
+  extensions, large objects, publications or subscriptions. An inspection
+  error also stops the restore. Use a separate empty database; this changes
+  the earlier in-place restore behavior. The catalog check is conservative,
+  not an exhaustive object comparison or a fence against unmanaged writers.
+  An interrupted or failed restore
   retains the lock for inspection because the commit outcome can be uncertain.
   The check does not discover unmanaged clients or tools that ignore the lock.
   `--clean` removes objects represented in the archive, not necessarily objects
-  created after it; this command alone is not a complete downgrade or a safe
-  way to preserve writes made after the backup. Synthetic tests passed in the
+  created after it; this guard reduces that risk but is not a complete downgrade
+  or a safe way to preserve writes made after the backup. Synthetic tests passed in the
   isolated full quality gate for `388ac7b`. A PostgreSQL 16 drill with synthetic
   tables confirmed successful restore, preservation of post-backup objects and
   rollback of a truncated-archive failure. A second isolated drill restored
@@ -158,6 +164,11 @@ deploying the containers.
   An NX mock tokenized continuation recovered into an empty test Redis; the
   fixture did not exercise a full approval flow. These
   drills do not restore all Redis jobs or prove production recovery or rollback.
+  The subsequent opt-in `npm run test:restore:docker` passed against a separate
+  synthetic PostgreSQL Compose project: the new guard rejected a target with a
+  table or with a schema/function and restored a fixture after those were
+  removed. The test creates and removes only its randomly named fixture project.
+  It is not a production recovery drill or proof against concurrent writers.
 
 - Preserve the `postgres_data` volume and never use `docker compose down -v` in production.
 - After a successful health check, deploy scripts retain the current and previous API/Web commit-SHA images and remove only older SHA-tagged images from those two application repositories. PostgreSQL/Redis images and volumes are never part of this cleanup. An older image's presence in GHCR does not establish that it can safely read the current database or queued work.

@@ -50,8 +50,12 @@ traffic until the gates below have been met.
    reconciliation. Restore to an isolated empty database and prove selected
    workflows and credential ciphertext are usable with the matching key.
    Restoring into a populated database with `pg_restore --clean` can leave
-   objects absent from the archive. Neither database restore nor image
-   rollback reverses provider actions or restores all Redis jobs. The owner's
+   objects absent from the archive. A local guard refuses common signs of
+   a populated target; an isolated PostgreSQL test passed for a table and a
+   schema/function. The guard is not a complete
+   PostgreSQL object comparison or a fence against other writers. Neither
+   database restore nor image rollback reverses provider actions or restores
+   all Redis jobs. The owner's
    earlier decision to postpone backups is not evidence of recoverability;
    do not claim rollback is available without a demonstrated alternative.
 4. **Choose the failure boundary before migration.** Before schema changes,

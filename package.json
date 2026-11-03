@@ -30,6 +30,7 @@
     "codegraph:generate": "node scripts/generate-code-graph.mjs",
     "codegraph:check": "node scripts/generate-code-graph.mjs --check",
     "deployment:check": "node --test scripts/deployment-contract.test.mjs scripts/rollback-compatibility.test.mjs scripts/deploy-compatibility.test.mjs",
+    "test:restore:docker": "FLUXORA_RESTORE_DOCKER_TEST=1 node --test scripts/restore-postgres.docker.test.mjs",
     "release:preflight": "node scripts/release-preflight.mjs",
     "release:smoke": "node scripts/smoke-health.mjs",
     "release:check": "node --test scripts/release-preflight.test.mjs && npm run release:preflight",

@@ -49,6 +49,31 @@ for service in api worker; do
   done
 done
 
+# `pg_restore --clean` only removes objects present in the archive. Refuse a
+# populated target rather than silently leaving post-snapshot objects behind.
+# This is a conservative catalog check, not a fence against unmanaged writers
+# or proof of equivalence for every possible PostgreSQL object.
+target_state="$(docker compose --env-file "$env_file" -f "$compose_file" exec -T db \
+  sh -c 'psql -X --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --no-align --tuples-only --set ON_ERROR_STOP=1 -c "
+    SELECT CASE WHEN
+      EXISTS (SELECT 1 FROM pg_namespace WHERE nspname <> '\''public'\'' AND nspname <> '\''information_schema'\'' AND nspname !~ '\''^pg_'\'')
+      OR EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = '\''public'\'')
+      OR EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = '\''public'\'')
+      OR EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE n.nspname = '\''public'\'')
+      OR EXISTS (SELECT 1 FROM pg_extension WHERE extname <> '\''plpgsql'\'')
+      OR EXISTS (SELECT 1 FROM pg_largeobject_metadata)
+      OR EXISTS (SELECT 1 FROM pg_publication)
+      OR EXISTS (SELECT 1 FROM pg_subscription)
+    THEN '\''populated'\'' ELSE '\''clear'\'' END"'
+)" || {
+  printf '%s\n' "Could not inspect the restore target; restore was not started." >&2
+  exit 1
+}
+if [ "$target_state" != clear ]; then
+  printf '%s\n' "Restore target is not clear; use a separate empty database and reconcile writes. No restore was started." >&2
+  exit 1
+fi
+
 # A lost client connection can leave the outcome of COMMIT uncertain. Keep
 # the shared lock on any failure or interruption until an operator inspects it.
 retain_release_lock
@@ -57,4 +82,4 @@ docker compose --env-file "$env_file" -f "$compose_file" exec -T db \
   < "$backup_file"
 
 release_lock_when_safe
-printf '%s\n' "PostgreSQL restore completed from: $backup_file"
+printf '%s\n' "PostgreSQL archive restored from: $backup_file; independently verify schema, data, key and queue before use."

@@ -17,6 +17,10 @@ test("release preflight is read-only, secret-free, and has no blocked repository
   assert.equal(report.checks.some((check) => check.status === "blocked"), false);
   assert.ok(report.checks.some((check) => check.status === "operator"));
   assert.ok(report.checks.some((check) => check.status === "user_input"));
+  const cutover = report.checks.find((check) => check.name === "NX first-cutover evidence");
+  assert.equal(cutover?.status, "operator");
+  assert.match(cutover.detail, /guard rejects.*legacy/i);
+  assert.match(report.checks.find((check) => check.name === "Recovery drill evidence")?.detail ?? "", /SHA alone does not prove/i);
   assert.doesNotMatch(JSON.stringify(report), /replace-with-a-long-random-password/);
 });
 

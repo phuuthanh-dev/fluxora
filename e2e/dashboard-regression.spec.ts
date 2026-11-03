@@ -648,7 +648,14 @@ test("starter templates remain available from the dashboard create section", asy
   await page.getByRole("button", { name: "Use template", exact: true }).click();
   expect((await created).ok()).toBeTruthy();
   await expect(page).toHaveURL(/\/editor\?workflow=/);
-  await expect(page.locator(".react-flow__node").filter({ hasText: "PostgreSQL · Action" })).toBeVisible();
+  const postgresNode = page.locator(".react-flow__node").filter({ hasText: "PostgreSQL · Action" });
+  await expect(postgresNode).toBeVisible();
+  await postgresNode.click();
+  const table = page.getByRole("group", { name: "Table", exact: true });
+  await table.getByRole("button", { name: /Enter table manually|Enter value or expression/ }).click();
+  const tableValue = table.getByRole("textbox", { name: "Table value" });
+  await expect(tableValue).toHaveValue("");
+  await tableValue.fill("fixture_table");
   await page.getByRole("button", { name: "Run test" }).click();
   await expect(page.getByText(/Mock execution succeeded/)).toBeVisible({ timeout: 15_000 });
 });
