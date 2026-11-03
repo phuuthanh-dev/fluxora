@@ -28,6 +28,16 @@ traffic until the gates below have been met.
   approval continuation. A separate synthetic worker handoff and a restore
   into an empty database each worked for their stated fixtures; neither is a
   complete production cutover or rollback. See [the release review](40-nx-release-review.md).
+- On 2026-11-04, read-only inspection showed production API and worker image
+  ID `sha256:70f1b641233979f4476190f654757514c2433fd8399853087a9462637b729ce3`.
+  The same AMD64 image was pulled and run under emulation with `--network none`.
+  A synthetic HTTP server invoked the image's actual compiled
+  `CredentialService.readGoogleForExecution` with fake vault, database and
+  provider dependencies. After the client disconnected, a gated fake provider
+  response was released and the method wrote the synthetic credential. This
+  confirms that an HTTP disconnect alone does not complete that image's OAuth
+  work. It is not a test of the image's Nest bootstrap, actual provider,
+  production activity, shutdown signals or a complete cutover.
 
 ## Required design and proof
 
