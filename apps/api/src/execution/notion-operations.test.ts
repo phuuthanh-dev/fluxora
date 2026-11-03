@@ -4,7 +4,7 @@ import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure } from "./node-failure";
 import { fetchSafeOutbound } from "./outbound-url-policy";
 import { redactValue } from "./redaction";
-import { executeNotionOperation, listNotionBlockChildren, retrieveNotionPage, retrieveNotionPageProperty } from "./notion-operations";
+import { executeNotionDataSourceQuery, executeNotionOperation, listNotionBlockChildren, listNotionDataSourceOptions, listNotionDataSourceProperties, listNotionPageProperties, queryNotionDataSource, retrieveNotionPage, retrieveNotionPageProperty, searchNotionDataSources } from "./notion-operations";
 
 const pageId = "01234567-89ab-cdef-0123-456789abcdef";
 const blockId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
@@ -27,6 +27,94 @@ test("page retrieval uses the fixed guarded transport contract and preserves pro
   assert.match(output.outputInfo.completeness, /properties may be incomplete/);
   assert.match(output.outputInfo.redaction, /Sensitive keys/);
   await assert.rejects(retrieveNotionPage({ token, pageId }, async () => Response.json({ object: "page", id: blockId })), failure("INVALID_RESPONSE", false));
+});
+
+test("property discovery returns bounded names and IDs for the selected page without property values", async () => {
+  const result = await listNotionPageProperties({ token, pageId }, async (url, init) => {
+    assert.equal(url, `https://api.notion.com/v1/pages/${pageId}`);
+    assert.equal((init.headers as Record<string, string>).authorization, `Bearer ${token}`);
+    return Response.json({ object: "page", id: pageId, properties: {
+      Name: { id: "title", type: "title", title: [{ plain_text: "private value" }] },
+      [`Status ${token}`]: { id: "f%5C%3Ap", type: "status", status: { name: "private status" } },
+      Unsafe: { id: `prefix-${token}`, type: "text" },
+    } });
+  });
+  assert.deepEqual(result.properties, [{ id: "title", name: "Name" }, { id: "f%5C%3Ap", name: "Status [REDACTED]" }]);
+  assert.ok(result.warning);
+  assert.ok(!JSON.stringify(result).includes(token) && !JSON.stringify(result).includes("private"));
+  await assert.rejects(listNotionPageProperties({ token, pageId }, async () => Response.json({ object: "page", id: blockId, properties: {} })), failure("INVALID_RESPONSE", false));
+});
+
+test("Notion data source discovery uses the new API contract and projects only metadata", async () => {
+  const result = await searchNotionDataSources({ token, query: "", pageSize: 10 }, async (url, init) => {
+    assert.equal(url, "https://api.notion.com/v1/search");
+    assert.equal((init.headers as Record<string, string>)["notion-version"], "2025-09-03");
+    assert.deepEqual(JSON.parse(String(init.body)), { query: "", page_size: 10, filter: { property: "object", value: "data_source" } });
+    return Response.json({ object: "list", results: [{ object: "data_source", id: pageId, title: [{ plain_text: "Projects" }], properties: { private: token } }], has_more: false, next_cursor: null });
+  });
+  assert.deepEqual(result, { sources: [{ id: pageId, name: "Projects" }], hasMore: false, nextCursor: null });
+});
+
+test("Notion data source property discovery returns supported names and IDs, not schema options or values", async () => {
+  const output = await listNotionDataSourceProperties({ token, dataSourceId: pageId }, async (url, init) => {
+    assert.equal(url, `https://api.notion.com/v1/data_sources/${pageId}`);
+    assert.equal(init.method, "GET");
+    assert.equal((init.headers as Record<string, string>)["notion-version"], "2025-09-03");
+    return Response.json({ object: "data_source", id: pageId, properties: { Progress: { id: "a%3Ab", type: "status", status: { options: [{ name: "private" }] } }, Done: { id: "flag", type: "checkbox" }, Title: { id: "title", type: "title" } } });
+  });
+  assert.deepEqual(output.properties, [{ id: "a%3Ab", name: "Progress · status" }, { id: "flag", name: "Done · checkbox" }]);
+  assert.ok(!JSON.stringify(output).includes("private"));
+});
+
+test("Notion filter options belong to the chosen source and property and preserve exact names", async () => {
+  const input = { token, dataSourceId: pageId, propertyId: "a%3Ab", mode: "status" };
+  const output = await listNotionDataSourceOptions(input, async () => Response.json({ object: "data_source", id: pageId, properties: {
+    Progress: { id: "a%3Ab", type: "status", status: { options: [{ id: "1", name: "In progress" }, { id: "2", name: `secret ${token}` }, { id: "3", name: "Done" }] } },
+    Other: { id: "other", type: "select", select: { options: [{ name: "Wrong property" }] } },
+  } }));
+  assert.deepEqual(output.options, [{ id: "In progress", name: "In progress" }, { id: "Done", name: "Done" }]);
+  assert.ok(output.warning && !JSON.stringify(output).includes(token));
+  await assert.rejects(listNotionDataSourceOptions({ ...input, mode: "select" }, async () => Response.json({ object: "data_source", id: pageId, properties: { Progress: { id: "a%3Ab", type: "status", status: { options: [] } } } })), failure("INVALID_INPUT", false));
+});
+
+test("Notion data source query preserves cursors and reports the provider result cap", async () => {
+  const output = await queryNotionDataSource({ token, dataSourceId: pageId, pageSize: 2, cursor: "next-page" }, async (url, init) => {
+    assert.equal(url, `https://api.notion.com/v1/data_sources/${pageId}/query`);
+    assert.equal((init.headers as Record<string, string>)["notion-version"], "2025-09-03");
+    assert.deepEqual(JSON.parse(String(init.body)), { page_size: 2, start_cursor: "next-page" });
+    return Response.json({ object: "list", results: [{ object: "page", id: blockId, properties: {} }], has_more: false, next_cursor: null, request_status: { type: "incomplete", incomplete_reason: "query_result_limit_reached" } });
+  });
+  assert.equal(output.queryCompleteness, "incomplete");
+  assert.equal(output.hasMore, false);
+  assert.equal(output.results.length, 1);
+  await assert.rejects(queryNotionDataSource({ token, dataSourceId: pageId, pageSize: 2 }, async () => Response.json({ object: "list", results: [], has_more: true, next_cursor: null })), failure("INVALID_RESPONSE", false));
+});
+
+test("Notion data source execution validates before credential access in mock and live modes", async () => {
+  const forbidden = { readForExecution: async () => { throw new Error("unexpected credential read"); } } as unknown as CredentialService;
+  for (const mode of ["mock", "live"] as const) {
+    for (const config of [{ dataSourceId: "invalid" }, { dataSourceId: pageId, cursor: undefined }, { dataSourceId: pageId, pageSize: 101 }, { dataSourceId: pageId, sort: "nonsense" }, { dataSourceId: pageId, sort: undefined }, { dataSourceId: pageId, editedAfter: "tomorrow" }, { dataSourceId: pageId, editedAfter: undefined }]) {
+      await assert.rejects(executeNotionDataSourceQuery(config, mode, "workspace", forbidden));
+    }
+  }
+  const mock = await executeNotionDataSourceQuery({ dataSourceId: pageId }, "mock", "workspace", forbidden);
+  assert.equal(mock.output.queryCompleteness, "unknown");
+});
+
+test("Notion data source query forwards the selected timestamp filter and sort", async () => {
+  await queryNotionDataSource({ token, dataSourceId: pageId, pageSize: 5, sort: "edited-newest", editedAfter: "2030-01-01T00:00:00Z" }, async (_url, init) => {
+    assert.deepEqual(JSON.parse(String(init.body)), { page_size: 5, sorts: [{ timestamp: "last_edited_time", direction: "descending" }], filter: { timestamp: "last_edited_time", last_edited_time: { after: "2030-01-01T00:00:00Z" } } });
+    return Response.json({ object: "list", results: [], has_more: false, next_cursor: null });
+  });
+});
+
+test("Notion data source combines property and timestamp filters without raw JSON", async () => {
+  await queryNotionDataSource({ token, dataSourceId: pageId, pageSize: 5, editedAfter: "2030-01-01T00:00:00Z", propertyFilter: { property: "flag", mode: "checkbox", value: "false" } }, async (_url, init) => {
+    assert.deepEqual(JSON.parse(String(init.body)), { page_size: 5, filter: { and: [{ timestamp: "last_edited_time", last_edited_time: { after: "2030-01-01T00:00:00Z" } }, { property: "flag", checkbox: { equals: false } }] } });
+    return Response.json({ object: "list", results: [], has_more: false, next_cursor: null });
+  });
+  const forbidden = { readForExecution: async () => { throw new Error("unexpected credential read"); } } as unknown as CredentialService;
+  await assert.rejects(executeNotionDataSourceQuery({ dataSourceId: pageId, filterMode: "checkbox", filterProperty: "flag", filterValue: "not-boolean" }, "live", "workspace", forbidden), /valid filter value/);
 });
 
 test("children use one opaque cursor and never discard overfull provider results", async () => {

@@ -6,6 +6,7 @@ import { listMongoCollections, listMongoDatabases } from "../execution/mongodb-f
 import { listGoogleChatSpaces } from "../execution/google-chat-oauth";
 import { listPostgresColumns, listPostgresSchemas, listPostgresTables, validatePostgresCredential } from "../execution/postgres-read";
 import { listTrelloBoards, listTrelloLists } from "../execution/trello";
+import { listNotionDataSourceOptions, listNotionDataSourceProperties, listNotionPageProperties, searchNotionDataSources } from "../execution/notion-operations";
 import { listSentryInstallations, listSentryOrganizations, listSentryProjects } from "../execution/sentry";
 import { listVercelProjects, listVercelTeams } from "../execution/vercel";
 import { listSupabaseColumns, listSupabaseTables } from "../execution/supabase";
@@ -167,6 +168,42 @@ export class ConnectorResourceController {
     const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.NOTION);
     try { return await listNotionPages(credential, query ?? "", cursor); }
     catch { throw new BadRequestException({ code: "NOTION_PAGES_UNAVAILABLE", message: "Pages could not be loaded. Check the connection, search parameters and integration access, or enter a page ID manually." }); }
+  }
+
+  @Get("notion/properties")
+  async notionProperties(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Query("pageId") pageId: string | undefined, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.NOTION);
+    try { return await listNotionPageProperties({ token: typeof credential.token === "string" ? credential.token : "", pageId: pageId ?? "" }); }
+    catch { throw new BadRequestException({ code: "NOTION_PROPERTIES_UNAVAILABLE", message: "Properties could not be loaded. Check the selected page and connection, or enter a property ID manually." }); }
+  }
+
+  @Get("notion/data-sources")
+  async notionDataSources(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Query("cursor") cursor: string | undefined, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.NOTION);
+    try { return await searchNotionDataSources({ token: typeof credential.token === "string" ? credential.token : "", query: "", pageSize: 100, ...(cursor ? { cursor } : {}) }); }
+    catch { throw new BadRequestException({ code: "NOTION_DATA_SOURCES_UNAVAILABLE", message: "Data sources could not be loaded. Check the connection and sharing permissions, or enter an ID manually." }); }
+  }
+
+  @Get("notion/data-source-properties")
+  async notionDataSourceProperties(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Query("dataSourceId") dataSourceId: string | undefined, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.NOTION);
+    try { return await listNotionDataSourceProperties({ token: typeof credential.token === "string" ? credential.token : "", dataSourceId: dataSourceId ?? "" }); }
+    catch { throw new BadRequestException({ code: "NOTION_DATA_SOURCE_PROPERTIES_UNAVAILABLE", message: "Data source properties could not be loaded. Check sharing permissions or enter a property ID manually." }); }
+  }
+
+  @Get("notion/data-source-options")
+  async notionDataSourceOptions(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Query("dataSourceId") dataSourceId: string | undefined, @Query("propertyId") propertyId: string | undefined, @Query("mode") mode: string | undefined, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.NOTION);
+    try { return await listNotionDataSourceOptions({ token: typeof credential.token === "string" ? credential.token : "", dataSourceId: dataSourceId ?? "", propertyId: propertyId ?? "", mode: mode ?? "" }); }
+    catch { throw new BadRequestException({ code: "NOTION_DATA_SOURCE_OPTIONS_UNAVAILABLE", message: "Property values could not be loaded. Check the selected property or enter the exact value manually." }); }
   }
 
   @Get("postgres/schemas")

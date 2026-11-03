@@ -393,7 +393,7 @@ export const nodeCatalog: NodeDefinition[] = [
     configurationFields: getSharedNodeConfigurationFields("action.google-drive.v2"),
   },
   {
-    type: "action.google-sheets",
+    type: "action.google-sheets", hiddenFromLibrary: true,
     label: "Google Sheets",
     description: "Read or write spreadsheet data.",
     category: "action",
@@ -406,6 +406,21 @@ export const nodeCatalog: NodeDefinition[] = [
     available: true,
     defaultConfig: { credentialId: "", operation: "append", spreadsheetId: "", range: "Sheet1!A1", values: [["", ""]] },
     configurationFields: getSharedNodeConfigurationFields("action.google-sheets"),
+  },
+  {
+    type: "action.google-sheets.v2",
+    label: "Google Sheets",
+    description: "Read or write spreadsheet data.",
+    category: "action",
+    libraryGroup: "google-workspace",
+    appId: "google-sheets",
+    operationId: "read-write-rows",
+    operationLabel: "Read or write rows",
+    operationKind: "action",
+    icon: "google-sheets",
+    available: true,
+    defaultConfig: { credentialId: "", operation: "append", spreadsheetId: "", range: "Sheet1!A1", values: [["", ""]], valueInputOption: "USER_ENTERED" },
+    configurationFields: getSharedNodeConfigurationFields("action.google-sheets.v2"),
   },
   {
     type: "action.http-request",
@@ -781,6 +796,12 @@ export const nodeCatalog: NodeDefinition[] = [
     configurationFields: getSharedNodeConfigurationFields(type),
   })),
   {
+    type: "action.notion.query-data-source", label: "Notion · List data source pages", description: "Read one page of entries from a shared data source.",
+    category: "action", libraryGroup: "productivity", appId: "notion", operationId: "query-data-source", operationLabel: "List data source pages", operationKind: "search", icon: "notion", available: true,
+    defaultConfig: { credentialId: "", dataSourceId: "", pageSize: 20, sort: "provider", editedAfter: "", filterMode: "none", filterProperty: "", filterValue: "" },
+    configurationFields: getSharedNodeConfigurationFields("action.notion.query-data-source"),
+  },
+  {
     type: "action.notion.create-page", label: "Notion · Create page", description: "Create a child page in a shared Notion page.",
     category: "action", libraryGroup: "productivity", appId: "notion", operationId: "create-page", operationLabel: "Create page", operationKind: "action", icon: "notion", available: true,
     defaultConfig: { credentialId: "", parentPageId: "", title: "", content: "" },
@@ -955,7 +976,7 @@ export function operationsForApp(appId: string) {
 
 /** Preserve old favorites/recent preferences without offering legacy nodes for new graphs. */
 export function libraryNodeType(type: string): string {
-  if (["trigger.uptime-kuma.alert", "action.postgres.select", "action.supabase.select", "action.google-drive", "action.gmail.read", "action.notion.search-pages", "action.sentry.list-issues", "action.vercel.list-deployments", "action.google-chat.oauth"].includes(type)) return `${type}.v2`;
+  if (["trigger.uptime-kuma.alert", "action.postgres.select", "action.supabase.select", "action.google-drive", "action.google-sheets", "action.gmail.read", "action.notion.search-pages", "action.sentry.list-issues", "action.vercel.list-deployments", "action.google-chat.oauth"].includes(type)) return `${type}.v2`;
   return type;
 }
 

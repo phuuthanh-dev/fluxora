@@ -1,6 +1,22 @@
 import type { WorkflowNodeType } from "./index";
 import type { NodeConfigurationField } from "./node-configuration-fields";
 
+function sheetsFields(includeInputOption: boolean): NodeConfigurationField[] {
+  const fields: NodeConfigurationField[] = [
+    { kind: "credential", key: "credentialId", label: "Google credential", providers: ["GOOGLE"] },
+    { kind: "resource", key: "spreadsheetId", label: "Spreadsheet", resource: "google-spreadsheet", credentialKey: "credentialId", placeholder: "Search loaded spreadsheets" },
+    { kind: "select", key: "operation", label: "Operation", options: [
+      { value: "read", label: "Read rows" },
+      { value: "append", label: "Append rows" },
+      { value: "update", label: "Update rows" },
+    ] },
+    { kind: "text", key: "range", label: "Range" },
+    { kind: "table", key: "values", label: "Values", visibleWhen: { key: "operation", equals: ["append", "update"] } },
+  ];
+  if (includeInputOption) fields.push({ kind: "select", key: "valueInputOption", label: "Interpret values", options: [{ value: "USER_ENTERED", label: "Like typing in Sheets (formulas allowed)" }, { value: "RAW", label: "Keep text as entered (no formulas)" }], visibleWhen: { key: "operation", equals: ["append", "update"] } });
+  return fields;
+}
+
 /** Inspector descriptors only; backend validation remains authoritative. */
 export const googleNodeFields = {
   "action.google-drive": (): NodeConfigurationField[] => [
@@ -30,17 +46,8 @@ export const googleNodeFields = {
       { kind: "text", key: "name", label: "File name", visibleWhen: { key: "operation", equals: "uploadText" } },
       { kind: "textarea", key: "text", label: "Text content", visibleWhen: { key: "operation", equals: "uploadText" } },
     ],
-  "action.google-sheets": (): NodeConfigurationField[] => [
-      { kind: "credential", key: "credentialId", label: "Google credential", providers: ["GOOGLE"] },
-      { kind: "resource", key: "spreadsheetId", label: "Spreadsheet", resource: "google-spreadsheet", credentialKey: "credentialId", placeholder: "Search loaded spreadsheets" },
-      { kind: "select", key: "operation", label: "Operation", options: [
-        { value: "read", label: "Read rows" },
-        { value: "append", label: "Append rows" },
-        { value: "update", label: "Update rows" },
-      ] },
-      { kind: "text", key: "range", label: "Range" },
-      { kind: "table", key: "values", label: "Values", visibleWhen: { key: "operation", equals: ["append", "update"] } },
-    ],
+  "action.google-sheets": () => sheetsFields(false),
+  "action.google-sheets.v2": () => sheetsFields(true),
   "trigger.gmail": (): NodeConfigurationField[] => [
       { kind: "credential", key: "credentialId", label: "Gmail credential", providers: ["GMAIL"] },
       { kind: "select", key: "mailbox", label: "Messages", options: [{ value: "inbox", label: "Inbox" }, { value: "all", label: "All mail, including Sent and Spam" }] },

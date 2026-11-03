@@ -59,6 +59,53 @@ test("concurrent decisions resolve an approval once and a terminal approval comp
     assert.equal(finished.resumeToken, null);
     assert.equal((await prisma.nodeExecution.findUniqueOrThrow({ where: { executionId_nodeId: { executionId: continuation.executionId, nodeId: "next" } } })).status, "SUCCEEDED");
 
+    // Hold the approval row until after its deadline. The request must have
+    // acquired the execution and node locks before reaching the locked
+    // approval row, otherwise the intended lock-wait race is not tested.
+    const expiring = await makeWaiting(5, true);
+    const deadline = new Date(Date.now() + 4_000);
+    await prisma.approvalRequest.update({ where: { id: expiring.approvalId }, data: { expiresAt: deadline } });
+    let entered = () => {};
+    const reachedApprovalLock = new Promise<void>((resolve) => { entered = resolve; });
+    const observedPrisma = {
+      approvalRequest: prisma.approvalRequest,
+      nodeExecution: prisma.nodeExecution,
+      $transaction: async (callback: (transaction: unknown) => Promise<unknown>) => {
+        return prisma.$transaction(async (transaction) => callback(new Proxy(transaction, {
+          get(target, property, receiver) {
+            if (property === "$queryRaw") return (strings: TemplateStringsArray, ...values: unknown[]) => {
+              if (strings.join("").includes('FROM "ApprovalRequest"')) entered();
+              return target.$queryRaw(strings, ...values);
+            };
+            return Reflect.get(target, property, receiver);
+          },
+        })));
+      },
+    };
+    const expiryEvents: string[] = [];
+    const gatedService = new ExecutionService(observedPrisma as never, {} as never, { publish: (_id: string, event: string) => { expiryEvents.push(event); } } as never);
+    let outcome: Promise<{ ok: boolean }> | undefined;
+    await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "ApprovalRequest" WHERE id = ${expiring.approvalId} FOR UPDATE`;
+      outcome = gatedService.resolveApproval(expiring.approvalId, userId, "approved").then(() => ({ ok: true }), () => ({ ok: false }));
+      await Promise.race([reachedApprovalLock, outcome.then(() => { throw new Error("Decision ended before reaching the blocked approval lock."); })]);
+      const clock = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS "now"`;
+      assert.ok(clock[0]!.now < deadline, "the decision must reach the locked approval before expiry");
+      await new Promise<void>((resolve) => setTimeout(resolve, Math.max(0, deadline.getTime() - Date.now() + 100)));
+    }, { timeout: 10_000 });
+    assert.equal((await outcome!).ok, false, "a decision waiting past expiry must not be accepted");
+    assert.equal((await prisma.approvalRequest.findUniqueOrThrow({ where: { id: expiring.approvalId } })).status, "EXPIRED");
+    const expiredExecution = await prisma.execution.findUniqueOrThrow({ where: { id: expiring.executionId } });
+    assert.equal(expiredExecution.status, "FAILED");
+    assert.equal(expiredExecution.errorCode, "APPROVAL_EXPIRED");
+    assert.equal((await prisma.nodeExecution.findUniqueOrThrow({ where: { executionId_nodeId: { executionId: expiring.executionId, nodeId: "approval" } } })).status, "FAILED");
+    assert.deepEqual(expiryEvents, ["execution.failed"]);
+    const alreadyExpired = await makeWaiting(6, false);
+    await prisma.approvalRequest.update({ where: { id: alreadyExpired.approvalId }, data: { expiresAt: new Date("2020-01-01T00:00:00Z") } });
+    await assert.rejects(service.resolveApproval(alreadyExpired.approvalId, userId, "approved"), /Approval request has expired/);
+    assert.equal((await prisma.approvalRequest.findUniqueOrThrow({ where: { id: alreadyExpired.approvalId } })).status, "EXPIRED");
+    assert.equal((await prisma.execution.findUniqueOrThrow({ where: { id: alreadyExpired.executionId } })).errorCode, "APPROVAL_EXPIRED");
+
     // A node completion that arrives while cancellation holds the execution
     // lock must observe the committed cancellation before touching the node.
     const versionId = `approval-version-4-${suffix}`, executionId = `approval-execution-4-${suffix}`;

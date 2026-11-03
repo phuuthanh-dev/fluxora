@@ -9,7 +9,7 @@ import pg from "pg";
 const root = resolve(import.meta.dirname, "..");
 const sha = "0123456789abcdef0123456789abcdef01234567";
 
-function exercise({ state = "nx", label = "nx-v1", drainLabel = "v1", databaseFailure = false, inspectFailure = false, locked = false, stopFailure = false, apiStopFailure = false, missingWorker = false, missingApi = false, apiImageId = "target-image-id", workerImageId = "target-image-id", drainState = "exited 0 false", legacyPending = "clear", afterDrain = legacyPending } = {}) {
+function exercise({ state = "nx", label = "nx-v1", drainLabel = "v1", databaseFailure = false, inspectFailure = false, locked = false, stopFailure = false, apiStopFailure = false, missingWorker = false, missingApi = false, missingWeb = false, apiImageId = "target-image-id", workerImageId = "target-image-id", targetWebImageId = "target-image-id", currentApiImageId = "target-image-id", currentWorkerImageId = "target-image-id", currentWebImageId = targetWebImageId, drainState = "exited 0 false", legacyPending = "clear", afterDrain = legacyPending, runningState = "clear" } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "fluxora-rollback-test-"));
   try {
     const scripts = join(dir, "infra/scripts");
@@ -30,12 +30,13 @@ function exercise({ state = "nx", label = "nx-v1", drainLabel = "v1", databaseFa
     writeFileSync(join(bin, "docker"), `#!/bin/sh
 printf '%s\n' "$*" >> "$CALL_LOG"
 case "$*" in
-  *'exec -T db'*) [ "$DB_FAIL" = 1 ] && exit 1; case "$*" in *'to_jsonb(e)'*) if [ -f "$DRAINED_FILE" ]; then printf '%s\n' "$AFTER_DRAIN"; else printf '%s\n' "$LEGACY_PENDING"; fi ;; *) printf '%s\n' "$DB_STATE" ;; esac ;;
-  'image inspect --format {{.Id}} '*) printf '%s\n' target-image-id ;;
+  *'exec -T db'*) [ "$DB_FAIL" = 1 ] && exit 1; case "$*" in *'to_jsonb(e)'*) if [ -f "$DRAINED_FILE" ]; then printf '%s\n' "$AFTER_DRAIN"; else printf '%s\n' "$LEGACY_PENDING"; fi ;; *"status = 'RUNNING'"*) printf '%s\n' "$RUNNING_STATE" ;; *) printf '%s\n' "$DB_STATE" ;; esac ;;
+  'image inspect --format {{.Id}} '*) case "$*" in *"$WEB_IMAGE:$IMAGE_TAG") printf '%s\n' "$TARGET_WEB_IMAGE_ID" ;; *) printf '%s\n' target-image-id ;; esac ;;
   *'image inspect --format {{ index .Config.Labels "io.fluxora.graceful-drain" }}'*) [ "$INSPECT_FAIL" = 1 ] && exit 1; printf '%s\n' "$DRAIN_LABEL" ;;
   'image inspect '*) [ "$INSPECT_FAIL" = 1 ] && exit 1; printf '%s\n' "$IMAGE_LABEL" ;;
   *'ps -aq api'*) printf '%s\n' api-1 ;;
   *'ps -aq worker'*) printf '%s\n' worker-1 ;;
+  *'ps -aq web'*) [ "$MISSING_WEB" = 1 ] || printf '%s\n' web-1 ;;
   *'ps -q api'*) [ "$MISSING_API" = 1 ] && [ -f "$REPLACED_FILE" ] || printf '%s\n' api-1 ;;
   *'stop --timeout -1 api'*) [ "$API_STOP_FAIL" = 1 ] && exit 1 ;;
   *'stop --timeout -1 worker'*) [ "$STOP_FAIL" = 1 ] && exit 1; touch "$DRAINED_FILE" ;;
@@ -44,14 +45,14 @@ case "$*" in
   'inspect --format {{.State.Status}} {{.State.ExitCode}} {{.State.OOMKilled}} '*) printf '%s\n' "$DRAIN_STATE" ;;
   'inspect --format {{.State.Status}} '*) printf '%s\n' running ;;
   'inspect --format {{.Config.Image}} '*) printf '%s:%s\n' "$API_IMAGE" "$IMAGE_TAG" ;;
-  'inspect --format {{.Image}} '*) for last do :; done; case "$last" in api-*) printf '%s\n' "$API_IMAGE_ID" ;; *) printf '%s\n' "$WORKER_IMAGE_ID" ;; esac ;;
+  'inspect --format {{.Image}} '*) for last do :; done; case "$last" in api-*) if [ -f "$REPLACED_FILE" ]; then printf '%s\n' "$API_IMAGE_ID"; else printf '%s\n' "$CURRENT_API_IMAGE_ID"; fi ;; worker-*) if [ -f "$REPLACED_FILE" ]; then printf '%s\n' "$WORKER_IMAGE_ID"; else printf '%s\n' "$CURRENT_WORKER_IMAGE_ID"; fi ;; web-*) printf '%s\n' "$CURRENT_WEB_IMAGE_ID" ;; esac ;;
 esac
 exit 0
 `);
     chmodSync(join(bin, "docker"), 0o755);
     const result = spawnSync("sh", [join(root, "infra/scripts/rollback.sh"), sha], {
       encoding: "utf8",
-      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, APP_DIR: dir, ENV_FILE: envFile, API_IMAGE: "synthetic-api", WEB_IMAGE: "synthetic-web", IMAGE_TAG: sha, CALL_LOG: log, DRAINED_FILE: join(dir, "drained"), REPLACED_FILE: join(dir, "replaced"), DB_STATE: state, IMAGE_LABEL: label, DRAIN_LABEL: drainLabel, DB_FAIL: databaseFailure ? "1" : "0", INSPECT_FAIL: inspectFailure ? "1" : "0", STOP_FAIL: stopFailure ? "1" : "0", API_STOP_FAIL: apiStopFailure ? "1" : "0", MISSING_WORKER: missingWorker ? "1" : "0", MISSING_API: missingApi ? "1" : "0", API_IMAGE_ID: apiImageId, WORKER_IMAGE_ID: workerImageId, DRAIN_STATE: drainState, LEGACY_PENDING: legacyPending, AFTER_DRAIN: afterDrain },
+      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, APP_DIR: dir, ENV_FILE: envFile, API_IMAGE: "synthetic-api", WEB_IMAGE: "synthetic-web", IMAGE_TAG: sha, CALL_LOG: log, DRAINED_FILE: join(dir, "drained"), REPLACED_FILE: join(dir, "replaced"), DB_STATE: state, IMAGE_LABEL: label, DRAIN_LABEL: drainLabel, DB_FAIL: databaseFailure ? "1" : "0", INSPECT_FAIL: inspectFailure ? "1" : "0", STOP_FAIL: stopFailure ? "1" : "0", API_STOP_FAIL: apiStopFailure ? "1" : "0", MISSING_WORKER: missingWorker ? "1" : "0", MISSING_API: missingApi ? "1" : "0", MISSING_WEB: missingWeb ? "1" : "0", API_IMAGE_ID: apiImageId, WORKER_IMAGE_ID: workerImageId, TARGET_WEB_IMAGE_ID: targetWebImageId, CURRENT_API_IMAGE_ID: currentApiImageId, CURRENT_WORKER_IMAGE_ID: currentWorkerImageId, CURRENT_WEB_IMAGE_ID: currentWebImageId, DRAIN_STATE: drainState, LEGACY_PENDING: legacyPending, AFTER_DRAIN: afterDrain, RUNNING_STATE: runningState },
     });
     return { result, calls: readFileSync(log, "utf8"), lockStillPresent: existsSync(join(dir, ".fluxora-release.lock")) };
   } finally {
@@ -66,13 +67,32 @@ test("NX database refuses an uncertified old image before starting services", ()
   assert.doesNotMatch(calls, /up -d api worker web|health/);
 });
 
-test("NX database permits a certified image and checks health", () => {
+test("NX database permits restarting the exact current images and checks health", () => {
   const { result, calls } = exercise();
   assert.equal(result.status, 0, result.stderr);
   assert.match(calls, /image inspect/);
   assert.match(calls, /up -d api worker web/);
   assert.match(calls, /health/);
   assert.ok(calls.indexOf("stop --timeout -1 api") < calls.indexOf("stop --timeout -1 worker"));
+});
+
+test("NX label alone cannot authorize rollback to different images", () => {
+  for (const options of [{ currentApiImageId: "older-api" }, { currentWorkerImageId: "older-worker" }, { currentWebImageId: "older-web" }]) {
+    const { result, calls, lockStillPresent } = exercise(options);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /rollback to different NX images is disabled/);
+    assert.doesNotMatch(calls, /stop --timeout|up -d api worker web/);
+    assert.equal(lockStillPresent, false);
+  }
+});
+
+test("NX restart compares the distinct web image and refuses a missing web container", () => {
+  const matched = exercise({ targetWebImageId: "web-image-id" });
+  assert.equal(matched.result.status, 0, matched.result.stderr);
+  const missing = exercise({ missingWeb: true });
+  assert.notEqual(missing.result.status, 0);
+  assert.match(missing.result.stderr, /image is missing/);
+  assert.doesNotMatch(missing.calls, /stop --timeout|up -d api worker web/);
 });
 
 test("NX rollback refuses missing drain certification and retains the lock on uncertain API stop", () => {
@@ -83,6 +103,16 @@ test("NX rollback refuses missing drain certification and retains the lock on un
   assert.notEqual(interrupted.result.status, 0);
   assert.equal(interrupted.lockStillPresent, true);
   assert.doesNotMatch(interrupted.calls, /stop --timeout -1 worker|up -d api worker web/);
+});
+
+test("NX rollback retains its lock if an execution remains running after drain", () => {
+  for (const runningState of ["running", "unexpected"]) {
+    const { result, calls, lockStillPresent } = exercise({ runningState });
+    assert.notEqual(result.status, 0);
+    assert.equal(lockStillPresent, true);
+    assert.match(calls, /stop --timeout -1 worker/);
+    assert.doesNotMatch(calls, /up -d api worker web|health/);
+  }
 });
 
 test("the API runtime image declares the compatibility contract it implements", () => {

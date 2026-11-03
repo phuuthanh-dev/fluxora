@@ -26,7 +26,7 @@ export function liveCredentialRequirements(graph: WorkflowGraph): LiveCredential
     if (node.type === "action.google-calendar.list-events" || node.type === "action.google-calendar.create-event" || node.type === "action.google-calendar.get-event" || node.type === "action.google-calendar.update-event" || node.type === "action.google-calendar.delete-event" || node.type === "action.google-calendar.availability") return [{ nodeId: node.id, provider: CredentialProvider.GOOGLE_CALENDAR, credentialId }];
     if (node.type === "action.google-chat.oauth" || node.type === "action.google-chat.oauth.v2" || node.type === "action.google-chat.reply" || node.type === "action.google-chat.edit-message") return [{ nodeId: node.id, provider: CredentialProvider.GOOGLE_CHAT_OAUTH, credentialId }];
     if (node.type === "action.github" || node.type.startsWith("action.github.")) return [{ nodeId: node.id, provider: CredentialProvider.GITHUB, credentialId }];
-    if (node.type === "action.google-drive" || node.type === "action.google-drive.v2" || node.type === "action.google-sheets") return [{ nodeId: node.id, provider: CredentialProvider.GOOGLE, credentialId }];
+    if (node.type === "action.google-drive" || node.type === "action.google-drive.v2" || node.type === "action.google-sheets" || node.type === "action.google-sheets.v2") return [{ nodeId: node.id, provider: CredentialProvider.GOOGLE, credentialId }];
     if (node.type === "action.http-request" && credentialId) return [{ nodeId: node.id, provider: CredentialProvider.HTTP, credentialId }];
     if (node.type === "approval.request") {
       const notificationCredentialId = readCredentialId(node.config, "notificationCredentialId");

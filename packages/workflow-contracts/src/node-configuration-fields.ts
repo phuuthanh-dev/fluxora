@@ -6,7 +6,7 @@ export type NodeSelectOption = { value: string; label: string };
 type NodeFieldVisibilityValue = string | number | boolean;
 export type NodeFieldVisibility = { visibleWhen?: { key: string; equals: NodeFieldVisibilityValue | readonly NodeFieldVisibilityValue[]; fallback?: NodeFieldVisibilityValue } };
 
-export type NodeResource = "github-issue" | "github-pull-request" | "github-repository" | "google-file" | "google-spreadsheet" | "google-calendar" | "google-calendar-event" | "gmail-label" | "gmail-draft" | "gemini-model" | "openai-model" | "google-chat-space" | "mongodb-database" | "mongodb-collection" | "postgres-schema" | "postgres-table" | "trello-board" | "trello-list" | "trello-card" | "notion-page" | "sentry-organization" | "sentry-project" | "sentry-installation" | "vercel-team" | "vercel-project" | "supabase-table";
+export type NodeResource = "github-issue" | "github-pull-request" | "github-repository" | "google-file" | "google-spreadsheet" | "google-calendar" | "google-calendar-event" | "gmail-label" | "gmail-draft" | "gemini-model" | "openai-model" | "google-chat-space" | "mongodb-database" | "mongodb-collection" | "postgres-schema" | "postgres-table" | "trello-board" | "trello-list" | "trello-card" | "notion-page" | "notion-property" | "notion-data-source" | "notion-source-property" | "notion-source-option" | "sentry-organization" | "sentry-project" | "sentry-installation" | "vercel-team" | "vercel-project" | "supabase-table";
 
 export type NodeConfigurationField =
   | ({ kind: "credential"; key: string; label: string; providers: OperationCredentialProvider[]; optional?: boolean } & NodeFieldVisibility)
@@ -19,4 +19,4 @@ export type NodeConfigurationField =
   | ({ kind: "table"; key: string; label: string } & NodeFieldVisibility)
   | ({ kind: "structured-output"; key: string; label: string } & NodeFieldVisibility)
   | ({ kind: "mongo-filter"; key: string; label: string } & NodeFieldVisibility)
-  | ({ kind: "resource"; key: string; label: string; resource: NodeResource; credentialKey: string; dependencyKey?: string; placeholder?: string } & NodeFieldVisibility);
+  | ({ kind: "resource"; key: string; label: string; resource: NodeResource; credentialKey: string; dependencyKey?: string; secondaryDependencyKey?: string; placeholder?: string } & NodeFieldVisibility);

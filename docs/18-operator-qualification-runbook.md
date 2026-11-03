@@ -103,15 +103,18 @@ Also record `docker compose ps` status for `db`, `redis`, `api`, `worker`, and
 
 ## 6. Rollback qualification
 
-Keep the current candidate and known-good image SHA. If rollback is needed, run
-the guarded immutable rollback script with the known-good SHA, then repeat the
-health smoke and readiness checks. The script refuses an image lacking the NX
-compatibility label after an NX migration begins and stops if the database cannot
-be inspected; do not bypass this check by relabeling an old image. Deploy and
-rollback share a lock, but an old script does not honor it. The guard does not
-prove that a target can handle every future migration or that in-flight work was
-drained. Confirm that PostgreSQL and Redis volumes are preserved and that no
-mutable image tag was used.
+Keep the candidate and known-good image SHAs, but do not treat those records as
+evidence of a working downgrade. After an NX migration begins, the current local
+draft checks the NX labels and requires the target API, worker and web image IDs
+to match the current containers. It can restart the same images; it does **not**
+automate rollback to an earlier release. Different releases can share a label
+while accepting different saved workflows. A separately reviewed and rehearsed
+recovery path is required before the first NX cutover; do not bypass the guard by
+relabeling an image or deleting containers. The script also stops if the database
+cannot be inspected. Deploy and rollback share a lock, but older scripts do not
+honor it. Confirm PostgreSQL and Redis volumes remain intact and record immutable
+image IDs, queue state and any uncertain provider side effects. Health checks
+alone do not prove data or workflow recovery.
 
 ## 7. Go/No-Go decision
 

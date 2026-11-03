@@ -26,7 +26,7 @@ export async function verifySteamOpenIdCallback(query: Record<string, unknown>) 
     if (key.startsWith("openid.") && typeof value === "string") parameters.set(key, value);
   }
   parameters.set("openid.mode", "check_authentication");
-  const response = await fetch(STEAM_OPENID_ENDPOINT, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: parameters });
+  const response = await fetch(STEAM_OPENID_ENDPOINT, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: parameters, signal: AbortSignal.timeout(20_000) });
   const body = await response.text();
   if (!response.ok || !/^is_valid:true$/m.test(body)) throw new BadRequestException({ code: "STEAM_OPENID_INVALID", message: "Steam could not validate this OpenID response." });
   return { steamId, state };

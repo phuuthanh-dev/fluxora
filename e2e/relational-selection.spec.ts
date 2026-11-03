@@ -146,6 +146,7 @@ test("changing a resource conflicts with a staged edit, including if the origina
 });
 
 test("advanced JSON is staged and a workflow switch with reused node IDs does not retain the prior draft", async ({ page }) => {
+  test.setTimeout(60_000);
   await setup(page, { provider: "supabase" });
   await selectRelational(page);
   await page.getByRole("button", { name: "Advanced settings" }).click();

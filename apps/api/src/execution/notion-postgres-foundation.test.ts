@@ -73,6 +73,18 @@ test("PostgreSQL selection quotes identifiers and binds user values", () => {
   assert.deepEqual(query.values, ["x' OR true --"]);
 });
 
+test("PostgreSQL selection rejects unsafe numeric identifiers without rounding them into a query", async () => {
+  const forbidden = { readForExecution: async () => { throw new Error("unexpected credential read"); } } as unknown as CredentialService;
+  for (const mode of ["mock", "live"] as const) {
+    for (const value of [Number.MAX_SAFE_INTEGER + 1, Number.MIN_SAFE_INTEGER - 1]) {
+      await assert.rejects(executePostgresSelect({ credentialId: "connection", schema: "public", table: "items", conditions: [{ column: "id", operator: "equals", value }] }, mode, "workspace", forbidden), /Use text for large integer identifiers/);
+    }
+  }
+  const exact = "9007199254740993";
+  const query = buildPostgresSelect({ schema: "public", table: "items", columns: [], conditions: [{ column: "id", operator: "equals", value: exact }], limit: 1 });
+  assert.deepEqual(query.values, [exact]);
+});
+
 test("PostgreSQL selection rejects injected identifiers and unsupported operators", () => {
   assert.throws(() => buildPostgresSelect({ schema: "public", table: 'orders; DROP TABLE users', columns: [], conditions: [], limit: 20 }));
   assert.throws(() => buildPostgresSelect({ schema: "public", table: "orders", columns: [], conditions: [{ column: "name", operator: "constructor" as never, value: "x" }], limit: 20 }));

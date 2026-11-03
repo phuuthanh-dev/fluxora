@@ -82,6 +82,23 @@ test("Notion search exposes an input cursor and the advertised output fields", a
   if ("knownFields" in metadata.output) for (const key of metadata.output.knownFields) assert.ok(key in result.output, key);
 });
 
+test("continuation metadata identifies the connection and query context that must stay consistent", () => {
+  for (const [type, expected] of [
+    ["action.notion.search-pages.v2", ["credentialId", "query", "pageSize"]],
+    ["action.notion.list-children", ["credentialId", "blockId", "pageSize"]],
+    ["action.notion.retrieve-property", ["credentialId", "pageId", "propertyId", "pageSize"]],
+    ["action.trello.list-cards", ["credentialId", "boardId", "filter", "limit"]],
+    ["action.github.list-issues", ["credentialId", "repository", "state", "pageSize"]],
+    ["action.github.list-pull-requests", ["credentialId", "repository", "state", "pageSize"]],
+    ["action.sentry.list-issues.v2", ["credentialId", "organization", "project", "status", "limit"]],
+    ["action.vercel.list-deployments.v2", ["credentialId", "team", "project", "limit"]],
+  ] as const) {
+    const metadata = getOperationMetadata(type);
+    assert.ok(metadata && metadata.pagination.kind === "continuation", type);
+    assert.deepEqual(metadata.pagination.preserve, expected, type);
+  }
+});
+
 test("Drive v2 advertises pagination only for list and search, matching the dispatcher", async () => {
   const metadata = getOperationMetadata("action.google-drive.v2");
   assert.ok(metadata && metadata.pagination.kind === "conditional");

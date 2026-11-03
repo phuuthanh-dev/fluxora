@@ -199,6 +199,7 @@ fi
 # Do not guess or restart workers when legacy continuation state needs review.
 retain_release_lock
 require_unambiguous_continuations
+require_no_running_executions
 if ! APP_DIR="$app_dir" ENV_FILE="$env_file" sh "$scripts_dir/backup-postgres.sh"; then
   printf '%s\n' "Backup failed; migration was not started." >&2
   restore_stopped_worker
@@ -210,7 +211,9 @@ retain_release_lock
 if [ "$bundle_dir" != "$app_dir" ] && ! cmp -s "$bundle_dir/infra/docker-compose.production.yml" "$compose_file"; then
   printf '%s\n' "Active Compose changed before migration; inspect the retained lock." >&2; exit 1
 fi
-docker compose --env-file "$env_file" -f "$compose_file" up -d migrate
+# API and worker both depend on a successfully completed migration in the
+# Compose contract. Starting migrate separately can cause Compose to start it
+# again when bringing up its dependants, so let the dependency run it once.
 docker compose --env-file "$env_file" -f "$compose_file" up -d api worker web
 
 APP_DIR="$app_dir" sh "$scripts_dir/healthcheck.sh"

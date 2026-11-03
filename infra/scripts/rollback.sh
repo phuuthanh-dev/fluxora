@@ -52,6 +52,30 @@ if [ "$nx_state" = nx ]; then
     printf '%s\n' "Target image lacks the required graceful drain contract." >&2; exit 1
   fi
   require_compatible_fleet
+  # The NX label only describes execution/drain behavior. It does not prove
+  # that an older API or web image understands every saved node and config.
+  # Until that contract can be checked, only restarting the exact current
+  # images is safe to automate; reject before stopping any service.
+  for service in api worker web; do
+    case "$service" in web) expected_ref="$web_image:$image_tag" ;; *) expected_ref="$api_image:$image_tag" ;; esac
+    expected_id="$(docker image inspect --format '{{.Id}}' "$expected_ref")" || {
+      printf '%s\n' "Cannot inspect rollback target image; rollback was not started." >&2; exit 1
+    }
+    current_ids="$(API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" docker compose --env-file "$env_file" -f "$compose_file" ps -aq "$service")" || {
+      printf '%s\n' "Cannot inspect current images; rollback was not started." >&2; exit 1
+    }
+    if [ -z "$expected_id" ] || [ -z "$current_ids" ]; then
+      printf '%s\n' "Current or target image is missing; rollback was not started." >&2; exit 1
+    fi
+    for current_id in $current_ids; do
+      actual_id="$(docker inspect --format '{{.Image}}' "$current_id")" || {
+        printf '%s\n' "Cannot inspect current image; rollback was not started." >&2; exit 1
+      }
+      if [ -z "$actual_id" ] || [ "$actual_id" != "$expected_id" ]; then
+        printf '%s\n' "Automatic rollback to different NX images is disabled until saved workflow compatibility can be established." >&2; exit 1
+      fi
+    done
+  done
   stopping_api_ids="$(API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" \
     docker compose --env-file "$env_file" -f "$compose_file" ps -q api)" || {
     printf '%s\n' "Cannot list current API containers; rollback was not started." >&2; exit 1
@@ -75,6 +99,9 @@ if ! API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" docker
 fi
 require_clean_worker_exit "$stopping_worker_ids"
 require_unambiguous_continuations
+if [ "$nx_state" = nx ]; then
+  require_no_running_executions
+fi
 API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" docker compose --env-file "$env_file" -f "$compose_file" up -d api worker web
 APP_DIR="$app_dir" "$app_dir/infra/scripts/healthcheck.sh"
 require_target_worker

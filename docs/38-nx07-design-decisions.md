@@ -65,6 +65,11 @@ Reddit read nodes exist but their long-term provider access is externally gated;
 retain compatibility and surface provider availability. Reddit announced an
 [API transition schedule](https://support.reddithelp.com/hc/en-us/articles/54353370049684-Changelog-October-8-2026);
 confirm current access and a permitted migration before promising a replacement.
+The draft editor now displays the published API transition notice on Reddit
+nodes. It also warns when an RSS node contains a literal `reddit.com` URL:
+Reddit announced that RSS support ends on 13 November 2026. This UI check
+cannot detect a Reddit URL supplied by an expression or an intermediary feed;
+it does not block RSS from other providers or change existing workflows.
 Facebook/Instagram are disabled roadmap entries. Choose and specify a single
 eligible use case first: Instagram professional account metadata is distinct
 from publishing or webhook lifecycle. Meta's
@@ -112,3 +117,12 @@ webhook. Trello retries only a bounded number of times, so unavailable ingress
 or a lost accepted delivery needs a visible gap/reconciliation policy rather
 than an exactly-once claim. Automated registration and lifecycle reconciliation
 remain future work.
+
+Protocol recheck: Trello documents `action`, `model` and `webhook` in delivery
+bodies and signs the raw body plus the exact callback URL. A regression fixture
+based on the documented board-event shape was added for the all-events filter;
+the fixture is not a real delivery. Vercel documents HMAC-SHA1 over the raw
+body and retries for up to 24 hours. Neither observation proves compatibility
+with every event payload or that a particular account is eligible. See
+[Trello webhooks](https://developer.atlassian.com/cloud/trello/guides/rest-api/webhooks/)
+and [Vercel webhook verification](https://vercel.com/docs/webhooks/webhooks-api).

@@ -9,7 +9,7 @@ import pg from "pg";
 const root = resolve(import.meta.dirname, "..");
 const sha = "0123456789abcdef0123456789abcdef01234567";
 
-function exercise({ target = "nx-v1", fleet = "nx-v1", apiLabel = fleet, workerLabel = fleet, targetDrain = "v1", fleetDrain = "v1", containerState = "running", apiState = containerState, workerState = containerState, fleetIds = "api-1 worker-1", runningApis = "api-1", runningWorkers = "worker-1", fail = "", restartFailure = "", legacyPending = "clear", afterDrain = legacyPending, dbRunning = true, useDefaultImages = false, retagged = false, staged = false, composeMismatch = false, missingRequired = false } = {}) {
+function exercise({ target = "nx-v1", fleet = "nx-v1", apiLabel = fleet, workerLabel = fleet, targetDrain = "v1", fleetDrain = "v1", containerState = "running", apiState = containerState, workerState = containerState, fleetIds = "api-1 worker-1", runningApis = "api-1", runningWorkers = "worker-1", fail = "", restartFailure = "", legacyPending = "clear", afterDrain = legacyPending, runningState = "clear", dbRunning = true, useDefaultImages = false, retagged = false, staged = false, composeMismatch = false, missingRequired = false } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "fluxora-deploy-test-"));
   try {
     const scripts = join(dir, "infra/scripts");
@@ -54,9 +54,8 @@ case "$*" in
   *'stop --timeout -1 worker'*) [ "$FAIL_AT" = stop ] && exit 1; touch "$DRAINED_FILE" ;;
   'start '*) [ "$RESTART_FAILURE" = start ] && exit 1; touch "$RESTARTED_FILE" ;;
   *'up -d --wait db redis'*) [ "$FAIL_AT" = dependencies ] && exit 1 ;;
-  *'exec -T db'*) [ "$FAIL_AT" = legacy-query ] && exit 1; if [ -f "$DRAINED_FILE" ]; then printf '%s\n' "$AFTER_DRAIN"; else printf '%s\n' "$LEGACY_PENDING"; fi ;;
-  *'up -d migrate'*) [ "$FAIL_AT" = migrate ] && exit 1 ;;
-  *'up -d api worker web'*) touch "$REPLACED_FILE" ;;
+  *'exec -T db'*) case "$*" in *"status = 'RUNNING'"*) [ "$FAIL_AT" = running-query ] && exit 1; printf '%s\n' "$RUNNING_STATE" ;; *) [ "$FAIL_AT" = legacy-query ] && exit 1; if [ -f "$DRAINED_FILE" ]; then printf '%s\n' "$AFTER_DRAIN"; else printf '%s\n' "$LEGACY_PENDING"; fi ;; esac ;;
+  *'up -d api worker web'*) [ "$FAIL_AT" = migrate ] && exit 1; touch "$REPLACED_FILE" ;;
   'inspect --format {{.State.Status}} {{.State.ExitCode}} {{.State.OOMKilled}} '*)
     for last do :; done
     case "$last:$FAIL_AT" in api-*:api-inspect) exit 1 ;; api-*:api-error) printf '%s\n' 'exited 1 false'; exit 0 ;; api-*:api-oom) printf '%s\n' 'exited 0 true'; exit 0 ;; api-*:*) printf '%s\n' 'exited 0 false'; exit 0 ;; esac
@@ -94,7 +93,7 @@ exit 0
     chmodSync(join(bin, "mv"), 0o755);
     const result = spawnSync("sh", [join(root, "infra/scripts/deploy.sh")], {
       encoding: "utf8",
-      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, APP_DIR: dir, RELEASE_BUNDLE: staged ? bundle : dir, ENV_FILE: envFile, IMAGE_TAG: sha, API_IMAGE: useDefaultImages ? "" : "synthetic-api", WEB_IMAGE: useDefaultImages ? "" : "synthetic-web", EXPECTED_API_IMAGE: useDefaultImages ? "ghcr.io/phuuthanh-dev/workflow-automation-api" : "synthetic-api", EXPECTED_WEB_IMAGE: useDefaultImages ? "ghcr.io/phuuthanh-dev/workflow-automation-web" : "synthetic-web", EXPECTED_TAG: sha, CALL_LOG: log, DRAINED_FILE: join(dir, "drained"), REPLACED_FILE: join(dir, "replaced"), RESTARTED_FILE: join(dir, "restarted"), TARGET_LABEL: target, API_LABEL: apiLabel, WORKER_LABEL: workerLabel, TARGET_DRAIN: targetDrain, FLEET_DRAIN: fleetDrain, API_STATE: apiState, WORKER_STATE: workerState, FLEET_IDS: fleetIds, RUNNING_APIS: runningApis, RUNNING_WORKERS: runningWorkers, FAIL_AT: fail, RESTART_FAILURE: restartFailure, LEGACY_PENDING: legacyPending, AFTER_DRAIN: afterDrain, DB_RUNNING: dbRunning ? "1" : "0", RETAGGED: retagged ? "1" : "0" },
+      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, APP_DIR: dir, RELEASE_BUNDLE: staged ? bundle : dir, ENV_FILE: envFile, IMAGE_TAG: sha, API_IMAGE: useDefaultImages ? "" : "synthetic-api", WEB_IMAGE: useDefaultImages ? "" : "synthetic-web", EXPECTED_API_IMAGE: useDefaultImages ? "ghcr.io/phuuthanh-dev/workflow-automation-api" : "synthetic-api", EXPECTED_WEB_IMAGE: useDefaultImages ? "ghcr.io/phuuthanh-dev/workflow-automation-web" : "synthetic-web", EXPECTED_TAG: sha, CALL_LOG: log, DRAINED_FILE: join(dir, "drained"), REPLACED_FILE: join(dir, "replaced"), RESTARTED_FILE: join(dir, "restarted"), TARGET_LABEL: target, API_LABEL: apiLabel, WORKER_LABEL: workerLabel, TARGET_DRAIN: targetDrain, FLEET_DRAIN: fleetDrain, API_STATE: apiState, WORKER_STATE: workerState, FLEET_IDS: fleetIds, RUNNING_APIS: runningApis, RUNNING_WORKERS: runningWorkers, FAIL_AT: fail, RESTART_FAILURE: restartFailure, LEGACY_PENDING: legacyPending, AFTER_DRAIN: afterDrain, RUNNING_STATE: runningState, DB_RUNNING: dbRunning ? "1" : "0", RETAGGED: retagged ? "1" : "0" },
     });
     const backups = join(dir, ".release-tooling-backups");
     const backupEntries = existsSync(backups) ? readdirSync(backups) : [];
@@ -117,7 +116,7 @@ test("staged release preserves active scripts when compatibility or Compose chec
     assert.notEqual(result.status, 0);
     assert.equal(activeRollback, "# old rollback.sh\n");
     assert.equal(backupCount, 0);
-    assert.doesNotMatch(calls, /stop --timeout|up -d migrate|up -d api worker web/);
+    assert.doesNotMatch(calls, /stop --timeout|up -d api worker web/);
   }
 });
 
@@ -126,7 +125,7 @@ test("a Compose change before migration retains the lock and does not migrate", 
   assert.notEqual(result.status, 0);
   assert.equal(lockStillPresent, true);
   assert.match(calls, /stop --timeout -1 worker/);
-  assert.doesNotMatch(calls, /up -d migrate|up -d api worker web/);
+  assert.doesNotMatch(calls, /up -d api worker web/);
 });
 
 test("staged release backs up and promotes tooling under the release lock before migration", () => {
@@ -135,7 +134,7 @@ test("staged release backs up and promotes tooling under the release lock before
   assert.equal(activeRollback, "# staged rollback.sh\n");
   assert.equal(backupRollback, "# old rollback.sh\n");
   assert.equal(lockStillPresent, false);
-  assert.match(calls, /up -d migrate/);
+  assert.match(calls, /up -d api worker web/);
 });
 
 test("partial tooling promotion retains its lock and never starts migration", () => {
@@ -144,7 +143,7 @@ test("partial tooling promotion retains its lock and never starts migration", ()
   assert.equal(activeRollback, "# old rollback.sh\n");
   assert.equal(backupRollback, "# old rollback.sh\n");
   assert.equal(lockStillPresent, true);
-  assert.doesNotMatch(calls, /stop --timeout|up -d migrate|up -d api worker web/);
+  assert.doesNotMatch(calls, /stop --timeout|up -d api worker web/);
 });
 
 test("SIGTERM during tooling promotion leaves the lock and skips migration", () => {
@@ -154,7 +153,7 @@ test("SIGTERM during tooling promotion leaves the lock and skips migration", () 
   assert.equal(backupRollback, "# old rollback.sh\n");
   assert.equal(lockStillPresent, true);
   assert.match(result.stderr, /lock retained/);
-  assert.doesNotMatch(calls, /stop --timeout|up -d migrate|up -d api worker web/);
+  assert.doesNotMatch(calls, /stop --timeout|up -d api worker web/);
 });
 
 test("deploy refuses an incompatible API or worker even when it is stopped", () => {
@@ -162,7 +161,7 @@ test("deploy refuses an incompatible API or worker even when it is stopped", () 
     const { result, calls, lockStillPresent } = exercise({ fleet: "<no value>", containerState });
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /incompatible API or worker/);
-    assert.doesNotMatch(calls, /backup-postgres|up -d migrate|up -d api worker web/);
+    assert.doesNotMatch(calls, /backup-postgres|up -d api worker web/);
     assert.equal(lockStillPresent, false);
   }
 });
@@ -172,12 +171,12 @@ test("deploy requires explicit drain support and drains API before worker and mi
     const { result, calls } = exercise(options);
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /drain/);
-    assert.doesNotMatch(calls, /stop --timeout|up -d migrate/);
+    assert.doesNotMatch(calls, /stop --timeout|up -d api worker web/);
   }
   const { result, calls } = exercise();
   assert.equal(result.status, 0, result.stderr);
   assert.ok(calls.indexOf("stop --timeout -1 api") < calls.indexOf("stop --timeout -1 worker"));
-  assert.ok(calls.indexOf("stop --timeout -1 worker") < calls.indexOf("up -d migrate"));
+  assert.ok(calls.indexOf("stop --timeout -1 worker") < calls.indexOf("up -d api worker web"));
 });
 
 test("an uncertain API drain retains the lock without stopping the worker or migrating", () => {
@@ -185,7 +184,7 @@ test("an uncertain API drain retains the lock without stopping the worker or mig
     const { result, calls, lockStillPresent } = exercise({ fail });
     assert.notEqual(result.status, 0);
     assert.equal(lockStillPresent, true);
-    assert.doesNotMatch(calls, /stop --timeout -1 worker|up -d migrate|\nstart /);
+    assert.doesNotMatch(calls, /stop --timeout -1 worker|up -d api worker web|\nstart /);
   }
 });
 
@@ -195,7 +194,7 @@ test("deployment checks the running image ID even when its former tag was repoin
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /incompatible API or worker/);
     assert.match(calls, /inspect --format \{\{\.Image\}\}/);
-    assert.doesNotMatch(calls, /up -d migrate|up -d api worker web/);
+    assert.doesNotMatch(calls, /up -d api worker web/);
   }
 });
 
@@ -204,9 +203,8 @@ test("deploy accepts a compatible running or stopped fleet", () => {
     const { result, calls } = exercise(options);
     assert.equal(result.status, 0, result.stderr);
     assert.match(calls, /backup-postgres/);
-    assert.match(calls, /up -d migrate/);
     assert.match(calls, /up -d api worker web/);
-    assert.ok(calls.indexOf("stop --timeout -1 worker") < calls.indexOf("up -d migrate"));
+    assert.ok(calls.indexOf("stop --timeout -1 worker") < calls.indexOf("up -d api worker web"));
   }
 });
 
@@ -215,7 +213,7 @@ test("deploy refuses an absent API or worker before migration", () => {
     const { result, calls, lockStillPresent } = exercise({ fleetIds, runningWorkers: "" });
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /fleet compatibility cannot be established/);
-    assert.doesNotMatch(calls, /stop --timeout|backup-postgres|up -d migrate|up -d api worker web/);
+    assert.doesNotMatch(calls, /stop --timeout|backup-postgres|up -d api worker web/);
     assert.equal(lockStillPresent, false);
   }
 });
@@ -223,7 +221,6 @@ test("deploy refuses an absent API or worker before migration", () => {
 test("deploy supplies the resolved default images to every compose invocation", () => {
   const { result, calls } = exercise({ useDefaultImages: true });
   assert.equal(result.status, 0, result.stderr);
-  assert.match(calls, /up -d migrate/);
   assert.match(calls, /up -d api worker web/);
 });
 
@@ -233,9 +230,12 @@ test("uncertain worker stop, migration or replacement retains the release lock",
     assert.notEqual(result.status, 0);
     assert.equal(lockStillPresent, true);
     if (["stop", "drain-inspect", "drain-error", "drain-oom"].includes(fail)) {
-      assert.doesNotMatch(calls, /up -d migrate|\nstart worker/);
+      assert.doesNotMatch(calls, /up -d api worker web|\nstart worker/);
     }
-    if (fail === "migrate") assert.doesNotMatch(calls, /up -d api worker web|start worker/);
+    if (fail === "migrate") {
+      assert.match(calls, /up -d api worker web/);
+      assert.doesNotMatch(calls, /\nstart worker/);
+    }
   }
 });
 
@@ -246,7 +246,7 @@ test("pre-migration dependency or backup failures restart existing workers and A
     assert.match(calls, /\nstart worker-1\n/);
     assert.match(calls, /\nstart api-1\n/);
     assert.ok(calls.indexOf("start worker-1") < calls.indexOf("start api-1"));
-    assert.doesNotMatch(calls, /up -d migrate/);
+    assert.doesNotMatch(calls, /up -d api worker web/);
     assert.equal(lockStillPresent, false);
   }
 });
@@ -256,7 +256,7 @@ test("ambiguous legacy continuations stop preflight before any worker is touched
     const { result, calls, lockStillPresent } = exercise(options);
     assert.notEqual(result.status, 0);
     assert.equal(lockStillPresent, false);
-    assert.doesNotMatch(calls, /stop --timeout|backup-postgres|up -d migrate|\nstart /);
+    assert.doesNotMatch(calls, /stop --timeout|backup-postgres|up -d api worker web|\nstart /);
   }
 });
 
@@ -266,7 +266,17 @@ test("continuations appearing during drain retain the lock before migration", ()
     assert.notEqual(result.status, 0);
     assert.equal(lockStillPresent, true);
     assert.match(calls, /stop --timeout -1 worker/);
-    assert.doesNotMatch(calls, /backup-postgres|up -d migrate|\nstart /);
+    assert.doesNotMatch(calls, /backup-postgres|up -d api worker web|\nstart /);
+  }
+});
+
+test("running or uninspectable executions after drain retain the lock before migration", () => {
+  for (const options of [{ runningState: "running" }, { runningState: "unexpected" }, { fail: "running-query" }]) {
+    const { result, calls, lockStillPresent } = exercise(options);
+    assert.notEqual(result.status, 0);
+    assert.equal(lockStillPresent, true);
+    assert.match(calls, /stop --timeout -1 worker/);
+    assert.doesNotMatch(calls, /backup-postgres|up -d api worker web|\nstart /);
   }
 });
 
@@ -275,14 +285,21 @@ test("legacy continuation query handles schemas before and after the NX migratio
   if (!["localhost", "127.0.0.1"].includes(url.hostname) || !/^\/fluxora_[a-z0-9_]*test[a-z0-9_]*$/.test(url.pathname)) throw new Error("Deployment test requires a disposable local fluxora_*test* database.");
   const source = readFileSync(join(root, "infra/scripts/release-lock.sh"), "utf8");
   const expression = source.match(/^\s*legacy_pending_sql="(.*)"$/m)?.[1];
+  const runningExpression = source.match(/^\s*running_execution_sql="(.*)"$/m)?.[1];
   assert.ok(expression);
+  assert.ok(runningExpression);
   const sql = expression.replaceAll('\\"', '"');
+  const runningSql = runningExpression.replaceAll('\\"', '"');
   const client = new pg.Client({ connectionString: url.toString() });
   await client.connect();
   try {
     await client.query("BEGIN");
     await client.query('CREATE TEMP TABLE "Execution" (status text, "startedAt" timestamptz) ON COMMIT DROP');
     assert.equal((await client.query(sql)).rows[0].case, "clear");
+    assert.equal((await client.query(runningSql)).rows[0].case, "clear");
+    await client.query('INSERT INTO "Execution" VALUES ($1, now())', ["RUNNING"]);
+    assert.equal((await client.query(runningSql)).rows[0].case, "running");
+    await client.query('DELETE FROM "Execution" WHERE status = $1', ["RUNNING"]);
     await client.query('INSERT INTO "Execution" VALUES ($1, now())', ["QUEUED"]);
     assert.equal((await client.query(sql)).rows[0].case, "ambiguous");
     await client.query('ALTER TABLE "Execution" ADD COLUMN "resumeToken" text');
@@ -311,7 +328,7 @@ test("failed preparation restores only the API and workers that were running bef
     const uncertain = exercise({ fail: "dependencies", restartFailure });
     assert.notEqual(uncertain.result.status, 0);
     assert.equal(uncertain.lockStillPresent, true);
-    assert.doesNotMatch(uncertain.calls, /up -d migrate/);
+    assert.doesNotMatch(uncertain.calls, /up -d api worker web/);
   }
 });
 
@@ -319,7 +336,7 @@ test("deploy checks both services even when only one is incompatible", () => {
   for (const options of [{ apiLabel: "nx-v1", workerLabel: "<no value>" }, { apiLabel: "<no value>", workerLabel: "nx-v1" }, { apiState: "exited", workerLabel: "<no value>" }]) {
     const { result, calls } = exercise(options);
     assert.notEqual(result.status, 0);
-    assert.doesNotMatch(calls, /backup-postgres|up -d migrate|up -d api worker web/);
+    assert.doesNotMatch(calls, /backup-postgres|up -d api worker web/);
   }
 });
 
@@ -327,6 +344,6 @@ test("deploy fails closed on an uncertified target or uncertain fleet state", ()
   for (const options of [{ target: "<no value>" }, { fail: "target-label" }, { fail: "fleet" }, { fail: "state" }, { fail: "image" }, { fail: "old-label" }, { containerState: "unknown" }]) {
     const { result, calls } = exercise(options);
     assert.notEqual(result.status, 0);
-    assert.doesNotMatch(calls, /backup-postgres|up -d migrate|up -d api worker web/);
+    assert.doesNotMatch(calls, /backup-postgres|up -d api worker web/);
   }
 });

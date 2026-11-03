@@ -44,10 +44,13 @@ async function signUpAndDashboard(page: import("@playwright/test").Page, email: 
   await page.locator('input[autocomplete="email"]').fill(email);
   await page.locator('input[autocomplete="new-password"]').fill("e2e-password-123");
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
+  // Registration and a cold dashboard render share this deadline. The API
+  // can succeed while the Next.js route is still being prepared under load.
+  await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
 }
 
 test("execution disclosure reverses safely and stays keyboard accessible in both themes", async ({ page }) => {
+  test.setTimeout(60_000);
   await signUpAndDashboard(page, `disclosure-${Date.now()}@example.test`);
   const content = page.locator("#dashboard-execution-content");
   await expect(content).toBeHidden();

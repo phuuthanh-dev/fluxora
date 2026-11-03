@@ -35,3 +35,20 @@ test("Trello normalizes the watched board and selected action without passing pr
 test("Trello refuses a signing secret echoed in a routing or deduplication identifier", () => {
   assert.throws(() => normalizeTrelloAction(event(), { boardId, action: "createCard" }, actionId), (error: unknown) => error instanceof Error && !error.message.includes(actionId));
 });
+
+test("Trello accepts the documented board webhook shape for an unlisted action in all-events mode", () => {
+  // Minimal fields from https://developer.atlassian.com/cloud/trello/guides/rest-api/webhooks/#example-webhook-response
+  const payload = Buffer.from(JSON.stringify({
+    action: { id: "51f9424bcd6e040f3c002412", type: "voteOnCard", data: { board: { id: boardId }, card: { id: "51a79e72dbb7e23c7c003778", name: "Webhooks" }, voted: true } },
+    model: { id: boardId }, webhook: { idModel: boardId },
+  }));
+  const normalized = normalizeTrelloAction(payload, { boardId, action: "all" });
+  assert.equal(normalized.kind, "accepted");
+  if (normalized.kind === "accepted") {
+    assert.equal(normalized.payload.event, "voteOnCard");
+    assert.equal(normalized.payload.cardName, "Webhooks");
+    assert.equal(normalized.payload.boardId, boardId);
+    assert.equal(normalized.payload.listId, null);
+  }
+  assert.equal(normalizeTrelloAction(payload, { boardId, action: "createCard" }).kind, "ignored");
+});

@@ -9,6 +9,7 @@ function fixture() {
   const executions = new Map<string, { id: string }>();
   const dispatches: string[] = [];
   let failQueue = false; let failAfterEnqueue = false; let active = true; let expired = false; let missing = false; let deactivateDuringRead = false; let deactivateDuringHistory = false; let mailboxHash = "mailbox";
+  let onDispatch: (() => void) | undefined;
   const pages: Array<{ messageIds: string[]; historyId: string; nextPageToken: string | null }> = [{ messageIds: ["m1"], historyId: "2", nextPageToken: null }];
   let transactionPrisma: unknown;
   const prisma = {
@@ -31,10 +32,9 @@ function fixture() {
         if (!deliveries.has(id)) deliveries.set(id, { ...create, dispatchedAt: null, executionId: null });
         return { ...deliveries.get(id)! };
       },
-      update: async ({ where, data }: { where: { workflowVersionId_nodeId_messageId: { messageId: string } }; data: Record<string, unknown> }) => Object.assign(deliveries.get(where.workflowVersionId_nodeId_messageId.messageId)!, data),
-      updateMany: async ({ where, data }: { where: { messageId: string }; data: Record<string, unknown> }) => {
+      updateMany: async ({ where, data }: { where: { messageId: string; executionId: string | null }; data: Record<string, unknown> }) => {
         const row = deliveries.get(where.messageId);
-        if (!row || row.dispatchedAt || row.executionId) return { count: 0 };
+        if (!row || row.dispatchedAt || row.executionId !== where.executionId) return { count: 0 };
         Object.assign(row, data); return { count: 1 };
       },
     },
@@ -43,14 +43,14 @@ function fixture() {
   transactionPrisma = { ...prisma, $queryRaw: async (parts: TemplateStringsArray) => parts.join("").includes('FROM "Workflow"') ? [{ isActive: active, archivedAt: null, publishedVersionId: "v1" }] : [{ ...checkpoint }] };
   const credentials = { readGoogleForExecution: async () => ({ accessToken: "token" }) };
   const executionService = { createGmailScheduledExecution: async (_version: string, _workflow: string, _node: string, messageId: string, _lease: string, _data: unknown, key: string) => { if (!executions.has(key)) executions.set(key, { id: `execution-${executions.size + 1}` }); const execution = executions.get(key)!; deliveries.get(messageId)!.executionId = execution.id; return { execution, alreadyDispatched: false }; } };
-  const queue = { dispatch: async ({ executionId }: { executionId: string }) => { if (failQueue) { failQueue = false; throw new Error("queue offline"); } if (!dispatches.includes(executionId)) dispatches.push(executionId); if (failAfterEnqueue) { failAfterEnqueue = false; throw new Error("ack lost"); } } };
+  const queue = { dispatch: async ({ executionId }: { executionId: string }) => { if (failQueue) { failQueue = false; throw new Error("queue offline"); } if (!dispatches.includes(executionId)) dispatches.push(executionId); onDispatch?.(); onDispatch = undefined; if (failAfterEnqueue) { failAfterEnqueue = false; throw new Error("ack lost"); } } };
   const service = new GmailTriggerService(prisma as never, credentials as never, executionService as never, queue as never);
   Object.defineProperty(service, "provider", { value: {
     getGmailHistoryBaseline: async () => ({ historyId: "99", mailboxHash }),
     getGmailHistoryPage: async () => { if (deactivateDuringHistory) active = false; if (expired) throw new NodeFailure("GMAIL_HISTORY_EXPIRED", "expired", false); return pages.shift() ?? { messageIds: [], historyId: "2", nextPageToken: null }; },
     getGmailMessage: async (_token: string, id: string) => { if (missing) throw new NodeFailure("GMAIL_ERROR", "not found", false, 404); if (deactivateDuringRead) active = false; return { id, labels: ["INBOX", "Label_1"], from: "Support <support@example.test>", subject: "Example request" }; },
   } });
-  return { service, checkpoint, deliveries, executions, dispatches, pages, setQueueFailure: () => { failQueue = true; }, loseQueueAck: () => { failAfterEnqueue = true; }, setActive: (value: boolean) => { active = value; }, deactivateDuringRead: () => { deactivateDuringRead = true; }, deactivateDuringHistory: () => { deactivateDuringHistory = true; }, setExpired: () => { expired = true; }, setMissing: () => { missing = true; }, setMailbox: (value: string) => { mailboxHash = value; } };
+  return { service, checkpoint, deliveries, executions, dispatches, pages, setQueueFailure: () => { failQueue = true; }, loseQueueAck: () => { failAfterEnqueue = true; }, onDispatch: (callback: () => void) => { onDispatch = callback; }, setActive: (value: boolean) => { active = value; }, deactivateDuringRead: () => { deactivateDuringRead = true; }, deactivateDuringHistory: () => { deactivateDuringHistory = true; }, setExpired: () => { expired = true; }, setMissing: () => { missing = true; }, setMailbox: (value: string) => { mailboxHash = value; } };
 }
 
 test("queue recovery resumes after the approved node and refuses ambiguous progress", async () => {
@@ -92,6 +92,27 @@ test("an ambiguous queue acknowledgement reuses the same execution", async () =>
   f.pages.push({ messageIds: ["m1"], historyId: "2", nextPageToken: null });
   await f.service.poll("v1", "flow", "space", "node", { credentialId: "cred" });
   assert.equal(f.executions.size, 1); assert.equal(f.dispatches.length, 1); assert.equal(f.checkpoint.historyId, "2");
+});
+
+test("a late queue acknowledgement preserves a reset decision and never acknowledges a different execution", async () => {
+  const reset = fixture();
+  const resetAt = new Date("2030-01-01T00:00:00.000Z");
+  reset.onDispatch(() => {
+    reset.setActive(false);
+    Object.assign(reset.deliveries.get("m1")!, { dispatchedAt: resetAt, skipReason: "owner_confirmed_checkpoint_reset" });
+    reset.checkpoint.leaseToken = null;
+  });
+  await reset.service.poll("v1", "flow", "space", "node", { credentialId: "cred" });
+  assert.equal(reset.deliveries.get("m1")?.dispatchedAt, resetAt);
+  assert.equal(reset.deliveries.get("m1")?.skipReason, "owner_confirmed_checkpoint_reset");
+  assert.equal(reset.checkpoint.historyId, "1");
+  assert.equal(reset.dispatches.length, 1, "a queued job cannot be retracted by acknowledgement");
+
+  const replaced = fixture();
+  replaced.onDispatch(() => { replaced.deliveries.get("m1")!.executionId = "different-execution"; });
+  await replaced.service.poll("v1", "flow", "space", "node", { credentialId: "cred" });
+  assert.equal(replaced.deliveries.get("m1")?.dispatchedAt, null);
+  assert.equal(replaced.checkpoint.historyId, "1");
 });
 
 test("page continuation preserves the original history ID until all pages are processed", async () => {

@@ -19,6 +19,15 @@ test("operator prompt ceiling is bounded and invalid settings fail closed", () =
   }
 });
 
+test("cleared and zero AI output limits fail before credential access", async () => {
+  const credentials = { readForExecution: () => { throw new Error("unexpected credential access"); } } as never;
+  for (const maxOutputTokens of ["", 0]) {
+    for (const run of [executeGeminiText, executeOpenAIText]) {
+      await assert.rejects(run({ model: "example", prompt: "Hello", credentialId: "synthetic", maxOutputTokens }, "live", "ws", credentials), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT" && !error.retryable);
+    }
+  }
+});
+
 test("prompt ceiling applies before credential access or transport without truncating", async () => {
   const previous = process.env.AI_MAX_PROMPT_CHARACTERS;
   process.env.AI_MAX_PROMPT_CHARACTERS = "4";

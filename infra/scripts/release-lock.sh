@@ -95,6 +95,21 @@ require_unambiguous_continuations() {
   fi
 }
 
+# Call only after all known producers and workers have drained. A RUNNING row
+# at that point may belong to a crashed or unmanaged worker; do not guess its
+# provider outcome or let the new API's lease maintenance change it silently.
+require_no_running_executions() {
+  running_execution_sql="SELECT CASE WHEN EXISTS (SELECT 1 FROM \"Execution\" WHERE status = 'RUNNING') THEN 'running' ELSE 'clear' END"
+  running_execution_state="$(API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" \
+    docker compose --env-file "$env_file" -f "$compose_file" exec -T db \
+    sh -c 'exec psql -X -qAt -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -c "$1"' sh "$running_execution_sql")" || {
+    printf '%s\n' "Cannot inspect running executions; release remains locked." >&2; return 1
+  }
+  if [ "$running_execution_state" != clear ]; then
+    printf '%s\n' "Execution still marked RUNNING after drain, or unexpected database result; inspect execution and provider state." >&2; return 1
+  fi
+}
+
 # Health endpoints do not establish that a queue consumer actually started.
 require_target_worker() {
   target_image_id="$(docker image inspect --format '{{.Id}}' "$api_image:$image_tag")" || {

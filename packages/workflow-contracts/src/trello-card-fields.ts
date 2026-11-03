@@ -20,7 +20,7 @@ export function trelloCardConfigurationFields(operation: TrelloCardOperation): N
   if (collection) fields.push({ kind: "number", key: "limit", label: "Maximum cards (1–50)", fallbackValue: 20 });
   if (operation === "list") fields.push(
     { kind: "select", key: "filter", label: "Card status", options: [{ value: "open", label: "Open" }, { value: "closed", label: "Archived" }, { value: "all", label: "All" }] },
-    { kind: "text", key: "before", label: "Continue before card ID (optional)", advanced: { summary: "Advanced pagination", help: "Use nextBefore from the previous output. Cards created in the same second at the boundary may be missed." } },
+    { kind: "text", key: "before", label: "Continue before card ID (optional)", advanced: { summary: "Advanced pagination", help: "Use nextBefore from the previous output with the same connection, board, status and limit. Cards created in the same second at the boundary may be missed." } },
   );
   return fields;
 }

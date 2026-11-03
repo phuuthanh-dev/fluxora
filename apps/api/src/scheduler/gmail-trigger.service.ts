@@ -110,8 +110,8 @@ export class GmailTriggerService implements OnModuleInit, OnModuleDestroy {
         if (!active) return;
         const lease = await this.prisma.gmailTriggerCheckpoint.updateMany({ where: { workflowVersionId: versionId, nodeId, state: "READY", leaseToken, leaseExpiresAt: { gt: new Date() } }, data: { leaseExpiresAt: new Date(Date.now() + leaseMs) } });
         if (!lease.count) return;
-        const deliveryKey = { workflowVersionId_nodeId_messageId: { workflowVersionId: versionId, nodeId, messageId } };
-        const delivery = await this.prisma.gmailTriggerDelivery.upsert({ where: deliveryKey, create: { workflowVersionId: versionId, nodeId, messageId }, update: {} });
+        const delivery = await this.reserveDelivery(workflowId, versionId, nodeId, messageId, leaseToken);
+        if (!delivery) return;
         if (delivery.dispatchedAt) continue;
         if (processed >= maxMessages) { pageIncomplete = true; break; }
         let message: Awaited<ReturnType<typeof getGmailMessage>>;
@@ -139,7 +139,11 @@ export class GmailTriggerService implements OnModuleInit, OnModuleDestroy {
         const stillOwned = await this.prisma.gmailTriggerCheckpoint.updateMany({ where: { workflowVersionId: versionId, nodeId, state: "READY", leaseToken, leaseExpiresAt: { gt: new Date() } }, data: { leaseExpiresAt: new Date(Date.now() + leaseMs) } });
         if (!stillActive || !stillOwned.count) return;
         await this.queue.dispatch({ executionId: execution.id, mode: "live", startNodeIds: [nodeId], initialOnly: true });
-        await this.prisma.gmailTriggerDelivery.update({ where: deliveryKey, data: { dispatchedAt: new Date() } });
+        // A reset can mark this receipt skipped while queue dispatch is in
+        // flight. Never overwrite that decision or acknowledge another
+        // execution that happens to use the same receipt key.
+        const acknowledged = await this.prisma.gmailTriggerDelivery.updateMany({ where: { workflowVersionId: versionId, nodeId, messageId, executionId: execution.id, dispatchedAt: null }, data: { dispatchedAt: new Date() } });
+        if (!acknowledged.count) return;
         processed++;
       }
       const interval = ["1", "5", "15", "60"].includes(String(config.pollMinutes)) ? Number(config.pollMinutes) : 1;
@@ -153,6 +157,20 @@ export class GmailTriggerService implements OnModuleInit, OnModuleDestroy {
     } finally {
       await this.prisma.gmailTriggerCheckpoint.updateMany({ where: { workflowVersionId: versionId, nodeId, leaseToken }, data: { leaseToken: null, leaseExpiresAt: null } });
     }
+  }
+
+  private async reserveDelivery(workflowId: string, versionId: string, nodeId: string, messageId: string, leaseToken: string) {
+    return this.prisma.$transaction(async (transaction) => {
+      // Reset and deactivation also lock workflow before checkpoint. A poll
+      // that lost either race must not create a receipt after the reset.
+      const workflows = await transaction.$queryRaw<Array<{ isActive: boolean; archivedAt: Date | null; publishedVersionId: string | null }>>`SELECT "isActive", "archivedAt", "publishedVersionId" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
+      if (!workflows[0]?.isActive || workflows[0].archivedAt || workflows[0].publishedVersionId !== versionId) return null;
+      const checkpoints = await transaction.$queryRaw<Array<{ leaseToken: string | null; leaseExpiresAt: Date | null; state: string }>>`SELECT "leaseToken", "leaseExpiresAt", "state" FROM "GmailTriggerCheckpoint" WHERE "workflowVersionId" = ${versionId} AND "nodeId" = ${nodeId} FOR UPDATE`;
+      const checkpoint = checkpoints[0];
+      if (!checkpoint || checkpoint.state !== "READY" || checkpoint.leaseToken !== leaseToken || !checkpoint.leaseExpiresAt || checkpoint.leaseExpiresAt <= new Date()) return null;
+      const where = { workflowVersionId_nodeId_messageId: { workflowVersionId: versionId, nodeId, messageId } };
+      return transaction.gmailTriggerDelivery.upsert({ where, create: { workflowVersionId: versionId, nodeId, messageId }, update: {} });
+    });
   }
 
   private async recordCheckpoint(workflowId: string, versionId: string, nodeId: string, leaseToken: string, data: GmailCheckpointUpdate) {

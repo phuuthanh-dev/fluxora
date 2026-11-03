@@ -4,6 +4,11 @@ import { CredentialProvider } from "@prisma/client";
 import { liveCredentialRequirements } from "./live-readiness";
 import { ExecutionService } from "./execution.service";
 
+test("versioned Google Sheets writes still require the workspace Google connection", () => {
+  const requirements = liveCredentialRequirements({ nodes: [{ id: "sheet", type: "action.google-sheets.v2", position: { x: 0, y: 0 }, config: { credentialId: "google-connection" } }], edges: [] });
+  assert.deepEqual(requirements, [{ nodeId: "sheet", provider: CredentialProvider.GOOGLE, credentialId: "google-connection" }]);
+});
+
 test("new Trello and Notion operations retain provider-specific live-readiness checks", () => {
   const types = ["action.notion.retrieve-page", "action.notion.list-children", "action.notion.retrieve-property", "action.notion.create-page", "action.notion.update-title", "action.trello.get-card", "action.trello.update-card", "action.trello.move-card", "action.trello.archive-card", "action.trello.list-cards", "action.trello.find-cards"] as const;
   const nodes = types.map((type, index) => ({ id: String(index), type, position: { x: 0, y: 0 }, config: { credentialId: `credential-${index}` } }));

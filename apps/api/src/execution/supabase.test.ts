@@ -196,6 +196,20 @@ test("Supabase rejects malformed or unbounded query inputs before credential acc
   }
 });
 
+test("Supabase selection rejects unsafe numeric identifiers before credential or network access", async () => {
+  const forbidden = { readForExecution: async () => { throw new Error("unexpected credential read"); } } as unknown as CredentialService;
+  for (const mode of ["mock", "live"] as const) {
+    for (const value of [Number.MAX_SAFE_INTEGER + 1, Number.MIN_SAFE_INTEGER - 1]) {
+      await assert.rejects(executeSupabaseSelect({ credentialId: "connection", table: "items", filters: [{ column: "id", operator: "equals", value }] }, mode, "workspace", forbidden, async () => { throw new Error("unexpected provider request"); }), /Use text for large integer identifiers/);
+    }
+  }
+  const exact = "9007199254740993";
+  await executeSupabaseSelect({ credentialId: "connection", table: "items", filters: [{ column: "id", operator: "equals", value: exact }] }, "live", "workspace", credentials, async (url) => {
+    assert.equal(new URL(url).searchParams.get("id"), `eq.${exact}`);
+    return Response.json([]);
+  });
+});
+
 test("Supabase accepts empty selections and all supported scalar comparison operators", async () => {
   await executeSupabaseSelect({ credentialId: "connection", table: "items", columns: [], filters: [
     { column: "a", operator: "notEquals", value: "" }, { column: "b", operator: "greaterThan", value: -1.5 },

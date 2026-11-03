@@ -72,7 +72,10 @@ test("account settings and recovery remain readable in both themes on desktop an
           const mobileSidebar = width === 390 && route === "/settings/account";
           if (mobileSidebar) await page.getByRole("button", { name: "Open navigation", exact: true }).click();
           await page.getByRole("button", { name: `Switch to ${theme} mode` }).click();
-          if (mobileSidebar) await page.getByRole("button", { name: "Close navigation", exact: true }).click();
+          if (mobileSidebar) {
+            await page.getByRole("button", { name: "Close navigation", exact: true }).click();
+            await expect(page.getByRole("button", { name: "Open navigation", exact: true })).toBeFocused();
+          }
         }
         await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
         await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);

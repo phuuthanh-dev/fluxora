@@ -1,7 +1,7 @@
 import { CredentialProvider } from "@prisma/client";
 import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
-import { requireResolvedSelection } from "./relational-selection-validation";
+import { requireResolvedSelection, requireSafeSelectionNumber } from "./relational-selection-validation";
 import { fetchSafeOutbound } from "./outbound-url-policy";
 import { readBoundedProviderJson } from "./provider-json";
 
@@ -43,6 +43,7 @@ function selectParams(config: Record<string, unknown>, limit: number) {
     } else {
       const scalar = item!.value;
       if ((typeof scalar !== "string" && typeof scalar !== "number" && typeof scalar !== "boolean") || (typeof scalar === "number" && !Number.isFinite(scalar)) || (typeof scalar === "string" && (Buffer.byteLength(scalar) > 1_000 || /[\u0000-\u001f\u007f]/.test(scalar)))) invalid();
+      requireSafeSelectionNumber(scalar);
       value = String(scalar);
     }
     params.append(name, `${filterOperators[operator]}.${value}`);

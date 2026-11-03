@@ -5,7 +5,7 @@ import type { ConnectorExecutor } from "./node-executor-contract";
 import { NodeFailure } from "./node-failure";
 import { readCredentialId } from "./connector-config";
 import { mockSteamSnapshot, steamSnapshot } from "./steam-adapter";
-import { mockDrive, executeGoogleDrive, mockSheets, executeGoogleSheets, readOperation } from "./google-workspace-adapter";
+import { mockDrive, executeGoogleDrive, mockSheets, executeGoogleSheets, readOperation, readSheetsInputOption } from "./google-workspace-adapter";
 import { readDrivePageToken } from "./google-drive-pagination";
 import { executeGoogleChatWebhook, executeDiscordWebhook, executeTelegramMessage } from "./notification-adapters";
 import { executeGitHubCreateIssue, executeGitHubAddLabel, executeGitHubAddComment, executeGitHubMergePullRequest } from "./github-write-adapter";
@@ -15,7 +15,7 @@ import { executeGeminiText } from "./gemini-text";
 import { executeOpenAIText } from "./openai-text";
 import { executeMongoFind, executeMongoInsert } from "./mongodb-find";
 import { executeNotionSearch } from "./notion-search";
-import { executeNotionOperation } from "./notion-operations";
+import { executeNotionDataSourceQuery, executeNotionOperation } from "./notion-operations";
 import { executeNotionCreatePage, executeNotionUpdateTitle } from "./notion-create-page";
 import { executeRssRead } from "./rss-read";
 import { executeTrelloCreateCard } from "./trello";
@@ -60,6 +60,16 @@ const executors = {
     const credential = await credentials.readGoogleForExecution(readCredentialId(config), workspaceId);
     return { status: "succeeded", output: await executeGoogleSheets(credential, config), route: "success" };
   },
+  "action.google-sheets.v2": async ({ config, mode, workspaceId, credentials }) => {
+    if (Object.hasOwn(config, "operation") && (typeof config.operation !== "string" || !["read", "append", "update"].includes(config.operation))) {
+      throw new NodeFailure("INVALID_INPUT", "Choose a valid Google Sheets operation.", false);
+    }
+    const operation = readOperation(config, ["read", "append", "update"], "read");
+    const inputOption = operation === "read" ? "USER_ENTERED" : readSheetsInputOption(config);
+    if (mode === "mock") return { status: "succeeded", output: mockSheets(config), route: "success" };
+    const credential = await credentials.readGoogleForExecution(readCredentialId(config), workspaceId);
+    return { status: "succeeded", output: await executeGoogleSheets(credential, config, inputOption), route: "success" };
+  },
   "action.http-request": async ({ config, mode, workspaceId, credentials }) => {
     if (mode === "mock") return { status: "succeeded", output: { status: 200, body: { mocked: true, url: config.url ?? "", method: config.method ?? "GET" } }, route: "success" };
     const credential = typeof config.credentialId === "string" && config.credentialId ? await credentials.readForExecution(config.credentialId, workspaceId, CredentialProvider.HTTP) : undefined;
@@ -75,6 +85,7 @@ const executors = {
   "action.notion.retrieve-page": ({ config, mode, workspaceId, credentials }) => executeNotionOperation(config, "retrievePage", mode, workspaceId, credentials),
   "action.notion.list-children": ({ config, mode, workspaceId, credentials }) => executeNotionOperation(config, "listChildren", mode, workspaceId, credentials),
   "action.notion.retrieve-property": ({ config, mode, workspaceId, credentials }) => executeNotionOperation(config, "retrieveProperty", mode, workspaceId, credentials),
+  "action.notion.query-data-source": ({ config, mode, workspaceId, credentials }) => executeNotionDataSourceQuery(config, mode, workspaceId, credentials),
   "action.notion.create-page": ({ config, mode, workspaceId, credentials }) => executeNotionCreatePage(config, mode, workspaceId, credentials),
   "action.notion.update-title": ({ config, mode, workspaceId, credentials }) => executeNotionUpdateTitle(config, mode, workspaceId, credentials),
   "action.rss.read": ({ config, mode }) => executeRssRead(config, mode),

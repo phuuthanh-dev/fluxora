@@ -1,4 +1,5 @@
 import { NodeFailure } from "./node-failure";
+import { requireSafeSelectionNumber } from "./relational-selection-validation";
 
 export type PostgresCondition = { column: string; operator: "equals" | "notEquals" | "greaterThan" | "lessThan"; value: string | number | boolean };
 export type PostgresSelection = { columns: string[]; conditions: PostgresCondition[]; orderBy?: string; orderDirection?: "asc" | "desc"; offset?: number };
@@ -22,6 +23,7 @@ export function buildPostgresSelect(input: SelectInput) {
   const values: Array<string | number | boolean> = [];
   const where = input.conditions.map((condition) => {
     if (!condition || typeof condition !== "object" || Object.keys(condition).some((key) => !["column", "operator", "value"].includes(key)) || !Object.hasOwn(operators, condition.operator) || !["string", "number", "boolean"].includes(typeof condition.value) || (typeof condition.value === "number" && !Number.isFinite(condition.value)) || (typeof condition.value === "string" && condition.value.length > 10_000)) throw new NodeFailure("INVALID_INPUT", "Invalid PostgreSQL condition.", false);
+    requireSafeSelectionNumber(condition.value);
     values.push(condition.value);
     return `${identifier(condition.column)} ${operators[condition.operator]} $${values.length}`;
   });

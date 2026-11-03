@@ -56,7 +56,15 @@ export function mockSheets(config: Record<string, unknown>) {
   return operation === "read" ? { operation, range, values: [["Mock Steam Player", "42 games"]] } : { operation, range, updatedRows: 1, updatedCells: 2 };
 }
 
-export async function executeGoogleSheets(credential: Record<string, unknown>, config: Record<string, unknown>) {
+export function readSheetsInputOption(config: Record<string, unknown>): "USER_ENTERED" | "RAW" {
+  if (!Object.hasOwn(config, "valueInputOption")) return "USER_ENTERED";
+  if (config.valueInputOption !== "USER_ENTERED" && config.valueInputOption !== "RAW") {
+    throw new NodeFailure("INVALID_INPUT", "Choose how Google Sheets should interpret values.", false);
+  }
+  return config.valueInputOption;
+}
+
+export async function executeGoogleSheets(credential: Record<string, unknown>, config: Record<string, unknown>, inputOption: "USER_ENTERED" | "RAW" = "USER_ENTERED") {
   const accessToken = readCredentialValue(credential, "accessToken");
   const spreadsheetId = readConfigString(config, "spreadsheetId");
   const range = readConfigString(config, "range");
@@ -68,8 +76,8 @@ export async function executeGoogleSheets(credential: Record<string, unknown>, c
   }
   const values = normalizeValues(config.values);
   const response = operation === "append"
-    ? await googleFetch(`${base}:append?valueInputOption=USER_ENTERED`, accessToken, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ values }) })
-    : await googleFetch(`${base}?valueInputOption=USER_ENTERED`, accessToken, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ values }) });
+    ? await googleFetch(`${base}:append?valueInputOption=${inputOption}`, accessToken, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ values }) })
+    : await googleFetch(`${base}?valueInputOption=${inputOption}`, accessToken, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ values }) });
   return { operation, ...await readGoogleRecord(response, true) };
 }
 

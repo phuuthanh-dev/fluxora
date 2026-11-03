@@ -12,6 +12,12 @@ incomplete response. Gemini candidate output and thinking usage are separate;
 OpenAI's output usage includes reasoning. Counts are returned only when present
 and valid; missing usage is not zero.
 
+The editor retains an explicitly cleared or zero numeric field instead of
+silently replacing it with the default. For AI output tokens, it also shows an
+inline warning; the backend remains authoritative and rejects invalid limits
+before reading a credential or calling a provider. An omitted field in an older
+graph still receives its historical default.
+
 The operator can set `AI_MAX_OUTPUT_TOKENS` on **every API and worker process**
 to an integer from 1 to 8192. The default ceiling is 8192. Invalid values fail
 AI requests closed. A node value above the ceiling, including the legacy default

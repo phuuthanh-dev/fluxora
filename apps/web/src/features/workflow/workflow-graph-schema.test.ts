@@ -171,6 +171,13 @@ test("Google connector fields follow operation-specific runtime contracts", () =
   assert.deepEqual(drive.configurationFields?.find((field) => field.key === "name")?.visibleWhen, { key: "operation", equals: "uploadText" });
   assert.deepEqual(drive.configurationFields?.find((field) => field.key === "text")?.visibleWhen, { key: "operation", equals: "uploadText" });
 
+  const sheetsV2 = getNodeDefinition("action.google-sheets.v2");
+  assert.ok(sheetsV2);
+  const inputOption = sheetsV2.configurationFields?.find((field) => field.key === "valueInputOption");
+  assert.equal(inputOption?.kind, "select");
+  assert.deepEqual(inputOption?.visibleWhen, { key: "operation", equals: ["append", "update"] });
+  assert.equal(sheetsV2.defaultConfig.valueInputOption, "USER_ENTERED");
+
   const sheets = getNodeDefinition("action.google-sheets");
   assert.ok(sheets);
   assert.equal(sheets.configurationFields?.find((field) => field.key === "values")?.kind, "table");
@@ -207,8 +214,15 @@ test("relational v2 types round trip without changing historical types", () => {
   }
 });
 
+test("Sheets input mode survives draft export and import", () => {
+  const graph = { nodes: [{ id: "sheet", type: "action.google-sheets.v2" as const, nodeVersion: 1, position: { x: 0, y: 0 }, config: { operation: "append", valueInputOption: "RAW", values: [["=1+2"]] } }], edges: [] };
+  assert.deepEqual(graphForApi(graphFromApi(graph)), graph);
+});
+
 test("library offers one current selection per provider while old graphs remain supported", async () => {
   const { operationsForApp, matchesNodeLibraryFilter, libraryNodeType } = await import("./node-catalog");
+  assert.equal(libraryNodeType("action.google-sheets"), "action.google-sheets.v2");
+  assert.deepEqual(operationsForApp("google-sheets").filter((node) => node.operationId === "read-write-rows").map((node) => node.type), ["action.google-sheets.v2"]);
   for (const provider of ["postgres", "supabase"] as const) {
     const oldType = `action.${provider}.select`;
     const currentType = `${oldType}.v2`;

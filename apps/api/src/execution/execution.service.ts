@@ -515,27 +515,45 @@ export class ExecutionService {
     });
     if (!approval) throw new NotFoundException({ code: "APPROVAL_NOT_FOUND", message: "Approval request was not found." });
     if (approval.status !== ApprovalRequestStatus.PENDING) throw new NotFoundException({ code: "APPROVAL_NOT_PENDING", message: "Approval request has already been resolved." });
-    if (approval.expiresAt <= new Date()) {
-      await this.prisma.approvalRequest.updateMany({ where: { id: approval.id, status: ApprovalRequestStatus.PENDING, expiresAt: { lte: new Date() } }, data: { status: ApprovalRequestStatus.EXPIRED, resolvedAt: new Date() } });
-      throw new NotFoundException({ code: "APPROVAL_EXPIRED", message: "Approval request has expired." });
-    }
     const waitingNode = await this.prisma.nodeExecution.findFirst({ where: { executionId: approval.executionId, status: NodeExecutionStatus.WAITING } });
     if (!waitingNode) throw new NotFoundException({ code: "APPROVAL_NODE_NOT_FOUND", message: "Execution is not waiting on an approval node." });
-    const resolvedAt = new Date();
     const graph = parseWorkflowGraph(approval.execution.workflowVersion.graph);
     const nextNodeIds = decision === "approved" ? [...new Set(graph.edges.filter((edge) => edge.source === waitingNode.nodeId && edge.kind === "success").map((edge) => edge.target))] : [];
     const finalStatus = decision === "rejected" ? ExecutionStatus.FAILED : nextNodeIds.length ? ExecutionStatus.QUEUED : ExecutionStatus.SUCCEEDED;
     const resumeToken = finalStatus === ExecutionStatus.QUEUED ? randomBytes(24).toString("hex") : undefined;
-    await this.prisma.$transaction(async (transaction) => {
-      // Use the execution as the serialization point, in the same lock order
-      // as cancellation. All guarded updates roll back together on a race.
+    const expired = await this.prisma.$transaction(async (transaction) => {
+      // Lock in the same order as cancellation before sampling the database
+      // clock. A decision that waits past the deadline must not be accepted
+      // using a timestamp captured before the lock wait.
+      const executions = await transaction.$queryRaw<Array<{ status: ExecutionStatus }>>`SELECT status FROM "Execution" WHERE id = ${approval.executionId} FOR UPDATE`;
+      if (executions[0]?.status !== ExecutionStatus.WAITING_APPROVAL) throw new ConflictException({ code: "APPROVAL_NOT_WAITING", message: "The execution is no longer waiting for this approval." });
+      const nodes = await transaction.$queryRaw<Array<{ status: NodeExecutionStatus }>>`SELECT status FROM "NodeExecution" WHERE id = ${waitingNode.id} AND "executionId" = ${approval.executionId} FOR UPDATE`;
+      if (nodes[0]?.status !== NodeExecutionStatus.WAITING) throw new ConflictException({ code: "APPROVAL_NOT_WAITING", message: "The execution is no longer waiting for this approval." });
+      const approvals = await transaction.$queryRaw<Array<{ status: ApprovalRequestStatus; expiresAt: Date }>>`SELECT status, "expiresAt" FROM "ApprovalRequest" WHERE id = ${approval.id} AND "executionId" = ${approval.executionId} FOR UPDATE`;
+      const clock = await transaction.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS "now"`;
+      const resolvedAt = clock[0]?.now;
+      const lockedApproval = approvals[0];
+      if (!resolvedAt || !lockedApproval || lockedApproval.status !== ApprovalRequestStatus.PENDING) throw new ConflictException({ code: "APPROVAL_NOT_PENDING", message: "Approval has expired or was already resolved." });
+      if (lockedApproval.expiresAt <= resolvedAt) {
+        // Commit expiry and terminal execution state together; throwing inside
+        // the transaction would leave an expired approval waiting forever.
+        await transaction.execution.update({ where: { id: approval.executionId }, data: { status: ExecutionStatus.FAILED, completedAt: resolvedAt, leaseExpiresAt: null, runToken: null, resumeToken: null, resumeNodeIds: Prisma.DbNull, resumeQueuedAt: null, errorCode: "APPROVAL_EXPIRED", errorMessage: "Approval request has expired.", errorRetryable: false } });
+        await transaction.nodeExecution.update({ where: { id: waitingNode.id }, data: { status: NodeExecutionStatus.FAILED, completedAt: resolvedAt, errorCode: "APPROVAL_EXPIRED", errorMessage: "Approval request has expired.", errorRetryable: false } });
+        await transaction.approvalRequest.update({ where: { id: approval.id }, data: { status: ApprovalRequestStatus.EXPIRED, resolvedAt } });
+        return true;
+      }
       const claimed = await transaction.execution.updateMany({ where: { id: approval.executionId, status: ExecutionStatus.WAITING_APPROVAL }, data: { status: finalStatus, completedAt: finalStatus === ExecutionStatus.QUEUED ? null : resolvedAt, leaseExpiresAt: null, errorCode: decision === "rejected" ? "APPROVAL_REJECTED" : null, errorMessage: decision === "rejected" ? "Approval was rejected." : null, errorRetryable: decision === "rejected" ? false : null, resumeToken: resumeToken ?? null, resumeNodeIds: resumeToken ? nextNodeIds : Prisma.DbNull, resumeQueuedAt: resumeToken ? resolvedAt : null } });
       if (!claimed.count) throw new ConflictException({ code: "APPROVAL_NOT_WAITING", message: "The execution is no longer waiting for this approval." });
       const node = await transaction.nodeExecution.updateMany({ where: { id: waitingNode.id, executionId: approval.executionId, status: NodeExecutionStatus.WAITING }, data: { status: decision === "rejected" ? NodeExecutionStatus.FAILED : NodeExecutionStatus.SUCCEEDED, completedAt: resolvedAt, ...(decision === "rejected" ? { errorCode: "APPROVAL_REJECTED", errorMessage: "Approval was rejected.", errorRetryable: false } : {}) } });
       if (!node.count) throw new ConflictException({ code: "APPROVAL_NOT_WAITING", message: "The execution is no longer waiting for this approval." });
       const resolved = await transaction.approvalRequest.updateMany({ where: { id: approval.id, executionId: approval.executionId, status: ApprovalRequestStatus.PENDING, expiresAt: { gt: resolvedAt } }, data: { status: decision === "rejected" ? ApprovalRequestStatus.REJECTED : ApprovalRequestStatus.APPROVED, resolvedAt } });
       if (!resolved.count) throw new ConflictException({ code: "APPROVAL_NOT_PENDING", message: "Approval has expired or was already resolved." });
+      return false;
     });
+    if (expired) {
+      this.events.publish(approval.executionId, "execution.failed");
+      throw new NotFoundException({ code: "APPROVAL_EXPIRED", message: "Approval request has expired." });
+    }
     this.events.publish(approval.executionId, finalStatus === ExecutionStatus.FAILED ? "execution.failed" : finalStatus === ExecutionStatus.SUCCEEDED ? "execution.succeeded" : "execution.queued");
     return { executionId: approval.executionId, resumed: nextNodeIds.length > 0, startNodeIds: nextNodeIds, mode: approval.execution.mode === "MOCK" ? "mock" as const : "live" as const, ...(resumeToken ? { resumeToken } : {}) };
   }

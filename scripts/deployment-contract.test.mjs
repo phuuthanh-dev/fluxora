@@ -260,9 +260,15 @@ test("application deploy does not refresh database or Redis images", () => {
 
 test("production deployment backs up PostgreSQL before migrations", () => {
   const backupIndex = deployScript.indexOf("backup-postgres.sh");
-  const migrationIndex = deployScript.indexOf("up -d migrate");
+  const migrationIndex = deployScript.indexOf("up -d api worker web");
   assert.ok(backupIndex >= 0, "deploy must invoke the guarded PostgreSQL backup");
   assert.ok(migrationIndex > backupIndex, "backup must precede the migration service");
+  assert.doesNotMatch(deployScript, /up -d migrate/);
+  for (const service of ["api", "worker"]) {
+    const section = compose.match(new RegExp(`^  ${service}:\\n([\\s\\S]*?)(?=^  [a-z]+:|^networks:)`, "m"))?.[1];
+    assert.ok(section, `${service} must exist in the Compose contract`);
+    assert.match(section, /depends_on:\s*\n\s+migrate:\s*\n\s+condition: service_completed_successfully/);
+  }
   assert.match(deployScript, /up -d --wait db redis/);
   assert.match(deployScript, /ENV_FILE=/);
 });

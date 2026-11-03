@@ -37,6 +37,18 @@ const sharedFields = {
   "action.gmail.update-draft": () => gmailWriteConfigurationFields("updateDraft"),
   "action.gmail.modify-label": () => gmailWriteConfigurationFields("label"),
   "action.notion.retrieve-page": () => notionReadConfigurationFields("page"),
+  "action.notion.query-data-source": () => [
+    { kind: "credential", key: "credentialId", label: "Notion connection", providers: ["NOTION"] },
+    { kind: "resource", key: "dataSourceId", label: "Data source", resource: "notion-data-source", credentialKey: "credentialId", placeholder: "Search data sources" },
+    { kind: "number", key: "pageSize", label: "Maximum results (1–100)", fallbackValue: 20 },
+    { kind: "select", key: "sort", label: "Sort entries", options: [{ value: "provider", label: "Notion default order" }, { value: "created-newest", label: "Recently created first" }, { value: "created-oldest", label: "Oldest created first" }, { value: "edited-newest", label: "Recently edited first" }, { value: "edited-oldest", label: "Oldest edited first" }] },
+    { kind: "datetime", key: "editedAfter", label: "Edited after (optional)" },
+    { kind: "select", key: "filterMode", label: "Property filter", options: [{ value: "none", label: "No property filter" }, { value: "status", label: "Status equals" }, { value: "select", label: "Select equals" }, { value: "checkbox", label: "Checkbox equals" }] },
+    { kind: "resource", key: "filterProperty", label: "Filter property", resource: "notion-source-property", credentialKey: "credentialId", dependencyKey: "dataSourceId", placeholder: "Search supported properties", visibleWhen: { key: "filterMode", equals: ["status", "select", "checkbox"] } },
+    { kind: "resource", key: "filterValue", label: "Property value", resource: "notion-source-option", credentialKey: "credentialId", dependencyKey: "dataSourceId", secondaryDependencyKey: "filterProperty", placeholder: "Search values", visibleWhen: { key: "filterMode", equals: ["status", "select"] } },
+    { kind: "select", key: "filterValue", label: "Checkbox value", options: [{ value: "true", label: "Checked" }, { value: "false", label: "Unchecked" }], visibleWhen: { key: "filterMode", equals: "checkbox" } },
+    { kind: "text", key: "cursor", label: "Next cursor (optional)", advanced: { summary: "Advanced pagination", help: "Use nextCursor from the previous result with the same source, filter and sort. A provider limit can make the result incomplete; changes may shift entries between pages." } },
+  ],
   "action.notion.list-children": () => notionReadConfigurationFields("children"),
   "action.notion.retrieve-property": () => notionReadConfigurationFields("property"),
   "action.notion.create-page": () => [

@@ -257,6 +257,7 @@
         "apps/api/src/execution/google-chat-oauth.ts",
         "apps/api/src/execution/mongodb-find.ts",
         "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/notion-operations.ts",
         "apps/api/src/execution/postgres-read.ts",
         "apps/api/src/execution/sentry.ts",
         "apps/api/src/execution/supabase.ts",
@@ -1071,7 +1072,8 @@
       "id": "apps/api/src/execution/postgres-select-query.ts",
       "boundary": "api",
       "internalImports": [
-        "apps/api/src/execution/node-failure.ts"
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/relational-selection-validation.ts"
       ],
       "externalImports": []
     },
@@ -3521,6 +3523,10 @@
     },
     {
       "from": "apps/api/src/credentials/connector-resource.controller.ts",
+      "to": "apps/api/src/execution/notion-operations.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/connector-resource.controller.ts",
       "to": "apps/api/src/execution/postgres-read.ts"
     },
     {
@@ -4534,6 +4540,10 @@
     {
       "from": "apps/api/src/execution/postgres-select-query.ts",
       "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/postgres-select-query.ts",
+      "to": "apps/api/src/execution/relational-selection-validation.ts"
     },
     {
       "from": "apps/api/src/execution/postgres-target.ts",
