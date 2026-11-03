@@ -38,6 +38,20 @@ traffic until the gates below have been met.
   confirms that an HTTP disconnect alone does not complete that image's OAuth
   work. It is not a test of the image's Nest bootstrap, actual provider,
   production activity, shutdown signals or a complete cutover.
+- A later isolated rehearsal started that image's actual Nest bootstrap with
+  production mode, its own PostgreSQL/Redis containers and old migrations on
+  an internal-only Docker network. A synthetic user, session, workspace and
+  encrypted Google credential were created through its actual HTTP routes.
+  A test wrapper replaced `fetch` for the fake Google refresh with a gate;
+  it did not permit external fetches. After the HTTP client aborted, releasing
+  the gate changed the synthetic credential ciphertext in PostgreSQL. In a
+  second request held at the same gate, SIGTERM terminated the API with exit
+  code 143 before the gate was released, leaving that credential ciphertext
+  unchanged. This is evidence for those controlled paths, not for an actual
+  provider's refresh-token rotation, a production request, cron scheduling,
+  any complete drain protocol or a safe cutover. Scheduling and execution
+  maintenance were disabled for this experiment; Docker resources were
+  uniquely named synthetic fixtures and were removed afterward.
 
 ## Required design and proof
 
