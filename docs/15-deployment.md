@@ -150,7 +150,10 @@ deploying the containers.
   `--clean` removes objects represented in the archive, not necessarily objects
   created after it; this command alone is not a complete downgrade or a safe
   way to preserve writes made after the backup. Synthetic tests passed in the
-  isolated full quality gate for `388ac7b`; an isolated restore drill remains.
+  isolated full quality gate for `388ac7b`. A PostgreSQL 16 drill with synthetic
+  tables confirmed successful restore, preservation of post-backup objects and
+  rollback of a truncated-archive failure; this is not a full schema or
+  production recovery rehearsal.
 
 - Preserve the `postgres_data` volume and never use `docker compose down -v` in production.
 - After a successful health check, deploy scripts retain the current and previous API/Web commit-SHA images and remove only older SHA-tagged images from those two application repositories. PostgreSQL/Redis images and volumes are never part of this cleanup. An older image's presence in GHCR does not establish that it can safely read the current database or queued work.

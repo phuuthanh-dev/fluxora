@@ -131,15 +131,22 @@ Theo yêu cầu hiện tại của chủ dự án, phần NX còn lại do coord
 
 ### Đối chiếu code với tiêu chí NX — snapshot 2026-11-03
 
-Baseline `origin/main` `3c9ac35`, PR draft head `20858a6` và snapshot code local
-`388ac7b`. Thay đổi sau PR head đã được commit local và snapshot `388ac7b` đã
-qua full verify cô lập; chưa có CI cho head mới. Mục này tóm tắt trạng thái hiện tại; các ghi chú
+Baseline `origin/main` `3c9ac35`, PR draft head `ff0740a` và snapshot code
+`388ac7b`. Snapshot `388ac7b` đã qua full verify cô lập; CI Node 22 cũng đã
+pass tại PR head `ff0740a`. Các ghi chú restore và trạng thái CI được thêm sau
+lượt CI này. Mục này tóm tắt trạng thái hiện tại; các ghi chú
 theo lượt bên dưới có thể nhắc đến kết quả hoặc việc chờ kiểm thử tại thời
 điểm cũ. Không đánh dấu hoàn thành chỉ dựa trên sự tồn tại của code.
 
 Lượt verify cho `388ac7b` bao gồm test của version guard, OpenAI refusal,
 backup/restore giả lập, giới hạn AI và phân trang Trello được mô tả bên dưới.
-Kết quả không thay thế diễn tập restore thực tế, thử provider thật hoặc CI.
+Kết quả không thay thế diễn tập restore toàn bộ schema, thử provider thật hoặc CI.
+
+Sau đó, trên PostgreSQL 16 Compose riêng với bảng và dữ liệu giả, script thực
+tế đã backup/restore thành công một dòng; bảng được tạo sau backup vẫn tồn tại.
+Restore archive bị cắt trả lỗi, giữ dữ liệu ngay trước lần thử và giữ release
+lock. Đây không phải diễn tập toàn bộ schema Fluxora, queue, credential hay
+khôi phục production; không suy ra rollback về release trước đã an toàn.
 
 | Mục | Code bản nháp đã có | Còn thiếu bằng chứng hoặc công việc |
 |---|---|---|
@@ -149,7 +156,7 @@ Kết quả không thay thế diễn tập restore thực tế, thử provider t
 | NX-05 | RSS checkpoint/receipt và recovery; Kuma, Telegram, Trello, Vercel, Sentry webhook receiver và bảo vệ delivery ở mức khác nhau. PR có fence khi Cron và webhook cũ nhận execution. | Webhook provider có thể vẫn cần đăng ký thủ công; kiểm tra điều kiện provider và recovery thực tế. Các fence và retention đã qua verify cô lập/CI tại `20858a6`, chưa qua production. Không cam kết exactly-once. |
 | NX-06 | Structured JSON schema/output cho Gemini/OpenAI, metadata usage và giới hạn theo request. | Chưa có kiểm soát tổng chi phí hoặc chứng minh model bất kỳ hỗ trợ schema; media/binary chưa triển khai. Xem [giới hạn chi phí](39-nx06-ai-cost-controls.md). |
 | NX-07 | Tài liệu quyết định cho item/batch, binary, database change capture, Reddit và Meta. | Các hệ thống này chưa được coi là đã triển khai chỉ vì có thiết kế; phụ thuộc provider và phạm vi triển khai phải xét riêng. |
-| Phát hành | GitHub Quality gate đã pass tại PR head `20858a6`; full verify cô lập sau đó pass cho source `388ac7b`. Có diễn tập cô lập và guard từ chối fleet legacy. | CI trên head mới, first cutover và rollback về release trước chưa được chứng minh. PR #75 vẫn draft tại thời điểm ghi. Xem [review phát hành](40-nx-release-review.md). |
+| Phát hành | GitHub Quality gate đã pass tại PR head `ff0740a`; full verify cô lập pass cho source `388ac7b`. Có diễn tập cô lập và guard từ chối fleet legacy. | First cutover và rollback về release trước chưa được chứng minh. PR #75 vẫn draft tại thời điểm ghi; ghi chú restore mới chưa lên PR. Xem [review phát hành](40-nx-release-review.md). |
 
 ### Tiến độ bản nháp sau audit — chưa phát hành
 

@@ -1,10 +1,10 @@
 # NX draft: review boundaries and release decision
 
 Review snapshot: 2026-11-03, `origin/main` at `3c9ac35`, draft PR #75
-head `20858a6`. This is an initial risk-based review, not a completed
+head `ff0740a`. This is an initial risk-based review, not a completed
 line-by-line audit of every change. Recheck the base and head before using it
-for a release decision. The later isolated handoff observations in this file
-are local documentation and are not part of the PR head.
+for a release decision. The later isolated restore observation and CI result
+are local documentation added after that PR head.
 
 The runtime guard at `388ac7b` rejects unsupported versions before adapter
 selection and credential access, but does not implement multiple versions of
@@ -15,8 +15,14 @@ failed dump, but a successful dump is not a tested restore or proof of a safe
 production rollback.
 The later restore draft uses the shared release lock, blocks named active
 API/worker containers and requests a single PostgreSQL transaction. It has not
-passed an isolated restore drill; it cannot fence unmanaged
+been qualified as a previous-release rollback; it cannot fence unmanaged
 clients, recover writes after a snapshot, or by itself restore a previous release.
+An isolated PostgreSQL 16 Compose drill used the actual scripts on synthetic
+tables. A successful restore recovered a row from the backup while a table
+created afterward remained. A truncated archive failed with an EOF error;
+the row from immediately before that attempt remained and the release lock
+was retained. This is not a full Fluxora schema, migration, queue, credential,
+provider, interruption or production recovery test.
 The later Trello Find Cards pagination draft uses an explicit opt-in for
 historical nodes, bounded lookahead, and the documented page ceiling; it has
 not been exercised against the actual provider.
@@ -35,9 +41,10 @@ Verification update on 2026-11-03: exact code snapshot `388ac7b` passed
 checks, 909 API tests, 61 web tests, 202 Playwright tests, typecheck and build.
 The database integration flags were enabled, with no skipped API/web tests.
 The local run used Node 23; this documentation update was made afterward.
-GitHub CI using Node 22 previously passed only PR head `20858a6` (run
-`41625821559`); the updated head still needs CI. Synthetic tests do not prove
-live providers, first cutover or prior-release rollback. Earlier pending-test
+GitHub CI using Node 22 subsequently passed PR head `ff0740a` (run
+`41661263490`). This paragraph and the isolated restore observation were added
+after that run and are local documentation. Synthetic tests do not prove live
+providers, first cutover or prior-release rollback. Earlier pending-test
 statements below describe the findings when they were recorded.
 
 ## Scope and evidence
