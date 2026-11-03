@@ -36,6 +36,17 @@ blocked; the fixture did not create or resolve an approval request. This covers
 only the listed synthetic records and that NX continuation; it does not restore
 other Redis jobs, reconcile provider effects, establish behavior for old code,
 or prove an in-place restore, first production cutover or rollback.
+The synthetic snapshot was then restored again, and the legacy Prisma client,
+graph parser and vault implementation were exercised against it. Selected
+legacy-type workflow and credential records could be read/decrypted, but the
+old Prisma result did not expose the new continuation-token field and the old
+parser rejected an NX-only `.v2` node type. With a separately constructed,
+hypothetical `nodeVersion: 2` on an old node type, the old parser silently
+discarded that version. Current NX rejects version 2, so that last fixture is
+a future-compatibility demonstration, not a saved production graph. The legacy
+parser and vault source matched `3c9ac35`; this was not a legacy API/worker
+process or production image rehearsal. These observations do not authorize a
+downgrade, even though selected reads on the additive schema succeeded.
 The later Trello Find Cards pagination draft uses an explicit opt-in for
 historical nodes, bounded lookahead, and the documented page ceiling; it has
 not been exercised against the actual provider.

@@ -159,6 +159,15 @@ credential hay gọi provider; fixture không tạo/duyệt approval request. Ch
 kiểm chứng mọi record/job, old worker, in-place restore hoặc
 cutover/rollback production; không tự động replay tác động provider.
 
+Sau khi restore lại cùng snapshot giả, client Prisma, parser graph và vault
+legacy được thử trên database đã migrate: đọc được workflow kiểu cũ và giải
+mã credential giả, nhưng client cũ không expose continuation token mới và
+parser cũ từ chối node type `.v2`. Với fixture giả định `nodeVersion: 2` trên
+node type cũ, parser cũ bỏ qua version; NX hiện tại từ chối version 2 nên đây
+chỉ là rủi ro tương thích tương lai. Source parser/vault đối chiếu khớp
+`3c9ac35`; chưa thử toàn bộ API/worker hay image production và không suy ra
+có thể downgrade an toàn.
+
 | Mục | Code bản nháp đã có | Còn thiếu bằng chứng hoặc công việc |
 |---|---|---|
 | NX-02 | Registry executor/operation, fields dùng chung, một số cursor, OAuth theo connection; graph cũ không bắt buộc `nodeVersion`. Một số thay đổi hành vi dùng type `.v2` riêng. | `nodeVersion` mới chỉ nhận `1`; registry chưa chứng minh đủ schema/mock/redaction cho từng executable node. Cần review compatibility theo operation và final verify. |
