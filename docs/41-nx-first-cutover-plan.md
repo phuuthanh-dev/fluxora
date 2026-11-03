@@ -24,6 +24,16 @@ traffic until the gates below have been met.
   Execution events also publish asynchronously. Identify which are enabled in
   the real API process without disclosing its environment or credentials;
   fencing just Cron does not cover the others.
+- Further source inspection found that the legacy Google login token exchange,
+  Google ID-token verification and Steam OpenID verification issue `fetch`
+  without an explicit abort timeout. The 20-second OAuth-refresh timeout is
+  therefore not a bound on the entire API. Account mail also has a background
+  queue; it tracks its running flush in `onModuleDestroy`, but the legacy
+  bootstrap does not enable Nest shutdown hooks for SIGTERM. At the read-only
+  production check on 2026-11-04, account mail and GitHub webhook automation
+  were disabled, while the scheduler and execution maintenance were enabled.
+  These flags are a point-in-time observation, not evidence that any task is
+  idle or that those settings will remain unchanged.
 - An isolated mixed-worker experiment demonstrated an incorrectly completed
   approval continuation. A separate synthetic worker handoff and a restore
   into an empty database each worked for their stated fixtures; neither is a
