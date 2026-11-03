@@ -26,6 +26,12 @@ test("OpenAI sanitizes failures and classifies refusal and incomplete responses"
   }
   await assert.rejects(generateOpenAIText(input, async () => Response.json({ status: "incomplete", output: [] })), (error: unknown) => error instanceof NodeFailure && error.code === "INCOMPLETE_RESPONSE");
   await assert.rejects(generateOpenAIText(input, async () => Response.json({ status: "completed", output: [{ type: "message", role: "assistant", content: [{ type: "refusal", refusal: "sensitive" }] }] })), (error: unknown) => error instanceof NodeFailure && error.code === "PROVIDER_REFUSAL" && !error.message.includes("sensitive"));
+  let calls = 0;
+  await assert.rejects(generateOpenAIText(input, async () => {
+    calls += 1;
+    return Response.json({ status: "completed", output: [{ type: "message", role: "assistant", content: [{ type: "output_text", text: "partial" }, { type: "refusal", refusal: "sensitive" }] }] });
+  }), (error: unknown) => error instanceof NodeFailure && error.code === "PROVIDER_REFUSAL" && !error.retryable && !error.message.includes("sensitive"));
+  assert.equal(calls, 1);
 });
 
 test("OpenAI model listing is bounded and uses connection header", async () => {

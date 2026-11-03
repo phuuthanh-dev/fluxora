@@ -63,8 +63,10 @@ export async function generateOpenAIText(input: OpenAIInput, transport: Transpor
       return entry?.type === "output_text" && typeof entry.text === "string" ? [entry.text] : [];
     });
   }).join("");
-  if (outputSchema && refused) throw new NodeFailure("PROVIDER_REFUSAL", "OpenAI declined the request.", false);
-  if (!text) throw new NodeFailure(refused ? "PROVIDER_REFUSAL" : "EMPTY_RESPONSE", refused ? "OpenAI declined the request." : "OpenAI returned no text.", false);
+  // A response can contain both text and a refusal. Do not silently pass
+  // partial text downstream as a successful response in either output mode.
+  if (refused) throw new NodeFailure("PROVIDER_REFUSAL", "OpenAI declined the request.", false);
+  if (!text) throw new NodeFailure("EMPTY_RESPONSE", "OpenAI returned no text.", false);
   if (text.length > 100_000) throw new NodeFailure("RESPONSE_TOO_LARGE", "OpenAI returned too much text.", false);
   const json = outputSchema ? parseAiOutput(text, outputSchema) : undefined;
   assertNoAiCredentialEcho([text, json, input.model], input.apiKey);

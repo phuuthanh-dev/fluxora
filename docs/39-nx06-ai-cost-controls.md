@@ -66,6 +66,15 @@ the requirement. Other models and custom IDs are decided by the provider, not
 by name-prefix guesses. Mock output checks local schema syntax and represents no
 provider capability, availability, semantic quality or price guarantee.
 
+The local OpenAI draft also treats a response containing both text and a refusal
+as a non-retryable `PROVIDER_REFUSAL` in plain-text mode, as it already did for
+structured output. Previously a plain-text workflow could receive partial text
+as success and continue to later nodes; this intentional safety correction can
+instead take its error branch. The refusal text and partial content are not
+stored in the error. Regression coverage has been added but this change has not
+yet passed the final quality gate. OpenAI documents refusals as a distinct
+response content type; this policy is Fluxora's handling of a mixed response.
+
 References, consulted 2026-11-03:
 
 - [OpenAI Responses API](https://developers.openai.com/api/reference/resources/responses/methods/create)
