@@ -293,4 +293,5 @@ verification of the local draft passed as recorded at the top of this file.
   additional implementation changes follow the local verification above.
 
 The release decision remains **NO-GO**. No production data or services are
-changed by this review.
+changed by this review. The concrete first-cutover gates and required rehearsal
+are tracked in [the first-cutover plan](41-nx-first-cutover-plan.md).
