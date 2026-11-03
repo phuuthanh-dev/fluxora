@@ -34,6 +34,12 @@ An invalid setting fails closed and an oversized prompt is rejected rather than
 truncated, before the credential is read or a generation request is sent.
 Set the same value on all API and worker processes and drain old workers before
 relying on a change. This is a size bound, not a token count or spending cap.
+When an operator runs the local production environment validator, it now checks
+these optional variables against the same ranges, including rejecting an
+explicitly empty value. The deploy script does not automatically invoke this
+validator. It does not validate a running process or guarantee all workers
+actually received the same value. The new validation test awaits the final
+quality gate.
 
 Each node invocation issues at most one generation request in the production
 transport: unsafe redirects are rejected and provider, transport, timeout,
