@@ -84,6 +84,15 @@ undone by reverting a column.
    three mock executions succeeded with one node attempt each. This covers one
    process and one controlled handoff, not multiple worker processes, real
    provider effects, failure during shutdown, API drain, or rollback.
+   A subsequent synthetic cron handoff used the legacy execution service to
+   persist a scheduled run, then placed both a legacy-format queue job and an
+   NX recovery job for that execution in the same isolated Redis queue. With
+   the NX worker at concurrency two, both queue jobs completed but each of
+   the two non-provider nodes ran only once. The legacy execution-service
+   source matched `3c9ac35`; NX code came from the locally verified snapshot.
+   This covers a single already-persisted cron execution and competing jobs,
+   not interruption of the legacy API, missed schedules, provider effects or
+   a complete first cutover.
    A read-only production inventory at 2026-11-03 12:00 UTC confirmed the
    legacy production image, four active workflows (one cron and three manual),
    no active webhook endpoints on those workflows, no pending approvals and

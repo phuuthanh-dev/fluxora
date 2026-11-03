@@ -399,6 +399,8 @@ Không đánh dấu hoàn tất release NX hoặc suy ra production readiness ch
 
 Lượt verify cô lập mới nhất ngày 2026-11-03 đạt 52 kiểm tra deployment, 904 test API, 61 test web, typecheck, build và 201 Playwright; các nhóm tích hợp database được bật và API/web không bỏ qua test. Lượt trước đó thất bại do hai fixture trùng số phiên bản workflow; fixture đã được sửa trước lượt chạy đầy đủ thành công. Source đã được đối chiếu với checkout thử; cập nhật tài liệu này được thêm sau lượt chạy. Kết quả không chứng minh cutover đầu tiên, rollback về bản cũ hay hoạt động với provider thật; CI của PR hiện tại vẫn chỉ áp dụng cho commit cũ hơn.
 
+Diễn tập cron giả lập sau lượt verify: execution được tạo bằng service cũ tương ứng source `3c9ac35`; Redis thử chứa đồng thời job kiểu cũ và job phục hồi NX. Worker NX với concurrency 2 hoàn tất cả hai job nhưng mỗi node của workflow giả chỉ chạy một lần. Thử nghiệm không ngắt API cũ, không gọi provider và không chứng minh việc khôi phục mọi lịch bị bỏ lỡ, cutover hoặc rollback production.
+
 Review kiến trúc NX-05 chọn bắt đầu từ checkpoint, lease và recovery của Gmail
 hiện có, thay vì mặc định đưa thêm hệ thống guard/epoch toàn cục. Bản nháp cũ
 có migration ảnh hưởng đến các provider khác và chưa đủ điều kiện release.
