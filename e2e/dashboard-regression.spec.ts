@@ -179,6 +179,9 @@ test("editor loading surface follows the selected light and dark theme", async (
   await signUpAndDashboard(page, email);
   await page.getByRole("button", { name: "Use Steam template" }).click();
   await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+  // Finish the initial navigation before installing the gate: otherwise it
+  // can intercept the first editor's request while the reload is starting.
+  await expect(page.getByRole("heading", { name: "Steam daily report" })).toBeVisible({ timeout: 15_000 });
 
   const workflowId = new URL(page.url()).searchParams.get("workflow");
   expect(workflowId).toBeTruthy();
