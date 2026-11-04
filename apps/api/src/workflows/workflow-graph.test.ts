@@ -46,6 +46,15 @@ test("node versions preserve legacy graphs, retain v1 and reject unsupported val
   }
 });
 
+test("historical and .v2 node identities survive API parsing with or without nodeVersion", () => {
+  for (const base of ["trigger.uptime-kuma.alert", "action.google-drive", "action.google-sheets", "action.google-chat.oauth", "action.gmail.read", "action.notion.search-pages", "action.sentry.list-issues", "action.vercel.list-deployments", "action.postgres.select", "action.supabase.select"]) {
+    for (const suffix of ["", ".v2"]) for (const version of [undefined, 1]) {
+      const node = { id: "historical", type: base + suffix, ...(version === undefined ? {} : { nodeVersion: version }), position: { x: 2, y: 3 }, config: { savedValue: "preserve" } };
+      assert.deepEqual(parseWorkflowGraph({ nodes: [node], edges: [] }).nodes[0], node);
+    }
+  }
+});
+
 test("RSS drafts allow incomplete URLs without DNS but reject identifiable secrets", () => {
   const graph = (url: string) => ({ nodes: [{ id: "rss", type: "trigger.rss.new-item", position: { x: 0, y: 0 }, config: { url, pollMinutes: "5" } }], edges: [] });
   assert.doesNotThrow(() => parseWorkflowGraph(graph("")));
