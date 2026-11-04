@@ -1,8 +1,7 @@
 import { randomBytes } from "node:crypto";
-import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
+import { NodeFailure } from "./node-failure";
 import { readCredentialValue } from "./connector-config";
 import { driveListOutput, driveListUrl, readDrivePageToken } from "./google-drive-pagination";
-import { fetchSafeOutbound, fetchSafeOutboundWrite } from "./outbound-url-policy";
 import { readBoundedProviderText } from "./provider-json";
 import { isReadOnlyMethod, requireProviderSuccess, readProviderJson, uncertainDelivery } from "./provider-request-policy";
 

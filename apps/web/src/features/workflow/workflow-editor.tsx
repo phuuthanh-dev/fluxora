@@ -16,7 +16,6 @@ import {
   CirclePlay,
   Crosshair,
   Download,
-  FileUp,
   History,
   Layers3,
   LayoutDashboard,
@@ -28,7 +27,6 @@ import {
   Plus,
   RotateCcw,
   Save,
-  Sparkles,
   Upload,
   X,
 } from "lucide-react";
@@ -37,7 +35,6 @@ import { useRouter } from "next/navigation";
 import { ApiClientError, apiRequest, apiUrl } from "../api/api-client";
 import { validateWorkflowGraph } from "./graph-validation";
 import {
-  createNodeData,
   getNodeDefinition,
   upgradePaginationNode,
   type NodeDefinition,
