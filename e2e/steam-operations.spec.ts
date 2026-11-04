@@ -18,7 +18,7 @@ test("Steam offers the community operations and an owned-game picker with manual
     return route.continue();
   });
   await page.goto("/editor?workflow=steam-test");
-  await page.locator(".react-flow__node").filter({ hasText: "Read Steam data" }).click();
+  await page.locator(".react-flow__node").filter({ hasText: "Get user profile" }).click();
   const operation = page.getByLabel("Operation", { exact: true });
   await expect(operation.locator("option")).toHaveCount(7);
   await operation.selectOption("achievements");
@@ -32,7 +32,29 @@ test("Steam offers the community operations and an owned-game picker with manual
   const requestsAfterGameSelection = gameRequests;
   await operation.selectOption("resolveVanity");
   await expect(page.getByLabel("Profile name or Steam profile URL")).toBeVisible();
+  await expect(page.locator(".react-flow__node").filter({ hasText: "Resolve profile URL" })).toBeVisible();
   await expect(game).toHaveCount(0);
   expect(requestsAfterGameSelection).toBeGreaterThan(0);
   expect(gameRequests).toBe(requestsAfterGameSelection);
+  await page.getByLabel("Display name", { exact: true }).fill("My Steam step");
+  await operation.selectOption("recentGames");
+  await expect(page.locator(".react-flow__node").filter({ hasText: "My Steam step" })).toBeVisible();
+
+  const library = page.getByRole("complementary", { name: "Node Library" });
+  await library.getByLabel("Search apps and operations").fill("owned games");
+  const owned = library.getByRole("button", { name: /Steam: Get owned games/ });
+  await expect(owned).toBeVisible();
+  await library.getByRole("button", { name: "Add Get owned games to favorites (Steam)" }).click();
+  await owned.click();
+  await expect(page.getByLabel("Operation", { exact: true })).toHaveValue("ownedGames");
+  await expect(page.locator(".react-flow__node").filter({ hasText: "Get owned games" })).toBeVisible();
+  await expect(library.getByRole("button", { name: "Remove Get owned games from favorites (Steam)" })).toBeVisible();
+  await library.getByLabel("Search apps and operations").fill("badges");
+  await library.getByRole("button", { name: /Steam: Get badges/ }).dragTo(page.locator(".react-flow__pane"));
+  await expect(page.getByLabel("Operation", { exact: true })).toHaveValue("badges");
+  await expect(page.locator(".react-flow__node").filter({ hasText: "Get badges" })).toBeVisible();
+  await page.reload();
+  const favorites = library.getByRole("region", { name: "Favorites" });
+  await favorites.getByRole("button", { name: /Steam: Get owned games/ }).click();
+  await expect(page.getByLabel("Operation", { exact: true })).toHaveValue("ownedGames");
 });

@@ -54,6 +54,8 @@ export type NodeDefinition = {
   operationId: string;
   operationLabel: string;
   operationKind: OperationKind;
+  /** Optional presentation identity when several library actions share a runtime type. */
+  libraryId?: string;
   aliases?: string[];
   icon: NodeIconName;
   available: boolean;
@@ -987,7 +989,40 @@ export function getAppDefinition(appId: string) {
 }
 
 export function operationsForApp(appId: string) {
-  return nodeCatalog.filter((definition) => definition.appId === appId && !definition.hiddenFromLibrary);
+  return libraryCatalog.filter((definition) => definition.appId === appId && !definition.hiddenFromLibrary);
+}
+
+const steamActions = [
+  ["profile", "Get user profile", "Read a Steam user's profile."],
+  ["friends", "Get friend list", "Read the visible friends of a Steam user."],
+  ["badges", "Get badges", "Read a Steam user's badges."],
+  ["resolveVanity", "Resolve profile URL", "Find a Steam ID from a profile name or URL."],
+  ["ownedGames", "Get owned games", "Read games visible in a Steam library."],
+  ["recentGames", "Get recently played games", "Read a user's recent Steam games."],
+  ["achievements", "Get game achievements", "Read a user's achievements for a game."],
+] as const;
+
+/** Presentation entries reuse the same persisted node type and executor. */
+export const libraryCatalog: NodeDefinition[] = nodeCatalog.flatMap((definition) =>
+  definition.type !== "action.steam" ? [definition] : steamActions.map(([operation, label, description]) => ({
+    ...definition, libraryId: `action.steam#${operation}`, operationId: operation, operationLabel: label,
+    label, description, operationKind: "search" as const, aliases: [],
+    defaultConfig: { ...definition.defaultConfig, operation },
+  })),
+);
+
+export function libraryDefinitionId(definition: NodeDefinition): string {
+  return definition.libraryId ?? definition.type;
+}
+
+export function getLibraryDefinition(id: string): NodeDefinition | undefined {
+  const normalized = id === "action.steam" ? "action.steam#profile" : libraryNodeType(id);
+  return libraryCatalog.find((definition) => libraryDefinitionId(definition) === normalized);
+}
+
+export function getNodeDefinitionForConfig(type: string, config: Record<string, unknown>): NodeDefinition | undefined {
+  if (type === "action.steam") return getLibraryDefinition(`action.steam#${typeof config.operation === "string" ? config.operation : "profile"}`) ?? getNodeDefinition(type);
+  return getNodeDefinition(type);
 }
 
 /** Preserve old favorites/recent preferences without offering legacy nodes for new graphs. */

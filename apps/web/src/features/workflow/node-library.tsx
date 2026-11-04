@@ -15,9 +15,10 @@ import {
   appCatalog,
   coreNodeDefinitions,
   getAppDefinition,
-  libraryNodeType,
+  getLibraryDefinition,
+  libraryCatalog,
+  libraryDefinitionId,
   matchesNodeLibraryFilter,
-  nodeCatalog,
   nodeLibraryFilters,
   nodeLibraryGroups,
   operationsForApp,
@@ -45,11 +46,11 @@ function readStoredNodeTypes(key: string) {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(key) ?? "[]") as unknown;
     if (!Array.isArray(parsed)) return [];
-    const knownTypes = new Set(nodeCatalog.map((definition) => definition.type));
     return [...new Set(
       parsed.filter((value): value is string => typeof value === "string")
-        .map(libraryNodeType)
-        .filter((value) => knownTypes.has(value as NodeDefinition["type"])),
+        .map((value) => getLibraryDefinition(value))
+        .filter((value): value is NodeDefinition => Boolean(value))
+        .map(libraryDefinitionId),
     )];
   } catch {
     return [];
@@ -58,7 +59,7 @@ function readStoredNodeTypes(key: string) {
 
 function definitionsFromTypes(types: string[]) {
   return types.flatMap((type) => {
-    const definition = nodeCatalog.find((candidate) => candidate.type === type);
+    const definition = getLibraryDefinition(type);
     return definition ? [definition] : [];
   });
 }
@@ -124,7 +125,8 @@ export const NodeLibrary = forwardRef<NodeLibraryHandle, NodeLibraryProps>(funct
   }, []);
 
   const rememberRecent = (definition: NodeDefinition) => {
-    const next = [definition.type, ...recentTypes.filter((type) => type !== definition.type)].slice(0, recentLimit);
+    const id = libraryDefinitionId(definition);
+    const next = [id, ...recentTypes.filter((type) => type !== id)].slice(0, recentLimit);
     setRecentTypes(next);
     writePreference(recentStorageKey, next);
   };
@@ -142,9 +144,10 @@ export const NodeLibrary = forwardRef<NodeLibraryHandle, NodeLibraryProps>(funct
   };
 
   const toggleFavorite = (definition: NodeDefinition) => {
-    const next = favoriteTypes.includes(definition.type)
-      ? favoriteTypes.filter((type) => type !== definition.type)
-      : [...favoriteTypes, definition.type];
+    const id = libraryDefinitionId(definition);
+    const next = favoriteTypes.includes(id)
+      ? favoriteTypes.filter((type) => type !== id)
+      : [...favoriteTypes, id];
     setFavoriteTypes(next);
     writePreference(favoritesStorageKey, next);
   };
@@ -156,7 +159,7 @@ export const NodeLibrary = forwardRef<NodeLibraryHandle, NodeLibraryProps>(funct
   };
 
   const filteredDefinitions = useMemo(
-    () => nodeCatalog.filter((definition) => matchesNodeLibraryFilter(definition, search.trim() ? "all" : filter, search)),
+    () => libraryCatalog.filter((definition) => matchesNodeLibraryFilter(definition, search.trim() ? "all" : filter, search)),
     [filter, search],
   );
   const favoriteDefinitions = useMemo(() => definitionsFromTypes(favoriteTypes).filter((definition) => definition.available), [favoriteTypes]);
@@ -228,8 +231,8 @@ export const NodeLibrary = forwardRef<NodeLibraryHandle, NodeLibraryProps>(funct
         <button className="palette-back" type="button" onClick={returnToApps}><ArrowLeft size={14} /> All apps</button>
       ) : (
         <div className="node-palette__summary" aria-label="Node availability">
-          <span><i className="status-dot status-dot--ready" />{nodeCatalog.filter((node) => node.available && !node.hiddenFromLibrary).length} ready</span>
-          <span><i className="status-dot" />{nodeCatalog.filter((node) => !node.available && !node.hiddenFromLibrary).length} roadmap</span>
+          <span><i className="status-dot status-dot--ready" />{libraryCatalog.filter((node) => node.available && !node.hiddenFromLibrary).length} ready</span>
+          <span><i className="status-dot" />{libraryCatalog.filter((node) => !node.available && !node.hiddenFromLibrary).length} roadmap</span>
         </div>
       )}
       <p className="node-palette__hint">{selectedApp ? selectedApp.description : "Choose a core step or open an app to select one operation."}</p>
@@ -299,8 +302,8 @@ function OperationSection({ id, label, description, definitions, favoriteTypes, 
       <header><div><h3 id={`palette-group-${id}`}>{label}</h3><p>{description}</p></div><span>{definitions.length}</span></header>
       {definitions.map((definition) => {
         const app = definition.appId ? getAppDefinition(definition.appId) : undefined;
-        const favorite = favoriteTypes.includes(definition.type);
-        return <div className="palette-operation" key={definition.type}>
+        const favorite = favoriteTypes.includes(libraryDefinitionId(definition));
+        return <div className="palette-operation" key={libraryDefinitionId(definition)}>
           <button className={definition.available ? "palette-node" : "palette-node palette-node--planned"} type="button" draggable={definition.available} aria-disabled={!definition.available} onDragStart={(event) => onDragStart(event, definition)} onClick={() => onAdd(definition)} aria-label={`${app ? `${app.label}: ` : ""}${definition.operationLabel} ${definition.description}${definition.available ? "" : " Planned, unavailable"}`}>
             <span className="palette-node__icon"><NodeIcon name={definition.icon} size={16} /></span>
             <span className="palette-node__body"><span className="palette-node__title"><strong>{definition.operationLabel}</strong>{!definition.available && <em>Planned</em>}</span><small>{app ? `${app.label} · ` : ""}{definition.description}</small></span>
