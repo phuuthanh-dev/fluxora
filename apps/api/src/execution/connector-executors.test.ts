@@ -49,6 +49,27 @@ test("reader-first action dispatch selects existing v2 behavior without enabling
   assert.deepEqual((await executeNode(trigger, {}, { trigger: { status: "down" } }, "mock", "workspace", credentials, "execution")).output, { received: { status: "down" } });
 });
 
+test("canonical v2 actions match existing alias mock behavior across providers", async () => {
+  const fixtures: Array<[WorkflowNodeType, Record<string, unknown>]> = [
+    ["action.google-drive", { operation: "list" }],
+    ["action.google-sheets", { operation: "read", spreadsheetId: "sheet", range: "A1" }],
+    ["action.google-chat.oauth", { space: "spaces/test", message: "Hello" }],
+    ["action.gmail.read", { mailbox: "inbox", limit: 2 }],
+    ["action.notion.search-pages", { query: "Example", pageSize: 2 }],
+    ["action.sentry.list-issues", { organization: "org", project: "project", limit: 2 }],
+    ["action.vercel.list-deployments", { project: "prj_example", limit: 2 }],
+    ["action.postgres.select", { schema: "public", table: "items", limit: 2 }],
+    ["action.supabase.select", { table: "items", limit: 2 }],
+  ];
+  const credentials = { readForExecution: () => { throw new Error("mock accessed credentials"); } } as never;
+  for (const [type, config] of fixtures) {
+    const node = { id: "test", type, position: { x: 0, y: 0 }, config };
+    const canonical = await executeNode({ ...node, nodeVersion: 2 }, config, {}, "mock", "workspace", credentials, "execution");
+    const alias = await executeNode({ ...node, type: `${type}.v2` as WorkflowNodeType, nodeVersion: 1 }, config, {}, "mock", "workspace", credentials, "execution");
+    assert.deepEqual(canonical, alias, type);
+  }
+});
+
 test("Notion page creation is dispatched in mock mode without credentials", async () => {
   const config = { parentPageId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", title: "Example", content: "" };
   const credentials = { readForExecution: () => { throw new Error("mock accessed credentials"); } } as never;

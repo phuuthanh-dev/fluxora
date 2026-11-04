@@ -58,6 +58,7 @@ không hỗ trợ vẫn bị từ chối. Parser API dùng để ghi/import work
 chối** graph `nodeVersion: 2`. Editor local đọc và hiển thị theo handler tương
 ứng, giữ nguyên type/version khi export, nhưng chặn lưu draft có version `2`;
 đây chưa phải định dạng được phép ghi. Fixture round-trip cho 10 cặp đã pass,
+fixture mock execution cho cả chín action canonical cũng khớp alias hiện tại;
 E2E inspector và chặn lưu được thêm nhưng chờ final verify. Các đường đọc graph đã lưu trong
 workflow service, webhook và scheduler local cũng dùng reader mới; test cron
 và ingress Kuma với action canonical v2 giả đã pass. Reader local nay cũng
@@ -88,6 +89,10 @@ Chúng chỉ mô tả cấu hình, không thay thế validation hoặc authoriza
    thể chạy sai hành vi thay vì báo lỗi. Không ghi định dạng mới khi còn worker
    cũ, job cũ hoặc chưa chứng minh chính sách rollback. Test queue, execution
    đang chạy/chờ approval và webhook đúng phiên bản published.
+   Nhãn deploy hiện tại `io.fluxora.execution-compatibility=nx-v1` không phân
+   biệt image cũ chỉ đọc version `1` với image reader mới. Do đó kiểm tra nhãn
+   hiện tại chưa đủ điều kiện để bật ghi version `2`; cần contract nhận diện
+   reader cụ thể và chính sách rollback tương ứng trước khi thay đổi writer.
 4. Chỉ sau reader-first rollout và diễn tập restore/rollback mới xem xét bật
    ghi định dạng mới cho node/draft mới. Không chạy migration hàng loạt trên
    graph đã publish. Rollback phải fail closed hoặc có định dạng tương thích,
