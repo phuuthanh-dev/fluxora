@@ -31,6 +31,18 @@ test("historical and .v2 node identities survive editor import and export", () =
   }
 });
 
+test("canonical v2 nodes use v2 presentation while preserving their stored identity", () => {
+  for (const type of ["trigger.uptime-kuma.alert", "action.google-drive", "action.google-sheets", "action.google-chat.oauth", "action.gmail.read", "action.notion.search-pages", "action.sentry.list-issues", "action.vercel.list-deployments", "action.postgres.select", "action.supabase.select"] as const) {
+    const graph = { nodes: [{ id: "read", type, nodeVersion: 2, position: { x: 2, y: 3 }, config: { custom: "preserve" } }], edges: [] };
+    const canvas = graphFromApi(graph);
+    assert.equal(canvas.nodes[0]?.data.nodeType, type);
+    assert.equal(canvas.nodes[0]?.data.nodeVersion, 2);
+    assert.equal(canvas.nodes[0]?.data.label, getNodeDefinition(`${type}.v2`)?.label);
+    assert.deepEqual(graphForApi(canvas), graph);
+    assert.throws(() => graphFromApi({ ...graph, nodes: [{ ...graph.nodes[0]!, type: `${type}.v2` as WorkflowNodeType }] }), /Unsupported node version/);
+  }
+});
+
 test("new Telegram message nodes use plain text while existing formatting survives a round trip", () => {
   assert.equal(createNodeData(getNodeDefinition("action.telegram.message")!).config.parseMode, "");
   const graph = { nodes: [{ id: "telegram", type: "action.telegram.message" as const, position: { x: 0, y: 0 }, config: { text: "*formatted*", parseMode: "Markdown" } }], edges: [] };

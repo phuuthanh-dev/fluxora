@@ -1,4 +1,4 @@
-import { isSupportedWorkflowNodeVersion, type WorkflowEdge, type WorkflowGraph, type WorkflowNode } from "@workflow/contracts";
+import { nodeExecutionType, type WorkflowEdge, type WorkflowGraph, type WorkflowNode } from "@workflow/contracts";
 import { createNodeData, getNodeDefinitionForConfig, type WorkflowCanvasEdge, type WorkflowCanvasNode } from "./node-catalog";
 import { parseWorkflowCanvasGraph, type WorkflowCanvasGraph } from "./workflow-graph-schema";
 
@@ -37,9 +37,10 @@ export function graphForApi(graph: WorkflowCanvasGraph): WorkflowGraph {
 
 export function graphFromApi(graph: WorkflowGraph): WorkflowCanvasGraph {
   const nodes: WorkflowCanvasNode[] = graph.nodes.map((node) => {
-    const definition = getNodeDefinitionForConfig(node.type, node.config);
+    const effectiveType = nodeExecutionType(node.type, node.nodeVersion);
+    if (!effectiveType) throw new Error(`Unsupported node version for ${node.type}.`);
+    const definition = getNodeDefinitionForConfig(effectiveType, node.config);
     if (!definition) throw new Error(`Unsupported workflow node type: ${node.type}`);
-    if (node.nodeVersion !== undefined && !isSupportedWorkflowNodeVersion(node.nodeVersion)) throw new Error(`Unsupported node version for ${node.type}.`);
     const data = createNodeData(definition);
     if (node.nodeVersion === undefined) delete data.nodeVersion;
     else data.nodeVersion = node.nodeVersion;
@@ -47,7 +48,7 @@ export function graphFromApi(graph: WorkflowGraph): WorkflowCanvasGraph {
       id: node.id,
       type: "workflowNode",
       position: node.position,
-      data: { ...data, config: node.config },
+      data: { ...data, nodeType: node.type, config: node.config },
     };
   });
   const edges: WorkflowCanvasEdge[] = graph.edges.map((edge) => ({

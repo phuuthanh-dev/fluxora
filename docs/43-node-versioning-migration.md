@@ -54,13 +54,16 @@ giữ hành vi hiện tại. Đây không phải cơ chế hỗ trợ version 2.
 Dispatch và reader dành riêng cho execution ở local đã nhận chín action theo
 type chuẩn + `2` và chọn handler `.v2` hiện hữu. Fixture kiểm tra credential
 readiness của từng cặp và một execution mock Supabase từ graph giả; version
-không hỗ trợ vẫn bị từ chối. Parser dùng để ghi/import workflow và editor
-**vẫn từ chối** graph `nodeVersion: 2`. Các đường đọc graph đã lưu trong
+không hỗ trợ vẫn bị từ chối. Parser API dùng để ghi/import workflow **vẫn từ
+chối** graph `nodeVersion: 2`. Editor local đọc và hiển thị theo handler tương
+ứng, giữ nguyên type/version khi export, nhưng chặn lưu draft có version `2`;
+đây chưa phải định dạng được phép ghi. Fixture round-trip cho 10 cặp đã pass,
+E2E inspector và chặn lưu được thêm nhưng chờ final verify. Các đường đọc graph đã lưu trong
 workflow service, webhook và scheduler local cũng dùng reader mới; test cron
 và ingress Kuma với action canonical v2 giả đã pass. Reader local nay cũng
 ánh xạ Kuma canonical v2 sang filter và delivery path `.v2`; fixture xác nhận
 filter, validation và dispatch cho hai biểu diễn. Chưa kiểm thử đầy đủ các
-provider, editor, mixed fleet hoặc rollback. Chưa thay định dạng lưu hay mặc
+provider, mixed fleet hoặc rollback. Chưa thay định dạng lưu hay mặc
 định của workflow.
 
 ## Rollout và kiểm thử trước khi đổi định dạng ghi

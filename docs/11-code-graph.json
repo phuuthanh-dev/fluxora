@@ -3205,6 +3205,7 @@
         "apps/web/src/features/workflow/workflow-node.tsx"
       ],
       "externalImports": [
+        "@workflow/contracts",
         "@xyflow/react",
         "@xyflow/react/dist/style.css",
         "lucide-react",
@@ -3231,6 +3232,7 @@
         "apps/web/src/features/workflow/node-icon.tsx"
       ],
       "externalImports": [
+        "@workflow/contracts",
         "@xyflow/react"
       ]
     },

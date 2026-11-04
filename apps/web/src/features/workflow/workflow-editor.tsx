@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { nodeExecutionType } from "@workflow/contracts";
 import { ApiClientError, apiRequest, apiUrl } from "../api/api-client";
 import { validateWorkflowGraph } from "./graph-validation";
 import {
@@ -850,7 +851,7 @@ function RelationalNodeField({ node, workspaceId, workflowId, owner, credentials
   node: WorkflowCanvasNode; workspaceId: string; workflowId: string; owner: boolean; credentials: CredentialSummary[];
   draft?: RelationalDraft; onDraftChange: (draft: RelationalDraft | undefined) => void; jsonPending: boolean;
 }) {
-  const provider: RelationalProvider = node.data.nodeType === "action.postgres.select.v2" ? "postgres" : "supabase";
+  const provider: RelationalProvider = nodeExecutionType(node.data.nodeType, node.data.nodeVersion) === "action.postgres.select.v2" ? "postgres" : "supabase";
   const config = node.data.config;
   const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
   const table = typeof config.table === "string" ? config.table : "";
@@ -892,87 +893,88 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
     );
   }
 
-  const definition = getNodeDefinition(node.data.nodeType);
-  const showPaginationUpgrade = Boolean(upgradePaginationNode(node.data)) && !(node.data.nodeType === "action.google-drive" && ["uploadText", "downloadText"].includes(String(node.data.config.operation)));
+  const effectiveNodeType = nodeExecutionType(node.data.nodeType, node.data.nodeVersion) ?? node.data.nodeType;
+  const definition = getNodeDefinition(effectiveNodeType);
+  const showPaginationUpgrade = Boolean(upgradePaginationNode(node.data)) && !(effectiveNodeType === "action.google-drive" && ["uploadText", "downloadText"].includes(String(node.data.config.operation)));
   const nodeExecution = execution?.nodeExecutions.find((item) => item.nodeId === node.id);
   const approvalId = nodeExecution?.output && typeof nodeExecution.output === "object" && !Array.isArray(nodeExecution.output) && typeof (nodeExecution.output as Record<string, unknown>).approvalRequestId === "string"
     ? (nodeExecution.output as Record<string, unknown>).approvalRequestId as string
     : null;
   const updateConfig = (key: string, value: unknown) => {
-    const config = node.data.nodeType === "action.google-drive.v2" ? resetDrivePageToken(node.data.config, key, value) : { ...node.data.config, [key]: value };
+    const config = effectiveNodeType === "action.google-drive.v2" ? resetDrivePageToken(node.data.config, key, value) : { ...node.data.config, [key]: value };
     if (value === undefined) delete config[key];
-    if (node.data.nodeType.startsWith("action.telegram.") && key === "destinationType" && value !== "supergroup" && "messageThreadId" in config) config.messageThreadId = "";
-    if (["action.google-chat.oauth.v2", "action.google-chat.reply", "action.google-chat.edit-message"].includes(node.data.nodeType) && node.data.config[key] !== value) {
+    if (effectiveNodeType.startsWith("action.telegram.") && key === "destinationType" && value !== "supergroup" && "messageThreadId" in config) config.messageThreadId = "";
+    if (["action.google-chat.oauth.v2", "action.google-chat.reply", "action.google-chat.edit-message"].includes(effectiveNodeType) && node.data.config[key] !== value) {
       if (key === "credentialId") config.space = "";
       if ((key === "credentialId" || key === "space") && "threadName" in config) config.threadName = "";
       if ((key === "credentialId" || key === "space") && "messageName" in config) config.messageName = "";
     }
-    if (node.data.nodeType.startsWith("action.google-calendar.") && node.data.config[key] !== value) {
+    if (effectiveNodeType.startsWith("action.google-calendar.") && node.data.config[key] !== value) {
       if (key === "credentialId") { config.calendarId = "primary"; config.eventId = ""; }
       else if (key === "calendarId") config.eventId = "";
-      if (node.data.nodeType === "action.google-calendar.list-events" && ["credentialId", "calendarId", "limit", "timeMin"].includes(key) && "pageToken" in config) config.pageToken = "";
+      if (effectiveNodeType === "action.google-calendar.list-events" && ["credentialId", "calendarId", "limit", "timeMin"].includes(key) && "pageToken" in config) config.pageToken = "";
     }
-    if (["action.google-drive", "action.google-drive.v2"].includes(node.data.nodeType) && key === "credentialId" && node.data.config.credentialId !== value && "fileId" in config) config.fileId = "";
-    if (["action.google-sheets", "action.google-sheets.v2"].includes(node.data.nodeType) && key === "credentialId" && node.data.config.credentialId !== value) config.spreadsheetId = "";
-    if (node.data.nodeType === "trigger.gmail" && key === "credentialId" && node.data.config.credentialId !== value) config.labelId = "";
-    if (["action.gmail.reply", "action.gmail.modify-label"].includes(node.data.nodeType) && key === "credentialId" && node.data.config.credentialId !== value) {
+    if (["action.google-drive", "action.google-drive.v2"].includes(effectiveNodeType) && key === "credentialId" && node.data.config.credentialId !== value && "fileId" in config) config.fileId = "";
+    if (["action.google-sheets", "action.google-sheets.v2"].includes(effectiveNodeType) && key === "credentialId" && node.data.config.credentialId !== value) config.spreadsheetId = "";
+    if (effectiveNodeType === "trigger.gmail" && key === "credentialId" && node.data.config.credentialId !== value) config.labelId = "";
+    if (["action.gmail.reply", "action.gmail.modify-label"].includes(effectiveNodeType) && key === "credentialId" && node.data.config.credentialId !== value) {
       config.messageId = "";
       if ("labelId" in config) config.labelId = "";
     }
-    if (node.data.nodeType === "action.gmail.update-draft" && key === "credentialId" && node.data.config.credentialId !== value) config.draftId = "";
-    if (node.data.nodeType === "action.gmail.read.v2" && node.data.config[key] !== value && ["credentialId", "mailbox", "query", "limit"].includes(key) && "pageToken" in config) config.pageToken = "";
-    if (node.data.nodeType === "trigger.trello.board-action" && key === "credentialId" && node.data.config.credentialId !== value) config.boardId = "";
-    if (node.data.nodeType.startsWith("action.trello.") && node.data.config[key] !== value) {
+    if (effectiveNodeType === "action.gmail.update-draft" && key === "credentialId" && node.data.config.credentialId !== value) config.draftId = "";
+    if (effectiveNodeType === "action.gmail.read.v2" && node.data.config[key] !== value && ["credentialId", "mailbox", "query", "limit"].includes(key) && "pageToken" in config) config.pageToken = "";
+    if (effectiveNodeType === "trigger.trello.board-action" && key === "credentialId" && node.data.config.credentialId !== value) config.boardId = "";
+    if (effectiveNodeType.startsWith("action.trello.") && node.data.config[key] !== value) {
       if (key === "credentialId") for (const dependent of ["boardId", "sourceBoardId", "listId", "cardId", "before"]) { if (dependent in config) config[dependent] = ""; }
       else if (key === "sourceBoardId" && "cardId" in config) config.cardId = "";
       else if (key === "boardId") { if ("listId" in config) config.listId = ""; if ("before" in config) config.before = ""; }
-      else if (node.data.nodeType === "action.trello.list-cards" && ["filter", "limit"].includes(key) && "before" in config) config.before = "";
-      if (node.data.nodeType === "action.trello.find-cards" && ["credentialId", "boardId", "query", "limit"].includes(key) && "page" in config) config.page = 0;
-      if (node.data.nodeType === "action.trello.find-cards" && key === "searchPagination" && value === "pages") config.page = 0;
+      else if (effectiveNodeType === "action.trello.list-cards" && ["filter", "limit"].includes(key) && "before" in config) config.before = "";
+      if (effectiveNodeType === "action.trello.find-cards" && ["credentialId", "boardId", "query", "limit"].includes(key) && "page" in config) config.page = 0;
+      if (effectiveNodeType === "action.trello.find-cards" && key === "searchPagination" && value === "pages") config.page = 0;
     }
-    if (node.data.nodeType.startsWith("action.notion.") && node.data.config[key] !== value) {
+    if (effectiveNodeType.startsWith("action.notion.") && node.data.config[key] !== value) {
       if (key === "credentialId") {
-        for (const dependent of node.data.nodeType === "action.notion.search-pages" ? ["pageId", "blockId", "propertyId"] : ["pageId", "parentPageId", "blockId", "propertyId", "dataSourceId", "filterProperty", "cursor"]) { if (dependent in config) config[dependent] = ""; }
-        if (node.data.nodeType === "action.notion.query-data-source" && config.filterMode !== "checkbox" && "filterValue" in config) config.filterValue = "";
+        for (const dependent of effectiveNodeType === "action.notion.search-pages" ? ["pageId", "blockId", "propertyId"] : ["pageId", "parentPageId", "blockId", "propertyId", "dataSourceId", "filterProperty", "cursor"]) { if (dependent in config) config[dependent] = ""; }
+        if (effectiveNodeType === "action.notion.query-data-source" && config.filterMode !== "checkbox" && "filterValue" in config) config.filterValue = "";
       }
-      else if (["query", "pageId", "blockId", "dataSourceId", "pageSize"].includes(key)) { if (node.data.nodeType !== "action.notion.search-pages" && "cursor" in config) config.cursor = ""; if (key === "pageId" && "propertyId" in config) config.propertyId = ""; if (key === "dataSourceId" && "filterProperty" in config) { config.filterProperty = ""; if ("filterValue" in config && config.filterMode !== "checkbox") config.filterValue = ""; } }
-      else if (node.data.nodeType === "action.notion.query-data-source" && ["sort", "editedAfter", "filterMode", "filterProperty", "filterValue"].includes(key)) { if ("cursor" in config) config.cursor = ""; if (key === "filterProperty" && config.filterMode !== "checkbox") config.filterValue = ""; if (key === "filterMode") { config.filterProperty = ""; config.filterValue = value === "checkbox" ? "true" : ""; } }
+      else if (["query", "pageId", "blockId", "dataSourceId", "pageSize"].includes(key)) { if (effectiveNodeType !== "action.notion.search-pages" && "cursor" in config) config.cursor = ""; if (key === "pageId" && "propertyId" in config) config.propertyId = ""; if (key === "dataSourceId" && "filterProperty" in config) { config.filterProperty = ""; if ("filterValue" in config && config.filterMode !== "checkbox") config.filterValue = ""; } }
+      else if (effectiveNodeType === "action.notion.query-data-source" && ["sort", "editedAfter", "filterMode", "filterProperty", "filterValue"].includes(key)) { if ("cursor" in config) config.cursor = ""; if (key === "filterProperty" && config.filterMode !== "checkbox") config.filterValue = ""; if (key === "filterMode") { config.filterProperty = ""; config.filterValue = value === "checkbox" ? "true" : ""; } }
     }
-    if ((node.data.nodeType === "action.github" || node.data.nodeType.startsWith("action.github.")) && node.data.config[key] !== value) {
+    if ((effectiveNodeType === "action.github" || effectiveNodeType.startsWith("action.github.")) && node.data.config[key] !== value) {
       if (key === "credentialId" && "repository" in config) config.repository = "";
       if (key === "credentialId" || key === "repository") for (const dependent of ["issueNumber", "pullRequestNumber"]) { if (dependent in config) config[dependent] = ""; }
       if (["credentialId", "repository", "state", "pageSize"].includes(key) && "page" in config) config.page = 1;
     }
-    if (node.data.nodeType === "trigger.sentry.issue-created" && node.data.config[key] !== value) {
+    if (effectiveNodeType === "trigger.sentry.issue-created" && node.data.config[key] !== value) {
       if (key === "credentialId" || key === "organization") { config.project = ""; config.installationId = ""; }
       if (key === "credentialId") config.organization = "";
     }
-    if (node.data.nodeType.startsWith("action.sentry.") && node.data.config[key] !== value) {
+    if (effectiveNodeType.startsWith("action.sentry.") && node.data.config[key] !== value) {
       if (key === "credentialId") { config.organization = ""; config.project = ""; }
       else if (key === "organization") config.project = "";
       if (["credentialId", "organization", "project"].includes(key) && "issueId" in config) config.issueId = "";
-      if (node.data.nodeType !== "action.sentry.list-issues" && ["credentialId", "organization", "project", "status", "limit"].includes(key) && "cursor" in config) config.cursor = "";
+      if (effectiveNodeType !== "action.sentry.list-issues" && ["credentialId", "organization", "project", "status", "limit"].includes(key) && "cursor" in config) config.cursor = "";
     }
-    if (node.data.nodeType.startsWith("action.vercel.") && node.data.config[key] !== value) {
+    if (effectiveNodeType.startsWith("action.vercel.") && node.data.config[key] !== value) {
       if (key === "credentialId") { config.team = "personal"; if ("project" in config) config.project = ""; }
       else if (key === "team" && "project" in config) config.project = "";
       if (["credentialId", "team"].includes(key) && "deploymentId" in config) config.deploymentId = "";
-      if (node.data.nodeType !== "action.vercel.list-deployments" && ["credentialId", "team", "project", "limit"].includes(key) && "cursor" in config) config.cursor = "";
+      if (effectiveNodeType !== "action.vercel.list-deployments" && ["credentialId", "team", "project", "limit"].includes(key) && "cursor" in config) config.cursor = "";
     }
-    if (["action.postgres.select", "action.postgres.select.v2"].includes(node.data.nodeType) && node.data.config[key] !== value) {
+    if (["action.postgres.select", "action.postgres.select.v2"].includes(effectiveNodeType) && node.data.config[key] !== value) {
       if (key === "credentialId") { config.schema = ""; config.table = ""; }
       else if (key === "schema") config.table = "";
     }
-    if (["action.mongodb", "action.mongodb.insert"].includes(node.data.nodeType) && node.data.config[key] !== value) {
+    if (["action.mongodb", "action.mongodb.insert"].includes(effectiveNodeType) && node.data.config[key] !== value) {
       if (key === "credentialId") { config.database = ""; config.collection = ""; }
       else if (key === "database") config.collection = "";
     }
-    if ((node.data.nodeType === "action.supabase.select" || node.data.nodeType === "action.supabase.select.v2" || node.data.nodeType === "action.supabase.insert-row") && key === "credentialId" && node.data.config.credentialId !== value) config.table = "";
-    if (node.data.nodeType === "action.supabase.insert-row" && (key === "credentialId" || key === "table") && node.data.config[key] !== value) config.fields = [];
-    if ((node.data.nodeType === "action.steam" || node.data.nodeType === "action.riot-lol" || node.data.nodeType === "action.riot-tft") && key === "operation") {
-      const previous = getNodeDefinitionForConfig(node.data.nodeType, node.data.config);
-      const next = getNodeDefinitionForConfig(node.data.nodeType, config);
-      if (next && (node.data.label === previous?.label || node.data.label === getNodeDefinition(node.data.nodeType)?.label)) {
+    if ((effectiveNodeType === "action.supabase.select" || effectiveNodeType === "action.supabase.select.v2" || effectiveNodeType === "action.supabase.insert-row") && key === "credentialId" && node.data.config.credentialId !== value) config.table = "";
+    if (effectiveNodeType === "action.supabase.insert-row" && (key === "credentialId" || key === "table") && node.data.config[key] !== value) config.fields = [];
+    if ((effectiveNodeType === "action.steam" || effectiveNodeType === "action.riot-lol" || effectiveNodeType === "action.riot-tft") && key === "operation") {
+      const previous = getNodeDefinitionForConfig(effectiveNodeType, node.data.config);
+      const next = getNodeDefinitionForConfig(effectiveNodeType, config);
+      if (next && (node.data.label === previous?.label || node.data.label === getNodeDefinition(effectiveNodeType)?.label)) {
         updateNodeData(node.id, { config, label: next.label, description: next.description });
         return;
       }
@@ -997,15 +999,16 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
         />
       </InspectorSection>
       <InspectorSection title="Configuration">
-      {(node.data.nodeType === "action.riot-lol" || node.data.nodeType === "action.riot-tft") && <Status tone="warning" className="inspector-note"><strong>Riot API prototype</strong><span>Live execution on production is unavailable while Riot approval is pending. Use a key authorized for this game and product on a private prototype. Player data can appear in execution history.{node.data.nodeType === "action.riot-tft" ? " TFT is for post-game analysis; do not use it for live scouting or gameplay advice." : ""}</span></Status>}
-      {node.data.nodeType === "trigger.uptime-kuma.alert" && <Status tone="info" className="inspector-note"><strong>Filter monitor alerts</strong><span>This original trigger accepts every alert. Enable filters in the draft to choose a monitor or status; saved settings are preserved and publishing remains separate.</span><Button type="button" variant="secondary" disabled={hasPending} onClick={() => {
+      {node.data.nodeVersion === 2 && <Status tone="warning" className="inspector-note">This node version can be viewed, but saving its workflow is not enabled yet. Export a copy before making changes.</Status>}
+      {(effectiveNodeType === "action.riot-lol" || effectiveNodeType === "action.riot-tft") && <Status tone="warning" className="inspector-note"><strong>Riot API prototype</strong><span>Live execution on production is unavailable while Riot approval is pending. Use a key authorized for this game and product on a private prototype. Player data can appear in execution history.{effectiveNodeType === "action.riot-tft" ? " TFT is for post-game analysis; do not use it for live scouting or gameplay advice." : ""}</span></Status>}
+      {effectiveNodeType === "trigger.uptime-kuma.alert" && <Status tone="info" className="inspector-note"><strong>Filter monitor alerts</strong><span>This original trigger accepts every alert. Enable filters in the draft to choose a monitor or status; saved settings are preserved and publishing remains separate.</span><Button type="button" variant="secondary" disabled={hasPending} onClick={() => {
         const state = useWorkflowEditorStore.getState();
         const latest = state.nodes.find((candidate) => candidate.id === node.id);
         if (!latest || latest.data.nodeType !== "trigger.uptime-kuma.alert") return;
         state.updateNodeData(node.id, { nodeType: "trigger.uptime-kuma.alert.v2", nodeVersion: 1, config: { ...latest.data.config, statusFilter: latest.data.config.statusFilter ?? "any" } });
       }}>Enable filters in draft</Button></Status>}
-      {node.data.nodeType === "trigger.uptime-kuma.alert.v2" && <Status tone="info" className="inspector-note">Leave Monitor ID empty for all monitors. Repeated notifications may start multiple runs unless the sender supplies an Idempotency-Key. Matching keys are remembered while execution history is retained for this published version.</Status>}
-      {node.data.nodeType === "action.google-sheets" && <Status tone="info" className="inspector-note"><strong>Choose how values are written</strong><span>This version writes values as if typed in Sheets. Upgrade the draft to also write text without interpreting formulas; publishing remains separate.</span><Button type="button" variant="secondary" disabled={hasPending} onClick={() => {
+      {effectiveNodeType === "trigger.uptime-kuma.alert.v2" && <Status tone="info" className="inspector-note">Leave Monitor ID empty for all monitors. Repeated notifications may start multiple runs unless the sender supplies an Idempotency-Key. Matching keys are remembered while execution history is retained for this published version.</Status>}
+      {effectiveNodeType === "action.google-sheets" && <Status tone="info" className="inspector-note"><strong>Choose how values are written</strong><span>This version writes values as if typed in Sheets. Upgrade the draft to also write text without interpreting formulas; publishing remains separate.</span><Button type="button" variant="secondary" disabled={hasPending} onClick={() => {
         const state = useWorkflowEditorStore.getState();
         const latest = state.nodes.find((candidate) => candidate.id === node.id);
         if (!latest || latest.data.nodeType !== "action.google-sheets") return;
@@ -1014,71 +1017,71 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       {showPaginationUpgrade && <Status tone="warning" className="inspector-note"><strong>Original pagination behavior</strong><span>This node ignores saved continuation fields. Upgrading keeps the entire configuration and may change results or cause invalid saved cursors to fail. This updates only the draft; publishing is separate.</span><Button type="button" variant="secondary" disabled={hasPending} onClick={() => {
         const state = useWorkflowEditorStore.getState();
         const latest = state.nodes.find((candidate) => candidate.id === node.id);
-        if (!latest || latest.data.nodeType !== node.data.nodeType) return;
+        if (!latest || latest.data.nodeType !== effectiveNodeType) return;
         const upgraded = upgradePaginationNode(latest.data);
         if (upgraded) state.updateNodeData(node.id, upgraded);
       }}>Use paginated version in draft</Button></Status>}
-      {definition?.configurationFields && <NodeConfigurationFields key={`configuration-${node.id}`} fields={definition.configurationFields} config={node.data.config} credentials={credentials} workspaceId={workspaceId} workflowId={workflowId} nodeId={node.id} owner={owner} allowExpressions={!node.data.nodeType.startsWith("trigger.")} onChange={updateConfig} draft={draft} onDraftChange={onDraftChange} />}
-      {node.data.nodeType === "action.reddit.list-posts" && <Status tone="warning" className="inspector-note"><strong>Reddit access is changing</strong><span>New public Data API access requests stopped on October 31, 2026. Existing approved access is being phased out; availability depends on Reddit. <a href="https://support.reddithelp.com/hc/en-us/articles/54353370049684-Changelog-October-8-2026" target="_blank" rel="noopener noreferrer">Read Reddit's migration timeline</a>.</span></Status>}
-      {["action.rss.read", "trigger.rss.new-item"].includes(node.data.nodeType) && isRedditFeed(node.data.config.url) && <Status tone="warning" className="inspector-note"><strong>Reddit RSS support is ending</strong><span>Reddit announced RSS support ends November 13, 2026. This feed may stop working. <a href="https://support.reddithelp.com/hc/en-us/articles/54353370049684-Changelog-October-8-2026" target="_blank" rel="noopener noreferrer">See Reddit's announcement</a>.</span></Status>}
-      {["action.openai", "action.gemini"].includes(node.data.nodeType) && <Status tone="info" className="inspector-note">Generation may incur provider charges, including after a timeout. Limits apply per request; an administrator may set lower ceilings for output and prompt size. Model and structured-output support depend on the provider.</Status>}
-      {["action.openai", "action.gemini"].includes(node.data.nodeType) && (node.data.config.maxOutputTokens === "" || (typeof node.data.config.maxOutputTokens === "number" && (!Number.isInteger(node.data.config.maxOutputTokens) || node.data.config.maxOutputTokens < 1 || node.data.config.maxOutputTokens > 8192))) && <Status tone="warning" className="inspector-note">Max output tokens must be a whole number from 1 to 8,192. Your administrator may set a lower limit.</Status>}
-      {["action.openai", "action.gemini"].includes(node.data.nodeType) && (node.data.config.timeoutMs === "" || (typeof node.data.config.timeoutMs === "number" && (!Number.isInteger(node.data.config.timeoutMs) || node.data.config.timeoutMs < 1000 || node.data.config.timeoutMs > 120000))) && <Status tone="warning" className="inspector-note">Timeout must be a whole number between 1,000 and 120,000 milliseconds.</Status>}
-      {["action.google-sheets", "action.google-sheets.v2"].includes(node.data.nodeType) && <GoogleSheetsMappingField key={`sheets-mapping-${node.id}`} workspaceId={workspaceId} config={node.data.config} draft={draft.sheetsMapping} onDraftChange={(next) => onDraftChange("sheetsMapping", next)} applyBlockedReason={draft.json ? "Apply or discard the node JSON edits before applying this preview." : undefined} onApply={onApplySheets} />}
-      {(["action.postgres.select", "action.supabase.select", "action.postgres.select.v2", "action.supabase.select.v2"].includes(node.data.nodeType)) && (node.data.nodeType.endsWith(".select.v2")
+      {definition?.configurationFields && <NodeConfigurationFields key={`configuration-${node.id}`} fields={definition.configurationFields} config={node.data.config} credentials={credentials} workspaceId={workspaceId} workflowId={workflowId} nodeId={node.id} owner={owner} allowExpressions={!effectiveNodeType.startsWith("trigger.")} onChange={updateConfig} draft={draft} onDraftChange={onDraftChange} />}
+      {effectiveNodeType === "action.reddit.list-posts" && <Status tone="warning" className="inspector-note"><strong>Reddit access is changing</strong><span>New public Data API access requests stopped on October 31, 2026. Existing approved access is being phased out; availability depends on Reddit. <a href="https://support.reddithelp.com/hc/en-us/articles/54353370049684-Changelog-October-8-2026" target="_blank" rel="noopener noreferrer">Read Reddit's migration timeline</a>.</span></Status>}
+      {["action.rss.read", "trigger.rss.new-item"].includes(effectiveNodeType) && isRedditFeed(node.data.config.url) && <Status tone="warning" className="inspector-note"><strong>Reddit RSS support is ending</strong><span>Reddit announced RSS support ends November 13, 2026. This feed may stop working. <a href="https://support.reddithelp.com/hc/en-us/articles/54353370049684-Changelog-October-8-2026" target="_blank" rel="noopener noreferrer">See Reddit's announcement</a>.</span></Status>}
+      {["action.openai", "action.gemini"].includes(effectiveNodeType) && <Status tone="info" className="inspector-note">Generation may incur provider charges, including after a timeout. Limits apply per request; an administrator may set lower ceilings for output and prompt size. Model and structured-output support depend on the provider.</Status>}
+      {["action.openai", "action.gemini"].includes(effectiveNodeType) && (node.data.config.maxOutputTokens === "" || (typeof node.data.config.maxOutputTokens === "number" && (!Number.isInteger(node.data.config.maxOutputTokens) || node.data.config.maxOutputTokens < 1 || node.data.config.maxOutputTokens > 8192))) && <Status tone="warning" className="inspector-note">Max output tokens must be a whole number from 1 to 8,192. Your administrator may set a lower limit.</Status>}
+      {["action.openai", "action.gemini"].includes(effectiveNodeType) && (node.data.config.timeoutMs === "" || (typeof node.data.config.timeoutMs === "number" && (!Number.isInteger(node.data.config.timeoutMs) || node.data.config.timeoutMs < 1000 || node.data.config.timeoutMs > 120000))) && <Status tone="warning" className="inspector-note">Timeout must be a whole number between 1,000 and 120,000 milliseconds.</Status>}
+      {["action.google-sheets", "action.google-sheets.v2"].includes(effectiveNodeType) && <GoogleSheetsMappingField key={`sheets-mapping-${node.id}`} workspaceId={workspaceId} config={node.data.config} draft={draft.sheetsMapping} onDraftChange={(next) => onDraftChange("sheetsMapping", next)} applyBlockedReason={draft.json ? "Apply or discard the node JSON edits before applying this preview." : undefined} onApply={onApplySheets} />}
+      {(["action.postgres.select", "action.supabase.select", "action.postgres.select.v2", "action.supabase.select.v2"].includes(effectiveNodeType)) && (effectiveNodeType.endsWith(".select.v2")
         ? <RelationalNodeField key={`relational-${node.id}`} node={node} workspaceId={workspaceId} workflowId={workflowId} owner={owner} credentials={credentials} draft={draft.relational} onDraftChange={(next) => onDraftChange("relational", next)} jsonPending={draft.json !== undefined} />
-        : <Status tone="warning" className="inspector-note"><strong>Original selection behavior</strong><span>This node reads all columns and ignores saved selection fields. Switching to the new selection may change results; existing fields will be kept and applied, and unsupported fields must be corrected. {node.data.nodeType === "action.supabase.select" && "This version ignores a connection's user access token. After upgrading, that token is used when present and may change the database identity and accessible rows. "}This updates the draft only; publish to change live runs.</span><Button type="button" variant="secondary" disabled={hasPending} onClick={() => {
+        : <Status tone="warning" className="inspector-note"><strong>Original selection behavior</strong><span>This node reads all columns and ignores saved selection fields. Switching to the new selection may change results; existing fields will be kept and applied, and unsupported fields must be corrected. {effectiveNodeType === "action.supabase.select" && "This version ignores a connection's user access token. After upgrading, that token is used when present and may change the database identity and accessible rows. "}This updates the draft only; publish to change live runs.</span><Button type="button" variant="secondary" disabled={hasPending} onClick={() => {
           const state = useWorkflowEditorStore.getState();
           const latest = state.nodes.find((candidate) => candidate.id === node.id);
-          if (!latest || latest.data.nodeType !== node.data.nodeType) return;
+          if (!latest || latest.data.nodeType !== effectiveNodeType) return;
           const upgraded = upgradeRelationalNode(latest.data);
           if (upgraded) state.updateNodeData(node.id, upgraded);
         }}>Use new selection in draft</Button></Status>)}
-      {node.data.nodeType === "action.trello.create-card" && <Status tone="info" className="inspector-note">Card creation can be duplicated if a run is repeated. If the result is uncertain, check Trello before retrying.</Status>}
-      {node.data.nodeType === "action.github.merge-pull-request" && <Status tone="info" className="inspector-note">For a guarded merge, provide the full head SHA from an earlier GitHub pull request step. GitHub rejects the merge if the head changes. Leave it empty to retain the original behavior.</Status>}
-      {node.data.nodeType === "action.google-chat.oauth" && <Status tone="info" className="inspector-note"><strong>Thread-aware output</strong><span>The newer send action can return a thread name for replies. This changes only the draft and may change the output shape; publish separately to update live runs.</span><Button type="button" variant="secondary" disabled={hasPending} onClick={() => {
+      {effectiveNodeType === "action.trello.create-card" && <Status tone="info" className="inspector-note">Card creation can be duplicated if a run is repeated. If the result is uncertain, check Trello before retrying.</Status>}
+      {effectiveNodeType === "action.github.merge-pull-request" && <Status tone="info" className="inspector-note">For a guarded merge, provide the full head SHA from an earlier GitHub pull request step. GitHub rejects the merge if the head changes. Leave it empty to retain the original behavior.</Status>}
+      {effectiveNodeType === "action.google-chat.oauth" && <Status tone="info" className="inspector-note"><strong>Thread-aware output</strong><span>The newer send action can return a thread name for replies. This changes only the draft and may change the output shape; publish separately to update live runs.</span><Button type="button" variant="secondary" disabled={hasPending} onClick={() => {
         const state = useWorkflowEditorStore.getState();
         const latest = state.nodes.find((candidate) => candidate.id === node.id);
         if (latest?.data.nodeType === "action.google-chat.oauth") state.updateNodeData(node.id, { nodeType: "action.google-chat.oauth.v2", nodeVersion: 1, config: { ...latest.data.config } });
       }}>Use thread-aware send in draft</Button></Status>}
-      {node.data.nodeType === "action.google-chat.reply" && <Status tone="info" className="inspector-note">Use the threadName output of a thread-aware send in this space. If a thread is unavailable, the reply fails rather than starting a new thread.</Status>}
-      {node.data.nodeType === "action.google-chat.edit-message" && <Status tone="info" className="inspector-note">Reconnect Google Chat with message management enabled. Use the messageId output of a previous Chat step in this space. If the update is unconfirmed, check the message before retrying.</Status>}
-      {node.data.nodeType === "trigger.telegram.update" && <Status tone="info" className="inspector-note">Use a separate workflow and endpoint for each bot. Only the selected event and chats start a run. Telegram delivers updates through a manually configured webhook; it cannot use polling at the same time.</Status>}
-      {node.data.nodeType === "trigger.sentry.issue-created" && <Status tone="info" className="inspector-note">Select a project and enter the UUID of the installed Sentry custom integration. Its client secret is configured separately in the webhook endpoint. Only newly created issues are supported.</Status>}
-      {node.data.nodeType === "trigger.trello.board-action" && <Status tone="info" className="inspector-note">Select the board and register its webhook using the Trello app secret and exact callback URL. The connection helps find boards; it is not the webhook signing secret. Trello registration is manual.</Status>}
-      {node.data.nodeType === "trigger.vercel.deployment" && <Status tone="info" className="inspector-note">The connection is used to choose a project; webhook signing uses a separate secret. Configure a matching webhook in Vercel after publishing. Vercel documents <code>deployment.ready</code> for integration checks; <code>deployment.succeeded</code> can depend on registered checks. Confirm the event is offered by your webhook and plan. Duplicate event IDs are recognized while their execution history and the encryption key are retained.</Status>}
-      {["action.gmail.send", "action.gmail.reply", "action.gmail.create-draft", "action.gmail.update-draft", "action.gmail.modify-label"].includes(node.data.nodeType) && <Status tone="info" className="inspector-note">{node.data.nodeType === "action.gmail.update-draft" ? "Requires Gmail draft permission. This replaces the complete existing draft, including any attachments." : node.data.nodeType === "action.gmail.create-draft" ? "Requires Gmail draft permission." : node.data.nodeType === "action.gmail.modify-label" ? "Requires Gmail modify-mailbox permission." : "Requires Gmail send permission."} Reconnect the selected account if needed. Test runs are simulated. A repeated live run can repeat the change; if the result is uncertain, check Gmail before trying again.</Status>}
-      {["action.telegram.reply", "action.telegram.edit-message"].includes(node.data.nodeType) && <Status tone="info" className="inspector-note">Use the message ID returned by an earlier Telegram step. If Telegram does not confirm the result, check the chat before retrying.</Status>}
-      {["action.trello.update-card", "action.trello.move-card", "action.trello.archive-card"].includes(node.data.nodeType) && <Status tone="info" className="inspector-note">This changes the selected card. If the result is uncertain, check Trello before running it again.</Status>}
-      {node.data.nodeType === "action.notion.retrieve-page" && <Status tone="info" className="inspector-note">Some Notion properties may be incomplete. Use Get page property for paginated values. Sensitive values are redacted from execution data.</Status>}
-      {node.data.nodeType === "action.notion.create-page" && <Status tone="info" className="inspector-note">Creates a page inside the selected page. If delivery is uncertain, check Notion before running it again to avoid duplicates.</Status>}
-      {node.data.nodeType === "action.notion.update-title" && <Status tone="info" className="inspector-note">Updates only the title. Changes made by someone else at the same time can be overwritten; check Notion before retrying an uncertain result.</Status>}
-      {node.data.nodeType === "action.notion.list-children" && <Status tone="info" className="inspector-note">Returns direct child blocks only. Nested blocks require a separate request.</Status>}
-      {node.data.nodeType === "action.trello.find-cards" && <Status tone="info" className="inspector-note">Search uses Trello syntax. To page through results, choose “Choose a page”, keep the same connection, board, query and limit, then enter nextPage from the previous output. Results can shift as cards change; overlapping pages stop continuation, and a full page 100 cannot confirm further results. Older nodes keep first-page behavior until you change this setting.</Status>}
-      {["action.sentry.list-issues", "action.sentry.list-issues.v2", "action.sentry.get-issue"].includes(node.data.nodeType) && <Status tone="info" className="inspector-note">Issue titles and metadata can be stored in execution history.</Status>}
-      {["action.sentry.get-issue", "action.sentry.list-issues.v2", "action.vercel.list-deployments.v2"].includes(node.data.nodeType) && <Status tone="info" className="inspector-note">Only selected metadata is returned; check partial and continuation fields before treating a page as complete.</Status>}
-      {node.data.nodeType === "action.vercel.public-deployment-lookup" && <Status tone="info" className="inspector-note">A public lookup can return deployments outside the selected account. It does not verify ownership.</Status>}
-      {(node.data.nodeType === "action.supabase.select" || node.data.nodeType === "action.supabase.select.v2") && <Status tone="info" className="inspector-note">Results may appear in execution history. {node.data.nodeType === "action.supabase.select.v2" ? "Access depends on the connection key, any user access token, and your Supabase policies." : "This version uses the connection key and ignores any user access token; access depends on that key and your Supabase policies."}</Status>}
-      {node.data.nodeType === "action.gmail.get-message" && <Status tone="info" className="inspector-note">Message content can be stored in execution history and passed to later steps. Check bodyStatus for partial or unsupported content.</Status>}
-      {["action.github.list-issues", "action.github.get-issue", "action.github.list-pull-requests", "action.github.get-pull-request"].includes(node.data.nodeType) && <Status tone="info" className="inspector-note">Issue and pull request content can be stored in execution history and passed to later steps. Check bodyTruncated before using a description as complete.</Status>}
-      {node.data.nodeType === "action.github.update-issue" && <Status tone="warning" className="inspector-note">Updates can overwrite someone else's concurrent change. If the result is uncertain, check GitHub before retrying.</Status>}
-      {node.data.nodeType === "trigger.gmail" && <GmailTriggerStatus workflowId={workflowId} nodeId={node.id} />}
-      {node.data.nodeType === "trigger.rss.new-item" && <RssTriggerStatus workflowId={workflowId} nodeId={node.id} />}
-      {node.data.nodeType === "trigger.manual" && <TestDataEditor key={`test-data-${node.id}`} value={node.data.config.testData} onApply={(testData) => updateConfig("testData", testData)} draft={draft.testData} onDraftChange={(next) => onDraftChange("testData", next)} />}
-      {node.data.nodeType === "trigger.cron" && (
+      {effectiveNodeType === "action.google-chat.reply" && <Status tone="info" className="inspector-note">Use the threadName output of a thread-aware send in this space. If a thread is unavailable, the reply fails rather than starting a new thread.</Status>}
+      {effectiveNodeType === "action.google-chat.edit-message" && <Status tone="info" className="inspector-note">Reconnect Google Chat with message management enabled. Use the messageId output of a previous Chat step in this space. If the update is unconfirmed, check the message before retrying.</Status>}
+      {effectiveNodeType === "trigger.telegram.update" && <Status tone="info" className="inspector-note">Use a separate workflow and endpoint for each bot. Only the selected event and chats start a run. Telegram delivers updates through a manually configured webhook; it cannot use polling at the same time.</Status>}
+      {effectiveNodeType === "trigger.sentry.issue-created" && <Status tone="info" className="inspector-note">Select a project and enter the UUID of the installed Sentry custom integration. Its client secret is configured separately in the webhook endpoint. Only newly created issues are supported.</Status>}
+      {effectiveNodeType === "trigger.trello.board-action" && <Status tone="info" className="inspector-note">Select the board and register its webhook using the Trello app secret and exact callback URL. The connection helps find boards; it is not the webhook signing secret. Trello registration is manual.</Status>}
+      {effectiveNodeType === "trigger.vercel.deployment" && <Status tone="info" className="inspector-note">The connection is used to choose a project; webhook signing uses a separate secret. Configure a matching webhook in Vercel after publishing. Vercel documents <code>deployment.ready</code> for integration checks; <code>deployment.succeeded</code> can depend on registered checks. Confirm the event is offered by your webhook and plan. Duplicate event IDs are recognized while their execution history and the encryption key are retained.</Status>}
+      {["action.gmail.send", "action.gmail.reply", "action.gmail.create-draft", "action.gmail.update-draft", "action.gmail.modify-label"].includes(effectiveNodeType) && <Status tone="info" className="inspector-note">{effectiveNodeType === "action.gmail.update-draft" ? "Requires Gmail draft permission. This replaces the complete existing draft, including any attachments." : effectiveNodeType === "action.gmail.create-draft" ? "Requires Gmail draft permission." : effectiveNodeType === "action.gmail.modify-label" ? "Requires Gmail modify-mailbox permission." : "Requires Gmail send permission."} Reconnect the selected account if needed. Test runs are simulated. A repeated live run can repeat the change; if the result is uncertain, check Gmail before trying again.</Status>}
+      {["action.telegram.reply", "action.telegram.edit-message"].includes(effectiveNodeType) && <Status tone="info" className="inspector-note">Use the message ID returned by an earlier Telegram step. If Telegram does not confirm the result, check the chat before retrying.</Status>}
+      {["action.trello.update-card", "action.trello.move-card", "action.trello.archive-card"].includes(effectiveNodeType) && <Status tone="info" className="inspector-note">This changes the selected card. If the result is uncertain, check Trello before running it again.</Status>}
+      {effectiveNodeType === "action.notion.retrieve-page" && <Status tone="info" className="inspector-note">Some Notion properties may be incomplete. Use Get page property for paginated values. Sensitive values are redacted from execution data.</Status>}
+      {effectiveNodeType === "action.notion.create-page" && <Status tone="info" className="inspector-note">Creates a page inside the selected page. If delivery is uncertain, check Notion before running it again to avoid duplicates.</Status>}
+      {effectiveNodeType === "action.notion.update-title" && <Status tone="info" className="inspector-note">Updates only the title. Changes made by someone else at the same time can be overwritten; check Notion before retrying an uncertain result.</Status>}
+      {effectiveNodeType === "action.notion.list-children" && <Status tone="info" className="inspector-note">Returns direct child blocks only. Nested blocks require a separate request.</Status>}
+      {effectiveNodeType === "action.trello.find-cards" && <Status tone="info" className="inspector-note">Search uses Trello syntax. To page through results, choose “Choose a page”, keep the same connection, board, query and limit, then enter nextPage from the previous output. Results can shift as cards change; overlapping pages stop continuation, and a full page 100 cannot confirm further results. Older nodes keep first-page behavior until you change this setting.</Status>}
+      {["action.sentry.list-issues", "action.sentry.list-issues.v2", "action.sentry.get-issue"].includes(effectiveNodeType) && <Status tone="info" className="inspector-note">Issue titles and metadata can be stored in execution history.</Status>}
+      {["action.sentry.get-issue", "action.sentry.list-issues.v2", "action.vercel.list-deployments.v2"].includes(effectiveNodeType) && <Status tone="info" className="inspector-note">Only selected metadata is returned; check partial and continuation fields before treating a page as complete.</Status>}
+      {effectiveNodeType === "action.vercel.public-deployment-lookup" && <Status tone="info" className="inspector-note">A public lookup can return deployments outside the selected account. It does not verify ownership.</Status>}
+      {(effectiveNodeType === "action.supabase.select" || effectiveNodeType === "action.supabase.select.v2") && <Status tone="info" className="inspector-note">Results may appear in execution history. {effectiveNodeType === "action.supabase.select.v2" ? "Access depends on the connection key, any user access token, and your Supabase policies." : "This version uses the connection key and ignores any user access token; access depends on that key and your Supabase policies."}</Status>}
+      {effectiveNodeType === "action.gmail.get-message" && <Status tone="info" className="inspector-note">Message content can be stored in execution history and passed to later steps. Check bodyStatus for partial or unsupported content.</Status>}
+      {["action.github.list-issues", "action.github.get-issue", "action.github.list-pull-requests", "action.github.get-pull-request"].includes(effectiveNodeType) && <Status tone="info" className="inspector-note">Issue and pull request content can be stored in execution history and passed to later steps. Check bodyTruncated before using a description as complete.</Status>}
+      {effectiveNodeType === "action.github.update-issue" && <Status tone="warning" className="inspector-note">Updates can overwrite someone else's concurrent change. If the result is uncertain, check GitHub before retrying.</Status>}
+      {effectiveNodeType === "trigger.gmail" && <GmailTriggerStatus workflowId={workflowId} nodeId={node.id} />}
+      {effectiveNodeType === "trigger.rss.new-item" && <RssTriggerStatus workflowId={workflowId} nodeId={node.id} />}
+      {effectiveNodeType === "trigger.manual" && <TestDataEditor key={`test-data-${node.id}`} value={node.data.config.testData} onApply={(testData) => updateConfig("testData", testData)} draft={draft.testData} onDraftChange={(next) => onDraftChange("testData", next)} />}
+      {effectiveNodeType === "trigger.cron" && (
         <>
           <ConfigField label="Cron expression" value={readConfigText(node.data.config, "expression")} onChange={(value) => updateConfig("expression", value)} />
           <ConfigField label="Timezone" value={readConfigText(node.data.config, "timezone")} onChange={(value) => updateConfig("timezone", value)} />
         </>
       )}
-      {node.data.nodeType === "trigger.webhook" && (
+      {effectiveNodeType === "trigger.webhook" && (
         <>
           <ConfigField label="Public path" value={readConfigText(node.data.config, "path")} onChange={(value) => updateConfig("path", value)} />
           <label className="checkbox-field"><input type="checkbox" checked={node.data.config.secretRequired !== false} onChange={(event) => updateConfig("secretRequired", event.target.checked)} /> Require <code>x-workflow-secret</code> header</label>
         </>
       )}
-      {(isGitHubWebhookTrigger(node.data.nodeType) || node.data.nodeType === "trigger.webhook" || node.data.nodeType === "trigger.telegram.update" || node.data.nodeType === "trigger.vercel.deployment" || node.data.nodeType === "trigger.trello.board-action" || node.data.nodeType === "trigger.sentry.issue-created" || isUptimeKumaTrigger(node.data.nodeType)) && <div className="inspector-webhook-setup"><Status tone={webhookContext === "different" || webhookContext === "other-draft" ? "warning" : "info"} className="inspector-note"><strong>Webhook setup</strong><span>{webhookContext === "different" ? "The published workflow uses a different webhook trigger. This setup manages that published trigger, not this draft node." : webhookContext === "other-draft" ? "This draft has multiple webhook triggers. Keep one trigger and publish before setting up its endpoint." : webhookContext === "published" ? "Setup uses the published workflow. Publish draft changes before applying them." : "Publish this workflow to set up its endpoint."}</span></Status>{webhookContext !== "other-draft" && <Button type="button" variant="ghost" className="inspector-webhook-setup__action" onClick={onOpenWebhook}>{webhookContext === "different" ? "Manage published webhook" : "Configure webhook"}</Button>}</div>}
-      {["action.telegram.message", "action.telegram.reply", "action.telegram.edit-message"].includes(node.data.nodeType) && (
+      {(isGitHubWebhookTrigger(effectiveNodeType) || effectiveNodeType === "trigger.webhook" || effectiveNodeType === "trigger.telegram.update" || effectiveNodeType === "trigger.vercel.deployment" || effectiveNodeType === "trigger.trello.board-action" || effectiveNodeType === "trigger.sentry.issue-created" || isUptimeKumaTrigger(effectiveNodeType)) && <div className="inspector-webhook-setup"><Status tone={webhookContext === "different" || webhookContext === "other-draft" ? "warning" : "info"} className="inspector-note"><strong>Webhook setup</strong><span>{webhookContext === "different" ? "The published workflow uses a different webhook trigger. This setup manages that published trigger, not this draft node." : webhookContext === "other-draft" ? "This draft has multiple webhook triggers. Keep one trigger and publish before setting up its endpoint." : webhookContext === "published" ? "Setup uses the published workflow. Publish draft changes before applying them." : "Publish this workflow to set up its endpoint."}</span></Status>{webhookContext !== "other-draft" && <Button type="button" variant="ghost" className="inspector-webhook-setup__action" onClick={onOpenWebhook}>{webhookContext === "different" ? "Manage published webhook" : "Configure webhook"}</Button>}</div>}
+      {["action.telegram.message", "action.telegram.reply", "action.telegram.edit-message"].includes(effectiveNodeType) && (
         <>
           <CredentialField label="Telegram credential" value={readConfigText(node.data.config, "credentialId")} providers={["TELEGRAM_BOT"]} credentials={credentials} onChange={(value) => updateConfig("credentialId", value)} />
           {(() => {
@@ -1107,31 +1110,31 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
                   </Select>
                   <small>{destinationHints[destinationType] ?? destinationHints.dm}</small>
                 </Field>
-                <ConfigField label={node.data.nodeType === "action.telegram.message" ? `${destinationLabel} chat ID (legacy credential chatId is deprecated)` : `${destinationLabel} chat ID`} value={readConfigText(node.data.config, "chatId")} onChange={(value) => updateConfig("chatId", value)} />
-                {destinationType === "supergroup" && node.data.nodeType !== "action.telegram.edit-message" && <ConfigField label="Topic / thread ID (optional)" value={readConfigText(node.data.config, "messageThreadId")} onChange={(value) => updateConfig("messageThreadId", value)} />}
+                <ConfigField label={effectiveNodeType === "action.telegram.message" ? `${destinationLabel} chat ID (legacy credential chatId is deprecated)` : `${destinationLabel} chat ID`} value={readConfigText(node.data.config, "chatId")} onChange={(value) => updateConfig("chatId", value)} />
+                {destinationType === "supergroup" && effectiveNodeType !== "action.telegram.edit-message" && <ConfigField label="Topic / thread ID (optional)" value={readConfigText(node.data.config, "messageThreadId")} onChange={(value) => updateConfig("messageThreadId", value)} />}
               </>
             );
           })()}
-          {node.data.nodeType !== "action.telegram.message" && <ConfigField label="Message ID" value={readConfigText(node.data.config, "messageId")} onChange={(value) => updateConfig("messageId", value)} />}
+          {effectiveNodeType !== "action.telegram.message" && <ConfigField label="Message ID" value={readConfigText(node.data.config, "messageId")} onChange={(value) => updateConfig("messageId", value)} />}
           <ConfigField label="Message text" value={readConfigText(node.data.config, "text") || readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("text", value)} multiline />
           <Field label="Parse mode" className="config-field"><Select aria-label="Telegram parse mode" value={readConfigText(node.data.config, "parseMode")} onChange={(event) => updateConfig("parseMode", event.target.value)}><option value="">Plain text</option><option value="Markdown">Markdown</option><option value="HTML">HTML</option><option value="MarkdownV2">MarkdownV2</option></Select></Field>
           {readConfigText(node.data.config, "parseMode") && <small>Telegram applies formatting to the entire message, including values from previous steps. Escape special characters in those values to avoid a formatting error.</small>}
         </>
       )}
-      {node.data.nodeType === "condition.if" && (
+      {effectiveNodeType === "condition.if" && (
         <>
           <ConfigField label="Left value" value={readConfigText(node.data.config, "left")} onChange={(value) => updateConfig("left", value)} />
           <Field label="Operator" className="config-field"><Select aria-label="Condition operator" value={readConfigText(node.data.config, "operator") || "equals"} onChange={(event) => updateConfig("operator", event.target.value)}><option value="equals">Equals</option><option value="not_equals">Does not equal</option><option value="contains">Contains</option><option value="exists">Exists</option></Select></Field>
           <ConfigField label="Right value" value={readConfigText(node.data.config, "right")} onChange={(value) => updateConfig("right", value)} />
         </>
       )}
-      {node.data.nodeType === "condition.switch" && (
+      {effectiveNodeType === "condition.switch" && (
         <>
           <ConfigField label="Value to evaluate" value={readConfigText(node.data.config, "value")} onChange={(value) => updateConfig("value", value)} />
           <SwitchCaseEditor cases={node.data.config.cases} onChange={(cases) => updateConfig("cases", cases)} />
         </>
       )}
-      {node.data.nodeType === "approval.request" && <>
+      {effectiveNodeType === "approval.request" && <>
         <ConfigField label="Approval message" value={readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("message", value)} multiline />
         <Field label="Notification provider" className="config-field"><Select aria-label="Approval notification provider" value={readConfigText(node.data.config, "notificationProvider") || "google_chat"} onChange={(event) => updateConfig("notificationProvider", event.target.value)}><option value="google_chat">Google Chat</option><option value="http_webhook">HTTP webhook</option></Select></Field>
         <CredentialField label="Notification credential (optional)" value={readConfigText(node.data.config, "notificationCredentialId")} providers={readConfigText(node.data.config, "notificationProvider") === "http_webhook" ? ["HTTP"] : ["GOOGLE_CHAT_WEBHOOK"]} credentials={credentials} onChange={(value) => updateConfig("notificationCredentialId", value)} optional />
@@ -1141,7 +1144,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       <InspectorSection title="Test & debug">
         <section className="node-debug-panel">
           <div><p className="section-label">NODE DEBUG</p><p>Runs only this node with mock providers. No live request or downstream node will run.</p></div>
-          <Button variant="secondary" className="node-debug-panel__button" disabled={!definition?.available || node.data.nodeType === "approval.request" || isDebugging || hasPending} title={hasPending ? "Apply or discard pending edits first." : node.data.nodeType === "approval.request" ? "Approval nodes are tested in a full workflow run." : undefined} onClick={() => onDebugNode(node)}><Play size={14} />{isDebugging ? "Running node…" : "Run node"}</Button>
+          <Button variant="secondary" className="node-debug-panel__button" disabled={!definition?.available || effectiveNodeType === "approval.request" || isDebugging || hasPending} title={hasPending ? "Apply or discard pending edits first." : effectiveNodeType === "approval.request" ? "Approval nodes are tested in a full workflow run." : undefined} onClick={() => onDebugNode(node)}><Play size={14} />{isDebugging ? "Running node…" : "Run node"}</Button>
         </section>
         <section className="input-preview">
           <div className="section-label">INPUT PREVIEW</div>
@@ -1581,6 +1584,10 @@ export function WorkflowEditor() {
     if (!workflow) return false;
     if (!allowNavigation()) return false;
     const currentGraph = useWorkflowEditorStore.getState();
+    if (currentGraph.nodes.some((node) => node.data.nodeVersion === 2)) {
+      setNotice("This workflow uses a node version that is not yet supported for saving. Its stored configuration has not changed.");
+      return false;
+    }
     const errors = validateWorkflowGraph(currentGraph.nodes, currentGraph.edges).filter((issue) => issue.severity === "error");
     if (errors.length) {
       setNotice("Resolve graph errors before saving this draft.");
