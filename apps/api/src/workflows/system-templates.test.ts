@@ -65,3 +65,18 @@ test("Steam to Telegram template treats a dynamic player name as plain text", ()
   assert.equal(config.parseMode, "");
   assert.equal(config.text, "Steam daily report for Player_[demo]: 7 games.");
 });
+
+test("AI structured summary templates need a chosen model and compose mock output without credentials", async () => {
+  const credentials = new Proxy({}, { get() { throw new Error("mock must not access credentials"); } }) as never;
+  for (const slug of ["ai-structured-gemini-to-chat", "ai-structured-openai-to-chat"]) {
+    const template = systemWorkflowTemplates.find((item) => item.slug === slug)!;
+    const summarize = template.graph.nodes.find((item) => item.id === "summarize")!;
+    const notify = template.graph.nodes.find((item) => item.id === "notify")!;
+    assert.equal(summarize.config.model, "");
+    await assert.rejects(executeNode(summarize, summarize.config, {}, "mock", "workspace", credentials, "execution"), { code: "INVALID_INPUT" });
+    const output = await executeNode(summarize, { ...summarize.config, model: "example-model" }, {}, "mock", "workspace", credentials, "execution");
+    const notification = resolveExpressions(notify.config, { steps: { summarize: { output: output.output } } }) as Record<string, unknown>;
+    assert.equal(notification.message, "AI summary: \nPriority: normal");
+    assert.equal((await executeNode(notify, notification, {}, "mock", "workspace", credentials, "execution")).status, "succeeded");
+  }
+});

@@ -72,6 +72,27 @@ export const systemWorkflowTemplates: SystemWorkflowTemplate[] = [
       ],
     },
   },
+  ...([
+    { slug: "ai-structured-gemini-to-chat", provider: "Gemini", type: "action.gemini" },
+    { slug: "ai-structured-openai-to-chat", provider: "OpenAI", type: "action.openai" },
+  ] as const).map((sample): SystemWorkflowTemplate => ({
+    slug: sample.slug,
+    name: `${sample.provider} structured summary to Google Chat`,
+    description: `Generate a structured summary of sample text. Choose a model before testing; connect ${sample.provider} and a Google Chat webhook for a live run. Live generation can incur provider charges.`,
+    tags: ["AI", "Notifications"],
+    requiredConnections: [sample.provider, "Google Chat"],
+    graph: {
+      nodes: [
+        { id: "manual", type: "trigger.manual", position: { x: 100, y: 220 }, config: {} },
+        { id: "summarize", type: sample.type, position: { x: 400, y: 220 }, config: {
+          credentialId: "", model: "", prompt: "Summarize this sample: The weekly report is ready for review.", maxOutputTokens: 256, timeoutMs: 30000,
+          outputSchema: { type: "object", properties: { summary: { type: "string" }, priority: { type: "string", enum: ["normal", "high"] } }, required: ["summary", "priority"], additionalProperties: false },
+        } },
+        { id: "notify", type: "action.google-chat.webhook", position: { x: 700, y: 220 }, config: { credentialId: "", message: "AI summary: {{steps.summarize.output.json.summary}}\nPriority: {{steps.summarize.output.json.priority}}" } },
+      ],
+      edges: [{ id: "manual-to-summarize", source: "manual", target: "summarize", kind: "success" }, { id: "summarize-to-notify", source: "summarize", target: "notify", kind: "success" }],
+    },
+  })),
   ...dataReadSamples.map((sample): SystemWorkflowTemplate => ({
     slug: sample.slug, name: sample.name, description: sample.description, tags: ["Data", "Starter"], requiredConnections: [sample.connection],
     graph: {
