@@ -1,5 +1,14 @@
 # Audit khả năng mở rộng node — Fluxora và n8n
 
+> Cập nhật 04/11/2026: bản NX trong PR #75 và bản sửa triển khai #76 đã merge;
+> production đang chạy commit `c881ac17891718470626b1f0306d6d6bb0eb61c9`.
+> Quality gate và 202 E2E đã pass; deploy thành công và bốn migration đã chạy.
+> Các mô tả “bản nháp/local”, “chưa verify” và “chưa deploy” bên dưới là ảnh
+> chụp lịch sử, không phải trạng thái hiện tại. Live qualification provider,
+> hỗ trợ nodeVersion > 1 và các quyết định NX-07 vẫn có giới hạn riêng; không
+> suy ra parity với n8n hoặc kết quả provider thật chỉ từ CI.
+> [Bằng chứng triển khai](42-ke-hoach-chuyen-production-nx.md).
+
 Ngày đối chiếu: **2026-11-02**. Source Fluxora: **`04d67b60ed257304ca9aaeaa8dbe4e3969faa4db`**, sau PR #73; nhánh audit local `codex/node-expansion-audit`.
 
 ## 1. Kết luận và phạm vi

@@ -1,6 +1,17 @@
 # Chuyển production sang NX
 
-**Lần deploy đầu không thành công; production đang chạy bản cũ.** Chủ dự án đã đồng ý gián đoạn
+**Cập nhật 04/11/2026:** [PR #75](https://github.com/phuuthanh-dev/fluxora/pull/75)
+và [bản sửa #76](https://github.com/phuuthanh-dev/fluxora/pull/76) đã merge.
+[Deploy 41773801305](https://github.com/phuuthanh-dev/fluxora/actions/runs/41773801305)
+thành công với commit `c881ac17891718470626b1f0306d6d6bb0eb61c9`. Web/API
+khỏe, worker chạy, bốn migration đã hoàn tất; số workflow/credential trước và
+sau đều là 9/10. HTTP web/API trả 200. Đếm record và health không chứng minh
+toàn vẹn từng workflow, credential, execution hoặc kết quả của provider.
+Lock đã được giải phóng và hai variable tạm đã được gỡ. Không chạy live test
+mới đối với provider. Nội dung bên dưới ghi lại trạng thái và phương án trước
+lần chuyển; không dùng như trạng thái hiện tại.
+
+**Lần deploy đầu không thành công.** Chủ dự án đã đồng ý gián đoạn
 ngắn, chấp nhận request hoặc lịch trong lúc chuyển có thể bị ngắt/bỏ lỡ và
 chọn tạm bỏ backup cho lần này. Không có backup nghĩa là nếu migration làm
 mất hoặc hỏng dữ liệu, hiện chưa có bản khôi phục đã được chứng minh.
