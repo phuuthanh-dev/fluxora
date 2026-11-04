@@ -40,6 +40,17 @@ cung cấp chọn tài nguyên từ danh sách hoặc nhập ID; phần này h�
 khẳng định parity toàn bộ. Test giả lập đã được bổ sung nhưng chưa chạy và chưa
 thử Google thật.
 
+**Bản local sau PR #83, chưa verify hoặc phát hành:** trước đây output được
+lưu dưới dạng đã che, rồi được dùng lại khi tiếp tục sau approval; expression
+có thể nhận nguyên chuỗi `[REDACTED]` và truyền nhầm cho action. Trigger data
+cũng được lưu sau khi che. Bản local từ chối expression tham chiếu trực tiếp
+hoặc lồng tới giá trị đã che trong trigger data hay output được nạp lại, trước
+khi action đọc credential hoặc gọi provider; các giá trị không bị che và output
+mới trong cùng lượt vẫn hoạt động như trước. Lỗi có thể đi qua error branch.
+Đây là fail-closed, không khôi phục giá trị gốc; một giá trị hợp lệ có sẵn chuỗi
+`[REDACTED]` trong dữ liệu đã lưu cũng có thể bị từ chối. Test giả lập đã thêm,
+đang chờ quality gate; chưa khẳng định xử lý được mọi cách làm mờ tùy provider.
+
 > Trạng thái kiểm tra 05/11/2026: PR #82 đã merge vào `main` tại
 > `6c9a36ee4b68ce1083770dac2c283125d76c10e5`; workflow deploy tại commit đó
 > [hoàn tất thành công](https://github.com/phuuthanh-dev/fluxora/actions/runs/41871198903).

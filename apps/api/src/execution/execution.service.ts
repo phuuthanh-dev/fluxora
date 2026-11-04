@@ -461,9 +461,11 @@ export class ExecutionService {
 
     const context: Record<string, unknown> = { trigger: execution.triggerData ?? {}, steps: {} };
     const outputs = context.steps as Record<string, unknown>;
+    const restoredSteps = new Set<string>();
     for (const nodeExecution of execution.nodeExecutions) {
       if (nodeExecution.status === NodeExecutionStatus.SUCCEEDED && nodeExecution.output && typeof nodeExecution.output === "object" && !Array.isArray(nodeExecution.output)) {
         outputs[nodeExecution.nodeId] = { output: nodeExecution.output };
+        restoredSteps.add(nodeExecution.nodeId);
       }
     }
     const pending = debugNodeId
@@ -479,7 +481,7 @@ export class ExecutionService {
       const node = pending.shift();
       if (!node || visited.has(node.id)) continue;
       visited.add(node.id);
-      const result = await this.runNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, mode, execution.idempotencyRootId ?? execution.id, runToken);
+      const result = await this.runNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, mode, execution.idempotencyRootId ?? execution.id, runToken, restoredSteps);
       if (result.status === "interrupted") return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
       if (debugNodeId) {
         await this.markUnvisitedSkipped(executionId, runToken, graph, visited);
@@ -530,6 +532,7 @@ export class ExecutionService {
         continue;
       }
       outputs[node.id] = { output: result.output };
+      restoredSteps.delete(node.id);
       const nextEdges = graph.edges.filter((edge) => edge.source === node.id && edgeMatchesResult(edge, result));
       pending.push(...this.targets(graph, nextEdges));
     }
@@ -660,7 +663,7 @@ export class ExecutionService {
     if (failed.count) this.events.publish(executionId, "execution.failed");
   }
 
-  private async runNode(executionId: string, workspaceId: string, node: WorkflowNode, context: Record<string, unknown>, mode: RunMode, idempotencyRootId: string, runToken: string): Promise<NodeResult> {
+  private async runNode(executionId: string, workspaceId: string, node: WorkflowNode, context: Record<string, unknown>, mode: RunMode, idempotencyRootId: string, runToken: string, restoredSteps: ReadonlySet<string>): Promise<NodeResult> {
     const rawConfig = node.config as Record<string, unknown>;
     const retries = readRetries(rawConfig);
     let attempt = 0;
@@ -675,7 +678,7 @@ export class ExecutionService {
         // A whole-schema expression remains supported and fails closed if absent.
         const schemaValue = rawConfig.outputSchema;
         const literalSchema = (node.type === "action.openai" || node.type === "action.gemini") && schemaValue !== null && typeof schemaValue === "object" && !Array.isArray(schemaValue);
-        const config = resolveExpressions(literalSchema ? { ...rawConfig, outputSchema: undefined } : rawConfig, context) as Record<string, unknown>;
+        const config = resolveExpressions(literalSchema ? { ...rawConfig, outputSchema: undefined } : rawConfig, context, { restoredSteps, persistedTrigger: true }) as Record<string, unknown>;
         if (literalSchema) config.outputSchema = schemaValue;
         const input = { config, trigger: context.trigger };
         if (!await this.updateNodeWhileRunning(executionId, runToken, node.id, { input: redactValue(input) as Prisma.InputJsonValue })) return { status: "interrupted", output: {} };
