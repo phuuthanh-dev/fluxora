@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
-import { ExecutionStatus } from "@prisma/client";
+import { ApprovalRequestStatus, ExecutionStatus } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
 import { ExecutionService } from "./execution.service";
 import { executionRetentionPolicy } from "./retention-policy";
@@ -14,6 +14,8 @@ export class ExecutionMaintenanceService implements OnModuleInit, OnModuleDestro
   private leaseTimer: NodeJS.Timeout | null = null;
   private leaseScanRunning = false;
   private leaseCursor = "";
+  private approvalCursor = "";
+  private approvalScanRunning = false;
   private readonly logger = new Logger(ExecutionMaintenanceService.name);
   private readonly background = new BackgroundWork();
 
@@ -26,7 +28,10 @@ export class ExecutionMaintenanceService implements OnModuleInit, OnModuleDestro
     if (process.env.PROCESS_ROLE === "worker" || process.env.EXECUTION_MAINTENANCE_ENABLED === "false") return;
     this.background.start(() => this.maintain(), () => this.logger.warn("Execution maintenance failed."));
     this.timer = setInterval(() => { this.background.start(() => this.pruneFinished(), () => this.logger.warn("Execution retention failed.")); }, 60 * 60 * 1000);
-    this.leaseTimer = setInterval(() => { this.background.start(() => this.failExpiredLeases(), () => this.logger.warn("Execution lease scan failed.")); }, 60 * 1000);
+    this.leaseTimer = setInterval(() => {
+      this.background.start(() => this.failExpiredLeases(), () => this.logger.warn("Execution lease scan failed."));
+      this.background.start(() => this.expireApprovals(), () => this.logger.warn("Approval expiry scan failed."));
+    }, 60 * 1000);
   }
 
   async onModuleDestroy() {
@@ -39,8 +44,27 @@ export class ExecutionMaintenanceService implements OnModuleInit, OnModuleDestro
 
   async maintain(now = new Date()) {
     const recovered = await this.failExpiredLeases(now);
+    const expiredApprovals = await this.expireApprovals(now);
     const pruned = await this.pruneFinished(now);
-    return { recovered, pruned };
+    return { recovered, expiredApprovals, pruned };
+  }
+
+  async expireApprovals(now = new Date()) {
+    if (this.approvalScanRunning) return 0;
+    this.approvalScanRunning = true;
+    try {
+      const approvals = await this.prisma.approvalRequest.findMany({
+        where: { status: ApprovalRequestStatus.PENDING, expiresAt: { lte: now }, execution: { status: ExecutionStatus.WAITING_APPROVAL }, ...(this.approvalCursor ? { id: { gt: this.approvalCursor } } : {}) },
+        select: { id: true, executionId: true }, orderBy: { id: "asc" }, take: 100,
+      });
+      let expired = 0;
+      for (const approval of approvals) {
+        try { if (await this.executions.expireApprovalFromMaintenance(approval.id, approval.executionId)) expired++; }
+        catch { this.logger.warn(`Could not expire approval ${approval.id}; a later scan will retry.`); }
+      }
+      this.approvalCursor = approvals.length === 100 ? approvals[approvals.length - 1]!.id : "";
+      return expired;
+    } finally { this.approvalScanRunning = false; }
   }
 
   async failExpiredLeases(now = new Date()) {

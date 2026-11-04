@@ -611,6 +611,31 @@ export class ExecutionService {
     return true;
   }
 
+  /** Expire a waiting approval without racing an owner's decision or cancellation. */
+  async expireApprovalFromMaintenance(approvalId: string, executionId: string) {
+    const expired = await this.prisma.$transaction(async (transaction) => {
+      const executions = await transaction.$queryRaw<Array<{ status: ExecutionStatus }>>`SELECT status FROM "Execution" WHERE id = ${executionId} FOR UPDATE`;
+      if (executions[0]?.status !== ExecutionStatus.WAITING_APPROVAL) return false;
+      // ApprovalRequest has no nodeId. Refuse to guess if old or inconsistent
+      // data contains more than one waiting node or pending approval.
+      const waiting = await transaction.nodeExecution.findMany({ where: { executionId, status: NodeExecutionStatus.WAITING }, select: { id: true }, take: 2 });
+      const pending = await transaction.approvalRequest.findMany({ where: { executionId, status: ApprovalRequestStatus.PENDING }, select: { id: true }, take: 2 });
+      if (waiting.length !== 1 || pending.length !== 1 || pending[0]?.id !== approvalId) return false;
+      const nodes = await transaction.$queryRaw<Array<{ status: NodeExecutionStatus }>>`SELECT status FROM "NodeExecution" WHERE id = ${waiting[0]!.id} AND "executionId" = ${executionId} FOR UPDATE`;
+      if (nodes[0]?.status !== NodeExecutionStatus.WAITING) return false;
+      const approvals = await transaction.$queryRaw<Array<{ status: ApprovalRequestStatus; expiresAt: Date }>>`SELECT status, "expiresAt" FROM "ApprovalRequest" WHERE id = ${approvalId} AND "executionId" = ${executionId} FOR UPDATE`;
+      const clock = await transaction.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS "now"`;
+      const resolvedAt = clock[0]?.now;
+      if (!resolvedAt || approvals[0]?.status !== ApprovalRequestStatus.PENDING || approvals[0].expiresAt > resolvedAt) return false;
+      await transaction.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.FAILED, completedAt: resolvedAt, leaseExpiresAt: null, runToken: null, resumeToken: null, resumeNodeIds: Prisma.DbNull, resumeQueuedAt: null, errorCode: "APPROVAL_EXPIRED", errorMessage: "Approval request has expired.", errorRetryable: false } });
+      await transaction.nodeExecution.update({ where: { id: waiting[0]!.id }, data: { status: NodeExecutionStatus.FAILED, completedAt: resolvedAt, errorCode: "APPROVAL_EXPIRED", errorMessage: "Approval request has expired.", errorRetryable: false } });
+      await transaction.approvalRequest.update({ where: { id: approvalId }, data: { status: ApprovalRequestStatus.EXPIRED, resolvedAt } });
+      return true;
+    });
+    if (expired) this.events.publish(executionId, "execution.failed");
+    return expired;
+  }
+
   /** A late initial job must never fail a later approval continuation. */
   async failUnstartedFromWorker(executionId: string) {
     const completedAt = new Date();
