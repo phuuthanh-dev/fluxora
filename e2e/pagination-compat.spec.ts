@@ -36,3 +36,52 @@ for (const type of ["action.google-drive", "action.gmail.read", "action.notion.s
     expect(node.config).toEqual(config);
   });
 }
+
+test("execution pagination help describes the recorded run in both themes", async ({ page }) => {
+  const graph = { nodes: [{ id: "read", type: "action.google-drive.v2", position: { x: 100, y: 100 }, config: { operation: "search" } }], edges: [] };
+  const workflow = { id: "pagination-workflow", workspaceId: "workspace", name: "Pagination", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
+  const execution = { id: "pagination-execution", status: "SUCCEEDED", mode: "mock", workflowId: workflow.id, workflowVersion: 1, graph, error: null, createdAt: "2026-01-01T00:00:00Z", startedAt: null, completedAt: null, durationMs: 5, recoveryCount: 0, nodeExecutions: [{ nodeId: "read", nodeType: "action.google-drive.v2", status: "SUCCEEDED", attempt: 1, input: { config: { operation: "search" } }, output: { files: [], nextPageToken: "synthetic-cursor" }, error: null, startedAt: null, completedAt: null, durationMs: 5, failureHandling: null, skipReason: null }] };
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+    if (path.endsWith("/auth/me")) return send({ user: { id: "user", name: "Owner", email: "owner@example.test" } });
+    if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace", name: "Workspace", slug: "test", role: "OWNER" }] });
+    if (path.endsWith("/credentials")) return send({ credentials: [] });
+    if (path.endsWith("/executions/pagination-execution")) return send({ execution });
+    if (path.endsWith("/workflows/pagination-workflow")) return send({ workflow });
+    return route.abort();
+  });
+  await page.goto("/editor?execution=pagination-execution");
+  const section = page.getByRole("region", { name: "Last execution" });
+  const pagination = section.locator("details").filter({ has: page.getByText("Pagination", { exact: true }) });
+  await expect(pagination).not.toHaveAttribute("open");
+  await pagination.locator("summary").press("Enter");
+  await expect(pagination).toContainText("nextPageToken");
+  await expect(pagination).toContainText("pageToken");
+  await expect(pagination).not.toContainText("synthetic-cursor");
+  await page.getByRole("button", { name: /Switch to (dark|light) mode/ }).click();
+  await expect(pagination).toBeVisible();
+});
+
+test("Sheets append explains legacy mock-only counts without implying they exist live", async ({ page }) => {
+  const graph = { nodes: [{ id: "append", type: "action.google-sheets.v2", position: { x: 100, y: 100 }, config: { operation: "append" } }], edges: [] };
+  const workflow = { id: "sheets-workflow", workspaceId: "workspace", name: "Sheets", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
+  let mode: "mock" | "live" = "mock";
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+    if (path.endsWith("/auth/me")) return send({ user: { id: "user", name: "Owner", email: "owner@example.test" } });
+    if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace", name: "Workspace", slug: "test", role: "OWNER" }] });
+    if (path.endsWith("/credentials")) return send({ credentials: [] });
+    if (path.endsWith("/workflows/sheets-workflow")) return send({ workflow });
+    if (path.endsWith("/executions/sheets-execution")) return send({ execution: { id: "sheets-execution", status: "SUCCEEDED", mode, workflowId: workflow.id, workflowVersion: 1, graph, error: null, createdAt: "2026-01-01T00:00:00Z", startedAt: null, completedAt: null, durationMs: 5, recoveryCount: 0, nodeExecutions: [{ nodeId: "append", nodeType: "action.google-sheets.v2", status: "SUCCEEDED", attempt: 1, input: { config: { operation: "append" } }, output: { operation: "append", updates: { updatedRows: 1, updatedCells: 2 } }, error: null, startedAt: null, completedAt: null, durationMs: 5, failureHandling: null, skipReason: null }] } });
+    return route.abort();
+  });
+  await page.goto("/editor?execution=sheets-execution");
+  const explanation = page.getByText(/top-level counts are kept only for compatibility/i);
+  await expect(explanation).toBeVisible();
+  mode = "live";
+  await page.reload();
+  await expect(page.getByRole("region", { name: "Last execution" })).toBeVisible();
+  await expect(explanation).toHaveCount(0);
+});

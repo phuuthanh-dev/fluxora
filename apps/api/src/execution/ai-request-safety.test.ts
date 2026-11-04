@@ -31,3 +31,17 @@ test("AI provider error bodies are released without exposing them or retrying pa
   }
   assert.equal(canceled, 4);
 });
+
+test("both AI providers fail closed on structured numeric precision loss", async () => {
+  const outputSchema = { type: "object" as const, properties: { amount: { type: "number" as const } }, required: ["amount"], additionalProperties: false as const };
+  const input = { apiKey: "synthetic-key", model: "example", prompt: "Hello", maxOutputTokens: 20, timeoutMs: 5000, outputSchema };
+  const text = '{"amount":0.10000000000000001}';
+  for (const [generate, response] of [
+    [generateGeminiText, { candidates: [{ finishReason: "STOP", content: { parts: [{ text }] } }] }],
+    [generateOpenAIText, { status: "completed", output: [{ type: "message", role: "assistant", content: [{ type: "output_text", text }] }] }],
+  ] as const) {
+    let calls = 0;
+    await assert.rejects(() => generate(input, async () => { calls++; return Response.json(response); }), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_STRUCTURED_OUTPUT" && !error.retryable && !error.message.includes(text));
+    assert.equal(calls, 1);
+  }
+});

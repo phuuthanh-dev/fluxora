@@ -13,6 +13,25 @@ const credentials = { readForExecution: async (id: string, workspace: string, pr
   return { projectRef: "abcdefghijklmnopqrst", apiKey: "sb_secret_fixture" };
 } } as unknown as CredentialService;
 
+test("Supabase precision guard is explicit and leaves older saved reads unchanged", async () => {
+  const config = { credentialId: "connection", table: "items" };
+  const unsafe = async () => new Response('[{"nested":{"id":9007199254740993}}]', { status: 200 });
+  await assert.rejects(executeSupabaseSelect({ ...config, rejectUnsafeNumbers: true }, "live", "workspace", credentials, unsafe), (error: unknown) => {
+    const failure = error as { code: string; message: string; retryable: boolean };
+    assert.equal(failure.code, "UNSAFE_PROVIDER_NUMBER");
+    assert.equal(failure.retryable, false);
+    assert.ok(!failure.message.includes("9007199254740993"));
+    return true;
+  });
+  const legacy = await executeSupabaseSelectVersioned(config, "live", "workspace", credentials, unsafe, 1);
+  assert.deepEqual(legacy.output.rows, [{ nested: { id: 9007199254740992 } }]);
+  const existingV2 = await executeSupabaseSelect(config, "live", "workspace", credentials, unsafe);
+  assert.deepEqual(existingV2.output.rows, [{ nested: { id: 9007199254740992 } }]);
+  const safe = await executeSupabaseSelect({ ...config, rejectUnsafeNumbers: true }, "live", "workspace", credentials, async () => new Response('[{"id":"9007199254740993","fraction":0.1}]', { status: 200 }));
+  assert.deepEqual(safe.output.rows, [{ id: "9007199254740993", fraction: 0.1 }]);
+  await assert.rejects(executeSupabaseSelect({ ...config, rejectUnsafeNumbers: "true" }, "mock", "workspace", credentials), { code: "INVALID_INPUT" });
+});
+
 test("Supabase schema discovery returns safe table names and no functions", async () => {
   const result = await listSupabaseTables({ projectRef: "abcdefghijklmnopqrst", apiKey: "sb_secret_fixture" }, async (url, init) => {
     assert.equal(url, "https://abcdefghijklmnopqrst.supabase.co/rest/v1/");

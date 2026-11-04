@@ -117,7 +117,7 @@ export async function createCalendarEvent(token: string, input: CreateCalendarIn
 
 export async function executeGoogleCalendarCreate(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, executionId: string, nodeId: string, create = createCalendarEvent) {
   const input = readCreateInput(config);
-  if (mode === "mock") return { status: "succeeded" as const, output: { id: "example-event", summary: input.summary, start: input.start, end: input.end, mocked: true }, route: "success" as const };
+  if (mode === "mock") return { status: "succeeded" as const, output: { id: "example-event", summary: input.summary, start: input.start, end: input.end, recovered: false, mocked: true }, route: "success" as const };
   const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
   if (!credentialId) throw new NodeFailure("CREDENTIAL_REQUIRED", "Select a Google Calendar connection.", false);
   const credential = await credentials.readGoogleForExecution(credentialId, workspaceId, CredentialProvider.GOOGLE_CALENDAR);
@@ -136,7 +136,12 @@ export async function executeGoogleCalendarEvent(config: Record<string, unknown>
   const sendUpdates = config.sendUpdates === undefined ? "none" : config.sendUpdates;
   const rfc3339 = /^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d{1,3})?)?(?:Z|[+-]\d\d:\d\d)$/i;
   if ((sendUpdates !== "none" && sendUpdates !== "all" && sendUpdates !== "externalOnly") || summary.length > 500 || description.length > 10000 || location.length > 1000 || (operation === "update" && ((!summary && !description && !location && !start && !end) || Boolean(start) !== Boolean(end) || Boolean(start) && (!rfc3339.test(start) || !rfc3339.test(end) || !Number.isFinite(Date.parse(start)) || !Number.isFinite(Date.parse(end)) || Date.parse(end) <= Date.parse(start))))) throw new NodeFailure("INVALID_INPUT", "Enter at least one change; provide valid start and end times together.", false);
-  if (mode === "mock") return { status: "succeeded" as const, output: { id: eventId, operation, mocked: true }, route: "success" as const };
+  if (mode === "mock") {
+    const mockOutput = operation === "get"
+      ? { summary: "Example event", description: "", location: "", start: "2030-01-01T09:00:00Z", end: "2030-01-01T10:00:00Z", status: "confirmed" }
+      : operation === "update" ? { updated: true } : { deleted: true, alreadyAbsentOrInaccessible: false };
+    return { status: "succeeded" as const, output: { id: eventId, operation, mocked: true, ...mockOutput }, route: "success" as const };
+  }
   const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
   if (!credentialId) throw new NodeFailure("CREDENTIAL_REQUIRED", "Select a Google Calendar connection.", false);
   const credential = await credentials.readGoogleForExecution(credentialId, workspaceId, CredentialProvider.GOOGLE_CALENDAR);

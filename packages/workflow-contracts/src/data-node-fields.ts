@@ -85,6 +85,13 @@ export const dataNodeFields = {
       { kind: "credential", key: "credentialId", label: "Supabase connection", providers: ["SUPABASE"] },
       { kind: "resource", key: "table", label: "Table", resource: "supabase-table", credentialKey: "credentialId", placeholder: "Search tables" },
       { kind: "number", key: "limit", label: "Maximum rows (1–100)", fallbackValue: 20 },
+      { kind: "boolean", key: "rejectUnsafeNumbers", label: "Stop if numeric values would be rounded", defaultChecked: false },
+    ],
+  "action.supabase.insert-row": (): NodeConfigurationField[] => [
+      { kind: "credential", key: "credentialId", label: "Supabase connection", providers: ["SUPABASE"] },
+      { kind: "resource", key: "table", label: "Table", resource: "supabase-table", credentialKey: "credentialId", placeholder: "Search tables" },
+      { kind: "row-values", key: "fields", label: "Row values" },
+      { kind: "number", key: "timeoutMs", label: "Timeout (ms)", fallbackValue: 10_000, advanced: { summary: "Advanced settings", help: "1,000–120,000 ms. A timeout can leave the write outcome uncertain; check the table before retrying." } },
     ],
   "action.notion.search-pages": (): NodeConfigurationField[] => [
       { kind: "credential", key: "credentialId", label: "Notion credential", providers: ["NOTION"] },

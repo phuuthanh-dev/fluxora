@@ -27,6 +27,16 @@ test("malformed JSON, missing, extra, wrong and unsafe values fail without conte
   for (const text of ["private {", '{"name":"private","count":1,"nested":[]}', '{"name":"a","count":1,"nested":[],"extra":"private"}', '{"name":"a","count":1.5,"nested":[]}', '{"name":"a","count":9007199254740992,"nested":[]}', '{"name":"a","count":1,"nested":[{"ok":"private"}]}']) assert.throws(() => parseAiOutput(text, parsed), invalidOutput);
 });
 
+test("structured output rejects numbers that change when parsed without leaking content", () => {
+  const parsed = parseAiSchema({ type: "object", properties: { value: { type: "number" }, label: { type: "string" } }, required: ["value", "label"], additionalProperties: false })!;
+  for (const number of ["9007199254740991.1", "9007199254740993", "0.10000000000000001", "1e-999", "1e999"]) {
+    assert.throws(() => parseAiOutput(`{"value":${number},"label":"private"}`, parsed), invalidOutput);
+  }
+  for (const number of ["0.100", "12.50", "1e-7", "-0.0"]) {
+    assert.equal((parseAiOutput(`{"value":${number},"label":"0.10000000000000001"}`, parsed) as { value: number }).value, Number(number));
+  }
+});
+
 test("usage includes only valid nonnegative integer fields and does not invent totals", () => {
   assert.deepEqual(normalizeAiUsage({ a: 4, b: -1, c: 2.5 }, { input: "a", output: "b", total: "c" }), { inputTokens: 4 });
   assert.equal(normalizeAiUsage({ a: "4" }, { input: "a", output: "b", total: "c" }), undefined);

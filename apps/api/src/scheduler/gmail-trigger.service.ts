@@ -9,7 +9,7 @@ import { ExecutionService } from "../execution/execution.service";
 import { getGmailHistoryBaseline, getGmailHistoryPage } from "../execution/gmail-history";
 import { getGmailMessage } from "../execution/gmail-read";
 import { NodeFailure } from "../execution/node-failure";
-import { parseWorkflowGraph } from "../workflows/workflow-graph";
+import { parseStoredWorkflowGraph } from "../workflows/workflow-graph";
 import { BackgroundWork } from "../platform/background-work";
 
 const leaseMs = 5 * 60_000;
@@ -61,7 +61,7 @@ export class GmailTriggerService implements OnModuleInit, OnModuleDestroy {
       const versions = await this.prisma.workflowVersion.findMany({ where: { status: WorkflowVersionStatus.PUBLISHED, publishedFor: { is: { isActive: true, archivedAt: null } } }, include: { workflow: true } });
       for (const version of versions) {
         try {
-          const graph = parseWorkflowGraph(version.graph);
+          const graph = parseStoredWorkflowGraph(version.graph);
           for (const node of graph.nodes.filter((item) => item.type === "trigger.gmail")) await this.poll(version.id, version.workflowId, version.workflow.workspaceId, node.id, node.config);
         } catch { this.logger.warn(`Gmail trigger scan failed for workflow ${version.workflowId}.`); }
       }
@@ -76,7 +76,7 @@ export class GmailTriggerService implements OnModuleInit, OnModuleDestroy {
         let startNodeIds: string[] | undefined;
         if (approved) {
           if (!execution.startedAt) throw new Error("Approval on an unstarted execution requires review.");
-          const graph = parseWorkflowGraph(execution.workflowVersion.graph);
+          const graph = parseStoredWorkflowGraph(execution.workflowVersion.graph);
           const approvedNode = execution.nodeExecutions.find((node) => node.status === NodeExecutionStatus.SUCCEEDED && node.output && typeof node.output === "object" && !Array.isArray(node.output) && node.output.approvalRequestId === approved.id && graph.nodes.some((candidate) => candidate.id === node.nodeId && candidate.type === "approval.request"));
           if (!approvedNode) throw new Error("Approval resume point cannot be determined.");
           startNodeIds = graph.edges.filter((edge) => edge.source === approvedNode.nodeId && edge.kind === "success").map((edge) => edge.target);

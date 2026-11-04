@@ -27,6 +27,18 @@ test("executor selection rejects unknown versions before credentials and preserv
   );
 });
 
+test("saved node types remain distinct and numeric version 2 is rejected", async () => {
+  const credentials = { readForExecution: () => { throw new Error("unexpected credential access"); } } as never;
+  for (const type of ["action.google-drive", "action.google-sheets", "action.google-chat.oauth", "action.gmail.read", "action.notion.search-pages", "action.sentry.list-issues", "action.vercel.list-deployments", "action.postgres.select", "action.supabase.select"] as const) {
+    assert.ok(getConnectorExecutor(type, 1), type);
+    assert.ok(getConnectorExecutor(`${type}.v2`, 1), type);
+    assert.notEqual(getConnectorExecutor(type, 1), getConnectorExecutor(`${type}.v2`, 1), type);
+    assert.equal(getConnectorExecutor(type, 2), undefined, type);
+    const node = { id: "node", type, nodeVersion: 2, position: { x: 0, y: 0 }, config: {} };
+    await assert.rejects(executeNode(node, {}, {}, "mock", "workspace", credentials, "execution"), (error: unknown) => error instanceof NodeFailure && error.code === "NODE_VERSION_UNSUPPORTED");
+  }
+});
+
 test("Notion page creation is dispatched in mock mode without credentials", async () => {
   const config = { parentPageId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", title: "Example", content: "" };
   const credentials = { readForExecution: () => { throw new Error("mock accessed credentials"); } } as never;

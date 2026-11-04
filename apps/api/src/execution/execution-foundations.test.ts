@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { BadRequestException } from "@nestjs/common";
 import { ExecutionStatus } from "@prisma/client";
-import { ExecutionService } from "./execution.service";
+import { ExecutionService, executeNode } from "./execution.service";
 import { resolveExpressions } from "./expression";
 import { nodeFailureFromExecutionError } from "./node-failure";
 import { redactValue } from "./redaction";
@@ -15,6 +15,27 @@ test("resolves safe expressions without evaluating JavaScript", () => {
   assert.equal(resolveExpressions("{{ steps.steam.output.summary.topGames[0].name }}", context), "Hades");
   assert.equal(resolveExpressions("{{ steps.steam-account.output.profile.personaname }}", { steps: { "steam-account": { output: { profile: { personaname: "Thanh" } } } } }), "Thanh");
   assert.throws(() => resolveExpressions("{{ process.exit() }}", context), BadRequestException);
+});
+
+test("resolves generated output paths with hyphenated keys", () => {
+  const context = { steps: { "node-example": { output: { "request-id": "abc" } } } };
+  assert.equal(resolveExpressions("{{ steps.node-example.output.request-id }}", context), "abc");
+});
+
+test("Supabase insert rejects unresolved interpolations before accessing a connection", async () => {
+  const context = { steps: {} };
+  const credentials = { readForExecution: () => { throw new Error("unexpected credential access"); } } as never;
+  for (const value of ["Order {{ steps.missing.output.id }}", "{{ upper(steps.missing.output.name) }}", "{{ steps.missing.output.value }}"]) {
+    const config = { credentialId: "connection", table: "items", fields: [{ column: "name", type: "text", value }] };
+    const node = { id: "insert", type: "action.supabase.insert-row" as const, position: { x: 0, y: 0 }, config };
+    await assert.rejects(() => executeNode(node, resolveExpressions(config, context) as Record<string, unknown>, context, "live", "workspace", credentials, "execution"), (error: unknown) => nodeFailureFromExecutionError(error).code === "INVALID_EXPRESSION");
+  }
+  assert.equal(resolveExpressions("Order {{ steps.missing.output.id }}", context), "Order ");
+  assert.equal(resolveExpressions("{{ default(steps.missing.output.id, 'fallback') }}", context, { rejectMissing: true }), "fallback");
+  const config = { table: "items", fields: [{ column: "name", type: "text", value: "Order {{ default(steps.missing.output.id, 'fallback') }}" }] };
+  const node = { id: "insert", type: "action.supabase.insert-row" as const, position: { x: 0, y: 0 }, config };
+  const result = await executeNode(node, resolveExpressions(config, context) as Record<string, unknown>, context, "mock", "workspace", credentials, "execution");
+  assert.equal(result.status, "succeeded");
 });
 
 test("redacts nested provider secrets before execution data is persisted", () => {
@@ -198,6 +219,26 @@ test("AI schema descriptions are literal while unresolved whole-schema expressio
     assert.equal(updates.at(-1)?.status, typeof configuredSchema === "string" ? ExecutionStatus.FAILED : ExecutionStatus.SUCCEEDED);
     if (typeof configuredSchema === "string") assert.equal(updates.at(-1)?.errorCode, "INVALID_INPUT");
   }
+});
+
+test("a stored .v2 action executes its existing handler without changing the graph", async () => {
+  const updates: Array<Record<string, unknown>> = [];
+  const nodeUpdates: Array<Record<string, unknown>> = [];
+  const graph = { nodes: [
+    { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
+    { id: "read", type: "action.supabase.select.v2", nodeVersion: 1, position: { x: 200, y: 0 }, config: { table: "items", limit: 5, order: [{ column: "id", direction: "asc" }], offset: 5 } },
+  ], edges: [{ id: "start", source: "manual", target: "read", kind: "success" }] };
+  const original = structuredClone(graph);
+  const execution = { id: "versioned-run", mode: "MOCK", status: ExecutionStatus.QUEUED, triggerData: {}, nodeExecutions: [], workflowVersion: { workflow: { workspaceId: "workspace" }, graph } };
+  let transactionPrisma: unknown;
+  const prisma = { execution: { findUnique: async () => execution, findUniqueOrThrow: async () => execution, updateMany: async ({ data }: { data: Record<string, unknown> }) => { updates.push(data); return { count: 1 }; } }, nodeExecution: { upsert: async () => ({}), update: async ({ data }: { data: Record<string, unknown> }) => { nodeUpdates.push(data); return {}; }, updateMany: async () => ({ count: 0 }) }, $transaction: async (operations: Promise<unknown>[] | ((tx: unknown) => Promise<unknown>)) => Array.isArray(operations) ? Promise.all(operations) : operations(transactionPrisma) };
+  transactionPrisma = { ...prisma, $queryRaw: async () => [{ status: ExecutionStatus.RUNNING, runToken: updates[0]?.runToken }] };
+  const credentials = { readForExecution: () => { throw new Error("mock accessed credentials"); } };
+  const service = new ExecutionService(prisma as never, credentials as never, { publish: () => undefined } as never);
+  await service.run(execution.id, "mock");
+  assert.equal(updates.at(-1)?.status, ExecutionStatus.SUCCEEDED);
+  assert.ok(nodeUpdates.some((update) => (update.output as { page?: { offset: number } } | undefined)?.page?.offset === 5));
+  assert.deepEqual(graph, original);
 });
 
 test("node debug executes only the selected mock node and skips downstream nodes", async () => {

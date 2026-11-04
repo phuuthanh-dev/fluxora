@@ -3,7 +3,7 @@ import { BadRequestException, ConflictException, Inject, Injectable, NotFoundExc
 import { ExecutionStatus, Prisma, WorkflowVersionStatus } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
 import { WorkspaceService } from "../workspaces/workspace.service";
-import { assertExecutableGraph, parseWorkflowGraph, validatePublishableGraph } from "./workflow-graph";
+import { assertExecutableGraph, parseStoredWorkflowGraph, parseWorkflowGraph, validatePublishableGraph } from "./workflow-graph";
 import { systemWorkflowTemplates } from "./system-templates";
 import { GmailTriggerService } from "../scheduler/gmail-trigger.service";
 import { RssTriggerService } from "../scheduler/rss-trigger.service";
@@ -88,7 +88,7 @@ export class WorkflowService {
     const workflow = await this.findOwned(workflowId, userId);
     if (!workflow.publishedVersion) return { active: false, checkpoints: [] };
     const checkpoints = await this.prisma.gmailTriggerCheckpoint.findMany({ where: { workflowVersionId: workflow.publishedVersion.id }, select: { nodeId: true, state: true, lastErrorCode: true, updatedAt: true } });
-    if (workflow.isActive) for (const node of parseWorkflowGraph(workflow.publishedVersion.graph).nodes.filter((item) => item.type === "trigger.gmail")) {
+    if (workflow.isActive) for (const node of parseStoredWorkflowGraph(workflow.publishedVersion.graph).nodes.filter((item) => item.type === "trigger.gmail")) {
       if (!checkpoints.some((checkpoint) => checkpoint.nodeId === node.id)) checkpoints.push({ nodeId: node.id, state: "ERROR", lastErrorCode: "GMAIL_CHECKPOINT_MISSING", updatedAt: new Date() });
     }
     return { active: workflow.isActive, checkpoints };
@@ -98,7 +98,7 @@ export class WorkflowService {
     const workflow = await this.findOwned(workflowId, userId);
     if (!workflow.publishedVersion) return { active: false, checkpoints: [] };
     const checkpoints = await this.prisma.$queryRaw<Array<{ nodeId: string; state: string; lastErrorCode: string | null; nextPollAt: Date | null; updatedAt: Date }>>`SELECT "nodeId", "state", "lastErrorCode", "nextPollAt", "updatedAt" FROM "RssTriggerCheckpoint" WHERE "workflowId" = ${workflowId} AND "workflowVersionId" = ${workflow.publishedVersion.id}`;
-    if (workflow.isActive) for (const node of parseWorkflowGraph(workflow.publishedVersion.graph).nodes.filter((item) => item.type === "trigger.rss.new-item")) {
+    if (workflow.isActive) for (const node of parseStoredWorkflowGraph(workflow.publishedVersion.graph).nodes.filter((item) => item.type === "trigger.rss.new-item")) {
       if (!checkpoints.some((checkpoint) => checkpoint.nodeId === node.id)) checkpoints.push({ nodeId: node.id, state: "ERROR", lastErrorCode: "RSS_CHECKPOINT_MISSING", nextPollAt: null, updatedAt: new Date() });
     }
     return { active: workflow.isActive, checkpoints };
@@ -109,7 +109,7 @@ export class WorkflowService {
     const workflow = await this.findOwned(workflowId, userId);
     if (workflow.isActive || !workflow.publishedVersion || !this.rssTriggers) throw new ConflictException({ code: "RSS_RESET_REQUIRES_INACTIVE", message: "Deactivate the published workflow before resetting the RSS trigger." });
     const versionId = workflow.publishedVersion.id;
-    const baselines = await this.rssTriggers.freshBaselines(workflowId, versionId, parseWorkflowGraph(workflow.publishedVersion.graph));
+    const baselines = await this.rssTriggers.freshBaselines(workflowId, versionId, parseStoredWorkflowGraph(workflow.publishedVersion.graph));
     if (!baselines.length) throw new BadRequestException({ code: "RSS_TRIGGER_NOT_FOUND", message: "The published workflow has no RSS trigger." });
     await this.prisma.$transaction(async (transaction) => {
       const workflows = await transaction.$queryRaw<Array<{ publishedVersionId: string | null; isActive: boolean; archivedAt: Date | null }>>`SELECT "publishedVersionId", "isActive", "archivedAt" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
@@ -133,7 +133,7 @@ export class WorkflowService {
     if (!confirmDataGap) throw new BadRequestException({ code: "GMAIL_RESET_CONFIRMATION_REQUIRED", message: "Confirm that messages in the gap may be missed." });
     const workflow = await this.findOwned(workflowId, userId);
     if (workflow.isActive || !workflow.publishedVersion || !this.gmailTriggers) throw new ConflictException({ code: "GMAIL_RESET_REQUIRES_INACTIVE", message: "Deactivate the published workflow before resetting the Gmail trigger." });
-    const graph = parseWorkflowGraph(workflow.publishedVersion.graph);
+    const graph = parseStoredWorkflowGraph(workflow.publishedVersion.graph);
     const baselines = await this.gmailTriggers.baseline(workflow.workspaceId, graph);
     if (!baselines.length) throw new BadRequestException({ code: "GMAIL_TRIGGER_NOT_FOUND", message: "The published workflow has no Gmail trigger." });
     const versionId = workflow.publishedVersion.id;
@@ -213,9 +213,9 @@ export class WorkflowService {
       const graph = parseWorkflowGraph(currentDraft.graph);
       validatePublishableGraph(graph);
       const previous = locked[0]?.publishedVersionId ? await transaction.workflowVersion.findUnique({ where: { id: locked[0].publishedVersionId } }) : null;
-      const previousGmail = previous ? parseWorkflowGraph(previous.graph).nodes.find((node) => node.type === "trigger.gmail") : undefined;
+      const previousGmail = previous ? parseStoredWorkflowGraph(previous.graph).nodes.find((node) => node.type === "trigger.gmail") : undefined;
       const nextGmail = graph.nodes.find((node) => node.type === "trigger.gmail");
-      const previousRss = previous ? rssTargets(workflowId, previous.id, parseWorkflowGraph(previous.graph))[0] : undefined;
+      const previousRss = previous ? rssTargets(workflowId, previous.id, parseStoredWorkflowGraph(previous.graph))[0] : undefined;
       const nextRss = rssTargets(workflowId, draftVersion.id, graph)[0];
       if (locked[0]?.isActive && (nextGmail || previousGmail)) throw new ConflictException({ code: "GMAIL_TRIGGER_DEACTIVATE_TO_PUBLISH", message: "Deactivate the Gmail-triggered workflow before publishing a different version." });
       if (locked[0]?.isActive && (nextRss || previousRss)) throw new ConflictException({ code: "RSS_TRIGGER_DEACTIVATE_TO_PUBLISH", message: "Deactivate the RSS-triggered workflow before publishing a different version." });
@@ -268,7 +268,7 @@ export class WorkflowService {
     const workflow = await this.findOwned(workflowId, userId);
     if (!workflow.publishedVersion) throw new NotFoundException({ code: "PUBLISHED_VERSION_REQUIRED", message: "Publish this workflow before activating it." });
     if (workflow.isActive) return this.serialize(workflow);
-    const graph = parseWorkflowGraph(workflow.publishedVersion.graph);
+    const graph = parseStoredWorkflowGraph(workflow.publishedVersion.graph);
     assertExecutableGraph(graph);
     const gmailNodes = graph.nodes.filter((node) => node.type === "trigger.gmail");
     const rssNodes = graph.nodes.filter((node) => node.type === "trigger.rss.new-item");

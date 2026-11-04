@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { WorkflowGraph } from "@workflow/contracts";
 import { BadRequestException } from "@nestjs/common";
-import { parseWorkflowGraph, validatePublishableGraph } from "./workflow-graph";
+import { parseStoredWorkflowGraph, parseWorkflowGraph, validatePublishableGraph } from "./workflow-graph";
 
 const validSwitchGraph: WorkflowGraph = {
   nodes: [
@@ -43,6 +43,31 @@ test("node versions preserve legacy graphs, retain v1 and reject unsupported val
     const graph = structuredClone(validSwitchGraph) as unknown as { nodes: Array<Record<string, unknown>>; edges: unknown[] };
     graph.nodes[0]!.nodeVersion = invalidVersion;
     assert.throws(() => parseWorkflowGraph(graph), BadRequestException);
+  }
+});
+
+test("historical and .v2 node identities survive API parsing with or without nodeVersion", () => {
+  for (const base of ["trigger.uptime-kuma.alert", "action.google-drive", "action.google-sheets", "action.google-chat.oauth", "action.gmail.read", "action.notion.search-pages", "action.sentry.list-issues", "action.vercel.list-deployments", "action.postgres.select", "action.supabase.select"]) {
+    for (const suffix of ["", ".v2"]) for (const version of [undefined, 1]) {
+      const node = { id: "historical", type: base + suffix, ...(version === undefined ? {} : { nodeVersion: version }), position: { x: 2, y: 3 }, config: { savedValue: "preserve" } };
+      assert.deepEqual(parseWorkflowGraph({ nodes: [node], edges: [] }).nodes[0], node);
+    }
+  }
+});
+
+test("mixed canvas and API node versions cannot silently conflict", () => {
+  const node = { id: "read", type: "workflowNode", nodeVersion: 1, position: { x: 0, y: 0 }, data: { nodeType: "action.supabase.select.v2", nodeVersion: 2, config: { table: "items" } } };
+  assert.throws(() => parseWorkflowGraph({ nodes: [node], edges: [] }), (error: unknown) => error instanceof BadRequestException && String(error.message).includes("version"));
+  assert.equal(parseWorkflowGraph({ nodes: [{ ...node, data: { ...node.data, nodeVersion: 1 } }], edges: [] }).nodes[0]?.nodeVersion, 1);
+  assert.equal(parseWorkflowGraph({ nodes: [{ ...node, nodeVersion: undefined, data: { ...node.data, nodeVersion: 1 } }], edges: [] }).nodes[0]?.nodeVersion, 1);
+  assert.equal(parseWorkflowGraph({ nodes: [{ ...node, data: { ...node.data, nodeVersion: undefined } }], edges: [] }).nodes[0]?.nodeVersion, 1);
+});
+
+test("stored and submitted graphs both reject numeric version 2", () => {
+  for (const type of ["action.google-drive", "action.supabase.select", "action.supabase.select.v2", "trigger.uptime-kuma.alert", "trigger.uptime-kuma.alert.v2"]) {
+    const graph = { nodes: [{ id: "node", type, nodeVersion: 2, position: { x: 0, y: 0 }, config: {} }], edges: [] };
+    assert.throws(() => parseStoredWorkflowGraph(graph), /version/i, type);
+    assert.throws(() => parseWorkflowGraph(graph), /version/i, type);
   }
 });
 

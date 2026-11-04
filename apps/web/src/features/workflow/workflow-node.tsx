@@ -1,4 +1,5 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { nodeExecutionType } from "@workflow/contracts";
 import { getAppDefinition, getNodeDefinition, outputKindsForNodeType, type WorkflowCanvasNode } from "./node-catalog";
 import { NodeIcon } from "./node-icon";
 
@@ -11,7 +12,7 @@ const categoryName = {
 
 export function WorkflowNode({ data, selected }: NodeProps<WorkflowCanvasNode>) {
   const outputKinds = outputKindsForNodeType(data.nodeType);
-  const definition = getNodeDefinition(data.nodeType);
+  const definition = getNodeDefinition(nodeExecutionType(data.nodeType, data.nodeVersion) ?? data.nodeType);
   const app = definition?.appId ? getAppDefinition(definition.appId) : undefined;
   const displayLabel = definition && data.label === definition.label ? definition.operationLabel : data.label;
 

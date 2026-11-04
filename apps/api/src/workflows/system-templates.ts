@@ -11,7 +11,7 @@ export type SystemWorkflowTemplate = {
 
 const dataReadSamples = [
   { slug: "inspect-postgres-rows", name: "Inspect PostgreSQL rows", description: "Read a bounded table page. Choose a schema and table before testing; connect PostgreSQL before a live run.", connection: "PostgreSQL", type: "action.postgres.select.v2", config: { credentialId: "", schema: "public", table: "", limit: 20 }, summary: "PostgreSQL read completed. Rows returned: {{steps.inspect.output.count}}." },
-  { slug: "inspect-supabase-rows", name: "Inspect Supabase rows", description: "Read a bounded table page. Choose a table before testing; connect Supabase before a live run.", connection: "Supabase", type: "action.supabase.select.v2", config: { credentialId: "", table: "", limit: 20 }, summary: "Supabase read completed. Rows returned: {{steps.inspect.output.count}}." },
+  { slug: "inspect-supabase-rows", name: "Inspect Supabase rows", description: "Read a bounded table page. Choose a table before testing; connect Supabase before a live run.", connection: "Supabase", type: "action.supabase.select.v2", config: { credentialId: "", table: "", limit: 20, rejectUnsafeNumbers: true }, summary: "Supabase read completed. Rows returned: {{steps.inspect.output.count}}." },
   { slug: "inspect-sheet-rows", name: "Inspect spreadsheet rows", description: "Read a range from a spreadsheet. Select your Google connection and spreadsheet before a live run.", connection: "Google", type: "action.google-sheets.v2", config: { credentialId: "", spreadsheetId: "", operation: "read", range: "Sheet1!A1:C20", valueInputOption: "USER_ENTERED" }, summary: "Spreadsheet read completed for range {{steps.inspect.output.range}}." },
   { slug: "find-notion-pages", name: "Find Notion pages", description: "Search pages shared with your Notion integration. Connect Notion before a live run.", connection: "Notion", type: "action.notion.search-pages.v2", config: { credentialId: "", query: "", pageSize: 20 }, summary: "Notion search completed. More pages available: {{steps.inspect.output.hasMore}}." },
   { slug: "inspect-trello-cards", name: "Inspect Trello cards", description: "List open cards on a board. Choose a board before testing; connect Trello before a live run.", connection: "Trello", type: "action.trello.list-cards", config: { credentialId: "", boardId: "", limit: 20, filter: "open" }, summary: "Trello read completed. Cards returned: {{steps.inspect.output.count}}." },
@@ -72,6 +72,27 @@ export const systemWorkflowTemplates: SystemWorkflowTemplate[] = [
       ],
     },
   },
+  ...([
+    { slug: "ai-structured-gemini-to-chat", provider: "Gemini", type: "action.gemini" },
+    { slug: "ai-structured-openai-to-chat", provider: "OpenAI", type: "action.openai" },
+  ] as const).map((sample): SystemWorkflowTemplate => ({
+    slug: sample.slug,
+    name: `${sample.provider} structured summary to Google Chat`,
+    description: `Generate a structured summary of sample text. Choose a model before testing; connect ${sample.provider} and a Google Chat webhook for a live run. Live generation can incur provider charges.`,
+    tags: ["AI", "Notifications"],
+    requiredConnections: [sample.provider, "Google Chat"],
+    graph: {
+      nodes: [
+        { id: "manual", type: "trigger.manual", position: { x: 100, y: 220 }, config: {} },
+        { id: "summarize", type: sample.type, position: { x: 400, y: 220 }, config: {
+          credentialId: "", model: "", prompt: "Summarize this sample: The weekly report is ready for review.", maxOutputTokens: 256, timeoutMs: 30000,
+          outputSchema: { type: "object", properties: { summary: { type: "string" }, priority: { type: "string", enum: ["normal", "high"] } }, required: ["summary", "priority"], additionalProperties: false },
+        } },
+        { id: "notify", type: "action.google-chat.webhook", position: { x: 700, y: 220 }, config: { credentialId: "", message: "AI summary: {{steps.summarize.output.json.summary}}\nPriority: {{steps.summarize.output.json.priority}}" } },
+      ],
+      edges: [{ id: "manual-to-summarize", source: "manual", target: "summarize", kind: "success" }, { id: "summarize-to-notify", source: "summarize", target: "notify", kind: "success" }],
+    },
+  })),
   ...dataReadSamples.map((sample): SystemWorkflowTemplate => ({
     slug: sample.slug, name: sample.name, description: sample.description, tags: ["Data", "Starter"], requiredConnections: [sample.connection],
     graph: {

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { BadRequestException, ConflictException, NotFoundException } from "@nestjs/common";
 import { CredentialProvider, Prisma } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
-import { parseWorkflowGraph } from "../workflows/workflow-graph";
+import { parseStoredWorkflowGraph } from "../workflows/workflow-graph";
 
 const eventByType: Record<string, string> = {
   "trigger.github.issue-opened": "issues",
@@ -27,7 +27,7 @@ export async function reserveGitHubWebhook(prisma: PrismaService, input: { workf
       if (!workflow.publishedVersion || workflow.publishedVersion.id !== input.versionId) throw changed();
       const endpoint = await tx.webhookEndpoint.findFirst({ where: { id: input.endpointId, workflowId: workflow.id } });
       if (!endpoint || endpoint.workflowVersionId !== input.versionId || endpoint.updatedAt.getTime() !== input.endpointUpdatedAt.getTime() || !endpoint.isActive || !endpoint.encryptedSigningSecret) throw changed();
-      const triggers = parseWorkflowGraph(workflow.publishedVersion.graph).nodes.filter((node) => node.type.startsWith("trigger."));
+      const triggers = parseStoredWorkflowGraph(workflow.publishedVersion.graph).nodes.filter((node) => node.type.startsWith("trigger."));
       const trigger = triggers[0];
       const event = trigger && eventByType[trigger.type];
       if (triggers.length !== 1 || !trigger || !event) throw new BadRequestException({ code: "GITHUB_TRIGGER_REQUIRED", message: "Publish a workflow with a GitHub event trigger." });

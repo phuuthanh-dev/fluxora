@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { diagnosticFileName, executionFailureExplanation, type ExecutionNodeDetail } from "./execution-observability";
+import { diagnosticFileName, executionFailureExplanation, outputHasList, type ExecutionNodeDetail } from "./execution-observability";
+
+test("list guidance appears for direct output lists and not scalar output", () => {
+  assert.equal(outputHasList([{ id: 1 }]), true);
+  assert.equal(outputHasList({ rows: [{ id: 1 }] }), true);
+  assert.equal(outputHasList({ count: 1, page: { next: null } }), false);
+  assert.equal(outputHasList(null), false);
+});
 
 const node = (overrides: Partial<ExecutionNodeDetail>): ExecutionNodeDetail => ({
   nodeId: "notify",

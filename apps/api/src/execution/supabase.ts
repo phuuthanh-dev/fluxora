@@ -2,8 +2,10 @@ import { CredentialProvider } from "@prisma/client";
 import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
 import { requireResolvedSelection, requireSafeSelectionNumber } from "./relational-selection-validation";
-import { fetchSafeOutbound } from "./outbound-url-policy";
-import { readBoundedProviderJson } from "./provider-json";
+import { fetchSafeOutbound, fetchSafeOutboundWrite, wasOutboundRedirected } from "./outbound-url-policy";
+import { readBoundedProviderJson, readBoundedProviderText } from "./provider-json";
+import { uncertainDelivery } from "./provider-request-policy";
+import { parseJsonPreservingNumbers, preservesJsonDecimal } from "./json-decimal";
 
 type Transport = (url: string, init: RequestInit) => Promise<Response>;
 const identifier = /^[A-Za-z_][A-Za-z0-9_$]{0,62}$/;
@@ -16,7 +18,7 @@ const filterOperators: Record<string, string> = {
   lessThan: "lt", lessThanOrEqual: "lte", isNull: "is", isNotNull: "not.is",
 };
 const reservedFilterNames = new Set(["select", "order", "limit", "offset", "and", "or", "not", "columns", "on_conflict"]);
-const selectConfigKeys = new Set(["credentialId", "table", "limit", "columns", "filters", "order", "offset", "retryAttempts", "timeoutMs"]);
+const selectConfigKeys = new Set(["credentialId", "table", "limit", "columns", "filters", "order", "offset", "rejectUnsafeNumbers", "retryAttempts", "timeoutMs"]);
 
 function selectParams(config: Record<string, unknown>, limit: number) {
   const invalid = (): never => { throw new NodeFailure("INVALID_INPUT", "Invalid Supabase selection, filters, ordering or offset.", false); };
@@ -63,7 +65,7 @@ function selectParams(config: Record<string, unknown>, limit: number) {
   return params;
 }
 
-async function get(path: string, credential: Record<string, unknown>, transport: Transport, openapi = false) {
+function dataApiConnection(credential: Record<string, unknown>) {
   const projectRef = typeof credential.projectRef === "string" ? credential.projectRef : "";
   const apiKey = typeof credential.apiKey === "string" ? credential.apiKey : "";
   if (!/^[a-z0-9]{10,40}$/.test(projectRef) || !/^[A-Za-z0-9._-]{1,4096}$/.test(apiKey)) throw new NodeFailure("CREDENTIAL_INVALID", "Supabase connection requires a valid project reference and API key.", false);
@@ -71,13 +73,19 @@ async function get(path: string, credential: Record<string, unknown>, transport:
   if (accessToken !== undefined && accessToken !== "" && (typeof accessToken !== "string" || accessToken.length > 8192 || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(accessToken))) {
     throw new NodeFailure("CREDENTIAL_INVALID", "Supabase user access token must be a compact signed JWT.", false);
   }
-  const headers: Record<string, string> = { apikey: apiKey, accept: openapi ? "application/openapi+json" : "application/json", "user-agent": "Fluxora/1.0" };
+  const headers: Record<string, string> = { apikey: apiKey, "user-agent": "Fluxora/1.0" };
   // A publishable/anon key without a user JWT generally uses anonymous access;
   // an explicit JWT supplies the bearer identity and overrides a legacy JWT
   // key. Supabase validates identity and policies. Secret/service-role keys or
   // privileged JWT roles may bypass RLS; a token's shape proves no identity.
   if (typeof accessToken === "string" && accessToken) headers.authorization = `Bearer ${accessToken}`;
   else if (apiKey.startsWith("eyJ")) headers.authorization = `Bearer ${apiKey}`;
+  return { projectRef, headers };
+}
+
+async function get(path: string, credential: Record<string, unknown>, transport: Transport, openapi = false, preserveNumbers = false) {
+  const { projectRef, headers } = dataApiConnection(credential);
+  headers.accept = openapi ? "application/openapi+json" : "application/json";
   let response: Response;
   try { response = await transport(`https://${projectRef}.supabase.co/rest/v1/${path}`, { method: "GET", headers, signal: AbortSignal.timeout(10_000) }); }
   catch (error) { throw nodeFailureFromOutboundPolicy(error); }
@@ -93,8 +101,75 @@ async function get(path: string, credential: Record<string, unknown>, transport:
     const guidance = response.status === 401 ? " Check the API key and any user access token." : response.status === 403 ? " Check the permissions of the effective key or token role." : "";
     throw new NodeFailure("HTTP_ERROR", `Supabase returned ${response.status}.${guidance}`, response.status === 429 || response.status >= 500, response.status);
   }
-  try { return await readBoundedProviderJson(response); }
-  catch (error) { if (error instanceof NodeFailure) throw error; throw new NodeFailure("INVALID_RESPONSE", "Supabase returned an invalid response.", false); }
+  try { return preserveNumbers ? parseJsonPreservingNumbers(await readBoundedProviderText(response)) : await readBoundedProviderJson(response); }
+  catch (error) {
+    if (error instanceof NodeFailure) throw error;
+    if (preserveNumbers && error instanceof RangeError) throw new NodeFailure("UNSAFE_PROVIDER_NUMBER", "Supabase returned a number that cannot be represented safely. Return exact values as text, for example through a database view.", false);
+    throw new NodeFailure("INVALID_RESPONSE", "Supabase returned an invalid response.", false);
+  }
+}
+
+/** Insert exactly one row. Provider errors and uncertain writes never expose response bodies. */
+export async function executeSupabaseInsert(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport = fetchSafeOutboundWrite) {
+  const allowed = new Set(["credentialId", "table", "fields", "retryAttempts", "timeoutMs"]);
+  const invalid = (): never => { throw new NodeFailure("INVALID_INPUT", "Choose a table and enter valid, distinct column values.", false); };
+  if (Object.keys(config).some((key) => !allowed.has(key))) invalid();
+  requireResolvedSelection(config, ["fields", "timeoutMs"], "Supabase");
+  const timeoutMs = config.timeoutMs === undefined ? 10_000 : config.timeoutMs;
+  if (typeof timeoutMs !== "number" || !Number.isInteger(timeoutMs) || timeoutMs < 1_000 || timeoutMs > 120_000) throw new NodeFailure("INVALID_INPUT", "Supabase timeout must be a whole number between 1,000 and 120,000 milliseconds.", false);
+  const table = typeof config.table === "string" ? config.table : "";
+  if (!identifier.test(table) || !Array.isArray(config.fields) || config.fields.length < 1 || config.fields.length > 50) return invalid();
+  const row: Record<string, string | number | boolean | null> = Object.create(null);
+  for (const raw of config.fields) {
+    const field = object(raw);
+    if (!field || Object.keys(field).some((key) => !["column", "type", "value"].includes(key)) || typeof field.column !== "string" || !identifier.test(field.column) || ["__proto__", "prototype", "constructor"].includes(field.column) || Object.hasOwn(row, field.column)) return invalid();
+    const name = field.column;
+    if (field.type === "null") {
+      if (field.value !== undefined && field.value !== "") return invalid();
+      row[name] = null;
+    } else if (field.type === "text") {
+      if (typeof field.value !== "string") return invalid();
+      row[name] = field.value;
+    } else if (field.type === "number") {
+      const input = field.value;
+      if ((typeof input !== "string" && typeof input !== "number") || (typeof input === "string" && (input.length > 100 || !input.trim() || !/^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(input.trim())))) return invalid();
+      const number = Number(input);
+      requireSafeSelectionNumber(number);
+      if (typeof input === "string" && !preservesJsonDecimal(input.trim(), number)) throw new NodeFailure("INVALID_INPUT", "A numeric value would lose precision. Use text for exact high-precision values.", false);
+      row[name] = number;
+    } else if (field.type === "boolean") {
+      if (field.value === true || field.value === "true") row[name] = true;
+      else if (field.value === false || field.value === "false") row[name] = false;
+      else return invalid();
+    } else if (field.type === "expression") {
+      const value = field.value;
+      if (value === null) row[name] = null;
+      else if (typeof value === "string" && value.length > 0) row[name] = value;
+      else if (typeof value === "boolean") row[name] = value;
+      else if (typeof value === "number") { requireSafeSelectionNumber(value); row[name] = value; }
+      else return invalid();
+    } else return invalid();
+  }
+  const body = JSON.stringify(row);
+  if (Buffer.byteLength(body) > 200_000) throw new NodeFailure("INVALID_INPUT", "Supabase row must be under 200 KB.", false);
+  if (mode === "mock") return { status: "succeeded" as const, output: { accepted: true, table }, route: "success" as const };
+  const credentialId = typeof config.credentialId === "string" ? config.credentialId.trim() : "";
+  if (!credentialId) throw new NodeFailure("CREDENTIAL_REQUIRED", "Select a Supabase connection.", false);
+  const credential = await credentials.readForExecution(credentialId, workspaceId, CredentialProvider.SUPABASE);
+  const { projectRef, headers } = dataApiConnection(credential);
+  if ((typeof credential.apiKey === "string" && credential.apiKey && table.includes(credential.apiKey)) || (typeof credential.userAccessToken === "string" && credential.userAccessToken && table.includes(credential.userAccessToken))) throw new NodeFailure("INVALID_INPUT", "Choose a valid Supabase table.", false);
+  let response: Response;
+  try {
+    response = await transport(`https://${projectRef}.supabase.co/rest/v1/${encodeURIComponent(table)}`, { method: "POST", headers: { ...headers, "content-type": "application/json", prefer: "return=minimal" }, body, signal: AbortSignal.timeout(timeoutMs) });
+  } catch { throw uncertainDelivery("Supabase"); }
+  if (wasOutboundRedirected(response) || (response.status >= 300 && response.status < 400) || response.status === 408 || response.status === 429 || response.status >= 500) {
+    await response.body?.cancel().catch(() => undefined);
+    throw uncertainDelivery("Supabase", response.status);
+  }
+  await response.body?.cancel().catch(() => undefined);
+  if (!response.ok) throw new NodeFailure("SUPABASE_WRITE_REJECTED", `Supabase returned ${response.status}. Check table permissions and row values.`, false, response.status);
+  if (response.status !== 201 && response.status !== 204) throw uncertainDelivery("Supabase", response.status);
+  return { status: "succeeded" as const, output: { accepted: true, table }, route: "success" as const };
 }
 
 async function getManagedSchema(credential: Record<string, unknown>, transport: Transport) {
@@ -187,7 +262,8 @@ export async function executeSupabaseSelect(config: Record<string, unknown>, mod
     return { status: "succeeded" as const, output: { rows, count: rows.length }, route: "success" as const };
   }
   if (Object.keys(config).some((key) => !selectConfigKeys.has(key))) throw new NodeFailure("INVALID_INPUT", "Supabase configuration contains an unsupported field.", false);
-  requireResolvedSelection(config, ["limit", "columns", "filters", "order", "offset"], "Supabase");
+  requireResolvedSelection(config, ["limit", "columns", "filters", "order", "offset", "rejectUnsafeNumbers"], "Supabase");
+  if (config.rejectUnsafeNumbers !== undefined && typeof config.rejectUnsafeNumbers !== "boolean") throw new NodeFailure("INVALID_INPUT", "Supabase number precision option must be true or false.", false);
   const table = typeof config.table === "string" ? config.table : "";
   const limit = Object.hasOwn(config, "limit") ? config.limit : 20;
   if (!identifier.test(table) || typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > 100) throw new NodeFailure("INVALID_INPUT", "Choose a table and a limit between 1 and 100.", false);
@@ -199,7 +275,7 @@ export async function executeSupabaseSelect(config: Record<string, unknown>, mod
   const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
   if (!credentialId) throw new NodeFailure("CREDENTIAL_REQUIRED", "Select a Supabase connection.", false);
   const credential = await credentials.readForExecution(credentialId, workspaceId, CredentialProvider.SUPABASE);
-  const result = await get(`${encodeURIComponent(table)}?${params}`, credential, transport);
+  const result = await get(`${encodeURIComponent(table)}?${params}`, credential, transport, false, config.rejectUnsafeNumbers === true);
   if (!Array.isArray(result)) throw new NodeFailure("INVALID_RESPONSE", "Supabase returned an invalid row list.", false);
   const rows = result.slice(0, limit);
   if (Buffer.byteLength(JSON.stringify(rows)) > 200_000) throw new NodeFailure("RESPONSE_TOO_LARGE", "Supabase rows exceed the output size limit.", false);

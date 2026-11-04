@@ -4,7 +4,7 @@ import { parseExpression } from "cron-parser";
 import { PrismaService } from "../database/prisma.service";
 import { ExecutionQueueService } from "../execution/execution-queue.service";
 import { ExecutionService } from "../execution/execution.service";
-import { parseWorkflowGraph } from "../workflows/workflow-graph";
+import { parseStoredWorkflowGraph } from "../workflows/workflow-graph";
 import { BackgroundWork } from "../platform/background-work";
 
 @Injectable()
@@ -52,8 +52,8 @@ export class CronSchedulerService implements OnModuleInit, OnModuleDestroy {
       return;
     }
     for (const version of versions) {
-      let graph: ReturnType<typeof parseWorkflowGraph>;
-      try { graph = parseWorkflowGraph(version.graph); }
+      let graph: ReturnType<typeof parseStoredWorkflowGraph>;
+      try { graph = parseStoredWorkflowGraph(version.graph); }
       catch { this.logger.warn(`Cron scheduler could not read workflow version ${version.id}.`); continue; }
       for (const node of graph.nodes.filter((item) => item.type === "trigger.cron")) {
         const expression = typeof node.config.expression === "string" ? node.config.expression : "";

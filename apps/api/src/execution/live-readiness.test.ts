@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { CredentialProvider } from "@prisma/client";
 import { liveCredentialRequirements } from "./live-readiness";
+
+test("Supabase insert requires its workspace connection for live execution", () => {
+  const requirements = liveCredentialRequirements({ nodes: [{ id: "insert", type: "action.supabase.insert-row", position: { x: 0, y: 0 }, config: { credentialId: "supabase-connection" } }], edges: [] });
+  assert.deepEqual(requirements, [{ nodeId: "insert", provider: CredentialProvider.SUPABASE, credentialId: "supabase-connection" }]);
+});
 import { ExecutionService } from "./execution.service";
 
 test("both Steam nodes require the selected workspace Steam connection", () => {

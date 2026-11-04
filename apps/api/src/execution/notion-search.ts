@@ -24,6 +24,7 @@ export async function searchNotionPages(input: SearchInput, transport: Transport
   } catch (error) { throw nodeFailureFromOutboundPolicy(error); }
   if (!response.ok) {
     const retryAfterMs = response.status === 429 ? parseRetryAfter(response.headers.get("retry-after")) : undefined;
+    await response.body?.cancel().catch(() => undefined);
     throw new NodeFailure("HTTP_ERROR", `Notion returned ${response.status}.`, (response.status === 429 && (retryAfterMs === undefined || retryAfterMs <= maximumRetryDelayMs)) || response.status >= 500, response.status, retryAfterMs);
   }
   let payload: unknown;

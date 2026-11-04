@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { executableWorkflowNodeTypes, isExecutableWorkflowNodeType } from "@workflow/contracts";
+import { executableWorkflowNodeTypes, isExecutableWorkflowNodeType, type WorkflowNodeType } from "@workflow/contracts";
 import { availableCatalogTypes, createNodeData, getNodeDefinition, initialEdges, initialNodes, nodeCatalog } from "./node-catalog";
 import { parseWorkflowCanvasGraph } from "./workflow-graph-schema";
 import { graphForApi, graphFromApi } from "./workflow-api";
@@ -19,6 +19,23 @@ test("API round-trip preserves unversioned legacy nodes and versioned new nodes"
   assert.deepEqual(graphForApi(graphFromApi(versioned)), versioned);
   assert.equal(createNodeData(getNodeDefinition("trigger.manual")!).nodeVersion, 1);
   assert.throws(() => graphFromApi({ ...legacy, nodes: [{ ...legacy.nodes[0]!, nodeVersion: 2 }] }), /Unsupported node version/);
+});
+
+test("historical and .v2 node identities survive editor import and export", () => {
+  for (const base of ["trigger.uptime-kuma.alert", "action.google-drive", "action.google-sheets", "action.google-chat.oauth", "action.gmail.read", "action.notion.search-pages", "action.sentry.list-issues", "action.vercel.list-deployments", "action.postgres.select", "action.supabase.select"]) {
+    for (const suffix of ["", ".v2"]) for (const version of [undefined, 1]) {
+      const node = { id: "historical", type: (base + suffix) as WorkflowNodeType, ...(version === undefined ? {} : { nodeVersion: version }), position: { x: 2, y: 3 }, config: { savedValue: "preserve" } };
+      const graph = { nodes: [node], edges: [] };
+      assert.deepEqual(graphForApi(graphFromApi(graph)), graph, `${node.type} version ${version ?? "missing"}`);
+    }
+  }
+});
+
+test("editor rejects numeric version 2 for old and existing .v2 node types", () => {
+  for (const type of ["action.google-drive", "action.google-drive.v2", "trigger.uptime-kuma.alert", "trigger.uptime-kuma.alert.v2"] as const) {
+    const graph = { nodes: [{ id: "node", type, nodeVersion: 2, position: { x: 0, y: 0 }, config: {} }], edges: [] };
+    assert.throws(() => graphFromApi(graph), /Unsupported node version/);
+  }
 });
 
 test("new Telegram message nodes use plain text while existing formatting survives a round trip", () => {
@@ -93,6 +110,7 @@ test("Gemini generation uses a dedicated credential and model picker", () => {
   assert.equal(isExecutableWorkflowNodeType("action.gemini"), true);
   assert.deepEqual(gemini?.configurationFields?.[0], { kind: "credential", key: "credentialId", label: "Gemini credential", providers: ["GEMINI"] });
   assert.equal(gemini?.configurationFields?.find((field) => field.key === "model")?.kind, "resource");
+  assert.equal(gemini?.defaultConfig.model, "");
 });
 
 test("OpenAI generation uses a dedicated credential and model picker", () => {

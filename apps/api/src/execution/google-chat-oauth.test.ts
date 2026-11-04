@@ -3,11 +3,30 @@ import { createHash } from "node:crypto";
 import test from "node:test";
 import { executeGoogleChatEdit, executeGoogleChatOAuth, listGoogleChatSpaces } from "./google-chat-oauth";
 import { NodeFailure } from "./node-failure";
+import { getOperationMetadata } from "@workflow/contracts";
 
 test("Google Chat mock validates destination without reading credentials", async () => {
   const mock = await executeGoogleChatOAuth({ space: "spaces/abc", message: "Hello" }, "mock", "workspace", { readGoogleForExecution: () => { throw new Error("unexpected credential read"); } } as never);
   assert.equal(mock.output.delivered, true);
   await assert.rejects(executeGoogleChatOAuth({ space: "https://example.com", message: "Hello" }, "mock", "workspace", {} as never));
+});
+
+test("Google Chat simulated send and reply expose the live receipt fields", async () => {
+  const mockCredentials = new Proxy({}, { get() { throw new Error("Mock must not read credentials"); } }) as never;
+  const liveCredentials = { readGoogleForExecution: async () => ({ accessToken: "synthetic-token" }) } as never;
+  const config = { credentialId: "connection", space: "spaces/abc", message: "Example", threadName: "spaces/abc/threads/thread1" };
+  for (const [variant, type] of [["legacy", "action.google-chat.oauth"], ["send", "action.google-chat.oauth.v2"], ["reply", "action.google-chat.reply"]] as const) {
+    const transport = async () => Response.json({ name: "spaces/abc/messages/message1", thread: { name: config.threadName } });
+    const mock = await executeGoogleChatOAuth(config, "mock", "workspace", mockCredentials, transport, variant);
+    const live = await executeGoogleChatOAuth(config, "live", "workspace", liveCredentials, transport, variant);
+    const metadata = getOperationMetadata(type);
+    assert.ok(metadata && "knownFields" in metadata.output);
+    for (const field of metadata.output.knownFields) {
+      assert.ok(Object.hasOwn(mock.output, field), `${variant} mock is missing ${field}`);
+      assert.ok(Object.hasOwn(live.output, field), `${variant} live receipt is missing ${field}`);
+    }
+    assert.equal((mock.output as Record<string, unknown>).simulated, true);
+  }
 });
 
 test("Google Chat edit requires verified management scope and confirms the same message", async () => {

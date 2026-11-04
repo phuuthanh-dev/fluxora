@@ -32,6 +32,15 @@ test("Gemini errors classify retries without leaking provider responses", async 
   await assert.rejects(generateGeminiText(input, async () => Response.json({ candidates: [{ content: { parts: [{ text: "x".repeat(100_001) }] } }] })), (error: unknown) => error instanceof NodeFailure && error.code === "RESPONSE_TOO_LARGE");
 });
 
+test("Gemini 404 suggests checking model access without exposing the provider body or retrying", async () => {
+  let calls = 0;
+  await assert.rejects(generateGeminiText(input, async () => {
+    calls++;
+    return new Response("private provider detail", { status: 404 });
+  }), (error: unknown) => error instanceof NodeFailure && error.code === "HTTP_ERROR" && !error.retryable && error.message.includes("project access") && !error.message.includes("private provider detail"));
+  assert.equal(calls, 1);
+});
+
 test("Gemini model discovery returns bounded generation-capable identifiers only", async () => {
   const result = await listGeminiTextModels("test-key", async (url, init) => {
     assert.equal(url, "https://generativelanguage.googleapis.com/v1beta/models?pageSize=100");

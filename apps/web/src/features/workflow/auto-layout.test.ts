@@ -16,6 +16,23 @@ import {
 } from "./node-catalog";
 import { graphForApi, graphFromApi } from "./workflow-api";
 
+test("Supabase row insert is discoverable and persists its own node type", () => {
+  const definition = operationsForApp("supabase").find((item) => item.operationId === "insert-row");
+  assert.ok(definition);
+  const node = { id: "insert", type: "workflowNode" as const, position: { x: 0, y: 0 }, data: createNodeData(definition) };
+  const graph = graphForApi({ nodes: [node], edges: [] });
+  assert.equal(graph.nodes[0]?.type, "action.supabase.insert-row");
+  assert.equal(graphFromApi(graph).nodes[0]?.data.nodeType, "action.supabase.insert-row");
+});
+
+test("new Supabase reads enable precision protection without altering saved nodes", () => {
+  const definition = operationsForApp("supabase").find((item) => item.operationId === "select-rows");
+  assert.ok(definition);
+  assert.equal(createNodeData(definition).config.rejectUnsafeNumbers, true);
+  const saved = { nodes: [{ id: "read", type: "action.supabase.select.v2" as const, position: { x: 0, y: 0 }, config: { table: "items" } }], edges: [] };
+  assert.deepEqual(graphForApi(graphFromApi(saved)), saved);
+});
+
 test("League operations are independently discoverable while sharing the Riot executor", () => {
   const actions = operationsForApp("riot-lol");
   assert.equal(actions.length, 10);

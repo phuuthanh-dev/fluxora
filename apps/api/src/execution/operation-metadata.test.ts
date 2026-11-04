@@ -57,6 +57,87 @@ test("catalog executable nodes reach a mock handler without reading credentials"
   }
 });
 
+test("trigger metadata describes the common output wrapper without assuming a provider payload", async () => {
+  const credentials = new Proxy({}, { get() { throw new Error("Trigger dispatch must not read credentials"); } }) as never;
+  const payload = { source: "synthetic", data: { id: 1 } };
+  for (const type of executableWorkflowNodeTypes.filter((candidate) => candidate.startsWith("trigger."))) {
+    const node = { id: "trigger", type, position: { x: 0, y: 0 }, config: {} };
+    const metadata = getOperationMetadata(type);
+    assert.ok(metadata && "knownFields" in metadata.output, type);
+    assert.deepEqual(metadata.output.knownFields, ["received"], type);
+    for (const mode of ["mock", "live"] as const) {
+      const result = await executeNode(node, {}, { trigger: payload }, mode, "workspace", credentials, "execution");
+      assert.deepEqual(result.output, { received: payload }, `${type} ${mode}`);
+    }
+  }
+});
+
+test("approval and Drive metadata only describe common output fields", async () => {
+  const credentials = new Proxy({}, { get() { throw new Error("Mock must not read credentials"); } }) as never;
+  for (const [type, configs] of [
+    ["approval.request", [{}]],
+    ["action.google-drive", [{ operation: "list" }, { operation: "search" }, { operation: "uploadText" }, { operation: "downloadText" }]],
+  ] as const) {
+    const metadata = getOperationMetadata(type);
+    assert.ok(metadata && "knownFields" in metadata.output, type);
+    for (const config of configs) {
+      const node = { id: "node", type, position: { x: 0, y: 0 }, config };
+      const result = await executeNode(node, config, {}, "mock", "workspace", credentials, "execution");
+      for (const field of metadata.output.knownFields) assert.ok(Object.hasOwn(result.output, field), `${type} is missing ${field}`);
+    }
+  }
+});
+
+test("notification receipt metadata matches successful mock output", async () => {
+  const credentials = new Proxy({}, { get() { throw new Error("Mock must not read credentials"); } }) as never;
+  for (const type of ["action.google-chat.webhook", "action.discord.webhook", "action.telegram.message", "action.telegram.reply", "action.telegram.edit-message"] as const) {
+    const config = { message: "Example", content: "Example", text: "Example", chatId: "12345", messageId: "1" };
+    const node = { id: "send", type, position: { x: 0, y: 0 }, config };
+    const result = await executeNode(node, config, {}, "mock", "workspace", credentials, "execution");
+    const metadata = getOperationMetadata(type);
+    assert.ok(metadata && "knownFields" in metadata.output, type);
+    for (const field of metadata.output.knownFields) assert.ok(Object.hasOwn(result.output, field), `${type} is missing ${field}`);
+    assert.equal(result.output.mode, "mock", type);
+  }
+});
+
+test("data and GitHub output metadata matches configured mock runs", async () => {
+  const credentials = new Proxy({}, { get() { throw new Error("Mock must not read credentials"); } }) as never;
+  const cases = [
+    ["action.mongodb", { database: "example", collection: "items" }],
+    ["action.mongodb.insert", { database: "example", collection: "items", document: { name: "sample" } }],
+    ["action.postgres.select", { schema: "public", table: "items" }],
+    ["action.supabase.select", { table: "items" }],
+    ["action.rss.read", { url: "https://example.test/feed.xml" }],
+    ["action.http-request", { url: "https://example.test/", method: "GET" }],
+    ["action.email", { to: "recipient@example.test", subject: "Example", body: "Example" }],
+    ["action.notion.retrieve-page", { pageId: "01234567-89ab-cdef-0123-456789abcdef" }],
+    ["action.trello.create-card", { boardId: "aaaaaaaaaaaaaaaaaaaaaaaa", listId: "bbbbbbbbbbbbbbbbbbbbbbbb", title: "Example" }],
+    ["action.trello.get-card", { cardId: "cccccccccccccccccccccccc" }],
+    ["action.trello.update-card", { cardId: "cccccccccccccccccccccccc", title: "Example" }],
+    ["action.trello.move-card", { cardId: "cccccccccccccccccccccccc", boardId: "aaaaaaaaaaaaaaaaaaaaaaaa", listId: "bbbbbbbbbbbbbbbbbbbbbbbb" }],
+    ["action.trello.archive-card", { cardId: "cccccccccccccccccccccccc" }],
+    ["action.sentry.get-issue", { organization: "example", project: "project", issueId: "123" }],
+    ["action.vercel.public-deployment-lookup", { deploymentId: "dpl_example" }],
+    ["action.reddit.list-posts", { subreddit: "example" }],
+    ["action.github", { repository: "example/project", title: "Example issue" }],
+    ["action.github.add-label", { repository: "example/project", issueNumber: 1, label: "example" }],
+    ["action.github.add-comment", { repository: "example/project", issueNumber: 1, body: "Example" }],
+    ["action.github.merge-pull-request", { repository: "example/project", pullRequestNumber: 1 }],
+    ["action.github.list-issues", { repository: "example/project" }],
+    ["action.github.get-issue", { repository: "example/project", issueNumber: 1 }],
+    ["action.github.list-pull-requests", { repository: "example/project" }],
+    ["action.github.get-pull-request", { repository: "example/project", pullRequestNumber: 1 }],
+  ] as const;
+  for (const [type, config] of cases) {
+    const node = { id: "example", type, position: { x: 0, y: 0 }, config };
+    const result = await executeNode(node, config, {}, "mock", "workspace", credentials, "execution");
+    const metadata = getOperationMetadata(type);
+    assert.ok(metadata && "knownFields" in metadata.output, type);
+    for (const field of metadata.output.knownFields) assert.ok(Object.hasOwn(result.output, field), `${type} is missing ${field}`);
+  }
+});
+
 test("calendar metadata describes the actual synthetic continuation and stable start time", async () => {
   const metadata = getOperationMetadata("action.google-calendar.list-events");
   assert.ok(metadata && metadata.pagination.kind === "continuation");
@@ -80,6 +161,40 @@ test("Notion search exposes an input cursor and the advertised output fields", a
   assert.ok(metadata.pagination.next in result.output);
   assert.ok(metadata.pagination.hasMore! in result.output);
   if ("knownFields" in metadata.output) for (const key of metadata.output.knownFields) assert.ok(key in result.output, key);
+});
+
+test("relational offset metadata matches v2 outputs without claiming a next page", async () => {
+  for (const [type, selection, preserve] of [
+    ["action.postgres.select.v2", { schema: "public", orderBy: "id", orderDirection: "asc" }, ["credentialId", "schema", "table", "limit", "columns", "conditions", "orderBy", "orderDirection"]],
+    ["action.supabase.select.v2", { order: [{ column: "id", direction: "asc" }] }, ["credentialId", "table", "limit", "columns", "filters", "order", "rejectUnsafeNumbers"]],
+  ] as const) {
+    const metadata = getOperationMetadata(type);
+    assert.ok(metadata && metadata.pagination.kind === "offset");
+    assert.deepEqual(metadata.pagination.preserve, preserve);
+    const config = { table: "items", limit: 5, [metadata.pagination.input]: 5, ...selection };
+    const node = { id: "read", type, position: { x: 0, y: 0 }, config };
+    const result = await executeNode(node, config, {}, "mock", "workspace", {} as never, "execution");
+    assert.deepEqual(result.output[metadata.pagination.page], { limit: 5, offset: 5, completeness: "unknown" });
+    if ("knownFields" in metadata.output) for (const key of metadata.output.knownFields) assert.ok(key in result.output, key);
+    assert.ok(!("hasMore" in result.output));
+    assert.ok(!("nextOffset" in result.output));
+    assert.equal(getOperationMetadata(type.replace(".v2", ""))?.pagination.kind, "unspecified");
+  }
+});
+
+test("AI metadata describes outputs common to plain and structured mock runs", async () => {
+  const schema = { type: "object", properties: { answer: { type: "string" } }, required: ["answer"], additionalProperties: false };
+  for (const type of ["action.openai", "action.gemini"] as const) for (const structured of [false, true]) {
+    const metadata = getOperationMetadata(type);
+    assert.ok(metadata && "knownFields" in metadata.output);
+    assert.deepEqual(metadata.output.knownFields, ["text", "model", "finishReason"]);
+    const config = { model: "example", prompt: "Hello", ...(structured ? { outputSchema: schema } : {}) };
+    const node = { id: "ai", type, position: { x: 0, y: 0 }, config };
+    const result = await executeNode(node, config, {}, "mock", "workspace", {} as never, "execution");
+    for (const field of metadata.output.knownFields) assert.ok(field in result.output, `${type} ${field}`);
+    assert.equal("json" in result.output, structured);
+    assert.ok(!("usage" in result.output));
+  }
 });
 
 test("continuation metadata identifies the connection and query context that must stay consistent", () => {

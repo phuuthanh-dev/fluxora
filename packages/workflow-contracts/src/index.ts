@@ -1,5 +1,6 @@
 export * from "./ai-schema";
 export * from "./operation-metadata";
+export { currentLibraryNodeType, nodeExecutionType } from "./node-versioning";
 export * from "./riot-lol";
 export type { NodeConfigurationField, NodeFieldVisibility, NodeResource, NodeSelectOption } from "./node-configuration-fields";
 export { trelloCardConfigurationFields } from "./trello-card-fields";
@@ -83,6 +84,7 @@ export const workflowNodeTypes = [
   "action.vercel.public-deployment-lookup",
   "action.supabase.select",
   "action.supabase.select.v2",
+  "action.supabase.insert-row",
   "action.reddit.list-posts",
   "action.postgres.select",
   "action.postgres.select.v2",
@@ -184,6 +186,7 @@ export const executableWorkflowNodeTypes = [
   "action.vercel.public-deployment-lookup",
   "action.supabase.select",
   "action.supabase.select.v2",
+  "action.supabase.insert-row",
   "action.reddit.list-posts",
   "action.postgres.select",
   "action.postgres.select.v2",

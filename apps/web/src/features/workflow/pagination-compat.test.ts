@@ -9,6 +9,24 @@ const types = [
   ["action.vercel.list-deployments", "vercel"],
 ] as const;
 
+test("legacy favorites resolve to the current library entry without duplicating old nodes", () => {
+  const legacyTypes = [
+    "trigger.uptime-kuma.alert", "action.google-drive", "action.google-sheets", "action.google-chat.oauth",
+    "action.gmail.read", "action.notion.search-pages", "action.sentry.list-issues", "action.vercel.list-deployments",
+    "action.postgres.select", "action.supabase.select",
+  ];
+  for (const type of legacyTypes) {
+    const old = getNodeDefinition(type);
+    const current = getNodeDefinition(libraryNodeType(type));
+    assert.ok(old?.hiddenFromLibrary, type);
+    assert.ok(current?.available && !current.hiddenFromLibrary, type);
+    assert.equal(current.appId, old.appId, type);
+    assert.equal(current.operationId, old.operationId, type);
+  }
+  assert.equal(libraryNodeType("action.http-request"), "action.http-request");
+  assert.equal(libraryNodeType("unknown-node"), "unknown-node");
+});
+
 test("historical graphs round trip unchanged and upgrade preserves every config field", () => {
   for (const [type, app] of types) {
     const config = { credentialId: "synthetic", cursor: "saved", pageToken: "saved-page", extra: { retained: true }, operation: "uploadText", text: "contents" };

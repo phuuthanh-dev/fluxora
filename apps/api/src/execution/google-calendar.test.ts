@@ -3,6 +3,7 @@ import { redactValue } from "./redaction";
 import test from "node:test";
 import { createCalendarEvent, executeGoogleCalendar, executeGoogleCalendarAvailability, executeGoogleCalendarCreate, executeGoogleCalendarEvent, listCalendarEvents } from "./google-calendar";
 import { NodeFailure } from "./node-failure";
+import { getOperationMetadata } from "@workflow/contracts";
 
 test("calendar mock never reads a credential and uses bounded synthetic events", async () => {
   const result = await executeGoogleCalendar({}, "mock", "workspace", { readGoogleForExecution: () => { throw new Error("should not read"); } } as never);
@@ -109,6 +110,27 @@ test("calendar event read and update only send the selected fields", async () =>
   assert.equal(calls[1]?.init?.method, "PATCH");
   assert.deepEqual(JSON.parse(String(calls[1]?.init?.body)), { summary: "Updated" });
   assert.ok(!JSON.stringify(read.output).includes("secret-token"));
+});
+
+test("calendar mock event output supports the same fields as live responses", async () => {
+  const mockCredentials = new Proxy({}, { get() { throw new Error("Mock must not read credentials"); } }) as never;
+  const liveCredentials = { readGoogleForExecution: async () => ({ accessToken: "synthetic-token" }) } as never;
+  const config = { credentialId: "credential", calendarId: "primary", eventId: "event-id", summary: "Updated" };
+  for (const operation of ["get", "update", "delete"] as const) {
+    const transport = async () => operation === "delete"
+      ? new Response(null, { status: 204 })
+      : Response.json({ id: "event-id", summary: "Original", start: { dateTime: "2030-01-01T09:00:00Z" }, end: { dateTime: "2030-01-01T10:00:00Z" } });
+    const mock = await executeGoogleCalendarEvent(config, operation, "mock", "workspace", mockCredentials);
+    const live = await executeGoogleCalendarEvent(config, operation, "live", "workspace", liveCredentials, transport as never);
+    const metadata = getOperationMetadata(`action.google-calendar.${operation}-event`);
+    assert.ok(metadata && "knownFields" in metadata.output);
+    for (const field of metadata.output.knownFields) {
+      assert.ok(Object.hasOwn(mock.output, field), `${operation} mock is missing ${field}`);
+      assert.ok(Object.hasOwn(live.output, field), `${operation} live response is missing ${field}`);
+    }
+    assert.equal((mock.output as Record<string, unknown>).operation, operation);
+    assert.equal((mock.output as Record<string, unknown>).mocked, true);
+  }
 });
 
 test("calendar delete does not claim that a missing or inaccessible event was deleted", async () => {

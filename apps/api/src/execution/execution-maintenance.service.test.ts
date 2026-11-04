@@ -35,6 +35,20 @@ test("one failed lease recovery does not prevent later executions from being rec
   assert.ok(!warnings[0]?.includes("synthetic-private-detail"));
 });
 
+test("approval maintenance isolates failures and continues the bounded scan", async () => {
+  const visited: string[] = [];
+  const warnings: string[] = [];
+  const service = new ExecutionMaintenanceService(
+    { approvalRequest: { findMany: async () => [{ id: "bad", executionId: "run-1" }, { id: "due", executionId: "run-2" }] } } as never,
+    { expireApprovalFromMaintenance: async (id: string) => { visited.push(id); if (id === "bad") throw new Error("synthetic-private-detail"); return true; } } as never,
+  );
+  (service as unknown as { logger: { warn: (message: string) => void } }).logger.warn = (message) => { warnings.push(message); };
+  assert.equal(await service.expireApprovals(), 1);
+  assert.deepEqual(visited, ["bad", "due"]);
+  assert.equal(warnings.length, 1);
+  assert.ok(!warnings[0]?.includes("synthetic-private-detail"));
+});
+
 test("a full batch of failed lease recoveries cannot starve later expired executions", async () => {
   const queries: Array<{ where: { id?: { gt: string } } }> = [];
   const service = new ExecutionMaintenanceService(

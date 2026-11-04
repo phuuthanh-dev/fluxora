@@ -1,4 +1,4 @@
-import { isSupportedWorkflowNodeVersion, type ExecutableWorkflowNodeType } from "@workflow/contracts";
+import { nodeExecutionType, type ExecutableWorkflowNodeType } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { CredentialProvider } from "@prisma/client";
 import type { ConnectorExecutor } from "./node-executor-contract";
@@ -24,7 +24,7 @@ import { executeTrelloCreateCard } from "./trello";
 import { executeTrelloOperation } from "./trello-operations";
 import { executeSentryListIssues } from "./sentry";
 import { executeVercelListDeployments } from "./vercel";
-import { executeSupabaseSelect } from "./supabase";
+import { executeSupabaseInsert, executeSupabaseSelect } from "./supabase";
 import { executeSentryGetIssue } from "./sentry-observability";
 import { executeVercelPublicDeploymentLookup } from "./vercel-observability";
 import { executeRedditListPosts } from "./reddit";
@@ -109,6 +109,7 @@ const executors = {
   "action.vercel.public-deployment-lookup": ({ config, mode, workspaceId, credentials }) => executeVercelPublicDeploymentLookup(config, mode, workspaceId, credentials),
   "action.supabase.select": ({ config, mode, workspaceId, credentials }) => executeSupabaseSelect(config, mode, workspaceId, credentials, undefined, 1),
   "action.supabase.select.v2": ({ config, mode, workspaceId, credentials }) => executeSupabaseSelect(config, mode, workspaceId, credentials, undefined, 2),
+  "action.supabase.insert-row": ({ config, mode, workspaceId, credentials }) => executeSupabaseInsert(config, mode, workspaceId, credentials),
   "action.reddit.list-posts": ({ config, mode, workspaceId, credentials }) => executeRedditListPosts(config, mode, workspaceId, credentials),
   "action.postgres.select": ({ config, mode, workspaceId, credentials }) => executePostgresSelect(config, mode, workspaceId, credentials, undefined, 1),
   "action.postgres.select.v2": ({ config, mode, workspaceId, credentials }) => executePostgresSelect(config, mode, workspaceId, credentials, undefined, 2),
@@ -155,8 +156,6 @@ async function executeDriveNode(config: Record<string, unknown>, mode: "mock" | 
 
 export const registeredConnectorNodeTypes = Object.freeze(Object.keys(executors) as Array<keyof typeof executors>);
 export function getConnectorExecutor(type: string, version?: unknown): ConnectorExecutor | undefined {
-  // Missing versions identify historical v1 graphs. Never select the current
-  // implementation for an explicitly unsupported version.
-  if (version !== undefined && !isSupportedWorkflowNodeVersion(version)) return undefined;
-  return Object.hasOwn(executors, type) ? executors[type as keyof typeof executors] : undefined;
+  const executionType = nodeExecutionType(type, version);
+  return executionType && Object.hasOwn(executors, executionType) ? executors[executionType as keyof typeof executors] : undefined;
 }

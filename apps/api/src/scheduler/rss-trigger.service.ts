@@ -4,7 +4,7 @@ import type { WorkflowGraph } from "@workflow/contracts";
 import { PrismaService } from "../database/prisma.service";
 import { ExecutionQueueService } from "../execution/execution-queue.service";
 import { NodeFailure } from "../execution/node-failure";
-import { parseWorkflowGraph } from "../workflows/workflow-graph";
+import { parseStoredWorkflowGraph } from "../workflows/workflow-graph";
 import { RssTriggerPoller, canResumeRssCheckpoint, rssFeedUrlHash, rssTargets, type RssTarget } from "./rss-trigger-poller";
 import { PrismaRssTriggerStore } from "./rss-trigger.store";
 import { BackgroundWork } from "../platform/background-work";
@@ -66,7 +66,7 @@ export class RssTriggerService implements OnModuleInit, OnModuleDestroy {
       const versions = await this.prisma.workflowVersion.findMany({ where: { status: WorkflowVersionStatus.PUBLISHED, publishedFor: { is: { isActive: true, archivedAt: null } } }, select: { id: true, workflowId: true, graph: true } });
       for (const version of versions) {
         try {
-          const targets = rssTargets(version.workflowId, version.id, parseWorkflowGraph(version.graph));
+          const targets = rssTargets(version.workflowId, version.id, parseStoredWorkflowGraph(version.graph));
           for (const target of targets) {
             const accepted = await this.poller.poll(target);
             for (const executionId of accepted ?? []) {

@@ -88,7 +88,8 @@ export async function generateGeminiText(input: GeminiTextInput, transport: Gemi
   }
   if (!response.ok) {
     await response.body?.cancel().catch(() => undefined);
-    throw new NodeFailure("HTTP_ERROR", response.status === 400 && outputSchema ? "Gemini rejected the structured output request; check model and schema support." : `Gemini returned ${response.status}.`, false, response.status);
+    const message = response.status === 400 && outputSchema ? "Gemini rejected the structured output request; check model and schema support." : response.status === 404 ? "Gemini could not find this model for the selected project. Check the model name and project access, or choose another model." : `Gemini returned ${response.status}.`;
+    throw new NodeFailure("HTTP_ERROR", message, false, response.status);
   }
   let payload: unknown;
   try { payload = await readBoundedProviderJson(response); } catch (error) { if (error instanceof NodeFailure) throw new NodeFailure(error.code, error.message, false, error.statusCode); throw new NodeFailure("INVALID_RESPONSE", "Gemini returned an invalid response.", false); }

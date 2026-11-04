@@ -52,7 +52,11 @@ export async function executeGoogleDrive(credential: Record<string, unknown>, co
 export function mockSheets(config: Record<string, unknown>) {
   const operation = readOperation(config, ["read", "append", "update"], "read");
   const range = String(config.range ?? "Sheet1!A1");
-  return operation === "read" ? { operation, range, values: [["Mock Steam Player", "42 games"]] } : { operation, range, updatedRows: 1, updatedCells: 2 };
+  if (operation === "read") return { operation, range, values: [["Mock Steam Player", "42 games"]] };
+  const spreadsheetId = typeof config.spreadsheetId === "string" && config.spreadsheetId ? config.spreadsheetId : "mock-spreadsheet";
+  const updates = { spreadsheetId, updatedRange: range, updatedRows: 1, updatedColumns: 2, updatedCells: 2 };
+  // Keep the original mock-only top-level fields for saved test workflows.
+  return operation === "append" ? { operation, range, updatedRows: 1, updatedCells: 2, spreadsheetId, tableRange: "", updates } : { operation, range, ...updates };
 }
 
 export function readSheetsInputOption(config: Record<string, unknown>): "USER_ENTERED" | "RAW" {

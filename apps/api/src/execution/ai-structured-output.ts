@@ -1,6 +1,7 @@
 import { NodeFailure } from "./node-failure";
 import { markNormalizedAiUsage } from "./redaction";
 import { validateAiSchema } from "@workflow/contracts";
+import { parseJsonPreservingNumbers } from "./json-decimal";
 import type { AiSchema } from "@workflow/contracts";
 export type { AiSchema } from "@workflow/contracts";
 
@@ -34,7 +35,9 @@ function matches(value: unknown, schema: AiSchema): boolean {
 
 export function parseAiOutput(text: string, schema: AiSchema): unknown {
   let value: unknown;
-  try { value = JSON.parse(text) as unknown; } catch { throw new NodeFailure("INVALID_STRUCTURED_OUTPUT", "Provider returned invalid structured output.", false); }
+  try {
+    value = parseJsonPreservingNumbers(text);
+  } catch { throw new NodeFailure("INVALID_STRUCTURED_OUTPUT", "Provider returned invalid structured output or a number that cannot be preserved safely. Use text for exact values.", false); }
   if (!matches(value, schema)) throw new NodeFailure("INVALID_STRUCTURED_OUTPUT", "Provider returned invalid structured output.", false);
   return value;
 }
