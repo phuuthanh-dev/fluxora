@@ -7,6 +7,9 @@ import { Button, Dialog, EmptyState, IconButton, Progress, Skeleton, Status } fr
 import { apiRequest } from "../api/api-client";
 
 export type ExecutionError = { code: string; message: string | null; retryable: boolean };
+export function outputHasList(value: unknown): boolean {
+  return Array.isArray(value) || (value !== null && typeof value === "object" && Object.values(value).some(Array.isArray));
+}
 export type ExecutionNodeDetail = {
   nodeId: string;
   nodeType: string;

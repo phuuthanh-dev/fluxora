@@ -14,6 +14,11 @@ and per-item ambiguous-write handling. Start with a linear mock read → map;
 joins, nested loops and per-item approvals need separate designs. n8n's
 [item data model](https://docs.n8n.io/build/work-with-data/understand-n8ns-data-structure.md)
 is a useful reference, not evidence that Fluxora already behaves that way.
+Unlike Fluxora's current engine, n8n normally processes each incoming item
+automatically; its [loop documentation](https://docs.n8n.io/build/flow-logic/loop/)
+also lists exceptions and a separate batching node. A local editor hint now
+explains Fluxora's behavior when an output contains a top-level list. It does
+not implement iteration, detect every nested array, or alter saved workflows.
 
 An implementation must persist the source execution, parent item and stable
 ordinal alongside each item's state, use a configured concurrency ceiling,

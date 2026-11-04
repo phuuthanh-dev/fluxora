@@ -59,7 +59,7 @@ import { NodeLibrary, type NodeLibraryHandle } from "./node-library";
 import { Button, Dialog, DialogHeader, Field, IconButton, Menu, Select, Status, useDialogFocus } from "../../components/ui";
 import { useSurfaceMotion } from "../../components/ui/ui-motion";
 import { AppShellHeader } from "../app-shell/app-shell-header";
-import { ExecutionDetailsPanel, type ApiExecution } from "./execution-observability";
+import { ExecutionDetailsPanel, outputHasList, type ApiExecution } from "./execution-observability";
 import { ResourcePicker } from "./resource-picker";
 import { MongoFilterField } from "./mongodb-filter-field";
 import { StructuredOutputField } from "./structured-output-field";
@@ -1161,6 +1161,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
             <div className="section-label">{nodeExecution.status} · ATTEMPT {nodeExecution.attempt} · {nodeExecution.durationMs ?? 0}MS</div>
             <div className="execution-inspector__section"><strong>Redacted input</strong><ResultView value={nodeExecution.input} /></div>
             <div className="execution-inspector__section"><strong>{nodeExecution.error ? "Normalized error" : "Output"}</strong><ResultView value={nodeExecution.error ?? nodeExecution.output} /></div>
+            {!nodeExecution.error && outputHasList(nodeExecution.output) && <Status tone="info" className="inspector-note">Lists stay together in this output. Connected nodes run at most once per execution, not once for each list item.</Status>}
             {nodeExecution.status === "WAITING" && approvalId && (
               <div className="approval-actions">
                 <button className="run-button" type="button" disabled={hasPending} onClick={() => onResolveApproval(approvalId, "approved")}>Approve &amp; resume</button>

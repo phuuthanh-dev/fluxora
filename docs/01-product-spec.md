@@ -37,6 +37,9 @@ The Steam profile is public. The Steam node returns every field available throug
 
 ### Runtime nodes
 
+This table records the MVP baseline and selected later additions. Entries marked
+**local draft** are not evidence of release or live-provider qualification.
+
 | Category | Node | MVP behavior |
 |---|---|---|
 | Trigger | Manual | Start a test execution from the editor. |
@@ -47,6 +50,7 @@ The Steam profile is public. The Steam node returns every field available throug
 | Trigger | GitHub Push | Receive a signed GitHub `push` webhook using the registration signing secret. |
 | Trigger | GitHub Workflow run completed | Receive a signed GitHub `workflow_run` webhook with `action: completed` using the registration signing secret. |
 | Trigger | Gmail new message | Poll Gmail history with a workspace-owned connection, selectable interval and optional sender/subject/label filters. Released in PR #57; one targeted local poll succeeded. Sustained polling and Google scope verification remain open. |
+| Trigger | RSS new item | Code on `origin/main` polls a feed using a checkpoint and bounded recovery. Provider availability and gap handling still need qualification. |
 | Condition | If/Else | Comparison operators and true/false paths. |
 | Condition | Switch | Multiple cases and a default path. |
 | Action | Steam Account Snapshot | Profile, current game, owned/recent games, playtime, and optional per-game achievements. |
@@ -64,6 +68,7 @@ The Steam profile is public. The Steam node returns every field available throug
 | Action | HTTP Request | Generic REST request with structured response. |
 | Action | SMTP Email | Dedicated encrypted SMTP credential, TLS-only submission and normalized delivery result. One owner-approved local submission reached the intended inbox; production delivery and sustained behavior remain unqualified. |
 | Action | Gmail Read | Read bounded inbox results using a dedicated Gmail connection. Released in PR #57; one targeted local read succeeded. Google scope verification and sustained behavior remain open. |
+| Action | Gmail message and draft operations | Code on `origin/main` supports getting a message, sending or replying, creating or updating a draft, and modifying labels. These operations need their corresponding Gmail permissions; no new live qualification is implied. |
 | Action | Google Calendar | List, get, create, update and delete events or check availability using a dedicated Calendar connection. Released in PR #57; bounded local tests cover these modes, with a far-future list anomaly and production qualification still open. |
 | Action | Gemini Generate Text | Dedicated workspace API-key connection, model discovery, prompt and bounded output, with mock and confirmed live modes. |
 | Action | OpenAI Generate Text | Dedicated workspace API-key connection, model discovery and Responses API text output, with mock and confirmed live modes. |
@@ -71,23 +76,23 @@ The Steam profile is public. The Steam node returns every field available throug
 | Action | Google Chat OAuth message | Dedicated Chat OAuth connection and space picker, sending on behalf of the consenting user. |
 | Action | Notion Search pages | Search accessible pages using a dedicated connection; other Notion operations are not implied. |
 | Action | PostgreSQL Select rows | Read bounded rows with a dedicated connection and verified TLS; an optional provider CA is supported. |
-| Action | RSS Read feed | Read bounded RSS or Atom entries over guarded outbound HTTP; no new-item trigger is implemented. |
+| Action | RSS Read feed | Read bounded RSS or Atom entries over guarded outbound HTTP. |
 | Action | Trello Create card | Create a card in a chosen board and list using a workspace connection. |
 | Action | Sentry List issues | Read issues from an accessible Sentry project. |
 | Action | Vercel List deployments | Read deployments for an accessible project, with a personal-account fallback when team discovery is denied. |
 | Action | Supabase Select rows | Read bounded rows from an accessible public-schema table using Data API permissions. |
-| Action | Supabase Insert row | Insert one public-schema row using guided typed column values and the workspace connection; the API receipt does not return the inserted row. |
-
-PostgreSQL and Supabase select nodes preserve historical behavior under their original types, even when saved graphs have no node version. New selections use distinct v2 node types. Upgrading an older node is an explicit draft edit; its previously ignored selection fields can change results and unsupported extra fields may need manual correction. The published workflow changes only after publishing the draft.
+| Action | Supabase Insert row | **Local draft:** insert one public-schema row using guided typed column values and the workspace connection; the API receipt does not return the inserted row. |
 | Action | Reddit List posts | List public posts only when provider access is available; real access has not been qualified. |
 | Trigger | Uptime Kuma alert | Receive and normalize an authorized monitor alert; local UP/DOWN delivery was tested. |
 | Approval | Approval | Pause, notify by Chat/webhook with an app link, then resume after UI approve/reject. |
+
+PostgreSQL and Supabase select nodes preserve historical behavior under their original types, even when saved graphs have no node version. New selections use distinct v2 node types. Upgrading an older node is an explicit draft edit; its previously ignored selection fields can change results and unsupported extra fields may need manual correction. The published workflow changes only after publishing the draft.
 
 See `docs/35-connector-coverage-and-discovery.md` for the exact operations, point-in-time live evidence, provider restrictions and remaining coverage. An executable node is not a claim of full provider feature parity.
 
 ### Not yet implemented or outside current runtime scope
 
-- Gmail attachments, push notifications and sending through Gmail API are unavailable; Gmail read and polling and SMTP sending are runtime features.
+- Gmail attachments and push notifications are unavailable. Gmail send/reply and draft/label operations need appropriate Google permissions and remain subject to provider qualification.
 - MongoDB update/delete, unrestricted replica topology discovery, remaining GitHub operations, Facebook Meta and Instagram remain unavailable. Guarded SRV seed discovery is implemented for the existing MongoDB operations; this is not unrestricted replica discovery.
 - VALORANT, Legends of Runeterra and 2XKO player data are planned, not executable: their relevant Riot approval and player opt-in/RSO requirements have not been fulfilled.
 
