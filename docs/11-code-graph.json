@@ -261,6 +261,7 @@
         "apps/api/src/execution/notion-operations.ts",
         "apps/api/src/execution/postgres-read.ts",
         "apps/api/src/execution/sentry.ts",
+        "apps/api/src/execution/steam-operations.ts",
         "apps/api/src/execution/supabase.ts",
         "apps/api/src/execution/trello.ts",
         "apps/api/src/execution/vercel.ts"
@@ -603,6 +604,7 @@
         "apps/api/src/execution/sentry.ts",
         "apps/api/src/execution/smtp-email.ts",
         "apps/api/src/execution/steam-adapter.ts",
+        "apps/api/src/execution/steam-operations.ts",
         "apps/api/src/execution/supabase.ts",
         "apps/api/src/execution/telegram-message-operations.ts",
         "apps/api/src/execution/trello-operations.ts",
@@ -1265,6 +1267,20 @@
         "apps/api/src/execution/node-failure.ts"
       ],
       "externalImports": []
+    },
+    {
+      "id": "apps/api/src/execution/steam-operations.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/connector-config.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-request-policy.ts"
+      ],
+      "externalImports": [
+        "@prisma/client"
+      ]
     },
     {
       "id": "apps/api/src/execution/supabase.ts",
@@ -3573,6 +3589,10 @@
     },
     {
       "from": "apps/api/src/credentials/connector-resource.controller.ts",
+      "to": "apps/api/src/execution/steam-operations.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/connector-resource.controller.ts",
       "to": "apps/api/src/execution/supabase.ts"
     },
     {
@@ -4006,6 +4026,10 @@
     {
       "from": "apps/api/src/execution/connector-executors.ts",
       "to": "apps/api/src/execution/steam-adapter.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/steam-operations.ts"
     },
     {
       "from": "apps/api/src/execution/connector-executors.ts",
@@ -4738,6 +4762,26 @@
     {
       "from": "apps/api/src/execution/steam-adapter.ts",
       "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/steam-operations.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/steam-operations.ts",
+      "to": "apps/api/src/execution/connector-config.ts"
+    },
+    {
+      "from": "apps/api/src/execution/steam-operations.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/steam-operations.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/steam-operations.ts",
+      "to": "apps/api/src/execution/provider-request-policy.ts"
     },
     {
       "from": "apps/api/src/execution/supabase.ts",

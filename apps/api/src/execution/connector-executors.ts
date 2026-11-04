@@ -5,6 +5,7 @@ import type { ConnectorExecutor } from "./node-executor-contract";
 import { NodeFailure } from "./node-failure";
 import { readCredentialId } from "./connector-config";
 import { mockSteamSnapshot, steamSnapshot } from "./steam-adapter";
+import { executeSteamOperation } from "./steam-operations";
 import { mockDrive, executeGoogleDrive, mockSheets, executeGoogleSheets, readOperation, readSheetsInputOption } from "./google-workspace-adapter";
 import { readDrivePageToken } from "./google-drive-pagination";
 import { executeGoogleChatWebhook, executeDiscordWebhook, executeTelegramMessage } from "./notification-adapters";
@@ -39,6 +40,7 @@ import { executeGitHubUpdateIssue } from "./github-update-issue";
 /** Server-only registry. Adapters retain validation, authorization, redaction
  * and retry semantics; registration is not a credential or policy bypass. */
 const executors = {
+  "action.steam": ({ config, mode, workspaceId, credentials }) => executeSteamOperation(config, mode, workspaceId, credentials),
   "action.steam.account-snapshot": async ({ config, mode, workspaceId, credentials }) => {
     if (mode === "live") {
       const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.STEAM);

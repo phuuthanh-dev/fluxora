@@ -4,6 +4,11 @@ import { CredentialProvider } from "@prisma/client";
 import { liveCredentialRequirements } from "./live-readiness";
 import { ExecutionService } from "./execution.service";
 
+test("both Steam nodes require the selected workspace Steam connection", () => {
+  const nodes = (["action.steam", "action.steam.account-snapshot"] as const).map((type, index) => ({ id: String(index), type, position: { x: 0, y: 0 }, config: { credentialId: `steam-${index}` } }));
+  assert.deepEqual(liveCredentialRequirements({ nodes, edges: [] }), nodes.map((node) => ({ nodeId: node.id, provider: CredentialProvider.STEAM, credentialId: node.config.credentialId })));
+});
+
 test("versioned Google Sheets writes still require the workspace Google connection", () => {
   const requirements = liveCredentialRequirements({ nodes: [{ id: "sheet", type: "action.google-sheets.v2", position: { x: 0, y: 0 }, config: { credentialId: "google-connection" } }], edges: [] });
   assert.deepEqual(requirements, [{ nodeId: "sheet", provider: CredentialProvider.GOOGLE, credentialId: "google-connection" }]);

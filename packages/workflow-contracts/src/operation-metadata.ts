@@ -89,6 +89,7 @@ const definitions = {
   "condition.switch": executable(none, "unspecified", fields("value", "matched")),
   "approval.request": executable(conditional, "unspecified"),
   "action.steam.account-snapshot": executable(credential("STEAM"), "read"),
+  "action.steam": executable(credential("STEAM"), "read", fields("operation", "result")),
   "action.google-chat.webhook": executable(credential("GOOGLE_CHAT_WEBHOOK"), "write"),
   "action.google-chat.oauth": executable(credential("GOOGLE_CHAT_OAUTH"), "write"),
   "action.google-chat.oauth.v2": executable(credential("GOOGLE_CHAT_OAUTH"), "write", fields("messageId", "threadName")),

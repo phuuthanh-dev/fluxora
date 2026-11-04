@@ -1,8 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ConnectorResourceController, supabaseDiscoveryError, trelloDiscoveryError } from "./connector-resource.controller";
+import { ConnectorResourceController, steamGameOptions, supabaseDiscoveryError, trelloDiscoveryError } from "./connector-resource.controller";
 import { NodeFailure } from "../execution/node-failure";
 import { CredentialProvider } from "@prisma/client";
+
+test("Steam game discovery ignores invalid and duplicate IDs and bounds the list", () => {
+  const games = Array.from({ length: 101 }, (_, index) => ({ appid: index + 1, name: `Game ${index + 1}` }));
+  const result = steamGameOptions([...games, games[0], { appid: 0, name: "Invalid" }, { appid: 999, name: "" }]);
+  assert.equal(result.games.length, 100);
+  assert.deepEqual(result.games[0], { id: "1", name: "Game 1" });
+  assert.equal(result.hasMore, true);
+  assert.throws(() => steamGameOptions("not a list"));
+});
 
 test("Trello discovery guidance distinguishes permissions without leaking provider content", () => {
   for (const [status, expected] of [[401, /rejected/], [403, /permissions/], [429, /rate limited/]] as const) {
@@ -67,7 +76,9 @@ test("new discovery routes select the workspace credential and sanitize failures
   };
   const controller = new ConnectorResourceController(credentials as never);
   const request = { currentUser: { id: "owner" } } as never;
+  await assert.rejects(controller.steamGames("workspace", "steam", undefined, request));
   for (const [action, provider, code] of [
+    [() => controller.steamGames("workspace", "connection", undefined, request), CredentialProvider.STEAM, "STEAM_GAMES_UNAVAILABLE"],
     [() => controller.trelloCards("workspace", "connection", "aaaaaaaaaaaaaaaaaaaaaaaa", request), CredentialProvider.TRELLO, "TRELLO_CARDS_UNAVAILABLE"],
     [() => controller.notionPages("workspace", "connection", "", undefined, request), CredentialProvider.NOTION, "NOTION_PAGES_UNAVAILABLE"],
     [() => controller.notionProperties("workspace", "connection", "invalid", request), CredentialProvider.NOTION, "NOTION_PROPERTIES_UNAVAILABLE"],

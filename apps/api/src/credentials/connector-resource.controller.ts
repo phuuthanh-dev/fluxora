@@ -14,6 +14,20 @@ import { executeGitHubListIssues, executeGitHubListPullRequests } from "../execu
 import { CredentialService } from "./credential.service";
 import { NodeFailure } from "../execution/node-failure";
 import { listNotionPages, listTrelloCards } from "./connector-resource-discovery";
+import { executeSteamOperation } from "../execution/steam-operations";
+
+export function steamGameOptions(games: unknown) {
+  if (games !== undefined && !Array.isArray(games)) throw new Error("Invalid Steam games response");
+  const seen = new Set<number>();
+  const options = (games ?? []).flatMap((game: unknown) => {
+    if (!game || typeof game !== "object") return [];
+    const item = game as Record<string, unknown>;
+    if (typeof item.appid !== "number" || !Number.isSafeInteger(item.appid) || item.appid < 1 || item.appid > 4294967295 || seen.has(item.appid) || typeof item.name !== "string" || !item.name.trim()) return [];
+    seen.add(item.appid);
+    return [{ id: String(item.appid), name: item.name.slice(0, 200) }];
+  });
+  return { games: options.slice(0, 100), hasMore: options.length > 100 };
+}
 
 export function trelloDiscoveryError(error: unknown, resource: "boards" | "lists" | "cards") {
   const prefix = resource === "boards" ? "Boards" : resource === "lists" ? "Lists" : "Cards";
@@ -50,6 +64,16 @@ export function supabaseDiscoveryError(error: unknown) {
 @UseGuards(AuthenticationGuard)
 export class ConnectorResourceController {
   constructor(@Inject(CredentialService) private readonly credentials: CredentialService) {}
+
+  @Get("steam/games")
+  async steamGames(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Query("steamId") steamId: string | undefined, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    try {
+      const response = await executeSteamOperation({ credentialId, operation: "ownedGames", steamId: steamId ?? "", includePlayedFreeGames: true }, "live", workspaceId, this.credentials);
+      return steamGameOptions(response.output.result.games);
+    } catch { throw new BadRequestException({ code: "STEAM_GAMES_UNAVAILABLE", message: "Games could not be loaded. Check your Steam connection and game privacy, or enter the App ID manually." }); }
+  }
 
   @Get("github/issues")
   async githubIssues(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Query("repository") repository: string | undefined, @Query("page") page: string | undefined, @Req() request: AuthenticatedRequest) {
