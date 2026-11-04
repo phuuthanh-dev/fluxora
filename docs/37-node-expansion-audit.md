@@ -52,6 +52,13 @@ mới khác trong cùng lượt vẫn hoạt động như trước. Lỗi có th
 `[REDACTED]` trong dữ liệu đã lưu cũng có thể bị từ chối. Test giả lập đã thêm,
 đang chờ quality gate; chưa khẳng định xử lý được mọi cách làm mờ tùy provider.
 
+**NX-05 kiểm thử local đang chờ verify:** trường hợp PostgreSQL giả lập cho
+Trello và Sentry được mở rộng để nhận một sự kiện có identity lớn trước, sau
+đó nhận và nhận lại identity nhỏ hơn. Kiểm thử xác nhận hai identity độc lập
+được tạo execution riêng và lần nhận lại được deduplicate. Đây kiểm tra lớp
+lưu delivery, không chứng minh provider gửi tuần tự, thứ tự thực thi workflow,
+hay exactly-once; chưa chạy kiểm thử provider thật.
+
 > Trạng thái kiểm tra 05/11/2026: PR #82 đã merge vào `main` tại
 > `6c9a36ee4b68ce1083770dac2c283125d76c10e5`; workflow deploy tại commit đó
 > [hoàn tất thành công](https://github.com/phuuthanh-dev/fluxora/actions/runs/41871198903).
