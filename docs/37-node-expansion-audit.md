@@ -492,3 +492,27 @@ Các regression cần có khi triển khai: validation/unknown fields; auth work
 - [x] Checklist theo dependencies; không đề xuất lại tính năng đã hoàn thành.
 - [x] Không thao tác credential, provider thật hoặc deployment trong audit.
 - [x] Final documentation checks ghi trong `.agent/reports/2026-11-02-node-expansion-audit.md`.
+
+## Steam: cập nhật phạm vi (2026-11-04)
+
+Node hiện tại vẫn là `action.steam.account-snapshot`: profile, game hiện tại,
+game sở hữu/gần đây và achievement theo App ID. Source xử lý game ID dạng
+chuỗi hoặc số; output `currentGame.appId` giữ kiểu số khi ID biểu diễn an toàn.
+Việc sửa này có fixture, chưa khẳng định đã thử live từng trường hợp. Node
+hiện gom nhiều API và có thể coi library không truy cập được như danh sách rỗng;
+achievement trả `null` khi HTTP không thành công. Không dùng các giá trị đó để
+khẳng định tài khoản không có game hay không có achievement.
+
+Khả năng mở rộng nên ưu tiên các operation đọc độc lập, dùng node Steam và
+credential hiện có khi cần: profile/library/recent/achievement, sau đó friend
+list công khai, thống kê và news theo App ID. Valve ghi nhận [library tùy quyền
+hiển thị](https://partner.steamgames.com/doc/webapi/IPlayerService), [friend
+list riêng tư trả 401](https://partner.steamgames.com/doc/webapi/ISteamUser?language=english),
+[achievement, schema và current players](https://partner.steamgames.com/doc/webapi/ISteamUserStats?l=english),
+và [news theo game](https://partner.steamgames.com/doc/webapi/ISteamNews?language=english).
+`GetSingleGamePlaytime` có điều kiện API key liên kết app; nhiều thao tác ghi
+chỉ dành publisher, không mặc định hỗ trợ cho người chơi. OpenID chỉ xác nhận
+SteamID, không cấp quyền đọc thư viện riêng tư hay thay Web API key.
+Trigger phát hiện thay đổi cần polling/checkpoint, không được mô tả là webhook
+Steam hay bảo đảm bắt mọi thay đổi. Giá/wishlist cần nghiên cứu nguồn và chính
+sách riêng trước khi cam kết. Không có provider thật được gọi trong audit này.

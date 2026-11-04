@@ -84,6 +84,7 @@ jobs:
       DATABASE_URL: postgresql://workflow:workflow@localhost:5432/fluxora_ci_test?schema=public
       REDIS_URL: redis://localhost:6379
       FLUXORA_GMAIL_INTEGRATION: "1"
+      FLUXORA_CREDENTIAL_INTEGRATION: "1"
       FLUXORA_ROLLBACK_INTEGRATION: "1"
       FLUXORA_RETENTION_INTEGRATION: "1"
       FLUXORA_CRON_INTEGRATION: "1"
