@@ -55,6 +55,14 @@ test("historical and .v2 node identities survive API parsing with or without nod
   }
 });
 
+test("mixed canvas and API node versions cannot silently conflict", () => {
+  const node = { id: "read", type: "workflowNode", nodeVersion: 1, position: { x: 0, y: 0 }, data: { nodeType: "action.supabase.select.v2", nodeVersion: 2, config: { table: "items" } } };
+  assert.throws(() => parseWorkflowGraph({ nodes: [node], edges: [] }), (error: unknown) => error instanceof BadRequestException && String(error.message).includes("version"));
+  assert.equal(parseWorkflowGraph({ nodes: [{ ...node, data: { ...node.data, nodeVersion: 1 } }], edges: [] }).nodes[0]?.nodeVersion, 1);
+  assert.equal(parseWorkflowGraph({ nodes: [{ ...node, nodeVersion: undefined, data: { ...node.data, nodeVersion: 1 } }], edges: [] }).nodes[0]?.nodeVersion, 1);
+  assert.equal(parseWorkflowGraph({ nodes: [{ ...node, data: { ...node.data, nodeVersion: undefined } }], edges: [] }).nodes[0]?.nodeVersion, 1);
+});
+
 test("RSS drafts allow incomplete URLs without DNS but reject identifiable secrets", () => {
   const graph = (url: string) => ({ nodes: [{ id: "rss", type: "trigger.rss.new-item", position: { x: 0, y: 0 }, config: { url, pollMinutes: "5" } }], edges: [] });
   assert.doesNotThrow(() => parseWorkflowGraph(graph("")));

@@ -45,6 +45,12 @@ cho rằng mọi hành vi tương đương.
   coverage và từ chối mâu thuẫn. Không thêm alias theo suy đoán hoặc tự tạo
   implementation mới cho một version chưa tồn tại.
 
+Parser local hiện từ chối graph kết hợp cấu trúc API/canvas nếu `nodeVersion`
+ở hai vị trí đều có giá trị nhưng khác nhau. Trước đây parser ưu tiên trường
+trên cùng; graph không chuẩn từ nguồn khác có thể bị từ chối và cần sửa mâu
+thuẫn trước khi mở. Graph chỉ có một vị trí hoặc hai giá trị giống nhau vẫn
+giữ hành vi hiện tại. Đây không phải cơ chế hỗ trợ version 2.
+
 ## Rollout và kiểm thử trước khi đổi định dạng ghi
 
 1. Chụp fixture graph giả cho từng cặp, gồm thiếu/có `nodeVersion`, draft,

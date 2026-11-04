@@ -83,6 +83,9 @@ function parseNode(value: unknown): StoredWorkflowNode {
     try { parsePublicRssUrl(typeof config.url === "string" ? config.url.trim() : config.url); }
     catch { invalid("Use a public RSS URL without embedded credentials or secret query parameters."); }
   }
+  // Mixed API/canvas imports must not silently pick one of two conflicting
+  // versions: that could select a different node behavior than the author saw.
+  if (record.nodeVersion !== undefined && data?.nodeVersion !== undefined && record.nodeVersion !== data.nodeVersion) invalid("Node version values do not match.");
   const nodeVersion = record.nodeVersion === undefined ? data?.nodeVersion : record.nodeVersion;
   if (nodeVersion !== undefined && !isSupportedWorkflowNodeVersion(nodeVersion)) invalid("Node version is not supported.");
   return { id: readString(record.id, "Node ID is required."), type, position: { x, y }, config, ...(nodeVersion === undefined ? {} : { nodeVersion }) };
