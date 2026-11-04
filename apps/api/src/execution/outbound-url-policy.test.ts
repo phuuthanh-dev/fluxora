@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createServer } from "node:http";
+import { ADDRCONFIG } from "node:dns";
 import { Agent } from "undici";
 import { assertSafeOutboundHostname, assertSafeOutboundUrl, createSafeSocketLookup, fetchSafeOutbound, isBlockedAddress, OutboundRequestPolicyError } from "./outbound-url-policy";
 import { nodeFailureFromOutboundPolicy } from "./node-failure";
@@ -103,6 +104,25 @@ test("socket lookup returns only validated DNS answers for the requested family"
   const resolve = createSafeSocketLookup(async () => [{ address: "93.184.216.34", family: 4 }, { address: "2606:4700:4700::1111", family: 6 }]);
   const addresses = await new Promise<unknown>((done, reject) => resolve("public.example", { family: 6, all: true }, (error, result) => error ? reject(error) : done(result)));
   assert.deepEqual(addresses, [{ address: "2606:4700:4700::1111", family: 6 }]);
+});
+
+test("socket lookup honors configured-address hints after validating every DNS answer", async () => {
+  const calls: Array<number | undefined> = [];
+  const resolve = createSafeSocketLookup(async (_host, hints) => {
+    calls.push(hints);
+    return hints ? [{ address: "93.184.216.34", family: 4 }] : [{ address: "93.184.216.34", family: 4 }, { address: "2606:4700:4700::1111", family: 6 }];
+  });
+  const addresses = await new Promise<unknown>((done, reject) => resolve("public.example", { family: 0, all: true, hints: ADDRCONFIG }, (error, result) => error ? reject(error) : done(result)));
+  assert.deepEqual(calls, [undefined, ADDRCONFIG]);
+  assert.deepEqual(addresses, [{ address: "93.184.216.34", family: 4 }]);
+});
+
+test("socket lookup rejects a private answer in either DNS result", async () => {
+  for (const unsafeLookup of [1, 2]) {
+    let calls = 0;
+    const resolve = createSafeSocketLookup(async () => ++calls === unsafeLookup ? [{ address: "127.0.0.1", family: 4 }] : [{ address: "93.184.216.34", family: 4 }]);
+    await assert.rejects(new Promise((done, reject) => resolve("public.example", { family: 0, all: true, hints: ADDRCONFIG }, (error, result) => error ? reject(error) : done(result))), (error: unknown) => error instanceof OutboundRequestPolicyError && error.code === "OUTBOUND_URL_BLOCKED");
+  }
 });
 
 test("explicitly allowed local targets still work through the socket dispatcher", async () => {

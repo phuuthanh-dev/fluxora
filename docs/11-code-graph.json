@@ -887,7 +887,6 @@
         "apps/api/src/execution/connector-config.ts",
         "apps/api/src/execution/google-drive-pagination.ts",
         "apps/api/src/execution/node-failure.ts",
-        "apps/api/src/execution/outbound-url-policy.ts",
         "apps/api/src/execution/provider-json.ts",
         "apps/api/src/execution/provider-request-policy.ts"
       ],
@@ -4375,10 +4374,6 @@
     {
       "from": "apps/api/src/execution/google-workspace-adapter.ts",
       "to": "apps/api/src/execution/node-failure.ts"
-    },
-    {
-      "from": "apps/api/src/execution/google-workspace-adapter.ts",
-      "to": "apps/api/src/execution/outbound-url-policy.ts"
     },
     {
       "from": "apps/api/src/execution/google-workspace-adapter.ts",

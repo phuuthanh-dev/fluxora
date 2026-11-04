@@ -4,7 +4,7 @@ import ipaddr from "ipaddr.js";
 import { Agent } from "undici";
 
 type ResolveHost = (hostname: string) => Promise<string[]>;
-type ResolveSocketHost = (hostname: string) => Promise<Array<{ address: string; family: number }>>;
+type ResolveSocketHost = (hostname: string, hints?: number) => Promise<Array<{ address: string; family: number }>>;
 type FetchImplementation = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 type PolicyDependencies = {
@@ -27,11 +27,21 @@ export function createSafeSocketLookup(resolve: ResolveSocketHost = resolveSocke
       const normalized = stripIpv6Brackets(hostname).toLowerCase();
       if (!normalized || isBlockedHostname(normalized)) throw new OutboundRequestPolicyError("OUTBOUND_URL_BLOCKED", "Outbound request target is not permitted.");
       const addresses = await resolve(normalized);
+      // Inspect all DNS answers even if the socket asks for ADDRCONFIG. A
+      // mixed public/private answer must not become safe merely because the
+      // current host cannot route one of its address families.
       if (!addresses.length || (!isAllowedHostname(normalized) && addresses.some(({ address }) => isBlockedAddress(address)))) {
         throw new OutboundRequestPolicyError("OUTBOUND_URL_BLOCKED", "Outbound request target is not permitted.");
       }
+      // Node's connector may request only locally configured address families.
+      // A second lookup preserves that hint; validate its answers too because
+      // DNS can change between lookups.
+      const eligible = options.hints ? await resolve(normalized, options.hints) : addresses;
+      if (!eligible.length || (!isAllowedHostname(normalized) && eligible.some(({ address }) => isBlockedAddress(address)))) {
+        throw new OutboundRequestPolicyError("OUTBOUND_URL_BLOCKED", "Outbound request target is not permitted.");
+      }
       const family = Number(options.family) || 0;
-      const candidates = addresses.filter((item) => family === 0 || item.family === family);
+      const candidates = eligible.filter((item) => family === 0 || item.family === family);
       if (!candidates.length) {
         const error: NodeJS.ErrnoException = new Error("No suitable address for outbound target.");
         error.code = "ENOTFOUND";
@@ -129,8 +139,8 @@ async function resolvePublicHost(hostname: string) {
   return addresses.map((entry) => entry.address);
 }
 
-async function resolveSocketHost(hostname: string) {
-  return lookup(hostname, { all: true, verbatim: true });
+async function resolveSocketHost(hostname: string, hints?: number) {
+  return lookup(hostname, { all: true, verbatim: true, hints });
 }
 
 function isRedirect(status: number) {
