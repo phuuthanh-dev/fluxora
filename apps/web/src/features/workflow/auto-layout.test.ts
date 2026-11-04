@@ -16,6 +16,19 @@ import {
 } from "./node-catalog";
 import { graphForApi, graphFromApi } from "./workflow-api";
 
+test("League operations are independently discoverable while sharing the Riot executor", () => {
+  const actions = operationsForApp("riot-lol");
+  assert.equal(actions.length, 10);
+  assert.equal(new Set(actions.map(libraryDefinitionId)).size, 10);
+  for (const definition of actions) {
+    const node = { id: "riot", type: "workflowNode" as const, position: { x: 0, y: 0 }, data: createNodeData(definition) };
+    const graph = graphForApi({ nodes: [node], edges: [] });
+    assert.equal(graph.nodes[0]?.type, "action.riot-lol");
+    assert.equal(graph.nodes[0]?.config.operation, definition.operationId);
+    assert.equal(graphFromApi(graph).nodes[0]?.data.label, definition.label);
+  }
+});
+
 test("Steam actions preserve distinct library identities and share the persisted executor", () => {
   const operations = operationsForApp("steam");
   assert.equal(operations.length, 8);

@@ -11,6 +11,7 @@ import { CredentialVaultService } from "./credential-vault.service";
 import { credentialHints } from "./credential-hints";
 import { graphCredentialIds } from "./credential-references";
 import { validateSmtpCredentialData } from "../execution/smtp-email";
+import { withRiotRateGuard } from "../execution/riot-rate-guard";
 
 const providers = new Set(Object.values(CredentialProvider));
 const googleRefreshSkewMs = 60_000;
@@ -29,6 +30,11 @@ export class CredentialService {
     @Inject(WorkspaceService) private readonly workspaces: WorkspaceService,
     @Inject(CredentialVaultService) private readonly vault: CredentialVaultService,
   ) {}
+
+  /** Serialize Riot calls and persist the provider's cooldown across workers. */
+  async guardRiotRequest(request: () => Promise<Response>) {
+    return withRiotRateGuard(this.prisma, request);
+  }
 
   async list(workspaceId: string, userId: string) {
     await this.workspaces.requireOwner(workspaceId, userId);
@@ -577,6 +583,10 @@ function requiredEnv(name: "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET") {
 }
 
 function validateCredentialPayload(provider: CredentialProvider, data: Record<string, unknown>) {
+  if (provider === CredentialProvider.RIOT) {
+    if (typeof data.apiKey !== "string" || !/^RGAPI-[A-Za-z0-9-]{1,128}$/.test(data.apiKey)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid Riot API key." });
+    return;
+  }
   if (provider === CredentialProvider.REDDIT) {
     if (typeof data.clientId !== "string" || !/^[A-Za-z0-9_-]{1,200}$/.test(data.clientId) || typeof data.clientSecret !== "string" || !/^[A-Za-z0-9_-]{1,512}$/.test(data.clientSecret) || typeof data.username !== "string" || !/^[A-Za-z0-9_-]{3,20}$/.test(data.username)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid Reddit client ID, client secret and Reddit username." });
     return;

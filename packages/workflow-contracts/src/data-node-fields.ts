@@ -1,8 +1,26 @@
 import type { WorkflowNodeType } from "./index";
 import type { NodeConfigurationField } from "./node-configuration-fields";
+import { riotLolActions, riotLolPlatforms } from "./riot-lol";
 
 /** Inspector descriptors only; backend validation remains authoritative. */
 export const dataNodeFields = {
+  "action.riot-lol": (): NodeConfigurationField[] => [
+    { kind: "credential", key: "credentialId", label: "Riot API connection", providers: ["RIOT"] },
+    { kind: "select", key: "operation", label: "Operation", options: riotLolActions.map(({ id, label }) => ({ value: id, label })) },
+    { kind: "select", key: "platform", label: "Player's League server", options: riotLolPlatforms.map(([value, label]) => ({ value, label })) },
+    { kind: "text", key: "gameName", label: "Riot ID game name", visibleWhen: { key: "operation", equals: "accountByRiotId", fallback: "accountByRiotId" } },
+    { kind: "text", key: "tagLine", label: "Riot ID tag (without #)", visibleWhen: { key: "operation", equals: "accountByRiotId", fallback: "accountByRiotId" } },
+    { kind: "text", key: "puuid", label: "Player PUUID", visibleWhen: { key: "operation", equals: ["accountByPuuid", "summoner", "currentGame", "matchIds", "ranked", "masteries", "topMasteries"] } },
+    { kind: "text", key: "matchId", label: "Match ID", visibleWhen: { key: "operation", equals: ["match", "timeline"] } },
+    { kind: "number", key: "start", label: "Start offset (0–1000)", fallbackValue: 0, visibleWhen: { key: "operation", equals: "matchIds" } },
+    { kind: "number", key: "count", label: "Maximum results (1–100)", fallbackValue: 20, visibleWhen: { key: "operation", equals: ["matchIds", "topMasteries"] } },
+    { kind: "select", key: "matchFilter", label: "Match filter", options: [
+      { value: "all", label: "All matches" }, { value: "ranked", label: "Ranked" }, { value: "normal", label: "Normal" }, { value: "tourney", label: "Tournament" }, { value: "tutorial", label: "Tutorial" },
+      { value: "queue:420", label: "Ranked Solo/Duo" }, { value: "queue:440", label: "Ranked Flex" }, { value: "queue:400", label: "Normal Draft" }, { value: "queue:450", label: "ARAM" },
+    ], visibleWhen: { key: "operation", equals: "matchIds" } },
+    { kind: "datetime", key: "startTime", label: "Matches after (optional)", visibleWhen: { key: "operation", equals: "matchIds" } },
+    { kind: "datetime", key: "endTime", label: "Matches before (optional)", visibleWhen: { key: "operation", equals: "matchIds" } },
+  ],
   "action.steam": (): NodeConfigurationField[] => [
       { kind: "credential", key: "credentialId", label: "Steam connection", providers: ["STEAM"] },
       { kind: "select", key: "operation", label: "Operation", options: [

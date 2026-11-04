@@ -1,5 +1,5 @@
 import type { Edge, Node } from "@xyflow/react";
-import { currentWorkflowNodeVersion, getSharedNodeConfigurationFields, workflowNodeOutputKinds, type WorkflowEdgeKind, type WorkflowNodeCategory, type WorkflowNodeType } from "@workflow/contracts";
+import { currentWorkflowNodeVersion, getSharedNodeConfigurationFields, riotLolActions, workflowNodeOutputKinds, type WorkflowEdgeKind, type WorkflowNodeCategory, type WorkflowNodeType } from "@workflow/contracts";
 import type { NodeConfigurationField } from "@workflow/contracts";
 import type { NodeIconName } from "./node-icon";
 export type { NodeConfigurationField, NodeFieldVisibility, NodeResource, NodeSelectOption } from "@workflow/contracts";
@@ -87,6 +87,7 @@ export const nodeLibraryFilters: Array<{ id: NodeLibraryFilter; label: string }>
 
 export const appCatalog: AppDefinition[] = [
   { id: "steam", label: "Steam", description: "Read public gaming profile and library data.", icon: "steam", category: "data", aliases: ["gaming", "games"] },
+  { id: "riot-lol", label: "League of Legends", description: "Read League account and match data with your Riot API key.", icon: "game", category: "data", aliases: ["riot", "lol", "gaming"] },
   { id: "google-chat", label: "Google Chat", description: "Send messages to Google Chat spaces.", icon: "google-chat", category: "communication", aliases: ["chat", "notification"] },
   { id: "discord", label: "Discord", description: "Send messages through Discord webhooks.", icon: "discord", category: "communication", aliases: ["notification", "webhook"] },
   { id: "telegram", label: "Telegram", description: "Send messages with the Telegram Bot API.", icon: "telegram", category: "communication", aliases: ["bot", "notification"] },
@@ -134,6 +135,12 @@ export function edgeKindFromHandle(handle: string | null | undefined): WorkflowE
 }
 
 export const nodeCatalog: NodeDefinition[] = [
+  {
+    type: "action.riot-lol", label: "League of Legends", description: "Read League of Legends data from Riot.",
+    category: "action", libraryGroup: "developer-data", appId: "riot-lol", operationId: "api", operationLabel: "Read League data", operationKind: "search", icon: "game", available: true,
+    defaultConfig: { credentialId: "", operation: "accountByRiotId", platform: "vn2", gameName: "", tagLine: "", puuid: "", matchId: "", start: 0, count: 20, matchFilter: "all", startTime: "", endTime: "" },
+    configurationFields: getSharedNodeConfigurationFields("action.riot-lol"),
+  },
   {
     type: "trigger.sentry.issue-created", label: "Sentry issue created", description: "Start when a Sentry custom integration reports a new issue.",
     category: "trigger", libraryGroup: "developer-data", appId: "sentry", operationId: "issue-created", operationLabel: "Issue created", operationKind: "trigger", icon: "sentry", available: true,
@@ -1003,25 +1010,30 @@ const steamActions = [
 ] as const;
 
 /** Presentation entries reuse the same persisted node type and executor. */
-export const libraryCatalog: NodeDefinition[] = nodeCatalog.flatMap((definition) =>
-  definition.type !== "action.steam" ? [definition] : steamActions.map(([operation, label, description]) => ({
+export const libraryCatalog: NodeDefinition[] = nodeCatalog.flatMap((definition) => {
+  if (definition.type === "action.steam") return steamActions.map(([operation, label, description]) => ({
     ...definition, libraryId: `action.steam#${operation}`, operationId: operation, operationLabel: label,
-    label, description, operationKind: "search" as const, aliases: [],
-    defaultConfig: { ...definition.defaultConfig, operation },
-  })),
-);
+    label, description, operationKind: "search" as const, aliases: [], defaultConfig: { ...definition.defaultConfig, operation },
+  }));
+  if (definition.type === "action.riot-lol") return riotLolActions.map(({ id, label }) => ({
+    ...definition, libraryId: `action.riot-lol#${id}`, operationId: id, operationLabel: label,
+    label, description: `${label} with Riot's League API.`, aliases: [], defaultConfig: { ...definition.defaultConfig, operation: id },
+  }));
+  return [definition];
+});
 
 export function libraryDefinitionId(definition: NodeDefinition): string {
   return definition.libraryId ?? definition.type;
 }
 
 export function getLibraryDefinition(id: string): NodeDefinition | undefined {
-  const normalized = id === "action.steam" ? "action.steam#profile" : libraryNodeType(id);
+  const normalized = id === "action.steam" ? "action.steam#profile" : id === "action.riot-lol" ? "action.riot-lol#accountByRiotId" : libraryNodeType(id);
   return libraryCatalog.find((definition) => libraryDefinitionId(definition) === normalized);
 }
 
 export function getNodeDefinitionForConfig(type: string, config: Record<string, unknown>): NodeDefinition | undefined {
   if (type === "action.steam") return getLibraryDefinition(`action.steam#${typeof config.operation === "string" ? config.operation : "profile"}`) ?? getNodeDefinition(type);
+  if (type === "action.riot-lol") return getLibraryDefinition(`action.riot-lol#${typeof config.operation === "string" ? config.operation : "accountByRiotId"}`) ?? getNodeDefinition(type);
   return getNodeDefinition(type);
 }
 

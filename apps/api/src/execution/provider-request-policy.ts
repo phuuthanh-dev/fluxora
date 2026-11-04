@@ -18,9 +18,9 @@ export async function requireProviderSuccess(response: Response, provider: strin
   throw new NodeFailure(code, `${provider} returned ${response.status}.`, response.status === 429 || (!write && response.status >= 500), response.status);
 }
 
-export async function readProviderJson(response: Response, provider: string, write = false): Promise<unknown> {
+export async function readProviderJson(response: Response, provider: string, write = false, maxBytes?: number): Promise<unknown> {
   try {
-    return await readBoundedProviderJson(response);
+    return await readBoundedProviderJson(response, maxBytes);
   } catch (reason) {
     if (write) throw uncertainDelivery(provider, response.status);
     if (reason instanceof NodeFailure) throw reason;

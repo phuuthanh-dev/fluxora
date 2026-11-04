@@ -27,6 +27,7 @@ enum WorkflowVersionStatus {
 
 enum CredentialProvider {
   STEAM
+  RIOT
   GOOGLE
   GOOGLE_CHAT_WEBHOOK
   HTTP
@@ -455,6 +456,12 @@ model WorkflowTemplate {
   isSystem    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// One shared gate deliberately serializes Riot calls across local workers.
+model RiotApiGuard {
+  id           String   @id
+  blockedUntil DateTime
 }
 
 model AuditLog {

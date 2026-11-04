@@ -347,6 +347,7 @@
         "apps/api/src/execution/mongodb-find.ts",
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/postgres-read.ts",
+        "apps/api/src/execution/riot-rate-guard.ts",
         "apps/api/src/execution/smtp-email.ts",
         "apps/api/src/workspaces/workspace.service.ts"
       ],
@@ -599,6 +600,7 @@
         "apps/api/src/execution/openai-text.ts",
         "apps/api/src/execution/postgres-read.ts",
         "apps/api/src/execution/reddit.ts",
+        "apps/api/src/execution/riot-lol.ts",
         "apps/api/src/execution/rss-read.ts",
         "apps/api/src/execution/sentry-observability.ts",
         "apps/api/src/execution/sentry.ts",
@@ -1167,6 +1169,32 @@
       "id": "apps/api/src/execution/retry-policy.ts",
       "boundary": "api",
       "internalImports": [],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/execution/riot-lol.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/connector-config.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-request-policy.ts",
+        "apps/api/src/execution/retry-policy.ts"
+      ],
+      "externalImports": [
+        "@prisma/client",
+        "@workflow/contracts"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/riot-rate-guard.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/retry-policy.ts"
+      ],
       "externalImports": []
     },
     {
@@ -3018,11 +3046,18 @@
       "internalImports": [],
       "externalImports": [
         "@iconify-icons/logos/discord-icon",
+        "@iconify-icons/logos/google-calendar-2020",
         "@iconify-icons/logos/google-drive-2020",
         "@iconify-icons/logos/google-gemini-icon",
+        "@iconify-icons/logos/google-gmail-2020",
         "@iconify-icons/logos/google-icon",
-        "@iconify/react/offline",
+        "@iconify-icons/logos/instagram-icon",
+        "@iconify-icons/logos/reddit-icon",
+        "@iconify-icons/logos/supabase-icon",
+        "@iconify-icons/logos/telegram",
+        "@iconify-icons/logos/trello",
         "lucide-react",
+        "react",
         "react-icons/bs",
         "react-icons/si"
       ]
@@ -3224,7 +3259,8 @@
       "boundary": "contracts",
       "internalImports": [
         "packages/workflow-contracts/src/index.ts",
-        "packages/workflow-contracts/src/node-configuration-fields.ts"
+        "packages/workflow-contracts/src/node-configuration-fields.ts",
+        "packages/workflow-contracts/src/riot-lol.ts"
       ],
       "externalImports": []
     },
@@ -3272,6 +3308,7 @@
         "packages/workflow-contracts/src/node-configuration-fields.ts",
         "packages/workflow-contracts/src/notion-read-fields.ts",
         "packages/workflow-contracts/src/operation-metadata.ts",
+        "packages/workflow-contracts/src/riot-lol.ts",
         "packages/workflow-contracts/src/trello-card-fields.ts"
       ],
       "externalImports": []
@@ -3307,6 +3344,12 @@
         "packages/workflow-contracts/src/index.ts",
         "packages/workflow-contracts/src/node-configuration-fields.ts"
       ],
+      "externalImports": []
+    },
+    {
+      "id": "packages/workflow-contracts/src/riot-lol.ts",
+      "boundary": "contracts",
+      "internalImports": [],
       "externalImports": []
     },
     {
@@ -3717,6 +3760,10 @@
     },
     {
       "from": "apps/api/src/credentials/credential.service.ts",
+      "to": "apps/api/src/execution/riot-rate-guard.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.service.ts",
       "to": "apps/api/src/execution/smtp-email.ts"
     },
     {
@@ -4006,6 +4053,10 @@
     {
       "from": "apps/api/src/execution/connector-executors.ts",
       "to": "apps/api/src/execution/reddit.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/riot-lol.ts"
     },
     {
       "from": "apps/api/src/execution/connector-executors.ts",
@@ -4666,6 +4717,42 @@
     {
       "from": "apps/api/src/execution/relational-selection-validation.ts",
       "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/riot-lol.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/riot-lol.ts",
+      "to": "apps/api/src/execution/connector-config.ts"
+    },
+    {
+      "from": "apps/api/src/execution/riot-lol.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/riot-lol.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/riot-lol.ts",
+      "to": "apps/api/src/execution/provider-request-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/riot-lol.ts",
+      "to": "apps/api/src/execution/retry-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/riot-rate-guard.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/riot-rate-guard.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/riot-rate-guard.ts",
+      "to": "apps/api/src/execution/retry-policy.ts"
     },
     {
       "from": "apps/api/src/execution/rss-public-transport.ts",
@@ -6500,6 +6587,10 @@
       "to": "packages/workflow-contracts/src/node-configuration-fields.ts"
     },
     {
+      "from": "packages/workflow-contracts/src/data-node-fields.ts",
+      "to": "packages/workflow-contracts/src/riot-lol.ts"
+    },
+    {
       "from": "packages/workflow-contracts/src/developer-node-fields.ts",
       "to": "packages/workflow-contracts/src/index.ts"
     },
@@ -6546,6 +6637,10 @@
     {
       "from": "packages/workflow-contracts/src/index.ts",
       "to": "packages/workflow-contracts/src/operation-metadata.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/index.ts",
+      "to": "packages/workflow-contracts/src/riot-lol.ts"
     },
     {
       "from": "packages/workflow-contracts/src/index.ts",
