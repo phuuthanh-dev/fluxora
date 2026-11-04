@@ -23,6 +23,22 @@ const cases = [
   ["topMasteries", "vn2", "/lol/champion-mastery/v4/champion-masteries/by-puuid/fixture_puuid/top", []],
 ] as const;
 
+test("production blocks live Riot calls before accessing credentials or the network while mock mode remains available", async () => {
+  const previous = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+  try {
+    for (const execute of [executeRiotLol, executeRiotTft]) {
+      const noCredential = { readForExecution: () => { throw new Error("credential was accessed"); } } as never;
+      const noNetwork = async () => { throw new Error("network was accessed"); };
+      await assert.rejects(() => execute(config, "live", "workspace-1", noCredential, noNetwork), (error: unknown) => error instanceof NodeFailure && error.code === "RIOT_PRODUCTION_UNAVAILABLE" && !error.retryable);
+      assert.equal((await execute(config, "mock", "workspace-1", noCredential, noNetwork)).status, "succeeded");
+    }
+  } finally {
+    if (previous === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previous;
+  }
+});
+
 test("League actions use the workspace key and correct Vietnam routing without leaking the key", async () => {
   for (const [operation, host, path, payload] of cases) {
     const result = await executeRiotLol({ ...config, operation }, "live", "workspace-1", credentials, async (url, init) => {

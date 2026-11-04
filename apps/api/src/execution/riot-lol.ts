@@ -92,6 +92,8 @@ function prepare(config: Record<string, unknown>, game: "lol" | "tft") {
 async function executeRiotGame(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, game: "lol" | "tft", transport: Transport = fetchSafeOutbound) {
   const { operation, url } = prepare(config, game);
   if (mode === "mock") return { status: "succeeded" as const, output: { operation, result: operation === "currentGame" ? { active: false } : operation === "matchIds" || operation === "ranked" || operation === "masteries" || operation === "topMasteries" ? [] : { sample: true } }, route: "success" as const };
+  // Public availability requires Riot's decision on this workflow use case.
+  if (process.env.NODE_ENV === "production") throw new NodeFailure("RIOT_PRODUCTION_UNAVAILABLE", "Riot live execution is unavailable on production while provider approval is pending.", false);
   const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.RIOT);
   const key = readCredentialValue(credential, "apiKey");
   if (!/^RGAPI-[A-Za-z0-9-]{1,128}$/.test(key)) throw new NodeFailure("CREDENTIAL_INVALID", "Riot connection requires a valid API key.", false);
