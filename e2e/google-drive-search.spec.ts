@@ -35,6 +35,7 @@ test("Drive filters build a safe query, clear a stale cursor and preserve advanc
   expect(saved.query).toBe("name contains 'O\\'Brien' and mimeType = 'application/vnd.google-apps.spreadsheet' and 'folder_1' in parents");
   expect(saved.pageToken).toBe("");
   expect(requests).toContain("folder");
+  await page.getByRole("button", { name: "Hide minimap" }).click();
   await page.getByTestId("rf__node-advanced").click();
   await expect(page.getByLabel("Search query")).toHaveValue(originalQuery);
   await expect(page.getByRole("button", { name: "Use filters" })).toBeDisabled();
