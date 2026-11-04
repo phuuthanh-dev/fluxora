@@ -5,23 +5,11 @@ import { requireResolvedSelection, requireSafeSelectionNumber } from "./relation
 import { fetchSafeOutbound, fetchSafeOutboundWrite, wasOutboundRedirected } from "./outbound-url-policy";
 import { readBoundedProviderJson } from "./provider-json";
 import { uncertainDelivery } from "./provider-request-policy";
+import { preservesJsonDecimal } from "./json-decimal";
 
 type Transport = (url: string, init: RequestInit) => Promise<Response>;
 const identifier = /^[A-Za-z_][A-Za-z0-9_$]{0,62}$/;
 function object(value: unknown): Record<string, unknown> | undefined { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined; }
-
-// Compare decimal spellings after normalizing zeros and exponent, so that
-// conversion to a JSON number cannot silently change the entered digits.
-function canonicalDecimal(value: string): string {
-  const [mantissa = "", exponent = "0"] = value.toLowerCase().split("e");
-  const negative = mantissa.startsWith("-");
-  const [whole = "", fraction = ""] = (negative ? mantissa.slice(1) : mantissa).split(".");
-  let digits = `${whole}${fraction}`.replace(/^0+/, "");
-  if (!digits) return "0";
-  let scale = Number(exponent) - fraction.length;
-  while (digits.endsWith("0")) { digits = digits.slice(0, -1); scale++; }
-  return `${negative ? "-" : ""}${digits}e${scale}`;
-}
 
 // Only simple identifiers and scalar comparisons are supported. In particular,
 // do not accept PostgREST select expressions, logical trees, or raw operators.
@@ -143,7 +131,7 @@ export async function executeSupabaseInsert(config: Record<string, unknown>, mod
       if ((typeof input !== "string" && typeof input !== "number") || (typeof input === "string" && (input.length > 100 || !input.trim() || !/^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(input.trim())))) return invalid();
       const number = Number(input);
       requireSafeSelectionNumber(number);
-      if (typeof input === "string" && canonicalDecimal(input.trim()) !== canonicalDecimal(String(number))) throw new NodeFailure("INVALID_INPUT", "A numeric value would lose precision. Use text for exact high-precision values.", false);
+      if (typeof input === "string" && !preservesJsonDecimal(input.trim(), number)) throw new NodeFailure("INVALID_INPUT", "A numeric value would lose precision. Use text for exact high-precision values.", false);
       row[name] = number;
     } else if (field.type === "boolean") {
       if (field.value === true || field.value === "true") row[name] = true;

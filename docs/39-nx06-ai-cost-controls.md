@@ -63,6 +63,16 @@ hard spend limit separately from alerts. Gemini's project cap is experimental
 and can overrun during billing delay; availability varies by billing account.
 
 Model discovery does not prove an ID supports the selected API or JSON schema.
+For structured output, numeric JSON values that cannot be preserved through
+JavaScript's JSON number representation now fail with `INVALID_STRUCTURED_OUTPUT`
+instead of silently passing a rounded value to another node. This intentionally
+changes existing structured-output behavior: affected workflows take their error
+branch and a manual retry can incur another charge. Use schema strings for exact
+high-precision values. This check compares decimal JSON round trips, not exact
+binary floating-point arithmetic; ordinary decimals such as `0.1` are accepted.
+Node 22's JSON reviver source is required; no structured result is accepted if
+its numeric source is unavailable. No real provider has been tested for this change.
+
 For structured output, the connector sends the configured schema, validates the
 returned JSON locally, and reports provider rejection without retry; unknown IDs
 are not labeled compatible. Gemini 2.0 structured output is explicitly blocked
