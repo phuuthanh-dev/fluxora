@@ -28,6 +28,12 @@ import { defaultNotificationDispatcher } from "../notifications";
 export { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
 export { validateDiscordWebhookUrl, sanitizeTelegramFailure } from "../notifications";
 
+async function markApprovalExpired(transaction: Prisma.TransactionClient, executionId: string, nodeExecutionId: string, approvalId: string, resolvedAt: Date) {
+  await transaction.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.FAILED, completedAt: resolvedAt, leaseExpiresAt: null, runToken: null, resumeToken: null, resumeNodeIds: Prisma.DbNull, resumeQueuedAt: null, errorCode: "APPROVAL_EXPIRED", errorMessage: "Approval request has expired.", errorRetryable: false } });
+  await transaction.nodeExecution.update({ where: { id: nodeExecutionId }, data: { status: NodeExecutionStatus.FAILED, completedAt: resolvedAt, errorCode: "APPROVAL_EXPIRED", errorMessage: "Approval request has expired.", errorRetryable: false } });
+  await transaction.approvalRequest.update({ where: { id: approvalId }, data: { status: ApprovalRequestStatus.EXPIRED, resolvedAt } });
+}
+
 @Injectable()
 export class ExecutionService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService, @Inject(CredentialService) private readonly credentials: CredentialService, @Inject(ExecutionEventsService) private readonly events: ExecutionEventsService) {}
@@ -570,9 +576,7 @@ export class ExecutionService {
       if (lockedApproval.expiresAt <= resolvedAt) {
         // Commit expiry and terminal execution state together; throwing inside
         // the transaction would leave an expired approval waiting forever.
-        await transaction.execution.update({ where: { id: approval.executionId }, data: { status: ExecutionStatus.FAILED, completedAt: resolvedAt, leaseExpiresAt: null, runToken: null, resumeToken: null, resumeNodeIds: Prisma.DbNull, resumeQueuedAt: null, errorCode: "APPROVAL_EXPIRED", errorMessage: "Approval request has expired.", errorRetryable: false } });
-        await transaction.nodeExecution.update({ where: { id: waitingNode.id }, data: { status: NodeExecutionStatus.FAILED, completedAt: resolvedAt, errorCode: "APPROVAL_EXPIRED", errorMessage: "Approval request has expired.", errorRetryable: false } });
-        await transaction.approvalRequest.update({ where: { id: approval.id }, data: { status: ApprovalRequestStatus.EXPIRED, resolvedAt } });
+        await markApprovalExpired(transaction, approval.executionId, waitingNode.id, approval.id, resolvedAt);
         return true;
       }
       const claimed = await transaction.execution.updateMany({ where: { id: approval.executionId, status: ExecutionStatus.WAITING_APPROVAL }, data: { status: finalStatus, completedAt: finalStatus === ExecutionStatus.QUEUED ? null : resolvedAt, leaseExpiresAt: null, errorCode: decision === "rejected" ? "APPROVAL_REJECTED" : null, errorMessage: decision === "rejected" ? "Approval was rejected." : null, errorRetryable: decision === "rejected" ? false : null, resumeToken: resumeToken ?? null, resumeNodeIds: resumeToken ? nextNodeIds : Prisma.DbNull, resumeQueuedAt: resumeToken ? resolvedAt : null } });
@@ -621,15 +625,15 @@ export class ExecutionService {
       const waiting = await transaction.nodeExecution.findMany({ where: { executionId, status: NodeExecutionStatus.WAITING }, select: { id: true }, take: 2 });
       const pending = await transaction.approvalRequest.findMany({ where: { executionId, status: ApprovalRequestStatus.PENDING }, select: { id: true }, take: 2 });
       if (waiting.length !== 1 || pending.length !== 1 || pending[0]?.id !== approvalId) return false;
-      const nodes = await transaction.$queryRaw<Array<{ status: NodeExecutionStatus }>>`SELECT status FROM "NodeExecution" WHERE id = ${waiting[0]!.id} AND "executionId" = ${executionId} FOR UPDATE`;
+      const nodes = await transaction.$queryRaw<Array<{ status: NodeExecutionStatus; output: Prisma.JsonValue }>>`SELECT status, output FROM "NodeExecution" WHERE id = ${waiting[0]!.id} AND "executionId" = ${executionId} FOR UPDATE`;
       if (nodes[0]?.status !== NodeExecutionStatus.WAITING) return false;
+      const output = nodes[0].output;
+      if (!output || typeof output !== "object" || Array.isArray(output) || output.approvalRequestId !== approvalId) return false;
       const approvals = await transaction.$queryRaw<Array<{ status: ApprovalRequestStatus; expiresAt: Date }>>`SELECT status, "expiresAt" FROM "ApprovalRequest" WHERE id = ${approvalId} AND "executionId" = ${executionId} FOR UPDATE`;
       const clock = await transaction.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS "now"`;
       const resolvedAt = clock[0]?.now;
       if (!resolvedAt || approvals[0]?.status !== ApprovalRequestStatus.PENDING || approvals[0].expiresAt > resolvedAt) return false;
-      await transaction.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.FAILED, completedAt: resolvedAt, leaseExpiresAt: null, runToken: null, resumeToken: null, resumeNodeIds: Prisma.DbNull, resumeQueuedAt: null, errorCode: "APPROVAL_EXPIRED", errorMessage: "Approval request has expired.", errorRetryable: false } });
-      await transaction.nodeExecution.update({ where: { id: waiting[0]!.id }, data: { status: NodeExecutionStatus.FAILED, completedAt: resolvedAt, errorCode: "APPROVAL_EXPIRED", errorMessage: "Approval request has expired.", errorRetryable: false } });
-      await transaction.approvalRequest.update({ where: { id: approvalId }, data: { status: ApprovalRequestStatus.EXPIRED, resolvedAt } });
+      await markApprovalExpired(transaction, executionId, waiting[0]!.id, approvalId, resolvedAt);
       return true;
     });
     if (expired) this.events.publish(executionId, "execution.failed");

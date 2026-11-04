@@ -24,7 +24,7 @@ test("concurrent decisions resolve an approval once and a terminal approval comp
       ], edges: withSuccessor ? [{ id: "edge", source: "approval", target: "next", kind: "success" }] : [] };
       await prisma.workflowVersion.create({ data: { id: versionId, workflowId, version, status: "PUBLISHED", graph } });
       await prisma.execution.create({ data: { id: executionId, workflowVersionId: versionId, mode: "MOCK", status: "WAITING_APPROVAL", startedAt: new Date() } });
-      await prisma.nodeExecution.create({ data: { executionId, nodeId: "approval", status: "WAITING" } });
+      await prisma.nodeExecution.create({ data: { executionId, nodeId: "approval", status: "WAITING", output: { approvalRequestId: approvalId } } });
       await prisma.approvalRequest.create({ data: { id: approvalId, executionId, tokenHash: `synthetic-${version}-${suffix}`, expiresAt: new Date(Date.now() + 60_000) } });
       return { executionId, approvalId };
     };
@@ -149,6 +149,12 @@ test("concurrent decisions resolve an approval once and a terminal approval comp
     assert.equal(await maintenanceService.expireApprovalFromMaintenance(ambiguous.approvalId, ambiguous.executionId), false);
     assert.equal((await prisma.execution.findUniqueOrThrow({ where: { id: ambiguous.executionId } })).status, "WAITING_APPROVAL");
     assert.equal((await prisma.approvalRequest.findUniqueOrThrow({ where: { id: ambiguous.approvalId } })).status, "PENDING");
+
+    const mismatched = await makeWaiting(10, true);
+    await prisma.approvalRequest.update({ where: { id: mismatched.approvalId }, data: { expiresAt: new Date("2020-01-01T00:00:00Z") } });
+    await prisma.nodeExecution.update({ where: { executionId_nodeId: { executionId: mismatched.executionId, nodeId: "approval" } }, data: { output: { approvalRequestId: "other" } } });
+    assert.equal(await maintenanceService.expireApprovalFromMaintenance(mismatched.approvalId, mismatched.executionId), false);
+    assert.equal((await prisma.approvalRequest.findUniqueOrThrow({ where: { id: mismatched.approvalId } })).status, "PENDING");
 
     const rollback = await makeWaiting(9, true);
     await prisma.approvalRequest.update({ where: { id: rollback.approvalId }, data: { expiresAt: new Date("2020-01-01T00:00:00Z") } });
