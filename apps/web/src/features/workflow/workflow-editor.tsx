@@ -336,7 +336,7 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, wor
       }
       if (field.kind === "structured-output") return <section key={field.key} className="config-field">
         <label className="checkbox-field"><input type="checkbox" checked={config[field.key] !== undefined} disabled={draft.structuredOutput !== undefined} onChange={(event) => onChange(field.key, event.target.checked ? { type: "object", properties: { summary: { type: "string" } }, required: ["summary"], additionalProperties: false } : undefined)} /> {field.label}</label>
-        <small>Ask a supported model for fields you can use in later steps. Availability and cost depend on the model and provider.</small>
+        <small>When enabled, the validated result is available in the node output as <code>json</code>; <code>text</code> contains its JSON text. Model support and cost depend on the provider. Token usage appears only when the provider supplies valid usage data.</small>
         {config[field.key] !== undefined && <StructuredOutputField value={config[field.key]} onChange={(schema) => onChange(field.key, schema)} draft={draft.structuredOutput} onDraftChange={(next) => onDraftChange("structuredOutput", next)} />}
       </section>;
       if (field.kind === "mongo-filter") return <MongoFilterField key={field.key} value={value} draft={draft.filter} onDraftChange={(next) => onDraftChange("filter", next)} rawDraft={draft.filterRaw} onRawDraftChange={(next) => onDraftChange("filterRaw", next)} onChange={(nextValue) => onChange(field.key, nextValue)} />;

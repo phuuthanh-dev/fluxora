@@ -101,6 +101,21 @@ test("relational offset metadata matches v2 outputs without claiming a next page
   }
 });
 
+test("AI metadata describes outputs common to plain and structured mock runs", async () => {
+  const schema = { type: "object", properties: { answer: { type: "string" } }, required: ["answer"], additionalProperties: false };
+  for (const type of ["action.openai", "action.gemini"] as const) for (const structured of [false, true]) {
+    const metadata = getOperationMetadata(type);
+    assert.ok(metadata && "knownFields" in metadata.output);
+    assert.deepEqual(metadata.output.knownFields, ["text", "model", "finishReason"]);
+    const config = { model: "example", prompt: "Hello", ...(structured ? { outputSchema: schema } : {}) };
+    const node = { id: "ai", type, position: { x: 0, y: 0 }, config };
+    const result = await executeNode(node, config, {}, "mock", "workspace", {} as never, "execution");
+    for (const field of metadata.output.knownFields) assert.ok(field in result.output, `${type} ${field}`);
+    assert.equal("json" in result.output, structured);
+    assert.ok(!("usage" in result.output));
+  }
+});
+
 test("continuation metadata identifies the connection and query context that must stay consistent", () => {
   for (const [type, expected] of [
     ["action.notion.search-pages.v2", ["credentialId", "query", "pageSize"]],
