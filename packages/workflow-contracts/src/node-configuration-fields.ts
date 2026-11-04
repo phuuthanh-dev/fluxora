@@ -13,7 +13,7 @@ export type NodeConfigurationField =
   | ({ kind: "boolean"; key: string; label: string; defaultChecked?: boolean } & NodeFieldVisibility)
   | ({ kind: "text" | "textarea"; key: string; label: string; advanced?: { summary: string; help: string } } & NodeFieldVisibility)
   | ({ kind: "datetime"; key: string; label: string } & NodeFieldVisibility)
-  | ({ kind: "number"; key: string; label: string; fallbackValue: number } & NodeFieldVisibility)
+  | ({ kind: "number"; key: string; label: string; fallbackValue: number; advanced?: { summary: string; help: string } } & NodeFieldVisibility)
   | ({ kind: "select"; key: string; label: string; options: NodeSelectOption[] } & NodeFieldVisibility)
   | ({ kind: "key-value"; key: string; label: string; keyPlaceholder?: string; valuePlaceholder?: string } & NodeFieldVisibility)
   | ({ kind: "table"; key: string; label: string } & NodeFieldVisibility)

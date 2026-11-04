@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { BadRequestException } from "@nestjs/common";
 import { ExecutionStatus } from "@prisma/client";
-import { ExecutionService } from "./execution.service";
+import { ExecutionService, executeNode } from "./execution.service";
 import { resolveExpressions } from "./expression";
 import { nodeFailureFromExecutionError } from "./node-failure";
 import { redactValue } from "./redaction";
@@ -15,6 +15,22 @@ test("resolves safe expressions without evaluating JavaScript", () => {
   assert.equal(resolveExpressions("{{ steps.steam.output.summary.topGames[0].name }}", context), "Hades");
   assert.equal(resolveExpressions("{{ steps.steam-account.output.profile.personaname }}", { steps: { "steam-account": { output: { profile: { personaname: "Thanh" } } } } }), "Thanh");
   assert.throws(() => resolveExpressions("{{ process.exit() }}", context), BadRequestException);
+});
+
+test("Supabase insert rejects unresolved interpolations before accessing a connection", async () => {
+  const context = { steps: {} };
+  const credentials = { readForExecution: () => { throw new Error("unexpected credential access"); } } as never;
+  for (const value of ["Order {{ steps.missing.output.id }}", "{{ upper(steps.missing.output.name) }}", "{{ steps.missing.output.value }}"]) {
+    const config = { credentialId: "connection", table: "items", fields: [{ column: "name", type: "text", value }] };
+    const node = { id: "insert", type: "action.supabase.insert-row" as const, position: { x: 0, y: 0 }, config };
+    await assert.rejects(() => executeNode(node, resolveExpressions(config, context) as Record<string, unknown>, context, "live", "workspace", credentials, "execution"), (error: unknown) => nodeFailureFromExecutionError(error).code === "INVALID_EXPRESSION");
+  }
+  assert.equal(resolveExpressions("Order {{ steps.missing.output.id }}", context), "Order ");
+  assert.equal(resolveExpressions("{{ default(steps.missing.output.id, 'fallback') }}", context, { rejectMissing: true }), "fallback");
+  const config = { table: "items", fields: [{ column: "name", type: "text", value: "Order {{ default(steps.missing.output.id, 'fallback') }}" }] };
+  const node = { id: "insert", type: "action.supabase.insert-row" as const, position: { x: 0, y: 0 }, config };
+  const result = await executeNode(node, resolveExpressions(config, context) as Record<string, unknown>, context, "mock", "workspace", credentials, "execution");
+  assert.equal(result.status, "succeeded");
 });
 
 test("redacts nested provider secrets before execution data is persisted", () => {

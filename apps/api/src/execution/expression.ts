@@ -5,33 +5,39 @@ const pathPattern = /^[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z_][A-Za-z0-9_-]*|\[\d+\
 
 export type ExpressionContext = Record<string, unknown>;
 
-export function resolveExpressions(value: unknown, context: ExpressionContext): unknown {
-  if (typeof value === "string") return resolveTemplate(value, context);
-  if (Array.isArray(value)) return value.map((item) => resolveExpressions(item, context));
+export function resolveExpressions(value: unknown, context: ExpressionContext, options: { rejectMissing?: boolean } = {}): unknown {
+  if (typeof value === "string") return resolveTemplate(value, context, options);
+  if (Array.isArray(value)) return value.map((item) => resolveExpressions(item, context, options));
   if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, resolveExpressions(item, context)]));
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, resolveExpressions(item, context, options)]));
   }
   return value;
 }
 
-export function resolveTemplate(template: string, context: ExpressionContext): unknown {
+export function resolveTemplate(template: string, context: ExpressionContext, options: { rejectMissing?: boolean } = {}): unknown {
   const matches = [...template.matchAll(expressionPattern)];
   if (!matches.length) return template;
-  if (matches.length === 1 && matches[0]?.[0] === template) return resolveTerm(matches[0][1] ?? "", context);
-  return template.replace(expressionPattern, (_, expression: string) => stringify(resolveTerm(expression, context)));
+  const resolve = (expression: string) => {
+    const value = resolveTerm(expression, context, options.rejectMissing === true);
+    if (options.rejectMissing && value === undefined) invalidExpression("An expression could not be resolved. Check the previous step before running.");
+    return value;
+  };
+  if (matches.length === 1 && matches[0]?.[0] === template) return resolve(matches[0][1] ?? "");
+  return template.replace(expressionPattern, (_, expression: string) => stringify(resolve(expression)));
 }
 
-function resolveTerm(expression: string, context: ExpressionContext): unknown {
+function resolveTerm(expression: string, context: ExpressionContext, rejectMissing = false): unknown {
   const term = expression.trim();
   const helper = /^(upper|lower|default)\((.*)\)$/.exec(term);
-  if (helper) return resolveHelper(helper[1] ?? "", helper[2] ?? "", context);
+  if (helper) return resolveHelper(helper[1] ?? "", helper[2] ?? "", context, rejectMissing);
   if (!pathPattern.test(term)) invalidExpression("Only safe path access and approved helpers are supported.");
   return readPath(context, term);
 }
 
-function resolveHelper(name: string, rawArguments: string, context: ExpressionContext): unknown {
+function resolveHelper(name: string, rawArguments: string, context: ExpressionContext, rejectMissing: boolean): unknown {
   const argumentsList = rawArguments.split(",").map((item) => item.trim());
   const value = resolveArgument(argumentsList[0] ?? "", context);
+  if (rejectMissing && name !== "default" && value === undefined) invalidExpression("An expression could not be resolved. Check the previous step before running.");
   if (name === "upper") return typeof value === "string" ? value.toUpperCase() : stringify(value).toUpperCase();
   if (name === "lower") return typeof value === "string" ? value.toLowerCase() : stringify(value).toLowerCase();
   if (name === "default") return value ?? resolveArgument(argumentsList.slice(1).join(","), context);
