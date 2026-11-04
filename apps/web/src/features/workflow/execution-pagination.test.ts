@@ -32,6 +32,7 @@ test("offset and missing output are described without claiming complete results"
   assert.match(guidance?.caveat ?? "", /completeness is unknown/i);
   assert.equal(executionPagination("action.supabase.select.v2", {}, { rows: [] }), undefined);
   assert.equal(executionPagination("action.gmail.read", {}, { messages: [], hasMore: true }), undefined);
-  assert.equal(executionPagination("action.gmail.read", {}, { messages: [], nextPageToken: "next" }, 2)?.kind, "continuation");
+  assert.equal(executionPagination("action.gmail.read", {}, { messages: [], nextPageToken: "next" }, 2), undefined);
+  assert.equal(executionPagination("action.gmail.read.v2", {}, { messages: [], nextPageToken: "next" }, 1)?.kind, "continuation");
   assert.equal(executionPagination("action.facebook-meta", {}, {}), undefined);
 });
