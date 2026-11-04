@@ -158,6 +158,36 @@ test("concurrent decisions resolve an approval once and a terminal approval comp
     assert.equal((await prisma.approvalRequest.findUniqueOrThrow({ where: { id: mismatched.approvalId } })).status, "PENDING");
     assert.equal((await prisma.execution.findUniqueOrThrow({ where: { id: mismatched.executionId } })).status, "WAITING_APPROVAL");
 
+    // The preliminary lookup may see an old committed output while another
+    // transaction changes it. The locked recheck must observe the new value.
+    const changing = await makeWaiting(11, true);
+    let reachedNode = () => {};
+    const reachedNodeLock = new Promise<void>((resolve) => { reachedNode = resolve; });
+    const changingPrisma = {
+      approvalRequest: prisma.approvalRequest,
+      nodeExecution: prisma.nodeExecution,
+      $transaction: async (callback: (transaction: unknown) => Promise<unknown>) => prisma.$transaction(async (transaction) => callback(new Proxy(transaction, {
+        get(target, property, receiver) {
+          if (property === "$queryRaw") return (strings: TemplateStringsArray, ...values: unknown[]) => {
+            if (strings.join("").includes('FROM "NodeExecution"')) reachedNode();
+            return target.$queryRaw(strings, ...values);
+          };
+          return Reflect.get(target, property, receiver);
+        },
+      }))),
+    };
+    const changingService = new ExecutionService(changingPrisma as never, {} as never, { publish: (_id: string, event: string) => { maintenanceEvents.push(event); } } as never);
+    let changingDecision: Promise<boolean> | undefined;
+    await prisma.$transaction(async (tx) => {
+      await tx.nodeExecution.update({ where: { executionId_nodeId: { executionId: changing.executionId, nodeId: "approval" } }, data: { output: { approvalRequestId: "other" } } });
+      changingDecision = changingService.resolveApproval(changing.approvalId, userId, "approved").then(() => true, () => false);
+      await Promise.race([reachedNodeLock, changingDecision.then(() => { throw new Error("Decision ended before waiting on node lock."); })]);
+    });
+    assert.equal(await changingDecision!, false);
+    assert.equal((await prisma.approvalRequest.findUniqueOrThrow({ where: { id: changing.approvalId } })).status, "PENDING");
+    assert.equal((await prisma.execution.findUniqueOrThrow({ where: { id: changing.executionId } })).status, "WAITING_APPROVAL");
+    assert.deepEqual(maintenanceEvents, ["execution.failed"]);
+
     const rollback = await makeWaiting(9, true);
     await prisma.approvalRequest.update({ where: { id: rollback.approvalId }, data: { expiresAt: new Date("2020-01-01T00:00:00Z") } });
     const failingMaintenancePrisma = {
