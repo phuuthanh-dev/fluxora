@@ -3011,7 +3011,9 @@
       "id": "apps/web/src/features/workflow/expression-suggestions.ts",
       "boundary": "web",
       "internalImports": [],
-      "externalImports": []
+      "externalImports": [
+        "@workflow/contracts"
+      ]
     },
     {
       "id": "apps/web/src/features/workflow/google-sheets-mapping-field.tsx",
