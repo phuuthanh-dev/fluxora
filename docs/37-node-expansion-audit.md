@@ -67,6 +67,13 @@ Trello và Sentry được mở rộng để nhận một sự kiện có identi
 lưu delivery, không chứng minh provider gửi tuần tự, thứ tự thực thi workflow,
 hay exactly-once; chưa chạy kiểm thử provider thật.
 
+**NX-02 gợi ý expression local, chờ verify:** inspector dùng các trường output
+đã biết để gợi ý đường dẫn cho node phía trước ngay cả trước lần chạy đầu;
+kết quả từ lần chạy gần nhất chỉ hiển thị cho node thành công còn nằm trên
+đường đi tới node đang sửa và cùng loại với graph được chạy. Các gợi ý chỉ là
+khả năng: trường có thể khác theo operation và nhánh có thể không được chạy.
+Không thay runtime schema, không thay graph hoặc bảo đảm output của provider.
+
 > Trạng thái kiểm tra 05/11/2026: PR #82 đã merge vào `main` tại
 > `6c9a36ee4b68ce1083770dac2c283125d76c10e5`; workflow deploy tại commit đó
 > [hoàn tất thành công](https://github.com/phuuthanh-dev/fluxora/actions/runs/41871198903).
