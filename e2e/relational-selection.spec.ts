@@ -108,6 +108,24 @@ test("a saved expression is not presented as a checked boolean or changed until 
   expect(configFromSave(saves[1]!).rejectUnsafeNumbers).toBe(true);
 });
 
+test("numeric fields preserve a saved expression and allow an explicit return to a fixed value", async ({ page }) => {
+  const expression = "{{ steps.manual.output.count }}";
+  const { saves } = await setup(page, { provider: "supabase", configOverride: { limit: expression } });
+  await selectRelational(page);
+  const limit = page.getByLabel("Maximum rows (1–100)");
+  await expect(limit).toHaveValue(expression);
+  await expect(page.getByRole("button", { name: "Use fixed number for Maximum rows (1–100)" })).toBeDisabled();
+  await page.getByRole("button", { name: "Save draft" }).click();
+  await expect.poll(() => saves.length).toBe(1);
+  expect(configFromSave(saves[0]!).limit).toBe(expression);
+  await limit.fill("12");
+  await page.getByRole("button", { name: "Use fixed number for Maximum rows (1–100)" }).click();
+  await expect(limit).toHaveAttribute("type", "number");
+  await page.getByRole("button", { name: "Save draft" }).click();
+  await expect.poll(() => saves.length).toBe(2);
+  expect(configFromSave(saves[1]!).limit).toBe(12);
+});
+
 test("Supabase insert builds typed columns without JSON and clears them when the table changes", async ({ page }) => {
   const { saves } = await setup(page, { provider: "supabase", insert: true });
   await selectRelational(page);

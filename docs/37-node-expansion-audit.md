@@ -19,6 +19,11 @@ GitHub update issue được bổ sung vào E2E giả lập, chưa chạy.
 Checkbox cấu hình chứa expression hoặc giá trị không phải boolean cũng được
 hiển thị ở trạng thái chưa xác định, giữ nguyên giá trị cho tới khi người dùng
 chủ động chọn; E2E Supabase giả lập được bổ sung, chưa chạy.
+Trường số action hiển thị expression đã lưu và có thể chuyển giữa nhập số và
+expression mà không tự xóa giá trị; backend vẫn kiểm tra giá trị sau khi
+phân giải. [n8n](https://docs.n8n.io/data/data-mapping/data-mapping-ui/) cũng
+cho tham chiếu dữ liệu qua expression; đây không phải implementation đầy đủ
+của expression editor n8n. E2E giả lập mới chờ verify.
 
 ### Snapshot trước PR #84
 

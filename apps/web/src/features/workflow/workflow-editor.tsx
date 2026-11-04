@@ -157,22 +157,40 @@ function useNarrowEditorLayout() {
   return isNarrow;
 }
 
-function ConfigField({ label, value, onChange, multiline = false, inputMode }: {
+function ConfigField({ label, value, onChange, multiline = false }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   multiline?: boolean;
-  inputMode?: "number";
 }) {
   return (
     <Field label={label} className="config-field">
       {multiline ? (
         <textarea value={value} onChange={(event) => onChange(event.target.value)} rows={5} />
       ) : (
-        <input type={inputMode} value={value} onChange={(event) => onChange(event.target.value)} />
+        <input value={value} onChange={(event) => onChange(event.target.value)} />
       )}
     </Field>
   );
+}
+
+function NumericConfigField({ label, value, allowExpressions, onChange }: { label: string; value: string; allowExpressions: boolean; onChange: (value: string | number) => void }) {
+  const isNumber = value !== "" && value.trim() !== "" && Number.isFinite(Number(value));
+  const [expressionMode, setExpressionMode] = useState(value !== "" && !isNumber);
+  // An externally loaded expression must remain visible even if the user was
+  // previously editing a fixed value. Switching modes alone never clears it.
+  const manual = expressionMode || (value !== "" && !isNumber);
+  return <div className="config-field">
+    <Field label={label}><input type={manual ? "text" : "number"} value={value} placeholder={manual ? "{{ steps.example.output.value }}" : undefined} onChange={(event) => {
+      const next = event.target.value;
+      onChange(manual || next === "" ? next : Number(next));
+    }} /></Field>
+    {allowExpressions && <Button type="button" variant="ghost" aria-label={`${manual ? "Use fixed number" : "Enter expression"} for ${label}`} disabled={manual && value !== "" && !isNumber} onClick={() => {
+      if (manual && isNumber) onChange(Number(value));
+      setExpressionMode(!manual);
+    }}>{manual ? "Use fixed number" : "Enter expression"}</Button>}
+    {manual && <small>{allowExpressions ? "Enter an expression, or replace it with a number before switching back." : "Review this saved value in Advanced. This trigger field does not support expressions."}</small>}
+  </div>;
 }
 
 function readConfigurationFieldValue(config: Record<string, unknown>, field: NodeConfigurationField) {
@@ -326,7 +344,10 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, wor
       }
       if (field.kind === "datetime") return <DateTimeField key={field.key} label={field.label} value={value} allowExpressions={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       if (field.kind === "text" && field.advanced) return <details key={field.key} className="config-field"><summary>{field.advanced.summary}</summary><ConfigField label={field.label} value={value} onChange={(nextValue) => onChange(field.key, nextValue)} /><small>{field.advanced.help}</small></details>;
-      if (field.kind === "number" && field.advanced) return <details key={field.key} className="config-field"><summary>{field.advanced.summary}</summary><ConfigField label={field.label} value={value} inputMode="number" onChange={(nextValue) => onChange(field.key, nextValue === "" ? "" : Number(nextValue))} /><small>{field.advanced.help}</small></details>;
+      if (field.kind === "number") {
+        const input = <NumericConfigField label={field.label} value={value} allowExpressions={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
+        return field.advanced ? <details key={field.key} className="config-field"><summary>{field.advanced.summary}</summary>{input}<small>{field.advanced.help}</small></details> : <div key={field.key}>{input}</div>;
+      }
       if (field.kind === "resource") {
         return <ResourcePicker key={field.key} workspaceId={workspaceId} resource={field.resource} credentialId={readConfigText(config, field.credentialKey)} dependencyValue={field.dependencyKey ? readConfigText(config, field.dependencyKey) : undefined} secondaryDependencyValue={field.secondaryDependencyKey ? readConfigText(config, field.secondaryDependencyKey) : undefined} resourceVariant={["notion-source-property", "notion-source-option"].includes(field.resource) ? readConfigText(config, "filterMode") : undefined} label={field.label} value={value} placeholder={field.placeholder} allowExpression={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       }
@@ -354,8 +375,7 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, wor
         label={field.label}
         value={value}
         multiline={field.kind === "textarea"}
-        inputMode={field.kind === "number" ? "number" : undefined}
-        onChange={(nextValue) => onChange(field.key, field.kind === "number" && nextValue !== "" ? Number(nextValue) : nextValue)}
+        onChange={(nextValue) => onChange(field.key, nextValue)}
       />;
     })}
   </>;
