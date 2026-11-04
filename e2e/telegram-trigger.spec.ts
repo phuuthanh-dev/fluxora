@@ -9,6 +9,7 @@ test("Telegram trigger explains manual setup and creates a secret-protected endp
     if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
     if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
     if (path.endsWith("/credentials")) return send({ credentials: [] });
+    if (path.endsWith("/live-readiness")) return send({ readiness: { ready: true, missing: [] } });
     if (path.endsWith("/workflows/telegram-test")) return send({ workflow });
     if (path.endsWith("/webhook-endpoint")) {
       if (route.request().method() === "GET") return send({ endpoint: null });
@@ -18,6 +19,11 @@ test("Telegram trigger explains manual setup and creates a secret-protected endp
     return route.continue();
   });
   await page.goto("/editor?workflow=telegram-test");
+  await page.getByRole("button", { name: "Go live" }).click();
+  const activation = page.getByRole("dialog", { name: "Activate workflow" });
+  await expect(activation).toContainText("Fluxora does not register or verify that webhook");
+  await expect(activation).toContainText("configuring a new one replaces the existing webhook");
+  await activation.getByRole("button", { name: "Cancel" }).click();
   await page.getByTestId("rf__node-telegram").click();
   await expect(page.getByLabel("Allowed chat IDs (comma-separated)")).toHaveValue("12345");
   await page.getByRole("button", { name: "Configure webhook" }).click();
