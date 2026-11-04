@@ -48,10 +48,7 @@ const executable = (auth: OperationAuth, effect: OperationEffect, output: Operat
 const planned = { availability: "planned", auth: unspecifiedAuth, effect: "unspecified", output: unknownOutput, pagination: unknownPagination } as const;
 const fields = (...knownFields: string[]) => ({ knownFields });
 
-// The coordinator has these additional node types in flight. Keeping their
-// metadata separate lets this file apply on both bases; they become visible
-// only when the authoritative workflowNodeTypes includes them.
-const coordinatorAdditions = {
+const definitions = {
   "action.notion.retrieve-page": executable(credential("NOTION"), "read"),
   "action.notion.list-children": executable(credential("NOTION"), "read", fields("blocks", "hasMore", "nextCursor"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "blockId", "pageSize"] }),
   "action.notion.retrieve-property": executable(credential("NOTION"), "read", fields("kind", "hasMore", "nextCursor"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "pageId", "propertyId", "pageSize"], caveat: "Only list-valued properties have further pages." }),
@@ -69,10 +66,6 @@ const coordinatorAdditions = {
   "action.github.update-issue": executable(credential("GITHUB"), "write", fields("repository", "issueNumber", "updatedField")),
   "action.github.list-pull-requests": executable(credential("GITHUB"), "read", fields("items", "page", "hasMore", "nextPage", "truncated"), { kind: "continuation", input: "page", next: "nextPage", hasMore: "hasMore", preserve: ["credentialId", "repository", "state", "pageSize"], caveat: "At the page ceiling hasMore can be true while nextPage is null." }),
   "action.github.get-pull-request": executable(credential("GITHUB"), "read"),
-} satisfies Record<string, OperationMetadata>;
-
-const definitions = {
-  ...coordinatorAdditions,
   "trigger.manual": executable(none, "unspecified"),
   "trigger.gmail": executable(credential("GMAIL", "required", "trigger-setup"), "unspecified"),
   "trigger.rss.new-item": executable(none, "read"),
