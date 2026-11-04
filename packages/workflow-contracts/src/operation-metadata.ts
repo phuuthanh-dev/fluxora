@@ -49,6 +49,8 @@ const planned = { availability: "planned", auth: unspecifiedAuth, effect: "unspe
 const fields = (...knownFields: string[]) => ({ knownFields });
 const notificationReceipt = fields("delivered", "provider", "destination", "messageId", "sentAt", "mode");
 const trelloCard = fields("id", "name", "description", "boardId", "listId", "closed", "url");
+// Trigger payloads differ by provider; only the wrapper is guaranteed.
+const triggerOutput = fields("received");
 
 const definitions = {
   "action.notion.retrieve-page": executable(credential("NOTION"), "read", fields("page", "outputInfo")),
@@ -68,24 +70,24 @@ const definitions = {
   "action.github.update-issue": executable(credential("GITHUB"), "write", fields("repository", "issueNumber", "updatedField")),
   "action.github.list-pull-requests": executable(credential("GITHUB"), "read", fields("repository", "items", "page", "pageSize", "state", "hasMore", "nextPage", "truncated"), { kind: "continuation", input: "page", next: "nextPage", hasMore: "hasMore", preserve: ["credentialId", "repository", "state", "pageSize"], caveat: "At the page ceiling hasMore can be true while nextPage is null." }),
   "action.github.get-pull-request": executable(credential("GITHUB"), "read", fields("repository", "item")),
-  "trigger.manual": executable(none, "unspecified"),
-  "trigger.gmail": executable(credential("GMAIL", "required", "trigger-setup"), "unspecified"),
-  "trigger.rss.new-item": executable(none, "read"),
-  "trigger.telegram.update": executable(conditional, "read"),
-  "trigger.vercel.deployment": executable(conditional, "read"),
-  "trigger.trello.board-action": executable(conditional, "read"),
-  "trigger.sentry.issue-created": executable(conditional, "read"),
-  "trigger.cron": executable(none, "unspecified"),
-  "trigger.webhook": executable(conditional, "unspecified"),
-  "trigger.uptime-kuma.alert": executable(conditional, "unspecified"),
-  "trigger.uptime-kuma.alert.v2": executable(conditional, "unspecified"),
-  "trigger.github.issue-opened": executable(conditional, "unspecified"),
-  "trigger.github.pull-request-opened": executable(conditional, "unspecified"),
-  "trigger.github.push": executable(conditional, "unspecified"),
-  "trigger.github.workflow-run-completed": executable(conditional, "unspecified"),
+  "trigger.manual": executable(none, "unspecified", triggerOutput),
+  "trigger.gmail": executable(credential("GMAIL", "required", "trigger-setup"), "unspecified", triggerOutput),
+  "trigger.rss.new-item": executable(none, "read", triggerOutput),
+  "trigger.telegram.update": executable(conditional, "read", triggerOutput),
+  "trigger.vercel.deployment": executable(conditional, "read", triggerOutput),
+  "trigger.trello.board-action": executable(conditional, "read", triggerOutput),
+  "trigger.sentry.issue-created": executable(conditional, "read", triggerOutput),
+  "trigger.cron": executable(none, "unspecified", triggerOutput),
+  "trigger.webhook": executable(conditional, "unspecified", triggerOutput),
+  "trigger.uptime-kuma.alert": executable(conditional, "unspecified", triggerOutput),
+  "trigger.uptime-kuma.alert.v2": executable(conditional, "unspecified", triggerOutput),
+  "trigger.github.issue-opened": executable(conditional, "unspecified", triggerOutput),
+  "trigger.github.pull-request-opened": executable(conditional, "unspecified", triggerOutput),
+  "trigger.github.push": executable(conditional, "unspecified", triggerOutput),
+  "trigger.github.workflow-run-completed": executable(conditional, "unspecified", triggerOutput),
   "condition.if": executable(none, "unspecified", fields("matches")),
   "condition.switch": executable(none, "unspecified", fields("value", "matched")),
-  "approval.request": executable(conditional, "unspecified"),
+  "approval.request": executable(conditional, "unspecified", fields("message", "expiresInHours", "notificationProvider", "notificationCredentialId")),
   "action.steam.account-snapshot": executable(credential("STEAM"), "read", fields("profile", "currentGame", "ownedGames", "recentGames", "achievements", "summary")),
   "action.steam": executable(credential("STEAM"), "read", fields("operation", "result")),
   "action.riot-lol": executable(credential("RIOT"), "read", fields("operation", "result")),
@@ -102,7 +104,7 @@ const definitions = {
   "action.telegram.message": executable(credential("TELEGRAM_BOT"), "write", notificationReceipt),
   "action.telegram.reply": executable(credential("TELEGRAM_BOT"), "write", fields(...notificationReceipt.knownFields, "operation")),
   "action.telegram.edit-message": executable(credential("TELEGRAM_BOT"), "write", fields(...notificationReceipt.knownFields, "operation")),
-  "action.google-drive": executable(credential("GOOGLE"), "configuration-dependent"),
+  "action.google-drive": executable(credential("GOOGLE"), "configuration-dependent", fields("operation")),
   "action.google-drive.v2": executable(credential("GOOGLE"), "configuration-dependent", fields("operation"), {
     kind: "conditional", selector: "operation", fallback: "list", cases: [{
       values: ["list", "search"],

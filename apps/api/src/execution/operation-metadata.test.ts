@@ -57,6 +57,37 @@ test("catalog executable nodes reach a mock handler without reading credentials"
   }
 });
 
+test("trigger metadata describes the common output wrapper without assuming a provider payload", async () => {
+  const credentials = new Proxy({}, { get() { throw new Error("Trigger dispatch must not read credentials"); } }) as never;
+  const payload = { source: "synthetic", data: { id: 1 } };
+  for (const type of executableWorkflowNodeTypes.filter((candidate) => candidate.startsWith("trigger."))) {
+    const node = { id: "trigger", type, position: { x: 0, y: 0 }, config: {} };
+    const metadata = getOperationMetadata(type);
+    assert.ok(metadata && "knownFields" in metadata.output, type);
+    assert.deepEqual(metadata.output.knownFields, ["received"], type);
+    for (const mode of ["mock", "live"] as const) {
+      const result = await executeNode(node, {}, { trigger: payload }, mode, "workspace", credentials, "execution");
+      assert.deepEqual(result.output, { received: payload }, `${type} ${mode}`);
+    }
+  }
+});
+
+test("approval and Drive metadata only describe common output fields", async () => {
+  const credentials = new Proxy({}, { get() { throw new Error("Mock must not read credentials"); } }) as never;
+  for (const [type, configs] of [
+    ["approval.request", [{}]],
+    ["action.google-drive", [{ operation: "list" }, { operation: "search" }, { operation: "uploadText" }, { operation: "downloadText" }]],
+  ] as const) {
+    const metadata = getOperationMetadata(type);
+    assert.ok(metadata && "knownFields" in metadata.output, type);
+    for (const config of configs) {
+      const node = { id: "node", type, position: { x: 0, y: 0 }, config };
+      const result = await executeNode(node, config, {}, "mock", "workspace", credentials, "execution");
+      for (const field of metadata.output.knownFields) assert.ok(Object.hasOwn(result.output, field), `${type} is missing ${field}`);
+    }
+  }
+});
+
 test("notification receipt metadata matches successful mock output", async () => {
   const credentials = new Proxy({}, { get() { throw new Error("Mock must not read credentials"); } }) as never;
   for (const type of ["action.google-chat.webhook", "action.discord.webhook", "action.telegram.message", "action.telegram.reply", "action.telegram.edit-message"] as const) {
