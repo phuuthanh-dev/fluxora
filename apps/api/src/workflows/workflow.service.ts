@@ -8,6 +8,7 @@ import { systemWorkflowTemplates } from "./system-templates";
 import { GmailTriggerService } from "../scheduler/gmail-trigger.service";
 import { RssTriggerService } from "../scheduler/rss-trigger.service";
 import { canResumeRssCheckpoint, rssFeedUrlHash, rssTargets } from "../scheduler/rss-trigger-poller";
+import { lockGraphCredentials } from "../credentials/credential-references";
 
 type CreateWorkflowInput = { name: string; description?: string; graph?: unknown };
 type UpdateDraftInput = { name?: string; description?: string | null; graph: unknown };
@@ -62,6 +63,7 @@ export class WorkflowService {
     await this.workspaces.requireOwner(workspaceId, userId);
     const graph = input.graph === undefined ? defaultGraph : parseWorkflowGraph(input.graph);
     const workflow = await this.prisma.$transaction(async (transaction) => {
+      await lockGraphCredentials(transaction, workspaceId, graph);
       const created = await transaction.workflow.create({ data: { workspaceId, name: input.name, description: input.description ?? null } });
       const draft = await transaction.workflowVersion.create({
         data: { workflowId: created.id, version: 1, status: WorkflowVersionStatus.DRAFT, graph: graph as Prisma.InputJsonValue },
@@ -169,6 +171,7 @@ export class WorkflowService {
     const workflow = await this.findOwned(workflowId, userId);
     const graph = parseWorkflowGraph(input.graph);
     const updated = await this.prisma.$transaction(async (transaction) => {
+      await lockGraphCredentials(transaction, workflow.workspaceId, graph);
       // Lock in the same order as publish and provider reservation.
       const locked = await transaction.$queryRaw<Array<{ draftVersionId: string | null }>>`SELECT "draftVersionId" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
       if (!locked[0] || locked[0].draftVersionId !== workflow.draftVersionId) throw new ConflictException({ code: "WORKFLOW_DRAFT_CHANGED", message: "The workflow draft changed. Reload before saving." });

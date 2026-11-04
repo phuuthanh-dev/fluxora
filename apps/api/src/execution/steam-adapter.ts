@@ -34,7 +34,9 @@ export async function steamSnapshot(credential: Record<string, unknown>, config:
   const achievementAppId = typeof config.achievementAppId === "string" ? config.achievementAppId.trim() : "";
   const achievements = achievementAppId ? await steamAchievements(base, apiKey, steamId, achievementAppId) : null;
   const player = profile as Record<string, unknown>;
-  const currentAppId = typeof player.gameid === "number" ? player.gameid : undefined;
+  const gameId = player.gameid;
+  const parsedGameId = typeof gameId === "string" && /^\d+$/.test(gameId) ? Number(gameId) : gameId;
+  const currentAppId = typeof parsedGameId === "number" && Number.isSafeInteger(parsedGameId) && parsedGameId > 0 ? parsedGameId : undefined;
   return {
     profile,
     currentGame: currentAppId ? { appId: currentAppId, name: typeof player.gameextrainfo === "string" ? player.gameextrainfo : "Unknown", serverIp: typeof player.gameserverip === "string" ? player.gameserverip : undefined } : null,

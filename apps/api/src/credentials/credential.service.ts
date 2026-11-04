@@ -1,4 +1,4 @@
-import { CredentialProvider, ExecutionStatus } from "@prisma/client";
+import { CredentialProvider, ExecutionStatus, type Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { chatManageProof, chatManageScope, chatManageValid, googleChatScopesGranted, googleSubject, googleConnectionPolicy, googleScopesGranted, googleScopeTokenHash, googleScopeProof, googleScopeProofValid, googleRefreshGrantProof, googleRefreshGrantValid, gmailCapabilityProof, gmailCapabilitiesValid, gmailCapabilitiesGranted, projectGmailScopes, validGmailCapabilities, sameGoogleScopes, type GmailCapability, type GoogleConnectionKind } from "./google-oauth-policy";
 import { validatePostgresCredential } from "../execution/postgres-read";
@@ -9,6 +9,7 @@ import { PrismaService } from "../database/prisma.service";
 import { WorkspaceService } from "../workspaces/workspace.service";
 import { CredentialVaultService } from "./credential-vault.service";
 import { credentialHints } from "./credential-hints";
+import { graphCredentialIds } from "./credential-references";
 import { validateSmtpCredentialData } from "../execution/smtp-email";
 
 const providers = new Set(Object.values(CredentialProvider));
@@ -197,40 +198,44 @@ export class CredentialService {
 
   async delete(workspaceId: string, credentialId: string, userId: string) {
     await this.workspaces.requireOwner(workspaceId, userId);
-    const credential = await this.prisma.credential.findFirst({ where: { id: credentialId, workspaceId } });
-    if (!credential) throw new NotFoundException({ code: "CREDENTIAL_NOT_FOUND", message: "A matching credential was not found in this workspace." });
-    const references = await this.findReferences(workspaceId, credentialId);
-    const blockingWorkflows = references.workflows.map(({ id, name }) => ({ id, name }));
-    const blockingExecutions = references.executions.map(({ id }) => ({ id }));
+    return this.prisma.$transaction(async (tx) => {
+      // Graph saves and live executions hold a shared lock on the same row.
+      await tx.$queryRaw`SELECT id FROM "Credential" WHERE id = ${credentialId} AND "workspaceId" = ${workspaceId} FOR UPDATE`;
+      const credential = await tx.credential.findFirst({ where: { id: credentialId, workspaceId } });
+      if (!credential) throw new NotFoundException({ code: "CREDENTIAL_NOT_FOUND", message: "A matching credential was not found in this workspace." });
+      const references = await this.findReferences(workspaceId, credentialId, tx);
+      const blockingWorkflows = references.workflows.map(({ id, name }) => ({ id, name }));
+      const blockingExecutions = references.executions.map(({ id }) => ({ id }));
 
-    if (blockingWorkflows.length > 0 || blockingExecutions.length > 0) {
-      throw new ConflictException({
-        code: "CREDENTIAL_IN_USE",
-        message: "Credential is in use and cannot be deleted.",
-        details: {
-          workflows: blockingWorkflows,
-          executions: blockingExecutions,
+      if (blockingWorkflows.length > 0 || blockingExecutions.length > 0) {
+        throw new ConflictException({
+          code: "CREDENTIAL_IN_USE",
+          message: "Credential is in use and cannot be deleted.",
+          details: {
+            workflows: blockingWorkflows,
+            executions: blockingExecutions,
+          },
+        });
+      }
+
+      await tx.credential.delete({ where: { id: credential.id } });
+      await tx.auditLog.create({
+        data: {
+          workspaceId,
+          actorId: userId,
+          action: "credential.deleted",
+          targetType: "credential",
+          targetId: credential.id,
+          metadata: { provider: credential.provider, label: credential.label },
         },
       });
-    }
 
-    await this.prisma.credential.delete({ where: { id: credential.id } });
-    await this.prisma.auditLog.create({
-      data: {
-        workspaceId,
-        actorId: userId,
-        action: "credential.deleted",
-        targetType: "credential",
-        targetId: credential.id,
-        metadata: { provider: credential.provider, label: credential.label },
-      },
+      return { success: true, id: credential.id };
     });
-
-    return { success: true, id: credential.id };
   }
 
-  private async findReferences(workspaceId: string, credentialId: string) {
-    const workflows = await this.prisma.workflow.findMany({
+  private async findReferences(workspaceId: string, credentialId: string, db: PrismaService | Prisma.TransactionClient = this.prisma) {
+    const workflows = await db.workflow.findMany({
       where: { workspaceId },
       include: {
         draftVersion: { select: { graph: true } },
@@ -240,12 +245,12 @@ export class CredentialService {
 
     const workflowReferences = workflows.flatMap((workflow) => {
       const locations: Array<"draft" | "published"> = [];
-      if (workflow.draftVersion && graphUsesCredential(workflow.draftVersion.graph, credentialId)) locations.push("draft");
-      if (workflow.publishedVersion && graphUsesCredential(workflow.publishedVersion.graph, credentialId)) locations.push("published");
+      if (workflow.draftVersion && graphCredentialIds(workflow.draftVersion.graph).includes(credentialId)) locations.push("draft");
+      if (workflow.publishedVersion && graphCredentialIds(workflow.publishedVersion.graph).includes(credentialId)) locations.push("published");
       return locations.length > 0 ? [{ id: workflow.id, name: workflow.name, locations }] : [];
     });
 
-    const activeExecutions = await this.prisma.execution.findMany({
+    const activeExecutions = await db.execution.findMany({
       where: {
         status: { in: [ExecutionStatus.QUEUED, ExecutionStatus.RUNNING, ExecutionStatus.WAITING_APPROVAL] },
         workflowVersion: { workflow: { workspaceId } },
@@ -260,7 +265,7 @@ export class CredentialService {
     });
 
     const executionReferences = activeExecutions.flatMap((execution) =>
-      graphUsesCredential(execution.workflowVersion.graph, credentialId)
+      graphCredentialIds(execution.workflowVersion.graph).includes(credentialId)
         ? [{ id: execution.id, status: execution.status, mode: execution.mode, createdAt: execution.createdAt }]
         : [],
     );
@@ -627,20 +632,4 @@ function validateCredentialPayload(provider: CredentialProvider, data: Record<st
       message: reason instanceof Error ? reason.message : "SMTP credential is invalid.",
     });
   }
-}
-
-function graphUsesCredential(graphValue: unknown, credentialId: string): boolean {
-  if (!graphValue || typeof graphValue !== "object") return false;
-  const nodes = (graphValue as Record<string, unknown>).nodes;
-  if (!Array.isArray(nodes)) return false;
-  for (const node of nodes) {
-    if (!node || typeof node !== "object") continue;
-    const config = (node as Record<string, unknown>).config ?? ((node as Record<string, unknown>).data as Record<string, unknown> | undefined)?.config;
-    if (config && typeof config === "object") {
-      const configRecord = config as Record<string, unknown>;
-      if (configRecord.credentialId === credentialId) return true;
-      if (configRecord.notificationCredentialId === credentialId) return true;
-    }
-  }
-  return false;
 }

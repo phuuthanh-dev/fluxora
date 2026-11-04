@@ -9,6 +9,7 @@ import { BadRequestException, ConflictException, Inject, Injectable, NotFoundExc
 import { ApprovalRequestStatus, CredentialProvider, ExecutionStatus, NodeExecutionStatus, Prisma } from "@prisma/client";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { CredentialService } from "../credentials/credential.service";
+import { lockGraphCredentials } from "../credentials/credential-references";
 import { PrismaService } from "../database/prisma.service";
 import { ExecutionEventsService } from "./execution-events.service";
 import { resolveExpressions } from "./expression";
@@ -46,8 +47,10 @@ export class ExecutionService {
       if (debugNode.type === "approval.request") throw new BadRequestException({ code: "NODE_DEBUG_UNSUPPORTED", message: "Approval nodes must be tested as part of the full workflow." });
     }
     if (!mock) await this.assertLiveReady(workflow.workspaceId, parseWorkflowGraph(version.graph));
-    const execution = await this.prisma.execution.create({
-      data: { workflowVersionId: version.id, mode: mock ? "MOCK" : "LIVE", triggerData: redactValue(triggerData) as Prisma.InputJsonValue },
+    const data = { workflowVersionId: version.id, mode: mock ? "MOCK" : "LIVE", triggerData: redactValue(triggerData) as Prisma.InputJsonValue };
+    const execution = mock ? await this.prisma.execution.create({ data }) : await this.prisma.$transaction(async (tx) => {
+      await lockGraphCredentials(tx, workflow.workspaceId, version.graph);
+      return tx.execution.create({ data });
     });
     await this.prisma.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: debugNodeId ? "execution.node_debug_started" : "execution.manual_started", targetType: "execution", targetId: execution.id, metadata: { mode: mock ? "mock" : "live", ...(debugNodeId ? { nodeId: debugNodeId } : {}) } } });
     return execution;
@@ -267,13 +270,15 @@ export class ExecutionService {
     if (!source) throw new NotFoundException({ code: "EXECUTION_NOT_FOUND", message: "Execution was not found." });
     if (source.status !== ExecutionStatus.FAILED) throw new BadRequestException({ code: "EXECUTION_NOT_RETRYABLE", message: "Only failed executions can be retried." });
     if (source.mode === "LIVE") await this.assertLiveReady(source.workflowVersion.workflow.workspaceId, parseWorkflowGraph(source.workflowVersion.graph));
-    const execution = await this.prisma.execution.create({
-      data: {
-        workflowVersionId: source.workflowVersionId,
-        mode: source.mode,
-        triggerData: source.triggerData ?? Prisma.JsonNull,
-        idempotencyRootId: source.idempotencyRootId ?? source.id,
-      },
+    const data = {
+      workflowVersionId: source.workflowVersionId,
+      mode: source.mode,
+      triggerData: source.triggerData ?? Prisma.JsonNull,
+      idempotencyRootId: source.idempotencyRootId ?? source.id,
+    };
+    const execution = source.mode !== "LIVE" ? await this.prisma.execution.create({ data }) : await this.prisma.$transaction(async (tx) => {
+      await lockGraphCredentials(tx, source.workflowVersion.workflow.workspaceId, source.workflowVersion.graph);
+      return tx.execution.create({ data });
     });
     await this.prisma.auditLog.create({ data: { workspaceId: source.workflowVersion.workflow.workspaceId, actorId: userId, action: "execution.retried", targetType: "execution", targetId: execution.id, metadata: { sourceExecutionId: source.id, mode: source.mode.toLowerCase(), workflowVersion: source.workflowVersion.version } } });
     return execution;

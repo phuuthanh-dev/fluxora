@@ -279,6 +279,15 @@
       ]
     },
     {
+      "id": "apps/api/src/credentials/credential-references.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client"
+      ]
+    },
+    {
       "id": "apps/api/src/credentials/credential-vault.service.ts",
       "boundary": "api",
       "internalImports": [],
@@ -330,6 +339,7 @@
       "boundary": "api",
       "internalImports": [
         "apps/api/src/credentials/credential-hints.ts",
+        "apps/api/src/credentials/credential-references.ts",
         "apps/api/src/credentials/credential-vault.service.ts",
         "apps/api/src/credentials/google-oauth-policy.ts",
         "apps/api/src/database/prisma.service.ts",
@@ -687,6 +697,7 @@
       "id": "apps/api/src/execution/execution.service.ts",
       "boundary": "api",
       "internalImports": [
+        "apps/api/src/credentials/credential-references.ts",
         "apps/api/src/credentials/credential.service.ts",
         "apps/api/src/database/prisma.service.ts",
         "apps/api/src/execution/connector-executors.ts",
@@ -1984,6 +1995,7 @@
       "id": "apps/api/src/workflows/workflow.service.ts",
       "boundary": "api",
       "internalImports": [
+        "apps/api/src/credentials/credential-references.ts",
         "apps/api/src/database/prisma.service.ts",
         "apps/api/src/scheduler/gmail-trigger.service.ts",
         "apps/api/src/scheduler/rss-trigger-poller.ts",
@@ -3657,6 +3669,10 @@
     },
     {
       "from": "apps/api/src/credentials/credential.service.ts",
+      "to": "apps/api/src/credentials/credential-references.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.service.ts",
       "to": "apps/api/src/credentials/credential-vault.service.ts"
     },
     {
@@ -4098,6 +4114,10 @@
     {
       "from": "apps/api/src/execution/execution.module.ts",
       "to": "apps/api/src/execution/execution.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/credentials/credential-references.ts"
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
@@ -5542,6 +5562,10 @@
     {
       "from": "apps/api/src/workflows/workflow.module.ts",
       "to": "apps/api/src/workspaces/workspace.module.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow.service.ts",
+      "to": "apps/api/src/credentials/credential-references.ts"
     },
     {
       "from": "apps/api/src/workflows/workflow.service.ts",

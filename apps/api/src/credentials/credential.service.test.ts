@@ -386,12 +386,18 @@ test("update allows renaming a manual Google credential to names that contain OA
   assert.equal(updated.isManaged, false);
 });
 
+function withDeleteTransaction(prisma: PrismaService): PrismaService {
+  return Object.assign(prisma, {
+    $transaction: async (action: (tx: PrismaService) => Promise<unknown>) => action(Object.assign({}, prisma, { $queryRaw: async () => [] })),
+  });
+}
+
 test("unused managed Google connections can be deleted after reference checks", async () => {
   let scans = 0; let deletes = 0;
   for (const [provider, label] of [["GOOGLE", "Google OAuth"], ["GMAIL", "Gmail OAuth · owner@example.test · 0123456789abcdef"], ["GOOGLE_CHAT_OAUTH", "Google Chat OAuth"], ["GOOGLE_CALENDAR", "Google Calendar OAuth"]]) {
     const existing = { id: "managed", workspaceId: "ws-1", provider, label, encryptedData: "encrypted" };
     const prisma = { credential: { findFirst: async () => existing, delete: async () => { deletes++; } }, workflow: { findMany: async () => { scans++; return []; } }, execution: { findMany: async () => [] }, auditLog: { create: async () => ({}) } } as unknown as PrismaService;
-    const service = new CredentialService(prisma, { requireOwner: async () => {} } as never, {} as never);
+    const service = new CredentialService(withDeleteTransaction(prisma), { requireOwner: async () => {} } as never, {} as never);
     await service.delete("ws-1", existing.id, "user-1");
   }
   assert.equal(scans, 4);
@@ -402,7 +408,7 @@ test("managed Google connection cannot be deleted when used by a workflow", asyn
   const existing = { id: "managed", workspaceId: "ws-1", provider: "GOOGLE", label: "Google OAuth", encryptedData: "encrypted" };
   let deleted = false;
   const prisma = { credential: { findFirst: async () => existing, delete: async () => { deleted = true; } }, workflow: { findMany: async () => [{ id: "wf", name: "Workflow", draftVersion: { graph: { nodes: [{ config: { credentialId: "managed" } }] } }, publishedVersion: null }] }, execution: { findMany: async () => [] } } as unknown as PrismaService;
-  const service = new CredentialService(prisma, { requireOwner: async () => {} } as never, {} as never);
+  const service = new CredentialService(withDeleteTransaction(prisma), { requireOwner: async () => {} } as never, {} as never);
   await assert.rejects(service.delete("ws-1", existing.id, "user-1"), (error: unknown) => (error as HttpErrorShape).response?.code === "CREDENTIAL_IN_USE");
   assert.equal(deleted, false);
 });
@@ -434,7 +440,7 @@ test("manual Google credentials can be updated and deleted normally", async () =
     auditLog: { create: async () => {} },
   } as unknown as PrismaService;
   const workspaces = { requireOwner: async () => {} } as never;
-  const service = new CredentialService(prisma, workspaces, {} as never);
+  const service = new CredentialService(withDeleteTransaction(prisma), workspaces, {} as never);
 
   const updated = await service.update("ws-1", "google-manual-1", "user-1", { label: "Renamed Manual Google" });
   assert.equal(updated.label, "Renamed Manual Google");
@@ -730,7 +736,7 @@ test("delete blocks with CREDENTIAL_IN_USE when referenced by current draft vers
     },
   } as unknown as PrismaService;
   const workspaces = { requireOwner: async () => {} } as never;
-  const service = new CredentialService(prisma, workspaces, {} as never);
+  const service = new CredentialService(withDeleteTransaction(prisma), workspaces, {} as never);
 
   await assert.rejects(
     async () => {
@@ -773,7 +779,7 @@ test("delete blocks with CREDENTIAL_IN_USE when referenced by notificationCreden
     },
   } as unknown as PrismaService;
   const workspaces = { requireOwner: async () => {} } as never;
-  const service = new CredentialService(prisma, workspaces, {} as never);
+  const service = new CredentialService(withDeleteTransaction(prisma), workspaces, {} as never);
 
   await assert.rejects(
     async () => {
@@ -816,7 +822,7 @@ test("delete blocks with CREDENTIAL_IN_USE when referenced by active execution",
     },
   } as unknown as PrismaService;
   const workspaces = { requireOwner: async () => {} } as never;
-  const service = new CredentialService(prisma, workspaces, {} as never);
+  const service = new CredentialService(withDeleteTransaction(prisma), workspaces, {} as never);
 
   await assert.rejects(
     async () => {
@@ -910,7 +916,7 @@ test("delete allows cleanup when credential is unreferenced or only in historic 
     },
   } as unknown as PrismaService;
   const workspaces = { requireOwner: async () => {} } as never;
-  const service = new CredentialService(prisma, workspaces, {} as never);
+  const service = new CredentialService(withDeleteTransaction(prisma), workspaces, {} as never);
 
   const result = await service.delete("ws-1", "cred-free", "user-1");
   assert.deepEqual(result, { success: true, id: "cred-free" });
