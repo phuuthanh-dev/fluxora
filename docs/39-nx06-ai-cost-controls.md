@@ -63,6 +63,16 @@ hard spend limit separately from alerts. Gemini's project cap is experimental
 and can overrun during billing delay; availability varies by billing account.
 
 Model discovery does not prove an ID supports the selected API or JSON schema.
+Google now limits Gemini 2.5 access based on prior usage; its
+[Gemini 2.5 Flash model page](https://ai.google.dev/gemini-api/docs/models/gemini-2.5-flash)
+reports that restriction, while listing the stable model as still served. New
+Gemini nodes in the local draft start with no model selected and ask the user
+to select or enter one for their own project. Saved graphs keep their existing
+model, and a model list is not proof of generation access. Gemini 404 responses
+now suggest checking the model and project access; they are not retried.
+Google's [Gemini 2.0 Flash page](https://ai.google.dev/gemini-api/docs/models/gemini-2.0-flash)
+lists that model as shut down. These are provider statements consulted on
+2026-11-05, not proof of access for any specific project.
 For structured output, numeric JSON values that cannot be preserved through
 JavaScript's JSON number representation now fail with `INVALID_STRUCTURED_OUTPUT`
 instead of silently passing a rounded value to another node. This intentionally

@@ -564,7 +564,7 @@ export const nodeCatalog: NodeDefinition[] = [
     operationKind: "action",
     icon: "gemini",
     available: true,
-    defaultConfig: { credentialId: "", model: "gemini-2.5-flash", prompt: "", maxOutputTokens: 1024, timeoutMs: 30000 },
+    defaultConfig: { credentialId: "", model: "", prompt: "", maxOutputTokens: 1024, timeoutMs: 30000 },
     configurationFields: getSharedNodeConfigurationFields("action.gemini"),
   },
   {

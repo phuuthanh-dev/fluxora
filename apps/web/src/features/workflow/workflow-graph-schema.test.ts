@@ -115,6 +115,7 @@ test("Gemini generation uses a dedicated credential and model picker", () => {
   assert.equal(isExecutableWorkflowNodeType("action.gemini"), true);
   assert.deepEqual(gemini?.configurationFields?.[0], { kind: "credential", key: "credentialId", label: "Gemini credential", providers: ["GEMINI"] });
   assert.equal(gemini?.configurationFields?.find((field) => field.key === "model")?.kind, "resource");
+  assert.equal(gemini?.defaultConfig.model, "");
 });
 
 test("OpenAI generation uses a dedicated credential and model picker", () => {
