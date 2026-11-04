@@ -4,7 +4,30 @@ This file is the compact, machine-checked handoff point for the next coding
 loop. It prevents an agent from proposing implementation work that is already
 complete in the delivery ledger.
 
-## Latest verified snapshot — 2026-11-02
+## Latest snapshot — 2026-11-05
+
+- [PR #83](https://github.com/phuuthanh-dev/fluxora/pull/83) merged as
+  `3128cc661320ad38eff43f759c71ffbad5010346`. The [main quality gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41913745808)
+  and [production deploy](https://github.com/phuuthanh-dev/fluxora/actions/runs/41915564897)
+  succeeded. Landing, login and API health returned HTTP 200 after deploy.
+  This smoke check does not qualify every provider or workflow.
+- NX-02 through NX-07 have substantial implementation or design already in
+  production. Do not start them again from the 2026-11-02 baseline below;
+  check the current source and the latest table in [docs/37](37-node-expansion-audit.md).
+  The remaining gaps include per-operation validation/mock/redaction evidence,
+  provider qualification and capabilities deliberately deferred in NX-07.
+- Local `develop` has additional, unpushed work: guided Google Drive search and
+  fail-closed handling when expressions use persisted redacted data. A full
+  isolated `npm run verify` passed on `c2d6367`: 971 API, 78 web and 214 E2E.
+  The subsequent trigger-output redaction correction at `aa81729` and this
+  documentation update are **not covered** by that run; verify the final head
+  once after the remaining edits. No real provider credentials were used.
+- The owner requested one consolidated verification and release, to avoid
+  repeated small PRs. Existing `.v2` node types must remain compatible; the
+  unreleased experimental numeric `nodeVersion: 2` reader was removed. Do not
+  interpret the older NX-02 note below as a request to rebuild that experiment.
+
+## Historical verified snapshot — 2026-11-02
 
 - NX-01 implementation under `APP-EXPANSION-1` respects explicit adapter retry
   denial, distinguishes SMTP accepted/partial/uncertain submission, and bounds
