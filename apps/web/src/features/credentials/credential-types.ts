@@ -13,6 +13,7 @@ export type CredentialSummary = {
   chatManageEnabled?: boolean;
   googleReconnectRequired?: boolean;
   googleLegacyScopesUnverified?: boolean;
+  googleIdentityUnverified?: boolean;
   hints?: Array<{ field: string; label: string; masked: string }>;
   createdAt?: string | Date;
   updatedAt?: string | Date;

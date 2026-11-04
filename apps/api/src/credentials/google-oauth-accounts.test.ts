@@ -160,6 +160,44 @@ test("legacy grants stay usable and cannot be rebound when old identity is unava
   } finally { globalThis.fetch = oldFetch; }
 });
 
+test("explicit legacy reconnect keeps the credential id, while known account mismatch remains blocked", async () => {
+  const f = fixture();
+  f.rows.push({ id: "legacy", workspaceId: "ws", provider: CredentialProvider.GOOGLE, label: "Google OAuth", encryptedData: JSON.stringify({ accessToken: "old" }), createdAt: new Date(), updatedAt: new Date() });
+  const oldFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => new Response("{}", { status: 401 });
+    await assert.rejects(f.service.saveGoogleOAuth("ws", "owner", "google", grant("alpha"), "legacy"), (error) => codeOf(error) === "GOOGLE_OAUTH_LEGACY_IDENTITY_UNKNOWN");
+    await f.service.saveGoogleOAuth("ws", "owner", "google", grant("alpha"), "legacy", undefined, undefined, true);
+    assert.equal(f.rows[0]!.id, "legacy");
+    assert.equal(JSON.parse(f.rows[0]!.encryptedData).googleSubject, "alpha");
+    await assert.rejects(f.service.saveGoogleOAuth("ws", "owner", "google", grant("beta"), "legacy", undefined, undefined, true), (error) => codeOf(error) === "GOOGLE_OAUTH_ACCOUNT_MISMATCH");
+  } finally { globalThis.fetch = oldFetch; }
+});
+
+test("confirmed legacy reconnect is bound to signed, single-use state", async () => {
+  const restore = oauthEnvironment(); const f = fixture();
+  f.rows.push({ id: "legacy", workspaceId: "ws", provider: CredentialProvider.GOOGLE, label: "Google OAuth", encryptedData: JSON.stringify({ accessToken: "old" }), createdAt: new Date(), updatedAt: new Date() });
+  try {
+    const h = oauthHarness(f.service);
+    let authorization = "";
+    (h.response as unknown as { json: (value: { url: string }) => void }).json = (value) => { authorization = value.url; };
+    await assert.rejects(h.controller.reconnectConfirmed("ws", "legacy", { confirmed: false, kind: "google" }, h.request, h.response));
+    await h.controller.reconnectConfirmed("ws", "legacy", { confirmed: true, kind: "google" }, h.request, h.response);
+    const url = new URL(authorization); const state = url.searchParams.get("state")!;
+    const [encoded, signature] = state.split(".");
+    const altered = JSON.parse(Buffer.from(encoded!, "base64url").toString("utf8")); altered.credentialId = "other";
+    await h.controller.callback("code", `${Buffer.from(JSON.stringify(altered)).toString("base64url")}.${signature}`, h.request, h.response);
+    assert.equal(new URL(h.redirect()).searchParams.get("google_oauth"), "invalid_state");
+    globalThis.fetch = async (request) => String(request).includes("userinfo") ? new Response(JSON.stringify({ sub: "alpha", email: "alpha@example.test", email_verified: true })) : new Response(JSON.stringify({ access_token: "token", refresh_token: "refresh", expires_in: 3600, scope: url.searchParams.get("scope") }));
+    await h.controller.callback("code", state, h.request, h.response);
+    assert.equal(new URL(h.redirect()).searchParams.get("connected"), "google");
+    assert.equal(f.rows[0]!.id, "legacy");
+    assert.equal(JSON.parse(f.rows[0]!.encryptedData).googleSubject, "alpha");
+    await h.controller.callback("code", state, h.request, h.response);
+    assert.equal(new URL(h.redirect()).searchParams.get("google_oauth"), "invalid_state");
+  } finally { restore(); }
+});
+
 test("scoped credentials fail closed on missing permissions and stale reconnect writes", async () => {
   const f = fixture();
   const a = await f.service.saveGoogleOAuth("ws", "owner", "google", grant("alpha"));

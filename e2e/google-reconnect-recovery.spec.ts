@@ -52,15 +52,14 @@ test("Google recovery retry uses the verified workspace and makes no provider re
   await expect.poll(() => requested).toContain("/workspaces/workspace-1/credentials/google/connect");
 });
 
-test("legacy Gmail rebind explains activation, checkpoint and potential message gap", async ({ page }) => {
+test("legacy Gmail reconnect reviews usage and warns about mailbox changes", async ({ page }) => {
   await mockWorkspace(page);
+  await page.route("**/credentials/legacy-1/references", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ references: { workflows: [{ id: "wf", name: "Daily email" }], executions: [] } }) }));
   await page.goto("/dashboard/connections?workspace=workspace-1&google_oauth=legacy_identity_unknown&kind=gmail&credentialId=legacy-1");
-  const notice = page.getByRole("alert").filter({ hasText: "original account cannot be verified" });
-  await expect(notice).toContainText("deactivate before publishing");
-  await expect(notice).toContainText("Reactivation creates a new checkpoint");
-  await expect(notice).toContainText("may not be processed");
-  await expect(notice.getByRole("button", { name: "Add new connection" })).toBeVisible();
-  await expect(page.getByText(/Google may combine returned permissions with prior grants/)).toBeVisible();
+  const notice = page.getByRole("alert").filter({ hasText: "cannot verify which Google account" });
+  await expect(notice).toContainText("Daily email");
+  await expect(notice).toContainText("different mailbox");
+  await expect(notice.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
 });
 
 test("Redis failure explains the shared state service and provides a retry", async ({ page }) => {
@@ -95,6 +94,7 @@ test("Gmail reconnect shows previously selected capabilities", async ({ page }) 
   await page.route("**/workspaces/workspace-1/credentials", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ credentials: [{ id: "gmail-1", provider: "GMAIL", label: "Work Gmail", isManaged: true, gmailCapabilities: ["readonly", "send"] }] }) }));
   await page.goto("/dashboard/connections?workspace=workspace-1");
   const card = page.locator('li[data-credential-id="gmail-1"]');
+  await card.getByText("Gmail permissions", { exact: true }).first().click();
   await expect(card.getByLabel("Send email (sensitive)")).toBeChecked();
   await expect(card.getByLabel("Manage drafts and send (restricted)")).not.toBeChecked();
   await expect(card.getByRole("button", { name: "Reconnect Google" })).toBeVisible();
@@ -128,6 +128,29 @@ test("legacy Google connections offer an explicit verification reconnect without
   await page.route("**/workspaces/workspace-1/credentials", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ credentials: [{ id: "legacy-google", provider: "GOOGLE", label: "Google OAuth", isManaged: true, googleLegacyScopesUnverified: true }] }) }));
   await page.goto("/dashboard/connections?workspace=workspace-1");
   const card = page.locator('li[data-credential-id="legacy-google"]');
-  await expect(card.getByRole("status")).toContainText("Existing workflows continue under Google’s permissions");
+  await expect(card.getByRole("status")).toContainText("Reconnect to verify permissions");
   await expect(card.getByRole("button", { name: "Reconnect Google" })).toBeVisible();
+});
+
+test("legacy connection starts review before asking Google for access", async ({ page }) => {
+  await mockWorkspace(page);
+  await page.route("**/credentials/legacy-google/references", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ references: { workflows: [], executions: [] } }) }));
+  await page.route("**/workspaces/workspace-1/credentials", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ credentials: [{ id: "legacy-google", provider: "GOOGLE", label: "Google OAuth", isManaged: true, googleIdentityUnverified: true }] }) }));
+  await page.goto("/dashboard/connections?workspace=workspace-1");
+  await page.locator('li[data-credential-id="legacy-google"]').getByRole("button", { name: "Reconnect Google" }).click();
+  await expect(page).toHaveURL(/google_oauth=legacy_identity_unknown/);
+  await expect(page.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
+});
+
+test("managed Google Chat card keeps permission controls inside its bounds", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 900 });
+  await mockWorkspace(page);
+  await page.route("**/workspaces/workspace-1/credentials", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ credentials: [{ id: "chat", provider: "GOOGLE_CHAT_OAUTH", label: "Google Chat OAuth", isManaged: true }] }) }));
+  await page.goto("/dashboard/connections?workspace=workspace-1");
+  const card = page.locator('li[data-credential-id="chat"]');
+  await card.getByText("Google Chat permissions", { exact: true }).first().click();
+  const overflow = await card.evaluate((node) => node.scrollWidth > node.clientWidth + 1);
+  expect(overflow).toBe(false);
+  await expect(card.getByRole("button", { name: "Reconnect Google Chat" })).toBeVisible();
+  await expect(card.getByLabel("Manage messages and reactions")).toBeVisible();
 });
