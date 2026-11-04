@@ -3328,6 +3328,7 @@
         "packages/workflow-contracts/src/configuration-fields-registry.ts",
         "packages/workflow-contracts/src/gmail-write-fields.ts",
         "packages/workflow-contracts/src/node-configuration-fields.ts",
+        "packages/workflow-contracts/src/node-versioning.ts",
         "packages/workflow-contracts/src/notion-read-fields.ts",
         "packages/workflow-contracts/src/operation-metadata.ts",
         "packages/workflow-contracts/src/riot-lol.ts",
@@ -3340,6 +3341,14 @@
       "boundary": "contracts",
       "internalImports": [
         "packages/workflow-contracts/src/operation-metadata.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-versioning.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/index.ts"
       ],
       "externalImports": []
     },
@@ -6682,6 +6691,10 @@
     },
     {
       "from": "packages/workflow-contracts/src/index.ts",
+      "to": "packages/workflow-contracts/src/node-versioning.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/index.ts",
       "to": "packages/workflow-contracts/src/notion-read-fields.ts"
     },
     {
@@ -6699,6 +6712,10 @@
     {
       "from": "packages/workflow-contracts/src/node-configuration-fields.ts",
       "to": "packages/workflow-contracts/src/operation-metadata.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-versioning.ts",
+      "to": "packages/workflow-contracts/src/index.ts"
     },
     {
       "from": "packages/workflow-contracts/src/notion-read-fields.ts",

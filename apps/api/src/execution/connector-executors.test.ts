@@ -5,6 +5,7 @@ import type { WorkflowNodeType } from "@workflow/contracts";
 import { executeNode } from "./execution.service";
 import { getConnectorExecutor } from "./connector-executors";
 import { NodeFailure } from "./node-failure";
+import { parseWorkflowGraph } from "../workflows/workflow-graph";
 
 test("executor selection rejects unknown versions before credentials and preserves legacy v1", async () => {
   const config = { parentPageId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", title: "Example", content: "" };
@@ -25,6 +26,25 @@ test("executor selection rejects unknown versions before credentials and preserv
     executeNode({ ...node, type: "trigger.manual", nodeVersion: 2 }, {}, {}, "mock", "workspace", credentials, "execution"),
     (error: unknown) => error instanceof NodeFailure && error.code === "NODE_VERSION_UNSUPPORTED",
   );
+});
+
+test("reader-first action dispatch selects existing v2 behavior without enabling v2 graph writes", async () => {
+  for (const type of ["action.google-drive", "action.google-sheets", "action.google-chat.oauth", "action.gmail.read", "action.notion.search-pages", "action.sentry.list-issues", "action.vercel.list-deployments", "action.postgres.select", "action.supabase.select"]) {
+    assert.equal(getConnectorExecutor(type, 2), getConnectorExecutor(`${type}.v2`, 1), type);
+    assert.notEqual(getConnectorExecutor(type, 2), getConnectorExecutor(type, 1), type);
+    assert.equal(getConnectorExecutor(`${type}.v2`, 2), undefined, type);
+    assert.throws(() => parseWorkflowGraph({ nodes: [{ id: "node", type, nodeVersion: 2, position: { x: 0, y: 0 }, config: {} }], edges: [] }), /version/i);
+  }
+  for (const type of ["__proto__", "toString", "action.not-registered", "trigger.uptime-kuma.alert"]) assert.equal(getConnectorExecutor(type, 2), undefined);
+  const credentials = { readForExecution: () => { throw new Error("unexpected credential access"); } } as never;
+  const config = { table: "items", limit: 5, order: [{ column: "id", direction: "asc" }], offset: 5 };
+  const node = { id: "read", type: "action.supabase.select" as const, position: { x: 0, y: 0 }, config };
+  const canonical = await executeNode({ ...node, nodeVersion: 2 }, config, {}, "mock", "workspace", credentials, "execution");
+  const existingAlias = await executeNode({ ...node, type: "action.supabase.select.v2", nodeVersion: 1 }, config, {}, "mock", "workspace", credentials, "execution");
+  assert.deepEqual(canonical, existingAlias);
+  assert.ok("page" in canonical.output);
+  const legacy = await executeNode(node, config, {}, "mock", "workspace", credentials, "execution");
+  assert.ok(!("page" in legacy.output));
 });
 
 test("Notion page creation is dispatched in mock mode without credentials", async () => {

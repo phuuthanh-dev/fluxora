@@ -51,6 +51,13 @@ trên cùng; graph không chuẩn từ nguồn khác có thể bị từ chối 
 thuẫn trước khi mở. Graph chỉ có một vị trí hoặc hai giá trị giống nhau vẫn
 giữ hành vi hiện tại. Đây không phải cơ chế hỗ trợ version 2.
 
+Dispatch nội bộ local đã có bảng ánh xạ chín action từ type chuẩn + `2`
+sang handler `.v2` hiện hữu. Test chọn cùng handler cho từng cặp và so sánh
+output mock Supabase; version không hỗ trợ vẫn bị từ chối. Đây mới là bước
+chuẩn bị ở execution dispatcher: parser API và editor **vẫn từ chối** graph
+`nodeVersion: 2`, trigger Kuma chưa có mapping, và chưa thay cơ chế lưu/đọc
+hay mặc định của workflow. Chưa chứng minh mixed fleet hoặc rollback.
+
 ## Rollout và kiểm thử trước khi đổi định dạng ghi
 
 1. Chụp fixture graph giả cho từng cặp, gồm thiếu/có `nodeVersion`, draft,
