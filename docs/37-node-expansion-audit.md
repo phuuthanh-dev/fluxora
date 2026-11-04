@@ -24,6 +24,10 @@ expression mà không tự xóa giá trị; backend vẫn kiểm tra giá trị 
 phân giải. [n8n](https://docs.n8n.io/data/data-mapping/data-mapping-ui/) cũng
 cho tham chiếu dữ liệu qua expression; đây không phải implementation đầy đủ
 của expression editor n8n. E2E giả lập mới chờ verify.
+Lượt verify tại `142d2d5` phát hiện checkbox bị ảnh hưởng CSS và nhãn nút
+expression khiến locator nhầm với ô số: API/web/build pass, Playwright 207 pass
+và 9 fail. Bản sửa local tách mô tả ngữ cảnh khỏi tên nút, giữ kích thước
+checkbox và mở rộng test chuyển hai chiều; chưa chạy lại.
 
 ### Snapshot trước PR #84
 

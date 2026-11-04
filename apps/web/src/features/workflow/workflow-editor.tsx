@@ -177,6 +177,7 @@ function ConfigField({ label, value, onChange, multiline = false }: {
 function NumericConfigField({ label, value, allowExpressions, onChange }: { label: string; value: string; allowExpressions: boolean; onChange: (value: string | number) => void }) {
   const isNumber = value !== "" && value.trim() !== "" && Number.isFinite(Number(value));
   const [expressionMode, setExpressionMode] = useState(value !== "" && !isNumber);
+  const contextId = useId();
   // An externally loaded expression must remain visible even if the user was
   // previously editing a fixed value. Switching modes alone never clears it.
   const manual = expressionMode || (value !== "" && !isNumber);
@@ -185,10 +186,10 @@ function NumericConfigField({ label, value, allowExpressions, onChange }: { labe
       const next = event.target.value;
       onChange(manual || next === "" ? next : Number(next));
     }} /></Field>
-    {allowExpressions && <Button type="button" variant="ghost" aria-label={`${manual ? "Use fixed number" : "Enter expression"} for ${label}`} disabled={manual && value !== "" && !isNumber} onClick={() => {
+    {allowExpressions && <><span id={contextId} className="visually-hidden">For {label}</span><Button type="button" variant="ghost" aria-describedby={contextId} disabled={manual && value !== "" && !isNumber} onClick={() => {
       if (manual && isNumber) onChange(Number(value));
       setExpressionMode(!manual);
-    }}>{manual ? "Use fixed number" : "Enter expression"}</Button>}
+    }}>{manual ? "Use fixed number" : "Enter expression"}</Button></>}
     {manual && <small>{allowExpressions ? "Enter an expression, or replace it with a number before switching back." : "Review this saved value in Advanced. This trigger field does not support expressions."}</small>}
   </div>;
 }
@@ -340,7 +341,7 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, wor
       if (field.kind === "boolean") {
         const stored = config[field.key];
         const mixed = stored !== undefined && typeof stored !== "boolean";
-        return <div key={field.key} className="config-field"><label className="checkbox-field"><input type="checkbox" checked={mixed ? false : stored === undefined ? field.defaultChecked ?? true : stored === true} aria-checked={mixed ? "mixed" : undefined} ref={(input) => { if (input) input.indeterminate = mixed; }} onChange={(event) => onChange(field.key, event.target.checked)} /> {field.label}</label>{mixed && <small role="status">The saved value is not a true/false literal. Review it in Advanced; selecting this checkbox replaces it.</small>}</div>;
+        return <div key={field.key}><label className="checkbox-field"><input type="checkbox" checked={mixed ? false : stored === undefined ? field.defaultChecked ?? true : stored === true} aria-checked={mixed ? "mixed" : undefined} ref={(input) => { if (input) input.indeterminate = mixed; }} onChange={(event) => onChange(field.key, event.target.checked)} /> {field.label}</label>{mixed && <small role="status">The saved value is not a true/false literal. Review it in Advanced; selecting this checkbox replaces it.</small>}</div>;
       }
       if (field.kind === "datetime") return <DateTimeField key={field.key} label={field.label} value={value} allowExpressions={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       if (field.kind === "text" && field.advanced) return <details key={field.key} className="config-field"><summary>{field.advanced.summary}</summary><ConfigField label={field.label} value={value} onChange={(nextValue) => onChange(field.key, nextValue)} /><small>{field.advanced.help}</small></details>;
