@@ -12,7 +12,7 @@ This inventory describes catalog operations, not complete vendor APIs. A node ma
 
 | App | Available catalog operation(s) | Known evidence / remaining scope |
 | --- | --- | --- |
-| Steam | Account snapshot | Live in owner's workflow; other API domains and sustained monitoring not established. |
+| Steam | Account snapshot; profile, friends, badges, vanity URL, owned/recent games, achievements | Snapshot ran live in the owner's workflow. The seven community-node read operations use a separate selectable node and workspace credential; their provider-specific live behavior and sustained monitoring are not yet established. |
 | Google Chat | Webhook message; OAuth message | Webhook live in owner flow; OAuth subject to app/account restrictions. |
 | Discord | Webhook message | Live in owner flow; bot management and triggers not implemented. |
 | Telegram | Send message | Live in owner flow; receive/update triggers and broader bot operations not implemented. |

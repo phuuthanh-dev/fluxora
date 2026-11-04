@@ -285,7 +285,7 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, all
         return <CredentialField key={field.key} label={field.label} value={value} providers={field.providers} credentials={credentials} onChange={(nextValue) => onChange(field.key, nextValue)} optional={field.optional} />;
       }
       if (field.kind === "boolean") {
-        return <label key={field.key} className="checkbox-field"><input type="checkbox" checked={config[field.key] !== false} onChange={(event) => onChange(field.key, event.target.checked)} /> {field.label}</label>;
+        return <label key={field.key} className="checkbox-field"><input type="checkbox" checked={config[field.key] === undefined ? field.defaultChecked ?? true : config[field.key] !== false} onChange={(event) => onChange(field.key, event.target.checked)} /> {field.label}</label>;
       }
       if (field.kind === "datetime") return <DateTimeField key={field.key} label={field.label} value={value} allowExpressions={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       if (field.kind === "text" && field.advanced) return <details key={field.key} className="config-field"><summary>{field.advanced.summary}</summary><ConfigField label={field.label} value={value} onChange={(nextValue) => onChange(field.key, nextValue)} /><small>{field.advanced.help}</small></details>;

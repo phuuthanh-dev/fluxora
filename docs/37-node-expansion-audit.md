@@ -516,3 +516,7 @@ SteamID, không cấp quyền đọc thư viện riêng tư hay thay Web API key
 Trigger phát hiện thay đổi cần polling/checkpoint, không được mô tả là webhook
 Steam hay bảo đảm bắt mọi thay đổi. Giá/wishlist cần nghiên cứu nguồn và chính
 sách riêng trước khi cam kết. Không có provider thật được gọi trong audit này.
+
+### Steam community-node parity — implementation scope
+
+The source of [n8n-nodes-steam](https://github.com/dhayab/n8n-nodes-steam) registers seven operations: profile, friends, badges, vanity resolution, owned games, recent games and achievements; its README lists only five. Fluxora exposes these through the new `action.steam` operation selector and retains `action.steam.account-snapshot` unchanged for existing graphs. The new node returns `{ operation, result }`, not the n8n output contract. It uses the selected workspace Steam API key; the node Steam ID overrides the connection ID when provided. The achievement game picker uses visible owned games (up to 100 shown) with a manual App ID/expression fallback; this does not establish ownership or bypass privacy. Operation inputs and errors are validated server-side; responses over 1 MB fail instead of being silently truncated. No automatic live-provider qualification, Steam webhook, publisher-only write, private data access or whole-Steam-API coverage is implied by parity with these seven operations.
