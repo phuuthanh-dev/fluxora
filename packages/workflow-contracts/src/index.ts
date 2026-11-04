@@ -1,6 +1,6 @@
 export * from "./ai-schema";
 export * from "./operation-metadata";
-export { nodeExecutionType } from "./node-versioning";
+export { currentLibraryNodeType, nodeExecutionType } from "./node-versioning";
 export * from "./riot-lol";
 export type { NodeConfigurationField, NodeFieldVisibility, NodeResource, NodeSelectOption } from "./node-configuration-fields";
 export { trelloCardConfigurationFields } from "./trello-card-fields";

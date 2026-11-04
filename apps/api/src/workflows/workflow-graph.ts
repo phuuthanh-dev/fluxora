@@ -16,20 +16,19 @@ const nodeTypeSet = new Set<string>(workflowNodeTypes);
 const edgeKindSet = new Set<string>(workflowEdgeKinds);
 
 export function parseWorkflowGraph(value: unknown): WorkflowGraph {
-  return parseGraph(value, false);
+  return parseGraph(value);
 }
 
-/** Internal stored-graph reader only. Public draft/import writes remain on the
- * existing format until every reader and old worker are compatible. */
+/** Stored and newly submitted graphs use the same supported formats. */
 export function parseStoredWorkflowGraph(value: unknown): WorkflowGraph {
-  return parseGraph(value, true);
+  return parseGraph(value);
 }
 
-function parseGraph(value: unknown, allowReaderV2: boolean): WorkflowGraph {
+function parseGraph(value: unknown): WorkflowGraph {
   const record = readRecord(value, "Workflow graph must be a JSON object.");
   const rawNodes = readArray(record.nodes, "Workflow graph needs a nodes array.");
   const rawEdges = readArray(record.edges, "Workflow graph needs an edges array.");
-  const nodes = rawNodes.map((node) => parseNode(node, allowReaderV2));
+  const nodes = rawNodes.map(parseNode);
   const nodeIds = new Set(nodes.map((node) => node.id));
   if (nodeIds.size !== nodes.length) invalid("Workflow node IDs must be unique.");
   const edges = rawEdges.map(parseEdge);
@@ -78,7 +77,7 @@ export function assertExecutableGraph(graph: WorkflowGraph) {
   if (details.length) throw new BadRequestException({ code: "NODE_UNAVAILABLE", message: "Remove unavailable nodes before publishing or activating this workflow.", details });
 }
 
-function parseNode(value: unknown, allowReaderV2: boolean): StoredWorkflowNode {
+function parseNode(value: unknown): StoredWorkflowNode {
   const record = readRecord(value, "Each workflow node must be an object.");
   const data = record.data === undefined ? undefined : readRecord(record.data, "Node data must be an object.");
   const type = readNodeType(data?.nodeType ?? record.type);
@@ -97,7 +96,7 @@ function parseNode(value: unknown, allowReaderV2: boolean): StoredWorkflowNode {
   // versions: that could select a different node behavior than the author saw.
   if (record.nodeVersion !== undefined && data?.nodeVersion !== undefined && record.nodeVersion !== data.nodeVersion) invalid("Node version values do not match.");
   const nodeVersion = record.nodeVersion === undefined ? data?.nodeVersion : record.nodeVersion;
-  if (nodeVersion !== undefined && !isSupportedWorkflowNodeVersion(nodeVersion) && !(allowReaderV2 && nodeVersion === 2 && nodeExecutionType(type, nodeVersion))) invalid("Node version is not supported.");
+  if (nodeVersion !== undefined && !isSupportedWorkflowNodeVersion(nodeVersion)) invalid("Node version is not supported.");
   return { id: readString(record.id, "Node ID is required."), type, position: { x, y }, config, ...(nodeVersion === undefined ? {} : { nodeVersion }) };
 }
 

@@ -1,8 +1,7 @@
 import type { ExecutableWorkflowNodeType } from "./index";
 
-/** Reader-first mapping of canonical types to the existing v2 behavior.
- * This does not change which graph formats the API or editor accepts or saves. */
-const versionTwoNodes = {
+/** Map saved legacy favorites to the current library entry, without changing graphs. */
+const currentLibraryNodes = {
   "trigger.uptime-kuma.alert": "trigger.uptime-kuma.alert.v2",
   "action.google-drive": "action.google-drive.v2",
   "action.google-sheets": "action.google-sheets.v2",
@@ -17,6 +16,11 @@ const versionTwoNodes = {
 
 export function nodeExecutionType(type: string, version: unknown): string | undefined {
   if (version === undefined || version === 1) return type;
-  if (version !== 2 || !Object.hasOwn(versionTwoNodes, type)) return undefined;
-  return versionTwoNodes[type as keyof typeof versionTwoNodes];
+  return undefined;
+}
+
+export function currentLibraryNodeType(type: string): string {
+  return Object.hasOwn(currentLibraryNodes, type)
+    ? currentLibraryNodes[type as keyof typeof currentLibraryNodes]
+    : type;
 }

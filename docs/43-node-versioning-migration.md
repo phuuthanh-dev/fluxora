@@ -1,6 +1,6 @@
 # NX-02: thống nhất phiên bản node
 
-Trạng thái: **reader và dispatch thử nghiệm ở local; chưa cho phép ghi định dạng mới**.
+Trạng thái: **giữ định dạng hiện hành; thử nghiệm reader/dispatch cho `nodeVersion: 2` đã được loại bỏ khỏi nhánh local và chưa phát hành**.
 Đối chiếu source local trong nhánh `develop`, 05/11/2026. Mục tiêu là giảm hai cách
 đặt phiên bản mà vẫn chạy đúng graph, lịch sử và trigger đã lưu.
 
@@ -51,30 +51,18 @@ trên cùng; graph không chuẩn từ nguồn khác có thể bị từ chối 
 thuẫn trước khi mở. Graph chỉ có một vị trí hoặc hai giá trị giống nhau vẫn
 giữ hành vi hiện tại. Đây không phải cơ chế hỗ trợ version 2.
 
-Dispatch và reader dành riêng cho execution ở local đã nhận chín action theo
-type chuẩn + `2` và chọn handler `.v2` hiện hữu. Fixture kiểm tra credential
-readiness của từng cặp và một execution mock Supabase từ graph giả; version
-không hỗ trợ vẫn bị từ chối. Parser API dùng để ghi/import workflow **vẫn từ
-chối** graph `nodeVersion: 2`. Editor local đọc và hiển thị theo handler tương
-ứng, giữ nguyên type/version khi export, nhưng chặn lưu draft có version `2`;
-đây chưa phải định dạng được phép ghi. Fixture round-trip cho 10 cặp đã pass,
-fixture mock execution cho cả chín action canonical cũng khớp alias hiện tại;
-E2E inspector và chặn lưu được thêm nhưng chờ final verify. Các đường đọc graph đã lưu trong
-workflow service, webhook và scheduler local cũng dùng reader mới; test cron
-và ingress Kuma với action canonical v2 giả đã pass. Reader local nay cũng
-ánh xạ Kuma canonical v2 sang filter và delivery path `.v2`; fixture xác nhận
-filter, validation và dispatch cho hai biểu diễn. Chưa kiểm thử đầy đủ các
-provider, mixed fleet hoặc rollback. Chưa thay định dạng lưu hay mặc
-định của workflow.
+Đợt NX từng thử reader và dispatch cho type cũ kèm `nodeVersion: 2`, nhưng
+định dạng đó không thể được API/editor lưu và chưa có nhu cầu sản phẩm được
+chứng minh. Phần thử nghiệm đã được loại khỏi nhánh local. Reader của graph đã
+lưu và parser của API cùng từ chối số phiên bản không hỗ trợ; registry thực
+thi cũng từ chối trước khi truy cập credential. Một bảng ánh xạ riêng chỉ dùng
+để hiện node mới tương ứng với favorite/recent cũ, không sửa graph hay chọn
+hành vi runtime. Các test tương thích đã được cập nhật và đang chờ final verify.
+Nếu có dữ liệu `nodeVersion: 2` được đưa trực tiếp vào database ngoài API,
+bản local mới sẽ từ chối đọc; chưa kiểm tra toàn bộ database và không tự sửa dữ
+liệu đó. Không đổi hoặc xóa các type `.v2` đang được hỗ trợ.
 
-Các hàm metadata và field descriptor local cũng nhận type/version và chọn
-cùng mô tả với handler `.v2`; version không hợp lệ trả kết quả không có metadata.
-Chúng chỉ mô tả cấu hình, không thay thế validation hoặc authorization runtime.
-Danh sách yêu thích và gần đây dùng lại cùng bảng ánh xạ thay cho một danh sách
-type song song; node cũ vẫn ẩn khỏi thư viện nhưng graph đã lưu không đổi.
-Kiểm thử danh sách này được bổ sung và chờ final verify.
-
-## Rollout và kiểm thử trước khi đổi định dạng ghi
+## Phương án tham khảo nếu có nhu cầu đổi định dạng trong tương lai
 
 1. Chụp fixture graph giả cho từng cặp, gồm thiếu/có `nodeVersion`, draft,
    published, export/import, node output và nhánh lỗi. Đối chiếu config và

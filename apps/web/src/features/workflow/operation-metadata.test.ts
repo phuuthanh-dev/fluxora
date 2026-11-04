@@ -30,16 +30,13 @@ test("unknown and planned nodes do not acquire executable metadata", () => {
   assert.deepEqual(getOperationMetadata("action.http-request")?.auth, { kind: "credential", provider: "HTTP", requirement: "optional", context: "execution" });
 });
 
-test("canonical v2 metadata and fields resolve to the matching existing behavior", () => {
-  for (const type of ["trigger.uptime-kuma.alert", "action.google-drive", "action.google-sheets", "action.google-chat.oauth", "action.gmail.read", "action.notion.search-pages", "action.sentry.list-issues", "action.vercel.list-deployments", "action.postgres.select", "action.supabase.select"]) {
-    assert.deepEqual(getOperationMetadata(type, 2), getOperationMetadata(`${type}.v2`, 1), type);
-    assert.deepEqual(getSharedNodeConfigurationFields(type, 2), getSharedNodeConfigurationFields(`${type}.v2`, 1), type);
-    assert.equal(getOperationMetadata(`${type}.v2`, 2), undefined, type);
-    assert.equal(getSharedNodeConfigurationFields(`${type}.v2`, 2), undefined, type);
+test("metadata rejects unsupported numeric versions for old and .v2 nodes", () => {
+  for (const type of ["action.google-drive", "action.google-drive.v2", "action.supabase.select", "action.supabase.select.v2"]) {
+    assert.ok(getOperationMetadata(type, 1), type);
+    assert.equal(getOperationMetadata(type, 2), undefined, type);
+    assert.equal(getSharedNodeConfigurationFields(type, 2), undefined, type);
   }
   for (const invalid of [0, 3, null, "2"]) assert.equal(getOperationMetadata("action.supabase.select", invalid), undefined);
-  assert.equal(getOperationMetadata("__proto__", 2), undefined);
-  assert.equal(getSharedNodeConfigurationFields("__proto__", 2), undefined);
 });
 
 test("shared fields preserve the editor catalog and return independent descriptors", () => {

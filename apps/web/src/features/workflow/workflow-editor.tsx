@@ -1007,7 +1007,6 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
         />
       </InspectorSection>
       <InspectorSection title="Configuration">
-      {node.data.nodeVersion === 2 && <Status tone="warning" className="inspector-note">This node version can be viewed, but saving its workflow is not enabled yet. Export a copy before making changes.</Status>}
       {(effectiveNodeType === "action.riot-lol" || effectiveNodeType === "action.riot-tft") && <Status tone="warning" className="inspector-note"><strong>Riot API prototype</strong><span>Live execution on production is unavailable while Riot approval is pending. Use a key authorized for this game and product on a private prototype. Player data can appear in execution history.{effectiveNodeType === "action.riot-tft" ? " TFT is for post-game analysis; do not use it for live scouting or gameplay advice." : ""}</span></Status>}
       {effectiveNodeType === "trigger.uptime-kuma.alert" && <Status tone="info" className="inspector-note"><strong>Filter monitor alerts</strong><span>This original trigger accepts every alert. Enable filters in the draft to choose a monitor or status; saved settings are preserved and publishing remains separate.</span><Button type="button" variant="secondary" disabled={hasPending} onClick={() => {
         const state = useWorkflowEditorStore.getState();
@@ -1600,10 +1599,6 @@ export function WorkflowEditor() {
     if (!workflow) return false;
     if (!allowNavigation()) return false;
     const currentGraph = useWorkflowEditorStore.getState();
-    if (currentGraph.nodes.some((node) => node.data.nodeVersion === 2)) {
-      setNotice("This workflow uses a node version that is not yet supported for saving. Its stored configuration has not changed.");
-      return false;
-    }
     const errors = validateWorkflowGraph(currentGraph.nodes, currentGraph.edges).filter((issue) => issue.severity === "error");
     if (errors.length) {
       setNotice("Resolve graph errors before saving this draft.");
