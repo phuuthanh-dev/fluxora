@@ -2981,6 +2981,14 @@
       ]
     },
     {
+      "id": "apps/web/src/features/workflow/execution-pagination.ts",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "@workflow/contracts"
+      ]
+    },
+    {
       "id": "apps/web/src/features/workflow/expression-suggestions.ts",
       "boundary": "web",
       "internalImports": [],
@@ -3183,6 +3191,7 @@
         "apps/web/src/features/workflow/drive-pagination.ts",
         "apps/web/src/features/workflow/editor-store.ts",
         "apps/web/src/features/workflow/execution-observability.tsx",
+        "apps/web/src/features/workflow/execution-pagination.ts",
         "apps/web/src/features/workflow/expression-suggestions.ts",
         "apps/web/src/features/workflow/google-sheets-mapping-field.tsx",
         "apps/web/src/features/workflow/google-sheets-mapping.ts",
@@ -6485,6 +6494,10 @@
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",
       "to": "apps/web/src/features/workflow/execution-observability.tsx"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/execution-pagination.ts"
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",

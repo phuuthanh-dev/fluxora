@@ -60,6 +60,7 @@ import { Button, Dialog, DialogHeader, Field, IconButton, Menu, Select, Status, 
 import { useSurfaceMotion } from "../../components/ui/ui-motion";
 import { AppShellHeader } from "../app-shell/app-shell-header";
 import { ExecutionDetailsPanel, outputHasList, type ApiExecution } from "./execution-observability";
+import { executionPagination } from "./execution-pagination";
 import { ResourcePicker } from "./resource-picker";
 import { MongoFilterField } from "./mongodb-filter-field";
 import { StructuredOutputField } from "./structured-output-field";
@@ -897,6 +898,9 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
   const definition = getNodeDefinition(effectiveNodeType);
   const showPaginationUpgrade = Boolean(upgradePaginationNode(node.data)) && !(effectiveNodeType === "action.google-drive" && ["uploadText", "downloadText"].includes(String(node.data.config.operation)));
   const nodeExecution = execution?.nodeExecutions.find((item) => item.nodeId === node.id);
+  const recordedNode = execution?.graph?.nodes.find((item) => item.id === node.id && item.type === nodeExecution?.nodeType);
+  const pagination = recordedNode && nodeExecution?.status === "SUCCEEDED" && !nodeExecution.error
+    ? executionPagination(nodeExecution.nodeType, nodeExecution.input, nodeExecution.output, recordedNode.nodeVersion) : undefined;
   const approvalId = nodeExecution?.output && typeof nodeExecution.output === "object" && !Array.isArray(nodeExecution.output) && typeof (nodeExecution.output as Record<string, unknown>).approvalRequestId === "string"
     ? (nodeExecution.output as Record<string, unknown>).approvalRequestId as string
     : null;
@@ -1163,6 +1167,10 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
             <div className="section-label">{nodeExecution.status} · ATTEMPT {nodeExecution.attempt} · {nodeExecution.durationMs ?? 0}MS</div>
             <div className="execution-inspector__section"><strong>Redacted input</strong><ResultView value={nodeExecution.input} /></div>
             <div className="execution-inspector__section"><strong>{nodeExecution.error ? "Normalized error" : "Output"}</strong><ResultView value={nodeExecution.error ?? nodeExecution.output} /></div>
+            {pagination && <details className="execution-pagination"><summary>Pagination</summary>
+              {pagination.kind === "offset" ? <p>To inspect another page, adjust <code>{pagination.input}</code> and keep the same connection, sorting and filters.</p> : pagination.available ? <p>The output contains <code>{pagination.next}</code>. Use it as <code>{pagination.input}</code> for another page, keeping the same connection and other settings.</p> : <p>No usable <code>{pagination.next}</code> was returned. This does not guarantee the result is complete.</p>}
+              {pagination.caveat && <p>{pagination.caveat}</p>}
+            </details>}
             {!nodeExecution.error && outputHasList(nodeExecution.output) && <Status tone="info" className="inspector-note">Lists stay together in this output. Connected nodes run at most once per execution, not once for each list item.</Status>}
             {nodeExecution.status === "WAITING" && approvalId && (
               <div className="approval-actions">

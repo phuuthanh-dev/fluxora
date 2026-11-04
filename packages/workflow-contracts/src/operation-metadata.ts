@@ -139,7 +139,7 @@ const definitions = {
   "action.gmail.create-draft": executable(credential("GMAIL"), "write", fields("result")),
   "action.gmail.update-draft": executable(credential("GMAIL"), "write", fields("result")),
   "action.gmail.modify-label": executable(credential("GMAIL"), "write", fields("result")),
-  "action.google-calendar.list-events": executable(credential("GOOGLE_CALENDAR"), "read", fields("events", "count", "hasMore", "nextPageToken", "timeMin"), { kind: "continuation", input: "pageToken", next: "nextPageToken", hasMore: "hasMore", preserve: ["timeMin", "credentialId", "calendarId", "limit"] }),
+  "action.google-calendar.list-events": executable(credential("GOOGLE_CALENDAR"), "read", fields("events", "count", "hasMore", "nextPageToken", "timeMin"), { kind: "continuation", input: "pageToken", next: "nextPageToken", hasMore: "hasMore", preserve: ["timeMin", "credentialId", "calendarId", "limit"], caveat: "Reuse the exact timeMin from this output as the start time, including seconds and milliseconds." }),
   "action.google-calendar.create-event": executable(credential("GOOGLE_CALENDAR"), "write"),
   "action.google-calendar.get-event": executable(credential("GOOGLE_CALENDAR"), "read"),
   "action.google-calendar.update-event": executable(credential("GOOGLE_CALENDAR"), "write"),
