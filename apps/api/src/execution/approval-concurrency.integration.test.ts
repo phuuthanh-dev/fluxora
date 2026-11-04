@@ -154,7 +154,9 @@ test("concurrent decisions resolve an approval once and a terminal approval comp
     await prisma.approvalRequest.update({ where: { id: mismatched.approvalId }, data: { expiresAt: new Date("2020-01-01T00:00:00Z") } });
     await prisma.nodeExecution.update({ where: { executionId_nodeId: { executionId: mismatched.executionId, nodeId: "approval" } }, data: { output: { approvalRequestId: "other" } } });
     assert.equal(await maintenanceService.expireApprovalFromMaintenance(mismatched.approvalId, mismatched.executionId), false);
+    await assert.rejects(service.resolveApproval(mismatched.approvalId, userId, "approved"), /not waiting on an approval node/);
     assert.equal((await prisma.approvalRequest.findUniqueOrThrow({ where: { id: mismatched.approvalId } })).status, "PENDING");
+    assert.equal((await prisma.execution.findUniqueOrThrow({ where: { id: mismatched.executionId } })).status, "WAITING_APPROVAL");
 
     const rollback = await makeWaiting(9, true);
     await prisma.approvalRequest.update({ where: { id: rollback.approvalId }, data: { expiresAt: new Date("2020-01-01T00:00:00Z") } });

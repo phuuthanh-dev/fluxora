@@ -554,7 +554,7 @@ export class ExecutionService {
     });
     if (!approval) throw new NotFoundException({ code: "APPROVAL_NOT_FOUND", message: "Approval request was not found." });
     if (approval.status !== ApprovalRequestStatus.PENDING) throw new NotFoundException({ code: "APPROVAL_NOT_PENDING", message: "Approval request has already been resolved." });
-    const waitingNode = await this.prisma.nodeExecution.findFirst({ where: { executionId: approval.executionId, status: NodeExecutionStatus.WAITING } });
+    const waitingNode = await this.prisma.nodeExecution.findFirst({ where: { executionId: approval.executionId, status: NodeExecutionStatus.WAITING, output: { path: ["approvalRequestId"], equals: approval.id } } });
     if (!waitingNode) throw new NotFoundException({ code: "APPROVAL_NODE_NOT_FOUND", message: "Execution is not waiting on an approval node." });
     const graph = parseStoredWorkflowGraph(approval.execution.workflowVersion.graph);
     const nextNodeIds = decision === "approved" ? [...new Set(graph.edges.filter((edge) => edge.source === waitingNode.nodeId && edge.kind === "success").map((edge) => edge.target))] : [];
@@ -566,8 +566,9 @@ export class ExecutionService {
       // using a timestamp captured before the lock wait.
       const executions = await transaction.$queryRaw<Array<{ status: ExecutionStatus }>>`SELECT status FROM "Execution" WHERE id = ${approval.executionId} FOR UPDATE`;
       if (executions[0]?.status !== ExecutionStatus.WAITING_APPROVAL) throw new ConflictException({ code: "APPROVAL_NOT_WAITING", message: "The execution is no longer waiting for this approval." });
-      const nodes = await transaction.$queryRaw<Array<{ status: NodeExecutionStatus }>>`SELECT status FROM "NodeExecution" WHERE id = ${waitingNode.id} AND "executionId" = ${approval.executionId} FOR UPDATE`;
-      if (nodes[0]?.status !== NodeExecutionStatus.WAITING) throw new ConflictException({ code: "APPROVAL_NOT_WAITING", message: "The execution is no longer waiting for this approval." });
+      const nodes = await transaction.$queryRaw<Array<{ status: NodeExecutionStatus; output: Prisma.JsonValue }>>`SELECT status, output FROM "NodeExecution" WHERE id = ${waitingNode.id} AND "executionId" = ${approval.executionId} FOR UPDATE`;
+      const output = nodes[0]?.output;
+      if (nodes[0]?.status !== NodeExecutionStatus.WAITING || !output || typeof output !== "object" || Array.isArray(output) || output.approvalRequestId !== approval.id) throw new ConflictException({ code: "APPROVAL_NOT_WAITING", message: "The execution is no longer waiting for this approval." });
       const approvals = await transaction.$queryRaw<Array<{ status: ApprovalRequestStatus; expiresAt: Date }>>`SELECT status, "expiresAt" FROM "ApprovalRequest" WHERE id = ${approval.id} AND "executionId" = ${approval.executionId} FOR UPDATE`;
       const clock = await transaction.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS "now"`;
       const resolvedAt = clock[0]?.now;
