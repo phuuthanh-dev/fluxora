@@ -1,13 +1,13 @@
 # Audit khả năng mở rộng node — Fluxora và n8n
 
-> Cập nhật 04/11/2026: bản NX trong PR #75 và bản sửa triển khai #76 đã merge;
-> production đang chạy commit `c881ac17891718470626b1f0306d6d6bb0eb61c9`.
-> Quality gate và 202 E2E đã pass; deploy thành công và bốn migration đã chạy.
-> Các mô tả “bản nháp/local”, “chưa verify” và “chưa deploy” bên dưới là ảnh
-> chụp lịch sử, không phải trạng thái hiện tại. Live qualification provider,
-> hỗ trợ nodeVersion > 1 và các quyết định NX-07 vẫn có giới hạn riêng; không
-> suy ra parity với n8n hoặc kết quả provider thật chỉ từ CI.
-> [Bằng chứng triển khai](42-ke-hoach-chuyen-production-nx.md).
+> Trạng thái kiểm tra 05/11/2026: PR #82 đã merge vào `main` tại
+> `6c9a36ee4b68ce1083770dac2c283125d76c10e5`; workflow deploy tại commit đó
+> [hoàn tất thành công](https://github.com/phuuthanh-dev/fluxora/actions/runs/41871198903).
+> Các commit `ba23eed` và `6569fc9` bổ sung và bảo vệ Supabase Insert chỉ có
+> trên `develop` local tại thời điểm kiểm tra, chưa thuộc PR hoặc deployment này.
+> Các ghi chú dưới đây là bằng chứng theo thời điểm, không tự động mô tả bản
+> hiện tại. CI không chứng minh provider thật, parity n8n hoặc toàn bộ NX-07.
+> [Lịch sử chuyển production NX](42-ke-hoach-chuyen-production-nx.md).
 
 Ngày đối chiếu: **2026-11-02**. Source Fluxora: **`04d67b60ed257304ca9aaeaa8dbe4e3969faa4db`**, sau PR #73; nhánh audit local `codex/node-expansion-audit`.
 
@@ -190,6 +190,7 @@ có thể downgrade an toàn.
 ### Tiến độ bản nháp sau audit — chưa phát hành
 
 - **2026-11-05, Supabase insert local:** thêm operation ghi một dòng với danh sách cột/kiểu giá trị, gợi ý cột dùng chung discovery hiện có và fallback nhập tên. Giá trị số nhập dưới dạng chuỗi bị từ chối nếu chuyển sang JSON number làm đổi giá trị thập phân; số đã bị làm tròn từ bước trước không thể khôi phục, nên dùng text khi cần độ chính xác cao. Data API dùng identity của connection và RLS; `return=minimal` chỉ xác nhận provider chấp nhận, không trả dòng hoặc chứng minh giá trị sau trigger. Lỗi ghi không chắc chắn không tự retry. Chưa gọi provider thật, chưa chạy final verify hoặc release; PostgreSQL/Supabase read graph cũ không thay đổi. Tham khảo [n8n Supabase operations](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.supabase/) và [PostgREST return preferences](https://docs.postgrest.org/en/v14/references/api/preferences.html).
+- **Supabase insert timeout local:** node ghi mới áp dụng `timeoutMs` từ 1.000 đến 120.000 ms, mặc định 10.000 ms; giá trị không hợp lệ hoặc expression không phân giải bị từ chối trước khi đọc credential. Timeout sau khi gửi có thể đã ghi dữ liệu, nên trả `DELIVERY_UNCERTAIN` và không tự retry. Test adapter mô phỏng abort và typecheck API/web đã pass; chưa thử provider thật. Node đọc cũ vẫn giữ timeout 10 giây và không thay đổi hành vi `timeoutMs` lịch sử.
 
 - NX-03 starter workflows, bản local sau `ff0740a`: mẫu PostgreSQL và Supabase
   không điền sẵn `example_table`, mẫu Trello không điền ID board giả có định

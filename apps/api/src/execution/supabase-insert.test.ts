@@ -47,8 +47,24 @@ test("invalid fields and unresolved expressions fail before credential or provid
     { ...config, fields: [{ column: "constructor", type: "text", value: "x" }] },
     { ...config, fields: [{ column: "id", type: "text", value: "a" }, { column: "id", type: "text", value: "b" }] },
     { ...config, fields: [{ column: "active", type: "boolean", value: "maybe" }] },
+    ...[undefined, 0, 999, 120001, 1.5, "10000"].map((timeoutMs) => ({ ...config, timeoutMs })),
     { ...config, extra: true }, missing,
   ]) await assert.rejects(() => executeSupabaseInsert(input, "live", "workspace", noCredentials, noNetwork), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT" && !error.retryable);
+});
+
+test("a configured write timeout aborts the request and reports an uncertain outcome without retry", async () => {
+  let calls = 0;
+  let aborted = false;
+  await assert.rejects(() => executeSupabaseInsert({ ...config, timeoutMs: 1_000 }, "live", "workspace", credentials, async (_url, init) => {
+    calls++;
+    await new Promise<void>((resolve, reject) => {
+      const guard = setTimeout(() => reject(new Error("timeout signal did not fire")), 2_500);
+      init.signal!.addEventListener("abort", () => { aborted = true; clearTimeout(guard); resolve(); }, { once: true });
+    });
+    throw new Error("request aborted");
+  }), (error: unknown) => error instanceof NodeFailure && error.code === "DELIVERY_UNCERTAIN" && !error.retryable);
+  assert.equal(calls, 1);
+  assert.equal(aborted, true);
 });
 
 test("equivalent decimal spellings retain their JSON value", async () => {

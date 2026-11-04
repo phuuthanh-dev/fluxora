@@ -122,7 +122,9 @@ export async function executeSupabaseInsert(config: Record<string, unknown>, mod
   const allowed = new Set(["credentialId", "table", "fields", "retryAttempts", "timeoutMs"]);
   const invalid = (): never => { throw new NodeFailure("INVALID_INPUT", "Choose a table and enter valid, distinct column values.", false); };
   if (Object.keys(config).some((key) => !allowed.has(key))) invalid();
-  requireResolvedSelection(config, ["fields"], "Supabase");
+  requireResolvedSelection(config, ["fields", "timeoutMs"], "Supabase");
+  const timeoutMs = config.timeoutMs === undefined ? 10_000 : config.timeoutMs;
+  if (typeof timeoutMs !== "number" || !Number.isInteger(timeoutMs) || timeoutMs < 1_000 || timeoutMs > 120_000) throw new NodeFailure("INVALID_INPUT", "Supabase timeout must be a whole number between 1,000 and 120,000 milliseconds.", false);
   const table = typeof config.table === "string" ? config.table : "";
   if (!identifier.test(table) || !Array.isArray(config.fields) || config.fields.length < 1 || config.fields.length > 50) return invalid();
   const row: Record<string, string | number | boolean | null> = Object.create(null);
@@ -166,7 +168,7 @@ export async function executeSupabaseInsert(config: Record<string, unknown>, mod
   if ((typeof credential.apiKey === "string" && credential.apiKey && table.includes(credential.apiKey)) || (typeof credential.userAccessToken === "string" && credential.userAccessToken && table.includes(credential.userAccessToken))) throw new NodeFailure("INVALID_INPUT", "Choose a valid Supabase table.", false);
   let response: Response;
   try {
-    response = await transport(`https://${projectRef}.supabase.co/rest/v1/${encodeURIComponent(table)}`, { method: "POST", headers: { ...headers, "content-type": "application/json", prefer: "return=minimal" }, body, signal: AbortSignal.timeout(10_000) });
+    response = await transport(`https://${projectRef}.supabase.co/rest/v1/${encodeURIComponent(table)}`, { method: "POST", headers: { ...headers, "content-type": "application/json", prefer: "return=minimal" }, body, signal: AbortSignal.timeout(timeoutMs) });
   } catch { throw uncertainDelivery("Supabase"); }
   if (wasOutboundRedirected(response) || (response.status >= 300 && response.status < 400) || response.status === 408 || response.status === 429 || response.status >= 500) {
     await response.body?.cancel().catch(() => undefined);
