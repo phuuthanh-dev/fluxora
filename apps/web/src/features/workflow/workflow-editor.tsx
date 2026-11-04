@@ -901,6 +901,10 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
   const recordedNode = execution?.graph?.nodes.find((item) => item.id === node.id && item.type === nodeExecution?.nodeType);
   const pagination = recordedNode && nodeExecution?.status === "SUCCEEDED" && !nodeExecution.error
     ? executionPagination(nodeExecution.nodeType, nodeExecution.input, nodeExecution.output, recordedNode.nodeVersion) : undefined;
+  const sheetsMockAppend = execution?.mode === "mock" && nodeExecution?.status === "SUCCEEDED"
+    && ["action.google-sheets", "action.google-sheets.v2"].includes(nodeExecution.nodeType)
+    && nodeExecution.output !== null && typeof nodeExecution.output === "object" && !Array.isArray(nodeExecution.output)
+    && (nodeExecution.output as Record<string, unknown>).operation === "append";
   const approvalId = nodeExecution?.output && typeof nodeExecution.output === "object" && !Array.isArray(nodeExecution.output) && typeof (nodeExecution.output as Record<string, unknown>).approvalRequestId === "string"
     ? (nodeExecution.output as Record<string, unknown>).approvalRequestId as string
     : null;
@@ -1171,6 +1175,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
               {pagination.kind === "offset" ? <p>To inspect another page, adjust <code>{pagination.input}</code> and keep the same connection, sorting and filters.</p> : pagination.available ? <p>The output contains <code>{pagination.next}</code>. Use it as <code>{pagination.input}</code> for another page, keeping the same connection and other settings.</p> : <p>No usable <code>{pagination.next}</code> was returned. This does not guarantee the result is complete.</p>}
               {pagination.caveat && <p>{pagination.caveat}</p>}
             </details>}
+            {sheetsMockAppend && <Status tone="info" className="inspector-note">For live appends, use <code>updates.updatedRows</code> and <code>updates.updatedCells</code>. The top-level counts are kept only for compatibility with older test runs.</Status>}
             {!nodeExecution.error && outputHasList(nodeExecution.output) && <Status tone="info" className="inspector-note">Lists stay together in this output. Connected nodes run at most once per execution, not once for each list item.</Status>}
             {nodeExecution.status === "WAITING" && approvalId && (
               <div className="approval-actions">

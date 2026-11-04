@@ -27,3 +27,25 @@ test("Sheets preserves legacy interpretation and supports explicit raw writes on
     assert.equal(calls.length, 4, "invalid input must not call Google");
   } finally { globalThis.fetch = originalFetch; }
 });
+
+test("Sheets mock write responses include the provider shape and preserve legacy fields", async () => {
+  const originalFetch = globalThis.fetch;
+  const credentials = { readGoogleForExecution: async () => ({ accessToken: "synthetic-token" }) } as never;
+  const updates = { spreadsheetId: "sheet", updatedRange: "Sheet1!A1", updatedRows: 1, updatedColumns: 2, updatedCells: 2 };
+  try {
+    globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => Response.json(init?.method === "POST" ? { spreadsheetId: "sheet", tableRange: "", updates } : updates)) as typeof fetch;
+    for (const type of ["action.google-sheets", "action.google-sheets.v2"] as const) {
+      for (const operation of ["append", "update"] as const) {
+        const config = { ...base, values: [["first", "second"]], operation };
+        const run = (mode: "mock" | "live") => getConnectorExecutor(type)!({ config, mode, workspaceId: "workspace", credentials, executionId: "execution", nodeId: "node" });
+        const mock = await run("mock");
+        const live = await run("live");
+        for (const field of Object.keys(live.output)) assert.ok(Object.hasOwn(mock.output, field), `${type} ${operation} mock is missing ${field}`);
+        assert.equal(mock.output.range, "Sheet1!A1");
+        assert.equal(mock.output.updatedRows, 1);
+        assert.equal(mock.output.updatedCells, 2);
+        if (operation === "append") assert.deepEqual(mock.output.updates, updates);
+      }
+    }
+  } finally { globalThis.fetch = originalFetch; }
+});
