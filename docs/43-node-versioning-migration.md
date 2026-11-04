@@ -55,9 +55,11 @@ Dispatch và reader dành riêng cho execution ở local đã nhận chín actio
 type chuẩn + `2` và chọn handler `.v2` hiện hữu. Fixture kiểm tra credential
 readiness của từng cặp và một execution mock Supabase từ graph giả; version
 không hỗ trợ vẫn bị từ chối. Parser dùng để ghi/import workflow và editor
-**vẫn từ chối** graph `nodeVersion: 2`. Các reader workflow, webhook và
-scheduler khác chưa được chuyển; Kuma chưa có mapping. Chưa thay định dạng
-lưu hay mặc định của workflow, chưa chứng minh mixed fleet hoặc rollback.
+**vẫn từ chối** graph `nodeVersion: 2`. Các đường đọc graph đã lưu trong
+workflow service, webhook và scheduler local cũng dùng reader mới; test cron
+và ingress Kuma với action canonical v2 giả đã pass. Trigger Kuma canonical
+v2 chưa có mapping; chưa kiểm thử đầy đủ các provider, editor, mixed fleet
+hoặc rollback. Chưa thay định dạng lưu hay mặc định của workflow.
 
 ## Rollout và kiểm thử trước khi đổi định dạng ghi
 

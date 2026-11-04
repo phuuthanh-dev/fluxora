@@ -15,7 +15,7 @@ test("cron scheduler creates and dispatches one live execution for a due publish
         return [{
         id: "version-1",
         graph: {
-          nodes: [{ id: "cron", type: "trigger.cron", position: { x: 0, y: 0 }, config: { expression: "* * * * *", timezone: "Asia/Ho_Chi_Minh" } }],
+          nodes: [{ id: "cron", type: "trigger.cron", position: { x: 0, y: 0 }, config: { expression: "* * * * *", timezone: "Asia/Ho_Chi_Minh" } }, { id: "read", type: "action.supabase.select", nodeVersion: 2, position: { x: 200, y: 0 }, config: { table: "items" } }],
           edges: [],
         },
         }];

@@ -4,7 +4,7 @@ import type { PrismaService } from "../database/prisma.service";
 import { liveCredentialRequirements } from "../execution/live-readiness";
 import { NodeFailure } from "../execution/node-failure";
 import { redactValue } from "../execution/redaction";
-import { parseWorkflowGraph } from "../workflows/workflow-graph";
+import { parseStoredWorkflowGraph } from "../workflows/workflow-graph";
 import { rssFeedUrlHash, rssTargets, type RssCheckpoint, type RssObservation, type RssSnapshot, type RssTarget, type RssTriggerStore } from "./rss-trigger-poller";
 
 // Bounded per trigger; old terminal receipts may later be seen as new again.
@@ -38,7 +38,7 @@ export class PrismaRssTriggerStore implements RssTriggerStore {
       if (checkpoint.feedUrlHash !== rssFeedUrlHash(target.url)) throw new NodeFailure("RSS_FEED_CHANGED", "The feed changed; review the trigger before resetting it.", false);
       const version = await tx.workflowVersion.findUnique({ where: { id: target.versionId }, select: { workflowId: true, graph: true } });
       if (!version || version.workflowId !== target.workflowId) return null;
-      const graph = parseWorkflowGraph(version.graph);
+      const graph = parseStoredWorkflowGraph(version.graph);
       const current = rssTargets(target.workflowId, target.versionId, graph).find((item) => item.nodeId === target.nodeId);
       if (!current || rssFeedUrlHash(current.url) !== checkpoint.feedUrlHash || current.pollMinutes !== target.pollMinutes) throw new NodeFailure("RSS_FEED_CHANGED", "The feed changed; review the trigger before resetting it.", false);
       const requirements = liveCredentialRequirements(graph);
