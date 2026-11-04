@@ -320,7 +320,9 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, wor
         return <CredentialField key={field.key} label={field.label} value={value} providers={field.providers} credentials={credentials} onChange={(nextValue) => onChange(field.key, nextValue)} optional={field.optional} />;
       }
       if (field.kind === "boolean") {
-        return <label key={field.key} className="checkbox-field"><input type="checkbox" checked={config[field.key] === undefined ? field.defaultChecked ?? true : config[field.key] !== false} onChange={(event) => onChange(field.key, event.target.checked)} /> {field.label}</label>;
+        const stored = config[field.key];
+        const mixed = stored !== undefined && typeof stored !== "boolean";
+        return <div key={field.key} className="config-field"><label className="checkbox-field"><input type="checkbox" checked={mixed ? false : stored === undefined ? field.defaultChecked ?? true : stored === true} aria-checked={mixed ? "mixed" : undefined} ref={(input) => { if (input) input.indeterminate = mixed; }} onChange={(event) => onChange(field.key, event.target.checked)} /> {field.label}</label>{mixed && <small role="status">The saved value is not a true/false literal. Review it in Advanced; selecting this checkbox replaces it.</small>}</div>;
       }
       if (field.kind === "datetime") return <DateTimeField key={field.key} label={field.label} value={value} allowExpressions={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       if (field.kind === "text" && field.advanced) return <details key={field.key} className="config-field"><summary>{field.advanced.summary}</summary><ConfigField label={field.label} value={value} onChange={(nextValue) => onChange(field.key, nextValue)} /><small>{field.advanced.help}</small></details>;

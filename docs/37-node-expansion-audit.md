@@ -16,6 +16,9 @@ hiện nhầm option đầu khi giá trị chưa đặt hoặc không nằm tron
 hiển thị trạng thái tương ứng và giữ nguyên giá trị đã lưu cho đến khi người
 dùng chọn lại; không tự đổi graph hay hành vi mặc định của API. Trường hợp
 GitHub update issue được bổ sung vào E2E giả lập, chưa chạy.
+Checkbox cấu hình chứa expression hoặc giá trị không phải boolean cũng được
+hiển thị ở trạng thái chưa xác định, giữ nguyên giá trị cho tới khi người dùng
+chủ động chọn; E2E Supabase giả lập được bổ sung, chưa chạy.
 
 ### Snapshot trước PR #84
 
