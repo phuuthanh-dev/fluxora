@@ -2,6 +2,17 @@
 
 ## Trạng thái phát hành mới nhất — 05/11/2026
 
+PR [#84](https://github.com/phuuthanh-dev/fluxora/pull/84) đã merge tại
+`ff4302dbf2e48618b1721770975666a094aaa2c8`. [Quality gate trên main](https://github.com/phuuthanh-dev/fluxora/actions/runs/41927994423)
+và [deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/41929879005)
+thành công. Sau deploy, landing, login, API liveness và readiness đều trả 200.
+Đây là kiểm tra tại thời điểm, không chứng minh workflow hoặc provider thật.
+PR phát hành Drive search có hướng dẫn, gợi ý expression từ node phía trước và
+guard từ chối sử dụng dữ liệu đã che được nạp lại. Các mục chưa được chứng minh
+trong bảng dưới vẫn chưa hoàn tất chỉ vì release thành công.
+
+### Snapshot trước PR #84
+
 PR [#83](https://github.com/phuuthanh-dev/fluxora/pull/83) đã merge vào
 `main` tại `3128cc661320ad38eff43f759c71ffbad5010346`. Quality gate của
 [commit merge](https://github.com/phuuthanh-dev/fluxora/actions/runs/41913745808)
@@ -43,7 +54,7 @@ GSAP/WebGL trong trình duyệt thử, các bài liên quan vẫn pass. Một co
 cập nhật tài liệu sau lượt này không thay đổi source đã kiểm thử. CI trên head
 PR vẫn cần chạy; kết quả này không xác nhận mọi operation hoặc provider thật.
 
-**Bản local sau PR #83, chưa phát hành:** Drive search `.v2` có
+**Snapshot trước PR #84:** Drive search `.v2` có
 bộ lọc theo tiền tố tên, loại file và thư mục cha trực tiếp, dùng folder picker
 có fallback nhập ID. Nó tạo chính trường `query` đã có, không đổi graph hay
 runtime cũ; query phức tạp và expression vẫn ở chế độ nâng cao. Điều kiện mới
@@ -55,7 +66,7 @@ cung cấp chọn tài nguyên từ danh sách hoặc nhập ID; phần này h�
 khẳng định parity toàn bộ. Test giả lập thuộc lượt verify `c2d6367` nêu trên;
 chưa thử Google thật.
 
-**Bản local sau PR #83, chưa phát hành:** trước đây output được
+**Snapshot trước PR #84:** trước đây output được
 lưu dưới dạng đã che, rồi được dùng lại khi tiếp tục sau approval; expression
 có thể nhận nguyên chuỗi `[REDACTED]` và truyền nhầm cho action. Trigger data
 cũng được lưu sau khi che. Bản local từ chối expression tham chiếu trực tiếp
