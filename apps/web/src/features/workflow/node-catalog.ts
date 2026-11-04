@@ -87,11 +87,11 @@ export const nodeLibraryFilters: Array<{ id: NodeLibraryFilter; label: string }>
 
 export const appCatalog: AppDefinition[] = [
   { id: "steam", label: "Steam", description: "Read public gaming profile and library data.", icon: "steam", category: "data", aliases: ["gaming", "games"] },
-  { id: "riot-lol", label: "League of Legends", description: "Read League account and match data with your Riot API key.", icon: "game", category: "data", aliases: ["riot", "lol", "gaming"] },
-  { id: "riot-tft", label: "Teamfight Tactics", description: "Read TFT post-game data using an eligible Riot API key.", icon: "game", category: "data", aliases: ["riot", "tft", "gaming"] },
-  { id: "riot-valorant", label: "VALORANT", description: "Player data requires approved Riot access and player opt-in.", icon: "game", category: "data", aliases: ["riot", "valorant"] },
-  { id: "riot-lor", label: "Legends of Runeterra", description: "Player data requires approved Riot access and player opt-in.", icon: "game", category: "data", aliases: ["riot", "lor", "runeterra"] },
-  { id: "riot-2xko", label: "2XKO", description: "Player data requires approved Riot access and player opt-in.", icon: "game", category: "data", aliases: ["riot", "2xko"] },
+  { id: "riot-lol", label: "League of Legends", description: "Read League account and match data with your Riot API key.", icon: "riot-lol", category: "data", aliases: ["riot", "lol", "gaming"] },
+  { id: "riot-tft", label: "Teamfight Tactics", description: "Read TFT post-game data using an eligible Riot API key.", icon: "riot-tft", category: "data", aliases: ["riot", "tft", "gaming"] },
+  { id: "riot-valorant", label: "VALORANT", description: "Player data requires approved Riot access and player opt-in.", icon: "riot-valorant", category: "data", aliases: ["riot", "valorant"] },
+  { id: "riot-lor", label: "Legends of Runeterra", description: "Player data requires approved Riot access and player opt-in.", icon: "riot-lor", category: "data", aliases: ["riot", "lor", "runeterra"] },
+  { id: "riot-2xko", label: "2XKO", description: "Player data requires approved Riot access and player opt-in.", icon: "riot-2xko", category: "data", aliases: ["riot", "2xko"] },
   { id: "google-chat", label: "Google Chat", description: "Send messages to Google Chat spaces.", icon: "google-chat", category: "communication", aliases: ["chat", "notification"] },
   { id: "discord", label: "Discord", description: "Send messages through Discord webhooks.", icon: "discord", category: "communication", aliases: ["notification", "webhook"] },
   { id: "telegram", label: "Telegram", description: "Send messages with the Telegram Bot API.", icon: "telegram", category: "communication", aliases: ["bot", "notification"] },
@@ -141,17 +141,17 @@ export function edgeKindFromHandle(handle: string | null | undefined): WorkflowE
 export const nodeCatalog: NodeDefinition[] = [
   {
     type: "action.riot-tft", label: "Teamfight Tactics", description: "Read TFT post-game data from Riot.",
-    category: "action", libraryGroup: "developer-data", appId: "riot-tft", operationId: "api", operationLabel: "Read TFT data", operationKind: "search", icon: "game", available: true,
+    category: "action", libraryGroup: "developer-data", appId: "riot-tft", operationId: "api", operationLabel: "Read TFT data", operationKind: "search", icon: "riot-tft", available: true,
     defaultConfig: { credentialId: "", operation: "accountByRiotId", platform: "vn2", gameName: "", tagLine: "", puuid: "", matchId: "", start: 0, count: 20 },
     configurationFields: getSharedNodeConfigurationFields("action.riot-tft"),
   },
   ...([ ["action.riot-valorant", "riot-valorant", "VALORANT"], ["action.riot-lor", "riot-lor", "Legends of Runeterra"], ["action.riot-2xko", "riot-2xko", "2XKO"] ] as const).map(([type, appId, label]) => ({
     type, appId, label, description: "Requires Riot production approval and player opt-in through Riot Sign On. Not available yet.",
-    category: "action" as const, libraryGroup: "developer-data" as const, operationId: "player-data", operationLabel: "Player data (approval required)", operationKind: "search" as const, icon: "game" as const, available: false, defaultConfig: {},
+    category: "action" as const, libraryGroup: "developer-data" as const, operationId: "player-data", operationLabel: "Player data (approval required)", operationKind: "search" as const, icon: appId, available: false, defaultConfig: {},
   })),
   {
     type: "action.riot-lol", label: "League of Legends", description: "Read League of Legends data from Riot.",
-    category: "action", libraryGroup: "developer-data", appId: "riot-lol", operationId: "api", operationLabel: "Read League data", operationKind: "search", icon: "game", available: true,
+    category: "action", libraryGroup: "developer-data", appId: "riot-lol", operationId: "api", operationLabel: "Read League data", operationKind: "search", icon: "riot-lol", available: true,
     defaultConfig: { credentialId: "", operation: "accountByRiotId", platform: "vn2", gameName: "", tagLine: "", puuid: "", matchId: "", start: 0, count: 20, matchFilter: "all", startTime: "", endTime: "" },
     configurationFields: getSharedNodeConfigurationFields("action.riot-lol"),
   },

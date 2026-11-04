@@ -1,13 +1,19 @@
 import {
   CircleCheckBig,
+  BookOpen,
   Clock3,
+  Crosshair,
+  Crown,
   GitBranch,
   Globe2,
   Gamepad2,
+  HandFist,
   Mail,
   Play,
   Rss,
+  Shield,
   Shuffle,
+  Swords,
   Webhook,
 } from "lucide-react";
 import { useId } from "react";
@@ -45,6 +51,12 @@ export type NodeIconName =
   | "switch"
   | "steam"
   | "game"
+  | "riot-games"
+  | "riot-lol"
+  | "riot-tft"
+  | "riot-valorant"
+  | "riot-lor"
+  | "riot-2xko"
   | "google"
   | "google-chat"
   | "google-calendar"
@@ -91,7 +103,8 @@ function BrandIcon({ icon, size, instagramGradient = false }: { icon: { body: st
 }
 
 export function NodeIcon({ name, size = 18, className = "" }: { name: NodeIconName; size?: number; className?: string }) {
-  const props = { size, "aria-hidden": true as const, style: { color: `var(--provider-${name})` } };
+  const provider = name.startsWith("riot-") ? "game" : name;
+  const props = { size, "aria-hidden": true as const, style: { color: `var(--provider-${provider})` } };
   const icon = (() => {
     switch (name) {
       case "manual": return <Play {...props} fill="currentColor" />;
@@ -101,6 +114,13 @@ export function NodeIcon({ name, size = 18, className = "" }: { name: NodeIconNa
       case "switch": return <Shuffle {...props} />;
       case "steam": return <SiSteam {...props} />;
       case "game": return <Gamepad2 {...props} />;
+      // These generic pictograms distinguish games without reproducing Riot's restricted marks.
+      case "riot-games": return <Shield {...props} />;
+      case "riot-lol": return <Swords {...props} />;
+      case "riot-tft": return <Crown {...props} />;
+      case "riot-valorant": return <Crosshair {...props} />;
+      case "riot-lor": return <BookOpen {...props} />;
+      case "riot-2xko": return <HandFist {...props} />;
       case "google": return <BrandIcon icon={googleIcon} size={size} />;
       case "google-chat": return <SiGooglechat {...props} />;
       case "google-calendar": return <BrandIcon icon={calendarIcon} size={size} />;
