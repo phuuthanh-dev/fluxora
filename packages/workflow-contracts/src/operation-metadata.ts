@@ -131,6 +131,7 @@ const definitions = {
   "action.vercel.public-deployment-lookup": executable(credential("VERCEL"), "read"),
   "action.supabase.select": executable(credential("SUPABASE"), "read"),
   "action.supabase.select.v2": executable(credential("SUPABASE"), "read"),
+  "action.supabase.insert-row": executable(credential("SUPABASE"), "write", fields("accepted", "table")),
   "action.reddit.list-posts": executable(credential("REDDIT"), "read"),
   "action.postgres.select": executable(credential("POSTGRES"), "read"),
   "action.postgres.select.v2": executable(credential("POSTGRES"), "read"),

@@ -108,7 +108,7 @@ export const appCatalog: AppDefinition[] = [
   { id: "trello", label: "Trello", description: "Organize work with boards, lists, and cards.", icon: "trello", category: "productivity", aliases: ["kanban", "cards", "boards"] },
   { id: "sentry", label: "Sentry", description: "Find issues in your monitored projects.", icon: "sentry", category: "developer-devops", aliases: ["errors", "monitoring", "issues"] },
   { id: "vercel", label: "Vercel", description: "Inspect project deployments.", icon: "vercel", category: "developer-devops", aliases: ["deployment", "hosting", "projects"] },
-  { id: "supabase", label: "Supabase", description: "Read rows from a Supabase project.", icon: "supabase", category: "data", aliases: ["database", "postgres", "tables"] },
+  { id: "supabase", label: "Supabase", description: "Read or insert rows in a Supabase project.", icon: "supabase", category: "data", aliases: ["database", "postgres", "tables"] },
   { id: "uptime-kuma", label: "Uptime Kuma", description: "Start a workflow from a monitor alert.", icon: "uptime-kuma", category: "developer-devops", aliases: ["uptime", "monitoring", "alert"] },
   { id: "reddit", label: "Reddit", description: "Read posts from a public community.", icon: "reddit", category: "social", aliases: ["subreddit", "posts", "community"] },
   { id: "rss", label: "RSS", description: "Read items from a public RSS or Atom feed.", icon: "rss", category: "data", aliases: ["feed", "atom", "news"] },
@@ -793,6 +793,12 @@ export const nodeCatalog: NodeDefinition[] = [
     category: "action", libraryGroup: "developer-data", appId: "supabase", operationId: "select-rows", operationLabel: "Select rows", operationKind: "search", icon: "supabase", available: true,
     defaultConfig: { credentialId: "", table: "", limit: 20 },
     configurationFields: getSharedNodeConfigurationFields("action.supabase.select.v2"),
+  },
+  {
+    type: "action.supabase.insert-row", label: "Supabase · Insert row", description: "Insert one row into a public-schema table.",
+    category: "action", libraryGroup: "developer-data", appId: "supabase", operationId: "insert-row", operationLabel: "Insert row", operationKind: "action", icon: "supabase", available: true,
+    defaultConfig: { credentialId: "", table: "", fields: [] },
+    configurationFields: getSharedNodeConfigurationFields("action.supabase.insert-row"),
   },
   {
     type: "action.notion.search-pages", hiddenFromLibrary: true,

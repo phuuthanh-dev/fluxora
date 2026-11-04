@@ -30,7 +30,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { ApiClientError, apiRequest, apiUrl } from "../api/api-client";
 import { validateWorkflowGraph } from "./graph-validation";
@@ -64,7 +64,8 @@ import { MongoFilterField } from "./mongodb-filter-field";
 import { StructuredOutputField } from "./structured-output-field";
 import { resetDrivePageToken } from "./drive-pagination";
 import { RelationalSelectionField } from "./relational-selection-field";
-import { isRelationalBaselineCurrent, relationalSelectionKeys, upgradeRelationalNode, type RelationalBaseline, type RelationalDraft, type RelationalMetadata, type RelationalProvider, type RelationalSelection } from "./relational-selection";
+import { isRelationalBaselineCurrent, relationalSelectionKeys, upgradeRelationalNode, type RelationalBaseline, type RelationalDraft, type RelationalProvider, type RelationalSelection } from "./relational-selection";
+import { useRelationalMetadata } from "./use-relational-metadata";
 import type { StructuredOutputDraft } from "./structured-output-schema";
 import type { InspectorDraft, InspectorDraftKind, StagedText, UpdateInspectorDraft } from "./inspector-drafts";
 import type { MongoFilterRow } from "./mongodb-filter";
@@ -269,11 +270,38 @@ function DateTimeField({ label, value, allowExpressions, onChange }: { label: st
   </Field>;
 }
 
-function NodeConfigurationFields({ fields, config, credentials, workspaceId, allowExpressions, onChange, draft, onDraftChange }: {
+function RowValuesField({ value, onChange, workspaceId, workflowId, nodeId, owner, credentials, config }: { value: unknown; onChange: (value: Array<{ column: string; type: string; value: string }>) => void; workspaceId: string; workflowId: string; nodeId: string; owner: boolean; credentials: CredentialSummary[]; config: Record<string, unknown> }) {
+  const listId = useId();
+  const { metadata, loading, eligible } = useRelationalMetadata({ provider: "supabase", workspaceId, workflowId, nodeId, owner, credentials, credentialId: readConfigText(config, "credentialId"), table: readConfigText(config, "table"), schema: "" });
+  const rows = Array.isArray(value) ? value.map((entry) => {
+    const row = entry && typeof entry === "object" && !Array.isArray(entry) ? entry as Record<string, unknown> : {};
+    return { column: typeof row.column === "string" ? row.column : "", type: typeof row.type === "string" ? row.type : "text", value: typeof row.value === "string" ? row.value : row.value == null ? "" : String(row.value) };
+  }) : [];
+  const update = (index: number, patch: Partial<(typeof rows)[number]>) => onChange(rows.map((row, current) => current === index ? { ...row, ...patch } : row));
+  return <div className="config-field mongo-filter">
+    <strong>Row values</strong>
+    <small>Enter one value per column. Other columns use their database defaults. Write permission and row-level security apply. Changing the connection or table clears these values.</small>
+    <small role="status">{loading ? "Loading columns…" : metadata.status === "available" ? metadata.partial ? "Some columns may be missing. You can also enter an exact column name." : "Choose a suggested column or enter its exact name." : eligible ? "Column suggestions are unavailable. Enter exact column names." : "Choose a connection and table to load column suggestions, or enter names manually."}</small>
+    {metadata.status === "available" && <datalist id={listId}>{metadata.columns.map((column) => <option key={column.value} value={column.value}>{column.label}</option>)}</datalist>}
+    {rows.map((row, index) => <div className="mongo-filter__condition" key={index}>
+      <div className="mongo-filter__row-heading"><strong>Column {index + 1}</strong><Button type="button" variant="ghost" aria-label={`Remove column ${index + 1}`} onClick={() => onChange(rows.filter((_, current) => current !== index))}>Remove</Button></div>
+      <Field label="Column name"><input aria-label={`Column ${index + 1} name`} list={metadata.status === "available" ? listId : undefined} value={row.column} placeholder="Choose or enter a column" onChange={(event) => update(index, { column: event.target.value })} /></Field>
+      <Field label="Value type"><Select aria-label={`Column ${index + 1} type`} value={row.type} onChange={(event) => update(index, { type: event.target.value, value: event.target.value === "boolean" ? "true" : "" })}><option value="text">Text</option><option value="number">Number</option><option value="boolean">True / false</option><option value="null">Null</option><option value="expression">Value from a previous step</option></Select></Field>
+      {row.type !== "null" && <Field label="Value">{row.type === "boolean" ? <Select aria-label={`Column ${index + 1} value`} value={row.value} onChange={(event) => update(index, { value: event.target.value })}><option value="true">True</option><option value="false">False</option></Select> : <input aria-label={`Column ${index + 1} value`} value={row.value} placeholder={row.type === "expression" ? "{{ steps.example.output.value }}" : row.type === "number" ? "e.g. 42" : "Enter text"} onChange={(event) => update(index, { value: event.target.value })} />}</Field>}
+    </div>)}
+    <Button type="button" variant="ghost" disabled={rows.length >= 50} onClick={() => onChange([...rows, { column: "", type: "text", value: "" }])}>Add column</Button>
+    <small>A connection error after sending may mean the row was inserted. Check the table before retrying.</small>
+  </div>;
+}
+
+function NodeConfigurationFields({ fields, config, credentials, workspaceId, workflowId, nodeId, owner, allowExpressions, onChange, draft, onDraftChange }: {
   fields: NodeConfigurationField[];
   config: Record<string, unknown>;
   credentials: CredentialSummary[];
   workspaceId: string;
+  workflowId: string;
+  nodeId: string;
+  owner: boolean;
   allowExpressions: boolean;
   onChange: (key: string, value: unknown) => void;
   draft: InspectorDraft;
@@ -311,6 +339,7 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, all
         {config[field.key] !== undefined && <StructuredOutputField value={config[field.key]} onChange={(schema) => onChange(field.key, schema)} draft={draft.structuredOutput} onDraftChange={(next) => onDraftChange("structuredOutput", next)} />}
       </section>;
       if (field.kind === "mongo-filter") return <MongoFilterField key={field.key} value={value} draft={draft.filter} onDraftChange={(next) => onDraftChange("filter", next)} rawDraft={draft.filterRaw} onRawDraftChange={(next) => onDraftChange("filterRaw", next)} onChange={(nextValue) => onChange(field.key, nextValue)} />;
+      if (field.kind === "row-values") return <RowValuesField key={field.key} value={config[field.key]} workspaceId={workspaceId} workflowId={workflowId} nodeId={nodeId} owner={owner} credentials={credentials} config={config} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       return <ConfigField
         key={field.key}
         label={field.label}
@@ -823,31 +852,7 @@ function RelationalNodeField({ node, workspaceId, workflowId, owner, credentials
   const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
   const table = typeof config.table === "string" ? config.table : "";
   const schema = typeof config.schema === "string" ? config.schema : "";
-  const validIdentifier = /^[A-Za-z_][A-Za-z0-9_$]{0,62}$/;
-  const credential = credentials.find((item) => item.id === credentialId && item.provider === (provider === "postgres" ? "POSTGRES" : "SUPABASE"));
-  const eligible = owner && Boolean(workspaceId && workflowId && credentialId && credential && validIdentifier.test(table) && (provider !== "postgres" || validIdentifier.test(schema)));
-  const resourceKey = JSON.stringify([workspaceId, workflowId, node.id, provider, credentialId, credential?.updatedAt, schema, table, eligible]);
-  const metadataGeneration = useRef({ resourceKey: "", value: 0 });
-  if (metadataGeneration.current.resourceKey !== resourceKey) metadataGeneration.current = { resourceKey, value: metadataGeneration.current.value + 1 };
-  const metadataKey = JSON.stringify([resourceKey, metadataGeneration.current.value]);
-  const [metadataState, setMetadataState] = useState<{ key: string; metadata: RelationalMetadata }>({ key: "", metadata: { status: "unavailable" } });
-  useEffect(() => {
-    if (!eligible) return;
-    let current = true;
-    const controller = new AbortController();
-    const params = new URLSearchParams({ table });
-    if (provider === "postgres") params.set("schema", schema);
-    const base = `/workspaces/${encodeURIComponent(workspaceId)}/credentials/${encodeURIComponent(credentialId)}`;
-    void apiRequest<{ columns?: Array<{ name?: unknown; type?: unknown }>; partial?: boolean; hasMore?: boolean }>(`${base}/${provider}/columns?${params}`, { signal: controller.signal })
-      .then((response) => {
-        if (!current) return;
-        if (!Array.isArray(response.columns)) { setMetadataState({ key: metadataKey, metadata: { status: "unavailable" } }); return; }
-        const columns = response.columns.flatMap((column) => column && typeof column.name === "string" && validIdentifier.test(column.name) ? [{ value: column.name, label: typeof column.type === "string" && column.type ? `${column.name} · ${column.type}` : column.name }] : []);
-        setMetadataState({ key: metadataKey, metadata: { status: "available", columns, partial: provider === "postgres" || response.partial === true || response.hasMore === true || columns.length !== response.columns.length } });
-      }).catch(() => { if (current) setMetadataState({ key: metadataKey, metadata: { status: "unavailable" } }); });
-    return () => { current = false; controller.abort(); };
-  }, [metadataKey, eligible, workspaceId, credentialId, table, schema, provider]);
-  const metadata: RelationalMetadata = eligible && metadataState.key === metadataKey ? metadataState.metadata : { status: "unavailable" };
+  const { metadata } = useRelationalMetadata({ provider, workspaceId, workflowId, nodeId: node.id, owner, credentials, credentialId, table, schema });
   const contextKey = relationalContext(workspaceId, workflowId, node, provider);
   const apply = (selection: RelationalSelection, baseline: RelationalBaseline) => {
     if (jsonPending) return false;
@@ -959,7 +964,8 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       if (key === "credentialId") { config.database = ""; config.collection = ""; }
       else if (key === "database") config.collection = "";
     }
-    if ((node.data.nodeType === "action.supabase.select" || node.data.nodeType === "action.supabase.select.v2") && key === "credentialId" && node.data.config.credentialId !== value) config.table = "";
+    if ((node.data.nodeType === "action.supabase.select" || node.data.nodeType === "action.supabase.select.v2" || node.data.nodeType === "action.supabase.insert-row") && key === "credentialId" && node.data.config.credentialId !== value) config.table = "";
+    if (node.data.nodeType === "action.supabase.insert-row" && (key === "credentialId" || key === "table") && node.data.config[key] !== value) config.fields = [];
     if ((node.data.nodeType === "action.steam" || node.data.nodeType === "action.riot-lol" || node.data.nodeType === "action.riot-tft") && key === "operation") {
       const previous = getNodeDefinitionForConfig(node.data.nodeType, node.data.config);
       const next = getNodeDefinitionForConfig(node.data.nodeType, config);
@@ -1009,7 +1015,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
         const upgraded = upgradePaginationNode(latest.data);
         if (upgraded) state.updateNodeData(node.id, upgraded);
       }}>Use paginated version in draft</Button></Status>}
-      {definition?.configurationFields && <NodeConfigurationFields key={`configuration-${node.id}`} fields={definition.configurationFields} config={node.data.config} credentials={credentials} workspaceId={workspaceId} allowExpressions={!node.data.nodeType.startsWith("trigger.")} onChange={updateConfig} draft={draft} onDraftChange={onDraftChange} />}
+      {definition?.configurationFields && <NodeConfigurationFields key={`configuration-${node.id}`} fields={definition.configurationFields} config={node.data.config} credentials={credentials} workspaceId={workspaceId} workflowId={workflowId} nodeId={node.id} owner={owner} allowExpressions={!node.data.nodeType.startsWith("trigger.")} onChange={updateConfig} draft={draft} onDraftChange={onDraftChange} />}
       {node.data.nodeType === "action.reddit.list-posts" && <Status tone="warning" className="inspector-note"><strong>Reddit access is changing</strong><span>New public Data API access requests stopped on October 31, 2026. Existing approved access is being phased out; availability depends on Reddit. <a href="https://support.reddithelp.com/hc/en-us/articles/54353370049684-Changelog-October-8-2026" target="_blank" rel="noopener noreferrer">Read Reddit's migration timeline</a>.</span></Status>}
       {["action.rss.read", "trigger.rss.new-item"].includes(node.data.nodeType) && isRedditFeed(node.data.config.url) && <Status tone="warning" className="inspector-note"><strong>Reddit RSS support is ending</strong><span>Reddit announced RSS support ends November 13, 2026. This feed may stop working. <a href="https://support.reddithelp.com/hc/en-us/articles/54353370049684-Changelog-October-8-2026" target="_blank" rel="noopener noreferrer">See Reddit's announcement</a>.</span></Status>}
       {["action.openai", "action.gemini"].includes(node.data.nodeType) && <Status tone="info" className="inspector-note">Generation may incur provider charges, including after a timeout. Limits apply per request; an administrator may set lower ceilings for output and prompt size. Model and structured-output support depend on the provider.</Status>}

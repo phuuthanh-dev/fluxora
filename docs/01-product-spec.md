@@ -76,6 +76,7 @@ The Steam profile is public. The Steam node returns every field available throug
 | Action | Sentry List issues | Read issues from an accessible Sentry project. |
 | Action | Vercel List deployments | Read deployments for an accessible project, with a personal-account fallback when team discovery is denied. |
 | Action | Supabase Select rows | Read bounded rows from an accessible public-schema table using Data API permissions. |
+| Action | Supabase Insert row | Insert one public-schema row using guided typed column values and the workspace connection; the API receipt does not return the inserted row. |
 
 PostgreSQL and Supabase select nodes preserve historical behavior under their original types, even when saved graphs have no node version. New selections use distinct v2 node types. Upgrading an older node is an explicit draft edit; its previously ignored selection fields can change results and unsupported extra fields may need manual correction. The published workflow changes only after publishing the draft.
 | Action | Reddit List posts | List public posts only when provider access is available; real access has not been qualified. |

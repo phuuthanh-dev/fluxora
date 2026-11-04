@@ -189,6 +189,8 @@ có thể downgrade an toàn.
 
 ### Tiến độ bản nháp sau audit — chưa phát hành
 
+- **2026-11-05, Supabase insert local:** thêm operation ghi một dòng với danh sách cột/kiểu giá trị, gợi ý cột dùng chung discovery hiện có và fallback nhập tên. Data API dùng identity của connection và RLS; `return=minimal` chỉ xác nhận provider chấp nhận, không trả dòng hoặc chứng minh giá trị sau trigger. Lỗi ghi không chắc chắn không tự retry. Chưa gọi provider thật, chưa chạy final verify hoặc release; PostgreSQL/Supabase read graph cũ không thay đổi. Tham khảo [n8n Supabase operations](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.supabase/) và [PostgREST return preferences](https://docs.postgrest.org/en/v14/references/api/preferences.html).
+
 - NX-03 starter workflows, bản local sau `ff0740a`: mẫu PostgreSQL và Supabase
   không điền sẵn `example_table`, mẫu Trello không điền ID board giả có định
   dạng hợp lệ. Người dùng phải chọn bảng/board trước cả mock và live; live còn

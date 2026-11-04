@@ -24,7 +24,7 @@ import { executeTrelloCreateCard } from "./trello";
 import { executeTrelloOperation } from "./trello-operations";
 import { executeSentryListIssues } from "./sentry";
 import { executeVercelListDeployments } from "./vercel";
-import { executeSupabaseSelect } from "./supabase";
+import { executeSupabaseInsert, executeSupabaseSelect } from "./supabase";
 import { executeSentryGetIssue } from "./sentry-observability";
 import { executeVercelPublicDeploymentLookup } from "./vercel-observability";
 import { executeRedditListPosts } from "./reddit";
@@ -109,6 +109,7 @@ const executors = {
   "action.vercel.public-deployment-lookup": ({ config, mode, workspaceId, credentials }) => executeVercelPublicDeploymentLookup(config, mode, workspaceId, credentials),
   "action.supabase.select": ({ config, mode, workspaceId, credentials }) => executeSupabaseSelect(config, mode, workspaceId, credentials, undefined, 1),
   "action.supabase.select.v2": ({ config, mode, workspaceId, credentials }) => executeSupabaseSelect(config, mode, workspaceId, credentials, undefined, 2),
+  "action.supabase.insert-row": ({ config, mode, workspaceId, credentials }) => executeSupabaseInsert(config, mode, workspaceId, credentials),
   "action.reddit.list-posts": ({ config, mode, workspaceId, credentials }) => executeRedditListPosts(config, mode, workspaceId, credentials),
   "action.postgres.select": ({ config, mode, workspaceId, credentials }) => executePostgresSelect(config, mode, workspaceId, credentials, undefined, 1),
   "action.postgres.select.v2": ({ config, mode, workspaceId, credentials }) => executePostgresSelect(config, mode, workspaceId, credentials, undefined, 2),

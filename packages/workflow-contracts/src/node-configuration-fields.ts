@@ -19,4 +19,5 @@ export type NodeConfigurationField =
   | ({ kind: "table"; key: string; label: string } & NodeFieldVisibility)
   | ({ kind: "structured-output"; key: string; label: string } & NodeFieldVisibility)
   | ({ kind: "mongo-filter"; key: string; label: string } & NodeFieldVisibility)
+  | ({ kind: "row-values"; key: string; label: string } & NodeFieldVisibility)
   | ({ kind: "resource"; key: string; label: string; resource: NodeResource; credentialKey: string; dependencyKey?: string; secondaryDependencyKey?: string; placeholder?: string } & NodeFieldVisibility);

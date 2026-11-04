@@ -86,6 +86,11 @@ export const dataNodeFields = {
       { kind: "resource", key: "table", label: "Table", resource: "supabase-table", credentialKey: "credentialId", placeholder: "Search tables" },
       { kind: "number", key: "limit", label: "Maximum rows (1–100)", fallbackValue: 20 },
     ],
+  "action.supabase.insert-row": (): NodeConfigurationField[] => [
+      { kind: "credential", key: "credentialId", label: "Supabase connection", providers: ["SUPABASE"] },
+      { kind: "resource", key: "table", label: "Table", resource: "supabase-table", credentialKey: "credentialId", placeholder: "Search tables" },
+      { kind: "row-values", key: "fields", label: "Row values" },
+    ],
   "action.notion.search-pages": (): NodeConfigurationField[] => [
       { kind: "credential", key: "credentialId", label: "Notion credential", providers: ["NOTION"] },
       { kind: "text", key: "query", label: "Page title contains (optional)" },

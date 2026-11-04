@@ -5,13 +5,14 @@ type MetadataResponse = { status?: number; body: unknown };
 type HarnessOptions = {
   provider?: Provider;
   legacy?: boolean;
+  insert?: boolean;
   metadata?: (table: string) => MetadataResponse | Promise<MetadataResponse>;
   clone?: () => Promise<void>;
   save?: () => Promise<void>;
 };
 
-function workflow(id: string, provider: Provider, table = "items", legacy = false) {
-  const config = provider === "postgres"
+function workflow(id: string, provider: Provider, table = "items", legacy = false, insert = false) {
+  const config = insert ? { credentialId: "sb-1", table, fields: [] } : provider === "postgres"
     ? { credentialId: "pg-1", schema: "public", table, limit: 20, columns: ["id"], orderBy: "id", orderDirection: "asc", offset: 0, retryAttempts: 2 }
     : { credentialId: "sb-1", table, limit: 20, columns: ["id"], filters: [{ column: "active", operator: "equals", value: true }], order: [{ column: "id", direction: "desc", nulls: "last" }], offset: 0, timeoutMs: 9000 };
   return {
@@ -19,15 +20,15 @@ function workflow(id: string, provider: Provider, table = "items", legacy = fals
     draft: { id: `draft-${id}`, version: 1, graph: { nodes: [
       { id: "manual", type: "trigger.manual", position: { x: 50, y: 100 }, config: {} },
       // Deliberately reuse the node ID in both workflows.
-      { id: "relational", type: `action.${provider}.select${legacy ? "" : ".v2"}`, ...(legacy ? {} : { nodeVersion: 1 }), position: { x: 420, y: 100 }, config },
+      { id: "relational", type: insert ? "action.supabase.insert-row" : `action.${provider}.select${legacy ? "" : ".v2"}`, ...(legacy ? {} : { nodeVersion: 1 }), position: { x: 420, y: 100 }, config },
     ], edges: [] } }, published: null,
   };
 }
 
 async function setup(page: Page, options: HarnessOptions = {}) {
   const provider = options.provider ?? "postgres";
-  const first = workflow("first", provider, "items", options.legacy);
-  const second = workflow("second", provider, "other_items", options.legacy);
+  const first = workflow("first", provider, "items", options.legacy, options.insert);
+  const second = workflow("second", provider, "other_items", options.legacy, options.insert);
   const saves: Array<Record<string, unknown>> = [];
   const requests: string[] = [];
   const metadataRequests: Array<{ provider: string; credential: string; table: string | null; schema: string | null }> = [];
@@ -76,6 +77,34 @@ const configFromSave = (save: Record<string, unknown>) => {
   const graph = save.graph as { nodes: Array<{ id: string; config: Record<string, unknown> }> };
   return graph.nodes.find((node) => node.id === "relational")!.config;
 };
+
+test("Supabase insert builds typed columns without JSON and clears them when the table changes", async ({ page }) => {
+  const { saves } = await setup(page, { provider: "supabase", insert: true });
+  await selectRelational(page);
+  await page.getByRole("button", { name: "Add column" }).click();
+  await expect(page.locator('datalist option[value="id"]').first()).toHaveText("id · integer");
+  await page.getByLabel("Column 1 name").fill("name");
+  await page.getByLabel("Column 1 value", { exact: true }).fill("Example");
+  await page.getByRole("button", { name: "Add column" }).click();
+  await page.getByLabel("Column 2 name").fill("active");
+  await page.getByLabel("Column 2 type").selectOption("boolean");
+  await page.getByLabel("Column 2 value", { exact: true }).selectOption("false");
+  await page.getByRole("button", { name: "Save draft" }).click();
+  await expect.poll(() => saves.length).toBe(1);
+  expect(configFromSave(saves[0]!)).toMatchObject({ table: "items", fields: [{ column: "name", type: "text", value: "Example" }, { column: "active", type: "boolean", value: "false" }] });
+  await page.getByRole("group", { name: "Table" }).getByLabel("Table", { exact: true }).selectOption("other_items");
+  await expect(page.getByLabel("Column 1 name")).toHaveCount(0);
+  await expect(page.getByText(/Changing the connection or table clears these values/)).toBeVisible();
+});
+
+test("Supabase insert allows exact column names when discovery is denied", async ({ page }) => {
+  await setup(page, { provider: "supabase", insert: true, metadata: () => ({ status: 403, body: { code: "SUPABASE_COLUMNS_UNAVAILABLE", message: "Unavailable" } }) });
+  await selectRelational(page);
+  await expect(page.getByText("Column suggestions are unavailable. Enter exact column names.")).toBeVisible();
+  await page.getByRole("button", { name: "Add column" }).click();
+  await page.getByLabel("Column 1 name").fill("private_column");
+  await expect(page.getByLabel("Column 1 name")).toHaveValue("private_column");
+});
 
 test("changing a PostgreSQL schema or connection clears dependent resource selections", async ({ page }) => {
   const { saves } = await setup(page);

@@ -1318,6 +1318,7 @@
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
         "apps/api/src/execution/provider-json.ts",
+        "apps/api/src/execution/provider-request-policy.ts",
         "apps/api/src/execution/relational-selection-validation.ts"
       ],
       "externalImports": [
@@ -3139,6 +3140,18 @@
       "externalImports": []
     },
     {
+      "id": "apps/web/src/features/workflow/use-relational-metadata.ts",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/api/api-client.ts",
+        "apps/web/src/features/credentials/credential-types.ts",
+        "apps/web/src/features/workflow/relational-selection.ts"
+      ],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
       "id": "apps/web/src/features/workflow/workflow-api.ts",
       "boundary": "web",
       "internalImports": [
@@ -3177,6 +3190,7 @@
         "apps/web/src/features/workflow/structured-output-field.tsx",
         "apps/web/src/features/workflow/structured-output-schema.ts",
         "apps/web/src/features/workflow/test-data.ts",
+        "apps/web/src/features/workflow/use-relational-metadata.ts",
         "apps/web/src/features/workflow/workflow-api.ts",
         "apps/web/src/features/workflow/workflow-graph-schema.ts",
         "apps/web/src/features/workflow/workflow-node.tsx"
@@ -4888,6 +4902,10 @@
     },
     {
       "from": "apps/api/src/execution/supabase.ts",
+      "to": "apps/api/src/execution/provider-request-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/supabase.ts",
       "to": "apps/api/src/execution/relational-selection-validation.ts"
     },
     {
@@ -6387,6 +6405,18 @@
       "to": "apps/web/src/features/workflow/node-catalog.ts"
     },
     {
+      "from": "apps/web/src/features/workflow/use-relational-metadata.ts",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/use-relational-metadata.ts",
+      "to": "apps/web/src/features/credentials/credential-types.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/use-relational-metadata.ts",
+      "to": "apps/web/src/features/workflow/relational-selection.ts"
+    },
+    {
       "from": "apps/web/src/features/workflow/workflow-api.ts",
       "to": "apps/web/src/features/workflow/node-catalog.ts"
     },
@@ -6489,6 +6519,10 @@
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",
       "to": "apps/web/src/features/workflow/test-data.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/use-relational-metadata.ts"
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",
