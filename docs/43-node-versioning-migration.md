@@ -66,6 +66,10 @@ filter, validation và dispatch cho hai biểu diễn. Chưa kiểm thử đầy
 provider, mixed fleet hoặc rollback. Chưa thay định dạng lưu hay mặc
 định của workflow.
 
+Các hàm metadata và field descriptor local cũng nhận type/version và chọn
+cùng mô tả với handler `.v2`; version không hợp lệ trả kết quả không có metadata.
+Chúng chỉ mô tả cấu hình, không thay thế validation hoặc authorization runtime.
+
 ## Rollout và kiểm thử trước khi đổi định dạng ghi
 
 1. Chụp fixture graph giả cho từng cặp, gồm thiếu/có `nodeVersion`, draft,

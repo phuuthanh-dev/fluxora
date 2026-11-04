@@ -1,4 +1,5 @@
 import { workflowNodeTypes, type ExecutableWorkflowNodeType, type WorkflowNodeType } from "./index";
+import { nodeExecutionType } from "./node-versioning";
 
 /** Descriptive metadata only: it must not authorize execution or determine retry policy. */
 export type OperationCredentialProvider =
@@ -171,6 +172,7 @@ export function getOperationMetadataRegistry(): Readonly<CheckedRegistry> {
 }
 
 /** Only registered graph types are exposed; unknown strings never fall back to an executable entry. */
-export function getOperationMetadata(type: string): OperationMetadata | undefined {
-  return workflowNodeTypes.some((known) => known === type) ? definitions[type as WorkflowNodeType] : undefined;
+export function getOperationMetadata(type: string, version?: unknown): OperationMetadata | undefined {
+  const executionType = nodeExecutionType(type, version);
+  return executionType && workflowNodeTypes.some((known) => known === type) ? definitions[executionType as WorkflowNodeType] : undefined;
 }

@@ -3273,6 +3273,7 @@
         "packages/workflow-contracts/src/google-node-fields.ts",
         "packages/workflow-contracts/src/index.ts",
         "packages/workflow-contracts/src/node-configuration-fields.ts",
+        "packages/workflow-contracts/src/node-versioning.ts",
         "packages/workflow-contracts/src/notion-read-fields.ts",
         "packages/workflow-contracts/src/other-node-fields.ts",
         "packages/workflow-contracts/src/trello-card-fields.ts"
@@ -3367,7 +3368,8 @@
       "id": "packages/workflow-contracts/src/operation-metadata.ts",
       "boundary": "contracts",
       "internalImports": [
-        "packages/workflow-contracts/src/index.ts"
+        "packages/workflow-contracts/src/index.ts",
+        "packages/workflow-contracts/src/node-versioning.ts"
       ],
       "externalImports": []
     },
@@ -6630,6 +6632,10 @@
     },
     {
       "from": "packages/workflow-contracts/src/configuration-fields-registry.ts",
+      "to": "packages/workflow-contracts/src/node-versioning.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/configuration-fields-registry.ts",
       "to": "packages/workflow-contracts/src/notion-read-fields.ts"
     },
     {
@@ -6727,6 +6733,10 @@
     {
       "from": "packages/workflow-contracts/src/operation-metadata.ts",
       "to": "packages/workflow-contracts/src/index.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/operation-metadata.ts",
+      "to": "packages/workflow-contracts/src/node-versioning.ts"
     },
     {
       "from": "packages/workflow-contracts/src/other-node-fields.ts",
