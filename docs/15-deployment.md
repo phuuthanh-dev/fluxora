@@ -27,7 +27,7 @@ The API and worker use the same application image and encryption key. Only the A
 - `infra/docker-compose.production.yml` defines the production services, health checks, volumes, and log rotation.
 - `infra/.env.production.example` is the production variable contract.
 - `infra/scripts/deploy.sh` accepts only a full lowercase commit SHA as the image tag, applies migrations, starts services, and checks health.
-- `infra/scripts/rollback.sh` restarts API/worker/web at a known-good full commit SHA.
+- `infra/scripts/rollback.sh` checks migration state before restarting services. The local NX draft only allows the exact current API, worker and web image IDs; it cannot yet automate rollback to an earlier release.
 - `infra/scripts/backup-postgres.sh` creates a permission-restricted custom-format PostgreSQL backup.
 - `infra/scripts/restore-postgres.sh` restores a named backup only with an explicit destructive-operation confirmation.
 - `infra/nginx/workflow-automation.conf.template` is the HTTP reverse-proxy template. TLS is added by the VPS operator with the chosen certificate workflow.
@@ -127,6 +127,14 @@ deploying the containers.
   APP_DIR=/opt/workflow-automation infra/scripts/backup-postgres.sh
   ```
 
+  The local NX draft writes the dump to a private temporary file beside the
+  destination, then publishes it without replacing an existing file. A failed
+  dump does not publish the final path; a duplicate timestamp or explicitly
+  reused `BACKUP_FILE` fails instead of overwriting the earlier archive. This
+  requires hard-link support on that filesystem and does not verify the dump's
+  contents or durability. Synthetic tests passed in the isolated full quality
+  gate for snapshot `388ac7b`.
+
 - Test restoration only into an isolated database/stack. The restore command is destructive and deliberately requires `CONFIRM_RESTORE=RESTORE`:
 
   ```bash
@@ -134,8 +142,45 @@ deploying the containers.
     infra/scripts/restore-postgres.sh /path/to/postgres-YYYYMMDDTHHMMSSZ.dump
   ```
 
+  The local NX draft shares the release lock with deploy/rollback, refuses
+  to restore while named Compose API or worker containers are active, and
+  uses `pg_restore --single-transaction`. The new local draft additionally
+  refuses targets with existing user schemas, common public-schema objects,
+  extensions, large objects, publications or subscriptions. An inspection
+  error also stops the restore. Use a separate empty database; this changes
+  the earlier in-place restore behavior. The catalog check is conservative,
+  not an exhaustive object comparison or a fence against unmanaged writers.
+  An interrupted or failed restore
+  retains the lock for inspection because the commit outcome can be uncertain.
+  The check does not discover unmanaged clients or tools that ignore the lock.
+  `--clean` removes objects represented in the archive, not necessarily objects
+  created after it; this guard reduces that risk but is not a complete downgrade
+  or a safe way to preserve writes made after the backup. Synthetic tests passed in the
+  isolated full quality gate for `388ac7b`. A PostgreSQL 16 drill with synthetic
+  tables confirmed successful restore, preservation of post-backup objects and
+  rollback of a truncated-archive failure. A second isolated drill restored
+  the full migrated Fluxora schema and selected synthetic records into a fresh
+  database; the matching separate encryption key was needed for its credential.
+  An NX mock tokenized continuation recovered into an empty test Redis; the
+  fixture did not exercise a full approval flow. These
+  drills do not restore all Redis jobs or prove production recovery or rollback.
+  The subsequent opt-in `npm run test:restore:docker` passed against a separate
+  synthetic PostgreSQL Compose project: the new guard rejected a target with a
+  table or with a schema/function and restored a fixture after those were
+  removed. The test creates and removes only its randomly named fixture project.
+  It is not a production recovery drill or proof against concurrent writers.
+
 - Preserve the `postgres_data` volume and never use `docker compose down -v` in production.
-- After a successful health check, deploy scripts retain the current and previous API/Web commit-SHA images and remove only older SHA-tagged images from those two application repositories. PostgreSQL/Redis images and volumes are never part of this cleanup. Rollback can still pull any older known-good SHA from GHCR when needed.
+- After a successful health check, deploy scripts retain the current and previous API/Web commit-SHA images and remove only older SHA-tagged images from those two application repositories. PostgreSQL/Redis images and volumes are never part of this cleanup. An older image's presence in GHCR does not establish that it can safely read the current database or queued work.
+- The new deploy and rollback scripts share an atomic directory lock at `$APP_DIR/.fluxora-release.lock`. A failed lock acquisition stops the operation. The lock is deliberately retained if worker stop, migration, service replacement or health verification has an uncertain outcome. Inspect running release processes, migration state, worker, queue and provider effects before removing it; do not automatically delete a lock belonging to another process. Scripts from older releases do not honor this lock.
+- In the local NX draft, Actions uploads a separate bundle to `$APP_DIR/.incoming/<run>-<attempt>` and runs the staged deploy script. The script checks the active Compose contract, takes the release lock, verifies the fleet and backs up the existing scripts under `$APP_DIR/.release-tooling-backups/` before installing new tooling. It refuses a bundle whose Compose differs from the active file. These bundles and backups are not automatically deleted; check disk capacity and retain the bundle and backup needed for incident review.
+- If promotion fails or is interrupted, **do not rerun deploy or restore a script backup blindly**. The scripts in the backup may predate NX compatibility checks. Keep the retained lock, check whether the first migration started, identify all active release processes and image IDs, and inspect the previous tooling and database/queue state. Restore tooling or remove the lock only after determining a compatible recovery path; restoring old tooling does not restore database or execution state. The script replacements are atomic one file at a time, not as a group, and older manual scripts can ignore the lock.
+- Before migration or service replacement, the NX deploy script requires a compatible target image and inspects all Compose API/worker containers, including stopped containers. It refuses incompatible images and refuses to proceed if either service has no container. Inspection failures also stop deployment. This draft gate intentionally blocks first installation and containerless recovery until a separate verified bootstrap procedure exists. It protects the named Compose fleet only; it does not prove that an API was drained before stopping, that other unmanaged workers are absent, or that queues and provider operations are safe.
+- Once any NX migration has a record, the local rollback draft requires the NX execution and drain labels **and** requires target API, worker and web image IDs to match the current containers. Two different NX images may have the same labels while supporting different saved nodes or configurations; the label alone is not a downgrade contract. Therefore this path can restart the current release but **cannot roll back to an earlier release**. It rejects a different or missing image before stopping services. A migration marked rolled back still triggers this boundary: that marker alone does not restore data or prove compatibility. The query fails closed if database state cannot be established. The draft has synthetic test coverage, not production cutover or rollback qualification; it does not assess future migrations, unmanaged processes or concurrent tooling that ignores the release lock.
+- Deploy and rollback fail closed if an execution is queued, has already started, and lacks a well-formed NX approval continuation token. This can indicate an older queued approval whose matching job was lost or can be confused with a stale initial delivery. They check before stopping workers when the database is already running and check again after draining. A preflight failure leaves workers untouched; if ambiguity appears during the drain, the release lock remains held and workers are not automatically restarted. Inspect the execution and queue before deciding how to recover it. The query supports both old and new schemas; it does not recover the execution or establish that the old API was drained.
+- The lock and compatibility checks do **not** drain the current API, scheduler or workers during the first upgrade from an older image. Stopping old containers merely to pass the check may interrupt OAuth refreshes, provider writes or scheduled work. Do not use these checks as authorization to deploy NX; a separately verified cutover and rollback procedure is still required.
+- The latest **unverified local draft** also requires the explicit graceful-drain image label and drains a compatible API before workers and migration; NX rollback follows the same order. On a pre-migration dependency/backup failure it attempts to restart the previously running workers and APIs, in that order. An unclean API exit or uncertain stop retains the lock. This does not establish first-cutover safety, prove detached work has finished, or make older unlabelled images drainable; legacy rollback is unchanged. Rehearse the exact version and interruption cases before relying on it.
+- After compatibility checks pass, new deploy and rollback scripts ask Compose to stop the worker with `--timeout -1`. Its SIGTERM handler stops taking jobs and waits for active work; jobs not yet started remain in Redis. Docker documents that an indefinite stop timeout avoids forced SIGKILL ([Docker stop reference](https://docs.docker.com/reference/cli/docker/container/stop/)). The scripts also inspect each previously running worker and require an exited state, zero exit code and no OOM kill; Docker reporting a successful stop alone is insufficient. A failed or interrupted stop or an unclean exit leaves the release lock for inspection rather than issuing another stop or blindly restarting the worker. A clean exit is not proof that external provider side effects were completed. A hung worker can therefore delay deployment indefinitely; the Actions/SSH timeout can end the client without proving the daemon's stop has finished. Before migration only, a dependency or backup failure attempts to restart precisely the worker containers that were running before the release; an uncertain restart retains the lock. After migration starts, do not automatically start an older image. API/web health alone is insufficient: the scripts also require the requested worker image to be running before releasing the lock. These checks do not establish that its jobs or providers are healthy.
 - `.github/workflows/retain-ghcr.yml` runs weekly and keeps the five newest immutable SHA-tagged versions for each application package. It never deletes mutable/non-SHA tags; manual runs default to dry-run so retention can be inspected before deletion.
 - Application deploys explicitly pull only `migrate`, `api`, `worker`, and `web`; PostgreSQL/Redis are pulled by Compose only when missing and are not refreshed on every application release.
 - Keep execution retention bounded by the configured success/failed day limits and maximum count.

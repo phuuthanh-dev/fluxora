@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Inject, Param, Query, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Controller, Get, Header, Inject, Param, Query, Req, UseGuards } from "@nestjs/common";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
 import { GoogleResourceService } from "./google-resource.service";
@@ -14,5 +14,19 @@ export class GoogleResourceController {
     if (kind !== undefined && kind !== "file" && kind !== "spreadsheet") throw new BadRequestException({ code: "INVALID_INPUT", message: "Unsupported file type." });
     if (pageToken !== undefined && (pageToken.length > 512 || !/^[\x21-\x7e]+$/.test(pageToken))) throw new BadRequestException({ code: "INVALID_INPUT", message: "Invalid page token." });
     return this.resources.listFiles(workspaceId, credentialId, request.currentUser.id, kind === "spreadsheet" ? "spreadsheet" : "file", pageToken);
+  }
+
+  @Get("sheets/tabs")
+  @Header("Cache-Control", "no-store")
+  async tabs(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Req() request: AuthenticatedRequest, @Query("spreadsheetId") spreadsheetId?: string) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    return this.resources.listSheetTabs(workspaceId, credentialId, request.currentUser.id, spreadsheetId);
+  }
+
+  @Get("sheets/headers")
+  @Header("Cache-Control", "no-store")
+  async headers(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Req() request: AuthenticatedRequest, @Query("spreadsheetId") spreadsheetId?: string, @Query("sheet") sheet?: string) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    return this.resources.getSheetHeaders(workspaceId, credentialId, request.currentUser.id, spreadsheetId, sheet);
   }
 }

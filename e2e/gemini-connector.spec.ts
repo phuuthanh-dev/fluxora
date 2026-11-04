@@ -9,7 +9,10 @@ test("Gemini node discovers models using its connection and retains manual fallb
     if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
     if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
     if (path.endsWith("/credentials")) return send({ credentials: [{ id: "gemini-1", provider: "GEMINI", label: "Gemini test" }] });
-    if (path.endsWith("/gemini/models")) return send({ models: [{ id: "models/example", label: "Example" }], hasMore: true });
+    if (path.endsWith("/gemini/models")) {
+      const cursor = new URL(route.request().url()).searchParams.get("pageToken");
+      return send(cursor === "next+/=" ? { models: [{ id: "models/second", label: "Second" }], hasMore: false, nextPageToken: null } : { models: [{ id: "models/example", label: "Example", inputTokenLimit: 1000000, outputTokenLimit: 8192, thinking: true }], hasMore: true, nextPageToken: "next+/=" });
+    }
     if (path.endsWith("/workflows/workflow-gemini")) return send({ workflow });
     return route.continue();
   });
@@ -18,7 +21,10 @@ test("Gemini node discovers models using its connection and retains manual fallb
   await expect(page.getByLabel("Gemini credential")).toHaveValue("gemini-1");
   const group = page.getByRole("group", { name: "Model" });
   await expect(group.getByRole("option", { name: /Example/ })).toHaveAttribute("value", "models/example");
-  await expect(group.getByText(/Showing up to 100 models/)).toBeVisible();
+  await expect(group.getByText(/Google-reported model limits:/)).toContainText("output 8,192 tokens");
+  await group.getByRole("button", { name: "Load more models" }).click();
+  await expect(group.getByRole("option", { name: /Second/ })).toHaveAttribute("value", "models/second");
+  await expect(group.getByRole("option", { name: /Example/ })).toHaveAttribute("value", "models/example");
   await group.getByRole("button", { name: /Enter value or expression/ }).click();
   await expect(group.getByLabel("Model value")).toHaveValue("models/example");
   await expect(page.getByLabel("Prompt")).toHaveValue("Hello");

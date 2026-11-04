@@ -29,6 +29,7 @@
         "apps/api/src/database/prisma.module.ts",
         "apps/api/src/execution/execution.module.ts",
         "apps/api/src/health.controller.ts",
+        "apps/api/src/platform/request-drain.interceptor.ts",
         "apps/api/src/platform/runtime-health.service.ts",
         "apps/api/src/scheduler/scheduler.module.ts",
         "apps/api/src/webhooks/webhook.module.ts",
@@ -38,6 +39,7 @@
       "externalImports": [
         "@nestjs/common",
         "@nestjs/config",
+        "@nestjs/core",
         "node:path"
       ]
     },
@@ -233,15 +235,30 @@
       ]
     },
     {
+      "id": "apps/api/src/credentials/connector-resource-discovery.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/notion-search.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-json.ts",
+        "apps/api/src/execution/trello-pagination.ts"
+      ],
+      "externalImports": []
+    },
+    {
       "id": "apps/api/src/credentials/connector-resource.controller.ts",
       "boundary": "api",
       "internalImports": [
         "apps/api/src/auth/authenticated-request.ts",
         "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/credentials/connector-resource-discovery.ts",
         "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/github-read.ts",
         "apps/api/src/execution/google-chat-oauth.ts",
         "apps/api/src/execution/mongodb-find.ts",
         "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/notion-operations.ts",
         "apps/api/src/execution/postgres-read.ts",
         "apps/api/src/execution/sentry.ts",
         "apps/api/src/execution/supabase.ts",
@@ -296,6 +313,7 @@
         "apps/api/src/credentials/github-resource.service.ts",
         "apps/api/src/credentials/gmail-resource.controller.ts",
         "apps/api/src/credentials/google-calendar-resource.controller.ts",
+        "apps/api/src/credentials/google-oauth-state.service.ts",
         "apps/api/src/credentials/google-oauth.controller.ts",
         "apps/api/src/credentials/google-resource.controller.ts",
         "apps/api/src/credentials/google-resource.service.ts",
@@ -312,6 +330,7 @@
       "internalImports": [
         "apps/api/src/credentials/credential-hints.ts",
         "apps/api/src/credentials/credential-vault.service.ts",
+        "apps/api/src/credentials/google-oauth-policy.ts",
         "apps/api/src/database/prisma.service.ts",
         "apps/api/src/execution/mongodb-find.ts",
         "apps/api/src/execution/node-failure.ts",
@@ -321,7 +340,8 @@
       ],
       "externalImports": [
         "@nestjs/common",
-        "@prisma/client"
+        "@prisma/client",
+        "node:crypto"
       ]
     },
     {
@@ -393,17 +413,52 @@
       ]
     },
     {
-      "id": "apps/api/src/credentials/google-oauth.controller.ts",
+      "id": "apps/api/src/credentials/google-oauth-policy.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@prisma/client",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/google-oauth-state.service.ts",
       "boundary": "api",
       "internalImports": [
-        "apps/api/src/auth/authenticated-request.ts",
-        "apps/api/src/auth/authentication.guard.ts",
-        "apps/api/src/credentials/credential.service.ts"
+        "apps/api/src/credentials/google-oauth-policy.ts"
       ],
       "externalImports": [
         "@nestjs/common",
         "express",
+        "ioredis",
         "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/google-oauth-test-helpers.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/google-oauth-state.service.ts",
+        "apps/api/src/credentials/google-oauth.controller.ts"
+      ],
+      "externalImports": [
+        "express"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/google-oauth.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/auth.service.ts",
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/credentials/google-oauth-policy.ts",
+        "apps/api/src/credentials/google-oauth-state.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "express"
       ]
     },
     {
@@ -422,7 +477,9 @@
       "id": "apps/api/src/credentials/google-resource.service.ts",
       "boundary": "api",
       "internalImports": [
-        "apps/api/src/credentials/credential.service.ts"
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-json.ts"
       ],
       "externalImports": [
         "@nestjs/common"
@@ -462,6 +519,91 @@
       ]
     },
     {
+      "id": "apps/api/src/execution/ai-request-limits.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/execution/ai-structured-output.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/redaction.ts"
+      ],
+      "externalImports": [
+        "@workflow/contracts"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/approval-continuation-recovery.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/execution-queue.service.ts",
+        "apps/api/src/platform/background-work.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/connector-config.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/execution/connector-executors.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/connector-config.ts",
+        "apps/api/src/execution/gemini-text.ts",
+        "apps/api/src/execution/github-read.ts",
+        "apps/api/src/execution/github-update-issue.ts",
+        "apps/api/src/execution/github-write-adapter.ts",
+        "apps/api/src/execution/gmail-get-message.ts",
+        "apps/api/src/execution/gmail-read.ts",
+        "apps/api/src/execution/gmail-write.ts",
+        "apps/api/src/execution/google-calendar.ts",
+        "apps/api/src/execution/google-chat-oauth.ts",
+        "apps/api/src/execution/google-drive-pagination.ts",
+        "apps/api/src/execution/google-workspace-adapter.ts",
+        "apps/api/src/execution/http-request-adapter.ts",
+        "apps/api/src/execution/mongodb-find.ts",
+        "apps/api/src/execution/node-executor-contract.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/notification-adapters.ts",
+        "apps/api/src/execution/notion-create-page.ts",
+        "apps/api/src/execution/notion-operations.ts",
+        "apps/api/src/execution/notion-search.ts",
+        "apps/api/src/execution/openai-text.ts",
+        "apps/api/src/execution/postgres-read.ts",
+        "apps/api/src/execution/reddit.ts",
+        "apps/api/src/execution/rss-read.ts",
+        "apps/api/src/execution/sentry-observability.ts",
+        "apps/api/src/execution/sentry.ts",
+        "apps/api/src/execution/smtp-email.ts",
+        "apps/api/src/execution/steam-adapter.ts",
+        "apps/api/src/execution/supabase.ts",
+        "apps/api/src/execution/telegram-message-operations.ts",
+        "apps/api/src/execution/trello-operations.ts",
+        "apps/api/src/execution/trello.ts",
+        "apps/api/src/execution/vercel-observability.ts",
+        "apps/api/src/execution/vercel.ts"
+      ],
+      "externalImports": [
+        "@prisma/client",
+        "@workflow/contracts"
+      ]
+    },
+    {
       "id": "apps/api/src/execution/execution-events.service.ts",
       "boundary": "api",
       "internalImports": [
@@ -479,7 +621,8 @@
       "internalImports": [
         "apps/api/src/database/prisma.service.ts",
         "apps/api/src/execution/execution.service.ts",
-        "apps/api/src/execution/retention-policy.ts"
+        "apps/api/src/execution/retention-policy.ts",
+        "apps/api/src/platform/background-work.ts"
       ],
       "externalImports": [
         "@nestjs/common",
@@ -527,6 +670,7 @@
       "internalImports": [
         "apps/api/src/auth/auth.module.ts",
         "apps/api/src/credentials/credential.module.ts",
+        "apps/api/src/execution/approval-continuation-recovery.service.ts",
         "apps/api/src/execution/execution-events.service.ts",
         "apps/api/src/execution/execution-maintenance.service.ts",
         "apps/api/src/execution/execution-queue.service.ts",
@@ -543,32 +687,19 @@
       "internalImports": [
         "apps/api/src/credentials/credential.service.ts",
         "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/connector-executors.ts",
         "apps/api/src/execution/execution-events.service.ts",
         "apps/api/src/execution/expression.ts",
-        "apps/api/src/execution/gemini-text.ts",
-        "apps/api/src/execution/gmail-read.ts",
-        "apps/api/src/execution/google-calendar.ts",
-        "apps/api/src/execution/google-chat-oauth.ts",
-        "apps/api/src/execution/http-credential.ts",
+        "apps/api/src/execution/github-write-adapter.ts",
+        "apps/api/src/execution/google-workspace-adapter.ts",
         "apps/api/src/execution/live-readiness.ts",
-        "apps/api/src/execution/mongodb-find.ts",
+        "apps/api/src/execution/node-executor-contract.ts",
         "apps/api/src/execution/node-failure.ts",
-        "apps/api/src/execution/notion-search.ts",
-        "apps/api/src/execution/openai-text.ts",
-        "apps/api/src/execution/outbound-url-policy.ts",
-        "apps/api/src/execution/postgres-read.ts",
-        "apps/api/src/execution/provider-json.ts",
-        "apps/api/src/execution/provider-request-policy.ts",
+        "apps/api/src/execution/notification-adapters.ts",
         "apps/api/src/execution/redaction.ts",
-        "apps/api/src/execution/reddit.ts",
         "apps/api/src/execution/retention-policy.ts",
         "apps/api/src/execution/retry-policy.ts",
-        "apps/api/src/execution/rss-read.ts",
-        "apps/api/src/execution/sentry.ts",
-        "apps/api/src/execution/smtp-email.ts",
-        "apps/api/src/execution/supabase.ts",
-        "apps/api/src/execution/trello.ts",
-        "apps/api/src/execution/vercel.ts",
+        "apps/api/src/execution/steam-adapter.ts",
         "apps/api/src/workflows/workflow-graph.ts"
       ],
       "externalImports": [
@@ -591,6 +722,8 @@
       "boundary": "api",
       "internalImports": [
         "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/ai-request-limits.ts",
+        "apps/api/src/execution/ai-structured-output.ts",
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
         "apps/api/src/execution/provider-json.ts"
@@ -598,6 +731,58 @@
       "externalImports": [
         "@prisma/client"
       ]
+    },
+    {
+      "id": "apps/api/src/execution/github-read.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-request-policy.ts"
+      ],
+      "externalImports": [
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/github-update-issue.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-request-policy.ts"
+      ],
+      "externalImports": [
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/github-write-adapter.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/connector-config.ts",
+        "apps/api/src/execution/node-executor-contract.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-request-policy.ts"
+      ],
+      "externalImports": [
+        "@prisma/client",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/gmail-get-message.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/gmail-operations.ts",
+        "apps/api/src/execution/node-failure.ts"
+      ],
+      "externalImports": []
     },
     {
       "id": "apps/api/src/execution/gmail-history.ts",
@@ -612,7 +797,7 @@
       ]
     },
     {
-      "id": "apps/api/src/execution/gmail-read.ts",
+      "id": "apps/api/src/execution/gmail-operations.ts",
       "boundary": "api",
       "internalImports": [
         "apps/api/src/credentials/credential.service.ts",
@@ -622,7 +807,36 @@
       ],
       "externalImports": [
         "), to: header(",
+        "@prisma/client",
+        "node:crypto",
+        "undici"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/gmail-read.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-json.ts",
+        "apps/api/src/execution/redaction.ts"
+      ],
+      "externalImports": [
+        "), to: header(",
         "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/gmail-write.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/gmail-operations.ts",
+        "apps/api/src/execution/node-failure.ts"
+      ],
+      "externalImports": [
+        "node:crypto"
       ]
     },
     {
@@ -632,7 +846,8 @@
         "apps/api/src/credentials/credential.service.ts",
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
-        "apps/api/src/execution/provider-json.ts"
+        "apps/api/src/execution/provider-json.ts",
+        "apps/api/src/execution/redaction.ts"
       ],
       "externalImports": [
         "@prisma/client",
@@ -644,18 +859,57 @@
       "boundary": "api",
       "internalImports": [
         "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/credentials/google-oauth-policy.ts",
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
         "apps/api/src/execution/provider-json.ts"
       ],
       "externalImports": [
-        "@prisma/client"
+        "@prisma/client",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/google-drive-pagination.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/redaction.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/execution/google-workspace-adapter.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/connector-config.ts",
+        "apps/api/src/execution/google-drive-pagination.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-json.ts",
+        "apps/api/src/execution/provider-request-policy.ts"
+      ],
+      "externalImports": [
+        "node:crypto"
       ]
     },
     {
       "id": "apps/api/src/execution/http-credential.ts",
       "boundary": "api",
       "internalImports": [],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/execution/http-request-adapter.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/http-credential.ts",
+        "apps/api/src/execution/node-executor-contract.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-json.ts",
+        "apps/api/src/execution/provider-request-policy.ts"
+      ],
       "externalImports": []
     },
     {
@@ -683,6 +937,17 @@
       ]
     },
     {
+      "id": "apps/api/src/execution/node-executor-contract.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts"
+      ],
+      "externalImports": [
+        "@workflow/contracts"
+      ]
+    },
+    {
       "id": "apps/api/src/execution/node-failure.ts",
       "boundary": "api",
       "internalImports": [
@@ -693,16 +958,71 @@
       ]
     },
     {
+      "id": "apps/api/src/execution/notification-adapters.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/connector-config.ts",
+        "apps/api/src/execution/node-executor-contract.ts",
+        "apps/api/src/execution/node-failure.ts"
+      ],
+      "externalImports": [
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/notion-create-page.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-request-policy.ts"
+      ],
+      "externalImports": [
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/notion-operations.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/notion-search.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-json.ts",
+        "apps/api/src/execution/redaction.ts",
+        "apps/api/src/execution/retry-policy.ts"
+      ],
+      "externalImports": [
+        "@prisma/client"
+      ]
+    },
+    {
       "id": "apps/api/src/execution/notion-search.ts",
       "boundary": "api",
       "internalImports": [
         "apps/api/src/credentials/credential.service.ts",
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
-        "apps/api/src/execution/provider-json.ts"
+        "apps/api/src/execution/provider-json.ts",
+        "apps/api/src/execution/retry-policy.ts"
       ],
       "externalImports": [
         "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/observability-read.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-json.ts"
+      ],
+      "externalImports": [
+        "undici"
       ]
     },
     {
@@ -710,6 +1030,8 @@
       "boundary": "api",
       "internalImports": [
         "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/ai-request-limits.ts",
+        "apps/api/src/execution/ai-structured-output.ts",
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
         "apps/api/src/execution/provider-json.ts"
@@ -736,7 +1058,8 @@
         "apps/api/src/credentials/credential.service.ts",
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/postgres-select-query.ts",
-        "apps/api/src/execution/postgres-target.ts"
+        "apps/api/src/execution/postgres-target.ts",
+        "apps/api/src/execution/relational-selection-validation.ts"
       ],
       "externalImports": [
         "@prisma/client",
@@ -750,7 +1073,8 @@
       "id": "apps/api/src/execution/postgres-select-query.ts",
       "boundary": "api",
       "internalImports": [
-        "apps/api/src/execution/node-failure.ts"
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/relational-selection-validation.ts"
       ],
       "externalImports": []
     },
@@ -765,6 +1089,14 @@
         "node:dns/promises",
         "node:net"
       ]
+    },
+    {
+      "id": "apps/api/src/execution/provider-credential-safety.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts"
+      ],
+      "externalImports": []
     },
     {
       "id": "apps/api/src/execution/provider-json.ts",
@@ -804,6 +1136,14 @@
       ]
     },
     {
+      "id": "apps/api/src/execution/relational-selection-validation.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts"
+      ],
+      "externalImports": []
+    },
+    {
       "id": "apps/api/src/execution/retention-policy.ts",
       "boundary": "api",
       "internalImports": [],
@@ -814,6 +1154,18 @@
       "boundary": "api",
       "internalImports": [],
       "externalImports": []
+    },
+    {
+      "id": "apps/api/src/execution/rss-public-transport.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/outbound-url-policy.ts"
+      ],
+      "externalImports": [
+        "node:dns/promises",
+        "node:net",
+        "undici"
+      ]
     },
     {
       "id": "apps/api/src/execution/rss-read.ts",
@@ -827,13 +1179,51 @@
       ]
     },
     {
+      "id": "apps/api/src/execution/rss-trigger-snapshot.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/redaction.ts",
+        "apps/api/src/execution/rss-public-transport.ts",
+        "apps/api/src/execution/rss-read.ts"
+      ],
+      "externalImports": [
+        "fast-xml-parser",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/sentry-observability.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/observability-read.ts",
+        "apps/api/src/execution/provider-credential-safety.ts"
+      ],
+      "externalImports": [
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/sentry-pagination.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts"
+      ],
+      "externalImports": []
+    },
+    {
       "id": "apps/api/src/execution/sentry.ts",
       "boundary": "api",
       "internalImports": [
         "apps/api/src/credentials/credential.service.ts",
         "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/observability-read.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
-        "apps/api/src/execution/provider-json.ts"
+        "apps/api/src/execution/provider-credential-safety.ts",
+        "apps/api/src/execution/provider-json.ts",
+        "apps/api/src/execution/sentry-pagination.ts"
       ],
       "externalImports": [
         "@prisma/client"
@@ -856,17 +1246,62 @@
       ]
     },
     {
+      "id": "apps/api/src/execution/steam-adapter.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/connector-config.ts",
+        "apps/api/src/execution/node-failure.ts"
+      ],
+      "externalImports": []
+    },
+    {
       "id": "apps/api/src/execution/supabase.ts",
       "boundary": "api",
       "internalImports": [
         "apps/api/src/credentials/credential.service.ts",
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
-        "apps/api/src/execution/provider-json.ts"
+        "apps/api/src/execution/provider-json.ts",
+        "apps/api/src/execution/relational-selection-validation.ts"
       ],
       "externalImports": [
         "@prisma/client"
       ]
+    },
+    {
+      "id": "apps/api/src/execution/telegram-message-operations.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-json.ts",
+        "apps/api/src/notifications/telegram-destination.ts"
+      ],
+      "externalImports": [
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/trello-operations.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-request-policy.ts",
+        "apps/api/src/execution/trello-pagination.ts"
+      ],
+      "externalImports": [
+        "@prisma/client",
+        "undici"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/trello-pagination.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": []
     },
     {
       "id": "apps/api/src/execution/trello.ts",
@@ -882,12 +1317,27 @@
       ]
     },
     {
+      "id": "apps/api/src/execution/vercel-observability.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/observability-read.ts",
+        "apps/api/src/execution/provider-credential-safety.ts"
+      ],
+      "externalImports": [
+        "@prisma/client"
+      ]
+    },
+    {
       "id": "apps/api/src/execution/vercel.ts",
       "boundary": "api",
       "internalImports": [
         "apps/api/src/credentials/credential.service.ts",
         "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/observability-read.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-credential-safety.ts",
         "apps/api/src/execution/provider-json.ts"
       ],
       "externalImports": [
@@ -1052,6 +1502,12 @@
       ]
     },
     {
+      "id": "apps/api/src/platform/background-work.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
       "id": "apps/api/src/platform/environment.ts",
       "boundary": "api",
       "internalImports": [
@@ -1060,6 +1516,16 @@
       ],
       "externalImports": [
         "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/platform/request-drain.interceptor.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@nestjs/common",
+        "@nestjs/common/constants",
+        "rxjs"
       ]
     },
     {
@@ -1080,6 +1546,7 @@
         "apps/api/src/database/prisma.service.ts",
         "apps/api/src/execution/execution-queue.service.ts",
         "apps/api/src/execution/execution.service.ts",
+        "apps/api/src/platform/background-work.ts",
         "apps/api/src/workflows/workflow-graph.ts"
       ],
       "externalImports": [
@@ -1099,6 +1566,7 @@
         "apps/api/src/execution/gmail-history.ts",
         "apps/api/src/execution/gmail-read.ts",
         "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/platform/background-work.ts",
         "apps/api/src/workflows/workflow-graph.ts"
       ],
       "externalImports": [
@@ -1109,13 +1577,63 @@
       ]
     },
     {
+      "id": "apps/api/src/scheduler/rss-trigger-poller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/retry-policy.ts",
+        "apps/api/src/execution/rss-public-transport.ts",
+        "apps/api/src/execution/rss-read.ts",
+        "apps/api/src/execution/rss-trigger-snapshot.ts"
+      ],
+      "externalImports": [
+        "@workflow/contracts",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/scheduler/rss-trigger.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/execution-queue.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/platform/background-work.ts",
+        "apps/api/src/scheduler/rss-trigger-poller.ts",
+        "apps/api/src/scheduler/rss-trigger.store.ts",
+        "apps/api/src/workflows/workflow-graph.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client",
+        "@workflow/contracts"
+      ]
+    },
+    {
+      "id": "apps/api/src/scheduler/rss-trigger.store.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/live-readiness.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/redaction.ts",
+        "apps/api/src/scheduler/rss-trigger-poller.ts",
+        "apps/api/src/workflows/workflow-graph.ts"
+      ],
+      "externalImports": [
+        "@prisma/client",
+        "node:crypto"
+      ]
+    },
+    {
       "id": "apps/api/src/scheduler/scheduler.module.ts",
       "boundary": "api",
       "internalImports": [
         "apps/api/src/credentials/credential.module.ts",
         "apps/api/src/execution/execution.module.ts",
         "apps/api/src/scheduler/cron-scheduler.service.ts",
-        "apps/api/src/scheduler/gmail-trigger.service.ts"
+        "apps/api/src/scheduler/gmail-trigger.service.ts",
+        "apps/api/src/scheduler/rss-trigger.service.ts"
       ],
       "externalImports": [
         "@nestjs/common"
@@ -1207,6 +1725,31 @@
       ]
     },
     {
+      "id": "apps/api/src/webhooks/kuma-delivery-recovery.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/execution-queue.service.ts",
+        "apps/api/src/platform/background-work.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/legacy-delivery-recovery.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/execution-queue.service.ts",
+        "apps/api/src/webhooks/kuma-delivery-recovery.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
       "id": "apps/api/src/webhooks/provider-webhook-adapter.ts",
       "boundary": "api",
       "internalImports": [],
@@ -1216,7 +1759,8 @@
       "id": "apps/api/src/webhooks/provider-webhook-recovery.service.ts",
       "boundary": "api",
       "internalImports": [
-        "apps/api/src/database/prisma.service.ts"
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/platform/background-work.ts"
       ],
       "externalImports": [
         "@nestjs/common",
@@ -1229,6 +1773,98 @@
       "internalImports": [],
       "externalImports": [
         "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/sentry-delivery-recovery.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/execution-queue.service.ts",
+        "apps/api/src/webhooks/kuma-delivery-recovery.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/sentry-trigger-protocol.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@nestjs/common",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/telegram-delivery-recovery.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/execution-queue.service.ts",
+        "apps/api/src/webhooks/kuma-delivery-recovery.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/telegram-trigger-protocol.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@nestjs/common",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/trello-delivery-recovery.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/execution-queue.service.ts",
+        "apps/api/src/webhooks/kuma-delivery-recovery.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/trello-trigger-protocol.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@nestjs/common",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/uptime-kuma-filter.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/vercel-delivery-recovery.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/execution-queue.service.ts",
+        "apps/api/src/webhooks/kuma-delivery-recovery.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/vercel-trigger-protocol.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@nestjs/common",
+        "node:crypto"
       ]
     },
     {
@@ -1253,7 +1889,13 @@
         "apps/api/src/execution/execution.module.ts",
         "apps/api/src/webhooks/github-webhook-adapter.ts",
         "apps/api/src/webhooks/github-webhook-management.service.ts",
+        "apps/api/src/webhooks/kuma-delivery-recovery.service.ts",
+        "apps/api/src/webhooks/legacy-delivery-recovery.service.ts",
         "apps/api/src/webhooks/provider-webhook-recovery.service.ts",
+        "apps/api/src/webhooks/sentry-delivery-recovery.service.ts",
+        "apps/api/src/webhooks/telegram-delivery-recovery.service.ts",
+        "apps/api/src/webhooks/trello-delivery-recovery.service.ts",
+        "apps/api/src/webhooks/vercel-delivery-recovery.service.ts",
         "apps/api/src/webhooks/webhook.controller.ts",
         "apps/api/src/webhooks/webhook.service.ts"
       ],
@@ -1270,6 +1912,11 @@
         "apps/api/src/database/prisma.service.ts",
         "apps/api/src/execution/execution-queue.service.ts",
         "apps/api/src/execution/execution.service.ts",
+        "apps/api/src/webhooks/sentry-trigger-protocol.ts",
+        "apps/api/src/webhooks/telegram-trigger-protocol.ts",
+        "apps/api/src/webhooks/trello-trigger-protocol.ts",
+        "apps/api/src/webhooks/uptime-kuma-filter.ts",
+        "apps/api/src/webhooks/vercel-trigger-protocol.ts",
         "apps/api/src/workflows/workflow-graph.ts"
       ],
       "externalImports": [
@@ -1289,7 +1936,16 @@
     {
       "id": "apps/api/src/workflows/workflow-graph.ts",
       "boundary": "api",
-      "internalImports": [],
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/rss-public-transport.ts",
+        "apps/api/src/scheduler/rss-trigger-poller.ts",
+        "apps/api/src/webhooks/sentry-trigger-protocol.ts",
+        "apps/api/src/webhooks/telegram-trigger-protocol.ts",
+        "apps/api/src/webhooks/trello-trigger-protocol.ts",
+        "apps/api/src/webhooks/uptime-kuma-filter.ts",
+        "apps/api/src/webhooks/vercel-trigger-protocol.ts"
+      ],
       "externalImports": [
         "@nestjs/common",
         "@workflow/contracts"
@@ -1329,6 +1985,8 @@
       "internalImports": [
         "apps/api/src/database/prisma.service.ts",
         "apps/api/src/scheduler/gmail-trigger.service.ts",
+        "apps/api/src/scheduler/rss-trigger-poller.ts",
+        "apps/api/src/scheduler/rss-trigger.service.ts",
         "apps/api/src/workflows/system-templates.ts",
         "apps/api/src/workflows/workflow-graph.ts",
         "apps/api/src/workspaces/workspace.service.ts"
@@ -1893,7 +2551,9 @@
       "id": "apps/web/src/features/credentials/credential-types.ts",
       "boundary": "web",
       "internalImports": [],
-      "externalImports": []
+      "externalImports": [
+        "@workflow/contracts"
+      ]
     },
     {
       "id": "apps/web/src/features/dashboard/archived-workflows.tsx",
@@ -2223,6 +2883,12 @@
       "externalImports": []
     },
     {
+      "id": "apps/web/src/features/workflow/drive-pagination.ts",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
       "id": "apps/web/src/features/workflow/editor-store.ts",
       "boundary": "web",
       "internalImports": [
@@ -2254,6 +2920,23 @@
       "externalImports": []
     },
     {
+      "id": "apps/web/src/features/workflow/google-sheets-mapping-field.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/api/api-client.ts",
+        "apps/web/src/features/workflow/google-sheets-mapping.ts"
+      ],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/workflow/google-sheets-mapping.ts",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
       "id": "apps/web/src/features/workflow/graph-validation.ts",
       "boundary": "web",
       "internalImports": [
@@ -2265,7 +2948,10 @@
       "id": "apps/web/src/features/workflow/inspector-drafts.ts",
       "boundary": "web",
       "internalImports": [
-        "apps/web/src/features/workflow/mongodb-filter.ts"
+        "apps/web/src/features/workflow/google-sheets-mapping.ts",
+        "apps/web/src/features/workflow/mongodb-filter.ts",
+        "apps/web/src/features/workflow/relational-selection.ts",
+        "apps/web/src/features/workflow/structured-output-schema.ts"
       ],
       "externalImports": []
     },
@@ -2290,7 +2976,6 @@
       "id": "apps/web/src/features/workflow/node-catalog.ts",
       "boundary": "web",
       "internalImports": [
-        "apps/web/src/features/credentials/credential-types.ts",
         "apps/web/src/features/workflow/node-icon.tsx"
       ],
       "externalImports": [
@@ -2335,6 +3020,24 @@
       "externalImports": []
     },
     {
+      "id": "apps/web/src/features/workflow/relational-selection-field.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/workflow/relational-selection.ts"
+      ],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/workflow/relational-selection.ts",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/workflow/node-catalog.ts"
+      ],
+      "externalImports": []
+    },
+    {
       "id": "apps/web/src/features/workflow/resource-picker.tsx",
       "boundary": "web",
       "internalImports": [
@@ -2343,6 +3046,24 @@
       ],
       "externalImports": [
         "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/workflow/structured-output-field.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/workflow/structured-output-schema.ts"
+      ],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/workflow/structured-output-schema.ts",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "@workflow/contracts"
       ]
     },
     {
@@ -2373,9 +3094,12 @@
         "apps/web/src/features/app-shell/app-shell-header.tsx",
         "apps/web/src/features/credentials/credential-panel.tsx",
         "apps/web/src/features/credentials/credential-types.ts",
+        "apps/web/src/features/workflow/drive-pagination.ts",
         "apps/web/src/features/workflow/editor-store.ts",
         "apps/web/src/features/workflow/execution-observability.tsx",
         "apps/web/src/features/workflow/expression-suggestions.ts",
+        "apps/web/src/features/workflow/google-sheets-mapping-field.tsx",
+        "apps/web/src/features/workflow/google-sheets-mapping.ts",
         "apps/web/src/features/workflow/graph-validation.ts",
         "apps/web/src/features/workflow/inspector-drafts.ts",
         "apps/web/src/features/workflow/mongodb-filter-field.tsx",
@@ -2383,7 +3107,11 @@
         "apps/web/src/features/workflow/node-catalog.ts",
         "apps/web/src/features/workflow/node-icon.tsx",
         "apps/web/src/features/workflow/node-library.tsx",
+        "apps/web/src/features/workflow/relational-selection-field.tsx",
+        "apps/web/src/features/workflow/relational-selection.ts",
         "apps/web/src/features/workflow/resource-picker.tsx",
+        "apps/web/src/features/workflow/structured-output-field.tsx",
+        "apps/web/src/features/workflow/structured-output-schema.ts",
         "apps/web/src/features/workflow/test-data.ts",
         "apps/web/src/features/workflow/workflow-api.ts",
         "apps/web/src/features/workflow/workflow-graph-schema.ts",
@@ -2420,9 +3148,144 @@
       ]
     },
     {
-      "id": "packages/workflow-contracts/src/index.ts",
+      "id": "packages/workflow-contracts/src/ai-node-fields.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/index.ts",
+        "packages/workflow-contracts/src/node-configuration-fields.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "packages/workflow-contracts/src/ai-schema.ts",
       "boundary": "contracts",
       "internalImports": [],
+      "externalImports": []
+    },
+    {
+      "id": "packages/workflow-contracts/src/communication-node-fields.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/index.ts",
+        "packages/workflow-contracts/src/node-configuration-fields.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "packages/workflow-contracts/src/configuration-fields-registry.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/ai-node-fields.ts",
+        "packages/workflow-contracts/src/communication-node-fields.ts",
+        "packages/workflow-contracts/src/data-node-fields.ts",
+        "packages/workflow-contracts/src/developer-node-fields.ts",
+        "packages/workflow-contracts/src/github-read-fields.ts",
+        "packages/workflow-contracts/src/gmail-write-fields.ts",
+        "packages/workflow-contracts/src/google-node-fields.ts",
+        "packages/workflow-contracts/src/index.ts",
+        "packages/workflow-contracts/src/node-configuration-fields.ts",
+        "packages/workflow-contracts/src/notion-read-fields.ts",
+        "packages/workflow-contracts/src/other-node-fields.ts",
+        "packages/workflow-contracts/src/trello-card-fields.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "packages/workflow-contracts/src/data-node-fields.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/index.ts",
+        "packages/workflow-contracts/src/node-configuration-fields.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "packages/workflow-contracts/src/developer-node-fields.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/index.ts",
+        "packages/workflow-contracts/src/node-configuration-fields.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "packages/workflow-contracts/src/github-read-fields.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-configuration-fields.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "packages/workflow-contracts/src/gmail-write-fields.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-configuration-fields.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "packages/workflow-contracts/src/google-node-fields.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/index.ts",
+        "packages/workflow-contracts/src/node-configuration-fields.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "packages/workflow-contracts/src/index.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/ai-schema.ts",
+        "packages/workflow-contracts/src/configuration-fields-registry.ts",
+        "packages/workflow-contracts/src/gmail-write-fields.ts",
+        "packages/workflow-contracts/src/node-configuration-fields.ts",
+        "packages/workflow-contracts/src/notion-read-fields.ts",
+        "packages/workflow-contracts/src/operation-metadata.ts",
+        "packages/workflow-contracts/src/trello-card-fields.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-configuration-fields.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/operation-metadata.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "packages/workflow-contracts/src/notion-read-fields.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-configuration-fields.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "packages/workflow-contracts/src/operation-metadata.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/index.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "packages/workflow-contracts/src/other-node-fields.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/index.ts",
+        "packages/workflow-contracts/src/node-configuration-fields.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "packages/workflow-contracts/src/trello-card-fields.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-configuration-fields.ts"
+      ],
       "externalImports": []
     }
   ],
@@ -2450,6 +3313,10 @@
     {
       "from": "apps/api/src/app.module.ts",
       "to": "apps/api/src/health.controller.ts"
+    },
+    {
+      "from": "apps/api/src/app.module.ts",
+      "to": "apps/api/src/platform/request-drain.interceptor.ts"
     },
     {
       "from": "apps/api/src/app.module.ts",
@@ -2628,6 +3495,26 @@
       "to": "apps/api/src/auth/authenticated-request.ts"
     },
     {
+      "from": "apps/api/src/credentials/connector-resource-discovery.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/connector-resource-discovery.ts",
+      "to": "apps/api/src/execution/notion-search.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/connector-resource-discovery.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/connector-resource-discovery.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/connector-resource-discovery.ts",
+      "to": "apps/api/src/execution/trello-pagination.ts"
+    },
+    {
       "from": "apps/api/src/credentials/connector-resource.controller.ts",
       "to": "apps/api/src/auth/authenticated-request.ts"
     },
@@ -2637,7 +3524,15 @@
     },
     {
       "from": "apps/api/src/credentials/connector-resource.controller.ts",
+      "to": "apps/api/src/credentials/connector-resource-discovery.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/connector-resource.controller.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/connector-resource.controller.ts",
+      "to": "apps/api/src/execution/github-read.ts"
     },
     {
       "from": "apps/api/src/credentials/connector-resource.controller.ts",
@@ -2650,6 +3545,10 @@
     {
       "from": "apps/api/src/credentials/connector-resource.controller.ts",
       "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/connector-resource.controller.ts",
+      "to": "apps/api/src/execution/notion-operations.ts"
     },
     {
       "from": "apps/api/src/credentials/connector-resource.controller.ts",
@@ -2725,6 +3624,10 @@
     },
     {
       "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/google-oauth-state.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
       "to": "apps/api/src/credentials/google-oauth.controller.ts"
     },
     {
@@ -2750,6 +3653,10 @@
     {
       "from": "apps/api/src/credentials/credential.service.ts",
       "to": "apps/api/src/credentials/credential-vault.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.service.ts",
+      "to": "apps/api/src/credentials/google-oauth-policy.ts"
     },
     {
       "from": "apps/api/src/credentials/credential.service.ts",
@@ -2852,6 +3759,22 @@
       "to": "apps/api/src/execution/node-failure.ts"
     },
     {
+      "from": "apps/api/src/credentials/google-oauth-state.service.ts",
+      "to": "apps/api/src/credentials/google-oauth-policy.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-oauth-test-helpers.ts",
+      "to": "apps/api/src/credentials/google-oauth-state.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-oauth-test-helpers.ts",
+      "to": "apps/api/src/credentials/google-oauth.controller.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-oauth.controller.ts",
+      "to": "apps/api/src/auth/auth.service.ts"
+    },
+    {
       "from": "apps/api/src/credentials/google-oauth.controller.ts",
       "to": "apps/api/src/auth/authenticated-request.ts"
     },
@@ -2862,6 +3785,14 @@
     {
       "from": "apps/api/src/credentials/google-oauth.controller.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-oauth.controller.ts",
+      "to": "apps/api/src/credentials/google-oauth-policy.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-oauth.controller.ts",
+      "to": "apps/api/src/credentials/google-oauth-state.service.ts"
     },
     {
       "from": "apps/api/src/credentials/google-resource.controller.ts",
@@ -2878,6 +3809,14 @@
     {
       "from": "apps/api/src/credentials/google-resource.service.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-resource.service.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-resource.service.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
     },
     {
       "from": "apps/api/src/credentials/openai-resource.controller.ts",
@@ -2900,6 +3839,174 @@
       "to": "apps/api/src/database/prisma.service.ts"
     },
     {
+      "from": "apps/api/src/execution/ai-request-limits.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/ai-structured-output.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/ai-structured-output.ts",
+      "to": "apps/api/src/execution/redaction.ts"
+    },
+    {
+      "from": "apps/api/src/execution/approval-continuation-recovery.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/approval-continuation-recovery.service.ts",
+      "to": "apps/api/src/execution/execution-queue.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/approval-continuation-recovery.service.ts",
+      "to": "apps/api/src/platform/background-work.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-config.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/connector-config.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/gemini-text.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/github-read.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/github-update-issue.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/github-write-adapter.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/gmail-get-message.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/gmail-read.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/gmail-write.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/google-calendar.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/google-chat-oauth.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/google-drive-pagination.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/google-workspace-adapter.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/http-request-adapter.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/mongodb-find.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/node-executor-contract.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/notification-adapters.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/notion-create-page.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/notion-operations.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/notion-search.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/openai-text.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/postgres-read.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/reddit.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/rss-read.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/sentry-observability.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/sentry.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/smtp-email.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/steam-adapter.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/supabase.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/telegram-message-operations.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/trello-operations.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/trello.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/vercel-observability.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/vercel.ts"
+    },
+    {
       "from": "apps/api/src/execution/execution-events.service.ts",
       "to": "apps/api/src/execution/execution-queue.config.ts"
     },
@@ -2914,6 +4021,10 @@
     {
       "from": "apps/api/src/execution/execution-maintenance.service.ts",
       "to": "apps/api/src/execution/retention-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution-maintenance.service.ts",
+      "to": "apps/api/src/platform/background-work.ts"
     },
     {
       "from": "apps/api/src/execution/execution-queue.service.ts",
@@ -2957,6 +4068,10 @@
     },
     {
       "from": "apps/api/src/execution/execution.module.ts",
+      "to": "apps/api/src/execution/approval-continuation-recovery.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.module.ts",
       "to": "apps/api/src/execution/execution-events.service.ts"
     },
     {
@@ -2985,6 +4100,10 @@
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/connector-executors.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/execution/execution-events.service.ts"
     },
     {
@@ -2993,23 +4112,11 @@
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
-      "to": "apps/api/src/execution/gemini-text.ts"
+      "to": "apps/api/src/execution/github-write-adapter.ts"
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
-      "to": "apps/api/src/execution/gmail-read.ts"
-    },
-    {
-      "from": "apps/api/src/execution/execution.service.ts",
-      "to": "apps/api/src/execution/google-calendar.ts"
-    },
-    {
-      "from": "apps/api/src/execution/execution.service.ts",
-      "to": "apps/api/src/execution/google-chat-oauth.ts"
-    },
-    {
-      "from": "apps/api/src/execution/execution.service.ts",
-      "to": "apps/api/src/execution/http-credential.ts"
+      "to": "apps/api/src/execution/google-workspace-adapter.ts"
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
@@ -3017,7 +4124,7 @@
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
-      "to": "apps/api/src/execution/mongodb-find.ts"
+      "to": "apps/api/src/execution/node-executor-contract.ts"
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
@@ -3025,35 +4132,11 @@
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
-      "to": "apps/api/src/execution/notion-search.ts"
-    },
-    {
-      "from": "apps/api/src/execution/execution.service.ts",
-      "to": "apps/api/src/execution/openai-text.ts"
-    },
-    {
-      "from": "apps/api/src/execution/execution.service.ts",
-      "to": "apps/api/src/execution/outbound-url-policy.ts"
-    },
-    {
-      "from": "apps/api/src/execution/execution.service.ts",
-      "to": "apps/api/src/execution/postgres-read.ts"
-    },
-    {
-      "from": "apps/api/src/execution/execution.service.ts",
-      "to": "apps/api/src/execution/provider-json.ts"
-    },
-    {
-      "from": "apps/api/src/execution/execution.service.ts",
-      "to": "apps/api/src/execution/provider-request-policy.ts"
+      "to": "apps/api/src/execution/notification-adapters.ts"
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/execution/redaction.ts"
-    },
-    {
-      "from": "apps/api/src/execution/execution.service.ts",
-      "to": "apps/api/src/execution/reddit.ts"
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
@@ -3065,27 +4148,7 @@
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
-      "to": "apps/api/src/execution/rss-read.ts"
-    },
-    {
-      "from": "apps/api/src/execution/execution.service.ts",
-      "to": "apps/api/src/execution/sentry.ts"
-    },
-    {
-      "from": "apps/api/src/execution/execution.service.ts",
-      "to": "apps/api/src/execution/smtp-email.ts"
-    },
-    {
-      "from": "apps/api/src/execution/execution.service.ts",
-      "to": "apps/api/src/execution/supabase.ts"
-    },
-    {
-      "from": "apps/api/src/execution/execution.service.ts",
-      "to": "apps/api/src/execution/trello.ts"
-    },
-    {
-      "from": "apps/api/src/execution/execution.service.ts",
-      "to": "apps/api/src/execution/vercel.ts"
+      "to": "apps/api/src/execution/steam-adapter.ts"
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
@@ -3094,6 +4157,14 @@
     {
       "from": "apps/api/src/execution/gemini-text.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/gemini-text.ts",
+      "to": "apps/api/src/execution/ai-request-limits.ts"
+    },
+    {
+      "from": "apps/api/src/execution/gemini-text.ts",
+      "to": "apps/api/src/execution/ai-structured-output.ts"
     },
     {
       "from": "apps/api/src/execution/gemini-text.ts",
@@ -3106,6 +4177,74 @@
     {
       "from": "apps/api/src/execution/gemini-text.ts",
       "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/execution/github-read.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/github-read.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/github-read.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/github-read.ts",
+      "to": "apps/api/src/execution/provider-request-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/github-update-issue.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/github-update-issue.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/github-update-issue.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/github-update-issue.ts",
+      "to": "apps/api/src/execution/provider-request-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/github-write-adapter.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/github-write-adapter.ts",
+      "to": "apps/api/src/execution/connector-config.ts"
+    },
+    {
+      "from": "apps/api/src/execution/github-write-adapter.ts",
+      "to": "apps/api/src/execution/node-executor-contract.ts"
+    },
+    {
+      "from": "apps/api/src/execution/github-write-adapter.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/github-write-adapter.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/github-write-adapter.ts",
+      "to": "apps/api/src/execution/provider-request-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/gmail-get-message.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/gmail-get-message.ts",
+      "to": "apps/api/src/execution/gmail-operations.ts"
+    },
+    {
+      "from": "apps/api/src/execution/gmail-get-message.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
     },
     {
       "from": "apps/api/src/execution/gmail-history.ts",
@@ -3120,6 +4259,22 @@
       "to": "apps/api/src/execution/outbound-url-policy.ts"
     },
     {
+      "from": "apps/api/src/execution/gmail-operations.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/gmail-operations.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/gmail-operations.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/gmail-operations.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
       "from": "apps/api/src/execution/gmail-read.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
     },
@@ -3136,6 +4291,22 @@
       "to": "apps/api/src/execution/provider-json.ts"
     },
     {
+      "from": "apps/api/src/execution/gmail-read.ts",
+      "to": "apps/api/src/execution/redaction.ts"
+    },
+    {
+      "from": "apps/api/src/execution/gmail-write.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/gmail-write.ts",
+      "to": "apps/api/src/execution/gmail-operations.ts"
+    },
+    {
+      "from": "apps/api/src/execution/gmail-write.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
       "from": "apps/api/src/execution/google-calendar.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
     },
@@ -3152,8 +4323,16 @@
       "to": "apps/api/src/execution/provider-json.ts"
     },
     {
+      "from": "apps/api/src/execution/google-calendar.ts",
+      "to": "apps/api/src/execution/redaction.ts"
+    },
+    {
       "from": "apps/api/src/execution/google-chat-oauth.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-chat-oauth.ts",
+      "to": "apps/api/src/credentials/google-oauth-policy.ts"
     },
     {
       "from": "apps/api/src/execution/google-chat-oauth.ts",
@@ -3168,6 +4347,62 @@
       "to": "apps/api/src/execution/provider-json.ts"
     },
     {
+      "from": "apps/api/src/execution/google-drive-pagination.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-drive-pagination.ts",
+      "to": "apps/api/src/execution/redaction.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-workspace-adapter.ts",
+      "to": "apps/api/src/execution/connector-config.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-workspace-adapter.ts",
+      "to": "apps/api/src/execution/google-drive-pagination.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-workspace-adapter.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-workspace-adapter.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-workspace-adapter.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-workspace-adapter.ts",
+      "to": "apps/api/src/execution/provider-request-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/http-request-adapter.ts",
+      "to": "apps/api/src/execution/http-credential.ts"
+    },
+    {
+      "from": "apps/api/src/execution/http-request-adapter.ts",
+      "to": "apps/api/src/execution/node-executor-contract.ts"
+    },
+    {
+      "from": "apps/api/src/execution/http-request-adapter.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/http-request-adapter.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/http-request-adapter.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/execution/http-request-adapter.ts",
+      "to": "apps/api/src/execution/provider-request-policy.ts"
+    },
+    {
       "from": "apps/api/src/execution/mongodb-find.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
     },
@@ -3178,12 +4413,80 @@
     {
       "from": "apps/api/src/execution/mongodb-find.ts",
       "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/node-executor-contract.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/node-executor-contract.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
     },
     {
       "from": "apps/api/src/execution/node-failure.ts",
       "to": "apps/api/src/execution/outbound-url-policy.ts"
     },
     {
+      "from": "apps/api/src/execution/notification-adapters.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notification-adapters.ts",
+      "to": "apps/api/src/execution/connector-config.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notification-adapters.ts",
+      "to": "apps/api/src/execution/node-executor-contract.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notification-adapters.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notion-create-page.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notion-create-page.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notion-create-page.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notion-create-page.ts",
+      "to": "apps/api/src/execution/provider-request-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notion-operations.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notion-operations.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notion-operations.ts",
+      "to": "apps/api/src/execution/notion-search.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notion-operations.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notion-operations.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notion-operations.ts",
+      "to": "apps/api/src/execution/redaction.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notion-operations.ts",
+      "to": "apps/api/src/execution/retry-policy.ts"
+    },
+    {
       "from": "apps/api/src/execution/notion-search.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
     },
@@ -3200,8 +4503,32 @@
       "to": "apps/api/src/execution/provider-json.ts"
     },
     {
+      "from": "apps/api/src/execution/notion-search.ts",
+      "to": "apps/api/src/execution/retry-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/observability-read.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/observability-read.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/observability-read.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
       "from": "apps/api/src/execution/openai-text.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/openai-text.ts",
+      "to": "apps/api/src/execution/ai-request-limits.ts"
+    },
+    {
+      "from": "apps/api/src/execution/openai-text.ts",
+      "to": "apps/api/src/execution/ai-structured-output.ts"
     },
     {
       "from": "apps/api/src/execution/openai-text.ts",
@@ -3232,8 +4559,16 @@
       "to": "apps/api/src/execution/postgres-target.ts"
     },
     {
+      "from": "apps/api/src/execution/postgres-read.ts",
+      "to": "apps/api/src/execution/relational-selection-validation.ts"
+    },
+    {
       "from": "apps/api/src/execution/postgres-select-query.ts",
       "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/postgres-select-query.ts",
+      "to": "apps/api/src/execution/relational-selection-validation.ts"
     },
     {
       "from": "apps/api/src/execution/postgres-target.ts",
@@ -3242,6 +4577,10 @@
     {
       "from": "apps/api/src/execution/postgres-target.ts",
       "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/provider-credential-safety.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
     },
     {
       "from": "apps/api/src/execution/provider-json.ts",
@@ -3276,6 +4615,14 @@
       "to": "apps/api/src/execution/provider-json.ts"
     },
     {
+      "from": "apps/api/src/execution/relational-selection-validation.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/rss-public-transport.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
       "from": "apps/api/src/execution/rss-read.ts",
       "to": "apps/api/src/execution/node-failure.ts"
     },
@@ -3284,6 +4631,42 @@
       "to": "apps/api/src/execution/outbound-url-policy.ts"
     },
     {
+      "from": "apps/api/src/execution/rss-trigger-snapshot.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/rss-trigger-snapshot.ts",
+      "to": "apps/api/src/execution/redaction.ts"
+    },
+    {
+      "from": "apps/api/src/execution/rss-trigger-snapshot.ts",
+      "to": "apps/api/src/execution/rss-public-transport.ts"
+    },
+    {
+      "from": "apps/api/src/execution/rss-trigger-snapshot.ts",
+      "to": "apps/api/src/execution/rss-read.ts"
+    },
+    {
+      "from": "apps/api/src/execution/sentry-observability.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/sentry-observability.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/sentry-observability.ts",
+      "to": "apps/api/src/execution/observability-read.ts"
+    },
+    {
+      "from": "apps/api/src/execution/sentry-observability.ts",
+      "to": "apps/api/src/execution/provider-credential-safety.ts"
+    },
+    {
+      "from": "apps/api/src/execution/sentry-pagination.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
       "from": "apps/api/src/execution/sentry.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
     },
@@ -3293,11 +4676,23 @@
     },
     {
       "from": "apps/api/src/execution/sentry.ts",
+      "to": "apps/api/src/execution/observability-read.ts"
+    },
+    {
+      "from": "apps/api/src/execution/sentry.ts",
       "to": "apps/api/src/execution/outbound-url-policy.ts"
     },
     {
       "from": "apps/api/src/execution/sentry.ts",
+      "to": "apps/api/src/execution/provider-credential-safety.ts"
+    },
+    {
+      "from": "apps/api/src/execution/sentry.ts",
       "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/execution/sentry.ts",
+      "to": "apps/api/src/execution/sentry-pagination.ts"
     },
     {
       "from": "apps/api/src/execution/smtp-email.ts",
@@ -3312,6 +4707,14 @@
       "to": "apps/api/src/execution/outbound-url-policy.ts"
     },
     {
+      "from": "apps/api/src/execution/steam-adapter.ts",
+      "to": "apps/api/src/execution/connector-config.ts"
+    },
+    {
+      "from": "apps/api/src/execution/steam-adapter.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
       "from": "apps/api/src/execution/supabase.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
     },
@@ -3328,6 +4731,50 @@
       "to": "apps/api/src/execution/provider-json.ts"
     },
     {
+      "from": "apps/api/src/execution/supabase.ts",
+      "to": "apps/api/src/execution/relational-selection-validation.ts"
+    },
+    {
+      "from": "apps/api/src/execution/telegram-message-operations.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/telegram-message-operations.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/telegram-message-operations.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/telegram-message-operations.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/execution/telegram-message-operations.ts",
+      "to": "apps/api/src/notifications/telegram-destination.ts"
+    },
+    {
+      "from": "apps/api/src/execution/trello-operations.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/trello-operations.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/trello-operations.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/trello-operations.ts",
+      "to": "apps/api/src/execution/provider-request-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/trello-operations.ts",
+      "to": "apps/api/src/execution/trello-pagination.ts"
+    },
+    {
       "from": "apps/api/src/execution/trello.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
     },
@@ -3344,6 +4791,22 @@
       "to": "apps/api/src/execution/provider-json.ts"
     },
     {
+      "from": "apps/api/src/execution/vercel-observability.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/vercel-observability.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/vercel-observability.ts",
+      "to": "apps/api/src/execution/observability-read.ts"
+    },
+    {
+      "from": "apps/api/src/execution/vercel-observability.ts",
+      "to": "apps/api/src/execution/provider-credential-safety.ts"
+    },
+    {
       "from": "apps/api/src/execution/vercel.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
     },
@@ -3353,7 +4816,15 @@
     },
     {
       "from": "apps/api/src/execution/vercel.ts",
+      "to": "apps/api/src/execution/observability-read.ts"
+    },
+    {
+      "from": "apps/api/src/execution/vercel.ts",
       "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/vercel.ts",
+      "to": "apps/api/src/execution/provider-credential-safety.ts"
     },
     {
       "from": "apps/api/src/execution/vercel.ts",
@@ -3569,6 +5040,10 @@
     },
     {
       "from": "apps/api/src/scheduler/cron-scheduler.service.ts",
+      "to": "apps/api/src/platform/background-work.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/cron-scheduler.service.ts",
       "to": "apps/api/src/workflows/workflow-graph.ts"
     },
     {
@@ -3601,6 +5076,82 @@
     },
     {
       "from": "apps/api/src/scheduler/gmail-trigger.service.ts",
+      "to": "apps/api/src/platform/background-work.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/gmail-trigger.service.ts",
+      "to": "apps/api/src/workflows/workflow-graph.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/rss-trigger-poller.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/rss-trigger-poller.ts",
+      "to": "apps/api/src/execution/retry-policy.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/rss-trigger-poller.ts",
+      "to": "apps/api/src/execution/rss-public-transport.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/rss-trigger-poller.ts",
+      "to": "apps/api/src/execution/rss-read.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/rss-trigger-poller.ts",
+      "to": "apps/api/src/execution/rss-trigger-snapshot.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/rss-trigger.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/rss-trigger.service.ts",
+      "to": "apps/api/src/execution/execution-queue.service.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/rss-trigger.service.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/rss-trigger.service.ts",
+      "to": "apps/api/src/platform/background-work.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/rss-trigger.service.ts",
+      "to": "apps/api/src/scheduler/rss-trigger-poller.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/rss-trigger.service.ts",
+      "to": "apps/api/src/scheduler/rss-trigger.store.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/rss-trigger.service.ts",
+      "to": "apps/api/src/workflows/workflow-graph.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/rss-trigger.store.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/rss-trigger.store.ts",
+      "to": "apps/api/src/execution/live-readiness.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/rss-trigger.store.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/rss-trigger.store.ts",
+      "to": "apps/api/src/execution/redaction.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/rss-trigger.store.ts",
+      "to": "apps/api/src/scheduler/rss-trigger-poller.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/rss-trigger.store.ts",
       "to": "apps/api/src/workflows/workflow-graph.ts"
     },
     {
@@ -3618,6 +5169,10 @@
     {
       "from": "apps/api/src/scheduler/scheduler.module.ts",
       "to": "apps/api/src/scheduler/gmail-trigger.service.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/scheduler.module.ts",
+      "to": "apps/api/src/scheduler/rss-trigger.service.ts"
     },
     {
       "from": "apps/api/src/webhooks/github-webhook-adapter.ts",
@@ -3716,8 +5271,84 @@
       "to": "apps/api/src/workflows/workflow-graph.ts"
     },
     {
+      "from": "apps/api/src/webhooks/kuma-delivery-recovery.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/kuma-delivery-recovery.service.ts",
+      "to": "apps/api/src/execution/execution-queue.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/kuma-delivery-recovery.service.ts",
+      "to": "apps/api/src/platform/background-work.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/legacy-delivery-recovery.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/legacy-delivery-recovery.service.ts",
+      "to": "apps/api/src/execution/execution-queue.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/legacy-delivery-recovery.service.ts",
+      "to": "apps/api/src/webhooks/kuma-delivery-recovery.service.ts"
+    },
+    {
       "from": "apps/api/src/webhooks/provider-webhook-recovery.service.ts",
       "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/provider-webhook-recovery.service.ts",
+      "to": "apps/api/src/platform/background-work.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/sentry-delivery-recovery.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/sentry-delivery-recovery.service.ts",
+      "to": "apps/api/src/execution/execution-queue.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/sentry-delivery-recovery.service.ts",
+      "to": "apps/api/src/webhooks/kuma-delivery-recovery.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/telegram-delivery-recovery.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/telegram-delivery-recovery.service.ts",
+      "to": "apps/api/src/execution/execution-queue.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/telegram-delivery-recovery.service.ts",
+      "to": "apps/api/src/webhooks/kuma-delivery-recovery.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/trello-delivery-recovery.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/trello-delivery-recovery.service.ts",
+      "to": "apps/api/src/execution/execution-queue.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/trello-delivery-recovery.service.ts",
+      "to": "apps/api/src/webhooks/kuma-delivery-recovery.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/vercel-delivery-recovery.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/vercel-delivery-recovery.service.ts",
+      "to": "apps/api/src/execution/execution-queue.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/vercel-delivery-recovery.service.ts",
+      "to": "apps/api/src/webhooks/kuma-delivery-recovery.service.ts"
     },
     {
       "from": "apps/api/src/webhooks/webhook.controller.ts",
@@ -3757,7 +5388,31 @@
     },
     {
       "from": "apps/api/src/webhooks/webhook.module.ts",
+      "to": "apps/api/src/webhooks/kuma-delivery-recovery.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.module.ts",
+      "to": "apps/api/src/webhooks/legacy-delivery-recovery.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.module.ts",
       "to": "apps/api/src/webhooks/provider-webhook-recovery.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.module.ts",
+      "to": "apps/api/src/webhooks/sentry-delivery-recovery.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.module.ts",
+      "to": "apps/api/src/webhooks/telegram-delivery-recovery.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.module.ts",
+      "to": "apps/api/src/webhooks/trello-delivery-recovery.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.module.ts",
+      "to": "apps/api/src/webhooks/vercel-delivery-recovery.service.ts"
     },
     {
       "from": "apps/api/src/webhooks/webhook.module.ts",
@@ -3789,7 +5444,59 @@
     },
     {
       "from": "apps/api/src/webhooks/webhook.service.ts",
+      "to": "apps/api/src/webhooks/sentry-trigger-protocol.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.service.ts",
+      "to": "apps/api/src/webhooks/telegram-trigger-protocol.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.service.ts",
+      "to": "apps/api/src/webhooks/trello-trigger-protocol.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.service.ts",
+      "to": "apps/api/src/webhooks/uptime-kuma-filter.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.service.ts",
+      "to": "apps/api/src/webhooks/vercel-trigger-protocol.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.service.ts",
       "to": "apps/api/src/workflows/workflow-graph.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow-graph.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow-graph.ts",
+      "to": "apps/api/src/execution/rss-public-transport.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow-graph.ts",
+      "to": "apps/api/src/scheduler/rss-trigger-poller.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow-graph.ts",
+      "to": "apps/api/src/webhooks/sentry-trigger-protocol.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow-graph.ts",
+      "to": "apps/api/src/webhooks/telegram-trigger-protocol.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow-graph.ts",
+      "to": "apps/api/src/webhooks/trello-trigger-protocol.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow-graph.ts",
+      "to": "apps/api/src/webhooks/uptime-kuma-filter.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow-graph.ts",
+      "to": "apps/api/src/webhooks/vercel-trigger-protocol.ts"
     },
     {
       "from": "apps/api/src/workflows/workflow.controller.ts",
@@ -3838,6 +5545,14 @@
     {
       "from": "apps/api/src/workflows/workflow.service.ts",
       "to": "apps/api/src/scheduler/gmail-trigger.service.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow.service.ts",
+      "to": "apps/api/src/scheduler/rss-trigger-poller.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow.service.ts",
+      "to": "apps/api/src/scheduler/rss-trigger.service.ts"
     },
     {
       "from": "apps/api/src/workflows/workflow.service.ts",
@@ -4436,12 +6151,32 @@
       "to": "apps/web/src/features/api/api-client.ts"
     },
     {
+      "from": "apps/web/src/features/workflow/google-sheets-mapping-field.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/google-sheets-mapping-field.tsx",
+      "to": "apps/web/src/features/workflow/google-sheets-mapping.ts"
+    },
+    {
       "from": "apps/web/src/features/workflow/graph-validation.ts",
       "to": "apps/web/src/features/workflow/node-catalog.ts"
     },
     {
       "from": "apps/web/src/features/workflow/inspector-drafts.ts",
+      "to": "apps/web/src/features/workflow/google-sheets-mapping.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/inspector-drafts.ts",
       "to": "apps/web/src/features/workflow/mongodb-filter.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/inspector-drafts.ts",
+      "to": "apps/web/src/features/workflow/relational-selection.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/inspector-drafts.ts",
+      "to": "apps/web/src/features/workflow/structured-output-schema.ts"
     },
     {
       "from": "apps/web/src/features/workflow/mongodb-filter-field.tsx",
@@ -4450,10 +6185,6 @@
     {
       "from": "apps/web/src/features/workflow/mongodb-filter-field.tsx",
       "to": "apps/web/src/features/workflow/mongodb-filter.ts"
-    },
-    {
-      "from": "apps/web/src/features/workflow/node-catalog.ts",
-      "to": "apps/web/src/features/credentials/credential-types.ts"
     },
     {
       "from": "apps/web/src/features/workflow/node-catalog.ts",
@@ -4472,12 +6203,24 @@
       "to": "apps/web/src/features/workflow/node-catalog.ts"
     },
     {
+      "from": "apps/web/src/features/workflow/relational-selection-field.tsx",
+      "to": "apps/web/src/features/workflow/relational-selection.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/relational-selection.ts",
+      "to": "apps/web/src/features/workflow/node-catalog.ts"
+    },
+    {
       "from": "apps/web/src/features/workflow/resource-picker.tsx",
       "to": "apps/web/src/features/api/api-client.ts"
     },
     {
       "from": "apps/web/src/features/workflow/resource-picker.tsx",
       "to": "apps/web/src/features/workflow/node-catalog.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/structured-output-field.tsx",
+      "to": "apps/web/src/features/workflow/structured-output-schema.ts"
     },
     {
       "from": "apps/web/src/features/workflow/test-data.ts",
@@ -4513,6 +6256,10 @@
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/drive-pagination.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
       "to": "apps/web/src/features/workflow/editor-store.ts"
     },
     {
@@ -4522,6 +6269,14 @@
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",
       "to": "apps/web/src/features/workflow/expression-suggestions.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/google-sheets-mapping-field.tsx"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/google-sheets-mapping.ts"
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",
@@ -4553,7 +6308,23 @@
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/relational-selection-field.tsx"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/relational-selection.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
       "to": "apps/web/src/features/workflow/resource-picker.tsx"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/structured-output-field.tsx"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/structured-output-schema.ts"
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",
@@ -4582,6 +6353,154 @@
     {
       "from": "apps/web/src/features/workflow/workflow-node.tsx",
       "to": "apps/web/src/features/workflow/node-icon.tsx"
+    },
+    {
+      "from": "packages/workflow-contracts/src/ai-node-fields.ts",
+      "to": "packages/workflow-contracts/src/index.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/ai-node-fields.ts",
+      "to": "packages/workflow-contracts/src/node-configuration-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/communication-node-fields.ts",
+      "to": "packages/workflow-contracts/src/index.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/communication-node-fields.ts",
+      "to": "packages/workflow-contracts/src/node-configuration-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/configuration-fields-registry.ts",
+      "to": "packages/workflow-contracts/src/ai-node-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/configuration-fields-registry.ts",
+      "to": "packages/workflow-contracts/src/communication-node-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/configuration-fields-registry.ts",
+      "to": "packages/workflow-contracts/src/data-node-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/configuration-fields-registry.ts",
+      "to": "packages/workflow-contracts/src/developer-node-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/configuration-fields-registry.ts",
+      "to": "packages/workflow-contracts/src/github-read-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/configuration-fields-registry.ts",
+      "to": "packages/workflow-contracts/src/gmail-write-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/configuration-fields-registry.ts",
+      "to": "packages/workflow-contracts/src/google-node-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/configuration-fields-registry.ts",
+      "to": "packages/workflow-contracts/src/index.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/configuration-fields-registry.ts",
+      "to": "packages/workflow-contracts/src/node-configuration-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/configuration-fields-registry.ts",
+      "to": "packages/workflow-contracts/src/notion-read-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/configuration-fields-registry.ts",
+      "to": "packages/workflow-contracts/src/other-node-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/configuration-fields-registry.ts",
+      "to": "packages/workflow-contracts/src/trello-card-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/data-node-fields.ts",
+      "to": "packages/workflow-contracts/src/index.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/data-node-fields.ts",
+      "to": "packages/workflow-contracts/src/node-configuration-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/developer-node-fields.ts",
+      "to": "packages/workflow-contracts/src/index.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/developer-node-fields.ts",
+      "to": "packages/workflow-contracts/src/node-configuration-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/github-read-fields.ts",
+      "to": "packages/workflow-contracts/src/node-configuration-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/gmail-write-fields.ts",
+      "to": "packages/workflow-contracts/src/node-configuration-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/google-node-fields.ts",
+      "to": "packages/workflow-contracts/src/index.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/google-node-fields.ts",
+      "to": "packages/workflow-contracts/src/node-configuration-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/index.ts",
+      "to": "packages/workflow-contracts/src/ai-schema.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/index.ts",
+      "to": "packages/workflow-contracts/src/configuration-fields-registry.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/index.ts",
+      "to": "packages/workflow-contracts/src/gmail-write-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/index.ts",
+      "to": "packages/workflow-contracts/src/node-configuration-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/index.ts",
+      "to": "packages/workflow-contracts/src/notion-read-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/index.ts",
+      "to": "packages/workflow-contracts/src/operation-metadata.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/index.ts",
+      "to": "packages/workflow-contracts/src/trello-card-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-configuration-fields.ts",
+      "to": "packages/workflow-contracts/src/operation-metadata.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/notion-read-fields.ts",
+      "to": "packages/workflow-contracts/src/node-configuration-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/operation-metadata.ts",
+      "to": "packages/workflow-contracts/src/index.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/other-node-fields.ts",
+      "to": "packages/workflow-contracts/src/index.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/other-node-fields.ts",
+      "to": "packages/workflow-contracts/src/node-configuration-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/trello-card-fields.ts",
+      "to": "packages/workflow-contracts/src/node-configuration-fields.ts"
     }
   ]
 }

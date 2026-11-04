@@ -10,15 +10,18 @@ import { getGmailHistoryBaseline, getGmailHistoryPage } from "../execution/gmail
 import { getGmailMessage } from "../execution/gmail-read";
 import { NodeFailure } from "../execution/node-failure";
 import { parseWorkflowGraph } from "../workflows/workflow-graph";
+import { BackgroundWork } from "../platform/background-work";
 
 const leaseMs = 5 * 60_000;
 export type GmailBaseline = { nodeId: string; historyId: string; mailboxHash: string };
+type GmailCheckpointUpdate = { historyId: string; pageToken: string | null; nextPollAt: Date; lastErrorCode: null } | { state: "READY" | "ERROR"; lastErrorCode: string };
 
 @Injectable()
 export class GmailTriggerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(GmailTriggerService.name);
   private timer: NodeJS.Timeout | null = null;
   private recoveryCursor = "";
+  private readonly background = new BackgroundWork();
   protected readonly provider = { getGmailHistoryBaseline, getGmailHistoryPage, getGmailMessage };
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
@@ -29,10 +32,11 @@ export class GmailTriggerService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit() {
     if (process.env.PROCESS_ROLE === "worker" || process.env.SCHEDULER_ENABLED === "false") return;
-    void this.tick();
-    this.timer = setInterval(() => { void this.tick(); }, 60_000);
+    const scan = () => this.background.start(() => this.tick(), () => this.logger.error("Gmail trigger scheduler failed."));
+    scan();
+    this.timer = setInterval(scan, 60_000);
   }
-  onModuleDestroy() { if (this.timer) clearInterval(this.timer); }
+  async onModuleDestroy() { if (this.timer) clearInterval(this.timer); this.timer = null; await this.background.drain(); }
 
   async baseline(workspaceId: string, graph: WorkflowGraph): Promise<GmailBaseline[]> {
     const nodes = graph.nodes.filter((node) => node.type === "trigger.gmail");
@@ -65,20 +69,21 @@ export class GmailTriggerService implements OnModuleInit, OnModuleDestroy {
   }
 
   async recoverQueued(now = new Date()) {
-    const queued = await this.prisma.execution.findMany({ where: { status: ExecutionStatus.QUEUED, mode: "LIVE", idempotencyKey: { startsWith: "gmail:" }, createdAt: { lt: new Date(now.getTime() - 2 * 60_000) }, ...(this.recoveryCursor ? { id: { gt: this.recoveryCursor } } : {}) }, select: { id: true, workflowVersion: { select: { graph: true } }, nodeExecutions: { select: { nodeId: true, status: true, output: true } }, approvalRequests: { where: { status: ApprovalRequestStatus.APPROVED }, orderBy: { resolvedAt: "desc" }, take: 1, select: { id: true } } }, orderBy: { id: "asc" }, take: 100 });
+    const queued = await this.prisma.execution.findMany({ where: { status: ExecutionStatus.QUEUED, resumeToken: null, mode: "LIVE", idempotencyKey: { startsWith: "gmail:" }, createdAt: { lt: new Date(now.getTime() - 2 * 60_000) }, ...(this.recoveryCursor ? { id: { gt: this.recoveryCursor } } : {}) }, select: { id: true, startedAt: true, workflowVersion: { select: { graph: true } }, nodeExecutions: { select: { nodeId: true, status: true, output: true } }, approvalRequests: { where: { status: ApprovalRequestStatus.APPROVED }, orderBy: { resolvedAt: "desc" }, take: 1, select: { id: true } } }, orderBy: { id: "asc" }, take: 100 });
     for (const execution of queued) {
       try {
         const approved = execution.approvalRequests[0];
         let startNodeIds: string[] | undefined;
         if (approved) {
+          if (!execution.startedAt) throw new Error("Approval on an unstarted execution requires review.");
           const graph = parseWorkflowGraph(execution.workflowVersion.graph);
           const approvedNode = execution.nodeExecutions.find((node) => node.status === NodeExecutionStatus.SUCCEEDED && node.output && typeof node.output === "object" && !Array.isArray(node.output) && node.output.approvalRequestId === approved.id && graph.nodes.some((candidate) => candidate.id === node.nodeId && candidate.type === "approval.request"));
           if (!approvedNode) throw new Error("Approval resume point cannot be determined.");
           startNodeIds = graph.edges.filter((edge) => edge.source === approvedNode.nodeId && edge.kind === "success").map((edge) => edge.target);
-        } else if (execution.nodeExecutions.some((node) => node.status !== NodeExecutionStatus.PENDING)) {
+        } else if (execution.startedAt || execution.nodeExecutions.some((node) => node.status !== NodeExecutionStatus.PENDING)) {
           throw new Error("Execution resume point cannot be determined.");
         }
-        await this.queue.ensureDispatched({ executionId: execution.id, mode: "live", ...(startNodeIds ? { startNodeIds } : {}) });
+        await this.queue.ensureDispatched({ executionId: execution.id, mode: "live", ...(startNodeIds ? { startNodeIds } : { initialOnly: true }) });
       }
       catch { this.logger.warn(`Could not restore queued Gmail execution ${execution.id}.`); }
     }
@@ -105,8 +110,8 @@ export class GmailTriggerService implements OnModuleInit, OnModuleDestroy {
         if (!active) return;
         const lease = await this.prisma.gmailTriggerCheckpoint.updateMany({ where: { workflowVersionId: versionId, nodeId, state: "READY", leaseToken, leaseExpiresAt: { gt: new Date() } }, data: { leaseExpiresAt: new Date(Date.now() + leaseMs) } });
         if (!lease.count) return;
-        const deliveryKey = { workflowVersionId_nodeId_messageId: { workflowVersionId: versionId, nodeId, messageId } };
-        const delivery = await this.prisma.gmailTriggerDelivery.upsert({ where: deliveryKey, create: { workflowVersionId: versionId, nodeId, messageId }, update: {} });
+        const delivery = await this.reserveDelivery(workflowId, versionId, nodeId, messageId, leaseToken);
+        if (!delivery) return;
         if (delivery.dispatchedAt) continue;
         if (processed >= maxMessages) { pageIncomplete = true; break; }
         let message: Awaited<ReturnType<typeof getGmailMessage>>;
@@ -118,7 +123,10 @@ export class GmailTriggerService implements OnModuleInit, OnModuleDestroy {
         const labelId = typeof config.labelId === "string" ? config.labelId : "";
         if (sender.length > 320 || subject.length > 500 || (labelId && !/^[A-Za-z0-9_-]{1,128}$/.test(labelId))) throw new NodeFailure("INVALID_INPUT", "Gmail filters are invalid.", false);
         if ((inboxOnly && !message.labels.includes("INBOX")) || (labelId && !message.labels.includes(labelId)) || (sender && !message.from.toLowerCase().includes(sender)) || (subject && !message.subject.toLowerCase().includes(subject))) {
-          await this.prisma.gmailTriggerDelivery.update({ where: deliveryKey, data: { dispatchedAt: new Date(), skipReason: "filter_not_matched" } });
+          // The provider read can outlive deactivation or a checkpoint reset.
+          // Commit the filter decision only while the same workflow and lease
+          // are still current, using the same lock order as lifecycle changes.
+          if (!await this.recordFilteredDelivery(workflowId, versionId, nodeId, messageId, leaseToken)) return;
           processed++;
           continue;
         }
@@ -130,20 +138,61 @@ export class GmailTriggerService implements OnModuleInit, OnModuleDestroy {
         const stillActive = await this.prisma.workflow.findFirst({ where: { id: workflowId, isActive: true, archivedAt: null, publishedVersionId: versionId }, select: { id: true } });
         const stillOwned = await this.prisma.gmailTriggerCheckpoint.updateMany({ where: { workflowVersionId: versionId, nodeId, state: "READY", leaseToken, leaseExpiresAt: { gt: new Date() } }, data: { leaseExpiresAt: new Date(Date.now() + leaseMs) } });
         if (!stillActive || !stillOwned.count) return;
-        await this.queue.dispatch({ executionId: execution.id, mode: "live", startNodeIds: [nodeId] });
-        await this.prisma.gmailTriggerDelivery.update({ where: deliveryKey, data: { dispatchedAt: new Date() } });
+        await this.queue.dispatch({ executionId: execution.id, mode: "live", startNodeIds: [nodeId], initialOnly: true });
+        // A reset can mark this receipt skipped while queue dispatch is in
+        // flight. Never overwrite that decision or acknowledge another
+        // execution that happens to use the same receipt key.
+        const acknowledged = await this.prisma.gmailTriggerDelivery.updateMany({ where: { workflowVersionId: versionId, nodeId, messageId, executionId: execution.id, dispatchedAt: null }, data: { dispatchedAt: new Date() } });
+        if (!acknowledged.count) return;
         processed++;
       }
       const interval = ["1", "5", "15", "60"].includes(String(config.pollMinutes)) ? Number(config.pollMinutes) : 1;
       const moreWork = pageIncomplete || Boolean(page.nextPageToken);
-      await this.prisma.gmailTriggerCheckpoint.updateMany({ where: { workflowVersionId: versionId, nodeId, state: "READY", leaseToken, leaseExpiresAt: { gt: new Date() } }, data: { historyId: moreWork ? checkpoint.historyId : page.historyId, pageToken: pageIncomplete ? checkpoint.pageToken : page.nextPageToken, nextPollAt: new Date(Date.now() + (moreWork ? 1 : interval) * 60_000), lastErrorCode: null } });
+      await this.recordCheckpoint(workflowId, versionId, nodeId, leaseToken, { historyId: moreWork ? checkpoint.historyId : page.historyId, pageToken: pageIncomplete ? checkpoint.pageToken : page.nextPageToken, nextPollAt: new Date(Date.now() + (moreWork ? 1 : interval) * 60_000), lastErrorCode: null });
     } catch (error) {
       const code = error instanceof NodeFailure ? error.code : "GMAIL_POLL_FAILED";
       const needsAttention = code === "GMAIL_HISTORY_EXPIRED" || code === "GMAIL_MAILBOX_CHANGED" || code === "GMAIL_EXECUTION_MISSING" || code === "GMAIL_MESSAGE_MISSING";
-      await this.prisma.gmailTriggerCheckpoint.updateMany({ where: { workflowVersionId: versionId, nodeId, leaseToken }, data: { state: needsAttention ? "ERROR" : "READY", lastErrorCode: code } });
+      await this.recordCheckpoint(workflowId, versionId, nodeId, leaseToken, { state: needsAttention ? "ERROR" : "READY", lastErrorCode: code });
       this.logger.warn(`Gmail trigger poll failed (${code}) for workflow ${workflowId}.`);
     } finally {
       await this.prisma.gmailTriggerCheckpoint.updateMany({ where: { workflowVersionId: versionId, nodeId, leaseToken }, data: { leaseToken: null, leaseExpiresAt: null } });
     }
+  }
+
+  private async reserveDelivery(workflowId: string, versionId: string, nodeId: string, messageId: string, leaseToken: string) {
+    return this.prisma.$transaction(async (transaction) => {
+      // Reset and deactivation also lock workflow before checkpoint. A poll
+      // that lost either race must not create a receipt after the reset.
+      const workflows = await transaction.$queryRaw<Array<{ isActive: boolean; archivedAt: Date | null; publishedVersionId: string | null }>>`SELECT "isActive", "archivedAt", "publishedVersionId" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
+      if (!workflows[0]?.isActive || workflows[0].archivedAt || workflows[0].publishedVersionId !== versionId) return null;
+      const checkpoints = await transaction.$queryRaw<Array<{ leaseToken: string | null; leaseExpiresAt: Date | null; state: string }>>`SELECT "leaseToken", "leaseExpiresAt", "state" FROM "GmailTriggerCheckpoint" WHERE "workflowVersionId" = ${versionId} AND "nodeId" = ${nodeId} FOR UPDATE`;
+      const checkpoint = checkpoints[0];
+      if (!checkpoint || checkpoint.state !== "READY" || checkpoint.leaseToken !== leaseToken || !checkpoint.leaseExpiresAt || checkpoint.leaseExpiresAt <= new Date()) return null;
+      const where = { workflowVersionId_nodeId_messageId: { workflowVersionId: versionId, nodeId, messageId } };
+      return transaction.gmailTriggerDelivery.upsert({ where, create: { workflowVersionId: versionId, nodeId, messageId }, update: {} });
+    });
+  }
+
+  private async recordCheckpoint(workflowId: string, versionId: string, nodeId: string, leaseToken: string, data: GmailCheckpointUpdate) {
+    await this.prisma.$transaction(async (transaction) => {
+      // A provider response may arrive after deactivation or republishing.
+      // Serialize in the same workflow -> checkpoint lock order as lifecycle
+      // changes; never advance or poison an inactive version's checkpoint.
+      const workflows = await transaction.$queryRaw<Array<{ isActive: boolean; archivedAt: Date | null; publishedVersionId: string | null }>>`SELECT "isActive", "archivedAt", "publishedVersionId" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
+      if (!workflows[0]?.isActive || workflows[0].archivedAt || workflows[0].publishedVersionId !== versionId) return;
+      await transaction.gmailTriggerCheckpoint.updateMany({ where: { workflowVersionId: versionId, nodeId, state: "READY", leaseToken, leaseExpiresAt: { gt: new Date() } }, data });
+    });
+  }
+
+  private async recordFilteredDelivery(workflowId: string, versionId: string, nodeId: string, messageId: string, leaseToken: string) {
+    return this.prisma.$transaction(async (transaction) => {
+      const workflows = await transaction.$queryRaw<Array<{ isActive: boolean; archivedAt: Date | null; publishedVersionId: string | null }>>`SELECT "isActive", "archivedAt", "publishedVersionId" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
+      if (!workflows[0]?.isActive || workflows[0].archivedAt || workflows[0].publishedVersionId !== versionId) return false;
+      const checkpoints = await transaction.$queryRaw<Array<{ leaseToken: string | null; leaseExpiresAt: Date | null; state: string }>>`SELECT "leaseToken", "leaseExpiresAt", "state" FROM "GmailTriggerCheckpoint" WHERE "workflowVersionId" = ${versionId} AND "nodeId" = ${nodeId} FOR UPDATE`;
+      const checkpoint = checkpoints[0];
+      if (!checkpoint || checkpoint.state !== "READY" || checkpoint.leaseToken !== leaseToken || !checkpoint.leaseExpiresAt || checkpoint.leaseExpiresAt <= new Date()) return false;
+      const updated = await transaction.gmailTriggerDelivery.updateMany({ where: { workflowVersionId: versionId, nodeId, messageId, dispatchedAt: null, executionId: null }, data: { dispatchedAt: new Date(), skipReason: "filter_not_matched" } });
+      return updated.count === 1;
+    });
   }
 }

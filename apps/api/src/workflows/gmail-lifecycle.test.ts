@@ -27,6 +27,14 @@ test("reactivating a Gmail workflow preserves the saved history and rejects a ch
   await assert.rejects(service.activate("flow", "owner"), /different Gmail mailbox/);
 });
 
+test("activation of a legacy graph with a planned node stops before reading a Gmail baseline", async () => {
+  const legacy = { ...baseWorkflow, publishedVersion: { ...version, graph: { nodes: [...graph.nodes, { id: "planned", type: "action.instagram", position: { x: 1, y: 0 }, config: {} }], edges: [] } } };
+  let baselineCalls = 0;
+  const service = new WorkflowService({ workflow: { findFirst: async () => legacy } } as never, {} as never, { baseline: async () => { baselineCalls++; return []; } } as never);
+  await assert.rejects(() => service.activate("flow", "owner"), (error: any) => error.response?.code === "NODE_UNAVAILABLE");
+  assert.equal(baselineCalls, 0);
+});
+
 test("changing a Gmail trigger requires acknowledgement before publishing", async () => {
   const changed = { nodes: [{ ...graph.nodes[0]!, config: { credentialId: "other" } }], edges: [] };
   const transaction = {

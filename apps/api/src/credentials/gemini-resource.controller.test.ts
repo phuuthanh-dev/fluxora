@@ -14,3 +14,14 @@ test("Gemini model discovery checks workspace ownership before accessing secrets
   await assert.rejects(controller.models("workspace-1", "credential-1", { currentUser: { id: "user-1" } } as never), /not authorized/);
   assert.equal(read, false);
 });
+
+test("Gemini discovery rejects malformed page tokens before accessing a credential", async () => {
+  const controller = new GeminiResourceController({
+    requireOwner: async () => { throw new Error("unexpected owner lookup"); },
+    readForExecution: async () => { throw new Error("unexpected credential read"); },
+  } as never);
+  const request = { currentUser: { id: "user-1" } } as never;
+  for (const token of ["", "bad\ntoken", "x".repeat(1025), ["one", "two"]]) {
+    await assert.rejects(controller.models("workspace-1", "credential-1", request, token as string), /Invalid Gemini model page token/);
+  }
+});

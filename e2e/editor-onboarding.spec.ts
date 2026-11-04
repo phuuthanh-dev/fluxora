@@ -202,7 +202,7 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(page.getByText("Activation is blocked until these integrations are configured.")).toBeVisible();
   await expect(page.getByRole("dialog", { name: "Activate workflow" }).getByText("Google Chat", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Activate workflow" })).toBeDisabled();
-  await expect(page.getByText("Activation enables published Cron and Webhook triggers.")).toBeVisible();
+  await expect(page.getByText(/Activation enables the published trigger/)).toBeVisible();
   await page.getByRole("button", { name: "Cancel" }).click();
 
   await page.getByLabel("Manage actions").click();

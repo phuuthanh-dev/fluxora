@@ -27,7 +27,7 @@ export default defineConfig({
     {
       command: "npm run dev:web",
       url: webOrigin,
-      env: { PORT: webPort, NEXT_PUBLIC_API_URL: `${apiOrigin}/api/v1` },
+      env: { PORT: webPort, NEXT_PUBLIC_API_URL: `${apiOrigin}/api/v1`, FLUXORA_E2E_NEXT_DIR: "1" },
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },

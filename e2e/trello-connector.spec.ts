@@ -31,3 +31,32 @@ test("Trello card setup offers connected boards and lists and clears a stale lis
   await boardSelect.selectOption(otherBoard);
   await expect(listSelect).toHaveValue("");
 });
+
+test("Trello search upgrades a legacy draft explicitly and resets its page when the query changes", async ({ page }) => {
+  const board = "aaaaaaaaaaaaaaaaaaaaaaaa";
+  const graph = { nodes: [
+    { id: "manual", type: "trigger.manual", position: { x: 100, y: 100 }, config: {} },
+    { id: "trello", type: "action.trello.find-cards", position: { x: 400, y: 100 }, config: { credentialId: "trello-1", boardId: board, query: "old", limit: 20, page: 2 } },
+  ], edges: [] };
+  const workflow = { id: "trello-find", workspaceId: "workspace-1", name: "Trello find", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+    if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
+    if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
+    if (path.endsWith("/credentials")) return send({ credentials: [{ id: "trello-1", provider: "TRELLO", label: "My Trello" }] });
+    if (path.endsWith("/trello/boards")) return send({ boards: [{ id: board, name: "Planning" }] });
+    if (path.endsWith("/workflows/trello-find")) return send({ workflow });
+    return route.continue();
+  });
+  await page.goto("/editor?workflow=trello-find");
+  await page.locator(".react-flow__node").filter({ hasText: "Find cards" }).click();
+  const pageInput = page.getByLabel("Search page (0–100)");
+  await expect(pageInput).toHaveCount(0);
+  await page.getByLabel("Search results").selectOption("pages");
+  await expect(pageInput).toHaveValue("0");
+  await pageInput.fill("2");
+  await expect(pageInput).toHaveValue("2");
+  await page.getByLabel("Search query").fill("new search");
+  await expect(pageInput).toHaveValue("0");
+});

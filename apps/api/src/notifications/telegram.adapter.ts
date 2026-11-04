@@ -1,4 +1,4 @@
-import { fetchSafeOutbound, wasOutboundRedirected } from "../execution/outbound-url-policy";
+import { fetchSafeOutboundWrite, wasOutboundRedirected } from "../execution/outbound-url-policy";
 import { NodeFailure } from "../execution/node-failure";
 import { readBoundedProviderJson } from "../execution/provider-json";
 import { notificationReceiptFailure, notificationWriteFailure } from "./notification-write-failure";
@@ -73,7 +73,7 @@ export class TelegramNotificationAdapter implements NotificationAdapter {
     const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
     let response: Response;
     try {
-      response = await fetchSafeOutbound(url, {
+      response = await fetchSafeOutboundWrite(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestPayload),
@@ -87,6 +87,7 @@ export class TelegramNotificationAdapter implements NotificationAdapter {
     // particular, a contradictory body must not make an ambiguous 5xx retryable.
     if (!response.ok) {
       await response.body?.cancel().catch(() => undefined);
+      if (response.status >= 300 && response.status < 400) throw notificationReceiptFailure("Telegram");
       throw new NodeFailure("HTTP_ERROR", `Telegram returned ${response.status}.`, response.status === 429 && !wasOutboundRedirected(response), response.status);
     }
 

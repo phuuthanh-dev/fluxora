@@ -15,7 +15,7 @@ export function validateWorkflowGraph(nodes: WorkflowCanvasNode[], edges: Workfl
   }
 
   if (triggers.length > 1) {
-    issues.push({ severity: "warning", message: "This workflow has multiple triggers." });
+    issues.push({ severity: "warning", message: "Keep exactly one trigger before publishing. You can still save this draft." });
   }
 
   for (const edge of edges) {

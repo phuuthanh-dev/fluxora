@@ -1,0 +1,217 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import test from "node:test";
+import { PrismaClient } from "@prisma/client";
+import { ExecutionService } from "./execution.service";
+
+test("concurrent decisions resolve an approval once and a terminal approval completes", { skip: process.env.FLUXORA_APPROVAL_INTEGRATION !== "1" }, async () => {
+  const database = new URL(process.env.DATABASE_URL ?? "");
+  if (!/^\/fluxora_[a-z0-9_]*test[a-z0-9_]*$/.test(database.pathname) || !["localhost", "127.0.0.1"].includes(database.hostname)) throw new Error("Approval integration requires a disposable local fluxora_*test* database.");
+  const prisma = new PrismaClient();
+  const suffix = randomUUID();
+  const userId = `approval-user-${suffix}`, workspaceId = `approval-workspace-${suffix}`, workflowId = `approval-workflow-${suffix}`;
+  const service = new ExecutionService(prisma as never, {} as never, { publish: () => {} } as never);
+  try {
+    await prisma.user.create({ data: { id: userId, email: `${suffix}@example.test` } });
+    await prisma.workspace.create({ data: { id: workspaceId, ownerId: userId, name: "Synthetic", slug: `approval-${suffix}` } });
+    await prisma.workspaceMember.create({ data: { workspaceId, userId, role: "OWNER" } });
+    await prisma.workflow.create({ data: { id: workflowId, workspaceId, name: "Synthetic" } });
+    const makeWaiting = async (version: number, withSuccessor: boolean) => {
+      const versionId = `approval-version-${version}-${suffix}`, executionId = `approval-execution-${version}-${suffix}`, approvalId = `approval-request-${version}-${suffix}`;
+      const graph = { nodes: [
+        { id: "approval", type: "approval.request", position: { x: 0, y: 0 }, config: {} },
+        ...(withSuccessor ? [{ id: "next", type: "condition.if", position: { x: 1, y: 0 }, config: { left: "yes", operator: "equals", right: "yes" } }] : []),
+      ], edges: withSuccessor ? [{ id: "edge", source: "approval", target: "next", kind: "success" }] : [] };
+      await prisma.workflowVersion.create({ data: { id: versionId, workflowId, version, status: "PUBLISHED", graph } });
+      await prisma.execution.create({ data: { id: executionId, workflowVersionId: versionId, mode: "MOCK", status: "WAITING_APPROVAL", startedAt: new Date() } });
+      await prisma.nodeExecution.create({ data: { executionId, nodeId: "approval", status: "WAITING" } });
+      await prisma.approvalRequest.create({ data: { id: approvalId, executionId, tokenHash: `synthetic-${version}-${suffix}`, expiresAt: new Date(Date.now() + 60_000) } });
+      return { executionId, approvalId };
+    };
+    const race = await makeWaiting(1, true);
+    const decisions = await Promise.allSettled([service.resolveApproval(race.approvalId, userId, "approved"), service.resolveApproval(race.approvalId, userId, "rejected")]);
+    assert.equal(decisions.filter((result) => result.status === "fulfilled").length, 1);
+    const approval = await prisma.approvalRequest.findUniqueOrThrow({ where: { id: race.approvalId } });
+    const execution = await prisma.execution.findUniqueOrThrow({ where: { id: race.executionId } });
+    const node = await prisma.nodeExecution.findUniqueOrThrow({ where: { executionId_nodeId: { executionId: race.executionId, nodeId: "approval" } } });
+    if (approval.status === "APPROVED") {
+      assert.equal(execution.status, "QUEUED"); assert.equal(node.status, "SUCCEEDED");
+      assert.ok(execution.resumeToken);
+      assert.deepEqual(execution.resumeNodeIds, ["next"]);
+      await service.run(race.executionId, "mock", ["approval"]);
+      assert.equal((await prisma.execution.findUniqueOrThrow({ where: { id: race.executionId } })).status, "QUEUED");
+    }
+    else { assert.equal(approval.status, "REJECTED"); assert.equal(execution.status, "FAILED"); assert.equal(node.status, "FAILED"); }
+    const terminal = await makeWaiting(2, false);
+    const result = await service.resolveApproval(terminal.approvalId, userId, "approved");
+    assert.equal(result.resumed, false);
+    assert.equal((await prisma.execution.findUniqueOrThrow({ where: { id: terminal.executionId } })).status, "SUCCEEDED");
+    const continuation = await makeWaiting(3, true);
+    const accepted = await service.resolveApproval(continuation.approvalId, userId, "approved");
+    assert.ok(accepted.resumeToken);
+    await service.run(continuation.executionId, "mock", ["approval"]);
+    await service.run(continuation.executionId, "mock", ["approval"], undefined, false, "stale-token");
+    assert.equal((await prisma.execution.findUniqueOrThrow({ where: { id: continuation.executionId } })).status, "QUEUED");
+    // The persisted node list, not a queue-supplied list, selects the successor.
+    await service.run(continuation.executionId, "mock", ["approval"], undefined, false, accepted.resumeToken);
+    const finished = await prisma.execution.findUniqueOrThrow({ where: { id: continuation.executionId } });
+    assert.equal(finished.status, "SUCCEEDED");
+    assert.equal(finished.resumeToken, null);
+    assert.equal((await prisma.nodeExecution.findUniqueOrThrow({ where: { executionId_nodeId: { executionId: continuation.executionId, nodeId: "next" } } })).status, "SUCCEEDED");
+
+    // A bad queue payload must not turn a saved mock run into a live send or
+    // consume the claim needed by the correct job. The credential service is
+    // intentionally empty; no real provider is contacted by either call.
+    const modeVersionId = `mode-version-${suffix}`, modeExecutionId = `mode-execution-${suffix}`;
+    const modeGraph = { nodes: [
+      { id: "start", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
+      { id: "send", type: "action.telegram.message", position: { x: 1, y: 0 }, config: { credentialId: "synthetic", chatId: "123", text: "synthetic" } },
+    ], edges: [{ id: "edge", source: "start", target: "send", kind: "success" }] };
+    await prisma.workflowVersion.create({ data: { id: modeVersionId, workflowId, version: 40, status: "PUBLISHED", graph: modeGraph } });
+    await prisma.execution.create({ data: { id: modeExecutionId, workflowVersionId: modeVersionId, mode: "MOCK" } });
+    await service.run(modeExecutionId, "live");
+    const stillQueued = await prisma.execution.findUniqueOrThrow({ where: { id: modeExecutionId }, include: { nodeExecutions: true } });
+    assert.equal(stillQueued.status, "QUEUED");
+    assert.equal(stillQueued.startedAt, null);
+    assert.equal(stillQueued.nodeExecutions.length, 0);
+    await service.run(modeExecutionId, "mock");
+    const mockFinished = await prisma.execution.findUniqueOrThrow({ where: { id: modeExecutionId }, include: { nodeExecutions: true } });
+    assert.equal(mockFinished.status, "SUCCEEDED");
+    assert.equal(mockFinished.nodeExecutions.find((node) => node.nodeId === "send")?.status, "SUCCEEDED");
+
+    // Hold the approval row until after its deadline. The request must have
+    // acquired the execution and node locks before reaching the locked
+    // approval row, otherwise the intended lock-wait race is not tested.
+    const expiring = await makeWaiting(5, true);
+    const deadline = new Date(Date.now() + 4_000);
+    await prisma.approvalRequest.update({ where: { id: expiring.approvalId }, data: { expiresAt: deadline } });
+    let entered = () => {};
+    const reachedApprovalLock = new Promise<void>((resolve) => { entered = resolve; });
+    const observedPrisma = {
+      approvalRequest: prisma.approvalRequest,
+      nodeExecution: prisma.nodeExecution,
+      $transaction: async (callback: (transaction: unknown) => Promise<unknown>) => {
+        return prisma.$transaction(async (transaction) => callback(new Proxy(transaction, {
+          get(target, property, receiver) {
+            if (property === "$queryRaw") return (strings: TemplateStringsArray, ...values: unknown[]) => {
+              if (strings.join("").includes('FROM "ApprovalRequest"')) entered();
+              return target.$queryRaw(strings, ...values);
+            };
+            return Reflect.get(target, property, receiver);
+          },
+        })));
+      },
+    };
+    const expiryEvents: string[] = [];
+    const gatedService = new ExecutionService(observedPrisma as never, {} as never, { publish: (_id: string, event: string) => { expiryEvents.push(event); } } as never);
+    let outcome: Promise<{ ok: boolean }> | undefined;
+    await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "ApprovalRequest" WHERE id = ${expiring.approvalId} FOR UPDATE`;
+      outcome = gatedService.resolveApproval(expiring.approvalId, userId, "approved").then(() => ({ ok: true }), () => ({ ok: false }));
+      await Promise.race([reachedApprovalLock, outcome.then(() => { throw new Error("Decision ended before reaching the blocked approval lock."); })]);
+      const clock = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS "now"`;
+      assert.ok(clock[0]!.now < deadline, "the decision must reach the locked approval before expiry");
+      await new Promise<void>((resolve) => setTimeout(resolve, Math.max(0, deadline.getTime() - Date.now() + 100)));
+    }, { timeout: 10_000 });
+    assert.equal((await outcome!).ok, false, "a decision waiting past expiry must not be accepted");
+    assert.equal((await prisma.approvalRequest.findUniqueOrThrow({ where: { id: expiring.approvalId } })).status, "EXPIRED");
+    const expiredExecution = await prisma.execution.findUniqueOrThrow({ where: { id: expiring.executionId } });
+    assert.equal(expiredExecution.status, "FAILED");
+    assert.equal(expiredExecution.errorCode, "APPROVAL_EXPIRED");
+    assert.equal((await prisma.nodeExecution.findUniqueOrThrow({ where: { executionId_nodeId: { executionId: expiring.executionId, nodeId: "approval" } } })).status, "FAILED");
+    assert.deepEqual(expiryEvents, ["execution.failed"]);
+    const alreadyExpired = await makeWaiting(6, false);
+    await prisma.approvalRequest.update({ where: { id: alreadyExpired.approvalId }, data: { expiresAt: new Date("2020-01-01T00:00:00Z") } });
+    await assert.rejects(service.resolveApproval(alreadyExpired.approvalId, userId, "approved"), /Approval request has expired/);
+    assert.equal((await prisma.approvalRequest.findUniqueOrThrow({ where: { id: alreadyExpired.approvalId } })).status, "EXPIRED");
+    assert.equal((await prisma.execution.findUniqueOrThrow({ where: { id: alreadyExpired.executionId } })).errorCode, "APPROVAL_EXPIRED");
+
+    // A node completion that arrives while cancellation holds the execution
+    // lock must observe the committed cancellation before touching the node.
+    const versionId = `approval-version-4-${suffix}`, executionId = `approval-execution-4-${suffix}`;
+    await prisma.workflowVersion.create({ data: { id: versionId, workflowId, version: 4, status: "PUBLISHED", graph: { nodes: [], edges: [] } } });
+    await prisma.execution.create({ data: { id: executionId, workflowVersionId: versionId, mode: "MOCK", status: "RUNNING", startedAt: new Date(), runToken: "current-phase" } });
+    await prisma.nodeExecution.create({ data: { executionId, nodeId: "in-flight", status: "RUNNING" } });
+    const runner = service as unknown as {
+      updateNodeWhileRunning: (id: string, runToken: string, nodeId: string, data: { status: "SUCCEEDED" }) => Promise<boolean>;
+      renewLease: (id: string, runToken: string) => Promise<boolean>;
+      finishRunning: (id: string, runToken: string, data: { status: "SUCCEEDED" }, event: "execution.succeeded") => Promise<unknown>;
+    };
+    assert.equal(await runner.updateNodeWhileRunning(executionId, "previous-phase", "in-flight", { status: "SUCCEEDED" }), false);
+    assert.equal((await prisma.nodeExecution.findUniqueOrThrow({ where: { executionId_nodeId: { executionId, nodeId: "in-flight" } } })).status, "RUNNING");
+    assert.equal(await runner.renewLease(executionId, "previous-phase"), false);
+    await runner.finishRunning(executionId, "previous-phase", { status: "SUCCEEDED" }, "execution.succeeded");
+    assert.equal((await prisma.execution.findUniqueOrThrow({ where: { id: executionId } })).status, "RUNNING");
+    let completion: Promise<boolean> | undefined;
+    let completionSettled = false;
+    await prisma.$transaction(async (tx) => {
+      await tx.execution.update({ where: { id: executionId }, data: { status: "CANCELLED", completedAt: new Date() } });
+      await tx.nodeExecution.updateMany({ where: { executionId, status: "RUNNING" }, data: { status: "SKIPPED", completedAt: new Date() } });
+      completion = runner.updateNodeWhileRunning(executionId, "current-phase", "in-flight", { status: "SUCCEEDED" });
+      void completion.then(() => { completionSettled = true; }, () => { completionSettled = true; });
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+      assert.equal(completionSettled, false);
+    });
+    assert.equal(await completion!, false);
+    assert.equal((await prisma.nodeExecution.findUniqueOrThrow({ where: { executionId_nodeId: { executionId, nodeId: "in-flight" } } })).status, "SKIPPED");
+  } finally {
+    await prisma.execution.deleteMany({ where: { workflowVersion: { workflowId } } });
+    await prisma.workflow.deleteMany({ where: { id: workflowId } });
+    await prisma.workspace.deleteMany({ where: { id: workspaceId } });
+    await prisma.user.deleteMany({ where: { id: userId } });
+    await prisma.$disconnect();
+  }
+});
+
+test("expired execution and node transitions roll back together on database failure", { skip: process.env.FLUXORA_APPROVAL_INTEGRATION !== "1" }, async () => {
+  const database = new URL(process.env.DATABASE_URL ?? "");
+  if (!/^\/fluxora_[a-z0-9_]*test[a-z0-9_]*$/.test(database.pathname) || !["localhost", "127.0.0.1"].includes(database.hostname)) throw new Error("Lease integration requires a disposable local fluxora_*test* database.");
+  const prisma = new PrismaClient();
+  const suffix = randomUUID();
+  const userId = `lease-user-${suffix}`, workspaceId = `lease-workspace-${suffix}`, workflowId = `lease-workflow-${suffix}`, versionId = `lease-version-${suffix}`, executionId = `lease-execution-${suffix}`;
+  const events: string[] = [];
+  const service = new ExecutionService(prisma as never, {} as never, { publish: (_id: string, event: string) => { events.push(event); } } as never);
+  const failingPrisma = {
+    $transaction: async (callback: (transaction: unknown) => Promise<unknown>) => prisma.$transaction(async (transaction) => callback({
+      execution: transaction.execution,
+      nodeExecution: { updateMany: async (args: Parameters<typeof transaction.nodeExecution.updateMany>[0]) => {
+        await transaction.nodeExecution.updateMany(args);
+        throw new Error("synthetic failure after node update");
+      } },
+    })),
+  };
+  const failingService = new ExecutionService(failingPrisma as never, {} as never, { publish: (_id: string, event: string) => { events.push(event); } } as never);
+  try {
+    await prisma.user.create({ data: { id: userId, email: `${suffix}@example.test` } });
+    await prisma.workspace.create({ data: { id: workspaceId, ownerId: userId, name: "Synthetic", slug: `lease-${suffix}` } });
+    await prisma.workflow.create({ data: { id: workflowId, workspaceId, name: "Synthetic" } });
+    await prisma.workflowVersion.create({ data: { id: versionId, workflowId, version: 1, graph: { nodes: [], edges: [] } } });
+    await prisma.execution.create({ data: { id: executionId, workflowVersionId: versionId, mode: "MOCK", status: "RUNNING", startedAt: new Date(), leaseExpiresAt: new Date("2020-01-01T00:00:00Z"), runToken: "synthetic-phase" } });
+    await prisma.nodeExecution.createMany({ data: [{ executionId, nodeId: "running", status: "RUNNING" }, { executionId, nodeId: "pending", status: "PENDING" }] });
+    await assert.rejects(failingService.failFromMaintenance(executionId, "TEST", "Synthetic"), /synthetic failure/);
+    const unchanged = await prisma.execution.findUniqueOrThrow({ where: { id: executionId }, include: { nodeExecutions: true } });
+    assert.equal(unchanged.status, "RUNNING");
+    assert.equal(unchanged.runToken, "synthetic-phase");
+    assert.deepEqual(unchanged.nodeExecutions.map((node) => node.status).sort(), ["PENDING", "RUNNING"]);
+    assert.deepEqual(events, []);
+
+    await prisma.execution.update({ where: { id: executionId }, data: { leaseExpiresAt: new Date(Date.now() + 60_000) } });
+    assert.equal(await service.failFromMaintenance(executionId, "TEST", "Synthetic"), false);
+    assert.deepEqual(events, []);
+    await prisma.execution.update({ where: { id: executionId }, data: { leaseExpiresAt: new Date("2020-01-01T00:00:00Z") } });
+    assert.equal(await service.failFromMaintenance(executionId, "TEST", "Synthetic"), true);
+    assert.equal(await service.failFromMaintenance(executionId, "TEST", "Synthetic"), false);
+    const finished = await prisma.execution.findUniqueOrThrow({ where: { id: executionId }, include: { nodeExecutions: true } });
+    assert.equal(finished.status, "FAILED");
+    assert.equal(finished.runToken, null);
+    assert.equal(finished.recoveryCount, 1);
+    assert.deepEqual(finished.nodeExecutions.map((node) => node.status).sort(), ["FAILED", "SKIPPED"]);
+    assert.deepEqual(events, ["execution.failed"]);
+  } finally {
+    await prisma.execution.deleteMany({ where: { id: executionId } });
+    await prisma.workflow.deleteMany({ where: { id: workflowId } });
+    await prisma.workspace.deleteMany({ where: { id: workspaceId } });
+    await prisma.user.deleteMany({ where: { id: userId } });
+    await prisma.$disconnect();
+  }
+});

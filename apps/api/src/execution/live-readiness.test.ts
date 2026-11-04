@@ -4,6 +4,44 @@ import { CredentialProvider } from "@prisma/client";
 import { liveCredentialRequirements } from "./live-readiness";
 import { ExecutionService } from "./execution.service";
 
+test("versioned Google Sheets writes still require the workspace Google connection", () => {
+  const requirements = liveCredentialRequirements({ nodes: [{ id: "sheet", type: "action.google-sheets.v2", position: { x: 0, y: 0 }, config: { credentialId: "google-connection" } }], edges: [] });
+  assert.deepEqual(requirements, [{ nodeId: "sheet", provider: CredentialProvider.GOOGLE, credentialId: "google-connection" }]);
+});
+
+test("new Trello and Notion operations retain provider-specific live-readiness checks", () => {
+  const types = ["action.notion.retrieve-page", "action.notion.list-children", "action.notion.retrieve-property", "action.notion.create-page", "action.notion.update-title", "action.trello.get-card", "action.trello.update-card", "action.trello.move-card", "action.trello.archive-card", "action.trello.list-cards", "action.trello.find-cards"] as const;
+  const nodes = types.map((type, index) => ({ id: String(index), type, position: { x: 0, y: 0 }, config: { credentialId: `credential-${index}` } }));
+  const requirements = liveCredentialRequirements({ nodes, edges: [] });
+  assert.equal(requirements.length, types.length);
+  for (let i = 0; i < types.length; i++) {
+    assert.equal(requirements[i]?.provider, types[i]!.startsWith("action.notion.") ? CredentialProvider.NOTION : CredentialProvider.TRELLO);
+    assert.equal(requirements[i]?.credentialId, `credential-${i}`);
+  }
+});
+
+test("GitHub issue and pull request operations require the workspace GitHub credential", () => {
+  const types = ["action.github.list-issues", "action.github.get-issue", "action.github.update-issue", "action.github.list-pull-requests", "action.github.get-pull-request"] as const;
+  const requirements = liveCredentialRequirements({ nodes: types.map((type, index) => ({ id: String(index), type, position: { x: 0, y: 0 }, config: { credentialId: "github" } })), edges: [] });
+  assert.equal(requirements.length, types.length);
+  assert.ok(requirements.every((entry) => entry.provider === CredentialProvider.GITHUB && entry.credentialId === "github"));
+});
+
+test("Gmail get-message requires a Gmail credential", () => {
+  const requirements = liveCredentialRequirements({ nodes: [{ id: "message", type: "action.gmail.get-message", position: { x: 0, y: 0 }, config: { credentialId: "gmail" } }], edges: [] });
+  assert.deepEqual(requirements, [{ nodeId: "message", provider: CredentialProvider.GMAIL, credentialId: "gmail" }]);
+});
+
+test("observability read operations require their own provider credential", () => {
+  const types = ["action.sentry.list-issues", "action.sentry.get-issue", "action.vercel.list-deployments", "action.vercel.public-deployment-lookup"] as const;
+  const requirements = liveCredentialRequirements({ nodes: types.map((type, index) => ({ id: String(index), type, position: { x: 0, y: 0 }, config: { credentialId: `connection-${index}` } })), edges: [] });
+  assert.equal(requirements.length, types.length);
+  for (let index = 0; index < types.length; index++) {
+    assert.equal(requirements[index]?.credentialId, `connection-${index}`);
+    assert.equal(requirements[index]?.provider, index < 2 ? CredentialProvider.SENTRY : CredentialProvider.VERCEL);
+  }
+});
+
 test("live readiness derives credential requirements from executable node types", () => {
   const requirements = liveCredentialRequirements({
     nodes: [
@@ -81,4 +119,20 @@ test("live readiness marks missing credentials without reading secret payloads",
     { nodeId: "steam", provider: CredentialProvider.STEAM, credentialId: "steam-credential", ready: true, reason: null },
     { nodeId: "chat", provider: CredentialProvider.GOOGLE_CHAT_WEBHOOK, credentialId: null, ready: false, reason: "MISSING_CREDENTIAL" },
   ]);
+});
+
+test("published legacy graphs with unavailable nodes fail readiness before a live execution is created", async () => {
+  const graph = { nodes: [
+    { id: "start", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
+    { id: "later", type: "action.instagram", position: { x: 1, y: 0 }, config: {} },
+  ], edges: [] };
+  const version = { id: "version", graph };
+  let created = false;
+  const prisma = { workflow: { findFirst: async () => ({ workspaceId: "workspace", publishedVersion: version }) }, execution: { create: async () => { created = true; } } };
+  const service = new ExecutionService(prisma as never, {} as never, {} as never);
+  const readiness = await service.getLiveReadiness("flow", "owner");
+  assert.equal(readiness.ready, false);
+  assert.deepEqual(readiness.unavailableNodes, [{ nodeId: "later", type: "action.instagram" }]);
+  await assert.rejects(() => service.createManualExecution("flow", "owner", false), (error: any) => error.response?.code === "NODE_UNAVAILABLE");
+  assert.equal(created, false);
 });

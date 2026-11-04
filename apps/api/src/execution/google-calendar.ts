@@ -1,8 +1,9 @@
 import { CredentialProvider } from "@prisma/client";
 import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure } from "./node-failure";
-import { fetchSafeOutbound } from "./outbound-url-policy";
+import { fetchSafeOutbound, fetchSafeOutboundWrite, OutboundRequestPolicyError, wasOutboundRedirected } from "./outbound-url-policy";
 import { readBoundedProviderJson } from "./provider-json";
+import { markPageTokenOutput } from "./redaction";
 import { createHash } from "node:crypto";
 
 type Transport = typeof fetchSafeOutbound;
@@ -36,18 +37,27 @@ export async function listCalendarEvents(token: string, calendarId: string, limi
     const text = (value: unknown, max = 1000) => typeof value === "string" ? value.slice(0, max) : "";
     return { id: text(event.id), summary: text(event.summary), description: text(event.description, 10000), start: text(start?.dateTime ?? start?.date), end: text(end?.dateTime ?? end?.date), timeZone: text(start?.timeZone), location: text(event.location), status: text(event.status) };
   });
-  const nextPageToken = typeof data.nextPageToken === "string" && data.nextPageToken.length <= 512 && /^[\x21-\x7e]+$/.test(data.nextPageToken) ? data.nextPageToken : null;
-  return { events, count: events.length, hasMore: Boolean(nextPageToken), nextPageToken, timeMin: now.toISOString() };
+  if (data.nextPageToken !== undefined && (typeof data.nextPageToken !== "string" || data.nextPageToken.length > 512 || !/^[\x21-\x7e]+$/.test(data.nextPageToken))) throw new NodeFailure("INVALID_RESPONSE", "Google Calendar returned an invalid continuation token.", false);
+  const nextPageToken = typeof data.nextPageToken === "string" ? data.nextPageToken : null;
+  if (nextPageToken?.includes(token)) throw new NodeFailure("INVALID_RESPONSE", "Google Calendar returned an invalid continuation token.", false);
+  return markPageTokenOutput({ events, count: events.length, hasMore: Boolean(nextPageToken), nextPageToken, timeMin: now.toISOString() });
 }
 
 export async function executeGoogleCalendar(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, read = listCalendarEvents) {
+  // A present but unresolved expression must never silently restart at the
+  // first page or select the primary calendar instead of the requested one.
+  for (const key of ["calendarId", "pageToken", "timeMin"] as const) {
+    if (Object.hasOwn(config, key) && typeof config[key] !== "string") {
+      throw new NodeFailure("INVALID_INPUT", "Select a calendar and valid limit. When using a page token, also use the original start time.", false);
+    }
+  }
   const calendarId = typeof config.calendarId === "string" ? config.calendarId.trim() : "primary";
   const limit = config.limit === undefined ? 10 : config.limit;
   const pageToken = typeof config.pageToken === "string" && config.pageToken ? config.pageToken : undefined;
   const timeMin = typeof config.timeMin === "string" ? config.timeMin.trim() : "";
   if (!isCalendarResourceId(calendarId) || typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > 50 || (pageToken !== undefined && (pageToken.length > 512 || !/^[\x21-\x7e]+$/.test(pageToken) || !timeMin)) || (timeMin && (!/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d{1,3})?)?(?:Z|[+-]\d\d:\d\d)$/i.test(timeMin) || !Number.isFinite(Date.parse(timeMin))))) throw new NodeFailure("INVALID_INPUT", "Select a calendar and valid limit. When using a page token, also use the original start time.", false);
   const start = timeMin ? new Date(timeMin) : new Date();
-  if (mode === "mock") return { status: "succeeded" as const, output: { events: [{ id: "example-event", summary: "Example event", description: "", start: "2030-01-01T09:00:00Z", end: "2030-01-01T10:00:00Z", timeZone: "UTC", location: "", status: "confirmed" }], count: 1, hasMore: false, nextPageToken: null, timeMin: start.toISOString() }, route: "success" as const };
+  if (mode === "mock") return { status: "succeeded" as const, output: markPageTokenOutput({ events: [{ id: "example-event", summary: "Example event", description: "", start: "2030-01-01T09:00:00Z", end: "2030-01-01T10:00:00Z", timeZone: "UTC", location: "", status: "confirmed" }], count: 1, hasMore: false, nextPageToken: null, timeMin: start.toISOString() }), route: "success" as const };
   const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
   if (!credentialId) throw new NodeFailure("CREDENTIAL_REQUIRED", "Select a Google Calendar connection.", false);
   const credential = await credentials.readGoogleForExecution(credentialId, workspaceId, CredentialProvider.GOOGLE_CALENDAR);
@@ -71,7 +81,7 @@ function readCreateInput(config: Record<string, unknown>): CreateCalendarInput {
   return { calendarId, summary, start, end, description, location, attendees, sendUpdates };
 }
 
-export async function createCalendarEvent(token: string, input: CreateCalendarInput, executionId: string, nodeId: string, transport: Transport = fetchSafeOutbound) {
+export async function createCalendarEvent(token: string, input: CreateCalendarInput, executionId: string, nodeId: string, transport: Transport = fetchSafeOutboundWrite) {
   if (!token || /\s/.test(token) || token.length > 4096 || !executionId || !nodeId || !isCalendarResourceId(input.calendarId)) throw new NodeFailure("INVALID_INPUT", "Calendar connection or execution reference is invalid.", false);
   const marker = createHash("sha256").update(`${executionId}\0${nodeId}`).digest("hex");
   // Google accepts base32hex event IDs; hexadecimal is a valid subset.
@@ -80,7 +90,14 @@ export async function createCalendarEvent(token: string, input: CreateCalendarIn
   const body = { id, summary: input.summary, description: input.description, location: input.location, start: { dateTime: input.start }, end: { dateTime: input.end }, attendees: input.attendees.map((email) => ({ email })), extendedProperties: { private: { fluxoraRun: marker } } };
   let response: Response;
   try { response = await transport(`https://www.googleapis.com/calendar/v3/${path}?${new URLSearchParams({ sendUpdates: input.sendUpdates })}`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(15_000) }); }
-  catch { throw new NodeFailure("CALENDAR_UNAVAILABLE", "Google Calendar could not be reached. A retry will check for the same event.", true); }
+  catch (error) {
+    if (error instanceof OutboundRequestPolicyError && error.code === "OUTBOUND_REDIRECT_BLOCKED") throw new NodeFailure("CALENDAR_CONFIRMATION_UNKNOWN", "Calendar event creation may have been applied. Check the event before retrying.", false);
+    throw new NodeFailure("CALENDAR_UNAVAILABLE", "Google Calendar could not be reached. A retry will check for the same event.", true);
+  }
+  if (wasOutboundRedirected(response) || (response.status >= 300 && response.status < 400)) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new NodeFailure("CALENDAR_CONFIRMATION_UNKNOWN", "Calendar event creation may have been applied. Check the event before retrying.", false);
+  }
   if (response.status === 409) {
     let existing: Record<string, unknown>;
     try { existing = await googleCalendarGet(`${path}/${id}`, token, transport); }
@@ -107,7 +124,7 @@ export async function executeGoogleCalendarCreate(config: Record<string, unknown
   return { status: "succeeded" as const, output: await create(typeof credential.accessToken === "string" ? credential.accessToken : "", input, executionId, nodeId), route: "success" as const };
 }
 
-export async function executeGoogleCalendarEvent(config: Record<string, unknown>, operation: "get" | "update" | "delete", mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport = fetchSafeOutbound) {
+export async function executeGoogleCalendarEvent(config: Record<string, unknown>, operation: "get" | "update" | "delete", mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport = operation === "get" ? fetchSafeOutbound : fetchSafeOutboundWrite) {
   const calendarId = typeof config.calendarId === "string" ? config.calendarId.trim() : "";
   const eventId = typeof config.eventId === "string" ? config.eventId.trim() : "";
   if (!isCalendarResourceId(calendarId) || !isCalendarResourceId(eventId)) throw new NodeFailure("INVALID_INPUT", "Select a calendar and event.", false);
@@ -134,19 +151,25 @@ export async function executeGoogleCalendarEvent(config: Record<string, unknown>
   const body = { ...(summary ? { summary } : {}), ...(description ? { description } : {}), ...(location ? { location } : {}), ...(start ? { start: { dateTime: start }, end: { dateTime: end } } : {}) };
   let response: Response;
   try { response = await transport(`https://www.googleapis.com/calendar/v3/${path}?${new URLSearchParams({ sendUpdates })}`, { method: operation === "delete" ? "DELETE" : "PATCH", headers: { Authorization: `Bearer ${token}`, ...(operation === "update" ? { "Content-Type": "application/json" } : {}) }, ...(operation === "update" ? { body: JSON.stringify(body) } : {}), signal: AbortSignal.timeout(15_000) }); }
-  catch {
-    if (operation === "update" && sendUpdates !== "none") throw new NodeFailure("CALENDAR_UPDATE_OUTCOME_UNKNOWN", "The update may have been applied and invitations may have been sent. Check the event before retrying.", false);
-    throw new NodeFailure("CALENDAR_UNAVAILABLE", "Google Calendar could not be reached.", true);
+  catch { throw calendarWriteUnknown(operation); }
+  if (wasOutboundRedirected(response) || (response.status >= 300 && response.status < 400)) {
+    await response.body?.cancel().catch(() => undefined);
+    throw calendarWriteUnknown(operation, response.status);
   }
   if (operation === "delete" && (response.status === 404 || response.status === 410)) return { status: "succeeded" as const, output: { id: eventId, deleted: false, alreadyAbsentOrInaccessible: true }, route: "success" as const };
   if (!response.ok) {
-    if (operation === "update" && sendUpdates !== "none" && response.status >= 500) throw new NodeFailure("CALENDAR_UPDATE_OUTCOME_UNKNOWN", "The update may have been applied and invitations may have been sent. Check the event before retrying.", false);
-    throw new NodeFailure("CALENDAR_ERROR", `Google Calendar returned ${response.status}. Check the connection and permissions.`, response.status === 429 || response.status >= 500, response.status);
+    await response.body?.cancel().catch(() => undefined);
+    if (response.status === 408 || response.status === 429 || response.status >= 500) throw calendarWriteUnknown(operation, response.status);
+    throw new NodeFailure("CALENDAR_ERROR", `Google Calendar returned ${response.status}. Check the connection and permissions.`, false, response.status);
   }
   if (operation === "delete") return { status: "succeeded" as const, output: { id: eventId, deleted: true, alreadyAbsentOrInaccessible: false }, route: "success" as const };
   let raw: unknown; try { raw = await readBoundedProviderJson(response); } catch { throw new NodeFailure("CALENDAR_UPDATE_OUTCOME_UNKNOWN", "The update may have been applied. Check the event and notifications before retrying.", false); }
   const event = record(raw); if (!event || typeof event.id !== "string" || event.id !== eventId) throw new NodeFailure("CALENDAR_UPDATE_OUTCOME_UNKNOWN", "The update may have been applied. Check the event and notifications before retrying.", false);
   return { status: "succeeded" as const, output: { id: eventId, updated: true }, route: "success" as const };
+}
+
+function calendarWriteUnknown(operation: "update" | "delete", status?: number) {
+  return new NodeFailure(operation === "update" ? "CALENDAR_UPDATE_OUTCOME_UNKNOWN" : "CALENDAR_DELETE_OUTCOME_UNKNOWN", "The calendar change may have been applied. Check the event and notifications before retrying.", false, status);
 }
 
 export async function executeGoogleCalendarAvailability(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport = fetchSafeOutbound) {
@@ -161,14 +184,22 @@ export async function executeGoogleCalendarAvailability(config: Record<string, u
   const credential = await credentials.readGoogleForExecution(credentialId, workspaceId, CredentialProvider.GOOGLE_CALENDAR);
   const token = typeof credential.accessToken === "string" ? credential.accessToken : "";
   if (!token || token.length > 4096 || /\s/.test(token)) throw new NodeFailure("CREDENTIAL_REQUIRED", "The Google Calendar connection is invalid.", false);
+  // FreeBusy returns a map of calendar IDs and can expand group IDs. Resolve
+  // the primary alias explicitly instead of assuming the only returned
+  // calendar is the one requested.
+  let resolvedCalendarId = calendarId;
+  if (calendarId === "primary") {
+    const primary = await googleCalendarGet("users/me/calendarList/primary", token, transport);
+    if (primary.primary !== true || typeof primary.id !== "string" || !isCalendarResourceId(primary.id) || primary.id === "primary") throw new NodeFailure("CALENDAR_AVAILABILITY_UNAVAILABLE", "The primary calendar could not be identified. Check access and try again.", false);
+    resolvedCalendarId = primary.id;
+  }
   let response: Response;
-  try { response = await transport("https://www.googleapis.com/calendar/v3/freeBusy", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ timeMin: start, timeMax: end, items: [{ id: calendarId }] }), signal: AbortSignal.timeout(15_000) }); }
+  try { response = await transport("https://www.googleapis.com/calendar/v3/freeBusy", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ timeMin: start, timeMax: end, items: [{ id: resolvedCalendarId }] }), signal: AbortSignal.timeout(15_000) }); }
   catch { throw new NodeFailure("CALENDAR_UNAVAILABLE", "Google Calendar could not be reached.", true); }
   if (!response.ok) throw new NodeFailure("CALENDAR_ERROR", `Google Calendar returned ${response.status}. Check the connection and permissions.`, response.status === 429 || response.status >= 500, response.status);
   let raw: unknown; try { raw = await readBoundedProviderJson(response); } catch (error) { if (error instanceof NodeFailure) throw error; throw new NodeFailure("INVALID_RESPONSE", "Google Calendar returned an invalid response.", false); }
   const calendars = record(record(raw)?.calendars);
-  const entries = calendars ? Object.entries(calendars) : [];
-  const calendar = record(calendars?.[calendarId] ?? (entries.length === 1 ? entries[0]?.[1] : null));
+  const calendar = record(calendars && Object.hasOwn(calendars, resolvedCalendarId) ? calendars[resolvedCalendarId] : null);
   if (!calendar || (calendar.errors !== undefined && (!Array.isArray(calendar.errors) || calendar.errors.length > 0)) || !Array.isArray(calendar.busy)) throw new NodeFailure("CALENDAR_AVAILABILITY_UNAVAILABLE", "Calendar availability could not be determined. Check access and try again.", false);
   const busy = calendar.busy.map((value: unknown) => record(value)).map((item) => {
     if (typeof item?.start !== "string" || typeof item?.end !== "string" || !rfc3339.test(item.start) || !rfc3339.test(item.end) || !Number.isFinite(Date.parse(item.start)) || !Number.isFinite(Date.parse(item.end)) || Date.parse(item.end) <= Date.parse(item.start)) throw new NodeFailure("INVALID_RESPONSE", "Google Calendar returned invalid busy times.", false);

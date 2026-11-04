@@ -1,4 +1,4 @@
-import { fetchSafeOutbound, wasOutboundRedirected } from "../execution/outbound-url-policy";
+import { fetchSafeOutboundWrite, wasOutboundRedirected } from "../execution/outbound-url-policy";
 import { NodeFailure } from "../execution/node-failure";
 import { readBoundedProviderJson } from "../execution/provider-json";
 import { notificationReceiptFailure, notificationWriteFailure } from "./notification-write-failure";
@@ -50,7 +50,7 @@ export class GoogleChatNotificationAdapter implements NotificationAdapter {
 
     let response: Response;
     try {
-      response = await fetchSafeOutbound(webhookUrl, {
+      response = await fetchSafeOutboundWrite(webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: message }),
@@ -62,6 +62,7 @@ export class GoogleChatNotificationAdapter implements NotificationAdapter {
 
     if (!response.ok) {
       await response.body?.cancel().catch(() => undefined);
+      if (response.status >= 300 && response.status < 400) throw notificationReceiptFailure("Google Chat");
       throw new NodeFailure(
         "HTTP_ERROR",
         `Google Chat returned ${response.status}.`,

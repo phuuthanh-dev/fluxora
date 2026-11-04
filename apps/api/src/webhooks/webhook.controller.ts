@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Delete, Get, Header, Headers, Inject, Optional, Param, Post, RawBody, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Controller, Delete, Get, Head, Header, Headers, Inject, Optional, Param, Post, RawBody, Req, UseGuards } from "@nestjs/common";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
 import { WebhookService } from "./webhook.service";
@@ -24,7 +24,7 @@ export class WebhookController {
     if (typeof body.publishedVersionId !== "string" || !body.publishedVersionId) throw new BadRequestException({ code: "INVALID_INPUT", message: "Reload the workflow before configuring its webhook." });
     const expected = body.expectedEndpoint;
     if (expected !== null && (!expected || typeof expected !== "object" || Array.isArray(expected) || typeof (expected as Record<string, unknown>).id !== "string" || typeof (expected as Record<string, unknown>).updatedAt !== "string")) throw new BadRequestException({ code: "INVALID_INPUT", message: "Reload the webhook status before saving." });
-    return { endpoint: await this.webhooks.createEndpoint(workflowId, userId(request), path, secretRequired, { publishedVersionId: body.publishedVersionId, endpoint: expected as { id: string; updatedAt: string } | null }) };
+    return { endpoint: await this.webhooks.createEndpoint(workflowId, userId(request), path, secretRequired, { publishedVersionId: body.publishedVersionId, endpoint: expected as { id: string; updatedAt: string } | null }, body.signingSecret, body.callbackUrl) };
   }
 
   @Get("workflows/:workflowId/provider-webhook")
@@ -54,9 +54,14 @@ export class WebhookController {
     return { providerWebhook: await this.requireGitHubHooks().reconcile(workflowId, userId(request)) };
   }
 
+  @Head("webhooks/:path")
+  async trelloValidation(@Param("path") path: string) {
+    await this.webhooks.checkTrelloEndpoint(path);
+  }
+
   @Post("webhooks/:path")
-  async receive(@Param("path") path: string, @Headers("x-workflow-secret") secret: string | undefined, @Headers("x-github-event") githubEvent: string | undefined, @Headers("x-hub-signature-256") githubSignature: string | undefined, @Headers("idempotency-key") idempotencyKey: string | undefined, @RawBody() rawBody: Buffer | undefined, @Req() request: AuthenticatedRequest, @Headers("x-github-delivery") githubDelivery?: string) {
-    return this.webhooks.receive(path, secret, request.body, readIdempotencyKey(idempotencyKey), { githubEvent, githubSignature, githubDelivery: readIdempotencyKey(githubDelivery), rawBody });
+  async receive(@Param("path") path: string, @Headers("x-workflow-secret") secret: string | undefined, @Headers("x-github-event") githubEvent: string | undefined, @Headers("x-hub-signature-256") githubSignature: string | undefined, @Headers("idempotency-key") idempotencyKey: string | undefined, @RawBody() rawBody: Buffer | undefined, @Req() request: AuthenticatedRequest, @Headers("x-github-delivery") githubDelivery?: string, @Headers("x-telegram-bot-api-secret-token") telegramSecret?: string, @Headers("x-vercel-signature") vercelSignature?: string, @Headers("x-trello-webhook") trelloSignature?: string, @Headers("sentry-hook-signature") sentrySignature?: string, @Headers("sentry-hook-resource") sentryResource?: string) {
+    return this.webhooks.receive(path, secret, request.body, readIdempotencyKey(idempotencyKey), { githubEvent, githubSignature, githubDelivery: readIdempotencyKey(githubDelivery), rawBody }, telegramSecret, vercelSignature, trelloSignature, sentrySignature, sentryResource);
   }
 
   private requireGitHubHooks() {

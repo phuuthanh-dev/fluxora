@@ -223,6 +223,7 @@ model Workflow {
   draftVersion       WorkflowVersion?  @relation("WorkflowDraftVersion", fields: [draftVersionId], references: [id], onDelete: SetNull)
   publishedVersion   WorkflowVersion?  @relation("WorkflowPublishedVersion", fields: [publishedVersionId], references: [id], onDelete: SetNull)
   webhookEndpoints   WebhookEndpoint[]
+  rssTriggerCheckpoints RssTriggerCheckpoint[]
 
   @@index([workspaceId, updatedAt])
   @@index([workspaceId, archivedAt, updatedAt])
@@ -282,6 +283,43 @@ model GmailTriggerDelivery {
   @@id([workflowVersionId, nodeId, messageId])
 }
 
+// RSS progress belongs to a workflow and trigger identity, so an unchanged
+// trigger can carry its bounded history across published versions without
+// copying receipts into every historical version.
+model RssTriggerCheckpoint {
+  workflowId        String
+  nodeId            String
+  workflowVersionId String
+  feedUrlHash       String
+  snapshot          Json
+  etag              String?
+  lastModified      String?
+  state             String   @default("READY")
+  leaseToken        String?
+  leaseExpiresAt    DateTime?
+  nextPollAt        DateTime?
+  lastErrorCode     String?
+  updatedAt         DateTime @updatedAt
+  workflow          Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  deliveries        RssTriggerDelivery[]
+
+  @@id([workflowId, nodeId])
+  @@index([state, nextPollAt, leaseExpiresAt])
+}
+
+model RssTriggerDelivery {
+  workflowId String
+  nodeId     String
+  itemKey    String
+  lastSeenAt DateTime @default(now())
+  executionId String? @unique
+  checkpoint RssTriggerCheckpoint @relation(fields: [workflowId, nodeId], references: [workflowId, nodeId], onDelete: Cascade)
+  execution  Execution? @relation(fields: [executionId], references: [id], onDelete: SetNull)
+
+  @@id([workflowId, nodeId, itemKey])
+  @@index([lastSeenAt])
+}
+
 model Credential {
   id            String             @id @default(uuid())
   workspaceId   String
@@ -303,6 +341,9 @@ model Execution {
   status            ExecutionStatus @default(QUEUED)
   mode              String          @default("LIVE")
   idempotencyKey    String?         @unique
+  // Keyed digest for guarded Kuma, Telegram and Vercel deliveries.
+  // Existing executions and other providers continue to use NULL.
+  webhookPayloadDigest String?
   idempotencyRootId String?
   triggerData       Json?
   errorCode         String?
@@ -312,14 +353,23 @@ model Execution {
   completedAt       DateTime?
   leaseExpiresAt    DateTime?
   recoveryCount     Int             @default(0)
+  // Fences state writes made by a worker from an earlier running phase.
+  runToken          String?
+  // A queued approval continuation is persisted before queue dispatch. Its
+  // nonce fences older initial/resume jobs from claiming a later phase.
+  resumeToken       String?         @unique
+  resumeNodeIds     Json?
+  resumeQueuedAt    DateTime?
   createdAt         DateTime        @default(now())
   workflowVersion   WorkflowVersion @relation(fields: [workflowVersionId], references: [id], onDelete: Restrict)
   nodeExecutions    NodeExecution[]
   approvalRequests  ApprovalRequest[]
+  rssDelivery       RssTriggerDelivery?
 
   @@index([workflowVersionId, createdAt])
   @@index([status, createdAt])
   @@index([status, leaseExpiresAt])
+  @@index([status, resumeQueuedAt])
 }
 
 model NodeExecution {

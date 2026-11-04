@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { copyFileSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { test } from "node:test";
@@ -101,6 +101,71 @@ test("database recovery scripts require an explicit guarded workflow", () => {
   assert.match(restoreScript, /pg_restore/);
   assert.match(restoreScript, /--exit-on-error/);
   assert.doesNotMatch(restoreScript, /docker compose down/);
+});
+
+test("backup publishes only a successful dump and never overwrites an existing archive", () => {
+  const dir = mkdtempSync(resolve(tmpdir(), "fluxora-backup-contract-"));
+  try {
+    mkdirSync(resolve(dir, "infra"));
+    mkdirSync(resolve(dir, "bin"));
+    mkdirSync(resolve(dir, "backups"));
+    writeFileSync(resolve(dir, "infra/docker-compose.production.yml"), "# synthetic\n");
+    writeFileSync(resolve(dir, ".env.production"), "# synthetic\n");
+    writeFileSync(resolve(dir, "bin/docker"), '#!/bin/sh\nprintf "synthetic dump"\n[ "${SYNTHETIC_DUMP_FAIL:-}" != 1 ]\n', { mode: 0o755 });
+    const archive = resolve(dir, "backups/data.dump");
+    const run = (fail = false) => spawnSync("sh", [backupPostgres], { encoding: "utf8", env: { ...process.env, APP_DIR: dir, BACKUP_DIR: resolve(dir, "backups"), BACKUP_FILE: archive, PATH: `${resolve(dir, "bin")}:${process.env.PATH}`, SYNTHETIC_DUMP_FAIL: fail ? "1" : "0" } });
+    assert.notEqual(run(true).status, 0);
+    assert.deepEqual(readdirSync(resolve(dir, "backups")), []);
+    assert.equal(run().status, 0);
+    assert.equal(readFileSync(archive, "utf8"), "synthetic dump");
+    assert.equal(statSync(archive).mode & 0o777, 0o600);
+    assert.notEqual(run().status, 0);
+    assert.equal(readFileSync(archive, "utf8"), "synthetic dump");
+    assert.deepEqual(readdirSync(resolve(dir, "backups")), ["data.dump"]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("restore excludes concurrent releases and active services, retaining the lock for uncertain outcomes", () => {
+  const dir = mkdtempSync(resolve(tmpdir(), "fluxora-restore-contract-"));
+  try {
+    mkdirSync(resolve(dir, "infra"));
+    mkdirSync(resolve(dir, "bin"));
+    writeFileSync(resolve(dir, "infra/docker-compose.production.yml"), "# synthetic\n");
+    writeFileSync(resolve(dir, ".env.production"), "# synthetic\n");
+    writeFileSync(resolve(dir, "backup.dump"), "synthetic archive");
+    const log = resolve(dir, "docker.log");
+    writeFileSync(resolve(dir, "bin/docker"), `#!/bin/sh
+printf '%s\\n' "$*" >> "$SYNTHETIC_DOCKER_LOG"
+if [ "$1" = inspect ]; then printf '%s\\n' "$SYNTHETIC_CONTAINER_STATE"; exit 0; fi
+case " $* " in
+  *' ps -aq '*) printf 'synthetic-container\\n';;
+  *' psql '*) [ "$SYNTHETIC_CATALOG_FAIL" != 1 ] || exit 1; printf '%s\\n' "$SYNTHETIC_TARGET_STATE";;
+  *' exec -T db '*) cat >/dev/null; [ "$SYNTHETIC_RESTORE_FAIL" != 1 ];;
+esac
+`, { mode: 0o755 });
+    const lock = resolve(dir, ".fluxora-release.lock");
+    const run = (state, fail = false, confirm = "RESTORE", target = "clear", catalogFail = false) => spawnSync("sh", [restorePostgres, resolve(dir, "backup.dump")], { encoding: "utf8", env: { ...process.env, APP_DIR: dir, PATH: `${resolve(dir, "bin")}:${process.env.PATH}`, CONFIRM_RESTORE: confirm, SYNTHETIC_DOCKER_LOG: log, SYNTHETIC_CONTAINER_STATE: state, SYNTHETIC_RESTORE_FAIL: fail ? "1" : "0", SYNTHETIC_TARGET_STATE: target, SYNTHETIC_CATALOG_FAIL: catalogFail ? "1" : "0" } });
+    assert.notEqual(run("exited", false, "").status, 0);
+    assert.notEqual(run("running").status, 0);
+    assert.doesNotMatch(readFileSync(log, "utf8"), /exec -T db/);
+    assert.equal(readdirSync(dir).includes(".fluxora-release.lock"), false);
+    for (const [target, catalogFail] of [["populated", false], ["unexpected", false], ["clear", true]]) {
+      assert.notEqual(run("exited", false, "RESTORE", target, catalogFail).status, 0);
+      assert.doesNotMatch(readFileSync(log, "utf8"), /pg_restore/);
+      assert.equal(readdirSync(dir).includes(".fluxora-release.lock"), false);
+    }
+    assert.notEqual(run("exited", true).status, 0);
+    assert.ok(readdirSync(dir).includes(".fluxora-release.lock"));
+    assert.match(readFileSync(log, "utf8"), /--single-transaction/);
+    assert.notEqual(run("exited").status, 0, "retained lock must block another restore");
+    rmSync(lock, { recursive: true }); // Synthetic fixture only, after verifying the failed run ended.
+    assert.equal(run("exited").status, 0);
+    assert.equal(readdirSync(dir).includes(".fluxora-release.lock"), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("CI/CD workflow keeps bounded jobs, cache, and least-privilege deploy permissions", () => {
@@ -260,9 +325,15 @@ test("application deploy does not refresh database or Redis images", () => {
 
 test("production deployment backs up PostgreSQL before migrations", () => {
   const backupIndex = deployScript.indexOf("backup-postgres.sh");
-  const migrationIndex = deployScript.indexOf("up -d migrate");
+  const migrationIndex = deployScript.indexOf("up -d api worker web");
   assert.ok(backupIndex >= 0, "deploy must invoke the guarded PostgreSQL backup");
   assert.ok(migrationIndex > backupIndex, "backup must precede the migration service");
+  assert.doesNotMatch(deployScript, /up -d migrate/);
+  for (const service of ["api", "worker"]) {
+    const section = compose.match(new RegExp(`^  ${service}:\\n([\\s\\S]*?)(?=^  [a-z]+:|^networks:)`, "m"))?.[1];
+    assert.ok(section, `${service} must exist in the Compose contract`);
+    assert.match(section, /depends_on:\s*\n\s+migrate:\s*\n\s+condition: service_completed_successfully/);
+  }
   assert.match(deployScript, /up -d --wait db redis/);
   assert.match(deployScript, /ENV_FILE=/);
 });

@@ -44,10 +44,13 @@ async function signUpAndDashboard(page: import("@playwright/test").Page, email: 
   await page.locator('input[autocomplete="email"]').fill(email);
   await page.locator('input[autocomplete="new-password"]').fill("e2e-password-123");
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
+  // Registration and a cold dashboard render share this deadline. The API
+  // can succeed while the Next.js route is still being prepared under load.
+  await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
 }
 
 test("execution disclosure reverses safely and stays keyboard accessible in both themes", async ({ page }) => {
+  test.setTimeout(60_000);
   await signUpAndDashboard(page, `disclosure-${Date.now()}@example.test`);
   const content = page.locator("#dashboard-execution-content");
   await expect(content).toBeHidden();
@@ -413,7 +416,18 @@ test("execution center loads stable cursor pages without losing existing runs", 
   await signUpAndDashboard(page, email);
   await page.getByRole("button", { name: "Expand execution center" }).click();
   await expect(page.getByText("Newest report", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Load more runs" }).click();
+  // This test covers pagination; the disclosure's interruptible animation is
+  // exercised separately. Wait until the moving panel has settled before
+  // clicking and verify that the cursor request actually received a response.
+  await expect(page.locator("#dashboard-execution-content")).not.toHaveAttribute("data-animating", "true");
+  const [nextPage] = await Promise.all([
+    page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return url.pathname.endsWith("/executions") && url.searchParams.get("cursor") === "execution-new";
+    }),
+    page.getByRole("button", { name: "Load more runs" }).click(),
+  ]);
+  expect(nextPage.ok()).toBe(true);
   await expect(page.getByText("Older report", { exact: true })).toBeVisible();
   await expect(page.getByText("Newest report", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Load more runs" })).toHaveCount(0);
@@ -623,6 +637,27 @@ test("failed template creation shows error with retry button, preserves input, a
 
   // Retry succeeds — navigate to editor
   await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+});
+
+test("starter templates remain available from the dashboard create section", async ({ page }) => {
+  await signUpAndDashboard(page, `starter-${Date.now()}@example.test`);
+  const selector = page.getByLabel("Choose workflow template");
+  await expect(selector.locator('option[value="inspect-postgres-rows"]')).toHaveCount(1);
+  await selector.selectOption("inspect-postgres-rows");
+  const created = page.waitForResponse((response) => response.request().method() === "POST" && response.url().includes("/workflows/from-template/inspect-postgres-rows"));
+  await page.getByRole("button", { name: "Use template", exact: true }).click();
+  expect((await created).ok()).toBeTruthy();
+  await expect(page).toHaveURL(/\/editor\?workflow=/);
+  const postgresNode = page.locator(".react-flow__node").filter({ hasText: "PostgreSQL · Action" });
+  await expect(postgresNode).toBeVisible();
+  await postgresNode.click();
+  const table = page.getByRole("group", { name: "Table", exact: true });
+  await table.getByRole("button", { name: /Enter table manually|Enter value or expression/ }).click();
+  const tableValue = table.getByRole("textbox", { name: "Table value" });
+  await expect(tableValue).toHaveValue("");
+  await tableValue.fill("fixture_table");
+  await page.getByRole("button", { name: "Run test" }).click();
+  await expect(page.getByText(/Mock execution succeeded/)).toBeVisible({ timeout: 15_000 });
 });
 
 test("failed blank workflow creation shows error alert with retry and preserves entered name", async ({ page }) => {

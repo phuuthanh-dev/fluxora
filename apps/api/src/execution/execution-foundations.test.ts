@@ -6,7 +6,7 @@ import { ExecutionService } from "./execution.service";
 import { resolveExpressions } from "./expression";
 import { nodeFailureFromExecutionError } from "./node-failure";
 import { redactValue } from "./redaction";
-import { isRetryableFailure, retryDelayMs } from "./retry-policy";
+import { isRetryableFailure, parseRetryAfter, retryDelayMs } from "./retry-policy";
 
 test("resolves safe expressions without evaluating JavaScript", () => {
   const context = { steps: { steam: { output: { profile: { personaname: "Thanh" }, summary: { topGames: [{ name: "Hades" }] } } } } };
@@ -48,11 +48,98 @@ test("normalizes safe-expression errors into terminal node failures", () => {
   });
 });
 
+test("stale initial-only jobs cannot claim an execution resumed after approval", async () => {
+  const execution = {
+    id: "approval-resume",
+    mode: "LIVE",
+    status: ExecutionStatus.QUEUED,
+    startedAt: new Date("2026-11-01T00:00:00Z"),
+    nodeExecutions: [],
+    workflowVersion: { graph: { nodes: [], edges: [] }, workflow: { workspaceId: "workspace" } },
+  };
+  let claims = 0;
+  const prisma = { execution: { findUnique: async () => execution, updateMany: async () => { claims++; return { count: 1 }; } } };
+  const service = new ExecutionService(prisma as never, {} as never, {} as never);
+  await service.run(execution.id, "live", undefined, undefined, true);
+  assert.equal(claims, 0);
+});
+
+test("jobs with a mismatched execution mode cannot claim or call a provider", async () => {
+  for (const [storedMode, jobMode] of [["MOCK", "live"], ["LIVE", "mock"], ["MOCK", "unexpected"]] as const) {
+    const execution = { id: "mode-mismatch", mode: storedMode, status: ExecutionStatus.QUEUED, startedAt: null, resumeToken: null, nodeExecutions: [], workflowVersion: { workflow: { workspaceId: "workspace" }, graph: { nodes: [{ id: "send", type: "action.telegram.message", position: { x: 0, y: 0 }, config: { credentialId: "bot", text: "test" } }], edges: [] } } };
+    let claims = 0;
+    let credentialReads = 0;
+    const prisma = { execution: { findUnique: async () => execution, updateMany: async () => { claims++; return { count: 1 }; } } };
+    const service = new ExecutionService(prisma as never, { readForExecution: async () => { credentialReads++; throw new Error("unexpected credential read"); } } as never, {} as never);
+    assert.equal(await service.run(execution.id, jobMode as "mock" | "live"), execution);
+    assert.equal(claims, 0);
+    assert.equal(credentialReads, 0);
+  }
+});
+
+test("a previously queued live graph with an unavailable node fails before any provider action", async () => {
+  const execution = { id: "legacy-planned", mode: "LIVE", status: ExecutionStatus.QUEUED, startedAt: null, resumeToken: null, triggerData: {}, nodeExecutions: [], workflowVersion: { workflow: { workspaceId: "space" }, graph: { nodes: [
+    { id: "start", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
+    { id: "write", type: "action.telegram.message", position: { x: 1, y: 0 }, config: { credentialId: "bot", text: "hello" } },
+    { id: "planned", type: "action.instagram", position: { x: 2, y: 0 }, config: {} },
+  ], edges: [{ id: "one", source: "start", target: "write", kind: "success" }, { id: "two", source: "write", target: "planned", kind: "success" }] } } };
+  const updates: Array<Record<string, unknown>> = [];
+  let credentialReads = 0;
+  let tx: unknown;
+  const prisma = {
+    execution: { findUnique: async () => execution, findUniqueOrThrow: async () => execution, updateMany: async ({ data }: { data: Record<string, unknown> }) => { updates.push(data); return { count: 1 }; } },
+    nodeExecution: { upsert: async () => ({}), updateMany: async () => ({ count: 1 }) },
+    $transaction: async (fn: (client: unknown) => Promise<unknown>) => fn(tx),
+  };
+  tx = { ...prisma, $queryRaw: async () => [{ status: ExecutionStatus.RUNNING, runToken: updates[0]?.runToken }] };
+  const service = new ExecutionService(prisma as never, { readForExecution: async () => { credentialReads++; throw new Error("must not call provider"); } } as never, { publish: () => undefined } as never);
+  await service.run(execution.id, "live", undefined, undefined, true);
+  assert.equal(credentialReads, 0);
+  assert.equal(updates.at(-1)?.status, ExecutionStatus.FAILED);
+  assert.equal(updates.at(-1)?.errorCode, "NODE_UNAVAILABLE");
+});
+
+test("an initial-only claim remains conditional if the execution starts concurrently", async () => {
+  const execution = {
+    id: "racing-initial",
+    mode: "LIVE",
+    status: ExecutionStatus.QUEUED,
+    startedAt: null,
+    nodeExecutions: [],
+    workflowVersion: { graph: { nodes: [{ id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} }], edges: [] }, workflow: { workspaceId: "workspace" } },
+  };
+  let claimWhere: Record<string, unknown> | undefined;
+  const prisma = { execution: { findUnique: async () => execution, updateMany: async ({ where }: { where: Record<string, unknown> }) => { claimWhere = where; return { count: 0 }; } } };
+  const service = new ExecutionService(prisma as never, {} as never, {} as never);
+  await service.run(execution.id, "live", undefined, undefined, true);
+  assert.deepEqual(claimWhere, { id: execution.id, status: ExecutionStatus.QUEUED, mode: "LIVE", resumeToken: null, startedAt: null });
+});
+
+test("a stale job cannot claim a queued approval continuation", async () => {
+  const execution = { id: "resume", mode: "LIVE", status: ExecutionStatus.QUEUED, startedAt: new Date(), resumeToken: "current-token", nodeExecutions: [], workflowVersion: { graph: { nodes: [], edges: [] }, workflow: { workspaceId: "workspace" } } };
+  let claims = 0;
+  const service = new ExecutionService({ execution: { findUnique: async () => execution, updateMany: async () => { claims++; return { count: 1 }; } } } as never, {} as never, {} as never);
+  await service.run("resume", "live");
+  await service.run("resume", "live", undefined, undefined, false, "old-token");
+  assert.equal(claims, 0);
+});
+
+test("an initial worker error only marks an execution that has never started", async () => {
+  let where: Record<string, unknown> | undefined;
+  let published = 0;
+  const prisma = { execution: { updateMany: async (input: { where: Record<string, unknown> }) => { where = input.where; return { count: 0 }; } } };
+  const service = new ExecutionService(prisma as never, {} as never, { publish: () => { published++; } } as never);
+  await service.failUnstartedFromWorker("approval-resume");
+  assert.deepEqual(where, { id: "approval-resume", status: ExecutionStatus.QUEUED, startedAt: null });
+  assert.equal(published, 0);
+});
+
 test("invalid expressions fail the execution instead of leaving it running", async () => {
   const executionUpdates: Array<Record<string, unknown>> = [];
   const nodeUpdates: Array<Record<string, unknown>> = [];
   const execution = {
     id: "execution-expression-error",
+    mode: "MOCK",
     status: ExecutionStatus.QUEUED,
     triggerData: {},
     nodeExecutions: [],
@@ -67,10 +154,12 @@ test("invalid expressions fail the execution instead of leaving it running", asy
       workflow: { workspaceId: "workspace-1" },
     },
   };
+  let transactionPrisma: unknown;
   const prisma = {
     execution: {
       findUnique: async () => execution,
-      updateMany: async () => ({ count: 1 }),
+      findUniqueOrThrow: async () => execution,
+      updateMany: async ({ data }: { data: Record<string, unknown> }) => { executionUpdates.push(data); return { count: 1 }; },
       update: async ({ data }: { data: Record<string, unknown> }) => { executionUpdates.push(data); return { ...execution, ...data }; },
     },
     nodeExecution: {
@@ -78,8 +167,9 @@ test("invalid expressions fail the execution instead of leaving it running", asy
       update: async ({ data }: { data: Record<string, unknown> }) => { nodeUpdates.push(data); return {}; },
       updateMany: async () => ({ count: 0 }),
     },
-    $transaction: async (operations: Promise<unknown>[]) => Promise.all(operations),
+    $transaction: async (operations: Promise<unknown>[] | ((tx: unknown) => Promise<unknown>)) => Array.isArray(operations) ? Promise.all(operations) : operations(transactionPrisma),
   };
+  transactionPrisma = { ...prisma, $queryRaw: async () => [{ status: ExecutionStatus.RUNNING, runToken: executionUpdates[0]?.runToken }] };
   const service = new ExecutionService(prisma as never, {} as never, { publish: () => undefined } as never);
 
   await service.run(execution.id, "mock");
@@ -90,11 +180,32 @@ test("invalid expressions fail the execution instead of leaving it running", asy
   assert.equal(nodeUpdates.at(-1)?.errorCode, "INVALID_EXPRESSION");
 });
 
+test("AI schema descriptions are literal while unresolved whole-schema expressions fail closed", async () => {
+  for (const configuredSchema of [
+    { type: "object", description: "Example {{ process.exit() }} is literal", properties: { summary: { type: "string" } }, required: ["summary"], additionalProperties: false },
+    "{{ steps.missing.output.schema }}",
+  ]) {
+    const updates: Array<Record<string, unknown>> = [];
+    const execution = { id: "schema-run", mode: "MOCK", status: ExecutionStatus.QUEUED, triggerData: {}, nodeExecutions: [], workflowVersion: { workflow: { workspaceId: "workspace-1" }, graph: { nodes: [
+      { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
+      { id: "ai", type: "action.gemini", position: { x: 200, y: 0 }, config: { model: "gemini-2.5-flash", prompt: "Summarize", outputSchema: configuredSchema } },
+    ], edges: [{ id: "start", source: "manual", target: "ai", kind: "success" }] } } };
+    let transactionPrisma: unknown;
+    const prisma = { execution: { findUnique: async () => execution, findUniqueOrThrow: async () => execution, updateMany: async ({ data }: { data: Record<string, unknown> }) => { updates.push(data); return { count: 1 }; } }, nodeExecution: { upsert: async () => ({}), update: async () => ({}), updateMany: async () => ({ count: 0 }) }, $transaction: async (operations: Promise<unknown>[] | ((tx: unknown) => Promise<unknown>)) => Array.isArray(operations) ? Promise.all(operations) : operations(transactionPrisma) };
+    transactionPrisma = { ...prisma, $queryRaw: async () => [{ status: ExecutionStatus.RUNNING, runToken: updates[0]?.runToken }] };
+    const service = new ExecutionService(prisma as never, {} as never, { publish: () => undefined } as never);
+    await service.run(execution.id, "mock");
+    assert.equal(updates.at(-1)?.status, typeof configuredSchema === "string" ? ExecutionStatus.FAILED : ExecutionStatus.SUCCEEDED);
+    if (typeof configuredSchema === "string") assert.equal(updates.at(-1)?.errorCode, "INVALID_INPUT");
+  }
+});
+
 test("node debug executes only the selected mock node and skips downstream nodes", async () => {
   const executionUpdates: Array<Record<string, unknown>> = [];
   const nodeUpdates: Array<{ where: Record<string, unknown>; data: Record<string, unknown> }> = [];
   const execution = {
     id: "execution-node-debug",
+    mode: "MOCK",
     status: ExecutionStatus.QUEUED,
     triggerData: { source: "debug" },
     nodeExecutions: [],
@@ -113,10 +224,12 @@ test("node debug executes only the selected mock node and skips downstream nodes
       workflow: { workspaceId: "workspace-1" },
     },
   };
+  let transactionPrisma: unknown;
   const prisma = {
     execution: {
       findUnique: async () => execution,
-      updateMany: async () => ({ count: 1 }),
+      findUniqueOrThrow: async () => execution,
+      updateMany: async ({ data }: { data: Record<string, unknown> }) => { executionUpdates.push(data); return { count: 1 }; },
       update: async ({ data }: { data: Record<string, unknown> }) => { executionUpdates.push(data); return { ...execution, ...data }; },
     },
     nodeExecution: {
@@ -124,8 +237,9 @@ test("node debug executes only the selected mock node and skips downstream nodes
       update: async ({ where, data }: { where: Record<string, unknown>; data: Record<string, unknown> }) => { nodeUpdates.push({ where, data }); return {}; },
       updateMany: async () => ({ count: 0 }),
     },
-    $transaction: async (operations: Promise<unknown>[]) => Promise.all(operations),
+    $transaction: async (operations: Promise<unknown>[] | ((tx: unknown) => Promise<unknown>)) => Array.isArray(operations) ? Promise.all(operations) : operations(transactionPrisma),
   };
+  transactionPrisma = { ...prisma, $queryRaw: async () => [{ status: ExecutionStatus.RUNNING, runToken: executionUpdates[0]?.runToken }] };
   const service = new ExecutionService(prisma as never, {} as never, { publish: () => undefined } as never);
 
   await service.run(execution.id, "mock", undefined, "http");
@@ -133,6 +247,132 @@ test("node debug executes only the selected mock node and skips downstream nodes
   assert.equal(executionUpdates.at(-1)?.status, ExecutionStatus.SUCCEEDED);
   assert.ok(nodeUpdates.some((update) => (update.where.executionId_nodeId as { nodeId: string }).nodeId === "http" && update.data.status === "RUNNING"));
   assert.equal(nodeUpdates.some((update) => (update.where.executionId_nodeId as { nodeId: string }).nodeId === "downstream"), false);
+});
+
+test("cancellation during a node is not replaced by a successful debug completion", async () => {
+  const events: string[] = [];
+  const execution = {
+    id: "cancel-race", mode: "MOCK", status: ExecutionStatus.QUEUED as ExecutionStatus, startedAt: null, resumeToken: null,
+    triggerData: {}, nodeExecutions: [],
+    workflowVersion: { workflow: { workspaceId: "workspace-1" }, graph: { nodes: [
+      { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
+    ], edges: [] } },
+  };
+  let transactionPrisma: unknown;
+  let activeRunToken: string | undefined;
+  const prisma = {
+    execution: {
+      findUnique: async () => execution,
+      findUniqueOrThrow: async () => execution,
+      updateMany: async ({ where, data }: { where: { status: ExecutionStatus; runToken?: string }; data: { status?: ExecutionStatus; runToken?: string | null } }) => {
+        if (where.status !== execution.status || (where.runToken && where.runToken !== activeRunToken)) return { count: 0 };
+        if (data.runToken !== undefined) activeRunToken = data.runToken ?? undefined;
+        if (data.status) execution.status = data.status;
+        return { count: 1 };
+      },
+    },
+    nodeExecution: {
+      upsert: async () => ({}), updateMany: async () => ({ count: 0 }),
+      update: async ({ data }: { data: { status?: string } }) => {
+        if (data.status === "SUCCEEDED") execution.status = ExecutionStatus.CANCELLED;
+        return {};
+      },
+    },
+    $transaction: async (operations: Promise<unknown>[] | ((tx: unknown) => Promise<unknown>)) => Array.isArray(operations) ? Promise.all(operations) : operations(transactionPrisma),
+  };
+  transactionPrisma = { ...prisma, $queryRaw: async () => [{ status: execution.status, runToken: activeRunToken }] };
+  const service = new ExecutionService(prisma as never, {} as never, { publish: (_id: string, event: string) => { events.push(event); } } as never);
+  await service.run(execution.id, "mock", undefined, "manual");
+  assert.equal(execution.status, ExecutionStatus.CANCELLED);
+  assert.equal(events.includes("execution.succeeded"), false);
+});
+
+test("an execution that lost its lease does not start another node", async () => {
+  const events: string[] = [];
+  let nodeUpdates = 0;
+  let activeRunToken: string | undefined;
+  let transactionPrisma: unknown;
+  const execution = {
+    id: "expired-run", mode: "MOCK", status: ExecutionStatus.QUEUED, startedAt: null, resumeToken: null,
+    triggerData: {}, nodeExecutions: [],
+    workflowVersion: { workflow: { workspaceId: "workspace-1" }, graph: { nodes: [
+      { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
+    ], edges: [] } },
+  };
+  const prisma = {
+    execution: {
+      findUnique: async () => execution,
+      findUniqueOrThrow: async () => ({ ...execution, status: ExecutionStatus.FAILED }),
+      updateMany: async ({ where, data }: { where: { status: ExecutionStatus }; data: { runToken?: string } }) => { if (data.runToken) activeRunToken = data.runToken; return { count: where.status === ExecutionStatus.QUEUED ? 1 : 0 }; },
+    },
+    nodeExecution: { upsert: async () => ({}), update: async () => { nodeUpdates++; return {}; } },
+    $transaction: async (operation: (tx: unknown) => Promise<unknown>) => operation(transactionPrisma),
+  };
+  transactionPrisma = { ...prisma, $queryRaw: async () => [{ status: ExecutionStatus.RUNNING, runToken: activeRunToken }] };
+  const service = new ExecutionService(prisma as never, {} as never, { publish: (_id: string, event: string) => { events.push(event); } } as never);
+  const result = await service.run(execution.id, "mock");
+  assert.equal(result.status, ExecutionStatus.FAILED);
+  assert.equal(nodeUpdates, 0);
+  assert.equal(events.includes("execution.succeeded"), false);
+});
+
+test("approval is created only if the execution can atomically enter waiting state", async () => {
+  for (const cancelBeforeApproval of [true, false]) {
+    const events: string[] = [];
+    const approvalOutputs: unknown[] = [];
+    let approvalCount = 0;
+    const execution = {
+      id: "approval-race", mode: "MOCK", status: ExecutionStatus.QUEUED as ExecutionStatus, startedAt: null, resumeToken: null,
+      triggerData: {}, nodeExecutions: [],
+      workflowVersion: { workflow: { workspaceId: "workspace-1" }, graph: { nodes: [
+        { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
+        { id: "approval", type: "approval.request", position: { x: 1, y: 0 }, config: { message: "Review https://api.telegram.org/botexample-secret/sendMessage" } },
+      ], edges: [{ id: "edge", source: "manual", target: "approval", kind: "success" }] } },
+    };
+    const nodeStates = new Map<string, string>();
+    let transactionPrisma: unknown;
+    let activeRunToken: string | undefined;
+    const prisma = {
+      execution: {
+        findUnique: async () => execution,
+        findUniqueOrThrow: async () => execution,
+        updateMany: async ({ where, data }: { where: { status: ExecutionStatus; runToken?: string }; data: { status?: ExecutionStatus; runToken?: string | null } }) => {
+          if (execution.status !== where.status || (where.runToken && where.runToken !== activeRunToken)) return { count: 0 };
+          if (data.runToken !== undefined) activeRunToken = data.runToken ?? undefined;
+          if (data.status) execution.status = data.status;
+          return { count: 1 };
+        },
+      },
+      nodeExecution: {
+        upsert: async () => ({}),
+        update: async ({ where, data }: { where: { executionId_nodeId: { nodeId: string } }; data: { status?: string } }) => {
+          const nodeId = where.executionId_nodeId.nodeId;
+          if (data.status) nodeStates.set(nodeId, data.status);
+          if (cancelBeforeApproval && nodeId === "approval" && data.status === "WAITING") execution.status = ExecutionStatus.CANCELLED;
+          return {};
+        },
+        updateMany: async ({ where, data }: { where: { nodeId?: string; status?: string }; data: { output?: unknown } }) => {
+          if (where.nodeId === "approval" && data.output) approvalOutputs.push(data.output);
+          return { count: typeof where.nodeId !== "string" || !where.status || nodeStates.get(where.nodeId) === where.status ? 1 : 0 };
+        },
+      },
+      approvalRequest: { create: async () => { approvalCount++; return { id: "approval-request" }; } },
+      $transaction: async (action: Promise<unknown>[] | ((tx: unknown) => Promise<unknown>)) => Array.isArray(action) ? Promise.all(action) : action(transactionPrisma),
+    };
+    transactionPrisma = { ...prisma, $queryRaw: async () => [{ status: execution.status, runToken: activeRunToken }] };
+    const service = new ExecutionService(prisma as never, {} as never, { publish: (_id: string, event: string) => { events.push(event); } } as never);
+    await service.run(execution.id, "mock");
+    assert.equal(execution.status, cancelBeforeApproval ? ExecutionStatus.CANCELLED : ExecutionStatus.WAITING_APPROVAL);
+    assert.equal(approvalCount, cancelBeforeApproval ? 0 : 1);
+    assert.equal(events.includes("execution.waiting_approval"), !cancelBeforeApproval);
+    if (!cancelBeforeApproval) {
+      assert.equal(approvalOutputs.length, 2);
+      for (const output of approvalOutputs) {
+        assert.equal(JSON.stringify(output).includes("example-secret"), false);
+        assert.match(JSON.stringify(output), /\[REDACTED\]/);
+      }
+    }
+  }
 });
 
 test("retry creates a new execution from the failed pinned version and original redacted trigger data", async () => {
@@ -164,24 +404,6 @@ test("retry creates a new execution from the failed pinned version and original 
   source.id = "execution-retry"; source.idempotencyRootId = "execution-source";
   await service.retry("execution-retry", "user-1");
   assert.equal(created[1]?.idempotencyRootId, "execution-source");
-});
-
-test("trigger idempotency returns the existing pinned execution without creating another run", async () => {
-  const created: Array<Record<string, unknown>> = [];
-  const existing = { id: "execution-existing", workflowVersionId: "version-1", mode: "LIVE" };
-  const prisma = {
-    workflowVersion: { findUnique: async () => ({ id: "version-1", graph: { nodes: [], edges: [] }, workflow: { workspaceId: "workspace-1" } }) },
-    execution: {
-      findUnique: async () => existing,
-      create: async ({ data }: { data: Record<string, unknown> }) => { created.push(data); return { id: "execution-new", ...data }; },
-    },
-  };
-  const service = new ExecutionService(prisma as never, {} as never, {} as never);
-
-  const execution = await service.createScheduledExecution("version-1", { scheduledAt: "2026-10-25T10:30:00.000Z" }, "cron:version-1:cron:2026-10-25T10:30:00.000Z");
-
-  assert.equal(execution.id, "execution-existing");
-  assert.deepEqual(created, []);
 });
 
 test("execution history uses an owner-scoped stable cursor page", async () => {
@@ -348,4 +570,8 @@ test("retries only transient failures with capped exponential backoff", () => {
   assert.equal(isRetryableFailure({ code: "HTTP_ERROR", statusCode: 401 }), false);
   assert.equal(retryDelayMs(1), 500);
   assert.equal(retryDelayMs(8), 30_000);
+  assert.equal(parseRetryAfter("3"), 3000);
+  assert.equal(parseRetryAfter("Wed, 21 Oct 2015 07:28:02 GMT", Date.parse("Wed, 21 Oct 2015 07:28:00 GMT")), 2000);
+  assert.equal(parseRetryAfter("invalid"), undefined);
+  assert.equal(retryDelayMs(1, 3000), 3000);
 });

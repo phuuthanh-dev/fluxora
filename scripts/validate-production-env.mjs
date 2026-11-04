@@ -73,6 +73,13 @@ export function validateProductionEnv(text) {
   if (values.get("WEB_ORIGIN")) validOrigin(values.get("WEB_ORIGIN"), "WEB_ORIGIN", errors);
   if (values.get("NEXT_PUBLIC_API_URL")) validApiUrl(values.get("NEXT_PUBLIC_API_URL"), "NEXT_PUBLIC_API_URL", errors);
   if (values.get("EXECUTION_WORKER_CONCURRENCY") && !/^(?:[1-9]|1[0-9]|20)$/.test(values.get("EXECUTION_WORKER_CONCURRENCY"))) errors.push("EXECUTION_WORKER_CONCURRENCY: must be 1–20");
+  for (const [key, maximum] of [["AI_MAX_OUTPUT_TOKENS", 8192], ["AI_MAX_PROMPT_CHARACTERS", 100000]]) {
+    if (!values.has(key)) continue; // Omitting a limit preserves the runtime default.
+    const value = values.get(key);
+    if (!/^[1-9][0-9]*$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) > maximum) {
+      errors.push(`${key}: must be an integer from 1 to ${maximum}`);
+    }
+  }
   if (values.get("APP_ENCRYPTION_KEY")) {
     try {
       const encoded = values.get("APP_ENCRYPTION_KEY");

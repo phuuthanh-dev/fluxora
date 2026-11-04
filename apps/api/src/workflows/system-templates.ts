@@ -9,6 +9,14 @@ export type SystemWorkflowTemplate = {
   graph: WorkflowGraph;
 };
 
+const dataReadSamples = [
+  { slug: "inspect-postgres-rows", name: "Inspect PostgreSQL rows", description: "Read a bounded table page. Choose a schema and table before testing; connect PostgreSQL before a live run.", connection: "PostgreSQL", type: "action.postgres.select.v2", config: { credentialId: "", schema: "public", table: "", limit: 20 }, summary: "PostgreSQL read completed. Rows returned: {{steps.inspect.output.count}}." },
+  { slug: "inspect-supabase-rows", name: "Inspect Supabase rows", description: "Read a bounded table page. Choose a table before testing; connect Supabase before a live run.", connection: "Supabase", type: "action.supabase.select.v2", config: { credentialId: "", table: "", limit: 20 }, summary: "Supabase read completed. Rows returned: {{steps.inspect.output.count}}." },
+  { slug: "inspect-sheet-rows", name: "Inspect spreadsheet rows", description: "Read a range from a spreadsheet. Select your Google connection and spreadsheet before a live run.", connection: "Google", type: "action.google-sheets.v2", config: { credentialId: "", spreadsheetId: "", operation: "read", range: "Sheet1!A1:C20", valueInputOption: "USER_ENTERED" }, summary: "Spreadsheet read completed for range {{steps.inspect.output.range}}." },
+  { slug: "find-notion-pages", name: "Find Notion pages", description: "Search pages shared with your Notion integration. Connect Notion before a live run.", connection: "Notion", type: "action.notion.search-pages.v2", config: { credentialId: "", query: "", pageSize: 20 }, summary: "Notion search completed. More pages available: {{steps.inspect.output.hasMore}}." },
+  { slug: "inspect-trello-cards", name: "Inspect Trello cards", description: "List open cards on a board. Choose a board before testing; connect Trello before a live run.", connection: "Trello", type: "action.trello.list-cards", config: { credentialId: "", boardId: "", limit: 20, filter: "open" }, summary: "Trello read completed. Cards returned: {{steps.inspect.output.count}}." },
+] as const;
+
 export const systemWorkflowTemplates: SystemWorkflowTemplate[] = [
   {
     slug: "steam-daily-report",
@@ -56,7 +64,7 @@ export const systemWorkflowTemplates: SystemWorkflowTemplate[] = [
       nodes: [
         { id: "daily-schedule", type: "trigger.cron", position: { x: 100, y: 220 }, config: { expression: "0 9 * * *", timezone: "Asia/Ho_Chi_Minh" } },
         { id: "steam", type: "action.steam.account-snapshot", position: { x: 400, y: 220 }, config: { credentialId: "", steamId: "" } },
-        { id: "telegram", type: "action.telegram.message", position: { x: 720, y: 220 }, config: { credentialId: "", destinationType: "dm", chatId: "", text: "Steam daily report for {{steps.steam.output.profile.personaname}}: {{steps.steam.output.summary.totalGames}} games.", parseMode: "Markdown" } },
+        { id: "telegram", type: "action.telegram.message", position: { x: 720, y: 220 }, config: { credentialId: "", destinationType: "dm", chatId: "", text: "Steam daily report for {{steps.steam.output.profile.personaname}}: {{steps.steam.output.summary.totalGames}} games.", parseMode: "" } },
       ],
       edges: [
         { id: "schedule-to-steam", source: "daily-schedule", target: "steam", kind: "success" },
@@ -64,4 +72,27 @@ export const systemWorkflowTemplates: SystemWorkflowTemplate[] = [
       ],
     },
   },
+  ...dataReadSamples.map((sample): SystemWorkflowTemplate => ({
+    slug: sample.slug, name: sample.name, description: sample.description, tags: ["Data", "Starter"], requiredConnections: [sample.connection],
+    graph: {
+      nodes: [
+        { id: "manual", type: "trigger.manual", position: { x: 100, y: 220 }, config: {} },
+        { id: "inspect", type: sample.type, position: { x: 400, y: 220 }, config: { ...sample.config } },
+      ],
+      edges: [{ id: "manual-to-inspect", source: "manual", target: "inspect", kind: "success" }],
+    },
+  })),
+  ...dataReadSamples.map((sample): SystemWorkflowTemplate => ({
+    slug: `${sample.slug}-chat-summary`, name: `${sample.connection} read summary to Google Chat`,
+    description: `${sample.description} Send a short summary to a Google Chat webhook.`,
+    tags: ["Data", "Notifications"], requiredConnections: [sample.connection, "Google Chat"],
+    graph: {
+      nodes: [
+        { id: "manual", type: "trigger.manual", position: { x: 100, y: 220 }, config: {} },
+        { id: "inspect", type: sample.type, position: { x: 400, y: 220 }, config: { ...sample.config } },
+        { id: "notify", type: "action.google-chat.webhook", position: { x: 700, y: 220 }, config: { credentialId: "", message: sample.summary } },
+      ],
+      edges: [{ id: "manual-to-inspect", source: "manual", target: "inspect", kind: "success" }, { id: "inspect-to-notify", source: "inspect", target: "notify", kind: "success" }],
+    },
+  })),
 ];

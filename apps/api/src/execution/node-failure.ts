@@ -7,6 +7,7 @@ export class NodeFailure extends Error {
     message: string,
     readonly retryable: boolean,
     readonly statusCode?: number,
+    readonly retryAfterMs?: number,
   ) {
     super(message);
     this.name = "NodeFailure";

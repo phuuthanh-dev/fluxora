@@ -1,10 +1,18 @@
-export type CredentialProvider = "GOOGLE" | "STEAM" | "GOOGLE_CHAT_WEBHOOK" | "GOOGLE_CHAT_OAUTH" | "GMAIL" | "GOOGLE_CALENDAR" | "MONGODB" | "NOTION" | "POSTGRES" | "HTTP" | "DISCORD_WEBHOOK" | "TELEGRAM_BOT" | "GITHUB" | "SMTP" | "GEMINI" | "OPENAI" | "TRELLO" | "SENTRY" | "VERCEL" | "SUPABASE" | "REDDIT";
+import type { OperationCredentialProvider } from "@workflow/contracts";
+
+export type CredentialProvider = OperationCredentialProvider;
+
+export type GmailCapability = "readonly" | "send" | "compose" | "modify" | "labels";
 
 export type CredentialSummary = {
   id: string;
   provider: CredentialProvider;
   label: string;
   isManaged?: boolean;
+  gmailCapabilities?: GmailCapability[];
+  chatManageEnabled?: boolean;
+  googleReconnectRequired?: boolean;
+  googleLegacyScopesUnverified?: boolean;
   hints?: Array<{ field: string; label: string; masked: string }>;
   createdAt?: string | Date;
   updatedAt?: string | Date;

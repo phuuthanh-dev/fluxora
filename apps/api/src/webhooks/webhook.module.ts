@@ -7,6 +7,12 @@ import { WebhookService } from "./webhook.service";
 import { ProviderWebhookRecoveryService } from "./provider-webhook-recovery.service";
 import { GitHubWebhookAdapter, GITHUB_WEBHOOK_FETCH } from "./github-webhook-adapter";
 import { GitHubWebhookManagementService } from "./github-webhook-management.service";
+import { KumaDeliveryRecoveryService } from "./kuma-delivery-recovery.service";
+import { TelegramDeliveryRecoveryService } from "./telegram-delivery-recovery.service";
+import { VercelDeliveryRecoveryService } from "./vercel-delivery-recovery.service";
+import { TrelloDeliveryRecoveryService } from "./trello-delivery-recovery.service";
+import { SentryDeliveryRecoveryService } from "./sentry-delivery-recovery.service";
+import { LegacyDeliveryRecoveryService } from "./legacy-delivery-recovery.service";
 
 @Module({
   imports: [AuthModule, CredentialModule, ExecutionModule],
@@ -14,6 +20,12 @@ import { GitHubWebhookManagementService } from "./github-webhook-management.serv
   providers: [
     WebhookService,
     ProviderWebhookRecoveryService,
+    KumaDeliveryRecoveryService,
+    TelegramDeliveryRecoveryService,
+    VercelDeliveryRecoveryService,
+    TrelloDeliveryRecoveryService,
+    SentryDeliveryRecoveryService,
+    LegacyDeliveryRecoveryService,
     { provide: GITHUB_WEBHOOK_FETCH, useValue: globalThis.fetch },
     GitHubWebhookAdapter,
     GitHubWebhookManagementService,

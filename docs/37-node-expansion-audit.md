@@ -17,7 +17,7 @@ Kiểm kê bằng TypeScript AST từ `apps/web/src/features/workflow/node-catal
 | Loại chưa executable | 2 | Facebook Meta, Instagram |
 | Core hiện có | 6 | Manual, Schedule, Webhook, If/else, Switch, Approval |
 
-Đây là **audit và đề xuất**, chưa triển khai các operation dưới đây, không chạy lại provider thật và không xác nhận production ổn định. Checklist implementation để trống có chủ đích. Không dùng tổng số node của hai sản phẩm để suy ra phần trăm hoàn thiện.
+Phần kiểm kê dưới đây là **ảnh chụp tại commit audit**, không tự cập nhật theo source. Tiến độ bản nháp sau audit được ghi riêng ở mục 6; chỉ xem mục đó là implementation đang chờ tích hợp và xác minh, không phải kết quả production. Không dùng tổng số node của hai sản phẩm để suy ra phần trăm hoàn thiện.
 
 Ba agent chạy song song, kế thừa model phiên hiện tại, nhận context tối thiểu và chỉ đọc: Google Workspace; communication/productivity; data/DevOps. Coordinator kiểm tra contracts, runtime, HTTP, AI, Meta/Instagram, tổng hợp và kiểm chứng các phát hiện chính. Không có agent ghi cùng file hay tự tạo PR.
 
@@ -125,9 +125,341 @@ Giữ node library App → Operation, categories, search, favorites/recent và s
 | 4 — NX-04 | [ ] Gmail get/cursor rồi label/draft/send/reply; Chat thread/edit; Telegram reply/edit; GitHub issue/PR reads và guarded updates; Sentry/Vercel detail/cursor. | NX-01–02. Xin scope mới chỉ khi cần; token phù hợp từng operation; message/write ambiguity hiển thị được. Không làm lại existing create/read/CRUD đã có. |
 | 5 — NX-05 | [ ] RSS new-item; Kuma filters/dedup; sau đó Telegram/Trello/Sentry/Vercel triggers theo use case. | Reuse scheduler/registration primitives, không tái dùng giả định protocol. Baseline/cursor/lease/duplicate/out-of-order/restart/deactivation có test; test/prod ownership rõ. Google polling tiếp theo theo nhu cầu. |
 | 6 — NX-06 | [ ] Gemini/OpenAI structured output + validated schema/usage/model capabilities; media/binary sau khi có lifecycle. | Có output contract và cost limits. Mock/provider compatibility tests; real AI test vẫn tùy credential và ngân sách được chủ dự án cho phép. |
-| 7 — NX-07 | [ ] Quyết định riêng về item/batch engine, binary storage, DB change listeners, Meta/Instagram và Reddit migration. | Cần spec/scope mới và điều kiện provider. Không dùng như lý do chặn các bước 1–6. Không cam kết đầy đủ n8n endpoint parity. |
+| 7 — NX-07 | [ ] Quyết định riêng về item/batch engine, binary storage, DB change listeners, Meta/Instagram và Reddit migration. | Các ranh giới và đề xuất ban đầu được ghi trong [NX-07 decisions](38-nx07-design-decisions.md); implementation, môi trường và điều kiện provider chưa được xác nhận là hoàn tất. Không dùng như lý do chặn các bước 1–6. Không cam kết đầy đủ n8n endpoint parity. |
 
-Các bước 3–4 có thể chia agent theo app sau khi metadata contract ổn định. Một agent sở hữu shared contracts/engine; các worker khác chỉ sửa adapter/form/test được phân công trong worktree riêng. Mọi agent nhận base SHA, file ownership, acceptance criteria, không credential và không tự release. Coordinator tích hợp rồi chạy **một final quality gate**; chỉ rerun khi có failure hoặc sửa mới. Không kỳ vọng tốc độ tăng tuyến tính theo số agent; shared schema/API cần tuần tự và review độc lập.
+Theo yêu cầu hiện tại của chủ dự án, phần NX còn lại do coordinator trực tiếp thực hiện và tự audit code đã nhận từ sub-agent; không phân thêm sub-agent cho đợt này. Báo cáo từ agent chỉ là đầu mối để kiểm tra source và bằng chứng, không thay thế review. Chạy **một final quality gate** sau khi hoàn tất chỉnh sửa; chỉ rerun khi có failure hoặc sửa mới.
+
+### Đối chiếu code với tiêu chí NX — snapshot 2026-11-03
+
+Baseline `origin/main` `3c9ac35`, PR draft head `ff0740a` và snapshot code
+`388ac7b`. Snapshot `388ac7b` đã qua full verify cô lập; CI Node 22 cũng đã
+pass tại PR head `ff0740a`. Các ghi chú restore và trạng thái CI được thêm sau
+lượt CI này. Mục này tóm tắt trạng thái hiện tại; các ghi chú
+theo lượt bên dưới có thể nhắc đến kết quả hoặc việc chờ kiểm thử tại thời
+điểm cũ. Không đánh dấu hoàn thành chỉ dựa trên sự tồn tại của code.
+
+Lượt verify cho `388ac7b` bao gồm test của version guard, OpenAI refusal,
+backup/restore giả lập, giới hạn AI và phân trang Trello được mô tả bên dưới.
+Kết quả không thay thế diễn tập restore toàn bộ schema, thử provider thật hoặc CI.
+
+Sau đó, trên PostgreSQL 16 Compose riêng với bảng và dữ liệu giả, script thực
+tế đã backup/restore thành công một dòng; bảng được tạo sau backup vẫn tồn tại.
+Restore archive bị cắt trả lỗi, giữ dữ liệu ngay trước lần thử và giữ release
+lock. Đây không phải diễn tập toàn bộ schema Fluxora, queue, credential hay
+khôi phục production; không suy ra rollback về release trước đã an toàn.
+
+Một diễn tập PostgreSQL 16 riêng tiếp theo đã áp dụng 34 migration Fluxora,
+backup bằng script thật và restore vào database mới trống. Prisma không phát
+hiện khác biệt schema; user, workspace/member, workflow đã publish, graph,
+execution, node output, continuation, ciphertext credential và migration
+records giả đã khớp. Credential chỉ giải mã bằng khóa thử tương ứng; backup
+database không chứa `APP_ENCRYPTION_KEY`. Một execution mock có continuation
+token được phục hồi vào Redis giả ban đầu trống và chạy đúng một lần, không đọc
+credential hay gọi provider; fixture không tạo/duyệt approval request. Chưa
+kiểm chứng mọi record/job, old worker, in-place restore hoặc
+cutover/rollback production; không tự động replay tác động provider.
+
+Sau khi restore lại cùng snapshot giả, client Prisma, parser graph và vault
+legacy được thử trên database đã migrate: đọc được workflow kiểu cũ và giải
+mã credential giả, nhưng client cũ không expose continuation token mới và
+parser cũ từ chối node type `.v2`. Với fixture giả định `nodeVersion: 2` trên
+node type cũ, parser cũ bỏ qua version; NX hiện tại từ chối version 2 nên đây
+chỉ là rủi ro tương thích tương lai. Source parser/vault đối chiếu khớp
+`3c9ac35`; chưa thử toàn bộ API/worker hay image production và không suy ra
+có thể downgrade an toàn.
+
+| Mục | Code bản nháp đã có | Còn thiếu bằng chứng hoặc công việc |
+|---|---|---|
+| NX-02 | Registry executor/operation, fields dùng chung, một số cursor, OAuth theo connection; graph cũ không bắt buộc `nodeVersion`. Một số thay đổi hành vi dùng type `.v2` riêng. | `nodeVersion` mới chỉ nhận `1`; registry chưa chứng minh đủ schema/mock/redaction cho từng executable node. Cần review compatibility theo operation và final verify. |
+| NX-03 | Chọn/filter dữ liệu quan hệ, Sheets mapping và `.v2`, Notion page/content/data-source, các thao tác card Trello; có mẫu workflow cho năm app. | Review tính đầy đủ của từng thao tác và workflow mẫu với hợp đồng provider; test giả không chứng minh kết nối thật. Không tuyên bố CRUD đầy đủ cho mọi app. |
+| NX-04 | Gmail read/get/send/reply/draft/label; Chat và Telegram reply/edit; GitHub issue/PR read và update issue; Sentry/Vercel detail/cursor. | Kiểm tra quyền thực cấp, output và lỗi ghi không chắc chắn theo từng provider. Live qualification của operation mới chưa đầy đủ; không suy ra từ test mock. |
+| NX-05 | RSS checkpoint/receipt và recovery; Kuma, Telegram, Trello, Vercel, Sentry webhook receiver và bảo vệ delivery ở mức khác nhau. PR có fence khi Cron và webhook cũ nhận execution. | Webhook provider có thể vẫn cần đăng ký thủ công; kiểm tra điều kiện provider và recovery thực tế. Các fence và retention đã qua verify cô lập/CI tại `20858a6`, chưa qua production. Không cam kết exactly-once. |
+| NX-06 | Structured JSON schema/output cho Gemini/OpenAI, metadata usage và giới hạn theo request. | Chưa có kiểm soát tổng chi phí hoặc chứng minh model bất kỳ hỗ trợ schema; media/binary chưa triển khai. Xem [giới hạn chi phí](39-nx06-ai-cost-controls.md). |
+| NX-07 | Tài liệu quyết định cho item/batch, binary, database change capture, Reddit và Meta. | Các hệ thống này chưa được coi là đã triển khai chỉ vì có thiết kế; phụ thuộc provider và phạm vi triển khai phải xét riêng. |
+| Phát hành | GitHub Quality gate đã pass tại PR head `ff0740a`; full verify cô lập pass cho source `388ac7b`. Có diễn tập cô lập và guard từ chối fleet legacy. | First cutover và rollback về release trước chưa được chứng minh. PR #75 vẫn draft tại thời điểm ghi; ghi chú restore mới chưa lên PR. Xem [review phát hành](40-nx-release-review.md). |
+
+### Tiến độ bản nháp sau audit — chưa phát hành
+
+- NX-03 starter workflows, bản local sau `ff0740a`: mẫu PostgreSQL và Supabase
+  không điền sẵn `example_table`, mẫu Trello không điền ID board giả có định
+  dạng hợp lệ. Người dùng phải chọn bảng/board trước cả mock và live; live còn
+  cần connection. Test cho cấu hình thiếu, mock với fixture và luồng tạo mẫu
+  trên dashboard đã được cập nhật và pass trong lượt verify cô lập ngày
+  2026-11-04. Chỉ mẫu tạo workflow mới thay đổi; graph đã lưu không bị sửa.
+- NX-02, bổ sung sau CI `20858a6`: picker Gemini trước đây chỉ tải trang đầu dù provider có `nextPageToken`. Bản local thêm nút tải trang tiếp, kiểm tra token rỗng/không hợp lệ, tránh lặp token hoặc trả token chứa API key và vẫn cho nhập model thủ công. Test adapter và E2E được cập nhật nhưng chưa chạy; không coi CI trước đó là xác nhận cho thay đổi này. Theo [Google Models API](https://ai.google.dev/api/models), các trang phải giữ cùng tham số `pageSize`.
+- NX-06 sau CI `20858a6`: model picker Gemini hiển thị input/output token limit và trạng thái thinking nếu Google trả metadata hợp lệ cho model đã chọn; không suy đoán khi thiếu. Đây chỉ là thông tin tại thời điểm discovery, không xác nhận structured output hoặc bảo đảm giới hạn chi phí; backend vẫn áp dụng giới hạn cấu hình riêng. Thêm test adapter/UI, chưa chạy. [Google Model resource](https://aistudio.google.com/api-reference/models#Resource:Model).
+- Execution audit sau CI `20858a6`: `run()` trước đây chỉ đối chiếu mode của job với mode lưu trong database đối với approval continuation; job ban đầu sai mode có thể chạy adapter live cho một execution mock. Bản local bỏ qua job sai mode trước khi claim hoặc đọc credential và đưa mode đã lưu vào điều kiện claim nguyên tử. Bỏ qua không có nghĩa là tự khôi phục một execution chỉ có job sai: execution đó vẫn cần cơ chế recovery hoặc kiểm tra vận hành. Test giả lập đã bổ sung nhưng chưa chạy; guard này chưa xác nhận cutover hoặc an toàn khi chạy lẫn worker cũ/mới.
+- HTTP adapter audit sau CI `20858a6`: API đích có thể lặp lại giá trị HTTP credential dưới tên field bất kỳ hoặc trong raw text, vượt qua redaction dựa vào tên key. Bản local từ chối output chứa nguyên văn credential được dùng, bao gồm Basic wire encoding và encoding thông thường của query key; request ghi báo `DELIVERY_UNCERTAIN` và không tự retry, vì provider có thể đã ghi. Kiểm tra này có thể từ chối trùng khớp vô tình với credential quá ngắn và không phát hiện bí mật bị cắt hoặc mã hóa tùy ý; credential nhập trực tiếp trong config không thuộc lớp bảo vệ này. Test giả lập đã bổ sung nhưng chưa chạy.
+- Trello audit sau CI `20858a6`: `before` được chuyển thành thời điểm tạo theo giây, và thứ tự các card nhận về quyết định ranh giới trang. Bản local không đưa cursor khi response bị lặp, không theo thứ tự thời gian hoặc card sau ranh giới có cùng giây; response nằm ngoài `before` bị từ chối. Áp dụng cho node và picker, kèm cảnh báo kết quả có thể thay đổi. Kiểm tra thứ tự trong một trang không chứng minh provider đã trả đủ toàn bộ card hoặc sắp xếp ổn định; cần xác nhận với provider thật. Test giả lập đã bổ sung, chưa chạy. Theo [Trello paging](https://developer.atlassian.com/cloud/trello/guides/rest-api/api-introduction/#paging), `before` và `since` dựa trên thời gian.
+- Notification audit sau CI `20858a6`: Google Chat webhook, Discord, Telegram và HTTP approval webhook dùng transport có thể theo redirect cùng origin. Với 307/308, POST có thể bị gửi lần hai trước khi adapter kiểm tra response; ngay cả 303 cũng tạo request phụ. Bản local dùng transport chặn redirect cho write; response 3xx không có Location được báo receipt không chắc chắn. Không tự retry và cần dùng URL đích cuối. Regression giả lập cho cả bốn adapter và các loại redirect đã thêm nhưng chưa chạy; không khẳng định provider thật không bao giờ redirect hoặc có thể bảo đảm exactly-once.
+- Workflow mẫu Steam → Telegram và node Telegram message mới mặc định plain text thay cho Markdown, để tên người chơi hoặc giá trị động chứa ký tự định dạng không vô tình làm request bị từ chối. Người dùng vẫn chọn Markdown/HTML được; editor có nhắc về dữ liệu từ bước trước. Workflow đã lưu giữ nguyên `parseMode`. Test mẫu và round-trip đã bổ sung, chưa chạy; không khẳng định mọi lỗi Telegram 400 trước đây do định dạng.
+- RSS recovery sau CI `20858a6`: lỗi `RSS_NOT_READY` do connection bị thiếu trước đây buộc người dùng reset và chấp nhận bỏ qua dữ liệu. Bản local cho phép kích hoạt lại khi đã xử lý connection, giữ snapshot và receipts; lần poll kế tiếp vẫn kiểm tra overlap và báo gap nếu cần. Chỉ lỗi này được tiếp tục mà không reset; lỗi snapshot gap, checkpoint hỏng và lỗi khác vẫn cần review. UI nêu cách xử lý connection. Test scheduler, lifecycle với database thử và UI đã bổ sung nhưng chưa chạy; không bảo đảm giữ được item đã biến mất khỏi feed trong thời gian gián đoạn.
+
+- **Lượt verify local mới nhất:** ngày 2026-11-03, `npm run verify` đạt trên checkout cô lập với PostgreSQL, Redis và cổng thử riêng: 52 kiểm tra deployment, 893 test API, 60 test web, 201 Playwright, typecheck và build. Các nhóm integration được bật và API/web không bỏ qua bài nào. Source đã đối chiếu khớp snapshot kiểm thử, ngoại trừ `apps/web/next-env.d.ts` do Next tự sinh và không thuộc commit dự kiến; ghi chú tài liệu được cập nhật sau lượt chạy. Máy local dùng Node 23; GitHub CI dùng Node 22 đã pass cho commit `20858a6` (run `41625821559`). Không dùng kết quả này để khẳng định provider thật, first cutover hoặc rollback sang release cũ an toàn.
+
+- **Lượt xác minh trước đó:** `npm run verify` hoàn tất thành công trên snapshot cô lập: 52 kiểm tra deployment, 883 test API, 60 test web và 195 Playwright; typecheck/build đạt, các nhóm test này không bỏ qua bài nào. Cấu hình provider và dữ liệu đều tổng hợp; PostgreSQL/Redis và cổng tách biệt. Đối chiếu sau chạy khớp source trừ `apps/web/next-env.d.ts` do Next.js tự sinh lại đường dẫn build E2E; file này không nằm trong thay đổi dự kiến. Ghi chú này được thêm sau lượt chạy. Kết quả không chứng minh provider thật, first cutover hay rollback sang release cũ, và không thay thế CI trên commit sẽ phát hành.
+- CI commit `f8734e5` chưa đạt: Playwright 194/195, bài phân trang execution không thấy dữ liệu trang tiếp theo; log không đủ để xác định nguyên nhân và không có trace artifact. Test gốc chạy lại 10/10 trên máy local; bản test local hiện chờ animation mở panel kết thúc, chờ response đúng cursor rồi vẫn kiểm tra cả hai trang hiển thị, chạy lại 3/3. Đây không chứng minh nguyên nhân trên CI là animation và không phải một lượt full verify mới; CI cần chạy lại trên commit có sửa test.
+
+- Review rollback: nhãn `nx-v1` không chứng minh image cũ hiểu mọi node và cấu hình đã lưu. Ví dụ, draft local thêm Sheets v2 và Notion data-source mà commit NX trước chưa có, dù Dockerfile dùng cùng nhãn. Script rollback local giờ từ chối image API, worker hoặc web khác image hiện tại trước khi dừng dịch vụ; chỉ cho tự động khởi động lại đúng image đang dùng. Đây là giới hạn tạm thời để tránh downgrade không an toàn, **chưa phải giải pháp rollback về release trước**. Cần hợp đồng tương thích graph, config, database và queue được chứng minh riêng; nhánh legacy không đổi. Bộ rollback cô lập đạt 14/14, gồm Docker giả lập với image web riêng, trường hợp thiếu web và kiểm tra migration trên PostgreSQL thử. Kết quả không chứng minh rollback thật trên VPS.
+- Docker rehearsal cho đúng rào chắn trên: Compose thử dùng mạng nội bộ, không publish cổng, PostgreSQL và bảng tổng hợp; các container API/worker/web chỉ chạy tiến trình Node chờ, không chạy ứng dụng. Hai API image có cùng nhãn NX nhưng ID khác vì image đích chỉ thêm một label thử. Lệnh rollback thật từ chối trước khi dừng; bốn container vẫn chạy và không ghi nhận sự kiện stop, lock được giải phóng. Docker thật được dùng cho inspect/Compose/SQL, riêng `pull` được thay bằng no-op vì image có sẵn. Stack thử sau đó được dừng, không xóa volume/container. Bài này chỉ xác nhận một đường từ chối, không kiểm thử rollback thành công, trạng thái queue/graph thực hay first cutover.
+- Docker rehearsal khởi động lại cùng image: stack nội bộ riêng không publish cổng dùng API/worker NX đã build cục bộ, PostgreSQL/Redis tổng hợp và web HTTP giả; scheduler và provider bị tắt. Script rollback local dừng API rồi worker, khởi động lại cùng image, kiểm tra liveness/readiness/web qua `docker exec` và giải phóng lock; một dấu kiểm tổng hợp trong PostgreSQL và một key Redis vẫn đọc được sau đó. `pull` được thay bằng no-op và Compose chạy lại migration của image thử. Stack được dừng sau thử nghiệm. Kết quả chỉ chứng minh đường khởi động lại cùng image khi không có job đang chạy, không chứng minh downgrade, job/provider đang xử lý, sự cố giữa các pha hoặc triển khai/khôi phục production.
+- Cùng stack Docker cô lập: worker được dừng trước, một execution `MOCK` với manual trigger được ghi vào PostgreSQL và enqueue hai lần cùng job ID; Redis chỉ giữ một job chờ. Sau khi script khởi động lại cùng image, execution có một node `SUCCEEDED` và BullMQ ghi một attempt, lock được giải phóng. Đây là một job tổng hợp đã xếp hàng, không phải kiểm tra xử lý đang chạy, provider thật, mọi dạng job hoặc exactly-once; worker đã chủ động dừng trước khi script bắt đầu.
+
+- Lượt verify cô lập trên source trước sửa timeout dashboard: 881 test API và 60 test web đạt; typecheck, build và kiểm tra deployment cũng đạt. Playwright đạt 194/195, một bài dừng ở bước đăng ký vì thời gian chờ URL 5 giây; trace cho thấy đăng ký HTTP 201 mất khoảng 2,7 giây và dashboard tải thêm khoảng 3 giây. Sau khi tăng thời gian chờ riêng của helper và test, chạy lại file dashboard đạt 21/21. Đây là hai lượt khác nhau, không phải một lượt `npm run verify` hoàn chỉnh thành công; source sau sửa vẫn cần verify cuối. Hai test deployment được bỏ qua theo điều kiện môi trường.
+
+Các thay đổi sau thuộc bản nháp NX; kết quả quality gate mới nhất và giới hạn của bằng chứng được ghi ở cuối mục này:
+
+- NX-03 audit: PostgreSQL/Supabase selection v2 từ chối số nguyên ngoài phạm vi an toàn của JavaScript trước khi đọc credential hoặc gọi provider. Dùng giá trị text cho ID lớn để tránh làm tròn; backend không thể khôi phục chữ số đã mất ở bước upstream. Các test mock/live giả lập đã bổ sung và chờ lượt verify cuối. Hành vi node v1 không đổi.
+
+- NX-02: metadata mô tả, node version, một số cursor và Google OAuth nhiều tài khoản. Metadata chưa thay thế authorization hay retry policy.
+- NX-02 audit bổ sung: probe dispatcher ở chế độ mock đã đi qua toàn bộ loại node đăng ký với cấu hình rỗng, chấp nhận lỗi validation có cấu trúc, xác nhận node planned bị từ chối và không đọc vault. Kiểm tra này phát hiện handler thiếu, nhưng không chứng minh mock với cấu hình hợp lệ hoặc output schema của từng node. Registry hiện chưa cung cấp đầy đủ metadata executor/schema/mock/redaction như tiêu chí NX-02; mục này vẫn chưa hoàn tất.
+- NX-02 shared fields: kiểu field và registry mô tả UI cho 73 node dùng declarative fields đã chuyển vào contracts; editor đọc từ cùng nguồn. Một số node core và Telegram vẫn dùng form chuyên biệt. Đây không phải validation schema hay chính sách bảo mật, vốn tiếp tục thuộc backend. Kiểm tra so sánh trước/sau cho thấy 85 định nghĩa catalog không thay đổi; final verification và release chưa thực hiện.
+- NX-02 executor registry: toàn bộ 65 node action thực thi đã dùng registry có kiểu ở server và gọi lại adapter cũ, giữ variant v1/v2 và tham số workspace/node/execution. Các adapter Steam, Google, HTTP, thông báo và GitHub cũ đã tách khỏi runner; core trigger/condition/approval vẫn ở runner. So sánh 195 trường hợp mock giữa dispatcher trước và sau cho kết quả giống nhau; 226 kiểm tra có mục tiêu đạt. Validation/redaction registry đầy đủ, final verify và kiểm thử provider thật chưa hoàn tất. Không sử dụng metadata UI để quyết định quyền hoặc retry.
+- NX-02 registry audit: TypeScript hiện yêu cầu mọi action được khai báo thực thi phải có executor và từ chối action không thuộc danh sách đó khi biên dịch. Kiểm tra này chỉ đảm bảo có đăng ký, không chứng minh adapter hoạt động đúng hoặc đủ validation, mock và redaction.
+- NX-02 dispatch live giả lập: GitHub, Notion, Trello, Google Drive và Gemini đã chạy qua registry với workspace/credential giả; test chặn mạng bằng transport giả và xác nhận header, output cùng phân trang Drive v1/v2. Đây là kiểm tra routing có chọn mẫu, không phải thử provider thật hay bảo đảm mọi operation đã live-qualified.
+- NX-02 pagination metadata: Drive v2 mô tả cursor theo operation (`list`/`search`; không áp dụng cho upload/download), còn Drive v1 giữ nguyên. Gmail và Calendar bổ sung các cấu hình cần giữ khi lấy trang sau. Kiểm tra dispatcher giả lập đạt; metadata chỉ mô tả, chưa tự chạy phân trang hoặc thay validation của adapter.
+- NX-02 pagination context: bản local bổ sung danh sách connection/resource/filter cần giữ khi tiếp tục Notion, Sentry và Vercel; đây là metadata mô tả, không ràng buộc cursor với config bằng mật mã và không tự xử lý phân trang. Editor xóa giá trị lọc Notion phụ thuộc khi đổi connection. Test metadata và editor đã bổ sung, chờ final verify.
+- NX-02 picker context: bản local chặn request sử dụng cursor hoặc GitHub owner cũ trong lúc picker chuyển workspace, connection, tài nguyên cha hoặc loại property. Sau khi state được đặt lại, picker tải trang đầu của ngữ cảnh mới; response cũ vẫn bị bỏ qua. Kiểm tra E2E giả lập Trello và Notion được bổ sung, chờ final verify; thay đổi này không ràng buộc cursor nhập thủ công của node với connection.
+- NX-02 Trello/GitHub pagination: metadata bản local ghi rõ connection, resource và bộ lọc cần giữ giữa các trang. Editor xóa mốc `before` của Trello khi đổi trạng thái lọc hoặc giới hạn, giống cách đã xóa khi đổi board/connection; các graph cũ không bị sửa cho tới khi người dùng chỉnh draft. Mốc nhập qua expression hoặc API vẫn do người dùng quản lý và thứ tự dữ liệu provider có thể thay đổi. Test metadata và E2E mới chờ final verify.
+- NX-02 pagination audit: Google Calendar báo lỗi phản hồi không hợp lệ khi provider trả cursor sai định dạng thay vì âm thầm báo hết trang. Cursor hợp lệ và phản hồi không có cursor giữ hành vi cũ; 12 kiểm tra Calendar giả lập đạt.
+- NX-02 pagination/filter audit: bản local từ chối một số expression không phân giải được ở tài nguyên, filter và cursor của Calendar, Notion, Gmail, Drive, Sentry và Vercel trước khi đọc credential; tránh tự trở lại trang đầu hoặc chọn bộ lọc mặc định. Các node v1 có phiên bản v2 riêng tiếp tục giữ hành vi cũ; field tùy chọn bị xóa hoặc để trống vẫn cho phép bắt đầu trang đầu. 39 kiểm tra Calendar, Notion và tương thích phân trang giả lập cùng API typecheck đã đạt; không chứng minh mọi node đều có validation thống nhất và chưa phải final verify.
+- Release script review: `deploy.sh` nay truyền thống nhất image và commit đã chọn cho mọi lệnh Compose, kể cả khi caller không export tên image. Đây là sửa lỗi cấu hình sẵn có; không giải quyết rủi ro mixed-fleet hay cho phép deploy production khi guard chưa đạt.
+- NX-03: selector cột/điều kiện PostgreSQL và Supabase, mapping Google Sheets, Notion và Trello operations. Bản nháp giữ hành vi node quan hệ cũ và yêu cầu nâng cấp draft có chủ đích sang loại `.v2` riêng; tương thích này chưa được kiểm chứng.
+- NX-03 Sheets input: bản nháp thêm node `action.google-sheets.v2` để chọn `USER_ENTERED` hoặc `RAW` khi append/update. Node cũ luôn giữ `USER_ENTERED`, kể cả khi có field lạ cùng tên; nâng cấp chỉ sửa draft và mặc định giữ cách cũ. `RAW` giữ chuỗi như `=1+2` là văn bản, còn `USER_ENTERED` cho Sheets diễn giải thành công thức hoặc kiểu dữ liệu. Xem [Google ValueInputOption](https://developers.google.com/workspace/sheets/api/reference/rest/v4/ValueInputOption). [n8n cũng cung cấp tùy chọn Cell Format](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.googlesheets/sheet-operations/); đối chiếu UX, không khẳng định hai node có cùng toàn bộ hành vi. Chưa thử provider thật; cần final verify và release an toàn.
+- NX-03 examples: the local draft adds selectable starter workflows for PostgreSQL, Supabase, Google Sheets, Notion and Trello. These create drafts with manual triggers and example resource values; users must choose their own connection and resources before live execution. The starter flows and dashboard selector have not yet passed the final gate.
+- NX-03 end-to-end examples: bản local bổ sung mẫu đọc dữ liệu rồi gửi tóm tắt tới Google Chat cho từng app trên. Mẫu mặc định dùng manual trigger và không điền connection; người dùng cần chọn tài nguyên và webhook trước khi chạy live. Test kết nối đầu ra mock với nội dung thông báo đã được bổ sung, chờ final verify; không gửi thông báo thật.
+- NX-03 Notion write: bản local bổ sung tạo trang con trong một trang được chia sẻ, với bộ chọn trang cha và các trường tiêu đề/nội dung văn bản; một node riêng cập nhật tiêu đề của trang được chọn. Không tạo database page hoặc sửa property tùy ý. Cập nhật tiêu đề có thể ghi đè thay đổi đồng thời và không sửa nội dung trang. Request giữ Notion API version `2022-06-28`; timeout, redirect, 408, 429, 5xx và phản hồi thành công không hợp lệ được báo kết quả không chắc chắn, không tự retry. Các kiểm thử giả lập adapter, dispatcher, credential và picker đã được bổ sung nhưng chưa chạy final verify; chưa kiểm thử Notion thật. Tham khảo [Notion create page](https://developers.notion.com/reference/post-page), [update page](https://developers.notion.com/reference/patch-page) và [n8n Notion operations](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.notion/).
+- NX-03 Notion property picker: bản local lấy tối đa 100 tên/ID property của trang đã chọn qua credential thuộc workspace, không trả giá trị property. Đổi trang hoặc connection xóa lựa chọn phụ thuộc; thiếu quyền hoặc metadata có thể nhập ID/expression thủ công. Các ID không dùng được hoặc vượt giới hạn được cảnh báo. Chưa kiểm thử Notion thật và đang chờ final verify; đây chưa phải database/data-source query hay mapping ghi property.
+- NX-03 Notion data source: bản nháp bổ sung operation đọc một trang entries và picker cho data source được chia sẻ. Operation mới gọi API `2025-09-03`, không thay đổi version `2022-06-28` của node cũ; page size/cursor có giới hạn, kết quả có `queryCompleteness` khi provider báo giới hạn. Có tùy chọn lọc theo thời gian chỉnh sửa, một property dạng status/select/checkbox và sắp xếp theo thời gian tạo/chỉnh sửa. Status/select có picker theo property, với fallback nhập đúng tên thủ công; không hỗ trợ mọi loại property hoặc nhiều property. Timestamp trùng và dữ liệu thay đổi vẫn có thể làm dịch trang. Chưa kiểm thử provider thật hay final verify. [Notion upgrade guide](https://developers.notion.com/guides/get-started/upgrade-guide-2025-09-03), [query data source](https://developers.notion.com/reference/query-a-data-source), [n8n Notion operations](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.notion/).
+- NX-04: GitHub issue/PR reads, Gmail get-message/cursor, Sentry và Vercel detail/cursor; GitHub merge có tùy chọn ràng buộc head SHA theo [GitHub API](https://docs.github.com/en/rest/pulls/pulls#merge-a-pull-request), còn graph cũ không cung cấp SHA giữ hành vi cũ. Telegram reply/edit có bản nháp dùng connection của workspace và không tự retry khi kết quả POST không chắc chắn. [n8n](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.telegram/) có edit-message; reply dùng `sendMessage` với `reply_parameters` theo [Telegram Bot API](https://core.telegram.org/bots/api#sendmessage). Google Chat có bản nháp send trả thread, reply và edit; edit yêu cầu người dùng chọn riêng quyền `chat.messages` theo [Google Chat API](https://developers.google.com/workspace/chat/api/reference/rest/v1/spaces.messages/patch). Gmail send/reply/create/replace-draft/change-label đã được kết nối trong bản nháp local, yêu cầu scope tương ứng và test mode giả lập; adapter không tự retry kết quả ghi không chắc chắn. Chưa chạy verify, chưa có live qualification và chưa được phát hành; các rủi ro rollout/recovery và Google verification vẫn là điều kiện trước release.
+- NX-04 GitHub update: bản local thêm thao tác cập nhật một trường title, body hoặc state của issue, có picker repository/issue, kiểm tra resource không phải PR trước PATCH và không tự retry nếu kết quả ghi không chắc chắn. [n8n hỗ trợ Issue Edit](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.github/); [GitHub nói conditional request cho PATCH không được hỗ trợ trừ khi endpoint quy định khác](https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api#use-conditional-requests). Vì vậy bước đọc trước không khóa issue, thay đổi đồng thời vẫn có thể bị ghi đè và UI nêu rõ giới hạn. Test giả lập adapter, dispatcher, credential readiness và tương tác picker đã đạt trong lượt verify cô lập bên dưới; chưa thử provider thật hoặc phát hành.
+- NX-03/04 write-guard audit: expression không phân giải được trong GitHub expected head SHA, merge method hoặc issue idempotency key bị từ chối thay vì âm thầm bỏ bảo vệ hay chọn mặc định, kể cả khi expression nằm trong chuỗi có tiền tố. Graph cũ không cấu hình các trường này giữ hành vi cũ. Trello update và pagination cũng từ chối field hiện diện nhưng không phân giải được để tránh ghi thiếu hoặc đọc lại trang đầu. Các kiểm tra dùng connector giả, không gọi GitHub/Trello thật; chưa qua final verify.
+- NX-04 calendar write audit: create/update/delete không tự theo redirect; update/delete trả lỗi không tự retry khi network, redirect, 408, 429 hoặc 5xx làm kết quả không chắc chắn. Create vẫn dùng ID xác định và đối chiếu conflict cho retry thông thường, nhưng redirect cần người dùng kiểm tra. 24 kiểm tra Calendar và outbound giả lập đạt; chưa có live qualification mới.
+- NX-04 calendar availability audit: FreeBusy chỉ được đọc từ ID của lịch được chọn; không suy ra lịch duy nhất được trả về là lịch cần kiểm tra. Nếu chọn `primary`, Fluxora gọi CalendarList trước để lấy ID thực và xác nhận cờ primary, rồi dùng ID đó cho FreeBusy. Điều này thêm một request đọc, cần quyền CalendarList hiện có trong connection; lỗi hoặc kết quả không khớp báo không xác định thay vì khẳng định lịch rảnh. [CalendarList.get](https://developers.google.com/workspace/calendar/api/v3/reference/calendarList/get), [FreeBusy.query](https://developers.google.com/workspace/calendar/api/v3/reference/freebusy/query). 14 kiểm tra Calendar giả lập đạt; thay đổi chưa được thử với Google thật.
+- NX-04 observability output audit: Sentry/Vercel resource pickers, danh sách và chi tiết liên quan từ chối phản hồi khi các trường provider sẽ được hiển thị hoặc lưu chứa nguyên token hiện tại. Kiểm tra xảy ra trước khi cắt ngắn nội dung, áp dụng cả node v1/v2 và có thể báo lỗi cho một kết quả vốn hợp lệ nếu nội dung trùng token. Các kiểm tra dùng token và provider giả; đây không phải cơ chế phát hiện mọi bí mật, và chưa qua final verify hoặc thử provider thật.
+- NX-06: structured output Gemini/OpenAI có kiểm tra schema và giới hạn output theo từng request. Giới hạn token không phải giới hạn chi tiêu; chưa chạy provider thật trong đợt này.
+- NX-06 safety audit: Gemini/OpenAI từ chối `maxOutputTokens` hoặc `timeoutMs` nếu expression của trường đó không phân giải được, thay vì âm thầm thay bằng mặc định có thể cao hơn giới hạn người dùng muốn. Workflow cũ không có trường vẫn dùng mặc định cũ. Phản hồi lỗi provider được đóng mà không lưu nội dung; lượt generation tính phí vẫn không tự retry. Test giả lập đã bổ sung, chưa chạy final verify; đây không phải giới hạn chi tiêu hay aggregate quota.
+- NX-06 prompt ceiling: bản local bổ sung `AI_MAX_PROMPT_CHARACTERS` cho cả Gemini/OpenAI, mặc định giữ mức cũ 100.000 UTF-16 code units; giới hạn thấp hơn do operator chọn được kiểm tra trước khi đọc credential hoặc gọi provider. Cấu hình sai bị từ chối, không cắt ngắn prompt. Cần cấu hình nhất quán ở mọi API/worker và drain worker cũ khi giảm giới hạn. Test đã bổ sung, chưa chạy; đây là giới hạn kích thước, không phải giới hạn token hoặc chi phí.
+- NX-06 audit: phản hồi Gemini/OpenAI có chứa nguyên API key đang dùng sẽ bị từ chối bằng lỗi không ghi key; kiểm tra cả text, giá trị JSON đã giải mã, tên trường và metadata trả về. Đây là bảo vệ cho key của connection hiện tại, không phải cơ chế phát hiện mọi bí mật có thể xuất hiện trong nội dung AI. Các test dùng phản hồi và key giả; chưa có live qualification hay final verification sau thay đổi.
+- NX-05: Kuma v2, RSS new-item, Telegram update và Vercel deployment có bản nháp local cho nhận sự kiện và phục hồi lượt chưa bắt đầu. Telegram dùng webhook do chủ bot tự cấu hình, xác thực secret header, lọc chat/event và dedup theo update ID; Fluxora không tự thay thế webhook trên bot. Vercel nhận secret ký từ account webhook, xác thực raw body và lọc event/project/account; Fluxora không tạo hoặc xác nhận webhook từ xa. Vercel account webhook tùy thuộc gói dịch vụ và event bị bỏ lỡ trong lúc chưa cấu hình có thể hết hạn sau thời gian retry của provider. Dedup phụ thuộc thời gian giữ execution và khóa mã hóa, không đảm bảo exactly-once; execution Vercel được giữ tối thiểu 24 giờ kể từ khi hoàn tất để bảo vệ cửa sổ retry, nên tổng lịch sử có thể vượt giới hạn số lượng trong thời gian này. Các migration mới đã áp dụng trên database local để mở preview; chưa kiểm thử hoặc deploy production. Trello và Sentry issue-created triggers đã được nối trong bản nháp local và chưa verify hay live-qualify. Cần hoàn thiện lifecycle, xác minh tương thích mixed fleet và khôi phục sau sự cố trước khi phát hành.
+- NX-05 editor audit: draft có nhiều trigger vẫn lưu được, nhưng backend chỉ cho publish graph có đúng một trigger. Cảnh báo trong editor hiện giải thích rõ giới hạn đó thay vì chỉ báo có nhiều trigger; đã có trong lượt verify cô lập bên dưới.
+- NX-05 activation UX: hộp thoại bản local mô tả cả trigger polling, cùng thông báo rằng execution đã nhận có thể tiếp tục sau khi tắt. Với Gmail, thông tin nêu khả năng xử lý thư khi bật lại; với RSS, cảnh báo item có thể biến mất khỏi feed trong lúc tắt. Các thông báo chỉ mô tả hành vi hiện tại, không hứa khôi phục mọi event; kiểm tra E2E đang chờ final verify.
+- NX-05 RSS audit: ghi lỗi của lượt poll giờ khóa workflow trước checkpoint và kiểm tra lại trạng thái active, version và lease. Lỗi từ lượt đọc hoàn tất sau khi workflow đã tắt sẽ không chuyển checkpoint sang ERROR; test PostgreSQL cô lập mô phỏng thứ tự này đã đạt trong lượt verify bên dưới. Nếu lỗi ghi nhận trước khi thao tác tắt giành được khóa thì lỗi vẫn được lưu theo thứ tự giao dịch.
+- NX-05 Gmail checkpoint audit: bản local cũng khóa workflow trước khi ghi checkpoint thành công hoặc lỗi, rồi kiểm tra workflow còn active, đúng published version và lease còn hiệu lực. Phản hồi Gmail rỗng hoặc lỗi đến sau khi tắt workflow sẽ không làm tiến history hoặc chuyển checkpoint sang ERROR; nếu giao dịch ghi thắng khóa trước thao tác tắt, kết quả được giữ theo thứ tự giao dịch. Test giả lập và PostgreSQL cô lập đã được bổ sung, chưa chạy final verify; không khẳng định exactly-once hoặc thử Gmail thật.
+- NX-05 Gmail reset/queue audit: sau khi job được xếp hàng, bản local chỉ ghi `dispatchedAt` cho receipt còn chờ và còn trỏ tới chính execution đó. Một acknowledgement đến muộn không ghi đè thời điểm hoặc quyết định reset đã được chủ workspace xác nhận; nếu receipt không còn khớp, poll dừng và không tiến checkpoint. Job đã xếp hàng có thể đã bắt đầu, không thể thu hồi chỉ bằng thay đổi receipt. Test giả lập và test PostgreSQL gọi luồng reset thật được bổ sung, chờ final verify; chưa thử Gmail thật.
+- NX-05 Gmail reservation audit: trước đây poll có thể tạo receipt sau khi owner đã tắt workflow và reset, nếu reset xảy ra giữa lần kiểm tra lease và thao tác tạo receipt. Bản local khóa workflow rồi checkpoint, kiểm tra lại trạng thái/phiên bản/lease và chỉ sau đó tạo hoặc đọc receipt; đổi lại mỗi message cần thêm một transaction. Test PostgreSQL cô lập mô phỏng đúng khoảng dừng này đã được bổ sung nhưng chưa chạy final verify. Không khẳng định đã quan sát lỗi trên production hoặc ngăn được job đã bắt đầu trước reset.
+- Execution approval audit: bản local lấy khóa execution, node và approval theo thứ tự, sau đó mới đọc đồng hồ PostgreSQL để kiểm tra hạn. Khi người dùng gửi quyết định sau hạn, kể cả hết hạn trong lúc chờ khóa, approval được đánh dấu hết hạn và execution/node thất bại cùng transaction; không tiếp tục nhánh approved. Test cạnh tranh trên PostgreSQL cô lập đã được bổ sung, chưa chạy final verify. Việc tự động kết thúc approval hết hạn khi không ai gửi quyết định và sửa dữ liệu cũ đã bị kẹt vẫn chưa được triển khai.
+- Tự review test approval: kiểm tra cạnh tranh được siết lại để quan sát transaction đã qua khóa execution/node và đến câu lệnh khóa approval trước deadline; bản cũ chỉ quan sát bắt đầu transaction nên chưa chứng minh được thứ tự đó. Kiểm tra này chưa chạy sau khi sửa và không chứng minh hết mọi đường cạnh tranh hoặc xử lý approval hết hạn tự động.
+- NX-05 webhook audit: Trello, Sentry và Vercel từ chối event phù hợp nếu signing secret hiện tại xuất hiện trong identifier sẽ được lưu; không thay đổi identifier dùng định tuyến và dedup. Nội dung tự do của Trello/Sentry vẫn được xử lý riêng. 15 kiểm tra protocol/ingress giả lập đạt, chưa chứng minh provider thật hoặc bảo vệ mọi bí mật khác.
+- NX-07: các quyết định và điều kiện provider nằm ở [NX-07 decisions](38-nx07-design-decisions.md); không đồng nghĩa các tính năng đó đã được triển khai.
+
+Vercel event choice is deliberately explicit: its [account webhook setup](https://vercel.com/docs/webhooks) lists created, succeeded, error and canceled deployments, while its [integration guidance](https://vercel.com/docs/integrations/create-integration/submit-integration) places `deployment.ready` under Checks. The [event reference](https://vercel.com/docs/webhooks/webhooks-api) also describes `deployment.succeeded` as dependent on registered checks. A new node therefore defaults to `deployment.created`; event availability and exact account-webhook behavior remain to be confirmed on a real eligible account. Existing draft `deployment.ready` values remain supported rather than silently remapped.
+
+The draft execution engine now assigns an internal random token when a worker claims a running phase. Initialization, node updates, lease renewal, approval transition, skipped-node updates and completion require that phase's token. A new additive migration has been applied only to the local preview database; the corresponding synthetic concurrency check is pending the final verification. Older workers do not honor this token, so the change does **not** make mixed-version deployment or rollback safe on its own.
+
+On 2026-11-03 a read-only GitHub Actions check showed the most recent successful production deploy workflow targeted `3c9ac35560126d6f7240f428efe0734275896218`; it does not establish the images currently running on the server. A separate non-interactive SSH attempt was rejected, so the production container inventory and in-flight processes could not be inspected. The current deploy starts replacement API/worker services without establishing a fleet-wide drain, and the rollback script does not check whether an older worker understands new graphs or approval continuations. Do not claim that either direction is safe solely because CI passed.
+
+A subsequent read-only SSH inspection using the existing deployment key confirmed that the production web, API and worker containers were running image `3c9ac35560126d6f7240f428efe0734275896218`. The database had four active workflows and no execution in a non-terminal status at that instant. This is a point-in-time observation, not a drain: a webhook, schedule or OAuth refresh may start immediately afterward. The production deploy script currently replaces services without fencing incoming requests and draining the old processes, while rollback can reintroduce a worker that does not understand new continuation and graph semantics. Keep this release out of automatic deployment until a concrete cutover and rollback procedure has been validated against the actual host; do not infer safety from an idle snapshot.
+
+The next local draft adds an NX migration/image-label check to rollback, a lock shared by new deploy/rollback scripts, and a forward-deploy check that refuses an uncertified target or a still-active incompatible Compose API/worker before migration. These measures fail closed for the covered boundaries and prevent overlap between scripts that both honor the lock. A migration record marked rolled back remains a blocking signal because that marker does not prove the schema or saved data was restored. The focused deployment suite passed 28 checks locally, including the migration query against a disposable PostgreSQL database and simulated mixed fleets. The previous full `verify` and PR CI passed before this additional draft, not after it. The new changes do not fence the old API, drain old workers, protect against old scripts that ignore the lock, or validate future schema changes. They have not been deployed to production or included in the existing green PR commit.
+
+A read-only check against the actual VPS found both Compose API/worker containers running without the NX image label. The new forward gate would therefore refuse the present fleet; the check did not run the deployment script or alter either container. Stopping containers solely to satisfy this gate is not a safe cutover procedure.
+
+The local gate now also examines stopped, created and dead Compose API/worker
+containers and refuses a fleet missing either service. Stopping the legacy containers therefore
+cannot by itself satisfy the gate. This intentionally also blocks fresh or
+containerless recovery installations until a separate, verified bootstrap or
+cutover procedure exists. It is not a durable attestation: manually deleting
+containers, changing labels, or bypassing the script is outside the gate's
+proof. The amended synthetic tests passed in the isolated verification recorded below.
+
+The local gate now inspects the immutable image ID backing each active
+container, rather than looking up a mutable tag recorded in its configuration.
+The post-replacement worker check also compares the actual running image ID to
+the requested image. Synthetic tests cover a tag repointed to a compatible
+image while an incompatible image is still running, and a replacement worker
+whose tag matches but image ID does not. These checks do not fence the legacy
+API or establish an atomic release.
+
+The previous Actions workflow copied deployment files over the active `infra`
+directory before acquiring its lock or checking compatibility. The current
+local draft uploads a separate bundle per Actions run and executes the staged
+script. It takes the release lock and checks target/fleet compatibility before
+promoting tooling; prior script versions are backed up, and the guarded lock,
+rollback and deploy scripts are installed first using per-file atomic renames.
+If promotion is interrupted, the lock is retained for inspection. Compose is
+not promoted: if the bundle differs from the active Compose contract, release
+fails closed. It is checked again before promotion and before migration.
+Synthetic tests exercise rejected fleets, differing Compose, incomplete
+bundles, promotion failure, retained locks and successful tooling backup.
+An additional synthetic shell test delivers SIGTERM during a tooling rename;
+it observes the saved prior rollback script, retained lock and no migration.
+The broader deployment contract suite also passed locally. Neither test
+simulates a host crash, a lost filesystem write, or an old script already
+executing concurrently.
+
+The script set is not promoted as a single atomic transaction. In particular,
+an already-running legacy manual deploy or rollback may ignore the new lock;
+this remains an operator coordination requirement. Staged bundles and tooling
+backups consume disk and have no automatic cleanup policy. These changes do
+not fence the legacy API, implement the first cutover, or establish real VPS
+behavior; final verification and an isolated interruption rehearsal remain
+outstanding. No production files were changed in this audit.
+
+The next draft additionally stops a compatible worker with an indefinite Docker timeout before migration or rollback, checks that the previously running containers exited successfully without OOM, retains the release lock on an uncertain stop or partially started migration, and checks that the requested replacement worker is running before releasing that lock. Repeated SIGTERM/SIGINT signals are handled idempotently by the new worker. Focused synthetic deployment tests passed for an unclean worker exit and the lock; the worker drain was also exercised using isolated Redis and repeated OS signals. These checks do not prove provider side effects, and the changes have not yet completed final verification. None of them makes the first legacy API shutdown graceful. If the SSH client or Actions times out while Docker is still stopping a worker, inspect the daemon and retained lock rather than retrying blindly.
+
+The release draft also checks for already-started, queued legacy executions without a continuation token after worker drain. Legacy approval dispatch had no durable token and could leave such a run without a matching job; an old initial job can also be confused with the intended continuation. The scripts stop and retain the release lock for operator investigation instead of guessing or automatically restarting workers. This is a conservative detector, not recovery and not a substitute for fencing the legacy API; its new integration check has not yet run through the final gate. When preparation fails before migration for unrelated dependency or backup reasons, only the exact workers that were running before the attempt are restarted.
+
+The local NX release draft additionally refuses migration or NX rollback when an execution is still marked RUNNING after the known API and workers have drained, and retains the lock if the database query fails or returns an unexpected result. This detects stale or still-active execution records; it cannot establish that unknown workers, detached requests, or provider-side effects are absent. The associated synthetic and disposable-database tests are pending final verification. The legacy rollback path is unchanged; first cutover is still blocked.
+
+An isolated mixed-version rehearsal on 2026-11-03 used an API/worker built from the actual `3c9ac35` source, the new worker, a disposable PostgreSQL database with NX migrations, a separate Redis instance and a synthetic approval graph. A stale `initialOnly` job was delivered to an execution that already had an approval continuation token. The new worker ignored the stale job and subsequently executed the matching continuation; the old worker accepted the stale job, marked the execution `SUCCEEDED` and left its successor `SKIPPED`. This proves an incorrect outcome is possible when old workers consume new jobs; it is not a live-provider or production test.
+
+For the first cutover, the unresolved engineering requirement is to prevent new API requests, webhooks and scheduler jobs while in-flight old API work is drained; then drain every old worker before the new API can enqueue NX jobs. The procedure must preserve queued work, treat in-flight OAuth refresh or provider writes as potentially uncertain, account for missed schedules during maintenance, and verify that a compatible recovery image is available before lifting the fence. A point-in-time count of running executions and a Docker health check cannot establish these properties. Test interruptions at each cutover phase in an isolated stack before using the procedure on the VPS. The existing `3c9ac35` API does not install graceful shutdown hooks, so simply issuing `docker compose up` or stopping its container with a longer timeout is not a proven drain.
+
+Source review of `3c9ac35` shows the legacy worker does call BullMQ `worker.close()` on SIGTERM and has `maxStalledCount: 0`; the handlers are not guarded against receiving both SIGINT and SIGTERM, and this source observation is not an end-to-end drain rehearsal. Legacy OAuth refresh applies a 20-second fetch abort signal, then writes the refreshed credential through Prisma. That network timeout does not by itself prove that every request, scheduler scan or database update has finished. The API and worker therefore cannot be treated as equally proven drainable solely from their process exit status.
+
+Further source review found that legacy Google account sign-in token exchange
+and token-info verification, and Steam OpenID verification, do not specify an
+application timeout. Thus the separate 20-second Google credential-refresh
+timeout cannot justify a fixed 20-second wait before stopping the legacy API.
+The local NX draft adds 20-second abort signals to these three provider requests.
+Seven isolated Google, Steam and GitHub authentication tests passed, including
+synthetic provider timeouts and the absence of a new session after a failed
+Google sign-in. They do not use real providers, measure the full 20-second
+timeout, or replace final verification. These changes do not modify the
+already-running legacy image, guarantee an overall request or database deadline,
+or establish a safe first cutover.
+
+The next local draft additionally requires an explicit `io.fluxora.graceful-drain=v1` image label, then stops and inspects the compatible API before stopping workers and starting a migration. On a pre-migration dependency or backup failure, it attempts to restart only the API/worker containers observed running before the stop; uncertain stops or migrations retain the release lock. NX rollback applies the same compatibility and API-before-worker drain. Before releasing the lock both paths inspect the running API as well as the worker and compare immutable image IDs with the target; a health response alone is not enough. The label is an operator/build assertion rather than proof against manually built images, unmanaged processes, forced stops, host failure or detached asynchronous work. The added script tests have not yet run, no interruption rehearsal has exercised this revision, and the current unlabeled production image remains blocked. Legacy rollback remains a separate existing path and is not established as a graceful drain.
+
+The owner accepted a short maintenance window with API/workflow interruption and
+reconciliation of schedules during the window. This approval removes the need
+to preserve continuous availability; it is not evidence that old in-flight work
+has finished. An isolated, network-free experiment extracted the actual
+`3c9ac35` cron `tick` and `createScheduledExecution` methods, held a previously
+selected workflow across deactivation, and observed a new synthetic execution
+and queue dispatch afterward. The legacy scheduled-execution method does not
+recheck `isActive`. Thus merely deactivating workflows and seeing a zero count
+once is not a scheduler fence. The existing Gmail activation path preserves an
+existing history checkpoint but resets its lease after obtaining a baseline;
+do not reactivate while a previous poll may still be running. No production
+data or provider was touched by this experiment.
+
+Read-only production inspection on 2026-11-03 found a separate staging worker
+as well as the production worker. Both use the same textual `db` and `redis`
+service aliases and default queue name, so comparing URLs alone would falsely
+suggest shared infrastructure. Docker inspection shows their networks are
+disjoint: each worker shares a network with its own Compose database and Redis,
+not with the other stack's containers. This is evidence of the observed Docker
+topology, not a proof against external forwarding, an unmanaged consumer or a
+future configuration change. Both workers must be accounted for in any
+rehearsal; no staging or production container was stopped or changed.
+
+The local NX draft now tracks timer-started cron, Gmail, RSS, approval,
+webhook-recovery and execution-maintenance jobs; their destroy hooks stop the
+timers and wait for accepted scans. A synthetic blocked cron scan and 36
+focused scheduler/recovery tests passed. A later local draft enables Nest
+shutdown hooks, rejects new HTTP requests during shutdown, ends execution SSE
+streams and closes Prisma/Redis dependencies after module destruction and HTTP
+server disposal. A synthetic test then demonstrated that an ordinary handler
+could continue after its client disconnected while those dependencies closed.
+The local draft now tracks ordinary controller observables until completion and
+rejects a handler reaching the interceptor after shutdown begins. Synthetic
+Nest tests exercise a connected request, a disconnected asynchronous handler,
+a delayed guard, blocked timer work and an open SSE stream. An idle HTTP
+keep-alive connection in the test delayed server closure for about four
+seconds; terminating the SSE stream does not imply immediate process exit.
+The interceptor deliberately excludes SSE, and RxJS teardown, detached work,
+OAuth refresh and external side effects are not exhaustively proven. A stuck
+handler can prolong shutdown. This is a building block only; it does not change
+the legacy API already running on production or authorize the first cutover.
+This code was included in the isolated verification recorded below.
+
+An additional review found that the request interceptor starts after guards,
+so a disconnected client could leave an authentication database lookup in
+flight while shutdown closed its dependencies. The local draft now tracks
+lookups inside the authentication guard and waits for them before closing;
+new guard calls are rejected once its shutdown begins. The added regression test passed in the isolated verification recorded below. This addresses that guard only, not arbitrary
+middleware or detached work, and does not make the legacy production API
+drainable.
+
+During the same review, the approval transition was found to overwrite the
+already-redacted node output with the raw result when storing the approval ID
+and notification status. The local draft applies the existing redaction to
+both writes and extends the approval regression test with a synthetic Telegram
+URL. This prevents that specific overwrite from undoing the existing URL
+redaction; it does not detect all secrets in arbitrary message text. The test
+and final verification are pending.
+
+Gmail polling now marks new and recovered initial jobs as initial-only; recovery of a legacy approval continuation remains separate. A filtered-out message is recorded only while the workflow version and polling lease still match, so a provider read finishing after deactivation or reset cannot commit a stale filter decision. These changes are pending the final integration suite and do not assert exactly-once external delivery.
+
+Cron now also has bounded recovery for a scheduled execution committed before a Redis dispatch failure. It only requeues live executions still queued and never started, after a two-minute delay, with an initial-only job. A targeted synthetic queue-outage test passed. A separate isolated PostgreSQL/Redis test also ran recovery twice, verified only the eligible execution entered the queue once, and processed it through the real worker; previously started and recent executions were left queued. Recovery can run a previously accepted schedule late; it does not recreate occurrences missed while the scheduler itself was offline or replay an execution that may have contacted a provider. Final verification and production qualification remain pending.
+
+The cron scheduler's in-memory dispatch markers now expire after their relevant
+time window instead of growing for the life of the process. The persistent
+execution idempotency key remains the cross-process and restart boundary. Six
+focused scheduler tests and API typechecking passed; this does not establish
+catch-up for schedules missed while the scheduler was offline.
+
+The cron scan now contains database read failures, skips an invalid published
+graph instead of stopping the other schedules, and avoids logging raw provider
+or database exceptions. Eight focused synthetic scheduler tests passed. An
+occurrence missed while the database is unavailable is still not guaranteed
+to run after recovery; this change does not implement schedule catch-up.
+
+Lease maintenance now changes the execution and its running/pending nodes in
+one database transaction. An injected failure after the node update rolled the
+transaction back on a disposable PostgreSQL database, and a subsequent attempt
+completed it once. The scan also isolates individual failures and advances a
+bounded cursor to avoid starving later executions. Eight focused maintenance
+and approval tests passed; this does not cancel already-sent provider requests
+or retroactively repair executions left inconsistent by older releases.
+
+Trello board trigger is connected in the local draft with manual provider registration, HEAD validation, signed raw-body ingress, board/event filtering, bounded output and queued-delivery recovery. Trello requires the app secret (not just the connector's API key/token), a successful HEAD handshake, and an HMAC over the raw body plus the exact registered callback URL. See [Trello's webhook protocol](https://developer.atlassian.com/cloud/trello/guides/rest-api/webhooks/). The owner supplies the callback and Fluxora stores it encrypted with the app secret; the request Host header is not used to reconstruct it. The code and synthetic tests have not run through final verification, nor has the provider integration been qualified live. Remote webhook creation, reconciliation and deletion remain manual.
+
+For Sentry, the local draft connects a custom-integration `issue.created` webhook to the editor, signed ingress and queue recovery, and offers organization-scoped installation discovery with manual fallback. Sentry's [custom-integration guide](https://sentry-blog.sentry.dev/customize-your-sentry-workflow-a-sample-internal-integration/) distinguishes the resource header and body action, whereas [project service hooks](https://docs.sentry.io/api/projects/register-a-new-service-hook/) use a separate registration model. The [Sentry sender source](https://github.com/getsentry/sentry/blob/master/src/sentry/sentry_apps/api/serializers/app_platform_event.py) signs the body while generating the request ID and timestamp in headers. Those unsigned headers must not be assumed to provide authenticated replay protection. A created issue has a stable signed installation/issue identity; repeatable issue transitions need a separately proven delivery identity before they can be safely deduplicated without losing legitimate transitions. Tests remain unrun and actual Sentry installation/permissions are unqualified. Registration and remote status are manual; other issue transitions remain unsupported pending a trustworthy deduplication design.
+
+Lượt kiểm tra trước trên PostgreSQL và Redis thử riêng, cổng web/API riêng và cấu hình provider giả đã chạy `npm run verify` thành công, gồm 191 bài Playwright. Sáu bài tích hợp bị bỏ qua mặc định cho approval, RSS, Kuma, Telegram và Vercel đã chạy riêng trên cùng loại môi trường cô lập và đều đạt. Khi kiểm tra, editor có lỗi trùng React key làm lặp các trường Sheets; lỗi đã được sửa và kiểm tra lại. Một số fixture OAuth và selector E2E cũng được cập nhật theo hành vi hiện tại.
+
+Lượt `npm run verify` mới hơn ngày 2026-11-03 chạy trong checkout cô lập với PostgreSQL, Redis và cổng riêng, cấu hình provider giả và các bộ tích hợp được bật: **851 test API, 59 test web và 192 Playwright đều đạt**, không có test API/web bị bỏ qua. Bản source được đối chiếu theo SHA-256 với các file code đã kiểm thử; thay đổi tài liệu sau đó không thuộc lượt chạy này. Có cảnh báo GSAP không tìm thấy một số target và WebGL headless không hỗ trợ `KHR_parallel_shader_compile`. Kiểm thử này không chứng minh webhook từ xa đã cấu hình, provider thật hoạt động, cutover/mixed-version an toàn hay toàn bộ tiêu chí NX đã hoàn tất.
+
+Ngày 2026-11-03, lượt verify cô lập sau các thay đổi Notion, Sheets, AI và release mới nhất đi qua test API, typecheck và build nhưng **chưa đạt**: Playwright đạt 193/195; hai bài hết thời gian dưới tải cao. Trace cho thấy API tạo workflow đã trả 201 nhưng chunk editor mất hơn 34 giây để tải; bài còn lại đã thực hiện các assertion chính trước khi chạm giới hạn tổng. Sau khi điều chỉnh thời gian chờ riêng hai bài, chạy nhóm accessibility và relational đạt 15/15. Các nhóm test fixture Reddit/RSS, Notion và AI đạt 5/5; nhóm auth/account đạt 5/5 sau khi sửa fixture và chờ focus trả về. Đây là các lượt xác nhận có chọn lọc, **không phải một lượt full verify thành công** cho source mới nhất. Cần chạy lại full verify trước khi cập nhật PR; những kết quả này không chứng minh first cutover an toàn.
+
+Lượt kiểm tra sau các thay đổi Notion, AI, Gmail và script deploy: `npm run verify` trên PostgreSQL/Redis và cổng cô lập đã đạt 48 test deployment, 862 test API, 59 test web, typecheck và build. Playwright đạt 191/192; một bài thất bại vì selector test khớp nhãn cổng node. Sau khi chỉ sửa selector, chạy lại riêng bài đó đã đạt. Do lượt `verify` đầy đủ vẫn có exit code lỗi, không ghi nó là một lượt full verify thành công; các kết quả đến từ lượt đầy đủ và một lượt chạy lại có chọn lọc. Không có provider thật hay production trong lượt thử. Test script deploy giả lập không thay thế diễn tập cutover hoặc chứng minh old fleet đã được drain.
+
+Sau khi sửa selector test, lượt `npm run verify` đầy đủ tiếp theo trong cùng loại môi trường cô lập đã kết thúc thành công: 48 test deploy/rollback, 862 test API, 59 test web và 192 Playwright, cùng typecheck và build; các bộ tích hợp được bật, không có test API/web bị bỏ qua. Source code đã so khớp với checkout thử; đoạn cập nhật tài liệu này được thêm sau lượt chạy. Đây là bằng chứng kiểm thử local, không phải diễn tập first cutover, xác nhận provider thật hoặc chứng nhận production.
+
+Diễn tập Docker cục bộ sau lượt trên phát hiện lệnh deploy khởi động migration hai lần: một lần trực tiếp và một lần qua dependency của Compose. Bản sửa để Compose chạy migration một lần trước API/worker; health check và thứ tự dependency đã được thử bằng container giả, với registry pull thay bằng image local. Bộ test deployment có mục tiêu đạt 36 bài, một bài tích hợp bỏ qua mặc định; cần chạy lại final verify trên source sau sửa. Fleet legacy trong diễn tập vẫn bị chặn trước migration; chưa có bằng chứng chuyển bản production lần đầu an toàn.
+
+Trong một lượt Docker giả khác, migration được cấu hình chủ đích thoát lỗi 42: Compose không khởi động API/worker thay thế, script trả lỗi và giữ khóa release. Đây là thử lỗi bắt đầu migration, không mô phỏng migration đã ghi một phần hay xác nhận khôi phục production.
+
+Không đánh dấu hoàn tất release NX hoặc suy ra production readiness chỉ từ kiểm thử local. PR, CI, cutover, rollback và kiểm thử provider thật chỉ được ghi nhận khi thực sự hoàn thành.
+
+Lượt verify cô lập mới nhất ngày 2026-11-03 đạt 52 kiểm tra deployment, 904 test API, 61 test web, typecheck, build và 201 Playwright; các nhóm tích hợp database được bật và API/web không bỏ qua test. Lượt trước đó thất bại do hai fixture trùng số phiên bản workflow; fixture đã được sửa trước lượt chạy đầy đủ thành công. Source đã được đối chiếu với checkout thử; cập nhật tài liệu này được thêm sau lượt chạy. Kết quả không chứng minh cutover đầu tiên, rollback về bản cũ hay hoạt động với provider thật; CI của PR hiện tại vẫn chỉ áp dụng cho commit cũ hơn.
+
+Diễn tập cron giả lập sau lượt verify: execution được tạo bằng service cũ tương ứng source `3c9ac35`; Redis thử chứa đồng thời job kiểu cũ và job phục hồi NX. Worker NX với concurrency 2 hoàn tất cả hai job nhưng mỗi node của workflow giả chỉ chạy một lần. Thử nghiệm không ngắt API cũ, không gọi provider và không chứng minh việc khôi phục mọi lịch bị bỏ lỡ, cutover hoặc rollback production.
+
+NX-02 runtime guard bản local: `executeNode` và lookup adapter từ chối `nodeVersion` không được hỗ trợ trước khi đọc credential hoặc gọi provider; node lịch sử không có version và node khai báo `1` tiếp tục dùng cùng adapter. Regression test kiểm tra cả action và trigger đã được bổ sung, đang chờ quality gate sau thay đổi. Đây là bảo vệ v1, chưa phải cơ chế hỗ trợ nhiều phiên bản cho cùng một node type; các type `.v2` hiện hữu vẫn giữ contract riêng. [n8n versioning](https://docs.n8n.io/connect/create-nodes/build-your-node/reference/versioning/) giữ phiên bản node đã lưu trong workflow và chọn bản mới cho node được tạo sau; Fluxora chưa có đầy đủ cơ chế tương đương.
+
+NX-02/03 Trello Find Cards bản local: Trello mô tả `cards_page` từ 0 đến tối đa 100 trong [OpenAPI chính thức](https://dac-static.atlassian.com/cloud/trello/swagger.v3.json?_v=1.1274.0). Node mới chọn chế độ phân trang; node cũ không có `searchPagination` tiếp tục một request và output trang đầu như trước, kể cả khi có trường `page` vốn bị bỏ qua. Người dùng có thể đổi draft sang chế độ trang. Trang đầy sẽ đọc thêm tối đa một trang để xác định `hasMore`; trang 100 đầy trả `hasMore: null`, `continuationUnknown: true` và không hứa còn trang kế tiếp. Cùng connection/board/query/limit phải được giữ giữa các trang; kết quả vẫn có thể thay đổi khi dữ liệu Trello thay đổi. Chưa thử provider thật; test API/UI mới và toàn bộ thay đổi sau lượt verify trước đang chờ quality gate cuối.
+
+Trong chế độ chọn trang, nếu Trello trả trùng card trong một trang, node từ chối kết quả; nếu hai trang quan sát được chồng lặp, node không cấp `nextPage` và báo `continuationUnknown` kèm cảnh báo. Đây chỉ phát hiện trùng lặp trong hai phản hồi quan sát được, không chứng minh kết quả không bị thiếu hoặc thay đổi giữa các lần chạy. Test hồi quy đã thêm, chờ final verify.
+
+Review kiến trúc NX-05 chọn bắt đầu từ checkpoint, lease và recovery của Gmail
+hiện có, thay vì mặc định đưa thêm hệ thống guard/epoch toàn cục. Bản nháp cũ
+có migration ảnh hưởng đến các provider khác và chưa đủ điều kiện release.
+RSS polling chỉ thấy snapshot tại thời điểm kiểm tra; item xuất hiện rồi biến
+mất giữa hai lần poll có thể bị bỏ lỡ. Recovery cho execution còn `QUEUED`
+không bảo đảm tác động bên ngoài xảy ra đúng một lần. Các giới hạn này phải
+được thể hiện trong sản phẩm và kiểm thử, không dùng làm lời hứa exactly-once.
+Riêng Kuma có bản local thêm node filter theo monitor/status, với node cũ
+giữ hành vi nhận mọi alert. Node mới lưu dấu đối chiếu HMAC và execution cùng
+giao dịch; key chỉ có hiệu lực cho phiên bản đã publish khi execution còn được
+giữ trong lịch sử. Xoay APP_ENCRYPTION_KEY hoặc xóa execution kết thúc khoảng
+chống trùng đó. Không có delivery key đáng tin cậy thì thông báo lặp vẫn có
+thể tạo nhiều lượt chạy. Bộ phục hồi chỉ thử xếp lại execution đã nhận nhưng
+chưa từng bắt đầu; không tự replay tác động bên ngoài đã mơ hồ. Những thay
+đổi này chưa được verify hoặc triển khai production.
 
 ## 7. Evidence đã có và giới hạn cần giữ
 

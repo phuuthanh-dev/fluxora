@@ -42,6 +42,9 @@ test("Gmail trigger shows polling choices and requires confirmation before check
     return route.continue();
   });
   await page.goto("/editor?workflow=gmail-trigger-test");
+  await page.getByRole("button", { name: "Go live" }).click();
+  await expect(page.getByRole("dialog", { name: "Activate workflow" })).toContainText("The first activation starts from the current Gmail checkpoint.");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await page.locator(".react-flow__node").filter({ hasText: "New message" }).click();
   await expect(page.getByLabel("Check for new mail")).toHaveValue("5");
   await page.getByRole("combobox", { name: "Label (optional)" }).selectOption("Label_1");
@@ -51,4 +54,12 @@ test("Gmail trigger shows polling choices and requires confirmation before check
   await expect(page.getByRole("dialog", { name: "Reset Gmail checkpoint" })).toContainText("permanently missed");
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   expect(resets).toBe(0);
+  workflow.isActive = true;
+  await page.reload();
+  await page.getByLabel("Manage actions").click();
+  await page.getByRole("button", { name: "Deactivate workflow" }).click();
+  const deactivation = page.getByRole("dialog", { name: "Deactivate workflow" });
+  await expect(deactivation).toContainText("Already accepted executions may still start or finish.");
+  await expect(deactivation).toContainText("Gmail may process messages received while inactive");
+  await deactivation.getByRole("button", { name: "Cancel" }).click();
 });

@@ -304,6 +304,8 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   const googleOAuthCard = page.locator(`li[data-credential-id="${googleOAuthCred.id}"]`);
   await expect(googleOAuthCard).toBeVisible();
   await expect(googleOAuthCard.getByText("Managed OAuth")).toBeVisible();
+  await expect(googleOAuthCard.getByLabel("Actions for Google OAuth actions")).toHaveCount(0);
+  await expect(googleOAuthCard.getByText(/Google may combine returned permissions with prior grants/)).toBeVisible();
   await expect(googleOAuthCard.getByRole("button", { name: "Reconnect Google" })).toBeVisible();
   await expect(googleOAuthCard.getByRole("button", { name: /Rename/ })).toHaveCount(0);
   await expect(googleOAuthCard.getByRole("button", { name: /Rotate/ })).toHaveCount(0);

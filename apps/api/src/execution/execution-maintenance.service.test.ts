@@ -13,12 +13,59 @@ test("maintenance marks every expired running execution with a lease failure", a
   const now = new Date("2026-10-25T00:00:00.000Z");
   const service = new ExecutionMaintenanceService(
     { execution: { findMany: async () => [{ id: "expired-1" }, { id: "expired-2" }] } } as never,
-    { failFromMaintenance: async (id: string, code: string, message: string, before: Date) => { calls.push({ id, code, message, before }); } } as never,
+    { failFromMaintenance: async (id: string, code: string, message: string, before: Date) => { calls.push({ id, code, message, before }); return true; } } as never,
   );
   const recovered = await service.failExpiredLeases(now);
   assert.equal(recovered, 2);
   assert.deepEqual(calls.map((call) => call.id), ["expired-1", "expired-2"]);
   assert.ok(calls.every((call) => call.code === "EXECUTION_LEASE_EXPIRED" && call.before === now));
+});
+
+test("one failed lease recovery does not prevent later executions from being recovered", async () => {
+  const visited: string[] = [];
+  const warnings: string[] = [];
+  const service = new ExecutionMaintenanceService(
+    { execution: { findMany: async () => [{ id: "failed" }, { id: "claimed-elsewhere" }, { id: "recovered" }] } } as never,
+    { failFromMaintenance: async (id: string) => { visited.push(id); if (id === "failed") throw new Error("synthetic-private-detail"); return id === "recovered"; } } as never,
+  );
+  (service as unknown as { logger: { warn: (message: string) => void } }).logger.warn = (message) => { warnings.push(message); };
+  assert.equal(await service.failExpiredLeases(), 1);
+  assert.deepEqual(visited, ["failed", "claimed-elsewhere", "recovered"]);
+  assert.equal(warnings.length, 1);
+  assert.ok(!warnings[0]?.includes("synthetic-private-detail"));
+});
+
+test("a full batch of failed lease recoveries cannot starve later expired executions", async () => {
+  const queries: Array<{ where: { id?: { gt: string } } }> = [];
+  const service = new ExecutionMaintenanceService(
+    { execution: { findMany: async (query: { where: { id?: { gt: string } } }) => {
+      queries.push(query);
+      return queries.length === 1 ? Array.from({ length: 100 }, (_, index) => ({ id: `id-${String(index).padStart(3, "0")}` })) : [];
+    } } } as never,
+    { failFromMaintenance: async () => { throw new Error("synthetic failure"); } } as never,
+  );
+  (service as unknown as { logger: { warn: () => void } }).logger.warn = () => undefined;
+  assert.equal(await service.failExpiredLeases(), 0);
+  assert.equal(await service.failExpiredLeases(), 0);
+  assert.equal(await service.failExpiredLeases(), 0);
+  assert.equal(queries[0]?.where.id, undefined);
+  assert.deepEqual(queries[1]?.where.id, { gt: "id-099" });
+  assert.equal(queries[2]?.where.id, undefined);
+});
+
+test("a second lease scan does not overlap one already in progress", async () => {
+  let unblock: (() => void) | undefined;
+  const wait = new Promise<void>((resolve) => { unblock = resolve; });
+  let scans = 0;
+  const service = new ExecutionMaintenanceService(
+    { execution: { findMany: async () => { scans++; await wait; return [{ id: "expired" }]; } } } as never,
+    { failFromMaintenance: async () => true } as never,
+  );
+  const first = service.failExpiredLeases();
+  assert.equal(await service.failExpiredLeases(), 0);
+  unblock!();
+  assert.equal(await first, 1);
+  assert.equal(scans, 1);
 });
 
 test("pruning removes old terminal executions and applies a terminal-count ceiling", async () => {

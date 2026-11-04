@@ -1,5 +1,9 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
+// A cold Next.js development server can spend over 30 seconds compiling the
+// editor route on a loaded machine. Keep the real navigation assertion below.
+test.describe.configure({ timeout: 90_000 });
+
 async function signUpAndOpenEditor(page: Page, email: string) {
   await page.goto("/login");
   await page.getByRole("button", { name: "Create an account" }).click();
@@ -9,7 +13,7 @@ async function signUpAndOpenEditor(page: Page, email: string) {
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
   await page.getByRole("button", { name: "Use Steam template" }).click();
-  await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+  await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 60_000 });
 }
 
 async function expectInsideViewport(locator: Locator, page: Page) {

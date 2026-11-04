@@ -118,6 +118,7 @@ export class AuthController {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ code, client_id: config.clientId, client_secret: config.clientSecret, redirect_uri: config.redirectUri, grant_type: "authorization_code" }),
+        signal: AbortSignal.timeout(20_000),
       });
       const tokens = await tokenResponse.json().catch(() => ({})) as { id_token?: unknown };
       if (!tokenResponse.ok || typeof tokens.id_token !== "string") throw new BadRequestException({ code: "GOOGLE_AUTH_TOKEN_FAILED", message: "Google did not return a valid identity token." });
@@ -194,7 +195,7 @@ export class AuthController {
 type GoogleIdentity = { subject: string; email: string; displayName: string | null };
 
 async function verifyGoogleIdToken(idToken: string, clientId: string): Promise<GoogleIdentity> {
-  const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
+  const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`, { signal: AbortSignal.timeout(20_000) });
   const claims = await response.json().catch(() => ({})) as Record<string, unknown>;
   const issuer = claims.iss;
   if (!response.ok || claims.aud !== clientId || (issuer !== "accounts.google.com" && issuer !== "https://accounts.google.com") || claims.email_verified !== "true" || typeof claims.sub !== "string" || typeof claims.email !== "string") {

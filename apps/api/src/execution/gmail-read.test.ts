@@ -1,7 +1,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { executeGmailRead, listGmailMessages } from "./gmail-read";
+import { redactValue } from "./redaction";
 import type { CredentialService } from "../credentials/credential.service";
+
+test("Gmail list returns and accepts bounded continuation tokens", async () => {
+  const transport = async (url: string | URL | Request) => {
+    const parsed = new URL(String(url));
+    assert.equal(parsed.searchParams.get("q"), "in:inbox");
+    assert.equal(parsed.searchParams.get("pageToken"), "next-page");
+    return Response.json({ messages: [], nextPageToken: "another-page" });
+  };
+  const page = await listGmailMessages("synthetic-token", "in:inbox", 5, transport as never, "next-page");
+  assert.equal(page.hasMore, true);
+  assert.equal(page.nextPageToken, "another-page");
+  assert.equal((redactValue(page) as { nextPageToken: string }).nextPageToken, "another-page");
+  await assert.rejects(listGmailMessages("synthetic-token", "", 5, async () => Response.json({ messages: [], nextPageToken: "cursor-synthetic-token" })), /invalid continuation token/);
+  await assert.rejects(executeGmailRead({ pageToken: undefined }, "mock", "workspace", {} as never), /could not be resolved/);
+  await assert.rejects(listGmailMessages("synthetic-token", "", 5, transport as never, "bad\nheader"), /page token/);
+});
 
 test("Gmail read returns bounded plain text and headers; no credential in output", async () => {
   const urls: string[] = [];
@@ -22,7 +39,7 @@ test("Gmail mock does not read credentials; live filters and provider errors are
   const credentials = { readGoogleForExecution: async (...args: unknown[]) => { calls++; assert.deepEqual(args, ["connection", "workspace", "GMAIL"]); return { accessToken: "synthetic-token" }; } } as unknown as CredentialService;
   await executeGmailRead({ mailbox: "unread" }, "mock", "workspace", credentials);
   assert.equal(calls, 0);
-  await executeGmailRead({ credentialId: "connection", mailbox: "unread", query: "from:example.test", limit: 3 }, "live", "workspace", credentials, async (token, query, limit) => { assert.equal(token, "synthetic-token"); assert.equal(query, "in:inbox is:unread from:example.test"); assert.equal(limit, 3); return { messages: [], count: 0, hasMore: false }; });
+  await executeGmailRead({ credentialId: "connection", mailbox: "unread", query: "from:example.test", limit: 3 }, "live", "workspace", credentials, async (token, query, limit) => { assert.equal(token, "synthetic-token"); assert.equal(query, "in:inbox is:unread from:example.test"); assert.equal(limit, 3); return { messages: [], count: 0, hasMore: false, nextPageToken: null }; });
   await assert.rejects(listGmailMessages("synthetic-token", "", 1, async () => new Response("synthetic-token", { status: 403 }) as never), (error: unknown) => error instanceof Error && /403/.test(error.message) && !error.message.includes("synthetic-token"));
   await assert.rejects(listGmailMessages("synthetic-token", "", 11));
 });

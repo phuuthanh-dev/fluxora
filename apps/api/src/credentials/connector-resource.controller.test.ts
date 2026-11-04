@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { ConnectorResourceController, supabaseDiscoveryError, trelloDiscoveryError } from "./connector-resource.controller";
 import { NodeFailure } from "../execution/node-failure";
+import { CredentialProvider } from "@prisma/client";
 
 test("Trello discovery guidance distinguishes permissions without leaking provider content", () => {
   for (const [status, expected] of [[401, /rejected/], [403, /permissions/], [429, /rate limited/]] as const) {
@@ -42,10 +43,46 @@ test("connector discovery checks workspace ownership before credential access", 
   await assert.rejects(controller.postgresTables("workspace", "postgres", "public", request));
   await assert.rejects(controller.trelloBoards("workspace", "trello", request));
   await assert.rejects(controller.trelloLists("workspace", "trello", "board", request));
+  await assert.rejects(controller.trelloCards("workspace", "trello", "board", request));
+  await assert.rejects(controller.notionPages("workspace", "notion", "", undefined, request));
+  await assert.rejects(controller.notionProperties("workspace", "notion", "page", request));
+  await assert.rejects(controller.notionDataSources("workspace", "notion", undefined, request));
+  await assert.rejects(controller.notionDataSourceProperties("workspace", "notion", "source", request));
+  await assert.rejects(controller.notionDataSourceOptions("workspace", "notion", "source", "property", "status", request));
   await assert.rejects(controller.sentryOrganizations("workspace", "sentry", request));
   await assert.rejects(controller.sentryProjects("workspace", "sentry", "organization", request));
   await assert.rejects(controller.vercelTeams("workspace", "vercel", request));
   await assert.rejects(controller.vercelProjects("workspace", "vercel", "team", request));
   await assert.rejects(controller.supabaseTables("workspace", "supabase", request));
+  await assert.rejects(controller.supabaseColumns("workspace", "supabase", "items", request));
+  await assert.rejects(controller.postgresColumns("workspace", "postgres", "public", "items", request));
   assert.equal(reads, 0);
+});
+
+test("new discovery routes select the workspace credential and sanitize failures", async () => {
+  const calls: unknown[][] = [];
+  const credentials = {
+    requireOwner: async (...args: unknown[]) => { calls.push(["owner", ...args]); },
+    readForExecution: async (...args: unknown[]) => { calls.push(["read", ...args]); return { token: "fixture secret", apiKey: "fixture key" }; },
+  };
+  const controller = new ConnectorResourceController(credentials as never);
+  const request = { currentUser: { id: "owner" } } as never;
+  for (const [action, provider, code] of [
+    [() => controller.trelloCards("workspace", "connection", "aaaaaaaaaaaaaaaaaaaaaaaa", request), CredentialProvider.TRELLO, "TRELLO_CARDS_UNAVAILABLE"],
+    [() => controller.notionPages("workspace", "connection", "", undefined, request), CredentialProvider.NOTION, "NOTION_PAGES_UNAVAILABLE"],
+    [() => controller.notionProperties("workspace", "connection", "invalid", request), CredentialProvider.NOTION, "NOTION_PROPERTIES_UNAVAILABLE"],
+    [() => controller.notionDataSources("workspace", "connection", undefined, request), CredentialProvider.NOTION, "NOTION_DATA_SOURCES_UNAVAILABLE"],
+    [() => controller.notionDataSourceProperties("workspace", "connection", "invalid", request), CredentialProvider.NOTION, "NOTION_DATA_SOURCE_PROPERTIES_UNAVAILABLE"],
+    [() => controller.notionDataSourceOptions("workspace", "connection", "invalid", "invalid", "status", request), CredentialProvider.NOTION, "NOTION_DATA_SOURCE_OPTIONS_UNAVAILABLE"],
+  ] as const) {
+    calls.length = 0;
+    await assert.rejects(action(), (error: unknown) => {
+      const response = (error as { getResponse: () => { code: string; message: string } }).getResponse();
+      assert.equal(response.code, code);
+      assert.match(response.message, /manually/);
+      assert.ok(!JSON.stringify(response).includes("fixture secret"));
+      return true;
+    });
+    assert.deepEqual(calls, [["owner", "workspace", "owner"], ["read", "connection", "workspace", provider]]);
+  }
 });

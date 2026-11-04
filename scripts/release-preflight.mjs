@@ -104,7 +104,8 @@ export function runReleasePreflight() {
       { label: "pinned actions", pattern: /uses: [^\n]+@[0-9a-f]{40}/ },
     ]),
     result("operator_evidence", "operator", "DNS and TLS evidence", "Confirm both A records, valid certificates, Nginx config test, and HTTPS responses on the target VPS."),
-    result("operator_evidence", "operator", "Recovery drill evidence", "Create an encrypted/off-host backup, restore it into an isolated database, and record the tested immutable rollback SHA."),
+    result("operator_evidence", "operator", "Recovery drill evidence", "Demonstrate database and encryption-key recovery in an isolated environment and reconcile queue state and provider effects. An image SHA alone does not prove that a prior release can safely read newer graphs, migrations or jobs."),
+    result("operator_evidence", "operator", "NX first-cutover evidence", "The NX fleet guard rejects an incompatible legacy API or worker. For a first upgrade, establish and rehearse a producer fence, legacy API drain or reconciliation, worker handoff and recovery plan before merging into an auto-deploy branch. Repository checks cannot establish these conditions."),
     result("user_input", "user_input", "OAuth provider configuration", "The owner must configure matching Google/GitHub/Steam provider settings and GitHub/VPS secrets without sharing their values in reports."),
     result("user_input", "user_input", "First live-provider test", "The owner must explicitly approve one controlled live run and verify its external side effect."),
   ];

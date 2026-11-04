@@ -20,8 +20,20 @@ export class ApprovalController {
     const decision = body.decision;
     if (decision !== "approved" && decision !== "rejected") throw new BadRequestException({ code: "INVALID_INPUT", message: "Decision must be approved or rejected." });
     const result = await this.executions.resolveApproval(approvalId, userId(request), decision);
-    if (result.resumed) await this.queue.dispatch({ executionId: result.executionId, mode: result.mode, startNodeIds: result.startNodeIds });
-    return { approval: { id: approvalId, decision, executionId: result.executionId, resumed: result.resumed } };
+    let dispatchStatus: "not_required" | "submitted" | "unconfirmed" = "not_required";
+    if (result.resumed) {
+      try {
+        if (!result.resumeToken) throw new Error("Missing continuation phase");
+        await this.queue.ensureDispatched({ executionId: result.executionId, mode: result.mode, resumeToken: result.resumeToken });
+        dispatchStatus = "submitted";
+      } catch {
+        // The approval is already committed. Redis may have accepted the job
+        // despite an error, and inline execution may also have started; never
+        // claim it failed or ask the owner to submit the decision again.
+        dispatchStatus = "unconfirmed";
+      }
+    }
+    return { approval: { id: approvalId, decision, executionId: result.executionId, resumed: result.resumed, dispatchStatus } };
   }
 }
 

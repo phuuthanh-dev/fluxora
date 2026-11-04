@@ -58,6 +58,19 @@ test("production environment validator rejects non-canonical encryption-key enco
   assert.ok(result.errors.some((error) => error.includes("canonical base64")));
 });
 
+test("production environment validation matches the optional AI request ceilings without exposing values", () => {
+  assert.equal(validateProductionEnv(validEnv()).valid, true);
+  for (const [key, maximum] of [["AI_MAX_OUTPUT_TOKENS", 8192], ["AI_MAX_PROMPT_CHARACTERS", 100000]]) {
+    for (const value of ["1", String(maximum)]) assert.equal(validateProductionEnv(validEnv({ [key]: value })).valid, true);
+    for (const value of ["", "0", "-1", "1.5", "1e3", "01", String(maximum + 1), "999999999999999999999999"]) {
+      const result = validateProductionEnv(validEnv({ [key]: value }));
+      assert.equal(result.valid, false, `${key} accepted an invalid value`);
+      assert.ok(result.errors.some((error) => error.startsWith(`${key}:`)));
+      assert.doesNotMatch(result.errors.join("\n"), /999999999999999999999999/);
+    }
+  }
+});
+
 test("tracked secret scan reports only safe metadata and detects high-confidence tokens", () => {
   const safe = scanTrackedFiles(["docs/01-product-spec.md"]);
   assert.deepEqual(safe, []);

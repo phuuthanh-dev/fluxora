@@ -1,4 +1,4 @@
-import { workflowEdgeKinds, workflowNodeCategories, workflowNodeTypes } from "@workflow/contracts";
+import { isSupportedWorkflowNodeVersion, workflowEdgeKinds, workflowNodeCategories, workflowNodeTypes } from "@workflow/contracts";
 import { z } from "zod";
 import { edgeKindFromHandle, getNodeDefinition, outputKindsForNodeType, type WorkflowCanvasEdge, type WorkflowCanvasNode } from "./node-catalog";
 
@@ -11,6 +11,7 @@ const canvasNodeSchema = z.object({
   }),
   data: z.object({
     nodeType: z.enum(workflowNodeTypes),
+    nodeVersion: z.literal(1).optional(),
     label: z.string().min(1).max(120),
     description: z.string().max(500),
     category: z.enum(workflowNodeCategories),
@@ -53,6 +54,9 @@ export function parseWorkflowCanvasGraph(value: unknown): WorkflowCanvasGraph {
 
   for (const node of nodes) {
     const definition = getNodeDefinition(node.data.nodeType);
+    if (node.data.nodeVersion !== undefined && !isSupportedWorkflowNodeVersion(node.data.nodeVersion)) {
+      throw new Error(`Node ${node.id} has an unsupported version.`);
+    }
     if (!definition || definition.category !== node.data.category || definition.available !== node.data.available) {
       throw new Error(`Node ${node.id} does not match a supported node definition.`);
     }

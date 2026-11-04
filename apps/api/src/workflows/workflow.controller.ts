@@ -54,6 +54,16 @@ export class WorkflowController {
     return this.workflows.resetGmailTrigger(workflowId, requireUserId(request), request.body?.confirmDataGap === true);
   }
 
+  @Get("workflows/:workflowId/rss-trigger-status")
+  async rssTriggerStatus(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return this.workflows.rssTriggerStatus(workflowId, requireUserId(request));
+  }
+
+  @Post("workflows/:workflowId/rss-trigger-reset")
+  async resetRssTrigger(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return this.workflows.resetRssTrigger(workflowId, requireUserId(request), request.body?.confirmDataGap === true);
+  }
+
   @Patch("workflows/:workflowId/draft")
   async updateDraft(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
     return { workflow: await this.workflows.updateDraft(workflowId, requireUserId(request), readUpdateInput(request.body)) };
@@ -61,12 +71,13 @@ export class WorkflowController {
 
   @Post("workflows/:workflowId/publish")
   async publish(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
-    return { workflow: await this.workflows.publish(workflowId, requireUserId(request), request.body?.confirmDiscardGmail === true) };
+    return { workflow: await this.workflows.publish(workflowId, requireUserId(request), request.body?.confirmDiscardGmail === true, request.body?.confirmDiscardRss === true) };
   }
 
   @Post("workflows/:workflowId/activate")
   async activate(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
     const readiness = await this.executions.getLiveReadiness(workflowId, requireUserId(request));
+    if (readiness.unavailableNodes?.length) throw new BadRequestException({ code: "NODE_UNAVAILABLE", message: "Remove unavailable nodes and publish a new version before activation.", details: readiness.unavailableNodes });
     if (!readiness.ready) throw new BadRequestException({ code: "LIVE_CREDENTIAL_REQUIRED", message: "Configure every live integration before activating this workflow.", details: readiness.requirements.filter((requirement) => !requirement.ready) });
     return { workflow: await this.workflows.activate(workflowId, requireUserId(request)) };
   }

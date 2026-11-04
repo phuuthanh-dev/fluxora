@@ -10,11 +10,102 @@ app_dir="${APP_DIR:-/opt/workflow-automation}"
 env_file="${ENV_FILE:-$app_dir/.env.production}"
 compose_file="$app_dir/infra/docker-compose.production.yml"
 image_tag="$1"
+api_image="${API_IMAGE:-ghcr.io/phuuthanh-dev/workflow-automation-api}"
+web_image="${WEB_IMAGE:-ghcr.io/phuuthanh-dev/workflow-automation-web}"
 
 "$app_dir/infra/scripts/validate-image-tag.sh" "$image_tag" >/dev/null
+. "$app_dir/infra/scripts/release-lock.sh"
+acquire_release_lock "$app_dir"
 
-IMAGE_TAG="$image_tag" docker compose --env-file "$env_file" -f "$compose_file" pull
-IMAGE_TAG="$image_tag" docker compose --env-file "$env_file" -f "$compose_file" up -d api worker web
+# Migration records are a conservative boundary: even a record marked rolled
+# back does not prove that the database and saved graphs were actually reverted.
+# This check is deliberately independent of current queue/workflow contents.
+migration_sql="SELECT CASE WHEN EXISTS (SELECT 1 FROM \"_prisma_migrations\" WHERE migration_name IN ('20261103120000_kuma_delivery_digest', '20261103130000_rss_trigger_checkpoint', '20261103140000_approval_continuation', '20261103150000_execution_run_token')) THEN 'nx' ELSE 'legacy' END"
+nx_state="$(API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" \
+  docker compose --env-file "$env_file" -f "$compose_file" exec -T db \
+  sh -c 'exec psql -X -qAt -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -c "$1"' sh "$migration_sql")" || {
+  printf '%s\n' "Cannot establish database compatibility; rollback was not started." >&2
+  exit 1
+}
+case "$nx_state" in
+  nx|legacy) ;;
+  *) printf '%s\n' "Unexpected database compatibility result; rollback was not started." >&2; exit 1 ;;
+esac
+
+# Avoid stopping a healthy worker for ambiguity already present at preflight.
+# The check is repeated after draining to detect an intervening change.
+require_unambiguous_continuations
+API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" docker compose --env-file "$env_file" -f "$compose_file" pull api worker web
+if [ "$nx_state" = nx ]; then
+  compatibility="$(docker image inspect --format '{{ index .Config.Labels "io.fluxora.execution-compatibility" }}' "$api_image:$image_tag")" || {
+    printf '%s\n' "Cannot inspect target API image; rollback was not started." >&2
+    exit 1
+  }
+  if [ "$compatibility" != nx-v1 ]; then
+    printf '%s\n' "Target image is not certified for NX execution and saved graphs; rollback was not started." >&2
+    exit 1
+  fi
+  target_drain="$(docker image inspect --format '{{ index .Config.Labels "io.fluxora.graceful-drain" }}' "$api_image:$image_tag")" || {
+    printf '%s\n' "Cannot inspect target drain support; rollback was not started." >&2; exit 1
+  }
+  if [ "$target_drain" != v1 ]; then
+    printf '%s\n' "Target image lacks the required graceful drain contract." >&2; exit 1
+  fi
+  require_compatible_fleet
+  # The NX label only describes execution/drain behavior. It does not prove
+  # that an older API or web image understands every saved node and config.
+  # Until that contract can be checked, only restarting the exact current
+  # images is safe to automate; reject before stopping any service.
+  for service in api worker web; do
+    case "$service" in web) expected_ref="$web_image:$image_tag" ;; *) expected_ref="$api_image:$image_tag" ;; esac
+    expected_id="$(docker image inspect --format '{{.Id}}' "$expected_ref")" || {
+      printf '%s\n' "Cannot inspect rollback target image; rollback was not started." >&2; exit 1
+    }
+    current_ids="$(API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" docker compose --env-file "$env_file" -f "$compose_file" ps -aq "$service")" || {
+      printf '%s\n' "Cannot inspect current images; rollback was not started." >&2; exit 1
+    }
+    if [ -z "$expected_id" ] || [ -z "$current_ids" ]; then
+      printf '%s\n' "Current or target image is missing; rollback was not started." >&2; exit 1
+    fi
+    for current_id in $current_ids; do
+      actual_id="$(docker inspect --format '{{.Image}}' "$current_id")" || {
+        printf '%s\n' "Cannot inspect current image; rollback was not started." >&2; exit 1
+      }
+      if [ -z "$actual_id" ] || [ "$actual_id" != "$expected_id" ]; then
+        printf '%s\n' "Automatic rollback to different NX images is disabled until saved workflow compatibility can be established." >&2; exit 1
+      fi
+    done
+  done
+  stopping_api_ids="$(API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" \
+    docker compose --env-file "$env_file" -f "$compose_file" ps -q api)" || {
+    printf '%s\n' "Cannot list current API containers; rollback was not started." >&2; exit 1
+  }
+  retain_release_lock
+  if ! API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" docker compose --env-file "$env_file" -f "$compose_file" stop --timeout -1 api; then
+    printf '%s\n' "API drain outcome is uncertain; rollback was not started. Inspect the API and retained lock." >&2; exit 1
+  fi
+  require_clean_api_exit "$stopping_api_ids"
+fi
+# A compatible image must still wait for active provider calls to finish.
+# Jobs enqueued after this stop remain in Redis for the replacement worker.
+stopping_worker_ids="$(API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" \
+  docker compose --env-file "$env_file" -f "$compose_file" ps -q worker)" || {
+  printf '%s\n' "Cannot list current workers; rollback was not started." >&2; exit 1
+}
+retain_release_lock
+if ! API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" docker compose --env-file "$env_file" -f "$compose_file" stop --timeout -1 worker; then
+  printf '%s\n' "Worker drain outcome is uncertain; rollback was not started. Inspect the worker and retained lock." >&2
+  exit 1
+fi
+require_clean_worker_exit "$stopping_worker_ids"
+require_unambiguous_continuations
+if [ "$nx_state" = nx ]; then
+  require_no_running_executions
+fi
+API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" docker compose --env-file "$env_file" -f "$compose_file" up -d api worker web
 APP_DIR="$app_dir" "$app_dir/infra/scripts/healthcheck.sh"
-IMAGE_TAG="$image_tag" docker compose --env-file "$env_file" -f "$compose_file" ps
+require_target_worker
+require_target_api
+release_lock_when_safe
+API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" docker compose --env-file "$env_file" -f "$compose_file" ps
 

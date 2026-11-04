@@ -37,7 +37,8 @@ The read-only preflight must report no `BLOCKED` item for:
 - required production environment names and HTTPS URL shapes;
 - ordered Prisma migrations and the one-shot production migration service;
 - API liveness, API dependency readiness, and web health endpoints;
-- guarded PostgreSQL backup/restore scripts and immutable rollback;
+- guarded PostgreSQL backup/restore and image-tagging script contracts; these do
+  not by themselves prove that downgrade or recovery is possible;
 - two-domain reverse-proxy and OAuth callback contracts;
 - bounded Docker logs and execution redaction primitives;
 - expected GitHub Actions secret/variable names, Redis CI service, and pinned
@@ -77,8 +78,9 @@ The product owner must separately provide or configure:
 Release is blocked when any of these is true:
 
 - repository preflight or `npm run verify` fails or skips Redis qualification;
-- migrations are pending/unreviewed, no fresh recoverable backup exists, or the
-  rollback SHA is unknown;
+- migrations are pending/unreviewed, no fresh recoverable backup exists, the
+  rollback SHA is unknown, or the exact cutover and recovery path has not been
+  reviewed and rehearsed against compatible workflows, database and queue state;
 - either production domain lacks valid HTTPS or callback URLs do not match;
 - API readiness cannot reach PostgreSQL and Redis;
 - production secrets are missing, exposed, shared in logs, or use placeholders;

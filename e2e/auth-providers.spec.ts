@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test("password sign-in works while social providers expose their configured state", async ({ page }) => {
+  test.setTimeout(60_000);
   const email = `auth-${Date.now()}@example.test`;
   const password = "e2e-password-123";
   await page.goto("/login");
@@ -22,7 +23,7 @@ test("password sign-in works while social providers expose their configured stat
   await page.locator('input[autocomplete="email"]').fill(email);
   await page.locator('input[autocomplete="new-password"]').fill(password);
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
 
   await page.getByLabel("Account actions").click();
   await page.getByRole("button", { name: "Sign out" }).click();

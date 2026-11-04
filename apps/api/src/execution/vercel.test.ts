@@ -29,6 +29,22 @@ test("deployment list is project-scoped and excludes provider metadata", async (
   assert.ok(!JSON.stringify(result.output).includes("private"));
 });
 
+test("Vercel refuses credential echoes in displayed resources and deployment fields before truncation", async () => {
+  const safeFailure = (error: unknown) => {
+    const failure = error as { code?: string; message?: string };
+    assert.equal(failure.code, "INVALID_RESPONSE");
+    assert.ok(!failure.message?.includes("fixture-token"));
+    return true;
+  };
+  await assert.rejects(listVercelTeams({ token: "fixture-token" }, async () => Response.json({ teams: [{ id: "team_abc", name: `${"x".repeat(298)}fixture-token` }] })), safeFailure);
+  await assert.rejects(listVercelProjects({ token: "fixture-token" }, "personal", async () => Response.json({ projects: [{ id: "prj_abc", name: "fixture-token" }] })), safeFailure);
+  for (const version of [1, 2] as const) {
+    await assert.rejects(executeVercelListDeployments({ credentialId: "connection", project: "prj_abc" }, "live", "workspace", credentials, async () => Response.json({ deployments: [{ uid: "dpl_abc", name: `${"x".repeat(298)}fixture-token` }], pagination: { next: null } }), version), safeFailure);
+  }
+  const numericToken = { readForExecution: async () => ({ token: "123" }) } as unknown as CredentialService;
+  await assert.rejects(executeVercelListDeployments({ credentialId: "connection", project: "prj_abc" }, "live", "workspace", numericToken, async () => Response.json({ deployments: [], pagination: { next: 123 } }), 2), (error: unknown) => (error as { code?: string }).code === "INVALID_RESPONSE");
+});
+
 test("Vercel handles permission and rate limit failures without provider details", async () => {
   await assert.rejects(executeVercelListDeployments({ credentialId: "connection", team: "team_abc", project: "prj_abc" }, "live", "workspace", credentials, async () => new Response("private provider error", { status: 429 })), (error: unknown) => {
     const failure = error as { retryable: boolean; message: string }; assert.equal(failure.retryable, true); assert.ok(!failure.message.includes("private")); return true;
