@@ -28,7 +28,13 @@ những operation đã có:
 Không đánh dấu toàn bộ NX hoàn tất chỉ vì PR hoặc CI thành công. Không tự dùng
 credential thật hay bật provider integration để lấp khoảng thiếu bằng chứng.
 
-**Bản local sau PR #83, chưa verify hoặc phát hành:** Drive search `.v2` có
+**Verify local sau PR #83:** commit `c2d6367` đã đạt `npm run verify` trong
+môi trường cô lập với 971 test API, 78 test web và 214 Playwright; test dùng
+database/Redis riêng, dữ liệu giả và scheduler tắt. Các commit tiếp sau commit
+này chưa được kiểm tra bằng lượt verify đó và chưa được phát hành. Kết quả
+không thay thế CI Node 22 hoặc kiểm thử provider thật.
+
+**Bản local sau PR #83, chưa phát hành:** Drive search `.v2` có
 bộ lọc theo tiền tố tên, loại file và thư mục cha trực tiếp, dùng folder picker
 có fallback nhập ID. Nó tạo chính trường `query` đã có, không đổi graph hay
 runtime cũ; query phức tạp và expression vẫn ở chế độ nâng cao. Điều kiện mới
@@ -37,10 +43,10 @@ và `parents` chỉ khớp thư mục cha trực tiếp](https://developers.goog
 cũng như yêu cầu [escape dấu nháy và backslash](https://developers.google.com/workspace/drive/api/guides/search-files).
 [n8n Drive](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.googledrive/file-operations/)
 cung cấp chọn tài nguyên từ danh sách hoặc nhập ID; phần này học cách chọn, không
-khẳng định parity toàn bộ. Test giả lập đã được bổ sung nhưng chưa chạy và chưa
-thử Google thật.
+khẳng định parity toàn bộ. Test giả lập thuộc lượt verify `c2d6367` nêu trên;
+chưa thử Google thật.
 
-**Bản local sau PR #83, chưa verify hoặc phát hành:** trước đây output được
+**Bản local sau PR #83, chưa phát hành:** trước đây output được
 lưu dưới dạng đã che, rồi được dùng lại khi tiếp tục sau approval; expression
 có thể nhận nguyên chuỗi `[REDACTED]` và truyền nhầm cho action. Trigger data
 cũng được lưu sau khi che. Bản local từ chối expression tham chiếu trực tiếp
@@ -49,8 +55,10 @@ khi action đọc credential hoặc gọi provider; việc này cũng áp dụng
 trigger data thông qua output của node trigger. Các giá trị không bị che và output
 mới khác trong cùng lượt vẫn hoạt động như trước. Lỗi có thể đi qua error branch.
 Đây là fail-closed, không khôi phục giá trị gốc; một giá trị hợp lệ có sẵn chuỗi
-`[REDACTED]` trong dữ liệu đã lưu cũng có thể bị từ chối. Test giả lập đã thêm,
-đang chờ quality gate; chưa khẳng định xử lý được mọi cách làm mờ tùy provider.
+`[REDACTED]` trong dữ liệu đã lưu cũng có thể bị từ chối. Kiểm thử ở commit
+`c2d6367` đã pass; kiểm thử cho trường hợp truy cập thông qua output của trigger
+được bổ sung sau đó và chưa qua quality gate. Chưa khẳng định xử lý được mọi
+cách làm mờ tùy provider.
 
 **NX-05 kiểm thử local đang chờ verify:** trường hợp PostgreSQL giả lập cho
 Trello và Sentry được mở rộng để nhận một sự kiện có identity lớn trước, sau
