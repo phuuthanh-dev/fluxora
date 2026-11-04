@@ -1,7 +1,7 @@
 # NX-02: thống nhất phiên bản node
 
-Trạng thái: **thiết kế chuyển đổi, chưa thay đổi định dạng graph hoặc runtime**.
-Đối chiếu source local tại `3620977`, 05/11/2026. Mục tiêu là giảm hai cách
+Trạng thái: **reader và dispatch thử nghiệm ở local; chưa cho phép ghi định dạng mới**.
+Đối chiếu source local trong nhánh `develop`, 05/11/2026. Mục tiêu là giảm hai cách
 đặt phiên bản mà vẫn chạy đúng graph, lịch sử và trigger đã lưu.
 
 ## Hành vi hiện tại và tham chiếu
@@ -70,6 +70,9 @@ provider, mixed fleet hoặc rollback. Chưa thay định dạng lưu hay mặc
 Các hàm metadata và field descriptor local cũng nhận type/version và chọn
 cùng mô tả với handler `.v2`; version không hợp lệ trả kết quả không có metadata.
 Chúng chỉ mô tả cấu hình, không thay thế validation hoặc authorization runtime.
+Danh sách yêu thích và gần đây dùng lại cùng bảng ánh xạ thay cho một danh sách
+type song song; node cũ vẫn ẩn khỏi thư viện nhưng graph đã lưu không đổi.
+Kiểm thử danh sách này được bổ sung và chờ final verify.
 
 ## Rollout và kiểm thử trước khi đổi định dạng ghi
 

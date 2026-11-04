@@ -1,5 +1,5 @@
 import type { Edge, Node } from "@xyflow/react";
-import { currentWorkflowNodeVersion, getSharedNodeConfigurationFields, riotLolActions, riotTftActions, workflowNodeOutputKinds, type WorkflowEdgeKind, type WorkflowNodeCategory, type WorkflowNodeType } from "@workflow/contracts";
+import { currentWorkflowNodeVersion, getSharedNodeConfigurationFields, nodeExecutionType, riotLolActions, riotTftActions, workflowNodeOutputKinds, type WorkflowEdgeKind, type WorkflowNodeCategory, type WorkflowNodeType } from "@workflow/contracts";
 import type { NodeConfigurationField } from "@workflow/contracts";
 import type { NodeIconName } from "./node-icon";
 export type { NodeConfigurationField, NodeFieldVisibility, NodeResource, NodeSelectOption } from "@workflow/contracts";
@@ -1064,8 +1064,7 @@ export function getNodeDefinitionForConfig(type: string, config: Record<string, 
 
 /** Preserve old favorites/recent preferences without offering legacy nodes for new graphs. */
 export function libraryNodeType(type: string): string {
-  if (["trigger.uptime-kuma.alert", "action.postgres.select", "action.supabase.select", "action.google-drive", "action.google-sheets", "action.gmail.read", "action.notion.search-pages", "action.sentry.list-issues", "action.vercel.list-deployments", "action.google-chat.oauth"].includes(type)) return `${type}.v2`;
-  return type;
+  return nodeExecutionType(type, 2) ?? type;
 }
 
 /** Only an explicit draft action may change a legacy type; preserve all config. */
