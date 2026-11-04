@@ -4,7 +4,7 @@ import { workflowNodeTypes, type ExecutableWorkflowNodeType, type WorkflowNodeTy
 export type OperationCredentialProvider =
   | "GOOGLE" | "STEAM" | "GOOGLE_CHAT_WEBHOOK" | "GOOGLE_CHAT_OAUTH" | "GMAIL" | "GOOGLE_CALENDAR"
   | "MONGODB" | "NOTION" | "POSTGRES" | "HTTP" | "DISCORD_WEBHOOK" | "TELEGRAM_BOT" | "GITHUB"
-  | "SMTP" | "GEMINI" | "OPENAI" | "TRELLO" | "SENTRY" | "VERCEL" | "SUPABASE" | "REDDIT";
+  | "SMTP" | "GEMINI" | "OPENAI" | "TRELLO" | "SENTRY" | "VERCEL" | "SUPABASE" | "REDDIT" | "RIOT";
 
 export type OperationAuth =
   | { kind: "none" }
@@ -90,6 +90,11 @@ const definitions = {
   "approval.request": executable(conditional, "unspecified"),
   "action.steam.account-snapshot": executable(credential("STEAM"), "read"),
   "action.steam": executable(credential("STEAM"), "read", fields("operation", "result")),
+  "action.riot-lol": executable(credential("RIOT"), "read", fields("operation", "result")),
+  "action.riot-tft": executable(credential("RIOT"), "read", fields("operation", "result")),
+  "action.riot-valorant": planned,
+  "action.riot-lor": planned,
+  "action.riot-2xko": planned,
   "action.google-chat.webhook": executable(credential("GOOGLE_CHAT_WEBHOOK"), "write"),
   "action.google-chat.oauth": executable(credential("GOOGLE_CHAT_OAUTH"), "write"),
   "action.google-chat.oauth.v2": executable(credential("GOOGLE_CHAT_OAUTH"), "write", fields("messageId", "threadName")),

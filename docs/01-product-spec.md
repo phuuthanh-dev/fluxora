@@ -51,6 +51,7 @@ The Steam profile is public. The Steam node returns every field available throug
 | Condition | Switch | Multiple cases and a default path. |
 | Action | Steam Account Snapshot | Profile, current game, owned/recent games, playtime, and optional per-game achievements. |
 | Action | Steam Web API | Community-node parity for profile, friends, badges, vanity URL, owned games, recently played games, and per-game achievements. The game picker lists visible owned games with a manual App ID fallback. Uses a workspace Steam Web API key; privacy settings still apply. |
+| Action | Riot TFT | Local prototype for Riot ID/account lookup, TFT match IDs, match detail, ranked entries and service status using an eligible workspace Riot key. Production approval and live TFT qualification remain open. |
 | Action | Google Chat Webhook | Send formatted daily report into one space. |
 | Action | Discord Webhook | Send content, embeds, and an explicitly allowlisted mention policy into a Discord channel via incoming webhook. |
 | Action | Telegram Message | Send message via Telegram Bot API with bot token and a typed destination: DM, group, supergroup, or channel. Supergroups may optionally target a topic/thread. |
@@ -87,6 +88,7 @@ See `docs/35-connector-coverage-and-discovery.md` for the exact operations, poin
 
 - Gmail attachments, push notifications and sending through Gmail API are unavailable; Gmail read and polling and SMTP sending are runtime features.
 - MongoDB update/delete, unrestricted replica topology discovery, remaining GitHub operations, Facebook Meta and Instagram remain unavailable. Guarded SRV seed discovery is implemented for the existing MongoDB operations; this is not unrestricted replica discovery.
+- VALORANT, Legends of Runeterra and 2XKO player data are planned, not executable: their relevant Riot approval and player opt-in/RSO requirements have not been fulfilled.
 
 ### Explicitly out of scope
 

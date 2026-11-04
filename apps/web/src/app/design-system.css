@@ -69,6 +69,7 @@
   --provider-if: #a44c04;
   --provider-switch: #b74708;
   --provider-steam: #1b2838;
+  --provider-game: #9b2541;
   --provider-google: #1a73e8;
   --provider-google-chat: #007f3b;
   --provider-google-calendar: #1a73e8;
@@ -80,7 +81,7 @@
   --provider-http: #0f766e;
   --provider-approval: #15803d;
   --provider-email: #c5221f;
-  --provider-openai: #412991;
+  --provider-openai: #171a17;
   --provider-gemini: #6d5190;
   --provider-mongodb: #208a3d;
   --provider-notion: #222a25;
@@ -199,6 +200,7 @@
   --provider-if: #ffcc80;
   --provider-switch: #ffb681;
   --provider-steam: #8ec5ee;
+  --provider-game: #ff9db0;
   --provider-google: #8ab4f8;
   --provider-google-chat: #72df9b;
   --provider-google-calendar: #8ab4f8;
@@ -210,7 +212,7 @@
   --provider-http: #69d1c6;
   --provider-approval: #7ce0a4;
   --provider-email: #ff9b90;
-  --provider-openai: #d1b1ff;
+  --provider-openai: #f4f5f0;
   --provider-gemini: #d3b7fa;
   --provider-mongodb: #88d99a;
   --provider-notion: #f4f5f0;

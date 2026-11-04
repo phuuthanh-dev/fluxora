@@ -111,6 +111,7 @@ function providerLabel(provider: CredentialProvider) {
     GOOGLE: "Google",
     GITHUB: "GitHub",
     STEAM: "Steam",
+    RIOT: "Riot Games",
     SMTP: "SMTP email",
     GEMINI: "Gemini",
     OPENAI: "OpenAI",
@@ -365,15 +366,30 @@ function JsonTree({ value }: { value: unknown }) {
   return <ul className="json-tree">{entries.map(([key, child]) => <li key={key}><strong>{key}</strong>{child !== null && typeof child === "object" ? <JsonTree value={child} /> : <span className="json-tree__value">: {String(child)}</span>}</li>)}</ul>;
 }
 
+// Large provider responses can contain thousands of nested values. Render only
+// expanded branches and a bounded page of entries so inspecting a run remains responsive.
+function LargeJsonTree({ value, initiallyOpen = false }: { value: unknown; initiallyOpen?: boolean }) {
+  const [open, setOpen] = useState(initiallyOpen);
+  const [visible, setVisible] = useState(50);
+  if (value === null || typeof value !== "object") {
+    const text = String(value);
+    return <span className="json-tree__value">{text.length > 1000 ? `${text.slice(0, 1000)}…` : text}</span>;
+  }
+  const entries = Array.isArray(value) ? value.map((item, index) => [String(index), item] as const) : Object.entries(value as Record<string, unknown>);
+  return <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}><summary>{Array.isArray(value) ? `Array · ${entries.length} items` : `Object · ${entries.length} fields`}</summary>{open && <ul className="json-tree">{entries.slice(0, visible).map(([key, child]) => <li key={key}><strong>{key}</strong> <LargeJsonTree value={child} /></li>)}{visible < entries.length && <li><button type="button" onClick={() => setVisible((count) => count + 50)}>Show more ({entries.length - visible} remaining)</button></li>}</ul>}</details>;
+}
+
 function ResultView({ value }: { value: unknown }) {
   const [mode, setMode] = useState<ResultViewMode>("tree");
+  const serialized = JSON.stringify(value);
+  const isLarge = (serialized?.length ?? 0) > 100_000;
   const rows: Array<[string, unknown]> = value && typeof value === "object" && !Array.isArray(value) ? Object.entries(value as Record<string, unknown>) : [["value", value]];
   return (
     <div className="result-view">
       <div className="result-view__tabs" role="tablist" aria-label="Execution output format">
         {(["tree", "table", "raw"] as ResultViewMode[]).map((view) => <button key={view} className={mode === view ? "result-view__tab result-view__tab--active" : "result-view__tab"} type="button" onClick={() => setMode(view)}>{view === "raw" ? "Raw JSON" : view === "tree" ? "Tree" : "Table"}</button>)}
       </div>
-      {mode === "tree" && <JsonTree value={value} />}
+      {mode === "tree" && (isLarge ? <><p>Large output: expand individual sections to explore. Raw JSON contains the complete data.</p><LargeJsonTree value={value} initiallyOpen /></> : <JsonTree value={value} />)}
       {mode === "table" && <div className="result-view__table-wrap"><table><tbody>{rows.map(([key, item]) => <tr key={key}><th>{key}</th><td>{typeof item === "string" ? item : JSON.stringify(item)}</td></tr>)}</tbody></table></div>}
       {mode === "raw" && <pre>{JSON.stringify(value, null, 2)}</pre>}
     </div>
@@ -944,10 +960,10 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       else if (key === "database") config.collection = "";
     }
     if ((node.data.nodeType === "action.supabase.select" || node.data.nodeType === "action.supabase.select.v2") && key === "credentialId" && node.data.config.credentialId !== value) config.table = "";
-    if (node.data.nodeType === "action.steam" && key === "operation") {
+    if ((node.data.nodeType === "action.steam" || node.data.nodeType === "action.riot-lol" || node.data.nodeType === "action.riot-tft") && key === "operation") {
       const previous = getNodeDefinitionForConfig(node.data.nodeType, node.data.config);
       const next = getNodeDefinitionForConfig(node.data.nodeType, config);
-      if (next && (node.data.label === previous?.label || node.data.label === getNodeDefinition("action.steam")?.label)) {
+      if (next && (node.data.label === previous?.label || node.data.label === getNodeDefinition(node.data.nodeType)?.label)) {
         updateNodeData(node.id, { config, label: next.label, description: next.description });
         return;
       }
@@ -972,6 +988,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
         />
       </InspectorSection>
       <InspectorSection title="Configuration">
+      {(node.data.nodeType === "action.riot-lol" || node.data.nodeType === "action.riot-tft") && <Status tone="warning" className="inspector-note"><strong>Riot API prototype</strong><span>Live execution on production is unavailable while Riot approval is pending. Use a key authorized for this game and product on a private prototype. Player data can appear in execution history.{node.data.nodeType === "action.riot-tft" ? " TFT is for post-game analysis; do not use it for live scouting or gameplay advice." : ""}</span></Status>}
       {node.data.nodeType === "trigger.uptime-kuma.alert" && <Status tone="info" className="inspector-note"><strong>Filter monitor alerts</strong><span>This original trigger accepts every alert. Enable filters in the draft to choose a monitor or status; saved settings are preserved and publishing remains separate.</span><Button type="button" variant="secondary" disabled={hasPending} onClick={() => {
         const state = useWorkflowEditorStore.getState();
         const latest = state.nodes.find((candidate) => candidate.id === node.id);

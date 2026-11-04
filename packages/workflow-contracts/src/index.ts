@@ -1,5 +1,6 @@
 export * from "./ai-schema";
 export * from "./operation-metadata";
+export * from "./riot-lol";
 export type { NodeConfigurationField, NodeFieldVisibility, NodeResource, NodeSelectOption } from "./node-configuration-fields";
 export { trelloCardConfigurationFields } from "./trello-card-fields";
 export type { TrelloCardOperation } from "./trello-card-fields";
@@ -33,6 +34,11 @@ export const workflowNodeTypes = [
   "condition.switch",
   "action.steam.account-snapshot",
   "action.steam",
+  "action.riot-lol",
+  "action.riot-tft",
+  "action.riot-valorant",
+  "action.riot-lor",
+  "action.riot-2xko",
   "action.google-chat.webhook",
   "action.discord.webhook",
   "action.telegram.message",
@@ -137,6 +143,8 @@ export const executableWorkflowNodeTypes = [
   "condition.switch",
   "action.steam.account-snapshot",
   "action.steam",
+  "action.riot-lol",
+  "action.riot-tft",
   "action.google-chat.webhook",
   "action.discord.webhook",
   "action.telegram.message",

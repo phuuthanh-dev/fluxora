@@ -1,8 +1,7 @@
 import { NodeFailure } from "./node-failure";
 
 /** Bounds memory use even when the provider omits or lies about content-length. */
-export async function readBoundedProviderText(response: Response): Promise<string> {
-  const limit = 1_000_000;
+export async function readBoundedProviderText(response: Response, limit = 1_000_000): Promise<string> {
   // HEAD may advertise the size of a resource without transferring a body.
   if (!response.body) return "";
   if (Number(response.headers.get("content-length")) > limit) {
@@ -34,8 +33,8 @@ export async function readBoundedProviderText(response: Response): Promise<strin
   return new TextDecoder().decode(bytes.subarray(0, size));
 }
 
-export async function readBoundedProviderJson(response: Response): Promise<unknown> {
-  const text = await readBoundedProviderText(response);
+export async function readBoundedProviderJson(response: Response, limit?: number): Promise<unknown> {
+  const text = await readBoundedProviderText(response, limit);
   try { return JSON.parse(text) as unknown; }
   catch { throw new SyntaxError("Provider response is not valid JSON."); }
 }
