@@ -1,9 +1,20 @@
 import type { WorkflowNodeType } from "./index";
 import type { NodeConfigurationField } from "./node-configuration-fields";
-import { riotLolActions, riotLolPlatforms } from "./riot-lol";
+import { riotLolActions, riotLolPlatforms, riotTftActions } from "./riot-lol";
 
 /** Inspector descriptors only; backend validation remains authoritative. */
 export const dataNodeFields = {
+  "action.riot-tft": (): NodeConfigurationField[] => [
+    { kind: "credential", key: "credentialId", label: "Riot API connection", providers: ["RIOT"] },
+    { kind: "select", key: "operation", label: "Operation", options: riotTftActions.map(({ id, label }) => ({ value: id, label })) },
+    { kind: "select", key: "platform", label: "Player's TFT server", options: riotLolPlatforms.map(([value, label]) => ({ value, label })) },
+    { kind: "text", key: "gameName", label: "Riot ID game name", visibleWhen: { key: "operation", equals: "accountByRiotId", fallback: "accountByRiotId" } },
+    { kind: "text", key: "tagLine", label: "Riot ID tag (without #)", visibleWhen: { key: "operation", equals: "accountByRiotId", fallback: "accountByRiotId" } },
+    { kind: "text", key: "puuid", label: "Player PUUID", visibleWhen: { key: "operation", equals: ["accountByPuuid", "matchIds", "ranked"] } },
+    { kind: "text", key: "matchId", label: "TFT match ID", visibleWhen: { key: "operation", equals: "match" } },
+    { kind: "number", key: "start", label: "Start offset (0–1000)", fallbackValue: 0, visibleWhen: { key: "operation", equals: "matchIds" } },
+    { kind: "number", key: "count", label: "Maximum results (1–100)", fallbackValue: 20, visibleWhen: { key: "operation", equals: "matchIds" } },
+  ],
   "action.riot-lol": (): NodeConfigurationField[] => [
     { kind: "credential", key: "credentialId", label: "Riot API connection", providers: ["RIOT"] },
     { kind: "select", key: "operation", label: "Operation", options: riotLolActions.map(({ id, label }) => ({ value: id, label })) },

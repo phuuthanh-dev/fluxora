@@ -8,7 +8,7 @@ export function liveCredentialRequirements(graph: WorkflowGraph): LiveCredential
     const credentialId = readCredentialId(node.config);
     if (node.type === "trigger.github.issue-opened" || node.type === "trigger.github.pull-request-opened" || node.type === "trigger.github.push" || node.type === "trigger.github.workflow-run-completed") return [{ nodeId: node.id, provider: CredentialProvider.GITHUB, credentialId }];
     if (node.type === "action.steam.account-snapshot" || node.type === "action.steam") return [{ nodeId: node.id, provider: CredentialProvider.STEAM, credentialId }];
-    if (node.type === "action.riot-lol") return [{ nodeId: node.id, provider: CredentialProvider.RIOT, credentialId }];
+    if (node.type === "action.riot-lol" || node.type === "action.riot-tft") return [{ nodeId: node.id, provider: CredentialProvider.RIOT, credentialId }];
     if (node.type === "action.google-chat.webhook") return [{ nodeId: node.id, provider: CredentialProvider.GOOGLE_CHAT_WEBHOOK, credentialId }];
     if (node.type === "action.discord.webhook") return [{ nodeId: node.id, provider: CredentialProvider.DISCORD_WEBHOOK, credentialId }];
     if (node.type === "action.telegram.message" || node.type === "action.telegram.reply" || node.type === "action.telegram.edit-message") return [{ nodeId: node.id, provider: CredentialProvider.TELEGRAM_BOT, credentialId }];

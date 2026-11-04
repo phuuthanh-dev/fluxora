@@ -59,3 +59,27 @@ test("large execution output loads branches on demand and retains the full raw r
   await page.getByRole("button", { name: "Raw JSON" }).last().click();
   await expect(page.locator("pre").last()).toContainText('"index": 59');
 });
+
+test("TFT offers guided actions while VALORANT is clearly planned", async ({ page }) => {
+  const graph = { nodes: [{ id: "manual", type: "trigger.manual", position: { x: 100, y: 100 }, config: {} }], edges: [] };
+  const workflow = { id: "riot-tft-test", workspaceId: "workspace-1", name: "TFT test", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+    if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
+    if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
+    if (path.endsWith("/credentials")) return send({ credentials: [{ id: "riot-1", provider: "RIOT", label: "My Riot" }] });
+    if (path.endsWith("/workflows/riot-tft-test")) return send({ workflow });
+    return route.continue();
+  });
+  await page.goto("/editor?workflow=riot-tft-test");
+  const library = page.getByRole("complementary", { name: "Node Library" });
+  await library.getByLabel("Search apps and operations").fill("List TFT match IDs");
+  await library.getByRole("button", { name: /Teamfight Tactics: List TFT match IDs/ }).click();
+  await expect(page.getByLabel("Operation", { exact: true })).toHaveValue("matchIds");
+  await expect(page.getByLabel("Player's TFT server")).toHaveValue("vn2");
+  await expect(page.getByLabel("Player PUUID")).toBeVisible();
+  await expect(page.getByText(/TFT is for post-game analysis/)).toBeVisible();
+  await library.getByLabel("Search apps and operations").fill("VALORANT");
+  await expect(library.getByRole("button", { name: /VALORANT.*approval required/i })).toHaveAttribute("aria-disabled", "true");
+});

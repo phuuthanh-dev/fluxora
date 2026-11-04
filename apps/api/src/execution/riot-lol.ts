@@ -1,5 +1,5 @@
 import { CredentialProvider } from "@prisma/client";
-import { riotLolActions, riotLolPlatforms, type RiotLolOperation } from "@workflow/contracts";
+import { riotLolActions, riotLolPlatforms, riotTftActions, type RiotLolOperation, type RiotTftOperation } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { readCredentialId, readCredentialValue } from "./connector-config";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
@@ -33,10 +33,11 @@ function integer(value: unknown, fallback: number, min: number, max: number, lab
   return parsed;
 }
 
-function prepare(config: Record<string, unknown>) {
+function prepare(config: Record<string, unknown>, game: "lol" | "tft") {
   const operation = config.operation ?? "accountByRiotId";
-  if (typeof operation !== "string" || !riotLolActions.some((item) => item.id === operation)) throw new NodeFailure("INVALID_INPUT", "Choose a supported League of Legends operation.", false);
-  const op = operation as RiotLolOperation;
+  const actions = game === "lol" ? riotLolActions : riotTftActions;
+  if (typeof operation !== "string" || !actions.some((item) => item.id === operation)) throw new NodeFailure("INVALID_INPUT", "Choose a supported Riot game operation.", false);
+  const op = operation as RiotLolOperation | RiotTftOperation;
   const platform = config.platform ?? "vn2";
   if (typeof platform !== "string" || !platforms.has(platform)) throw new NodeFailure("INVALID_INPUT", "Choose a valid League server.", false);
   let host = platform;
@@ -48,22 +49,25 @@ function prepare(config: Record<string, unknown>) {
     const tag = text(config.tagLine, "Riot ID tag", 20).replace(/^#/, "");
     if (!tag || /[\/\\?#]/.test(tag) || /[\/\\?#]/.test(gameName)) throw new NodeFailure("INVALID_INPUT", "Enter a valid Riot ID and tag.", false);
     path = `/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tag)}`;
+  } else if (op === "status") {
+    path = "/tft/status/v1/platform-data";
   } else if (op === "match" || op === "timeline") {
-    host = region(platform, false);
+    host = region(platform, game === "tft");
     const id = identifier(config.matchId, "match ID");
-    path = `/lol/match/v5/matches/${id}${op === "timeline" ? "/timeline" : ""}`;
+    path = game === "tft" ? `/tft/match/v1/matches/${id}` : `/lol/match/v5/matches/${id}${op === "timeline" ? "/timeline" : ""}`;
   } else {
     const id = identifier(config.puuid, "player PUUID");
     switch (op) {
       case "accountByPuuid": host = region(platform, true); path = `/riot/account/v1/accounts/by-puuid/${id}`; break;
       case "summoner": path = `/lol/summoner/v4/summoners/by-puuid/${id}`; break;
       case "currentGame": path = `/lol/spectator/v5/active-games/by-summoner/${id}`; break;
-      case "ranked": path = `/lol/league/v4/entries/by-puuid/${id}`; break;
+      case "ranked": path = game === "tft" ? `/tft/league/v1/by-puuid/${id}` : `/lol/league/v4/entries/by-puuid/${id}`; break;
       case "masteries": path = `/lol/champion-mastery/v4/champion-masteries/by-puuid/${id}`; break;
       case "topMasteries": path = `/lol/champion-mastery/v4/champion-masteries/by-puuid/${id}/top`; params.set("count", String(integer(config.count, 20, 1, 100, "Count"))); break;
       case "matchIds": {
-        host = region(platform, false); path = `/lol/match/v5/matches/by-puuid/${id}/ids`;
+        host = region(platform, game === "tft"); path = game === "tft" ? `/tft/match/v1/matches/by-puuid/${id}/ids` : `/lol/match/v5/matches/by-puuid/${id}/ids`;
         params.set("start", String(integer(config.start, 0, 0, 1000, "Start"))); params.set("count", String(integer(config.count, 20, 1, 100, "Count")));
+        if (game === "tft") break;
         const filter = config.matchFilter ?? "all";
         if (typeof filter !== "string" || !["all", "ranked", "normal", "tourney", "tutorial", "queue:420", "queue:440", "queue:400", "queue:450"].includes(filter)) throw new NodeFailure("INVALID_INPUT", "Choose a valid match filter.", false);
         if (filter.startsWith("queue:")) params.set("queue", filter.slice(6));
@@ -85,8 +89,8 @@ function prepare(config: Record<string, unknown>) {
   return { operation: op, url: `https://${host}.api.riotgames.com${path}${params.size ? `?${params}` : ""}` };
 }
 
-export async function executeRiotLol(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport = fetchSafeOutbound) {
-  const { operation, url } = prepare(config);
+async function executeRiotGame(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, game: "lol" | "tft", transport: Transport = fetchSafeOutbound) {
+  const { operation, url } = prepare(config, game);
   if (mode === "mock") return { status: "succeeded" as const, output: { operation, result: operation === "currentGame" ? { active: false } : operation === "matchIds" || operation === "ranked" || operation === "masteries" || operation === "topMasteries" ? [] : { sample: true } }, route: "success" as const };
   const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.RIOT);
   const key = readCredentialValue(credential, "apiKey");
@@ -119,4 +123,12 @@ export async function executeRiotLol(config: Record<string, unknown>, mode: "moc
   const expectsArray = ["matchIds", "ranked", "masteries", "topMasteries"].includes(operation);
   if (expectsArray ? !Array.isArray(result) : !result || typeof result !== "object" || Array.isArray(result)) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Riot returned an unexpected response.", false);
   return { status: "succeeded" as const, output: { operation, result: operation === "currentGame" ? { active: true, data: result } : result }, route: "success" as const };
+}
+
+export function executeRiotLol(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport = fetchSafeOutbound) {
+  return executeRiotGame(config, mode, workspaceId, credentials, "lol", transport);
+}
+
+export function executeRiotTft(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport = fetchSafeOutbound) {
+  return executeRiotGame(config, mode, workspaceId, credentials, "tft", transport);
 }

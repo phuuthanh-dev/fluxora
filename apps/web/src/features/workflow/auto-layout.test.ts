@@ -29,6 +29,24 @@ test("League operations are independently discoverable while sharing the Riot ex
   }
 });
 
+test("TFT operations are discoverable and restricted Riot games remain unavailable", () => {
+  const actions = operationsForApp("riot-tft");
+  assert.equal(actions.length, 6);
+  assert.equal(new Set(actions.map(libraryDefinitionId)).size, 6);
+  for (const definition of actions) {
+    const node = { id: "tft", type: "workflowNode" as const, position: { x: 0, y: 0 }, data: createNodeData(definition) };
+    const graph = graphForApi({ nodes: [node], edges: [] });
+    assert.equal(graph.nodes[0]?.type, "action.riot-tft");
+    assert.equal(graph.nodes[0]?.config.operation, definition.operationId);
+    assert.equal(graphFromApi(graph).nodes[0]?.data.label, definition.label);
+  }
+  for (const id of ["riot-valorant", "riot-lor", "riot-2xko"]) {
+    const planned = operationsForApp(id);
+    assert.equal(planned.length, 1);
+    assert.equal(planned[0]?.available, false);
+  }
+});
+
 test("Steam actions preserve distinct library identities and share the persisted executor", () => {
   const operations = operationsForApp("steam");
   assert.equal(operations.length, 8);

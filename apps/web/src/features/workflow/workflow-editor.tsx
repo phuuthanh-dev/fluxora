@@ -960,7 +960,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       else if (key === "database") config.collection = "";
     }
     if ((node.data.nodeType === "action.supabase.select" || node.data.nodeType === "action.supabase.select.v2") && key === "credentialId" && node.data.config.credentialId !== value) config.table = "";
-    if ((node.data.nodeType === "action.steam" || node.data.nodeType === "action.riot-lol") && key === "operation") {
+    if ((node.data.nodeType === "action.steam" || node.data.nodeType === "action.riot-lol" || node.data.nodeType === "action.riot-tft") && key === "operation") {
       const previous = getNodeDefinitionForConfig(node.data.nodeType, node.data.config);
       const next = getNodeDefinitionForConfig(node.data.nodeType, config);
       if (next && (node.data.label === previous?.label || node.data.label === getNodeDefinition(node.data.nodeType)?.label)) {
@@ -988,7 +988,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
         />
       </InspectorSection>
       <InspectorSection title="Configuration">
-      {node.data.nodeType === "action.riot-lol" && <Status tone="warning" className="inspector-note"><strong>Riot API prototype</strong><span>Use a key authorized for this product. Development and personal keys are not for public products. Riot may limit access; stop calls for the Retry-After period if rate limited. Player data can appear in execution history.</span></Status>}
+      {(node.data.nodeType === "action.riot-lol" || node.data.nodeType === "action.riot-tft") && <Status tone="warning" className="inspector-note"><strong>Riot API prototype</strong><span>Use a key authorized for this game and product. Development and personal keys are not for public products. Player data can appear in execution history.{node.data.nodeType === "action.riot-tft" ? " TFT is for post-game analysis; do not use it for live scouting or gameplay advice." : ""}</span></Status>}
       {node.data.nodeType === "trigger.uptime-kuma.alert" && <Status tone="info" className="inspector-note"><strong>Filter monitor alerts</strong><span>This original trigger accepts every alert. Enable filters in the draft to choose a monitor or status; saved settings are preserved and publishing remains separate.</span><Button type="button" variant="secondary" disabled={hasPending} onClick={() => {
         const state = useWorkflowEditorStore.getState();
         const latest = state.nodes.find((candidate) => candidate.id === node.id);

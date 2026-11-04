@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { CredentialProvider } from "@prisma/client";
-import { executeRiotLol } from "./riot-lol";
+import { executeRiotLol, executeRiotTft } from "./riot-lol";
 import { NodeFailure } from "./node-failure";
 
 const key = "RGAPI-test-fixture-key";
@@ -75,4 +75,32 @@ test("match timelines have a bounded larger response allowance without changing 
   assert.deepEqual(result.output.result, payload);
   await assert.rejects(() => executeRiotLol({ ...config, operation: "match" }, "live", "workspace-1", credentials, async () => Response.json(payload)), (reason: unknown) => reason instanceof NodeFailure && reason.code === "RESPONSE_TOO_LARGE");
   await assert.rejects(() => executeRiotLol({ ...config, operation: "timeline" }, "live", "workspace-1", credentials, async () => new Response("x".repeat(5_000_001))), (reason: unknown) => reason instanceof NodeFailure && reason.code === "RESPONSE_TOO_LARGE");
+});
+
+test("TFT post-game operations use the existing workspace key and game-specific routes", async () => {
+  const fixtures = [
+    ["accountByRiotId", "asia", "/riot/account/v1/accounts/by-riot-id/Test%20Player/VN2", {}],
+    ["accountByPuuid", "asia", "/riot/account/v1/accounts/by-puuid/fixture_puuid", {}],
+    ["matchIds", "asia", "/tft/match/v1/matches/by-puuid/fixture_puuid/ids", []],
+    ["match", "asia", "/tft/match/v1/matches/VN2_123", {}],
+    ["ranked", "vn2", "/tft/league/v1/by-puuid/fixture_puuid", []],
+    ["status", "vn2", "/tft/status/v1/platform-data", {}],
+  ] as const;
+  for (const [operation, host, path, payload] of fixtures) {
+    const result = await executeRiotTft({ ...config, operation }, "live", "workspace-1", credentials, async (url, init) => {
+      const request = new URL(url);
+      assert.equal(request.hostname, `${host}.api.riotgames.com`);
+      assert.equal(request.pathname, path);
+      assert.equal(JSON.stringify(init.headers).includes(key), true);
+      assert.equal(url.includes(key), false);
+      return Response.json(payload);
+    });
+    assert.equal(result.output.operation, operation);
+    assert.equal(JSON.stringify(result).includes(key), false);
+    await executeRiotTft({ ...config, operation }, "mock", "workspace-1", {} as never, async () => { throw new Error("network in mock"); });
+  }
+  for (const invalid of [{ ...config, operation: "currentGame" }, { ...config, operation: "matchIds", count: 101 }, { ...config, platform: "evil.test" }]) {
+    await assert.rejects(() => executeRiotTft(invalid, "mock", "workspace-1", {} as never));
+  }
+  await assert.rejects(() => executeRiotTft({ ...config, operation: "ranked" }, "live", "workspace-1", credentials, async () => new Response(key, { status: 403 })), (reason: unknown) => reason instanceof NodeFailure && reason.code === "RIOT_ACCESS_DENIED" && !reason.message.includes(key));
 });

@@ -29,3 +29,9 @@ The user selected League of Legends first. The [n8n community node](https://gith
 - [ ] Review retention, player privacy, required attribution, provider policy, migration and production deployment before public availability.
 
 No public Riot approval or continuous reliability test has been established by this document. The generic game icon is intentional; do not imply Riot endorsement or use its official logos without an appropriate basis.
+
+## Other Riot games (2026-11-04)
+
+- TFT exposes six separate discoverable actions backed by the existing Riot connection: Riot ID and PUUID account lookups, match IDs, match details, ranked entries and service status. TFT uses the documented Americas/Europe/Asia regional routing for match history and platform routing for ranked/status. Eligibility of an existing key for TFT is determined by Riot; a League key is not guaranteed to include it. The implementation has mock/transport tests; live qualification is separate. The [TFT policy](https://developer.riotgames.com/docs/tft) prohibits real-time scouting and prescriptive in-game advice; the connector does not expose spectator endpoints.
+- [VALORANT](https://developer.riotgames.com/docs/valorant) does not offer personal keys and requires Riot Sign On for player data. [Legends of Runeterra](https://developer.riotgames.com/docs/lor) and [2XKO](https://developer.riotgames.com/docs/2xko) also state player opt-in/RSO requirements. These games are visible only as unavailable roadmap entries; no player data or fake OAuth connection is implemented.
+- A publicly available Fluxora connector remains subject to Riot approval, the registered product and actual workflow use case, and required attribution. No production or cross-game access is inferred from a personal League key.
