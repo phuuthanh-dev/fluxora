@@ -2958,6 +2958,23 @@
       "externalImports": []
     },
     {
+      "id": "apps/web/src/features/workflow/drive-search-field.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/workflow/drive-search.ts",
+        "apps/web/src/features/workflow/resource-picker.tsx"
+      ],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/workflow/drive-search.ts",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
       "id": "apps/web/src/features/workflow/editor-store.ts",
       "boundary": "web",
       "internalImports": [
@@ -3191,6 +3208,7 @@
         "apps/web/src/features/credentials/credential-panel.tsx",
         "apps/web/src/features/credentials/credential-types.ts",
         "apps/web/src/features/workflow/drive-pagination.ts",
+        "apps/web/src/features/workflow/drive-search-field.tsx",
         "apps/web/src/features/workflow/editor-store.ts",
         "apps/web/src/features/workflow/execution-observability.tsx",
         "apps/web/src/features/workflow/execution-pagination.ts",
@@ -6362,6 +6380,14 @@
       "to": "apps/web/src/features/workflow/node-catalog.ts"
     },
     {
+      "from": "apps/web/src/features/workflow/drive-search-field.tsx",
+      "to": "apps/web/src/features/workflow/drive-search.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/drive-search-field.tsx",
+      "to": "apps/web/src/features/workflow/resource-picker.tsx"
+    },
+    {
       "from": "apps/web/src/features/workflow/editor-store.ts",
       "to": "apps/web/src/features/workflow/auto-layout.ts"
     },
@@ -6496,6 +6522,10 @@
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",
       "to": "apps/web/src/features/workflow/drive-pagination.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/drive-search-field.tsx"
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",

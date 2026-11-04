@@ -28,6 +28,18 @@ những operation đã có:
 Không đánh dấu toàn bộ NX hoàn tất chỉ vì PR hoặc CI thành công. Không tự dùng
 credential thật hay bật provider integration để lấp khoảng thiếu bằng chứng.
 
+**Bản local sau PR #83, chưa verify hoặc phát hành:** Drive search `.v2` có
+bộ lọc theo tiền tố tên, loại file và thư mục cha trực tiếp, dùng folder picker
+có fallback nhập ID. Nó tạo chính trường `query` đã có, không đổi graph hay
+runtime cũ; query phức tạp và expression vẫn ở chế độ nâng cao. Điều kiện mới
+xóa cursor cũ qua cơ chế hiện có. [Google mô tả `name contains` là khớp tiền tố
+và `parents` chỉ khớp thư mục cha trực tiếp](https://developers.google.com/workspace/drive/api/guides/ref-search-terms),
+cũng như yêu cầu [escape dấu nháy và backslash](https://developers.google.com/workspace/drive/api/guides/search-files).
+[n8n Drive](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.googledrive/file-operations/)
+cung cấp chọn tài nguyên từ danh sách hoặc nhập ID; phần này học cách chọn, không
+khẳng định parity toàn bộ. Test giả lập đã được bổ sung nhưng chưa chạy và chưa
+thử Google thật.
+
 > Trạng thái kiểm tra 05/11/2026: PR #82 đã merge vào `main` tại
 > `6c9a36ee4b68ce1083770dac2c283125d76c10e5`; workflow deploy tại commit đó
 > [hoàn tất thành công](https://github.com/phuuthanh-dev/fluxora/actions/runs/41871198903).

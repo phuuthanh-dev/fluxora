@@ -65,6 +65,7 @@ import { ResourcePicker } from "./resource-picker";
 import { MongoFilterField } from "./mongodb-filter-field";
 import { StructuredOutputField } from "./structured-output-field";
 import { resetDrivePageToken } from "./drive-pagination";
+import { DriveSearchField } from "./drive-search-field";
 import { RelationalSelectionField } from "./relational-selection-field";
 import { isRelationalBaselineCurrent, relationalSelectionKeys, upgradeRelationalNode, type RelationalBaseline, type RelationalDraft, type RelationalProvider, type RelationalSelection } from "./relational-selection";
 import { useRelationalMetadata } from "./use-relational-metadata";
@@ -343,6 +344,7 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, wor
         {config[field.key] !== undefined && <StructuredOutputField value={config[field.key]} onChange={(schema) => onChange(field.key, schema)} draft={draft.structuredOutput} onDraftChange={(next) => onDraftChange("structuredOutput", next)} />}
       </section>;
       if (field.kind === "mongo-filter") return <MongoFilterField key={field.key} value={value} draft={draft.filter} onDraftChange={(next) => onDraftChange("filter", next)} rawDraft={draft.filterRaw} onRawDraftChange={(next) => onDraftChange("filterRaw", next)} onChange={(nextValue) => onChange(field.key, nextValue)} />;
+      if (field.kind === "drive-search") return <DriveSearchField key={field.key} value={value} workspaceId={workspaceId} credentialId={readConfigText(config, "credentialId")} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       if (field.kind === "row-values") return <RowValuesField key={field.key} value={config[field.key]} workspaceId={workspaceId} workflowId={workflowId} nodeId={nodeId} owner={owner} credentials={credentials} config={config} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       return <ConfigField
         key={field.key}
