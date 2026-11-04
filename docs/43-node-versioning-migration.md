@@ -51,12 +51,13 @@ trên cùng; graph không chuẩn từ nguồn khác có thể bị từ chối 
 thuẫn trước khi mở. Graph chỉ có một vị trí hoặc hai giá trị giống nhau vẫn
 giữ hành vi hiện tại. Đây không phải cơ chế hỗ trợ version 2.
 
-Dispatch nội bộ local đã có bảng ánh xạ chín action từ type chuẩn + `2`
-sang handler `.v2` hiện hữu. Test chọn cùng handler cho từng cặp và so sánh
-output mock Supabase; version không hỗ trợ vẫn bị từ chối. Đây mới là bước
-chuẩn bị ở execution dispatcher: parser API và editor **vẫn từ chối** graph
-`nodeVersion: 2`, trigger Kuma chưa có mapping, và chưa thay cơ chế lưu/đọc
-hay mặc định của workflow. Chưa chứng minh mixed fleet hoặc rollback.
+Dispatch và reader dành riêng cho execution ở local đã nhận chín action theo
+type chuẩn + `2` và chọn handler `.v2` hiện hữu. Fixture kiểm tra credential
+readiness của từng cặp và một execution mock Supabase từ graph giả; version
+không hỗ trợ vẫn bị từ chối. Parser dùng để ghi/import workflow và editor
+**vẫn từ chối** graph `nodeVersion: 2`. Các reader workflow, webhook và
+scheduler khác chưa được chuyển; Kuma chưa có mapping. Chưa thay định dạng
+lưu hay mặc định của workflow, chưa chứng minh mixed fleet hoặc rollback.
 
 ## Rollout và kiểm thử trước khi đổi định dạng ghi
 

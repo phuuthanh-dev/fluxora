@@ -15,7 +15,7 @@ import { ExecutionEventsService } from "./execution-events.service";
 import { resolveExpressions } from "./expression";
 import { redactValue } from "./redaction";
 import { isRetryableFailure, retryDelayMs } from "./retry-policy";
-import { parseWorkflowGraph, unavailableWorkflowNodes } from "../workflows/workflow-graph";
+import { parseStoredWorkflowGraph, unavailableWorkflowNodes } from "../workflows/workflow-graph";
 import { liveCredentialRequirements } from "./live-readiness";
 import { executionRetentionPolicy } from "./retention-policy";
 
@@ -40,13 +40,13 @@ export class ExecutionService {
     if (!workflow) throw new NotFoundException({ code: "WORKFLOW_NOT_FOUND", message: "Workflow was not found." });
     const version = mock ? workflow.draftVersion ?? workflow.publishedVersion : workflow.publishedVersion;
     if (!version) throw new NotFoundException({ code: "PUBLISHED_VERSION_REQUIRED", message: "Publish the workflow before starting a live execution." });
-    if (!mock && !debugNodeId && parseWorkflowGraph(version.graph).nodes.some((node) => node.type === "trigger.gmail")) throw new BadRequestException({ code: "GMAIL_TRIGGER_LIVE_ONLY", message: "Activate this workflow and wait for a new Gmail message. Use a test run for sample data." });
+    if (!mock && !debugNodeId && parseStoredWorkflowGraph(version.graph).nodes.some((node) => node.type === "trigger.gmail")) throw new BadRequestException({ code: "GMAIL_TRIGGER_LIVE_ONLY", message: "Activate this workflow and wait for a new Gmail message. Use a test run for sample data." });
     if (debugNodeId) {
-      const debugNode = parseWorkflowGraph(version.graph).nodes.find((node) => node.id === debugNodeId);
+      const debugNode = parseStoredWorkflowGraph(version.graph).nodes.find((node) => node.id === debugNodeId);
       if (!debugNode) throw new BadRequestException({ code: "NODE_NOT_FOUND", message: "The selected node does not exist in this workflow." });
       if (debugNode.type === "approval.request") throw new BadRequestException({ code: "NODE_DEBUG_UNSUPPORTED", message: "Approval nodes must be tested as part of the full workflow." });
     }
-    if (!mock) await this.assertLiveReady(workflow.workspaceId, parseWorkflowGraph(version.graph));
+    if (!mock) await this.assertLiveReady(workflow.workspaceId, parseStoredWorkflowGraph(version.graph));
     const data = { workflowVersionId: version.id, mode: mock ? "MOCK" : "LIVE", triggerData: redactValue(triggerData) as Prisma.InputJsonValue };
     const execution = mock ? await this.prisma.execution.create({ data }) : await this.prisma.$transaction(async (tx) => {
       await lockGraphCredentials(tx, workflow.workspaceId, version.graph);
@@ -59,7 +59,7 @@ export class ExecutionService {
   async createLegacyWebhookExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; path: string; secretHash: string | null; encryptedSigningSecret: string | null; credentialSnapshot?: { id: string; encryptedData: string }; payload: Record<string, unknown>; idempotencyKey?: string }) {
     const version = await this.prisma.workflowVersion.findUnique({ where: { id: input.workflowVersionId }, include: { workflow: true } });
     if (!version || version.workflowId !== input.workflowId) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
-    await this.assertLiveReady(version.workflow.workspaceId, parseWorkflowGraph(version.graph));
+    await this.assertLiveReady(version.workflow.workspaceId, parseStoredWorkflowGraph(version.graph));
     return this.prisma.$transaction(async (transaction) => {
       const workflows = await transaction.$queryRaw<Array<{ isActive: boolean; archivedAt: Date | null; publishedVersionId: string | null }>>`SELECT "isActive", "archivedAt", "publishedVersionId" FROM "Workflow" WHERE id = ${input.workflowId} FOR UPDATE`;
       if (!workflows[0]?.isActive || workflows[0].archivedAt || workflows[0].publishedVersionId !== input.workflowVersionId) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
@@ -83,7 +83,7 @@ export class ExecutionService {
   async createCronScheduledExecution(workflowVersionId: string, triggerData: Record<string, unknown>, idempotencyKey: string) {
     const version = await this.prisma.workflowVersion.findUnique({ where: { id: workflowVersionId }, include: { workflow: true } });
     if (!version) throw new NotFoundException({ code: "WORKFLOW_VERSION_NOT_FOUND", message: "Workflow version was not found." });
-    await this.assertLiveReady(version.workflow.workspaceId, parseWorkflowGraph(version.graph));
+    await this.assertLiveReady(version.workflow.workspaceId, parseStoredWorkflowGraph(version.graph));
     return this.prisma.$transaction(async (transaction) => {
       const rows = await transaction.$queryRaw<Array<{ isActive: boolean; archivedAt: Date | null; publishedVersionId: string | null }>>`SELECT "isActive", "archivedAt", "publishedVersionId" FROM "Workflow" WHERE id = ${version.workflowId} FOR UPDATE`;
       if (!rows[0]?.isActive || rows[0].archivedAt || rows[0].publishedVersionId !== workflowVersionId) throw new ConflictException({ code: "WORKFLOW_CHANGED", message: "The workflow is no longer active at this version." });
@@ -118,7 +118,7 @@ export class ExecutionService {
   private async createGuardedWebhookExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey?: string }, provider: "kuma" | "telegram" | "vercel" | "trello" | "sentry") {
     const version = await this.prisma.workflowVersion.findUnique({ where: { id: input.workflowVersionId }, include: { workflow: true } });
     if (!version || version.workflowId !== input.workflowId) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
-    await this.assertLiveReady(version.workflow.workspaceId, parseWorkflowGraph(version.graph));
+    await this.assertLiveReady(version.workflow.workspaceId, parseStoredWorkflowGraph(version.graph));
     const key = Buffer.from(process.env.APP_ENCRYPTION_KEY ?? "", "base64");
     if (key.length !== 32) throw new BadRequestException({ code: "ENCRYPTION_KEY_INVALID", message: "A valid encryption key is required for webhook delivery." });
     // Never store the incoming key or raw payload as a fingerprint. The
@@ -154,7 +154,7 @@ export class ExecutionService {
   async createGmailScheduledExecution(workflowVersionId: string, workflowId: string, nodeId: string, messageId: string, leaseToken: string, triggerData: Record<string, unknown>, idempotencyKey: string) {
     const version = await this.prisma.workflowVersion.findUnique({ where: { id: workflowVersionId }, include: { workflow: true } });
     if (!version || version.workflowId !== workflowId) throw new NotFoundException({ code: "WORKFLOW_VERSION_NOT_FOUND", message: "Workflow version was not found." });
-    await this.assertLiveReady(version.workflow.workspaceId, parseWorkflowGraph(version.graph));
+    await this.assertLiveReady(version.workflow.workspaceId, parseStoredWorkflowGraph(version.graph));
     return this.prisma.$transaction(async (transaction) => {
       const workflows = await transaction.$queryRaw<Array<{ isActive: boolean; archivedAt: Date | null; publishedVersionId: string | null }>>`SELECT "isActive", "archivedAt", "publishedVersionId" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
       if (!workflows[0]?.isActive || workflows[0].archivedAt || workflows[0].publishedVersionId !== workflowVersionId) return { execution: null, alreadyDispatched: false };
@@ -182,7 +182,7 @@ export class ExecutionService {
     });
     if (!workflow) throw new NotFoundException({ code: "WORKFLOW_NOT_FOUND", message: "Workflow was not found." });
     if (!workflow.publishedVersion) throw new BadRequestException({ code: "PUBLISHED_VERSION_REQUIRED", message: "Publish the workflow before checking live readiness." });
-    return this.evaluateLiveReadiness(workflow.workspaceId, parseWorkflowGraph(workflow.publishedVersion.graph));
+    return this.evaluateLiveReadiness(workflow.workspaceId, parseStoredWorkflowGraph(workflow.publishedVersion.graph));
   }
 
   async get(executionId: string, userId: string) {
@@ -191,7 +191,7 @@ export class ExecutionService {
       include: { workflowVersion: { include: { workflow: true } }, nodeExecutions: { orderBy: { startedAt: "asc" } } },
     });
     if (!execution) throw new NotFoundException({ code: "EXECUTION_NOT_FOUND", message: "Execution was not found." });
-    const graph = parseWorkflowGraph(execution.workflowVersion.graph);
+    const graph = parseStoredWorkflowGraph(execution.workflowVersion.graph);
     const graphOrder = new Map(graph.nodes.map((node, index) => [node.id, index]));
     const nodeType = new Map(graph.nodes.map((node) => [node.id, node.type]));
     const orderedNodes = [...execution.nodeExecutions].sort((left, right) => {
@@ -269,7 +269,7 @@ export class ExecutionService {
     });
     if (!source) throw new NotFoundException({ code: "EXECUTION_NOT_FOUND", message: "Execution was not found." });
     if (source.status !== ExecutionStatus.FAILED) throw new BadRequestException({ code: "EXECUTION_NOT_RETRYABLE", message: "Only failed executions can be retried." });
-    if (source.mode === "LIVE") await this.assertLiveReady(source.workflowVersion.workflow.workspaceId, parseWorkflowGraph(source.workflowVersion.graph));
+    if (source.mode === "LIVE") await this.assertLiveReady(source.workflowVersion.workflow.workspaceId, parseStoredWorkflowGraph(source.workflowVersion.graph));
     const data = {
       workflowVersionId: source.workflowVersionId,
       mode: source.mode,
@@ -420,7 +420,7 @@ export class ExecutionService {
     // An initial job that arrived late cannot resume an approval or any
     // previously-started execution. The atomic claim below repeats this check.
     if (initialOnly && execution.startedAt !== null) return execution;
-    const graph = parseWorkflowGraph(execution.workflowVersion.graph);
+    const graph = parseStoredWorkflowGraph(execution.workflowVersion.graph);
     if (resumeToken) {
       const stored = execution.resumeNodeIds;
       if (!Array.isArray(stored) || !stored.length || stored.some((id) => typeof id !== "string" || !graph.nodes.some((node) => node.id === id)) || new Set(stored).size !== stored.length || mode !== (execution.mode === "MOCK" ? "mock" : "live")) throw new NodeFailure("APPROVAL_CONTINUATION_INVALID", "The approval continuation requires review.", false);
@@ -550,7 +550,7 @@ export class ExecutionService {
     if (approval.status !== ApprovalRequestStatus.PENDING) throw new NotFoundException({ code: "APPROVAL_NOT_PENDING", message: "Approval request has already been resolved." });
     const waitingNode = await this.prisma.nodeExecution.findFirst({ where: { executionId: approval.executionId, status: NodeExecutionStatus.WAITING } });
     if (!waitingNode) throw new NotFoundException({ code: "APPROVAL_NODE_NOT_FOUND", message: "Execution is not waiting on an approval node." });
-    const graph = parseWorkflowGraph(approval.execution.workflowVersion.graph);
+    const graph = parseStoredWorkflowGraph(approval.execution.workflowVersion.graph);
     const nextNodeIds = decision === "approved" ? [...new Set(graph.edges.filter((edge) => edge.source === waitingNode.nodeId && edge.kind === "success").map((edge) => edge.target))] : [];
     const finalStatus = decision === "rejected" ? ExecutionStatus.FAILED : nextNodeIds.length ? ExecutionStatus.QUEUED : ExecutionStatus.SUCCEEDED;
     const resumeToken = finalStatus === ExecutionStatus.QUEUED ? randomBytes(24).toString("hex") : undefined;

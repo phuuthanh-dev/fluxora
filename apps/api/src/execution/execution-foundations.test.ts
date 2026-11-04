@@ -216,6 +216,26 @@ test("AI schema descriptions are literal while unresolved whole-schema expressio
   }
 });
 
+test("a synthetic stored canonical action v2 executes its v2 handler without changing the graph", async () => {
+  const updates: Array<Record<string, unknown>> = [];
+  const nodeUpdates: Array<Record<string, unknown>> = [];
+  const graph = { nodes: [
+    { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
+    { id: "read", type: "action.supabase.select", nodeVersion: 2, position: { x: 200, y: 0 }, config: { table: "items", limit: 5, order: [{ column: "id", direction: "asc" }], offset: 5 } },
+  ], edges: [{ id: "start", source: "manual", target: "read", kind: "success" }] };
+  const original = structuredClone(graph);
+  const execution = { id: "versioned-run", mode: "MOCK", status: ExecutionStatus.QUEUED, triggerData: {}, nodeExecutions: [], workflowVersion: { workflow: { workspaceId: "workspace" }, graph } };
+  let transactionPrisma: unknown;
+  const prisma = { execution: { findUnique: async () => execution, findUniqueOrThrow: async () => execution, updateMany: async ({ data }: { data: Record<string, unknown> }) => { updates.push(data); return { count: 1 }; } }, nodeExecution: { upsert: async () => ({}), update: async ({ data }: { data: Record<string, unknown> }) => { nodeUpdates.push(data); return {}; }, updateMany: async () => ({ count: 0 }) }, $transaction: async (operations: Promise<unknown>[] | ((tx: unknown) => Promise<unknown>)) => Array.isArray(operations) ? Promise.all(operations) : operations(transactionPrisma) };
+  transactionPrisma = { ...prisma, $queryRaw: async () => [{ status: ExecutionStatus.RUNNING, runToken: updates[0]?.runToken }] };
+  const credentials = { readForExecution: () => { throw new Error("mock accessed credentials"); } };
+  const service = new ExecutionService(prisma as never, credentials as never, { publish: () => undefined } as never);
+  await service.run(execution.id, "mock");
+  assert.equal(updates.at(-1)?.status, ExecutionStatus.SUCCEEDED);
+  assert.ok(nodeUpdates.some((update) => (update.output as { page?: { offset: number } } | undefined)?.page?.offset === 5));
+  assert.deepEqual(graph, original);
+});
+
 test("node debug executes only the selected mock node and skips downstream nodes", async () => {
   const executionUpdates: Array<Record<string, unknown>> = [];
   const nodeUpdates: Array<{ where: Record<string, unknown>; data: Record<string, unknown> }> = [];

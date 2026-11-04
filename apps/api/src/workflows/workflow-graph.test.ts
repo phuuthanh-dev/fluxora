@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { WorkflowGraph } from "@workflow/contracts";
 import { BadRequestException } from "@nestjs/common";
-import { parseWorkflowGraph, validatePublishableGraph } from "./workflow-graph";
+import { parseStoredWorkflowGraph, parseWorkflowGraph, validatePublishableGraph } from "./workflow-graph";
+import { liveCredentialRequirements } from "../execution/live-readiness";
 
 const validSwitchGraph: WorkflowGraph = {
   nodes: [
@@ -61,6 +62,22 @@ test("mixed canvas and API node versions cannot silently conflict", () => {
   assert.equal(parseWorkflowGraph({ nodes: [{ ...node, data: { ...node.data, nodeVersion: 1 } }], edges: [] }).nodes[0]?.nodeVersion, 1);
   assert.equal(parseWorkflowGraph({ nodes: [{ ...node, nodeVersion: undefined, data: { ...node.data, nodeVersion: 1 } }], edges: [] }).nodes[0]?.nodeVersion, 1);
   assert.equal(parseWorkflowGraph({ nodes: [{ ...node, data: { ...node.data, nodeVersion: undefined } }], edges: [] }).nodes[0]?.nodeVersion, 1);
+});
+
+test("stored execution reader recognizes canonical action v2 without enabling graph writes", () => {
+  for (const type of ["action.google-drive", "action.google-sheets", "action.google-chat.oauth", "action.gmail.read", "action.notion.search-pages", "action.sentry.list-issues", "action.vercel.list-deployments", "action.postgres.select", "action.supabase.select"]) {
+    const node = { id: "read", type, nodeVersion: 2, position: { x: 1, y: 2 }, config: { credentialId: "synthetic", preserved: "value" } };
+    const graph = { nodes: [node], edges: [] };
+    assert.throws(() => parseWorkflowGraph(graph), /version/i, type);
+    const stored = parseStoredWorkflowGraph(graph);
+    assert.deepEqual(stored.nodes[0], node, type);
+    const alias = parseWorkflowGraph({ nodes: [{ ...node, type: `${type}.v2`, nodeVersion: 1 }], edges: [] });
+    assert.deepEqual(liveCredentialRequirements(stored), liveCredentialRequirements(alias), type);
+    assert.deepEqual(graph.nodes[0], node, "reading must not mutate input");
+  }
+  for (const type of ["action.supabase.select.v2", "action.notion.create-page", "trigger.uptime-kuma.alert"]) {
+    assert.throws(() => parseStoredWorkflowGraph({ nodes: [{ id: "node", type, nodeVersion: 2, position: { x: 0, y: 0 }, config: {} }], edges: [] }), /version/i, type);
+  }
 });
 
 test("RSS drafts allow incomplete URLs without DNS but reject identifiable secrets", () => {
