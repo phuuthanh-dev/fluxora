@@ -1,10 +1,12 @@
 # NX first production cutover: decision and rehearsal plan
 
-Status: **not executable yet; production release is NO-GO**. This document
-describes the missing work, not permission to bypass the release guards. The
-owner accepts a short maintenance window, not lost workflows, credentials or
-unreconciled provider effects. Keep the existing production instance serving
-traffic until the gates below have been met.
+This records the original evidence and safety boundaries. After the owner
+accepted a short interruption and chose to defer backup for the first cutover,
+a narrowly scoped one-time path was implemented locally and rehearsed with
+synthetic data. It still needs the final quality gate and CI on its exact
+commit; see the [current cutover plan](42-ke-hoach-chuyen-production-nx.md).
+The original guard remains the default for deployments without the explicit
+first-cutover configuration.
 
 ## Observed starting point
 

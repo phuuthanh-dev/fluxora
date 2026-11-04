@@ -8,8 +8,9 @@ import pg from "pg";
 
 const root = resolve(import.meta.dirname, "..");
 const sha = "0123456789abcdef0123456789abcdef01234567";
+const legacyId = `sha256:${"a".repeat(64)}`;
 
-function exercise({ target = "nx-v1", fleet = "nx-v1", apiLabel = fleet, workerLabel = fleet, targetDrain = "v1", fleetDrain = "v1", containerState = "running", apiState = containerState, workerState = containerState, fleetIds = "api-1 worker-1", runningApis = "api-1", runningWorkers = "worker-1", fail = "", restartFailure = "", legacyPending = "clear", afterDrain = legacyPending, runningState = "clear", dbRunning = true, useDefaultImages = false, retagged = false, staged = false, composeMismatch = false, missingRequired = false } = {}) {
+function exercise({ target = "nx-v1", fleet = "nx-v1", apiLabel = fleet, workerLabel = fleet, targetDrain = "v1", fleetDrain = "v1", containerState = "running", apiState = containerState, workerState = containerState, fleetIds = "api-1 worker-1", runningApis = "api-1", runningWorkers = "worker-1", fail = "", restartFailure = "", legacyPending = "clear", afterDrain = legacyPending, runningState = "clear", dbRunning = true, useDefaultImages = false, retagged = false, staged = false, composeMismatch = false, missingRequired = false, cutoverId = "", actualLegacyId = "", schemaState = "legacy", idleState = "clear", idleAfter = idleState, queueState = "0", queueAfter = queueState, skipBackup = "", legacyExit = "exited 143 false" } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "fluxora-deploy-test-"));
   try {
     const scripts = join(dir, "infra/scripts");
@@ -52,13 +53,15 @@ case "$*" in
   *'ps -q worker'*) if [ -f "$REPLACED_FILE" ]; then [ "$FAIL_AT" = worker-missing ] || printf '%s\n' worker-1; else printf '%s\n' "$RUNNING_WORKERS"; fi ;;
   *'stop --timeout -1 api'*) [ "$FAIL_AT" = api-stop ] && exit 1 ;;
   *'stop --timeout -1 worker'*) [ "$FAIL_AT" = stop ] && exit 1; touch "$DRAINED_FILE" ;;
+  'exec api-'*' node -e '*|'exec worker-'*' node -e '*) [ "$FAIL_AT" = legacy-env ] && exit 1 ;;
   'start '*) [ "$RESTART_FAILURE" = start ] && exit 1; touch "$RESTARTED_FILE" ;;
   *'up -d --wait db redis'*) [ "$FAIL_AT" = dependencies ] && exit 1 ;;
-  *'exec -T db'*) case "$*" in *"status = 'RUNNING'"*) [ "$FAIL_AT" = running-query ] && exit 1; printf '%s\n' "$RUNNING_STATE" ;; *) [ "$FAIL_AT" = legacy-query ] && exit 1; if [ -f "$DRAINED_FILE" ]; then printf '%s\n' "$AFTER_DRAIN"; else printf '%s\n' "$LEGACY_PENDING"; fi ;; esac ;;
+  *'exec -T db'*) case "$*" in *'finished_at IS NULL'*) printf '%s\n' "$SCHEMA_STATE" ;; *'ApprovalRequest'*) if [ -f "$DRAINED_FILE" ]; then printf '%s\n' "$IDLE_AFTER"; else printf '%s\n' "$IDLE_STATE"; fi ;; *"status = 'RUNNING'"*) [ "$FAIL_AT" = running-query ] && exit 1; printf '%s\n' "$RUNNING_STATE" ;; *) [ "$FAIL_AT" = legacy-query ] && exit 1; if [ -f "$DRAINED_FILE" ]; then printf '%s\n' "$AFTER_DRAIN"; else printf '%s\n' "$LEGACY_PENDING"; fi ;; esac ;;
+  *'exec -T redis'*) if [ -f "$DRAINED_FILE" ]; then printf '%s\n' "$QUEUE_AFTER"; else printf '%s\n' "$QUEUE_STATE"; fi ;;
   *'up -d api worker web'*) [ "$FAIL_AT" = migrate ] && exit 1; touch "$REPLACED_FILE" ;;
   'inspect --format {{.State.Status}} {{.State.ExitCode}} {{.State.OOMKilled}} '*)
     for last do :; done
-    case "$last:$FAIL_AT" in api-*:api-inspect) exit 1 ;; api-*:api-error) printf '%s\n' 'exited 1 false'; exit 0 ;; api-*:api-oom) printf '%s\n' 'exited 0 true'; exit 0 ;; api-*:*) printf '%s\n' 'exited 0 false'; exit 0 ;; esac
+    case "$last:$FAIL_AT" in api-*:api-inspect) exit 1 ;; api-*:api-error) printf '%s\n' 'exited 1 false'; exit 0 ;; api-*:api-oom) printf '%s\n' 'exited 0 true'; exit 0 ;; api-*:*) if [ -n "$ACTUAL_LEGACY_ID" ]; then printf '%s\n' "$LEGACY_EXIT"; else printf '%s\n' 'exited 0 false'; fi; exit 0 ;; esac
     [ "$FAIL_AT" = drain-inspect ] && exit 1
     case "$FAIL_AT" in drain-error) printf '%s\n' 'exited 1 false' ;; drain-oom) printf '%s\n' 'exited 0 true' ;; *) printf '%s\n' 'exited 0 false' ;; esac ;;
   'inspect --format {{.State.Status}} '*)
@@ -71,7 +74,7 @@ case "$*" in
     if [ -f "$REPLACED_FILE" ]; then printf '%s:%s\n' "$API_IMAGE" "$IMAGE_TAG"; elif [ "$RETAGGED" = 1 ]; then printf '%s\n' "$last-retagged"; else printf '%s\n' "$last-image"; fi ;;
   'inspect --format {{.Image}} '*)
     [ "$FAIL_AT" = image ] && exit 1; for last do :; done
-    if [ -f "$REPLACED_FILE" ]; then case "$last:$FAIL_AT" in api-*:api-image-id|worker-*:worker-image-id) printf '%s\n' stale-image-id ;; *) printf '%s\n' target-image-id ;; esac; else printf '%s\n' "$last-image"; fi ;;
+    if [ -f "$REPLACED_FILE" ]; then case "$last:$FAIL_AT" in api-*:api-image-id|worker-*:worker-image-id) printf '%s\n' stale-image-id ;; *) printf '%s\n' target-image-id ;; esac; elif [ -n "$ACTUAL_LEGACY_ID" ]; then printf '%s\n' "$ACTUAL_LEGACY_ID"; else printf '%s\n' "$last-image"; fi ;;
   'image inspect --format {{.Id}} '*)
     [ "$FAIL_AT" = target-image-id ] && exit 1; printf '%s\n' target-image-id ;;
   *'image inspect --format {{ index .Config.Labels "io.fluxora.graceful-drain" }}'*)
@@ -80,6 +83,7 @@ case "$*" in
   'image inspect '*)
     for last do :; done
     case "$last" in
+      sha256:*) printf '%s\n' "$API_LABEL" ;;
       api-1-image) [ "$FAIL_AT" = old-label ] && exit 1; printf '%s\n' "$API_LABEL" ;;
       worker-1-image) [ "$FAIL_AT" = old-label ] && exit 1; printf '%s\n' "$WORKER_LABEL" ;;
       *-retagged) printf '%s\n' nx-v1 ;;
@@ -93,7 +97,7 @@ exit 0
     chmodSync(join(bin, "mv"), 0o755);
     const result = spawnSync("sh", [join(root, "infra/scripts/deploy.sh")], {
       encoding: "utf8",
-      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, APP_DIR: dir, RELEASE_BUNDLE: staged ? bundle : dir, ENV_FILE: envFile, IMAGE_TAG: sha, API_IMAGE: useDefaultImages ? "" : "synthetic-api", WEB_IMAGE: useDefaultImages ? "" : "synthetic-web", EXPECTED_API_IMAGE: useDefaultImages ? "ghcr.io/phuuthanh-dev/workflow-automation-api" : "synthetic-api", EXPECTED_WEB_IMAGE: useDefaultImages ? "ghcr.io/phuuthanh-dev/workflow-automation-web" : "synthetic-web", EXPECTED_TAG: sha, CALL_LOG: log, DRAINED_FILE: join(dir, "drained"), REPLACED_FILE: join(dir, "replaced"), RESTARTED_FILE: join(dir, "restarted"), TARGET_LABEL: target, API_LABEL: apiLabel, WORKER_LABEL: workerLabel, TARGET_DRAIN: targetDrain, FLEET_DRAIN: fleetDrain, API_STATE: apiState, WORKER_STATE: workerState, FLEET_IDS: fleetIds, RUNNING_APIS: runningApis, RUNNING_WORKERS: runningWorkers, FAIL_AT: fail, RESTART_FAILURE: restartFailure, LEGACY_PENDING: legacyPending, AFTER_DRAIN: afterDrain, RUNNING_STATE: runningState, DB_RUNNING: dbRunning ? "1" : "0", RETAGGED: retagged ? "1" : "0" },
+      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, APP_DIR: dir, RELEASE_BUNDLE: staged ? bundle : dir, ENV_FILE: envFile, IMAGE_TAG: sha, API_IMAGE: useDefaultImages ? "" : "synthetic-api", WEB_IMAGE: useDefaultImages ? "" : "synthetic-web", EXPECTED_API_IMAGE: useDefaultImages ? "ghcr.io/phuuthanh-dev/workflow-automation-api" : "synthetic-api", EXPECTED_WEB_IMAGE: useDefaultImages ? "ghcr.io/phuuthanh-dev/workflow-automation-web" : "synthetic-web", EXPECTED_TAG: sha, CALL_LOG: log, DRAINED_FILE: join(dir, "drained"), REPLACED_FILE: join(dir, "replaced"), RESTARTED_FILE: join(dir, "restarted"), TARGET_LABEL: target, API_LABEL: apiLabel, WORKER_LABEL: workerLabel, TARGET_DRAIN: targetDrain, FLEET_DRAIN: fleetDrain, API_STATE: apiState, WORKER_STATE: workerState, FLEET_IDS: fleetIds, RUNNING_APIS: runningApis, RUNNING_WORKERS: runningWorkers, FAIL_AT: fail, RESTART_FAILURE: restartFailure, LEGACY_PENDING: legacyPending, AFTER_DRAIN: afterDrain, RUNNING_STATE: runningState, DB_RUNNING: dbRunning ? "1" : "0", RETAGGED: retagged ? "1" : "0", FLUXORA_LEGACY_CUTOVER_IMAGE_ID: cutoverId, FLUXORA_SKIP_LEGACY_BACKUP: skipBackup, ACTUAL_LEGACY_ID: actualLegacyId, SCHEMA_STATE: schemaState, IDLE_STATE: idleState, IDLE_AFTER: idleAfter, QUEUE_STATE: queueState, QUEUE_AFTER: queueAfter, LEGACY_EXIT: legacyExit },
     });
     const backups = join(dir, ".release-tooling-backups");
     const backupEntries = existsSync(backups) ? readdirSync(backups) : [];
@@ -108,6 +112,9 @@ test("production workflow stages a unique bundle and executes from it", () => {
   assert.match(workflow, /target: "\/opt\/workflow-automation\/\.incoming\/\$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}"/);
   assert.match(workflow, /RELEASE_BUNDLE=.*sh "\$RELEASE_BUNDLE\/infra\/scripts\/deploy\.sh"/);
   assert.doesNotMatch(workflow, /target: "\/opt\/workflow-automation"/);
+  assert.match(workflow, /vars\.FLUXORA_LEGACY_CUTOVER_IMAGE_ID/);
+  assert.match(workflow, /vars\.FLUXORA_SKIP_LEGACY_BACKUP/);
+  assert.match(workflow, /envs:.*FLUXORA_LEGACY_CUTOVER_IMAGE_ID.*FLUXORA_SKIP_LEGACY_BACKUP/);
 });
 
 test("staged release preserves active scripts when compatibility or Compose checks fail", () => {
@@ -163,6 +170,44 @@ test("deploy refuses an incompatible API or worker even when it is stopped", () 
     assert.match(result.stderr, /incompatible API or worker/);
     assert.doesNotMatch(calls, /backup-postgres|up -d api worker web/);
     assert.equal(lockStillPresent, false);
+  }
+});
+
+test("an explicitly selected idle legacy fleet can transition without backup once", () => {
+  const { result, calls, lockStillPresent } = exercise({ fleet: "<no value>", cutoverId: legacyId, actualLegacyId: legacyId, skipBackup: "1", staged: true });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(lockStillPresent, false);
+  assert.match(result.stdout, /backup explicitly skipped/);
+  assert.doesNotMatch(calls, /backup-postgres\.sh/);
+  assert.ok(calls.indexOf("stop --timeout -1 api") < calls.indexOf("stop --timeout -1 worker"));
+  assert.ok(calls.indexOf("stop --timeout -1 worker") < calls.indexOf("up -d api worker web"));
+});
+
+test("legacy allowance refuses an unexpected fleet, schema or pending work before stopping services", () => {
+  const legacy = { fleet: "<no value>", cutoverId: legacyId, actualLegacyId: legacyId, skipBackup: "1" };
+  for (const change of [{ cutoverId: "sha256:bad" }, { actualLegacyId: `sha256:${"b".repeat(64)}` }, { fleetIds: "api-1 api-2 worker-1" }, { workerState: "exited" }, { runningApis: "" }, { fail: "legacy-env" }, { schemaState: "unsafe" }, { idleState: "busy" }, { queueState: "1" }, { queueState: "error" }]) {
+    const { result, calls, lockStillPresent } = exercise({ ...legacy, ...change });
+    assert.notEqual(result.status, 0);
+    assert.doesNotMatch(calls, /stop --timeout|up -d api worker web/);
+    assert.equal(lockStillPresent, false);
+  }
+});
+
+test("new legacy work or an uncertain stop after maintenance retains the lock before migration", () => {
+  const legacy = { fleet: "<no value>", cutoverId: legacyId, actualLegacyId: legacyId, skipBackup: "1" };
+  for (const change of [{ idleAfter: "busy" }, { queueAfter: "1" }, { legacyExit: "exited 137 false" }, { runningWorkers: "" }, { fail: "stop" }]) {
+    const { result, calls, lockStillPresent } = exercise({ ...legacy, ...change });
+    assert.notEqual(result.status, 0);
+    assert.equal(lockStillPresent, true);
+    assert.doesNotMatch(calls, /backup-postgres\.sh|up -d api worker web/);
+  }
+});
+
+test("backup remains required for normal NX upgrades and legacy upgrades without an explicit skip", () => {
+  for (const options of [{ cutoverId: legacyId, skipBackup: "1" }, { fleet: "<no value>", cutoverId: legacyId, actualLegacyId: legacyId }]) {
+    const { result, calls } = exercise(options);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(calls, /backup-postgres\.sh/);
   }
 });
 
@@ -286,10 +331,16 @@ test("legacy continuation query handles schemas before and after the NX migratio
   const source = readFileSync(join(root, "infra/scripts/release-lock.sh"), "utf8");
   const expression = source.match(/^\s*legacy_pending_sql="(.*)"$/m)?.[1];
   const runningExpression = source.match(/^\s*running_execution_sql="(.*)"$/m)?.[1];
+  const idleExpression = source.match(/^\s*legacy_idle_sql="(.*)"$/m)?.[1];
+  const schemaExpression = source.match(/^\s*legacy_schema_sql="(.*)"$/m)?.[1];
   assert.ok(expression);
   assert.ok(runningExpression);
+  assert.ok(idleExpression);
+  assert.ok(schemaExpression);
   const sql = expression.replaceAll('\\"', '"');
   const runningSql = runningExpression.replaceAll('\\"', '"');
+  const idleSql = idleExpression.replaceAll('\\"', '"');
+  const schemaSql = schemaExpression.replaceAll('\\"', '"');
   const client = new pg.Client({ connectionString: url.toString() });
   await client.connect();
   try {
@@ -309,6 +360,19 @@ test("legacy continuation query handles schemas before and after the NX migratio
     assert.equal((await client.query(sql)).rows[0].case, "ambiguous");
     await client.query('UPDATE "Execution" SET "resumeToken" = NULL');
     assert.equal((await client.query(sql)).rows[0].case, "ambiguous");
+    await client.query('CREATE TEMP TABLE "ApprovalRequest" (status text) ON COMMIT DROP');
+    assert.equal((await client.query(idleSql)).rows[0].case, "busy");
+    await client.query('DELETE FROM "Execution"');
+    assert.equal((await client.query(idleSql)).rows[0].case, "clear");
+    await client.query('INSERT INTO "ApprovalRequest" VALUES ($1)', ["PENDING"]);
+    assert.equal((await client.query(idleSql)).rows[0].case, "busy");
+    await client.query('CREATE TEMP TABLE "_prisma_migrations" (migration_name text, finished_at timestamptz, rolled_back_at timestamptz) ON COMMIT DROP');
+    assert.equal((await client.query(schemaSql)).rows[0].case, "legacy");
+    await client.query('INSERT INTO "_prisma_migrations" VALUES ($1, now(), NULL)', ["20261103150000_execution_run_token"]);
+    assert.equal((await client.query(schemaSql)).rows[0].case, "unsafe");
+    await client.query('DELETE FROM "_prisma_migrations"');
+    await client.query('INSERT INTO "_prisma_migrations" VALUES ($1, NULL, NULL)', ["unrelated_failed_migration"]);
+    assert.equal((await client.query(schemaSql)).rows[0].case, "unsafe");
   } finally { await client.query("ROLLBACK"); await client.end(); }
 });
 

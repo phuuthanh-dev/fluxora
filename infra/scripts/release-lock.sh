@@ -54,6 +54,54 @@ require_compatible_fleet() {
   done
 }
 
+# The owner may explicitly authorize one first transition from a specific
+# immutable legacy image. The check is intentionally narrow: one running API
+# and one running worker, both from that exact image, with the default local
+# Redis queue. Unrecognized topology must use a separately reviewed procedure.
+require_legacy_first_cutover_fleet() {
+  legacy_image_id="${FLUXORA_LEGACY_CUTOVER_IMAGE_ID:-}"
+  case "$legacy_image_id" in sha256:*) legacy_hash="${legacy_image_id#sha256:}" ;; *) printf '%s\n' "A full legacy image ID is required." >&2; return 1 ;; esac
+  case "$legacy_hash" in *[!0-9a-f]*|'') printf '%s\n' "Invalid legacy image ID." >&2; return 1 ;; esac
+  if [ "${#legacy_hash}" -ne 64 ]; then printf '%s\n' "Invalid legacy image ID." >&2; return 1; fi
+  for legacy_service in api worker; do
+    legacy_ids="$(docker compose --env-file "$env_file" -f "$compose_file" ps -aq "$legacy_service")" || return 1
+    set -- $legacy_ids
+    if [ "$#" -ne 1 ]; then printf '%s\n' "First cutover requires exactly one API and one worker." >&2; return 1; fi
+    legacy_id="$1"
+    case "$legacy_service" in api) legacy_api_id="$legacy_id" ;; worker) legacy_worker_id="$legacy_id" ;; esac
+    legacy_actual="$(docker inspect --format '{{.Image}}' "$legacy_id")" || return 1
+    legacy_status="$(docker inspect --format '{{.State.Status}}' "$legacy_id")" || return 1
+    if [ "$legacy_actual" != "$legacy_image_id" ] || [ "$legacy_status" != running ]; then
+      printf '%s\n' "Legacy fleet image or state changed; cutover was not started." >&2; return 1
+    fi
+    # Emit no connection string, token or environment value.
+    if ! docker exec "$legacy_id" node -e 'try { const u = new URL(process.env.REDIS_URL || ""); if (process.env.EXECUTION_QUEUE_MODE !== "redis" || (process.env.EXECUTION_QUEUE_NAME || "workflow-executions") !== "workflow-executions" || u.protocol !== "redis:" || u.hostname !== "redis" || (u.port && u.port !== "6379") || !["", "/", "/0"].includes(u.pathname) || u.username || u.password || u.search || u.hash) process.exit(1); } catch { process.exit(1); }'; then
+      printf '%s\n' "First cutover requires the expected local Redis queue configuration." >&2; return 1
+    fi
+  done
+}
+
+require_legacy_database() {
+  legacy_schema_sql="SELECT CASE WHEN EXISTS (SELECT 1 FROM \"_prisma_migrations\" WHERE migration_name IN ('20261103120000_kuma_delivery_digest', '20261103130000_rss_trigger_checkpoint', '20261103140000_approval_continuation', '20261103150000_execution_run_token') OR (finished_at IS NULL AND rolled_back_at IS NULL)) THEN 'unsafe' ELSE 'legacy' END"
+  legacy_schema_state="$(docker compose --env-file "$env_file" -f "$compose_file" exec -T db sh -c 'exec psql -X -qAt -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -c "$1"' sh "$legacy_schema_sql")" || return 1
+  if [ "$legacy_schema_state" != legacy ]; then printf '%s\n' "Database is not a verified legacy schema; first cutover stopped." >&2; return 1; fi
+}
+
+require_legacy_quiescent() {
+  legacy_idle_sql="SELECT CASE WHEN EXISTS (SELECT 1 FROM \"Execution\" WHERE status IN ('QUEUED', 'RUNNING', 'WAITING_APPROVAL')) OR EXISTS (SELECT 1 FROM \"ApprovalRequest\" WHERE status = 'PENDING') THEN 'busy' ELSE 'clear' END"
+  legacy_idle_state="$(docker compose --env-file "$env_file" -f "$compose_file" exec -T db sh -c 'exec psql -X -qAt -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -c "$1"' sh "$legacy_idle_sql")" || return 1
+  if [ "$legacy_idle_state" != clear ]; then printf '%s\n' "Legacy executions or approvals require review before cutover." >&2; return 1; fi
+  legacy_queue_state="$(docker compose --env-file "$env_file" -f "$compose_file" exec -T redis redis-cli --raw EVAL 'return redis.call("LLEN",KEYS[1])+redis.call("LLEN",KEYS[2])+redis.call("LLEN",KEYS[3])+redis.call("ZCARD",KEYS[4])+redis.call("ZCARD",KEYS[5])+redis.call("ZCARD",KEYS[6])+redis.call("ZCARD",KEYS[7])' 7 bull:workflow-executions:wait bull:workflow-executions:active bull:workflow-executions:paused bull:workflow-executions:delayed bull:workflow-executions:prioritized bull:workflow-executions:waiting-children bull:workflow-executions:repeat)" || return 1
+  if [ "$legacy_queue_state" != 0 ]; then printf '%s\n' "Legacy queue has pending or uninspectable work; cutover stopped." >&2; return 1; fi
+}
+
+require_legacy_api_exit() {
+  for stopped_api_id in $1; do
+    stopped_api_state="$(docker inspect --format '{{.State.Status}} {{.State.ExitCode}} {{.State.OOMKilled}}' "$stopped_api_id")" || return 1
+    case "$stopped_api_state" in 'exited 0 false'|'exited 143 false') ;; *) printf '%s\n' "Legacy API stop is uncertain; release remains locked." >&2; return 1 ;; esac
+  done
+}
+
 # Docker stop may succeed even when the process exits with an error. Check the
 # same containers observed before stopping; uncertain outcomes keep the lock.
 require_clean_worker_exit() {

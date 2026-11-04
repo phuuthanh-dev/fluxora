@@ -167,11 +167,13 @@ jobs:
           RELEASE_BUNDLE: /opt/workflow-automation/.incoming/${{ github.run_id }}-${{ github.run_attempt }}
           GHCR_PULL_USERNAME: ${{ secrets.GHCR_PULL_USERNAME }}
           GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+          FLUXORA_LEGACY_CUTOVER_IMAGE_ID: ${{ vars.FLUXORA_LEGACY_CUTOVER_IMAGE_ID }}
+          FLUXORA_SKIP_LEGACY_BACKUP: ${{ vars.FLUXORA_SKIP_LEGACY_BACKUP }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: IMAGE_TAG,RELEASE_BUNDLE,GHCR_PULL_USERNAME,GHCR_PULL_TOKEN
+          envs: IMAGE_TAG,RELEASE_BUNDLE,GHCR_PULL_USERNAME,GHCR_PULL_TOKEN,FLUXORA_LEGACY_CUTOVER_IMAGE_ID,FLUXORA_SKIP_LEGACY_BACKUP
           script: |
             set -eu
             if [ -n "${GHCR_PULL_TOKEN:-}" ]; then

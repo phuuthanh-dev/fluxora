@@ -14,6 +14,7 @@ web_image="${WEB_IMAGE:-ghcr.io/phuuthanh-dev/workflow-automation-web}"
 export API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag"
 previous_api_image_tag=""
 previous_web_image_tag=""
+first_legacy_cutover=0
 
 if [ ! -f "$env_file" ]; then
   printf '%s\n' "Missing production env file: $env_file" >&2
@@ -74,7 +75,20 @@ target_drain="$(docker image inspect --format '{{ index .Config.Labels "io.fluxo
 if [ "$target_drain" != v1 ]; then
   printf '%s\n' "Target API image lacks the required graceful drain contract." >&2; exit 1
 fi
-require_compatible_fleet
+if [ -n "${FLUXORA_LEGACY_CUTOVER_IMAGE_ID:-}" ]; then
+  # A configured first-cutover allowance does not weaken normal NX upgrades.
+  if require_compatible_fleet 2>/dev/null; then
+    first_legacy_cutover=0
+  else
+    require_legacy_first_cutover_fleet
+    require_legacy_database
+    require_legacy_quiescent
+    first_legacy_cutover=1
+    printf '%s\n' "First legacy cutover authorized; API requests may be interrupted."
+  fi
+else
+  require_compatible_fleet
+fi
 
 # Inspect before stopping workers when the existing database is already up.
 # A second check after the drain closes the window in which a new ambiguous
@@ -141,14 +155,22 @@ fi
 # The compatible API gates requests, stops timers and waits for in-flight work.
 # Stop it before the worker so no scheduler or request can enqueue new jobs
 # while the worker is draining or while the schema is being migrated.
+if [ "$first_legacy_cutover" = 1 ]; then require_legacy_first_cutover_fleet; fi
 stopping_api_ids="$(docker compose --env-file "$env_file" -f "$compose_file" ps -q api)" || {
   printf '%s\n' "Cannot list current API containers; deployment was not started." >&2; exit 1
 }
+if [ "$first_legacy_cutover" = 1 ] && [ "$stopping_api_ids" != "$legacy_api_id" ]; then
+  printf '%s\n' "Legacy API changed before stop; deployment was not started." >&2; exit 1
+fi
 retain_release_lock
 if ! docker compose --env-file "$env_file" -f "$compose_file" stop --timeout -1 api; then
   printf '%s\n' "API drain outcome is uncertain; migration was not started. Inspect the API and retained lock." >&2; exit 1
 fi
-require_clean_api_exit "$stopping_api_ids"
+if [ "$first_legacy_cutover" = 1 ]; then
+  require_legacy_api_exit "$stopping_api_ids"
+else
+  require_clean_api_exit "$stopping_api_ids"
+fi
 
 # The worker handles SIGTERM by closing BullMQ and waiting for active jobs.
 # Do not use Compose's default finite stop timeout, which can SIGKILL a job
@@ -183,6 +205,9 @@ stopping_worker_ids="$(API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="
   docker compose --env-file "$env_file" -f "$compose_file" ps -q worker)" || {
   printf '%s\n' "Cannot list current workers; deployment was not started." >&2; exit 1
 }
+if [ "$first_legacy_cutover" = 1 ] && [ "$stopping_worker_ids" != "$legacy_worker_id" ]; then
+  printf '%s\n' "Legacy worker changed before stop; inspect the retained lock." >&2; exit 1
+fi
 retain_release_lock
 if ! docker compose --env-file "$env_file" -f "$compose_file" stop --timeout -1 worker; then
   # A failed/disconnected client cannot prove whether the daemon is still
@@ -200,10 +225,18 @@ fi
 retain_release_lock
 require_unambiguous_continuations
 require_no_running_executions
-if ! APP_DIR="$app_dir" ENV_FILE="$env_file" sh "$scripts_dir/backup-postgres.sh"; then
-  printf '%s\n' "Backup failed; migration was not started." >&2
-  restore_stopped_worker
-  exit 1
+if [ "$first_legacy_cutover" = 1 ]; then
+  require_legacy_database
+  require_legacy_quiescent
+fi
+if [ "$first_legacy_cutover" = 1 ] && [ "${FLUXORA_SKIP_LEGACY_BACKUP:-}" = 1 ]; then
+  printf '%s\n' "First legacy cutover: backup explicitly skipped; database recovery is not assured."
+else
+  if ! APP_DIR="$app_dir" ENV_FILE="$env_file" sh "$scripts_dir/backup-postgres.sh"; then
+    printf '%s\n' "Backup failed; migration was not started." >&2
+    restore_stopped_worker
+    exit 1
+  fi
 fi
 # Once migration starts the schema may be partially changed. Do not
 # automatically restart a previous image; use the compatibility-aware runbook.

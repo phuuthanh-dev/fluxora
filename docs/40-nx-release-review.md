@@ -6,6 +6,15 @@ line-by-line audit of every change. Recheck the base and head before using it
 for a release decision. The later isolated restore observation and CI result
 are local documentation added after that PR head.
 
+Update 2026-11-04: after the owner accepted brief interruption and deferred
+backup for the first transition, the local draft added an explicitly enabled
+legacy path restricted to a specified image and idle database/queue. Without
+that configuration the original fleet guard remains in effect; subsequent NX
+deploys still require backup. A synthetic Docker cutover passed with the exact
+old image and an overlaid NX test image, not the final GitHub-built image.
+The changed scripts still need the full quality gate and CI on the final head.
+The rest of this document preserves the original evidence and its limits.
+
 The runtime guard at `388ac7b` rejects unsupported versions before adapter
 selection and credential access, but does not implement multiple versions of
 one node type. Mixed OpenAI refusal handling changes plain-text execution
@@ -292,6 +301,7 @@ verification of the local draft passed as recorded at the top of this file.
 - Review the exact PR head and CI before any merge; rerun the quality gate if
   additional implementation changes follow the local verification above.
 
-The release decision remains **NO-GO**. No production data or services are
-changed by this review. The concrete first-cutover gates and required rehearsal
-are tracked in [the first-cutover plan](41-nx-first-cutover-plan.md).
+At the time of this review the release decision was **NO-GO**. The owner has
+since accepted a brief interruption and the one-time backup exception; the
+current cutover plan and verification status are tracked in
+[the current plan](42-ke-hoach-chuyen-production-nx.md).
