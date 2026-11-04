@@ -179,7 +179,7 @@ test("an explicitly selected idle legacy fleet can transition without backup onc
   assert.equal(lockStillPresent, false);
   assert.match(result.stdout, /backup explicitly skipped/);
   assert.doesNotMatch(calls, /backup-postgres\.sh/);
-  assert.ok(calls.indexOf("stop --timeout -1 api") < calls.indexOf("stop --timeout -1 worker"));
+  assert.ok(calls.indexOf("stop --timeout 20 api") < calls.indexOf("stop --timeout -1 worker"));
   assert.ok(calls.indexOf("stop --timeout -1 worker") < calls.indexOf("up -d api worker web"));
 });
 
@@ -195,12 +195,22 @@ test("legacy allowance refuses an unexpected fleet, schema or pending work befor
 
 test("new legacy work or an uncertain stop after maintenance retains the lock before migration", () => {
   const legacy = { fleet: "<no value>", cutoverId: legacyId, actualLegacyId: legacyId, skipBackup: "1" };
-  for (const change of [{ idleAfter: "busy" }, { queueAfter: "1" }, { legacyExit: "exited 137 false" }, { runningWorkers: "" }, { fail: "stop" }]) {
+  for (const change of [{ idleAfter: "busy" }, { queueAfter: "1" }, { legacyExit: "exited 137 true" }, { legacyExit: "exited 1 false" }, { runningWorkers: "" }, { fail: "stop" }]) {
     const { result, calls, lockStillPresent } = exercise({ ...legacy, ...change });
     assert.notEqual(result.status, 0);
     assert.equal(lockStillPresent, true);
     assert.doesNotMatch(calls, /backup-postgres\.sh|up -d api worker web/);
   }
+});
+
+test("a bounded legacy API stop accepts forced termination without weakening NX drain", () => {
+  const legacy = exercise({ fleet: "<no value>", cutoverId: legacyId, actualLegacyId: legacyId, skipBackup: "1", legacyExit: "exited 137 false" });
+  assert.equal(legacy.result.status, 0, legacy.result.stderr);
+  assert.match(legacy.calls, /stop --timeout 20 api/);
+  const normal = exercise();
+  assert.equal(normal.result.status, 0, normal.result.stderr);
+  assert.match(normal.calls, /stop --timeout -1 api/);
+  assert.doesNotMatch(normal.calls, /stop --timeout 20 api/);
 });
 
 test("backup remains required for normal NX upgrades and legacy upgrades without an explicit skip", () => {

@@ -163,7 +163,12 @@ if [ "$first_legacy_cutover" = 1 ] && [ "$stopping_api_ids" != "$legacy_api_id" 
   printf '%s\n' "Legacy API changed before stop; deployment was not started." >&2; exit 1
 fi
 retain_release_lock
-if ! docker compose --env-file "$env_file" -f "$compose_file" stop --timeout -1 api; then
+# Legacy APIs can keep timers alive indefinitely after SIGTERM. The owner
+# explicitly accepted interrupted API requests for this one-time cutover.
+# Keep the unbounded graceful drain for compatible NX APIs.
+api_stop_timeout=-1
+if [ "$first_legacy_cutover" = 1 ]; then api_stop_timeout=20; fi
+if ! docker compose --env-file "$env_file" -f "$compose_file" stop --timeout "$api_stop_timeout" api; then
   printf '%s\n' "API drain outcome is uncertain; migration was not started. Inspect the API and retained lock." >&2; exit 1
 fi
 if [ "$first_legacy_cutover" = 1 ]; then
