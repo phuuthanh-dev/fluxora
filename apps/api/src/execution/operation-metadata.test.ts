@@ -85,7 +85,7 @@ test("Notion search exposes an input cursor and the advertised output fields", a
 test("relational offset metadata matches v2 outputs without claiming a next page", async () => {
   for (const [type, selection, preserve] of [
     ["action.postgres.select.v2", { schema: "public", orderBy: "id", orderDirection: "asc" }, ["credentialId", "schema", "table", "limit", "columns", "conditions", "orderBy", "orderDirection"]],
-    ["action.supabase.select.v2", { order: [{ column: "id", direction: "asc" }] }, ["credentialId", "table", "limit", "columns", "filters", "order"]],
+    ["action.supabase.select.v2", { order: [{ column: "id", direction: "asc" }] }, ["credentialId", "table", "limit", "columns", "filters", "order", "rejectUnsafeNumbers"]],
   ] as const) {
     const metadata = getOperationMetadata(type);
     assert.ok(metadata && metadata.pagination.kind === "offset");
