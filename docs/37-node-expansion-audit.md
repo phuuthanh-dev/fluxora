@@ -1,5 +1,33 @@
 # Audit khả năng mở rộng node — Fluxora và n8n
 
+## Trạng thái phát hành mới nhất — 05/11/2026
+
+PR [#83](https://github.com/phuuthanh-dev/fluxora/pull/83) đã merge vào
+`main` tại `3128cc661320ad38eff43f759c71ffbad5010346`. Quality gate của
+[commit merge](https://github.com/phuuthanh-dev/fluxora/actions/runs/41913745808)
+và [deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/41915564897)
+đều thành công. Sau deploy, landing, login và API health trả HTTP 200; đây chỉ
+là smoke check, không chứng minh workflow hoặc từng provider hoạt động thật.
+Full `npm run verify` cục bộ cho commit `386a1db` có cùng source tree với PR
+head: 968 test API, 76 test web và 213 Playwright, dùng database/Redis riêng,
+dữ liệu giả và scheduler tắt. CI xác minh lại trên Node 22.
+
+Các bảng và ghi chú bên dưới là **snapshot lịch sử**, trừ khi nêu rõ thời điểm
+khác. Dùng trạng thái sau để xác định công việc còn lại, tránh triển khai lại
+những operation đã có:
+
+| Mục | Đã có trong bản phát hành | Chưa chứng minh hoặc chưa thực hiện |
+|---|---|---|
+| NX-02 | Executor registry, mô tả output/pagination, trường cấu hình dùng chung và hướng dẫn trang tiếp; giữ type cũ và `.v2`. Đã bỏ reader thử nghiệm numeric `nodeVersion: 2`. | Metadata mô tả không phải runtime schema; chưa có bằng chứng đầy đủ mock hợp lệ và redaction theo từng operation. Phân trang vẫn cần người dùng chủ động lấy trang tiếp. |
+| NX-03 | Bộ chọn/lọc dữ liệu PostgreSQL, Supabase, Sheets mapping, Notion content/property và Trello card operations; có năm workflow mẫu. | Test giả và smoke check không chứng minh quyền hoặc hành vi live của từng operation/provider. |
+| NX-04 | Các operation Gmail, Chat, Telegram, GitHub, Sentry và Vercel trong checklist đã có đường thực thi. | Chưa có live qualification đầy đủ cho từng operation, scope thực cấp và kết quả ghi không chắc chắn. |
+| NX-05 | RSS và các trigger Kuma, Telegram, Trello, Sentry, Vercel có implementation và test giả lập. | Registration một số provider vẫn thủ công; chưa chứng minh delivery/recovery thật cho mọi provider, không cam kết exactly-once. |
+| NX-06 | Gemini/OpenAI structured output, schema validation, usage và giới hạn theo request. | Không có kiểm soát tổng chi phí; khả năng schema phụ thuộc model/provider, và media/binary chưa triển khai. |
+| NX-07 | [Ghi nhận quyết định](38-nx07-design-decisions.md) cho batch/item, binary, database changes, Reddit và Meta. | Đây là quyết định phạm vi, không phải implementation của các khả năng bị hoãn hoặc quyền truy cập provider. |
+
+Không đánh dấu toàn bộ NX hoàn tất chỉ vì PR hoặc CI thành công. Không tự dùng
+credential thật hay bật provider integration để lấp khoảng thiếu bằng chứng.
+
 > Trạng thái kiểm tra 05/11/2026: PR #82 đã merge vào `main` tại
 > `6c9a36ee4b68ce1083770dac2c283125d76c10e5`; workflow deploy tại commit đó
 > [hoàn tất thành công](https://github.com/phuuthanh-dev/fluxora/actions/runs/41871198903).
