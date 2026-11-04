@@ -17,6 +17,11 @@ test("resolves safe expressions without evaluating JavaScript", () => {
   assert.throws(() => resolveExpressions("{{ process.exit() }}", context), BadRequestException);
 });
 
+test("resolves generated output paths with hyphenated keys", () => {
+  const context = { steps: { "node-example": { output: { "request-id": "abc" } } } };
+  assert.equal(resolveExpressions("{{ steps.node-example.output.request-id }}", context), "abc");
+});
+
 test("Supabase insert rejects unresolved interpolations before accessing a connection", async () => {
   const context = { steps: {} };
   const credentials = { readForExecution: () => { throw new Error("unexpected credential access"); } } as never;

@@ -17,6 +17,6 @@ function collectPaths(value: unknown, path: string, results: Set<string>, depth:
     return;
   }
   for (const [key, child] of Object.entries(value)) {
-    if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) collectPaths(child, `${path}.${key}`, results, depth + 1);
+    if (/^[A-Za-z_][A-Za-z0-9_-]*$/.test(key)) collectPaths(child, `${path}.${key}`, results, depth + 1);
   }
 }

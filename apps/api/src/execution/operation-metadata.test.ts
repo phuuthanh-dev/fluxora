@@ -70,6 +70,32 @@ test("notification receipt metadata matches successful mock output", async () =>
   }
 });
 
+test("data and GitHub output metadata matches configured mock runs", async () => {
+  const credentials = new Proxy({}, { get() { throw new Error("Mock must not read credentials"); } }) as never;
+  const cases = [
+    ["action.mongodb", { database: "example", collection: "items" }],
+    ["action.mongodb.insert", { database: "example", collection: "items", document: { name: "sample" } }],
+    ["action.postgres.select", { schema: "public", table: "items" }],
+    ["action.supabase.select", { table: "items" }],
+    ["action.rss.read", { url: "https://example.test/feed.xml" }],
+    ["action.github", { repository: "example/project", title: "Example issue" }],
+    ["action.github.add-label", { repository: "example/project", issueNumber: 1, label: "example" }],
+    ["action.github.add-comment", { repository: "example/project", issueNumber: 1, body: "Example" }],
+    ["action.github.merge-pull-request", { repository: "example/project", pullRequestNumber: 1 }],
+    ["action.github.list-issues", { repository: "example/project" }],
+    ["action.github.get-issue", { repository: "example/project", issueNumber: 1 }],
+    ["action.github.list-pull-requests", { repository: "example/project" }],
+    ["action.github.get-pull-request", { repository: "example/project", pullRequestNumber: 1 }],
+  ] as const;
+  for (const [type, config] of cases) {
+    const node = { id: "example", type, position: { x: 0, y: 0 }, config };
+    const result = await executeNode(node, config, {}, "mock", "workspace", credentials, "execution");
+    const metadata = getOperationMetadata(type);
+    assert.ok(metadata && "knownFields" in metadata.output, type);
+    for (const field of metadata.output.knownFields) assert.ok(Object.hasOwn(result.output, field), `${type} is missing ${field}`);
+  }
+});
+
 test("calendar metadata describes the actual synthetic continuation and stable start time", async () => {
   const metadata = getOperationMetadata("action.google-calendar.list-events");
   assert.ok(metadata && metadata.pagination.kind === "continuation");
