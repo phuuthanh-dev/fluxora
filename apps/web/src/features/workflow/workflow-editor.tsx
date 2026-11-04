@@ -290,7 +290,7 @@ function RowValuesField({ value, onChange, workspaceId, workflowId, nodeId, owne
       {row.type !== "null" && <Field label="Value">{row.type === "boolean" ? <Select aria-label={`Column ${index + 1} value`} value={row.value} onChange={(event) => update(index, { value: event.target.value })}><option value="true">True</option><option value="false">False</option></Select> : <input aria-label={`Column ${index + 1} value`} value={row.value} placeholder={row.type === "expression" ? "{{ steps.example.output.value }}" : row.type === "number" ? "e.g. 42" : "Enter text"} onChange={(event) => update(index, { value: event.target.value })} />}</Field>}
     </div>)}
     <Button type="button" variant="ghost" disabled={rows.length >= 50} onClick={() => onChange([...rows, { column: "", type: "text", value: "" }])}>Add column</Button>
-    <small>A connection error after sending may mean the row was inserted. Check the table before retrying.</small>
+    <small>Use text for exact high-precision numbers. A connection error after sending may mean the row was inserted; check the table before retrying.</small>
   </div>;
 }
 

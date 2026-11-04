@@ -43,11 +43,22 @@ test("invalid fields and unresolved expressions fail before credential or provid
   const missing = resolveExpressions({ ...config, fields: [{ column: "id", type: "expression", value: "{{ steps.missing.output }}" }] }, { steps: {} }) as Record<string, unknown>;
   for (const input of [
     { ...config, table: "../private" }, { ...config, fields: [] }, { ...config, fields: [{ column: "x", type: "number", value: "9007199254740993" }] },
+    ...["9007199254740991.1", "0.10000000000000001", "1e-999"].map((value) => ({ ...config, fields: [{ column: "x", type: "number", value }] })),
     { ...config, fields: [{ column: "constructor", type: "text", value: "x" }] },
     { ...config, fields: [{ column: "id", type: "text", value: "a" }, { column: "id", type: "text", value: "b" }] },
     { ...config, fields: [{ column: "active", type: "boolean", value: "maybe" }] },
     { ...config, extra: true }, missing,
   ]) await assert.rejects(() => executeSupabaseInsert(input, "live", "workspace", noCredentials, noNetwork), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT" && !error.retryable);
+});
+
+test("equivalent decimal spellings retain their JSON value", async () => {
+  for (const value of ["0.100", "00012.500", ".125", "1e-7", "-0.0"]) {
+    const input = { ...config, fields: [{ column: "n", type: "number", value }] };
+    await executeSupabaseInsert(input, "live", "workspace", credentials, async (_url, init) => {
+      assert.ok(JSON.parse(String(init.body)).n === Number(value));
+      return new Response(null, { status: 201 });
+    });
+  }
 });
 
 test("mock and dynamic scalar values never contact Supabase; live writes do not retry uncertain outcomes", async () => {
