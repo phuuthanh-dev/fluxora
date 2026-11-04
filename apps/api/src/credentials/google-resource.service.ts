@@ -66,12 +66,13 @@ export class GoogleResourceService {
     return { headers: row.map((name, index) => ({ column: index + 1, name })), columnLimit: 100 };
   }
 
-  async listFiles(workspaceId: string, credentialId: string, userId: string, kind: "file" | "spreadsheet", pageToken?: string) {
+  async listFiles(workspaceId: string, credentialId: string, userId: string, kind: "file" | "spreadsheet" | "folder", pageToken?: string) {
     await this.credentials.requireOwner(workspaceId, userId);
     const credential = await this.credentials.readGoogleForExecution(credentialId, workspaceId);
     const token = typeof credential.accessToken === "string" ? credential.accessToken.trim() : "";
     if (!token) throw new BadRequestException({ code: "GOOGLE_CREDENTIAL_INVALID", message: "Google connection is missing an access token." });
-    const params = new URLSearchParams({ pageSize: "100", fields: "nextPageToken,files(id,name,mimeType)", q: kind === "spreadsheet" ? "trashed = false and mimeType = 'application/vnd.google-apps.spreadsheet'" : "trashed = false and mimeType contains 'text/'" });
+    const mimeQuery = kind === "spreadsheet" ? "mimeType = 'application/vnd.google-apps.spreadsheet'" : kind === "folder" ? "mimeType = 'application/vnd.google-apps.folder'" : "mimeType contains 'text/'";
+    const params = new URLSearchParams({ pageSize: "100", fields: "nextPageToken,files(id,name,mimeType)", q: `trashed = false and ${mimeQuery}` });
     if (pageToken) params.set("pageToken", pageToken);
     let response: Response;
     try {

@@ -30,14 +30,17 @@ test("Trello and Sentry deliveries are deduplicated and fenced by workflow and e
       await prisma.workflow.update({ where: { id: workflowId }, data: { publishedVersionId: versionId } });
       await prisma.webhookEndpoint.create({ data: { id: endpointId, path, workflowId, workflowVersionId: versionId, secretHash: "synthetic-hash" } });
       const create = scenario.provider === "trello" ? service.createTrelloScheduledExecution.bind(service) : service.createSentryScheduledExecution.bind(service);
-      const input = { workflowId, workflowVersionId: versionId, endpointId, path, secretHash: "synthetic-hash", deliveryKey: scenario.firstKey, payload: { source: scenario.provider, event: "example", password: "synthetic-secret" } };
+      // Receive the later synthetic identity first. Delivery identities are
+      // independent; an earlier event must not be dropped when it arrives late.
+      const input = { workflowId, workflowVersionId: versionId, endpointId, path, secretHash: "synthetic-hash", deliveryKey: scenario.secondKey, payload: { source: scenario.provider, event: "example", password: "synthetic-secret" } };
       const [first, duplicate] = await Promise.all([create(input), create(input)]);
       assert.equal(first.id, duplicate.id, scenario.provider);
-      assert.ok(!first.idempotencyKey?.includes(scenario.firstKey));
+      assert.ok(!first.idempotencyKey?.includes(scenario.secondKey));
       assert.ok(!JSON.stringify(first.triggerData).includes("synthetic-secret"));
       await assert.rejects(create({ ...input, payload: { ...input.payload, event: "different" } }), (error: unknown) => error instanceof ConflictException && (error.getResponse() as { code: string }).code === "WEBHOOK_DELIVERY_CONFLICT");
-      const next = await create({ ...input, deliveryKey: scenario.secondKey });
+      const next = await create({ ...input, deliveryKey: scenario.firstKey });
       assert.notEqual(next.id, first.id);
+      assert.equal((await create({ ...input, deliveryKey: scenario.firstKey })).id, next.id);
       await prisma.execution.updateMany({ where: { id: { in: [first.id, next.id] } }, data: { createdAt: new Date(Date.now() - 3 * 60_000) } });
       const scoped = { execution: { findMany: (args: Prisma.ExecutionFindManyArgs) => prisma.execution.findMany({ ...args, where: { AND: [args.where ?? {}, { workflowVersionId: versionId }] } }) } };
       const jobs: Array<{ executionId: string; mode: string; initialOnly: boolean }> = [];

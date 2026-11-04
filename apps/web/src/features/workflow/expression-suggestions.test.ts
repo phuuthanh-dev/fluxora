@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildExpressionSuggestions } from "./expression-suggestions";
+import { buildExpressionSuggestions, buildPossibleExpressionSuggestions, upstreamNodeIds } from "./expression-suggestions";
 
 test("expression suggestions include nested output paths and a safe array index", () => {
   const suggestions = buildExpressionSuggestions([{ nodeId: "steam", output: { profile: { personaname: "Thanh" }, summary: { topGames: [{ name: "Hades" }] } } }]);
@@ -12,4 +12,35 @@ test("suggestions include hyphenated keys supported by the expression parser", (
   const suggestions = buildExpressionSuggestions([{ nodeId: "node-example", output: { "request-id": "abc", "not supported": "skip" } }]);
   assert.ok(suggestions.includes("{{ steps.node-example.output.request-id }}"));
   assert.ok(!suggestions.some((value) => value.includes("not supported")));
+});
+
+test("possible fields come only from reachable upstream nodes and valid expression identifiers", () => {
+  const upstream = upstreamNodeIds("target", [
+    { source: "trigger", target: "source" }, { source: "source", target: "target" },
+    { source: "other", target: "unrelated" }, { source: "target", target: "source" },
+  ]);
+  assert.deepEqual([...upstream].sort(), ["source", "trigger"]);
+  const possible = buildPossibleExpressionSuggestions([
+    { id: "source", data: { nodeType: "action.mongodb" } },
+    { id: "trigger", data: { nodeType: "trigger.manual" } },
+    { id: "other", data: { nodeType: "action.mongodb" } },
+    { id: "target", data: { nodeType: "action.mongodb" } },
+    { id: "1-invalid", data: { nodeType: "action.mongodb" } },
+  ], new Set([...upstream, "1-invalid"]));
+  assert.ok(possible.includes("{{ steps.source.output.documents }}"));
+  assert.ok(possible.includes("{{ steps.trigger.output.received }}"));
+  assert.ok(!possible.some((item) => /steps\.(other|target|1-invalid)\./.test(item)));
+  assert.deepEqual(buildExpressionSuggestions([{ nodeId: "1-invalid", output: { value: 1 } }]), []);
+});
+
+test("structured AI fields are suggested only from an applied, valid schema", () => {
+  const schema = { type: "object", properties: { summary: { type: "string" }, "invalid field": { type: "string" } }, required: ["summary", "invalid field"], additionalProperties: false };
+  for (const nodeType of ["action.gemini", "action.openai"]) {
+    const node = { id: "ai", data: { nodeType, config: { outputSchema: schema } } };
+    const suggestions = buildPossibleExpressionSuggestions([node], new Set(["ai"]));
+    assert.ok(suggestions.includes("{{ steps.ai.output.json.summary }}"));
+    assert.ok(!suggestions.some((item) => item.includes("invalid field")));
+    assert.ok(!buildPossibleExpressionSuggestions([{ ...node, data: { nodeType, config: {} } }], new Set(["ai"])).some((item) => item.includes(".json")));
+    assert.ok(!buildPossibleExpressionSuggestions([{ ...node, data: { nodeType, config: { outputSchema: { type: "object" } } } }], new Set(["ai"])).some((item) => item.includes(".json")));
+  }
 });

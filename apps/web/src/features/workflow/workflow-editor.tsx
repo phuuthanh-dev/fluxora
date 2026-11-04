@@ -52,7 +52,7 @@ import { WorkflowNode } from "./workflow-node";
 import { graphForApi, graphFromApi, type ApiWorkflow } from "./workflow-api";
 import { CredentialPanel } from "../credentials/credential-panel";
 import type { CredentialProvider, CredentialSummary } from "../credentials/credential-types";
-import { buildExpressionSuggestions } from "./expression-suggestions";
+import { buildExpressionSuggestions, buildPossibleExpressionSuggestions, upstreamNodeIds } from "./expression-suggestions";
 import { manualTriggerTestData } from "./test-data";
 import { NodeIcon } from "./node-icon";
 import { NodeLibrary, type NodeLibraryHandle } from "./node-library";
@@ -65,6 +65,7 @@ import { ResourcePicker } from "./resource-picker";
 import { MongoFilterField } from "./mongodb-filter-field";
 import { StructuredOutputField } from "./structured-output-field";
 import { resetDrivePageToken } from "./drive-pagination";
+import { DriveSearchField } from "./drive-search-field";
 import { RelationalSelectionField } from "./relational-selection-field";
 import { isRelationalBaselineCurrent, relationalSelectionKeys, upgradeRelationalNode, type RelationalBaseline, type RelationalDraft, type RelationalProvider, type RelationalSelection } from "./relational-selection";
 import { useRelationalMetadata } from "./use-relational-metadata";
@@ -343,6 +344,7 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, wor
         {config[field.key] !== undefined && <StructuredOutputField value={config[field.key]} onChange={(schema) => onChange(field.key, schema)} draft={draft.structuredOutput} onDraftChange={(next) => onDraftChange("structuredOutput", next)} />}
       </section>;
       if (field.kind === "mongo-filter") return <MongoFilterField key={field.key} value={value} draft={draft.filter} onDraftChange={(next) => onDraftChange("filter", next)} rawDraft={draft.filterRaw} onRawDraftChange={(next) => onDraftChange("filterRaw", next)} onChange={(nextValue) => onChange(field.key, nextValue)} />;
+      if (field.kind === "drive-search") return <DriveSearchField key={field.key} value={value} workspaceId={workspaceId} credentialId={readConfigText(config, "credentialId")} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       if (field.kind === "row-values") return <RowValuesField key={field.key} value={config[field.key]} workspaceId={workspaceId} workflowId={workflowId} nodeId={nodeId} owner={owner} credentials={credentials} config={config} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       return <ConfigField
         key={field.key}
@@ -470,14 +472,19 @@ function TestDataEditor({ value, onApply, draft, onDraftChange }: { value: unkno
   return <section className="json-config-editor"><div className="section-label">TEST DATA FOR MOCK RUN</div><textarea value={text} onChange={(event) => onDraftChange(event.target.value === baseline ? undefined : { text: event.target.value, baseline: draft?.baseline ?? baseline })} rows={6} aria-label="Manual trigger test data" /><button className="ghost-button" type="button" onClick={apply}>Apply test data</button>{draft && <button className="ghost-button" type="button" onClick={() => { onDraftChange(undefined); setError(null); }}>Discard test data changes</button>}{error && <p role="alert">{error}</p>}</section>;
 }
 
-function ExpressionSuggestions({ suggestions }: { suggestions: string[] }) {
+function ExpressionSuggestions({ suggestions, possible }: { suggestions: string[]; possible: string[] }) {
   const [notice, setNotice] = useState("");
-  if (!suggestions.length) return null;
+  if (!suggestions.length && !possible.length) return null;
   const copy = async (suggestion: string) => {
-    await navigator.clipboard?.writeText(suggestion);
-    setNotice(`${suggestion} copied.`);
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(suggestion);
+      setNotice("Path copied.");
+    } catch {
+      setNotice("Could not copy. Allow clipboard access and try again.");
+    }
   };
-  return <section className="expression-suggestions"><div className="section-label">EXPRESSION SUGGESTIONS</div><p>Use in any text field. Click to copy a safe data path.</p><div>{suggestions.map((suggestion) => <button key={suggestion} type="button" onClick={() => { void copy(suggestion); }}>{suggestion}</button>)}</div>{notice && <small>{notice}</small>}</section>;
+  return <section className="expression-suggestions"><div className="section-label">EXPRESSION SUGGESTIONS</div><p>Click a path to copy it. Fields depend on the selected operation and on which branches run.</p>{suggestions.length > 0 && <><strong>From the last run</strong><div>{suggestions.map((suggestion) => <button key={suggestion} type="button" onClick={() => { void copy(suggestion); }}>{suggestion}</button>)}</div></>}{possible.length > 0 && <><strong>Possible fields</strong><div>{possible.map((suggestion) => <button key={suggestion} type="button" onClick={() => { void copy(suggestion); }}>{suggestion}</button>)}</div></>}{notice && <small>{notice}</small>}</section>;
 }
 
 function SwitchCaseEditor({ cases, onChange }: { cases: unknown; onChange: (cases: Array<{ value: string }>) => void }) {
@@ -877,6 +884,8 @@ function RelationalNodeField({ node, workspaceId, workflowId, owner, credentials
 
 function NodeInspector({ node, execution, credentials, workspaceId, workflowId, owner, onResolveApproval, onDebugNode, onOpenWebhook, webhookContext, isDebugging, isDrawerOpen, onCloseDrawer, draft, onDraftChange, onApplySheets, hasPending }: { node: WorkflowCanvasNode | undefined; execution: ApiExecution | null; credentials: CredentialSummary[]; workspaceId: string; workflowId: string; owner: boolean; onResolveApproval: (approvalId: string, decision: "approved" | "rejected") => void; onDebugNode: (node: WorkflowCanvasNode) => void; onOpenWebhook: () => void; webhookContext: "published" | "different" | "draft" | "other-draft"; isDebugging: boolean; isDrawerOpen: boolean; onCloseDrawer: () => void; draft: InspectorDraft; onDraftChange: UpdateInspectorDraft; onApplySheets: (draft: SheetsMappingDraft) => boolean; hasPending: boolean }) {
   const updateNodeData = useWorkflowEditorStore((state) => state.updateNodeData);
+  const graphNodes = useWorkflowEditorStore((state) => state.nodes);
+  const graphEdges = useWorkflowEditorStore((state) => state.edges);
   const inspectorRef = useDialogFocus<HTMLElement>({ active: isDrawerOpen, trapFocus: true, onClose: onCloseDrawer, restoreFocus: false });
 
   useSurfaceMotion(inspectorRef, isDrawerOpen);
@@ -989,7 +998,11 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
     }
     updateNodeData(node.id, { config });
   };
-  const suggestions = buildExpressionSuggestions(execution?.nodeExecutions.map((item) => ({ nodeId: item.nodeId, output: item.output })) ?? []);
+  const upstream = upstreamNodeIds(node.id, graphEdges);
+  const currentTypes = new Map(graphNodes.map((item) => [item.id, item.data.nodeType]));
+  const recordedTypes = new Map(execution?.graph?.nodes.map((item) => [item.id, item.type]) ?? []);
+  const suggestions = buildExpressionSuggestions(execution?.nodeExecutions.filter((item) => item.status === "SUCCEEDED" && upstream.has(item.nodeId) && currentTypes.get(item.nodeId) === item.nodeType && recordedTypes.get(item.nodeId) === item.nodeType).map((item) => ({ nodeId: item.nodeId, output: item.output })) ?? []);
+  const possible = buildPossibleExpressionSuggestions(graphNodes, upstream).filter((item) => !suggestions.includes(item));
 
   return (
     <aside id="node-inspector" ref={inspectorRef} className={`inspector${isDrawerOpen ? " inspector--drawer-open" : ""}`} {...drawerProps}>
@@ -1162,7 +1175,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       </InspectorSection>
       <InspectorSection title="Advanced">
         <JsonConfigEditor key={node.id} config={node.data.config} onApply={(config) => updateNodeData(node.id, { config })} draft={draft.json} onDraftChange={(next) => onDraftChange("json", next)} otherPending={draft.filter !== undefined || draft.filterRaw !== undefined || draft.testData !== undefined || draft.structuredOutput !== undefined || draft.relational !== undefined || draft.sheetsMapping !== undefined} />
-        <ExpressionSuggestions suggestions={suggestions} />
+        <ExpressionSuggestions suggestions={suggestions} possible={possible} />
       </InspectorSection>
       {nodeExecution && (
         <InspectorSection title="Last execution">

@@ -22,5 +22,9 @@ test("Google resource discovery authorizes the workspace and returns safe file m
     assert.doesNotMatch(JSON.stringify(result), /test-access-token|test-refresh-token|must-not-return/);
     await service.listFiles("ws-1", "credential-1", "user-1", "file");
     assert.match(new URL(requestUrl).searchParams.get("q") ?? "", /mimeType contains 'text\//);
+    await service.listFiles("ws-1", "credential-1", "user-1", "folder", "page-2");
+    const folderRequest = new URL(requestUrl);
+    assert.equal(folderRequest.searchParams.get("q"), "trashed = false and mimeType = 'application/vnd.google-apps.folder'");
+    assert.equal(folderRequest.searchParams.get("pageToken"), "page-2");
   } finally { globalThis.fetch = original; }
 });
