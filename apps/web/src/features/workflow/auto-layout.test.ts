@@ -4,6 +4,9 @@ import { autoLayoutNodes } from "./auto-layout";
 import {
   appCatalog,
   coreNodeDefinitions,
+  createNodeData,
+  getLibraryDefinition,
+  libraryDefinitionId,
   initialEdges,
   initialNodes,
   matchesNodeLibraryFilter,
@@ -11,6 +14,25 @@ import {
   nodeCatalog,
   operationsForApp,
 } from "./node-catalog";
+import { graphForApi, graphFromApi } from "./workflow-api";
+
+test("Steam actions preserve distinct library identities and share the persisted executor", () => {
+  const operations = operationsForApp("steam");
+  assert.equal(operations.length, 8);
+  const actions = operations.filter((node) => node.type === "action.steam");
+  assert.deepEqual(actions.map((node) => node.defaultConfig.operation), ["profile", "friends", "badges", "resolveVanity", "ownedGames", "recentGames", "achievements"]);
+  assert.equal(new Set(actions.map(libraryDefinitionId)).size, 7);
+  assert.equal(getLibraryDefinition("action.steam")?.defaultConfig.operation, "profile");
+  for (const definition of actions) {
+    assert.equal(getLibraryDefinition(libraryDefinitionId(definition)), definition);
+    const node = { id: "steam", type: "workflowNode" as const, position: { x: 0, y: 0 }, data: createNodeData(definition) };
+    const saved = graphForApi({ nodes: [node], edges: [] });
+    assert.equal(saved.nodes[0]?.type, "action.steam");
+    assert.equal(saved.nodes[0]?.config.operation, definition.defaultConfig.operation);
+    assert.equal(graphFromApi(saved).nodes[0]?.data.label, definition.label);
+    assert.ok(matchesNodeSearch(definition, definition.operationLabel));
+  }
+});
 
 test("auto-layout places downstream nodes in later columns", () => {
   const nodes = autoLayoutNodes(initialNodes, initialEdges);

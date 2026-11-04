@@ -36,6 +36,9 @@ import { ApiClientError, apiRequest, apiUrl } from "../api/api-client";
 import { validateWorkflowGraph } from "./graph-validation";
 import {
   getNodeDefinition,
+  getNodeDefinitionForConfig,
+  getLibraryDefinition,
+  libraryDefinitionId,
   upgradePaginationNode,
   type NodeDefinition,
   type NodeConfigurationField,
@@ -941,6 +944,14 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       else if (key === "database") config.collection = "";
     }
     if ((node.data.nodeType === "action.supabase.select" || node.data.nodeType === "action.supabase.select.v2") && key === "credentialId" && node.data.config.credentialId !== value) config.table = "";
+    if (node.data.nodeType === "action.steam" && key === "operation") {
+      const previous = getNodeDefinitionForConfig(node.data.nodeType, node.data.config);
+      const next = getNodeDefinitionForConfig(node.data.nodeType, config);
+      if (next && (node.data.label === previous?.label || node.data.label === getNodeDefinition("action.steam")?.label)) {
+        updateNodeData(node.id, { config, label: next.label, description: next.description });
+        return;
+      }
+    }
     updateNodeData(node.id, { config });
   };
   const suggestions = buildExpressionSuggestions(execution?.nodeExecutions.map((item) => ({ nodeId: item.nodeId, output: item.output })) ?? []);
@@ -1500,14 +1511,14 @@ export function WorkflowEditor() {
   }, [deleteNode, selectedNodeId, hasPending]);
 
   const onDragStart = (event: DragEvent<HTMLButtonElement>, definition: NodeDefinition) => {
-    event.dataTransfer.setData("application/workflow-node", definition.type);
+    event.dataTransfer.setData("application/workflow-node", libraryDefinitionId(definition));
     event.dataTransfer.effectAllowed = "move";
   };
 
   const onDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     const type = event.dataTransfer.getData("application/workflow-node");
-    const definition = getNodeDefinition(type);
+    const definition = getLibraryDefinition(type);
     if (!definition || !wrapperRef.current) return;
     const bounds = wrapperRef.current.getBoundingClientRect();
     addDefinition(definition, { x: event.clientX - bounds.left - 110, y: event.clientY - bounds.top - 48 });
