@@ -73,6 +73,9 @@ kết quả từ lần chạy gần nhất chỉ hiển thị cho node thành c�
 đường đi tới node đang sửa và cùng loại với graph được chạy. Các gợi ý chỉ là
 khả năng: trường có thể khác theo operation và nhánh có thể không được chạy.
 Không thay runtime schema, không thay graph hoặc bảo đảm output của provider.
+Với Gemini/OpenAI, schema hợp lệ đã áp dụng còn gợi ý `json` và các trường
+object có tên tương thích expression; schema động hoặc chưa hợp lệ không được
+đoán. Những gợi ý này không xác nhận model hỗ trợ schema hay lần chạy thành công.
 
 > Trạng thái kiểm tra 05/11/2026: PR #82 đã merge vào `main` tại
 > `6c9a36ee4b68ce1083770dac2c283125d76c10e5`; workflow deploy tại commit đó

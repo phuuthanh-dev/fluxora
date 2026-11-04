@@ -32,3 +32,15 @@ test("possible fields come only from reachable upstream nodes and valid expressi
   assert.ok(!possible.some((item) => /steps\.(other|target|1-invalid)\./.test(item)));
   assert.deepEqual(buildExpressionSuggestions([{ nodeId: "1-invalid", output: { value: 1 } }]), []);
 });
+
+test("structured AI fields are suggested only from an applied, valid schema", () => {
+  const schema = { type: "object", properties: { summary: { type: "string" }, "invalid field": { type: "string" } }, required: ["summary", "invalid field"], additionalProperties: false };
+  for (const nodeType of ["action.gemini", "action.openai"]) {
+    const node = { id: "ai", data: { nodeType, config: { outputSchema: schema } } };
+    const suggestions = buildPossibleExpressionSuggestions([node], new Set(["ai"]));
+    assert.ok(suggestions.includes("{{ steps.ai.output.json.summary }}"));
+    assert.ok(!suggestions.some((item) => item.includes("invalid field")));
+    assert.ok(!buildPossibleExpressionSuggestions([{ ...node, data: { nodeType, config: {} } }], new Set(["ai"])).some((item) => item.includes(".json")));
+    assert.ok(!buildPossibleExpressionSuggestions([{ ...node, data: { nodeType, config: { outputSchema: { type: "object" } } } }], new Set(["ai"])).some((item) => item.includes(".json")));
+  }
+});

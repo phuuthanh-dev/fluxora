@@ -1,7 +1,7 @@
-import { getOperationMetadata } from "@workflow/contracts";
+import { getOperationMetadata, validateAiSchema, type AiSchema } from "@workflow/contracts";
 
 type NodeExecutionOutput = { nodeId: string; output: unknown };
-type SuggestionNode = { id: string; data: { nodeType: string; nodeVersion?: number } };
+type SuggestionNode = { id: string; data: { nodeType: string; nodeVersion?: number; config?: Record<string, unknown> } };
 type SuggestionEdge = { source: string; target: string };
 const pathSegment = /^[A-Za-z_][A-Za-z0-9_-]*$/;
 
@@ -28,8 +28,20 @@ export function buildPossibleExpressionSuggestions(nodes: SuggestionNode[], upst
     const output = getOperationMetadata(node.data.nodeType, node.data.nodeVersion)?.output;
     if (!output || !("knownFields" in output)) continue;
     for (const field of output.knownFields) if (pathSegment.test(field)) suggestions.add(`{{ steps.${node.id}.output.${field} }}`);
+    if (node.data.nodeType === "action.gemini" || node.data.nodeType === "action.openai") {
+      const schema = validateAiSchema(node.data.config?.outputSchema);
+      if (schema.ok) collectSchemaPaths(schema.schema, `steps.${node.id}.output.json`, suggestions, 0);
+    }
   }
   return [...suggestions].slice(0, 18);
+}
+
+function collectSchemaPaths(schema: AiSchema, path: string, results: Set<string>, depth: number) {
+  results.add(`{{ ${path} }}`);
+  if (depth >= 4 || schema.type !== "object" || !schema.properties) return;
+  for (const [key, child] of Object.entries(schema.properties)) {
+    if (pathSegment.test(key)) collectSchemaPaths(child, `${path}.${key}`, results, depth + 1);
+  }
 }
 
 export function buildExpressionSuggestions(executions: NodeExecutionOutput[]) {
