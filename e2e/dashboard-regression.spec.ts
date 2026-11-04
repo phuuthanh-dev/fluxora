@@ -643,7 +643,13 @@ test("starter templates remain available from the dashboard create section", asy
   await signUpAndDashboard(page, `starter-${Date.now()}@example.test`);
   const selector = page.getByLabel("Choose workflow template");
   await expect(selector.locator('option[value="inspect-postgres-rows"]')).toHaveCount(1);
+  await selector.selectOption("ai-structured-gemini-to-chat");
+  const details = page.getByRole("region", { name: "Selected template details" });
+  await expect(details).toContainText("Choose a model before testing");
+  await expect(details).toContainText("Gemini · Google Chat");
+  await expect(details).toContainText("provider charges");
   await selector.selectOption("inspect-postgres-rows");
+  await expect(details).toContainText("PostgreSQL");
   const created = page.waitForResponse((response) => response.request().method() === "POST" && response.url().includes("/workflows/from-template/inspect-postgres-rows"));
   await page.getByRole("button", { name: "Use template", exact: true }).click();
   expect((await created).ok()).toBeTruthy();

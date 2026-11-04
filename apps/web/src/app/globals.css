@@ -649,3 +649,7 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px soli
   .credential-card__oauth-managed { align-items: flex-start; flex-direction: column; }
   .credential-card__oauth-managed .credential-panel__oauth { width: 100%; }
 }
+
+.dashboard-create__template-details { border-top: 1px solid var(--line); color: var(--muted); flex-basis: 100%; font-size: 13px; line-height: 1.5; padding-top: 14px; }
+.dashboard-create__template-details p { margin: 0 0 5px; }
+.dashboard-create__template-details span { color: var(--ink); font-weight: 600; }
