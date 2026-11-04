@@ -47,6 +47,7 @@ const credential = (provider: OperationCredentialProvider, requirement: "require
 const executable = (auth: OperationAuth, effect: OperationEffect, output: OperationMetadata["output"] = unknownOutput, pagination: OperationPagination = unknownPagination) => ({ availability: "executable" as const, auth, effect, output, pagination });
 const planned = { availability: "planned", auth: unspecifiedAuth, effect: "unspecified", output: unknownOutput, pagination: unknownPagination } as const;
 const fields = (...knownFields: string[]) => ({ knownFields });
+const notificationReceipt = fields("delivered", "provider", "destination", "messageId", "sentAt", "mode");
 
 const definitions = {
   "action.notion.retrieve-page": executable(credential("NOTION"), "read"),
@@ -84,22 +85,22 @@ const definitions = {
   "condition.if": executable(none, "unspecified", fields("matches")),
   "condition.switch": executable(none, "unspecified", fields("value", "matched")),
   "approval.request": executable(conditional, "unspecified"),
-  "action.steam.account-snapshot": executable(credential("STEAM"), "read"),
+  "action.steam.account-snapshot": executable(credential("STEAM"), "read", fields("profile", "currentGame", "ownedGames", "recentGames", "achievements", "summary")),
   "action.steam": executable(credential("STEAM"), "read", fields("operation", "result")),
   "action.riot-lol": executable(credential("RIOT"), "read", fields("operation", "result")),
   "action.riot-tft": executable(credential("RIOT"), "read", fields("operation", "result")),
   "action.riot-valorant": planned,
   "action.riot-lor": planned,
   "action.riot-2xko": planned,
-  "action.google-chat.webhook": executable(credential("GOOGLE_CHAT_WEBHOOK"), "write"),
+  "action.google-chat.webhook": executable(credential("GOOGLE_CHAT_WEBHOOK"), "write", notificationReceipt),
   "action.google-chat.oauth": executable(credential("GOOGLE_CHAT_OAUTH"), "write"),
   "action.google-chat.oauth.v2": executable(credential("GOOGLE_CHAT_OAUTH"), "write", fields("messageId", "threadName")),
   "action.google-chat.reply": executable(credential("GOOGLE_CHAT_OAUTH"), "write", fields("messageId", "threadName")),
   "action.google-chat.edit-message": executable(credential("GOOGLE_CHAT_OAUTH"), "write", fields("updated", "messageId")),
-  "action.discord.webhook": executable(credential("DISCORD_WEBHOOK"), "write"),
-  "action.telegram.message": executable(credential("TELEGRAM_BOT"), "write"),
-  "action.telegram.reply": executable(credential("TELEGRAM_BOT"), "write"),
-  "action.telegram.edit-message": executable(credential("TELEGRAM_BOT"), "write"),
+  "action.discord.webhook": executable(credential("DISCORD_WEBHOOK"), "write", notificationReceipt),
+  "action.telegram.message": executable(credential("TELEGRAM_BOT"), "write", notificationReceipt),
+  "action.telegram.reply": executable(credential("TELEGRAM_BOT"), "write", fields(...notificationReceipt.knownFields, "operation")),
+  "action.telegram.edit-message": executable(credential("TELEGRAM_BOT"), "write", fields(...notificationReceipt.knownFields, "operation")),
   "action.google-drive": executable(credential("GOOGLE"), "configuration-dependent"),
   "action.google-drive.v2": executable(credential("GOOGLE"), "configuration-dependent", fields("operation"), {
     kind: "conditional", selector: "operation", fallback: "list", cases: [{

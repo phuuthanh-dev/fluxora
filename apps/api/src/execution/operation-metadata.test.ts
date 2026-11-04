@@ -57,6 +57,19 @@ test("catalog executable nodes reach a mock handler without reading credentials"
   }
 });
 
+test("notification receipt metadata matches successful mock output", async () => {
+  const credentials = new Proxy({}, { get() { throw new Error("Mock must not read credentials"); } }) as never;
+  for (const type of ["action.google-chat.webhook", "action.discord.webhook", "action.telegram.message", "action.telegram.reply", "action.telegram.edit-message"] as const) {
+    const config = { message: "Example", content: "Example", text: "Example", chatId: "12345", messageId: "1" };
+    const node = { id: "send", type, position: { x: 0, y: 0 }, config };
+    const result = await executeNode(node, config, {}, "mock", "workspace", credentials, "execution");
+    const metadata = getOperationMetadata(type);
+    assert.ok(metadata && "knownFields" in metadata.output, type);
+    for (const field of metadata.output.knownFields) assert.ok(Object.hasOwn(result.output, field), `${type} is missing ${field}`);
+    assert.equal(result.output.mode, "mock", type);
+  }
+});
+
 test("calendar metadata describes the actual synthetic continuation and stable start time", async () => {
   const metadata = getOperationMetadata("action.google-calendar.list-events");
   assert.ok(metadata && metadata.pagination.kind === "continuation");
