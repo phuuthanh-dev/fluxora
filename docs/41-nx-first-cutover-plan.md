@@ -113,3 +113,5 @@ traffic until the gates below have been met.
 
 This plan does not establish an ETA, a provider compatibility guarantee, or a
 complete rollback procedure. It intentionally leaves the fleet guard intact.
+The owner-facing sequence and remaining implementation gates are in
+[the Vietnamese review proposal](42-ke-hoach-chuyen-production-nx.md).
