@@ -45,6 +45,8 @@ test("reader-first action dispatch selects existing v2 behavior without enabling
   assert.ok("page" in canonical.output);
   const legacy = await executeNode(node, config, {}, "mock", "workspace", credentials, "execution");
   assert.ok(!("page" in legacy.output));
+  const trigger = { id: "kuma", type: "trigger.uptime-kuma.alert" as const, nodeVersion: 2, position: { x: 0, y: 0 }, config: {} };
+  assert.deepEqual((await executeNode(trigger, {}, { trigger: { status: "down" } }, "mock", "workspace", credentials, "execution")).output, { received: { status: "down" } });
 });
 
 test("Notion page creation is dispatched in mock mode without credentials", async () => {

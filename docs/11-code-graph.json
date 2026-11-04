@@ -1987,6 +1987,7 @@
       "externalImports": [
         "@nestjs/common",
         "@prisma/client",
+        "@workflow/contracts",
         "node:crypto"
       ]
     },

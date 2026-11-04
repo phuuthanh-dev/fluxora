@@ -75,9 +75,17 @@ test("stored execution reader recognizes canonical action v2 without enabling gr
     assert.deepEqual(liveCredentialRequirements(stored), liveCredentialRequirements(alias), type);
     assert.deepEqual(graph.nodes[0], node, "reading must not mutate input");
   }
-  for (const type of ["action.supabase.select.v2", "action.notion.create-page", "trigger.uptime-kuma.alert"]) {
+  for (const type of ["action.supabase.select.v2", "action.notion.create-page", "trigger.manual", "trigger.uptime-kuma.alert.v2"]) {
     assert.throws(() => parseStoredWorkflowGraph({ nodes: [{ id: "node", type, nodeVersion: 2, position: { x: 0, y: 0 }, config: {} }], edges: [] }), /version/i, type);
   }
+});
+
+test("stored canonical Kuma v2 applies the same filter validation as its alias", () => {
+  const node = { id: "kuma", type: "trigger.uptime-kuma.alert", nodeVersion: 2, position: { x: 0, y: 0 }, config: { monitorId: "4", statusFilter: "0" } };
+  const graph = { nodes: [node], edges: [] };
+  assert.throws(() => parseWorkflowGraph(graph), /version/i);
+  assert.doesNotThrow(() => validatePublishableGraph(parseStoredWorkflowGraph(graph)));
+  assert.throws(() => validatePublishableGraph(parseStoredWorkflowGraph({ nodes: [{ ...node, config: { statusFilter: "invalid" } }], edges: [] })));
 });
 
 test("RSS drafts allow incomplete URLs without DNS but reject identifiable secrets", () => {

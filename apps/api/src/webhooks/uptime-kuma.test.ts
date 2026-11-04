@@ -62,6 +62,10 @@ test("Kuma v2 filters authenticated alerts without changing legacy trigger behav
   endpoint.workflowVersion.graph = { nodes: [{ ...node, type: "trigger.uptime-kuma.alert" }], edges: [] };
   await service.receive("kuma", "fixture-secret", alert(5, 1));
   assert.equal(created, 2);
+  endpoint.workflowVersion.graph = { nodes: [{ ...node, type: "trigger.uptime-kuma.alert", nodeVersion: 2 } as typeof node], edges: [] };
+  assert.deepEqual(await service.receive("kuma", "fixture-secret", alert(5, 0)), { acknowledged: true });
+  assert.deepEqual(await service.receive("kuma", "fixture-secret", alert(4, 0)), { executionId: "run" });
+  assert.equal(created, 3);
   assert.throws(() => validatePublishableGraph(parseWorkflowGraph({ nodes: [{ ...node, config: { statusFilter: "bogus" } }], edges: [] })));
 });
 

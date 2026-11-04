@@ -1,4 +1,4 @@
-import { actionExecutionType, type ExecutableWorkflowNodeType } from "@workflow/contracts";
+import { nodeExecutionType, type ExecutableWorkflowNodeType } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { CredentialProvider } from "@prisma/client";
 import type { ConnectorExecutor } from "./node-executor-contract";
@@ -156,6 +156,6 @@ async function executeDriveNode(config: Record<string, unknown>, mode: "mock" | 
 
 export const registeredConnectorNodeTypes = Object.freeze(Object.keys(executors) as Array<keyof typeof executors>);
 export function getConnectorExecutor(type: string, version?: unknown): ConnectorExecutor | undefined {
-  const executionType = actionExecutionType(type, version);
+  const executionType = nodeExecutionType(type, version);
   return executionType && Object.hasOwn(executors, executionType) ? executors[executionType as keyof typeof executors] : undefined;
 }
