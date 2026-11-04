@@ -55,6 +55,18 @@ test("Notion respects bounded Retry-After and declines unsafe shorter retries", 
   }
 });
 
+test("Notion search releases a failed response before returning its retryable error", async () => {
+  let cancelled = false;
+  const body = new ReadableStream<Uint8Array>({ cancel() { cancelled = true; } });
+  await assert.rejects(searchNotionPages({ token: "synthetic", query: "", pageSize: 20 }, async () => new Response(body, { status: 429, headers: { "retry-after": "5" } })), (error: unknown) => {
+    assert.ok(error instanceof Error && "retryable" in error && "retryAfterMs" in error);
+    assert.equal(error.retryable, true);
+    assert.equal(error.retryAfterMs, 5000);
+    return true;
+  });
+  assert.equal(cancelled, true);
+});
+
 test("Notion mock never reads credentials, and live execution requires the workspace credential", async () => {
   const calls: unknown[][] = [];
   const credentials = { readForExecution: async (...args: unknown[]) => { calls.push(args); return { token: "secret" }; } } as unknown as CredentialService;
