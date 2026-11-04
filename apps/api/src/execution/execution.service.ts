@@ -532,7 +532,10 @@ export class ExecutionService {
         continue;
       }
       outputs[node.id] = { output: result.output };
-      restoredSteps.delete(node.id);
+      // Trigger outputs wrap persisted triggerData, so their values can have
+      // already been redacted even though the trigger just ran in this phase.
+      if (node.type.startsWith("trigger.")) restoredSteps.add(node.id);
+      else restoredSteps.delete(node.id);
       const nextEdges = graph.edges.filter((edge) => edge.source === node.id && edgeMatchesResult(edge, result));
       pending.push(...this.targets(graph, nextEdges));
     }

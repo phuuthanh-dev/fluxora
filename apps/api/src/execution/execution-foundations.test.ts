@@ -248,6 +248,34 @@ test("resumed execution stops before accessing credentials when a referenced out
   assert.equal(updates.at(-1)?.errorRetryable, false);
 });
 
+test("trigger output retains redaction provenance without blocking unrelated values", async () => {
+  for (const [field, expected] of [["secret", "FAILED"], ["safe", "SUCCEEDED"]] as const) {
+    const updates: Array<Record<string, unknown>> = [];
+    const nodeUpdates: Array<Record<string, unknown>> = [];
+    const execution = {
+      id: `trigger-redaction-${field}`, mode: "MOCK", status: ExecutionStatus.QUEUED,
+      startedAt: null, resumeToken: null, triggerData: { secret: "[REDACTED]", safe: "hello" }, nodeExecutions: [],
+      workflowVersion: { workflow: { workspaceId: "workspace" }, graph: { nodes: [
+        { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
+        { id: "send", type: "action.telegram.message", position: { x: 1, y: 0 }, config: { chatId: "123", text: `{{ steps.manual.output.received.${field} }}` } },
+      ], edges: [{ id: "start", source: "manual", target: "send", kind: "success" }] } },
+    };
+    let transactionPrisma: unknown;
+    const prisma = {
+      execution: { findUnique: async () => execution, findUniqueOrThrow: async () => execution, updateMany: async ({ data }: { data: Record<string, unknown> }) => { updates.push(data); return { count: 1 }; } },
+      nodeExecution: { upsert: async () => ({}), update: async ({ data }: { data: Record<string, unknown> }) => { nodeUpdates.push(data); return {}; }, updateMany: async () => ({ count: 0 }) },
+      $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(transactionPrisma),
+    };
+    transactionPrisma = { ...prisma, $queryRaw: async () => [{ status: ExecutionStatus.RUNNING, runToken: updates[0]?.runToken }] };
+    const credentials = { readForExecution: () => { throw new Error("mock must not access credentials"); } };
+    const service = new ExecutionService(prisma as never, credentials as never, { publish: () => undefined } as never);
+    await service.run(execution.id, "mock");
+    assert.equal(updates.at(-1)?.status, expected);
+    if (field === "secret") assert.equal(nodeUpdates.at(-1)?.errorCode, "REDACTED_INPUT_UNAVAILABLE");
+    else assert.equal(nodeUpdates.at(-1)?.status, "SUCCEEDED");
+  }
+});
+
 test("AI schema descriptions are literal while unresolved whole-schema expressions fail closed", async () => {
   for (const configuredSchema of [
     { type: "object", description: "Example {{ process.exit() }} is literal", properties: { summary: { type: "string" } }, required: ["summary"], additionalProperties: false },

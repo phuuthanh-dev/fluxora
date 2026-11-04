@@ -45,8 +45,9 @@ lưu dưới dạng đã che, rồi được dùng lại khi tiếp tục sau ap
 có thể nhận nguyên chuỗi `[REDACTED]` và truyền nhầm cho action. Trigger data
 cũng được lưu sau khi che. Bản local từ chối expression tham chiếu trực tiếp
 hoặc lồng tới giá trị đã che trong trigger data hay output được nạp lại, trước
-khi action đọc credential hoặc gọi provider; các giá trị không bị che và output
-mới trong cùng lượt vẫn hoạt động như trước. Lỗi có thể đi qua error branch.
+khi action đọc credential hoặc gọi provider; việc này cũng áp dụng khi truy cập
+trigger data thông qua output của node trigger. Các giá trị không bị che và output
+mới khác trong cùng lượt vẫn hoạt động như trước. Lỗi có thể đi qua error branch.
 Đây là fail-closed, không khôi phục giá trị gốc; một giá trị hợp lệ có sẵn chuỗi
 `[REDACTED]` trong dữ liệu đã lưu cũng có thể bị từ chối. Test giả lập đã thêm,
 đang chờ quality gate; chưa khẳng định xử lý được mọi cách làm mờ tùy provider.
