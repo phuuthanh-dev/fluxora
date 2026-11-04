@@ -20,7 +20,7 @@ export function DriveSearchField({ value, workspaceId, credentialId, onChange }:
       <Field label="Name starts with"><input aria-label="Name starts with" value={search.name} onChange={(event) => update({ name: event.target.value })} /></Field>
       <Field label="File type"><Select aria-label="File type" value={search.type} onChange={(event) => update({ type: event.target.value as DriveSearchType })}><option value="any">Any type</option><option value="document">Google Docs</option><option value="spreadsheet">Google Sheets</option><option value="folder">Folder</option><option value="pdf">PDF</option></Select></Field>
       <ResourcePicker workspaceId={workspaceId} resource="google-folder" credentialId={credentialId} label="Parent folder (optional)" value={search.folder} placeholder="Search loaded folders" onChange={(folder) => update({ folder })} />
-      <small>Folder matches direct children only. Leave filters empty to search all accessible files.</small>
+      <small>Folder matches direct children only. Check the selected folder if you change connections. Leave filters empty to search all accessible files.</small>
     </>}
     {error && <small role="alert">{error}</small>}
   </div>;
