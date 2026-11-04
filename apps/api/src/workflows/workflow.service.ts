@@ -171,10 +171,10 @@ export class WorkflowService {
     const workflow = await this.findOwned(workflowId, userId);
     const graph = parseWorkflowGraph(input.graph);
     const updated = await this.prisma.$transaction(async (transaction) => {
-      await lockGraphCredentials(transaction, workflow.workspaceId, graph);
       // Lock in the same order as publish and provider reservation.
       const locked = await transaction.$queryRaw<Array<{ draftVersionId: string | null }>>`SELECT "draftVersionId" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
       if (!locked[0] || locked[0].draftVersionId !== workflow.draftVersionId) throw new ConflictException({ code: "WORKFLOW_DRAFT_CHANGED", message: "The workflow draft changed. Reload before saving." });
+      await lockGraphCredentials(transaction, workflow.workspaceId, graph);
       const draft = workflow.draftVersionId
         ? await transaction.workflowVersion.update({ where: { id: workflow.draftVersionId }, data: { graph: graph as Prisma.InputJsonValue } })
         : await transaction.workflowVersion.create({
