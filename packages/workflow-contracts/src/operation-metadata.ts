@@ -126,7 +126,7 @@ const definitions = {
   "action.vercel.list-deployments.v2": executable(credential("VERCEL"), "read", fields("deployments", "hasMore", "nextCursor", "partial"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "team", "project", "limit"], caveat: "Continuation can be unknown; reuse the cursor with the same account and project." }),
   "action.vercel.public-deployment-lookup": executable(credential("VERCEL"), "read"),
   "action.supabase.select": executable(credential("SUPABASE"), "read"),
-  "action.supabase.select.v2": executable(credential("SUPABASE"), "read", fields("rows", "count", "returnedCount", "page"), { kind: "offset", input: "offset", page: "page", preserve: ["credentialId", "table", "limit", "columns", "filters", "order"], caveat: "A nonzero offset requires sorting. Completeness is unknown, and changing rows can shift between pages." }),
+  "action.supabase.select.v2": executable(credential("SUPABASE"), "read", fields("rows", "count", "returnedCount", "page"), { kind: "offset", input: "offset", page: "page", preserve: ["credentialId", "table", "limit", "columns", "filters", "order", "rejectUnsafeNumbers"], caveat: "A nonzero offset requires sorting. Completeness is unknown, and changing rows can shift between pages." }),
   "action.supabase.insert-row": executable(credential("SUPABASE"), "write", fields("accepted", "table")),
   "action.reddit.list-posts": executable(credential("REDDIT"), "read"),
   "action.postgres.select": executable(credential("POSTGRES"), "read"),

@@ -85,6 +85,7 @@ export const dataNodeFields = {
       { kind: "credential", key: "credentialId", label: "Supabase connection", providers: ["SUPABASE"] },
       { kind: "resource", key: "table", label: "Table", resource: "supabase-table", credentialKey: "credentialId", placeholder: "Search tables" },
       { kind: "number", key: "limit", label: "Maximum rows (1–100)", fallbackValue: 20 },
+      { kind: "boolean", key: "rejectUnsafeNumbers", label: "Stop if numeric values would be rounded", defaultChecked: false },
     ],
   "action.supabase.insert-row": (): NodeConfigurationField[] => [
       { kind: "credential", key: "credentialId", label: "Supabase connection", providers: ["SUPABASE"] },

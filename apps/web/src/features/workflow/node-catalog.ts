@@ -791,7 +791,7 @@ export const nodeCatalog: NodeDefinition[] = [
   {
     type: "action.supabase.select.v2", label: "Supabase rows", description: "Read rows from a Supabase public-schema table.",
     category: "action", libraryGroup: "developer-data", appId: "supabase", operationId: "select-rows", operationLabel: "Select rows", operationKind: "search", icon: "supabase", available: true,
-    defaultConfig: { credentialId: "", table: "", limit: 20 },
+    defaultConfig: { credentialId: "", table: "", limit: 20, rejectUnsafeNumbers: true },
     configurationFields: getSharedNodeConfigurationFields("action.supabase.select.v2"),
   },
   {

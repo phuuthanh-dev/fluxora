@@ -18,7 +18,7 @@ const filterOperators: Record<string, string> = {
   lessThan: "lt", lessThanOrEqual: "lte", isNull: "is", isNotNull: "not.is",
 };
 const reservedFilterNames = new Set(["select", "order", "limit", "offset", "and", "or", "not", "columns", "on_conflict"]);
-const selectConfigKeys = new Set(["credentialId", "table", "limit", "columns", "filters", "order", "offset", "retryAttempts", "timeoutMs"]);
+const selectConfigKeys = new Set(["credentialId", "table", "limit", "columns", "filters", "order", "offset", "rejectUnsafeNumbers", "retryAttempts", "timeoutMs"]);
 
 function selectParams(config: Record<string, unknown>, limit: number) {
   const invalid = (): never => { throw new NodeFailure("INVALID_INPUT", "Invalid Supabase selection, filters, ordering or offset.", false); };
@@ -262,7 +262,8 @@ export async function executeSupabaseSelect(config: Record<string, unknown>, mod
     return { status: "succeeded" as const, output: { rows, count: rows.length }, route: "success" as const };
   }
   if (Object.keys(config).some((key) => !selectConfigKeys.has(key))) throw new NodeFailure("INVALID_INPUT", "Supabase configuration contains an unsupported field.", false);
-  requireResolvedSelection(config, ["limit", "columns", "filters", "order", "offset"], "Supabase");
+  requireResolvedSelection(config, ["limit", "columns", "filters", "order", "offset", "rejectUnsafeNumbers"], "Supabase");
+  if (config.rejectUnsafeNumbers !== undefined && typeof config.rejectUnsafeNumbers !== "boolean") throw new NodeFailure("INVALID_INPUT", "Supabase number precision option must be true or false.", false);
   const table = typeof config.table === "string" ? config.table : "";
   const limit = Object.hasOwn(config, "limit") ? config.limit : 20;
   if (!identifier.test(table) || typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > 100) throw new NodeFailure("INVALID_INPUT", "Choose a table and a limit between 1 and 100.", false);
@@ -274,7 +275,7 @@ export async function executeSupabaseSelect(config: Record<string, unknown>, mod
   const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
   if (!credentialId) throw new NodeFailure("CREDENTIAL_REQUIRED", "Select a Supabase connection.", false);
   const credential = await credentials.readForExecution(credentialId, workspaceId, CredentialProvider.SUPABASE);
-  const result = await get(`${encodeURIComponent(table)}?${params}`, credential, transport, false, true);
+  const result = await get(`${encodeURIComponent(table)}?${params}`, credential, transport, false, config.rejectUnsafeNumbers === true);
   if (!Array.isArray(result)) throw new NodeFailure("INVALID_RESPONSE", "Supabase returned an invalid row list.", false);
   const rows = result.slice(0, limit);
   if (Buffer.byteLength(JSON.stringify(rows)) > 200_000) throw new NodeFailure("RESPONSE_TOO_LARGE", "Supabase rows exceed the output size limit.", false);
