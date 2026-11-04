@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("GitHub issue update guides the selected field and shows the concurrency limit", async ({ page }) => {
   const graph = { nodes: [
     { id: "manual", type: "trigger.manual", position: { x: 100, y: 100 }, config: {} },
-    { id: "issue", type: "action.github.update-issue", position: { x: 400, y: 100 }, config: { credentialId: "github-1", repository: "owner/repo", issueNumber: "42", field: "title", title: "Updated", body: "", state: "open" } },
+    { id: "issue", type: "action.github.update-issue", position: { x: 400, y: 100 }, config: { credentialId: "github-1", repository: "owner/repo", issueNumber: "42", field: "title", title: "Updated", body: "" } },
   ], edges: [] };
   const workflow = { id: "github-update-test", workspaceId: "workspace-1", name: "GitHub test", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
   await page.route("**/api/v1/**", async (route) => {
@@ -27,6 +27,9 @@ test("GitHub issue update guides the selected field and shows the concurrency li
   await expect(page.getByLabel("New description (empty clears it)")).toBeVisible();
   await expect(page.getByLabel("New title")).toHaveCount(0);
   await page.getByLabel("Field to update").selectOption("state");
+  await expect(page.getByLabel("New state")).toHaveValue("");
+  await expect(page.getByLabel("New state").locator("option:checked")).toHaveText("Not set — select an option");
+  await page.getByLabel("New state").selectOption("open");
   await expect(page.getByLabel("New state")).toHaveValue("open");
   await page.getByRole("group", { name: "Repository", exact: true }).getByRole("combobox", { name: "Repository", exact: true }).selectOption("owner/other");
   await expect(page.getByRole("group", { name: "Issue number" }).getByRole("combobox")).toHaveValue("");

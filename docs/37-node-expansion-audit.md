@@ -11,6 +11,12 @@ PR phát hành Drive search có hướng dẫn, gợi ý expression từ node ph
 guard từ chối sử dụng dữ liệu đã che được nạp lại. Các mục chưa được chứng minh
 trong bảng dưới vẫn chưa hoàn tất chỉ vì release thành công.
 
+**NX-02 bản local sau PR #84, chờ verify:** dropdown cấu hình chung không còn
+hiện nhầm option đầu khi giá trị chưa đặt hoặc không nằm trong danh sách. UI
+hiển thị trạng thái tương ứng và giữ nguyên giá trị đã lưu cho đến khi người
+dùng chọn lại; không tự đổi graph hay hành vi mặc định của API. Trường hợp
+GitHub update issue được bổ sung vào E2E giả lập, chưa chạy.
+
 ### Snapshot trước PR #84
 
 PR [#83](https://github.com/phuuthanh-dev/fluxora/pull/83) đã merge vào

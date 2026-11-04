@@ -329,7 +329,8 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, wor
         return <ResourcePicker key={field.key} workspaceId={workspaceId} resource={field.resource} credentialId={readConfigText(config, field.credentialKey)} dependencyValue={field.dependencyKey ? readConfigText(config, field.dependencyKey) : undefined} secondaryDependencyValue={field.secondaryDependencyKey ? readConfigText(config, field.secondaryDependencyKey) : undefined} resourceVariant={["notion-source-property", "notion-source-option"].includes(field.resource) ? readConfigText(config, "filterMode") : undefined} label={field.label} value={value} placeholder={field.placeholder} allowExpression={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       }
       if (field.kind === "select") {
-        return <Field key={field.key} label={field.label} className="config-field"><Select aria-label={field.label} value={value} onChange={(event) => onChange(field.key, event.target.value)}>{field.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></Field>;
+        const knownValue = field.options.some((option) => option.value === value);
+        return <Field key={field.key} label={field.label} className="config-field"><Select aria-label={field.label} value={value} onChange={(event) => onChange(field.key, event.target.value)}>{!knownValue && <option value={value} disabled>{value ? "Saved value is not in this list" : "Not set — select an option"}</option>}{field.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></Field>;
       }
       if (field.kind === "key-value") {
         return <KeyValueField key={field.key} label={field.label} value={config[field.key]} keyPlaceholder={field.keyPlaceholder} valuePlaceholder={field.valuePlaceholder} onChange={(nextValue) => onChange(field.key, nextValue)} />;
