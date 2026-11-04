@@ -1,7 +1,8 @@
-import { BadRequestException, Controller, Get, Inject, Param, Query, Req, Res, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Inject, Param, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
 import type { Response } from "express";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
+import { AccountRequestGuard } from "../auth/account-request.guard";
 import { AuthService } from "../auth/auth.service";
 import { CredentialService } from "./credential.service";
 import { GoogleOAuthStateService, GoogleOAuthStateUnavailableError } from "./google-oauth-state.service";
@@ -39,7 +40,17 @@ export class GoogleOAuthController {
     return this.begin(workspaceId, request, response, "calendar", credentialId);
   }
 
-  private async begin(workspaceId: string, request: AuthenticatedRequest, response: Response, kind: GoogleConnectionKind, credentialId?: string, gmailCapabilities?: GmailCapability[], chatManage?: boolean) {
+  @Post("workspaces/:workspaceId/credentials/:credentialId/google-reconnect-confirmed")
+  @UseGuards(AuthenticationGuard, AccountRequestGuard)
+  async reconnectConfirmed(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Body() body: { confirmed?: unknown; kind?: unknown; gmailCapabilities?: unknown; chatManage?: unknown }, @Req() request: AuthenticatedRequest, @Res() response: Response) {
+    if (!body || body.confirmed !== true || !["google", "chat", "gmail", "calendar"].includes(String(body.kind))) throw new BadRequestException({ code: "GOOGLE_OAUTH_INVALID", message: "Confirm the Google account selection before reconnecting." });
+    const kind = body.kind as GoogleConnectionKind;
+    if (body.gmailCapabilities !== undefined && (kind !== "gmail" || !validGmailCapabilities(body.gmailCapabilities))) throw new BadRequestException({ code: "GOOGLE_OAUTH_INVALID", message: "Gmail permissions are invalid." });
+    if (body.chatManage !== undefined && (kind !== "chat" || typeof body.chatManage !== "boolean")) throw new BadRequestException({ code: "GOOGLE_OAUTH_INVALID", message: "Google Chat permissions are invalid." });
+    return this.begin(workspaceId, request, response, kind, credentialId, body.gmailCapabilities as GmailCapability[] | undefined, body.chatManage as boolean | undefined, true);
+  }
+
+  private async begin(workspaceId: string, request: AuthenticatedRequest, response: Response, kind: GoogleConnectionKind, credentialId?: string, gmailCapabilities?: GmailCapability[], chatManage?: boolean, allowUnverifiedLegacy = false) {
     response.setHeader("Cache-Control", "no-store");
     const userId = requireUserId(request);
     await this.credentials.requireOwner(workspaceId, userId);
@@ -51,19 +62,22 @@ export class GoogleOAuthController {
     try {
       clientId = requiredEnv("GOOGLE_CLIENT_ID");
       redirectUri = requiredEnv("GOOGLE_REDIRECT_URI");
-      issued = await this.states.issue({ workspaceId, userId, kind, credentialId, gmailCapabilities, chatManage }, request, response);
-    } catch (error) { return redirectFailure(response, error instanceof GoogleOAuthStateUnavailableError ? "redis_unavailable" : "failed", { workspaceId, kind, credentialId, gmailCapabilities, chatManage }); }
+      issued = await this.states.issue({ workspaceId, userId, kind, credentialId, gmailCapabilities, chatManage, ...(allowUnverifiedLegacy ? { allowUnverifiedLegacy: true } : {}) }, request, response);
+    } catch (error) {
+      if (allowUnverifiedLegacy) return response.status(503).json({ code: "GOOGLE_OAUTH_UNAVAILABLE", message: "Unable to start Google authorization. Please try again." });
+      return redirectFailure(response, error instanceof GoogleOAuthStateUnavailableError ? "redis_unavailable" : "failed", { workspaceId, kind, credentialId, gmailCapabilities, chatManage });
+    }
     const { state, challenge } = issued;
     const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
     url.search = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, response_type: "code", access_type: "offline", prompt: "consent", code_challenge: challenge, code_challenge_method: "S256", scope: ["openid", "email", ...(kind === "gmail" ? gmailScopesForCapabilities(gmailCapabilities ?? ["readonly"]) : googleConnectionPolicy[kind].scopes), ...(kind === "chat" && chatManage ? [chatManageScope] : [])].join(" "), state }).toString();
-    response.redirect(url.toString());
+    return allowUnverifiedLegacy ? response.json({ url: url.toString() }) : response.redirect(url.toString());
   }
 
   @Get("oauth/google/callback")
   async callback(@Query("code") code: string | undefined, @Query("state") state: string | undefined, @Req() request: AuthenticatedRequest, @Res() response: Response, @Query("error") providerError?: string) {
     response.setHeader("Cache-Control", "no-store");
     response.setHeader("Referrer-Policy", "no-referrer");
-    let verified: { workspaceId: string; userId: string; kind: GoogleConnectionKind; credentialId?: string; gmailCapabilities?: GmailCapability[]; chatManage?: boolean } | undefined;
+    let verified: { workspaceId: string; userId: string; kind: GoogleConnectionKind; credentialId?: string; gmailCapabilities?: GmailCapability[]; chatManage?: boolean; allowUnverifiedLegacy?: boolean } | undefined;
     try {
       const rawSession = request.headers.cookie?.split(";").map((item) => item.trim()).find((item) => item.startsWith("workflow_session="))?.slice("workflow_session=".length);
       const user = await this.auth.getCurrentUser(rawSession ? decodeURIComponent(rawSession) : undefined);
@@ -92,7 +106,7 @@ export class GoogleOAuthController {
       const account = await googleAccount(tokens.access_token);
       if (!account) return redirectFailure(response, "identity_failed", verified);
       const data = { accessToken: tokens.access_token, refreshToken: tokens.refresh_token, expiresAt: new Date(Date.now() + tokens.expires_in * 1000).toISOString(), googleSubject: account.sub, googleEmail: account.email, grantedScopes: scopes, scopeTokenHash: googleScopeTokenHash(tokens.access_token) };
-      await this.credentials.saveGoogleOAuth(verified.workspaceId, verified.userId, verified.kind, data, verified.credentialId, verified.gmailCapabilities, verified.chatManage);
+      await this.credentials.saveGoogleOAuth(verified.workspaceId, verified.userId, verified.kind, data, verified.credentialId, verified.gmailCapabilities, verified.chatManage, verified.allowUnverifiedLegacy);
       const connected = new URL("/dashboard/connections", process.env.WEB_ORIGIN ?? "http://localhost:3000");
       connected.searchParams.set("workspace", verified.workspaceId);
       connected.searchParams.set("connected", verified.kind === "chat" ? "google-chat" : verified.kind === "calendar" ? "google-calendar" : verified.kind);

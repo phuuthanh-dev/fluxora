@@ -300,16 +300,16 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   await expect(oauthBackupCard.getByRole("button", { name: "Rotate secret for OAuth backup" })).toBeVisible();
   await expect(oauthBackupCard.getByRole("button", { name: "Delete OAuth backup" })).toBeVisible();
 
-  // Verify the canonical "Google OAuth" card displays managed state and no Rename/Rotate/Delete buttons
+  // Managed OAuth credentials can be deleted after reference checks, but not manually edited.
   const googleOAuthCard = page.locator(`li[data-credential-id="${googleOAuthCred.id}"]`);
   await expect(googleOAuthCard).toBeVisible();
   await expect(googleOAuthCard.getByText("Managed OAuth")).toBeVisible();
-  await expect(googleOAuthCard.getByLabel("Actions for Google OAuth actions")).toHaveCount(0);
+  await googleOAuthCard.getByLabel("Actions for Google OAuth actions").click();
   await expect(googleOAuthCard.getByText(/Google may combine returned permissions with prior grants/)).toBeVisible();
   await expect(googleOAuthCard.getByRole("button", { name: "Reconnect Google" })).toBeVisible();
   await expect(googleOAuthCard.getByRole("button", { name: /Rename/ })).toHaveCount(0);
   await expect(googleOAuthCard.getByRole("button", { name: /Rotate/ })).toHaveCount(0);
-  await expect(googleOAuthCard.getByRole("button", { name: /Delete/ })).toHaveCount(0);
+  await expect(googleOAuthCard.getByRole("button", { name: /Delete/ })).toBeVisible();
 
   // Direct API regression: direct PATCH must be rejected with CREDENTIAL_MANAGED_BY_OAUTH
   const directPatchRes = await page.request.patch(`${api}/workspaces/${workspaceId}/credentials/${googleOAuthCred.id}`, {
@@ -319,11 +319,9 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   const directPatchBody = (await directPatchRes.json()) as { code: string };
   expect(directPatchBody.code).toBe("CREDENTIAL_MANAGED_BY_OAUTH");
 
-  // Direct API regression: direct DELETE must be rejected with CREDENTIAL_MANAGED_BY_OAUTH
+  // Unreferenced managed connections can be deleted through the API.
   const directDeleteRes = await page.request.delete(`${api}/workspaces/${workspaceId}/credentials/${googleOAuthCred.id}`);
-  expect(directDeleteRes.status()).toBe(400);
-  const directDeleteBody = (await directDeleteRes.json()) as { code: string };
-  expect(directDeleteBody.code).toBe("CREDENTIAL_MANAGED_BY_OAUTH");
+  expect(directDeleteRes.ok()).toBeTruthy();
 
   // Clean up manual OAuth backup credential via delete
   await page.request.delete(`${api}/workspaces/${workspaceId}/credentials/${oauthBackupCred.credential.id}`);

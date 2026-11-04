@@ -2,7 +2,7 @@
 
 import { ArrowLeft, KeyRound } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiRequest, apiUrl } from "../api/api-client";
 import { Button, EmptyState, PageHeader, Skeleton, Status } from "../../components/ui";
 import { CredentialManager } from "./credential-panel";
@@ -17,6 +17,10 @@ export function ConnectionsDashboard() {
   const [workspaceId, setWorkspaceId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [confirmReconnect, setConfirmReconnect] = useState(false);
+  const [reconnectBusy, setReconnectBusy] = useState(false);
+  const [reconnectError, setReconnectError] = useState<string | null>(null);
+  const [reconnectUsage, setReconnectUsage] = useState<{ workflows: Array<{ id: string; name: string }>; executions: Array<{ id: string }> } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -54,21 +58,48 @@ export function ConnectionsDashboard() {
     scope_missing: "Google did not grant all required permissions. Try again and grant the requested permissions.",
     identity_failed: "The Google account identity could not be verified. Try again and allow account email access.",
     account_mismatch: "Choose the same Google account originally used for this connection.",
-    legacy_identity_unknown: "The original account cannot be verified. Add a new connection, select it in each affected workflow, and republish workflows where needed. The old connection is unchanged.",
+    legacy_identity_unknown: "We cannot verify which Google account was originally used. You can reconnect this connection after reviewing its usage.",
     changed: "The connection changed during authorization. Try reconnecting again.",
     failed: "The connection service may be unavailable, or your workspace access may have changed. Try again or contact an administrator.",
   };
   const recoveryKind = searchParams.get("kind") ?? (oauthRecovery === "missing_refresh" ? "google" : oauthRecovery === "chat_missing_refresh" ? "chat" : oauthRecovery === "gmail_missing_refresh" ? "gmail" : oauthRecovery === "calendar_missing_refresh" ? "calendar" : null);
-  const recoveryMessage = oauthRecovery === "legacy_identity_unknown" && recoveryKind === "gmail"
-    ? "The original account cannot be verified. Add a new connection and select it in each affected workflow. For a Gmail trigger, deactivate before publishing the changed connection and review the message-gap confirmation. Reactivation creates a new checkpoint; messages received while inactive or before the new checkpoint may not be processed, so reconcile them manually."
-    : oauthRecovery ? recoveryMessages[oauthRecovery] : undefined;
+  const recoveryMessage = oauthRecovery ? recoveryMessages[oauthRecovery] : undefined;
   const recoveryPath = recoveryKind === "chat" ? "google-chat" : recoveryKind === "gmail" ? "gmail" : recoveryKind === "calendar" ? "google-calendar" : recoveryKind === "google" ? "google" : undefined;
   const retryParams = new URLSearchParams();
   if (oauthRecovery !== "legacy_identity_unknown" && searchParams.get("credentialId")) retryParams.set("credentialId", searchParams.get("credentialId")!);
   if (recoveryKind === "gmail" && searchParams.get("capabilities")) retryParams.set("capabilities", searchParams.get("capabilities")!);
+  if (recoveryKind === "chat" && searchParams.get("manage")) retryParams.set("manage", searchParams.get("manage")!);
   const retryQuery = retryParams.toString();
   const recoveryWorkspace = searchParams.get("workspace");
+  const recoveryCredentialId = searchParams.get("credentialId");
   const showRecovery = Boolean(recoveryMessage && (!recoveryWorkspace || recoveryWorkspace === workspaceId));
+
+  const reviewReconnect = useCallback(async () => {
+    const credentialId = recoveryCredentialId;
+    if (!credentialId) return;
+    setConfirmReconnect(true); setReconnectBusy(true); setReconnectError(null); setReconnectUsage(null);
+    try {
+      const result = await apiRequest<{ references: { workflows: Array<{ id: string; name: string }>; executions: Array<{ id: string }> } }>(`/workspaces/${encodeURIComponent(workspaceId)}/credentials/${encodeURIComponent(credentialId)}/references`);
+      setReconnectUsage(result.references);
+    } catch (reason) { setReconnectError(reason instanceof Error ? reason.message : "Could not check connection usage."); }
+    finally { setReconnectBusy(false); }
+  }, [recoveryCredentialId, workspaceId]);
+
+  useEffect(() => {
+    if (oauthRecovery !== "legacy_identity_unknown" || !workspaceId || !recoveryCredentialId || (recoveryWorkspace && recoveryWorkspace !== workspaceId)) return;
+    window.scrollTo({ top: 0, behavior: "auto" });
+    void reviewReconnect();
+  }, [oauthRecovery, recoveryCredentialId, recoveryWorkspace, reviewReconnect, workspaceId]);
+
+  const continueReconnect = async () => {
+    const credentialId = searchParams.get("credentialId");
+    if (!credentialId || !recoveryKind || !reconnectUsage) return;
+    setReconnectBusy(true); setReconnectError(null);
+    try {
+      const result = await apiRequest<{ url: string }>(`/workspaces/${encodeURIComponent(workspaceId)}/credentials/${encodeURIComponent(credentialId)}/google-reconnect-confirmed`, { method: "POST", body: JSON.stringify({ confirmed: true, kind: recoveryKind, ...(recoveryKind === "gmail" && searchParams.get("capabilities") ? { gmailCapabilities: searchParams.get("capabilities")!.split(",") } : {}), ...(recoveryKind === "chat" ? { chatManage: searchParams.get("manage") === "1" } : {}) }) });
+      window.location.assign(result.url);
+    } catch (reason) { setReconnectError(reason instanceof Error ? reason.message : "Could not start Google authorization."); setReconnectBusy(false); }
+  };
 
   const switchWorkspace = (nextWorkspaceId: string) => {
     setWorkspaceId(nextWorkspaceId);
@@ -100,9 +131,18 @@ export function ConnectionsDashboard() {
           <Status tone="error" className="connections-oauth-error">
             <div><strong>Google connection needs another try</strong><p>{recoveryMessage} Any existing connection was not changed.</p></div>
             <div className="connections-oauth-error__actions">
-              {recoveryPath ? <Button variant="secondary" onClick={() => window.location.assign(`${apiUrl}/workspaces/${encodeURIComponent(workspaceId)}/credentials/${recoveryPath}/connect${retryQuery ? `?${retryQuery}` : ""}`)}>{oauthRecovery === "legacy_identity_unknown" ? "Add new connection" : "Try Google again"}</Button> : null}
+              {oauthRecovery === "legacy_identity_unknown" ? (!confirmReconnect && recoveryPath && recoveryCredentialId ? <Button variant="secondary" onClick={() => void reviewReconnect()} disabled={reconnectBusy}>Review reconnect</Button> : null) : recoveryPath ? <Button variant="secondary" onClick={() => window.location.assign(`${apiUrl}/workspaces/${encodeURIComponent(workspaceId)}/credentials/${recoveryPath}/connect${retryQuery ? `?${retryQuery}` : ""}`)}>Try Google again</Button> : null}
               <Button variant="ghost" onClick={() => router.replace(`/dashboard/connections?workspace=${encodeURIComponent(workspaceId)}`)}>Dismiss</Button>
             </div>
+            {confirmReconnect ? <div className="connections-reconnect-review">
+              <strong>Reconnect this connection?</strong>
+              <p>The Google account you choose will be used by workflows connected to it. Choose the original account if possible.</p>
+              {reconnectBusy && !reconnectUsage ? <p>Checking usage…</p> : null}
+              {reconnectUsage ? <p>{reconnectUsage.workflows.length ? `Workflows using this connection: ${reconnectUsage.workflows.map((workflow) => workflow.name).join(", ")}.` : "No current workflows use this connection."} {reconnectUsage.executions.length ? `${reconnectUsage.executions.length} execution(s) are still active.` : ""}</p> : null}
+              {recoveryKind === "gmail" ? <p>If you choose a different mailbox, Gmail triggers stop until reviewed and reactivated. Messages during the gap may need manual reconciliation.</p> : null}
+              {reconnectError ? <p role="alert">{reconnectError}</p> : null}
+              <div className="connections-oauth-error__actions"><Button variant="primary" disabled={!reconnectUsage || reconnectBusy} onClick={() => void continueReconnect()}>{reconnectBusy && reconnectUsage ? "Opening Google…" : "Continue with Google"}</Button><Button variant="ghost" disabled={reconnectBusy} onClick={() => setConfirmReconnect(false)}>Cancel</Button></div>
+            </div> : null}
           </Status>
         ) : null}
         {!error && !workspaceId ? (

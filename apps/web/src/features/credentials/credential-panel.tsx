@@ -492,30 +492,29 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
                   <span className="credential-card__provider">{credentialProviderLabel(credential.provider)}</span>
                   {credential.hints && credential.hints.length > 0 && <span className="credential-card__hints" aria-label="Saved credential identification">{credential.hints.map((hint) => <span key={hint.field}>{hint.label} <code>{hint.masked}</code></span>)}</span>}
                 </div>
-                {isGoogleOAuth(credential) ? <span className="credential-card__managed-badge">Managed OAuth</span> : (
+                {isGoogleOAuth(credential) ? <span className="credential-card__managed-badge">Managed OAuth</span> : null}
                   <Menu
                     label={`Actions for ${credential.label}`}
                     trigger={<MoreVertical size={17} aria-hidden="true" />}
                     className="credential-card__menu"
                     contentClassName="credential-card__menu-content"
                   >
-                    <button type="button" aria-label={`Rename ${credential.label}`} onClick={() => startRename(credential)}>Rename</button>
-                    <button type="button" aria-label={`Rotate secret for ${credential.label}`} onClick={() => startRotate(credential)}>Rotate secret</button>
+                    {!isGoogleOAuth(credential) ? <button type="button" aria-label={`Rename ${credential.label}`} onClick={() => startRename(credential)}>Rename</button> : null}
+                    {!isGoogleOAuth(credential) ? <button type="button" aria-label={`Rotate secret for ${credential.label}`} onClick={() => startRotate(credential)}>Rotate secret</button> : null}
                     <button type="button" className="credential-card__menu-delete" aria-label={`Delete ${credential.label}`} onClick={() => startDelete(credential)}>Delete</button>
                   </Menu>
-                )}
               </div>
 
               {isGoogleOAuth(credential) ? (
                 <div className="credential-card__oauth-managed">
-                  <p className="credential-card__oauth-text">Reconnect with the same Google account. Older connections without a verifiable account may need a new connection. Google may combine returned permissions with prior grants, even when connections appear as separate cards.</p>
+                  <p className="credential-card__oauth-text">Reconnect with the same Google account. Google may combine returned permissions with prior grants.</p>
                   {credential.googleReconnectRequired ? <p role="status">Google permissions need to be verified again. Reconnect this account before the current token expires.</p> : null}
-                  {credential.googleLegacyScopesUnverified ? <p role="status">This older connection has unverified permissions. Existing workflows continue under Google’s permissions; reconnect to verify permissions before using new scope-gated features.</p> : null}
-                  {credential.provider === "GMAIL" ? <GmailOAuthConsent workspaceId={workspaceId} credentialId={credential.id} initialCapabilities={credential.gmailCapabilities} /> : credential.provider === "GOOGLE_CHAT_OAUTH" ? <GoogleChatOAuthConsent workspaceId={workspaceId} credentialId={credential.id} initialManage={credential.chatManageEnabled} /> : <Button
+                  {credential.googleLegacyScopesUnverified ? <p role="status">Reconnect to verify permissions for newer features.</p> : null}
+                  {credential.provider === "GMAIL" ? <GmailOAuthConsent workspaceId={workspaceId} credentialId={credential.id} identityUnverified={credential.googleIdentityUnverified} initialCapabilities={credential.gmailCapabilities} /> : credential.provider === "GOOGLE_CHAT_OAUTH" ? <GoogleChatOAuthConsent workspaceId={workspaceId} credentialId={credential.id} identityUnverified={credential.googleIdentityUnverified} initialManage={credential.chatManageEnabled} /> : <Button
                     variant="ghost"
                     type="button"
                     className="ghost-button credential-panel__oauth"
-                    onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/${credential.provider === "GOOGLE_CHAT_OAUTH" ? "google-chat" : credential.provider === "GOOGLE_CALENDAR" ? "google-calendar" : "google"}/connect?credentialId=${encodeURIComponent(credential.id)}`); }}
+                    onClick={() => startGoogleConnection(workspaceId, credential.provider === "GOOGLE_CALENDAR" ? "calendar" : "google", credential.id, credential.googleIdentityUnverified)}
                   >
                     Reconnect Google
                   </Button>}
@@ -570,6 +569,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
               {isDeleting && (
                 <div className="credential-card__form">
                   <CredentialReferenceSummary details={blockerDetails} isLoading={isLoadingReferences} />
+                  {blockerDetails && ((blockerDetails.workflows?.length ?? 0) > 0 || (blockerDetails.executions?.length ?? 0) > 0) ? <p className="credential-card__warning" role="status">This connection is in use and cannot be deleted yet. Select another connection in the listed workflows, save and republish where needed, then try again after active executions finish.</p> : null}
                   <p className="credential-card__warning">
                     Are you sure you want to delete <strong>{credential.label}</strong>? This action cannot be undone.
                   </p>
@@ -615,38 +615,56 @@ const gmailOptionalPermissions: Array<{ id: Exclude<GmailCapability, "readonly">
   { id: "labels", label: "Manage labels (non-sensitive)" },
 ];
 
-function GoogleChatOAuthConsent({ workspaceId, credentialId, initialManage }: { workspaceId: string; credentialId?: string; initialManage?: boolean }) {
+function startGoogleConnection(workspaceId: string, kind: "google" | "calendar" | "chat" | "gmail", credentialId?: string, identityUnverified?: boolean, options?: { capabilities?: string; manage?: string }) {
+  const params = new URLSearchParams();
+  if (options?.capabilities) params.set("capabilities", options.capabilities);
+  if (options?.manage) params.set("manage", options.manage);
+  if (credentialId) params.set("credentialId", credentialId);
+  if (credentialId && identityUnverified) {
+    params.set("workspace", workspaceId); params.set("kind", kind); params.set("google_oauth", "legacy_identity_unknown");
+    window.location.assign(`/dashboard/connections?${params.toString()}`);
+    return;
+  }
+  const path = kind === "chat" ? "google-chat" : kind === "calendar" ? "google-calendar" : kind;
+  window.location.assign(`${apiUrl}/workspaces/${encodeURIComponent(workspaceId)}/credentials/${path}/connect?${params.toString()}`);
+}
+
+function GoogleChatOAuthConsent({ workspaceId, credentialId, initialManage, identityUnverified }: { workspaceId: string; credentialId?: string; initialManage?: boolean; identityUnverified?: boolean }) {
   const [manage, setManage] = useState(Boolean(initialManage));
+  const Permissions = credentialId ? "details" : "div";
   const navigate = () => {
-    const params = new URLSearchParams({ manage: manage ? "1" : "0" });
-    if (credentialId) params.set("credentialId", credentialId);
-    window.location.assign(`${apiUrl}/workspaces/${encodeURIComponent(workspaceId)}/credentials/google-chat/connect?${params.toString()}`);
+    startGoogleConnection(workspaceId, "chat", credentialId, identityUnverified, { manage: manage ? "1" : "0" });
   };
   return <div className="credential-form__oauth-helper gmail-oauth-consent">
+    <Permissions className="credential-oauth-permissions">
+    {credentialId ? <summary>Google Chat permissions</summary> : null}
     <p>Google Chat requests access to list spaces and send messages. Select additional access only if this connection needs it.</p>
     <fieldset><legend>Google Chat permissions</legend>
       <label><input type="checkbox" checked disabled readOnly /> List spaces and send messages</label>
       <label><input type="checkbox" checked={manage} onChange={(event) => setManage(event.target.checked)} /> Manage messages and reactions</label>
     </fieldset>
     <p>Management grants broader access to view, update and delete messages and manage reactions. Google verification and account eligibility may be required. Existing workflows that need this permission may stop working if you remove it.</p>
+    </Permissions>
     <button type="button" className="credential-form__oauth-link" onClick={navigate}>{credentialId ? "Reconnect Google Chat" : "Connect Google Chat"} <ArrowUpRight size={13} aria-hidden="true" /></button>
   </div>;
 }
 
-function GmailOAuthConsent({ workspaceId, credentialId, initialCapabilities }: { workspaceId: string; credentialId?: string; initialCapabilities?: GmailCapability[] }) {
+function GmailOAuthConsent({ workspaceId, credentialId, initialCapabilities, identityUnverified }: { workspaceId: string; credentialId?: string; initialCapabilities?: GmailCapability[]; identityUnverified?: boolean }) {
   const [selected, setSelected] = useState<GmailCapability[]>(() => initialCapabilities?.includes("readonly") ? initialCapabilities : ["readonly"]);
+  const Permissions = credentialId ? "details" : "div";
   const navigate = () => {
-    const params = new URLSearchParams({ capabilities: selected.join(",") });
-    if (credentialId) params.set("credentialId", credentialId);
-    window.location.assign(`${apiUrl}/workspaces/${encodeURIComponent(workspaceId)}/credentials/gmail/connect?${params.toString()}`);
+    startGoogleConnection(workspaceId, "gmail", credentialId, identityUnverified, { capabilities: selected.join(",") });
   };
   return <div className="credential-form__oauth-helper gmail-oauth-consent">
+    <Permissions className="credential-oauth-permissions">
+    {credentialId ? <summary>Gmail permissions</summary> : null}
     <p>Read access is required for existing Gmail workflows. Message contents may appear in execution history. Select only additional access you want this connection to use; keep all permissions needed by existing workflows when reconnecting. Google’s actual grant controls what can run.</p>
     <fieldset><legend>Gmail permissions</legend>
       <label><input type="checkbox" checked disabled readOnly /> Read messages (restricted; required)</label>
       {gmailOptionalPermissions.map(({ id, label }) => <label key={id}><input type="checkbox" checked={selected.includes(id)} onChange={(event) => { const checked = event.target.checked; setSelected((previous) => checked ? [...previous, id] : previous.filter((item) => item !== id)); }} /> {label}</label>)}
     </fieldset>
     <p>Google verification is required for public apps using sensitive or restricted scopes; restricted scopes may also require a security assessment. Availability depends on Google’s review and your OAuth configuration. <a href="https://developers.google.com/workspace/gmail/api/auth/scopes" target="_blank" rel="noopener noreferrer">Google Gmail scope requirements</a></p>
+    </Permissions>
     <button type="button" className="credential-form__oauth-link" onClick={navigate}>{credentialId ? "Reconnect Google" : "Connect Gmail"} <ArrowUpRight size={13} aria-hidden="true" /></button>
   </div>;
 }

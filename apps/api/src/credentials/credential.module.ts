@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
+import { AccountRequestGuard } from "../auth/account-request.guard";
 import { WorkspaceModule } from "../workspaces/workspace.module";
 import { CredentialController } from "./credential.controller";
 import { CredentialService } from "./credential.service";
@@ -19,7 +20,7 @@ import { GmailResourceController } from "./gmail-resource.controller";
 @Module({
   imports: [AuthModule, WorkspaceModule],
   controllers: [CredentialController, GoogleOAuthController, GitHubResourceController, GoogleResourceController, GeminiResourceController, OpenAIResourceController, ConnectorResourceController, GoogleCalendarResourceController, GmailResourceController],
-  providers: [CredentialService, CredentialVaultService, GoogleOAuthStateService, GitHubResourceService, GoogleResourceService],
+  providers: [CredentialService, CredentialVaultService, GoogleOAuthStateService, GitHubResourceService, GoogleResourceService, AccountRequestGuard],
   exports: [CredentialService, CredentialVaultService],
 })
 export class CredentialModule {}

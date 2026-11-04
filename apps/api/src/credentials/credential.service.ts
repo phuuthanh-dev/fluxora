@@ -199,10 +199,6 @@ export class CredentialService {
     await this.workspaces.requireOwner(workspaceId, userId);
     const credential = await this.prisma.credential.findFirst({ where: { id: credentialId, workspaceId } });
     if (!credential) throw new NotFoundException({ code: "CREDENTIAL_NOT_FOUND", message: "A matching credential was not found in this workspace." });
-    if (isCanonicalGoogleOAuth(credential)) {
-      throw new BadRequestException({ code: "CREDENTIAL_MANAGED_BY_OAUTH", message: "Managed Google OAuth connections cannot be deleted directly." });
-    }
-
     const references = await this.findReferences(workspaceId, credentialId);
     const blockingWorkflows = references.workflows.map(({ id, name }) => ({ id, name }));
     const blockingExecutions = references.executions.map(({ id }) => ({ id }));
@@ -437,7 +433,7 @@ export class CredentialService {
     return credential;
   }
 
-  async saveGoogleOAuth(workspaceId: string, userId: string, kind: GoogleConnectionKind, data: { accessToken: string; refreshToken: string; expiresAt: string; googleSubject: string; googleEmail: string; grantedScopes: string[]; scopeTokenHash: string }, credentialId?: string, gmailCapabilities?: GmailCapability[], chatManage?: boolean) {
+  async saveGoogleOAuth(workspaceId: string, userId: string, kind: GoogleConnectionKind, data: { accessToken: string; refreshToken: string; expiresAt: string; googleSubject: string; googleEmail: string; grantedScopes: string[]; scopeTokenHash: string }, credentialId?: string, gmailCapabilities?: GmailCapability[], chatManage?: boolean, allowUnverifiedLegacy = false) {
     await this.workspaces.requireOwner(workspaceId, userId);
     const policy = googleConnectionPolicy[kind];
     if (!(kind === "gmail" ? gmailCapabilitiesGranted(data.grantedScopes, ["readonly"]) : kind === "chat" ? googleChatScopesGranted(data.grantedScopes) : googleScopesGranted(data.grantedScopes, policy.scopes))) throw new BadRequestException({ code: "GOOGLE_OAUTH_SCOPE_MISSING", message: "Required Google permissions were not granted. Existing connections were not changed." });
@@ -457,8 +453,8 @@ export class CredentialService {
       // rotation could invalidate it even if the reconnect is later rejected.
       const subject = typeof previous.googleSubject === "string" ? previous.googleSubject :
         typeof previous.accessToken === "string" && /^\S+$/.test(previous.accessToken) ? await googleSubject(previous.accessToken) : undefined;
-      if (!subject) throw new BadRequestException({ code: "GOOGLE_OAUTH_LEGACY_IDENTITY_UNKNOWN", message: "This older connection's account cannot be verified. Its tokens were not changed; add a new connection instead." });
-      if (subject !== data.googleSubject) throw new BadRequestException({ code: "GOOGLE_OAUTH_ACCOUNT_MISMATCH", message: "Choose the Google account originally used for this connection. Its tokens were not changed." });
+      if (!subject && !allowUnverifiedLegacy) throw new BadRequestException({ code: "GOOGLE_OAUTH_LEGACY_IDENTITY_UNKNOWN", message: "This older connection's account cannot be verified. Its tokens were not changed." });
+      if (subject && subject !== data.googleSubject) throw new BadRequestException({ code: "GOOGLE_OAUTH_ACCOUNT_MISMATCH", message: "Choose the Google account originally used for this connection. Its tokens were not changed." });
       const result = await this.prisma.credential.updateMany({ where: { id: target.id, workspaceId, provider: policy.provider, encryptedData: target.encryptedData }, data: { encryptedData: this.vault.encrypt(trustedData) } });
       if (result.count !== 1) throw new BadRequestException({ code: "GOOGLE_CREDENTIAL_CHANGED", message: "Google connection changed during reconnect. Try again." });
       credential = await this.prisma.credential.findFirst({ where: { id: target.id, workspaceId, provider: policy.provider } });
@@ -479,9 +475,11 @@ export class CredentialService {
     let chatManageEnabled = false;
     let googleReconnectRequired = false;
     let googleLegacyScopesUnverified = false;
+    let googleIdentityUnverified = false;
     if (credential.encryptedData && isCanonicalGoogleOAuth(credential)) {
       try {
         const data = this.vault.decrypt(credential.encryptedData);
+        googleIdentityUnverified = !(typeof data.googleSubject === "string" && data.googleSubject);
         if (credential.provider === CredentialProvider.GMAIL && gmailCapabilitiesValid(data)) selectedGmailCapabilities = data.gmailCapabilities as GmailCapability[];
         const chatManagementSelected = credential.provider === CredentialProvider.GOOGLE_CHAT_OAUTH && chatManageValid(data);
         if (chatManagementSelected && googleScopeProofValid(data) && googleScopesGranted(data.grantedScopes, [chatManageScope])) chatManageEnabled = true;
@@ -505,6 +503,7 @@ export class CredentialService {
       ...(chatManageEnabled ? { chatManageEnabled: true } : {}),
       ...(googleReconnectRequired ? { googleReconnectRequired: true } : {}),
       ...(googleLegacyScopesUnverified ? { googleLegacyScopesUnverified: true } : {}),
+      ...(googleIdentityUnverified ? { googleIdentityUnverified: true } : {}),
       ...(hints.length ? { hints } : {}),
     };
   }

@@ -303,6 +303,7 @@
       "id": "apps/api/src/credentials/credential.module.ts",
       "boundary": "api",
       "internalImports": [
+        "apps/api/src/auth/account-request.guard.ts",
         "apps/api/src/auth/auth.module.ts",
         "apps/api/src/credentials/connector-resource.controller.ts",
         "apps/api/src/credentials/credential-vault.service.ts",
@@ -449,6 +450,7 @@
       "id": "apps/api/src/credentials/google-oauth.controller.ts",
       "boundary": "api",
       "internalImports": [
+        "apps/api/src/auth/account-request.guard.ts",
         "apps/api/src/auth/auth.service.ts",
         "apps/api/src/auth/authenticated-request.ts",
         "apps/api/src/auth/authentication.guard.ts",
@@ -3584,6 +3586,10 @@
     },
     {
       "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/auth/account-request.guard.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
       "to": "apps/api/src/auth/auth.module.ts"
     },
     {
@@ -3769,6 +3775,10 @@
     {
       "from": "apps/api/src/credentials/google-oauth-test-helpers.ts",
       "to": "apps/api/src/credentials/google-oauth.controller.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-oauth.controller.ts",
+      "to": "apps/api/src/auth/account-request.guard.ts"
     },
     {
       "from": "apps/api/src/credentials/google-oauth.controller.ts",

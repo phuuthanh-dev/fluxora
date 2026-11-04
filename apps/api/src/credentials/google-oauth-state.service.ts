@@ -8,7 +8,7 @@ const lifetime = 10 * 60_000;
 const cookiePrefix = "fluxora_google_oauth_";
 export class GoogleOAuthStateUnavailableError extends Error {}
 
-type State = { workspaceId: string; userId: string; kind: GoogleConnectionKind; credentialId?: string; gmailCapabilities?: GmailCapability[]; chatManage?: boolean; nonce: string; issuedAt: number };
+type State = { workspaceId: string; userId: string; kind: GoogleConnectionKind; credentialId?: string; gmailCapabilities?: GmailCapability[]; chatManage?: boolean; allowUnverifiedLegacy?: boolean; nonce: string; issuedAt: number };
 
 @Injectable()
 export class GoogleOAuthStateService implements OnApplicationShutdown {
@@ -43,6 +43,7 @@ export class GoogleOAuthStateService implements OnApplicationShutdown {
     if (typeof s.workspaceId !== "string" || typeof s.userId !== "string" || !["google", "chat", "gmail", "calendar"].includes(String(s.kind)) || typeof s.nonce !== "string" || !/^[A-Za-z0-9_-]{32}$/.test(s.nonce) || typeof s.issuedAt !== "number" || s.issuedAt > Date.now() + 60_000 || s.issuedAt + lifetime < Date.now() || (s.credentialId !== undefined && (typeof s.credentialId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(s.credentialId)))) throw new Error("Invalid state");
     if (s.gmailCapabilities !== undefined && (s.kind !== "gmail" || !validGmailCapabilities(s.gmailCapabilities))) throw new Error("Invalid state");
     if (s.chatManage !== undefined && (s.kind !== "chat" || typeof s.chatManage !== "boolean")) throw new Error("Invalid state");
+    if (s.allowUnverifiedLegacy !== undefined && (s.allowUnverifiedLegacy !== true || typeof s.credentialId !== "string")) throw new Error("Invalid state");
     const session = cookie(request, "workflow_session");
     const browser = cookie(request, `${cookiePrefix}${s.nonce}`);
     if (!session || !browser) throw new Error("Invalid state");
