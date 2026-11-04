@@ -18,6 +18,8 @@ type ContinuationPagination = { kind: "continuation"; input: string; next: strin
 export type OperationPagination =
   | { kind: "unspecified" }
   | { kind: "output-only"; next: string; hasMore?: string }
+  /** An offset is supplied explicitly; the response does not establish a next page. */
+  | { kind: "offset"; input: string; page: string; preserve: readonly string[]; caveat: string }
   | ContinuationPagination
   /** Fallback applies when the selector is absent; other operations have no advertised pagination and can be invalid. */
   | { kind: "conditional"; selector: string; fallback: string; cases: readonly { values: readonly string[]; pagination: ContinuationPagination }[] };
@@ -130,11 +132,11 @@ const definitions = {
   "action.vercel.list-deployments.v2": executable(credential("VERCEL"), "read", fields("deployments", "hasMore", "nextCursor", "partial"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "team", "project", "limit"], caveat: "Continuation can be unknown; reuse the cursor with the same account and project." }),
   "action.vercel.public-deployment-lookup": executable(credential("VERCEL"), "read"),
   "action.supabase.select": executable(credential("SUPABASE"), "read"),
-  "action.supabase.select.v2": executable(credential("SUPABASE"), "read"),
+  "action.supabase.select.v2": executable(credential("SUPABASE"), "read", fields("rows", "count", "returnedCount", "page"), { kind: "offset", input: "offset", page: "page", preserve: ["credentialId", "table", "limit", "columns", "filters", "order"], caveat: "A nonzero offset requires sorting. Completeness is unknown, and changing rows can shift between pages." }),
   "action.supabase.insert-row": executable(credential("SUPABASE"), "write", fields("accepted", "table")),
   "action.reddit.list-posts": executable(credential("REDDIT"), "read"),
   "action.postgres.select": executable(credential("POSTGRES"), "read"),
-  "action.postgres.select.v2": executable(credential("POSTGRES"), "read"),
+  "action.postgres.select.v2": executable(credential("POSTGRES"), "read", fields("rows", "count", "returnedCount", "page"), { kind: "offset", input: "offset", page: "page", preserve: ["credentialId", "schema", "table", "limit", "columns", "conditions", "orderBy", "orderDirection"], caveat: "A nonzero offset requires sorting. Completeness is unknown, and changing rows can shift between pages." }),
   "action.gmail.read": executable(credential("GMAIL"), "read", fields("messages", "count", "hasMore")),
   "action.gmail.read.v2": executable(credential("GMAIL"), "read", fields("messages", "count", "hasMore", "nextPageToken"), { kind: "continuation", input: "pageToken", next: "nextPageToken", hasMore: "hasMore", preserve: ["credentialId", "mailbox", "query", "limit"] }),
   "action.gmail.get-message": executable(credential("GMAIL"), "read", fields("message")),

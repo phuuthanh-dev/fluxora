@@ -82,6 +82,25 @@ test("Notion search exposes an input cursor and the advertised output fields", a
   if ("knownFields" in metadata.output) for (const key of metadata.output.knownFields) assert.ok(key in result.output, key);
 });
 
+test("relational offset metadata matches v2 outputs without claiming a next page", async () => {
+  for (const [type, selection, preserve] of [
+    ["action.postgres.select.v2", { schema: "public", orderBy: "id", orderDirection: "asc" }, ["credentialId", "schema", "table", "limit", "columns", "conditions", "orderBy", "orderDirection"]],
+    ["action.supabase.select.v2", { order: [{ column: "id", direction: "asc" }] }, ["credentialId", "table", "limit", "columns", "filters", "order"]],
+  ] as const) {
+    const metadata = getOperationMetadata(type);
+    assert.ok(metadata && metadata.pagination.kind === "offset");
+    assert.deepEqual(metadata.pagination.preserve, preserve);
+    const config = { table: "items", limit: 5, [metadata.pagination.input]: 5, ...selection };
+    const node = { id: "read", type, position: { x: 0, y: 0 }, config };
+    const result = await executeNode(node, config, {}, "mock", "workspace", {} as never, "execution");
+    assert.deepEqual(result.output[metadata.pagination.page], { limit: 5, offset: 5, completeness: "unknown" });
+    if ("knownFields" in metadata.output) for (const key of metadata.output.knownFields) assert.ok(key in result.output, key);
+    assert.ok(!("hasMore" in result.output));
+    assert.ok(!("nextOffset" in result.output));
+    assert.equal(getOperationMetadata(type.replace(".v2", ""))?.pagination.kind, "unspecified");
+  }
+});
+
 test("continuation metadata identifies the connection and query context that must stay consistent", () => {
   for (const [type, expected] of [
     ["action.notion.search-pages.v2", ["credentialId", "query", "pageSize"]],

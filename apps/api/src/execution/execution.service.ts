@@ -788,6 +788,12 @@ function leaseExpiry(now: Date) {
   return new Date(now.getTime() + executionLeaseMs);
 }
 
+function assertSupabaseWriteExpressions(node: WorkflowNode, context: Record<string, unknown>) {
+  // A missing embedded value must not silently become an empty string in a
+  // new write action. Existing node expression semantics remain unchanged.
+  if (node.type === "action.supabase.insert-row") resolveExpressions(node.config.fields, context, { rejectMissing: true });
+}
+
 function assertGitHubSafetyExpressions(node: WorkflowNode, config: Record<string, unknown>, context: Record<string, unknown>) {
   // An expression-backed safety guard must not silently disappear when an
   // upstream value is missing, null, or interpolates to an empty string.
@@ -812,9 +818,7 @@ export async function executeNode(node: WorkflowNode, config: Record<string, unk
   // Execution can also be called outside the graph parser; fail before any
   // credential access or provider side effect for an unknown version.
   if (node.nodeVersion !== undefined && !isSupportedWorkflowNodeVersion(node.nodeVersion)) throw new NodeFailure("NODE_VERSION_UNSUPPORTED", "This node version is not supported by the execution engine.", false);
-  // A missing embedded value must not silently become an empty string in a
-  // new write action. Existing node expression semantics remain unchanged.
-  if (node.type === "action.supabase.insert-row") resolveExpressions(node.config.fields, context, { rejectMissing: true });
+  assertSupabaseWriteExpressions(node, context);
   assertGitHubSafetyExpressions(node, config, context);
   const connectorExecutor = getConnectorExecutor(node.type, node.nodeVersion);
   if (connectorExecutor) return connectorExecutor({ config, mode, workspaceId, credentials, executionId, nodeId: node.id });
