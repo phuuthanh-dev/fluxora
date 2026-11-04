@@ -34,6 +34,15 @@ database/Redis riêng, dữ liệu giả và scheduler tắt. Các commit tiếp
 này chưa được kiểm tra bằng lượt verify đó và chưa được phát hành. Kết quả
 không thay thế CI Node 22 hoặc kiểm thử provider thật.
 
+Lượt verify cô lập tiếp theo tại `10f1dba` đã hoàn tất: 972 test API,
+80 test web và 214 Playwright, cùng typecheck/build và harness checks. Lượt
+này bao gồm kiểm thử trigger output đã che, webhook Trello/Sentry đến ngược
+thứ tự và gợi ý expression. Database và Redis là tài nguyên thử riêng,
+scheduler tắt; không sử dụng provider hoặc credential thật. Log có cảnh báo
+GSAP/WebGL trong trình duyệt thử, các bài liên quan vẫn pass. Một commit chỉ
+cập nhật tài liệu sau lượt này không thay đổi source đã kiểm thử. CI trên head
+PR vẫn cần chạy; kết quả này không xác nhận mọi operation hoặc provider thật.
+
 **Bản local sau PR #83, chưa phát hành:** Drive search `.v2` có
 bộ lọc theo tiền tố tên, loại file và thư mục cha trực tiếp, dùng folder picker
 có fallback nhập ID. Nó tạo chính trường `query` đã có, không đổi graph hay
@@ -57,17 +66,18 @@ mới khác trong cùng lượt vẫn hoạt động như trước. Lỗi có th
 Đây là fail-closed, không khôi phục giá trị gốc; một giá trị hợp lệ có sẵn chuỗi
 `[REDACTED]` trong dữ liệu đã lưu cũng có thể bị từ chối. Kiểm thử ở commit
 `c2d6367` đã pass; kiểm thử cho trường hợp truy cập thông qua output của trigger
-được bổ sung sau đó và chưa qua quality gate. Chưa khẳng định xử lý được mọi
+được bổ sung sau đó và đã pass trong lượt `10f1dba`. Chưa khẳng định xử lý được mọi
 cách làm mờ tùy provider.
 
-**NX-05 kiểm thử local đang chờ verify:** trường hợp PostgreSQL giả lập cho
+**NX-05 kiểm thử local:** trường hợp PostgreSQL giả lập cho
 Trello và Sentry được mở rộng để nhận một sự kiện có identity lớn trước, sau
 đó nhận và nhận lại identity nhỏ hơn. Kiểm thử xác nhận hai identity độc lập
 được tạo execution riêng và lần nhận lại được deduplicate. Đây kiểm tra lớp
 lưu delivery, không chứng minh provider gửi tuần tự, thứ tự thực thi workflow,
-hay exactly-once; chưa chạy kiểm thử provider thật.
+hay exactly-once; kiểm thử tích hợp giả lập đã pass tại `10f1dba`, chưa chạy
+kiểm thử provider thật.
 
-**NX-02 gợi ý expression local, chờ verify:** inspector dùng các trường output
+**NX-02 gợi ý expression local:** inspector dùng các trường output
 đã biết để gợi ý đường dẫn cho node phía trước ngay cả trước lần chạy đầu;
 kết quả từ lần chạy gần nhất chỉ hiển thị cho node thành công còn nằm trên
 đường đi tới node đang sửa và cùng loại với graph được chạy. Các gợi ý chỉ là
