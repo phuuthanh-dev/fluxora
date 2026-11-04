@@ -1,6 +1,6 @@
 # Chuyển production sang NX
 
-**Bản local đang được kiểm tra; chưa deploy.** Chủ dự án đã đồng ý gián đoạn
+**Lần deploy đầu không thành công; production đang chạy bản cũ.** Chủ dự án đã đồng ý gián đoạn
 ngắn, chấp nhận request hoặc lịch trong lúc chuyển có thể bị ngắt/bỏ lỡ và
 chọn tạm bỏ backup cho lần này. Không có backup nghĩa là nếu migration làm
 mất hoặc hỏng dữ liệu, hiện chưa có bản khôi phục đã được chứng minh.
@@ -15,10 +15,12 @@ mất hoặc hỏng dữ liệu, hiện chưa có bản khôi phục đã đư�
   Đây là ảnh chụp tức thời và phải kiểm tra lại khi chuyển.
 - Ổ chứa ứng dụng còn khoảng 2,69 GiB; script yêu cầu ít nhất 2 GiB trước khi
   pull, nhưng image và migration vẫn có thể cần thêm dung lượng.
-- [PR #75](https://github.com/phuuthanh-dev/fluxora/pull/75) đang draft; CI
-  pass tại ec17f67. Code cutover hiện mới ở local và cần verify/CI cho commit
-  cuối. GitHub Environment production không có rule chờ duyệt tại lần kiểm tra;
-  merge có thể tự bắt đầu deploy sau Quality Gate của main.
+- [PR #75](https://github.com/phuuthanh-dev/fluxora/pull/75) đã merge và CI
+  pass. Deploy 41766506723 timeout vì API cũ không thoát sau SIGTERM. Script
+  deploy nền được dừng, API cũ được khởi động lại; worker và database không
+  dừng, bốn migration NX chưa chạy. Release lock được giữ lại để kiểm tra.
+  Số workflow/credential trước và sau đều là 9/10; đây không phải kiểm tra
+  toàn vẹn dữ liệu đầy đủ. Hai biến tạm đã được gỡ khỏi GitHub.
 
 ## Trình tự dự kiến
 
@@ -31,8 +33,10 @@ mất hoặc hỏng dữ liệu, hiện chưa có bản khôi phục đã đư�
    chạy đúng image ID cũ, queue Redis mặc định, database chưa có migration NX,
    và execution, approval cùng các key queue được kiểm tra đều không có việc.
    Nếu điều kiện không đạt, script dừng trước khi dừng dịch vụ.
-4. Script dừng API cũ rồi chờ worker cũ dừng. API cũ không graceful drain;
-   SIGTERM có thể ngắt request. Trong khoảng dừng, API/webhook có thể gặp lỗi.
+4. Script dừng API cũ với thời gian chờ 20 giây, sau đó Docker có thể buộc
+   dừng API nếu nó không thoát, rồi chờ worker cũ dừng. Chủ dự án đã chấp
+   nhận request bị ngắt trong lần chuyển này. API cũ không graceful drain;
+   API/webhook có thể gặp lỗi trong khoảng dừng. API NX vẫn dùng graceful drain.
    Phương án này không sửa Nginx và không tạo trang bảo trì.
 5. Sau khi dừng, script kiểm tra lại database và queue. Nếu có việc mới hoặc
    kết quả dừng không chắc chắn, script giữ release lock để điều tra; không
@@ -64,9 +68,12 @@ mất hoặc hỏng dữ liệu, hiện chưa có bản khôi phục đã đư�
   mô phỏng; script dùng thư mục ứng dụng thử thay vì bundle CI. Chưa thử
   provider thật, cron live, mọi approval, mất SSH hoặc image production được
   build bởi GitHub.
+- Một lượt diễn tập bổ sung cố ý làm API cũ không phản hồi bằng SIGSTOP: Docker
+  buộc dừng sau timeout, cutover tiếp tục và các kiểm tra dữ liệu giả ở trên
+  vẫn đạt. Đây là mô phỏng, không chứng minh mọi request production an toàn.
 - [Bằng chứng API cũ](41-nx-first-cutover-plan.md): client ngắt kết nối không
   chứng minh OAuth đã hoàn thành; SIGTERM có thể ngắt refresh đang chờ. Chủ dự
   án chấp nhận gián đoạn không biến API cũ thành graceful drain.
 
-Cần chạy quality gate và CI cho commit cuối, rồi kiểm tra lại trạng thái thực
-tế trước khi merge/deploy. Không đổi volume database hoặc tự xóa job/lock.
+Cần verify và CI cho bản sửa, kiểm tra lại trạng thái thực tế và release lock
+trước khi thử deploy lần nữa. Không đổi volume database hoặc tự xóa job/lock.

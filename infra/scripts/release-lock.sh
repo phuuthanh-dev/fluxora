@@ -98,7 +98,9 @@ require_legacy_quiescent() {
 require_legacy_api_exit() {
   for stopped_api_id in $1; do
     stopped_api_state="$(docker inspect --format '{{.State.Status}} {{.State.ExitCode}} {{.State.OOMKilled}}' "$stopped_api_id")" || return 1
-    case "$stopped_api_state" in 'exited 0 false'|'exited 143 false') ;; *) printf '%s\n' "Legacy API stop is uncertain; release remains locked." >&2; return 1 ;; esac
+    # Exit 137 is possible only after the explicitly authorized bounded legacy
+    # stop; OOM and every other unexpected state still retain the lock.
+    case "$stopped_api_state" in 'exited 0 false'|'exited 143 false'|'exited 137 false') ;; *) printf '%s\n' "Legacy API stop is uncertain; release remains locked." >&2; return 1 ;; esac
   done
 }
 
