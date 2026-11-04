@@ -3,9 +3,9 @@ import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
 import { requireResolvedSelection, requireSafeSelectionNumber } from "./relational-selection-validation";
 import { fetchSafeOutbound, fetchSafeOutboundWrite, wasOutboundRedirected } from "./outbound-url-policy";
-import { readBoundedProviderJson } from "./provider-json";
+import { readBoundedProviderJson, readBoundedProviderText } from "./provider-json";
 import { uncertainDelivery } from "./provider-request-policy";
-import { preservesJsonDecimal } from "./json-decimal";
+import { parseJsonPreservingNumbers, preservesJsonDecimal } from "./json-decimal";
 
 type Transport = (url: string, init: RequestInit) => Promise<Response>;
 const identifier = /^[A-Za-z_][A-Za-z0-9_$]{0,62}$/;
@@ -83,7 +83,7 @@ function dataApiConnection(credential: Record<string, unknown>) {
   return { projectRef, headers };
 }
 
-async function get(path: string, credential: Record<string, unknown>, transport: Transport, openapi = false) {
+async function get(path: string, credential: Record<string, unknown>, transport: Transport, openapi = false, preserveNumbers = false) {
   const { projectRef, headers } = dataApiConnection(credential);
   headers.accept = openapi ? "application/openapi+json" : "application/json";
   let response: Response;
@@ -101,8 +101,12 @@ async function get(path: string, credential: Record<string, unknown>, transport:
     const guidance = response.status === 401 ? " Check the API key and any user access token." : response.status === 403 ? " Check the permissions of the effective key or token role." : "";
     throw new NodeFailure("HTTP_ERROR", `Supabase returned ${response.status}.${guidance}`, response.status === 429 || response.status >= 500, response.status);
   }
-  try { return await readBoundedProviderJson(response); }
-  catch (error) { if (error instanceof NodeFailure) throw error; throw new NodeFailure("INVALID_RESPONSE", "Supabase returned an invalid response.", false); }
+  try { return preserveNumbers ? parseJsonPreservingNumbers(await readBoundedProviderText(response)) : await readBoundedProviderJson(response); }
+  catch (error) {
+    if (error instanceof NodeFailure) throw error;
+    if (preserveNumbers && error instanceof RangeError) throw new NodeFailure("UNSAFE_PROVIDER_NUMBER", "Supabase returned a number that cannot be represented safely. Return exact values as text, for example through a database view.", false);
+    throw new NodeFailure("INVALID_RESPONSE", "Supabase returned an invalid response.", false);
+  }
 }
 
 /** Insert exactly one row. Provider errors and uncertain writes never expose response bodies. */
@@ -270,7 +274,7 @@ export async function executeSupabaseSelect(config: Record<string, unknown>, mod
   const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
   if (!credentialId) throw new NodeFailure("CREDENTIAL_REQUIRED", "Select a Supabase connection.", false);
   const credential = await credentials.readForExecution(credentialId, workspaceId, CredentialProvider.SUPABASE);
-  const result = await get(`${encodeURIComponent(table)}?${params}`, credential, transport);
+  const result = await get(`${encodeURIComponent(table)}?${params}`, credential, transport, false, true);
   if (!Array.isArray(result)) throw new NodeFailure("INVALID_RESPONSE", "Supabase returned an invalid row list.", false);
   const rows = result.slice(0, limit);
   if (Buffer.byteLength(JSON.stringify(rows)) > 200_000) throw new NodeFailure("RESPONSE_TOO_LARGE", "Supabase rows exceed the output size limit.", false);

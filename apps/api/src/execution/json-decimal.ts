@@ -16,3 +16,11 @@ export function preservesJsonDecimal(source: string, value: number): boolean {
     (!Number.isInteger(value) || Number.isSafeInteger(value)) &&
     canonicalDecimal(source) === canonicalDecimal(String(value));
 }
+
+/** Parse only when numeric tokens survive the JavaScript number representation. */
+export function parseJsonPreservingNumbers(text: string): unknown {
+  return JSON.parse(text, (_key: string, value: unknown, context?: { source?: string }) => {
+    if (typeof value === "number" && (typeof context?.source !== "string" || !preservesJsonDecimal(context.source, value))) throw new RangeError("JSON number cannot be preserved");
+    return value;
+  }) as unknown;
+}
