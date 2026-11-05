@@ -52,6 +52,14 @@ và có thể thử lại. Điều này có thể tạm ngăn xử lý thư cho 
 đổi hoặc nguyên nhân được xử lý. Test giả cho adapter và trigger đang chờ
 verify; không khẳng định phát hiện mọi secret hay có rò rỉ đã xảy ra.
 
+**NX-02 expression redaction local, chờ verify:** dữ liệu khôi phục sau
+approval/retry hoặc trigger đã lưu bị từ chối khi đường dẫn expression chứa
+`[redacted]` của Gmail, tương tự `[REDACTED]` của bộ che chung. Dữ liệu mới
+trong cùng lượt giữ hành vi cũ. Chuỗi hợp lệ tình cờ chứa đúng dấu này cũng có
+thể bị từ chối sau khi lưu; đây là fail-closed, không khôi phục dữ liệu gốc và
+không phát hiện mọi dạng thay thế bí mật. Kiểm thử resolver và continuation
+với fixture giả đang chờ verify.
+
 ### Snapshot trước PR #85
 
 PR [#84](https://github.com/phuuthanh-dev/fluxora/pull/84) đã merge tại
