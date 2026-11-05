@@ -2,6 +2,18 @@
 
 ## Trạng thái phát hành mới nhất — 05/11/2026
 
+**Đang phát triển sau PR #87 — Trello, chưa verify hoặc phát hành:** audit
+phát hiện đường tạo card cũ dùng transport có thể theo redirect và dữ liệu
+board/list cùng card vừa tạo chưa kiểm tra token/key bị provider lặp lại.
+Thay đổi local dùng transport chặn redirect cho POST; redirect, 408, 429,
+5xx, lỗi mạng hoặc output không an toàn sau khi ghi được báo kết quả chưa
+chắc chắn và không tự retry. Discovery từ chối giá trị chứa nguyên token/key
+trước khi cắt ngắn; có thể từ chối dữ liệu trùng credential một cách tình cờ,
+không phát hiện mọi dạng mã hóa hay secret khác. Test giả lập đã viết nhưng
+chưa chạy, chưa kiểm thử provider thật. [Trello](https://developer.atlassian.com/cloud/trello/guides/rest-api/api-introduction/)
+xác định tạo card là POST; [tài liệu rate limit](https://developer.atlassian.com/cloud/trello/guides/rest-api/rate-limits/)
+mô tả 429, còn chính sách không tự retry ở đây là lựa chọn thận trọng của Fluxora.
+
 **Đang phát triển sau PR #87 — chưa verify hoặc phát hành:** picker sự kiện
 Calendar có thể tải thêm từng trang, thay vì chỉ chọn trong 50 sự kiện đầu.
 Backend trả cursor và thời điểm bắt đầu của trang đầu; khi tải thêm, editor

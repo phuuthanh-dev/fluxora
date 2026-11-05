@@ -6,6 +6,13 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- Post-PR #87 Trello safety audit in progress: the existing create-card POST
+  now uses the no-write-redirect transport and reports an uncertain outcome
+  for redirects, timeouts, 429 and 5xx; it does not automatically retry.
+  Discovery and the created-card output reject current credential echoes before
+  truncation; after a write this reports uncertainty. Synthetic tests are
+  written but not run. No live Trello request was made for this change.
+
 - Post-PR #87 work in progress: Calendar event picker can request additional
   pages using the original `timeMin`, reset when its calendar/connection
   changes, and retain manual ID entry. Synthetic API and editor tests are
