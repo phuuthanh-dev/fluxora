@@ -131,6 +131,25 @@ test("numeric fields preserve a saved expression and allow an explicit return to
   expect(configFromSave(saves[2]!).limit).toBe(expression);
 });
 
+test("an omitted numeric limit shows its default and can be restored without writing a value", async ({ page }) => {
+  const { saves } = await setup(page, { provider: "supabase", configOverride: { limit: undefined } });
+  await selectRelational(page);
+  const limit = page.getByLabel("Maximum rows (1–100)");
+  await expect(limit).toHaveValue("");
+  await expect(limit).toHaveAttribute("placeholder", "Default: 20");
+  await page.getByRole("button", { name: "Save draft" }).click();
+  await expect.poll(() => saves.length).toBe(1);
+  expect(configFromSave(saves[0]!)).not.toHaveProperty("limit");
+  await limit.fill("8");
+  await limit.clear();
+  await expect(page.getByText("Enter a number or use the default setting.")).toBeVisible();
+  await page.getByRole("button", { name: "Use default", exact: true }).click();
+  await expect(limit).toHaveAttribute("placeholder", "Default: 20");
+  await page.getByRole("button", { name: "Save draft" }).click();
+  await expect.poll(() => saves.length).toBe(2);
+  expect(configFromSave(saves[1]!)).not.toHaveProperty("limit");
+});
+
 test("Supabase insert builds typed columns without JSON and clears them when the table changes", async ({ page }) => {
   const { saves } = await setup(page, { provider: "supabase", insert: true });
   await selectRelational(page);

@@ -16,6 +16,13 @@ tự đổi graph đã lưu. Bài E2E picker hiện có được mở rộng cho
 từ danh sách và nhập ID thủ công;
 chưa có kiểm thử provider thật.
 
+**NX-02 trường số local, chờ verify:** nếu graph không có trường số và
+metadata có default của adapter, ô nhập gợi ý giá trị đó mà không ghi vào
+graph. Khi ô đã bị xóa, người dùng có thể chọn dùng default để bỏ key. Trello
+search ở chế độ chọn trang yêu cầu `page` cụ thể, nên metadata không còn khai
+báo default `0`; khi thiếu giá trị, UI yêu cầu nhập. Hai bài E2E được mở rộng;
+chưa kết luận mọi giá trị metadata trùng với mọi adapter hoặc môi trường.
+
 ### Snapshot trước PR #85
 
 PR [#84](https://github.com/phuuthanh-dev/fluxora/pull/84) đã merge tại

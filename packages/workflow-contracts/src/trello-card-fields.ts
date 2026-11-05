@@ -20,7 +20,7 @@ export function trelloCardConfigurationFields(operation: TrelloCardOperation): N
   if (collection) fields.push({ kind: "number", key: "limit", label: "Maximum cards (1–50)", fallbackValue: 20 });
   if (operation === "find") fields.push(
     { kind: "select", key: "searchPagination", label: "Search results", options: [{ value: "first", label: "First page only" }, { value: "pages", label: "Choose a page" }] },
-    { kind: "number", key: "page", label: "Search page (0–100)", fallbackValue: 0, visibleWhen: { key: "searchPagination", equals: "pages" } },
+    { kind: "number", key: "page", label: "Search page (0–100)", visibleWhen: { key: "searchPagination", equals: "pages" } },
   );
   if (operation === "list") fields.push(
     { kind: "select", key: "filter", label: "Card status", options: [{ value: "open", label: "Open" }, { value: "closed", label: "Archived" }, { value: "all", label: "All" }] },
