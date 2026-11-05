@@ -8,7 +8,8 @@ import { mockSteamSnapshot, steamSnapshot } from "./steam-adapter";
 import { executeSteamOperation } from "./steam-operations";
 import { executeRiotLol, executeRiotTft } from "./riot-lol";
 import { mockDrive, executeGoogleDrive, mockSheets, executeGoogleSheets, readOperation, readSheetsInputOption } from "./google-workspace-adapter";
-import { readDrivePageToken } from "./google-drive-pagination";
+import { readDriveCollectPages, readDrivePageToken } from "./google-drive-pagination";
+import { executeDriveCreateFolder, executeDriveGetFile } from "./google-drive-file-operations";
 import { executeGoogleChatWebhook, executeDiscordWebhook, executeTelegramMessage } from "./notification-adapters";
 import { executeGitHubCreateIssue, executeGitHubAddLabel, executeGitHubAddComment, executeGitHubMergePullRequest } from "./github-write-adapter";
 import { executeHttpRequest } from "./http-request-adapter";
@@ -60,6 +61,8 @@ const executors = {
   "action.github.merge-pull-request": ({ config, mode, workspaceId, credentials }) => executeGitHubMergePullRequest(config, mode, workspaceId, credentials),
   "action.google-drive": ({ config, mode, workspaceId, credentials }) => executeDriveNode(config, mode, workspaceId, credentials, false),
   "action.google-drive.v2": ({ config, mode, workspaceId, credentials }) => executeDriveNode(config, mode, workspaceId, credentials, true),
+  "action.google-drive.get-file": ({ config, mode, workspaceId, credentials }) => executeDriveGetFile(config, mode, workspaceId, credentials),
+  "action.google-drive.create-folder": ({ config, mode, workspaceId, credentials }) => executeDriveCreateFolder(config, mode, workspaceId, credentials),
   "action.google-sheets": async ({ config, mode, workspaceId, credentials }) => {
     if (mode === "mock") return { status: "succeeded", output: mockSheets(config), route: "success" };
     const credential = await credentials.readGoogleForExecution(readCredentialId(config), workspaceId);
@@ -148,7 +151,7 @@ async function executeDriveNode(config: Record<string, unknown>, mode: "mock" | 
   if (paginated && operation === "search" && Object.hasOwn(config, "query") && typeof config.query !== "string") {
     throw new NodeFailure("INVALID_INPUT", "Google Drive search could not be resolved.", false);
   }
-  if (paginated && (operation === "list" || operation === "search")) readDrivePageToken(config);
+  if (paginated && (operation === "list" || operation === "search")) { readDrivePageToken(config); readDriveCollectPages(config); }
   if (mode === "mock") return { status: "succeeded" as const, output: mockDrive(config, paginated), route: "success" as const };
   const credential = await credentials.readGoogleForExecution(readCredentialId(config), workspaceId);
   return { status: "succeeded" as const, output: await executeGoogleDrive(credential, config, paginated), route: "success" as const };

@@ -432,6 +432,16 @@ export const nodeCatalog: NodeDefinition[] = [
     configurationFields: getSharedNodeConfigurationFields("action.google-drive.v2"),
   },
   {
+    type: "action.google-drive.get-file", label: "Google Drive · Get file", description: "Read the name and type of an accessible file or folder.",
+    category: "action", libraryGroup: "google-workspace", appId: "google-drive", operationId: "get-file", operationLabel: "Get file metadata", operationKind: "search", icon: "google-drive", available: true,
+    defaultConfig: { credentialId: "", fileId: "" }, configurationFields: getSharedNodeConfigurationFields("action.google-drive.get-file"),
+  },
+  {
+    type: "action.google-drive.create-folder", label: "Google Drive · Create folder", description: "Create a folder in My Drive or inside a selected folder.",
+    category: "action", libraryGroup: "google-workspace", appId: "google-drive", operationId: "create-folder", operationLabel: "Create folder", operationKind: "action", icon: "google-drive", available: true,
+    defaultConfig: { credentialId: "", name: "", parentId: "" }, configurationFields: getSharedNodeConfigurationFields("action.google-drive.create-folder"),
+  },
+  {
     type: "action.google-sheets", hiddenFromLibrary: true,
     label: "Google Sheets",
     description: "Read or write spreadsheet data.",

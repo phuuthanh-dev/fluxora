@@ -19,6 +19,15 @@ function sheetsFields(includeInputOption: boolean): NodeConfigurationField[] {
 
 /** Inspector descriptors only; backend validation remains authoritative. */
 export const googleNodeFields = {
+  "action.google-drive.get-file": (): NodeConfigurationField[] => [
+    { kind: "credential", key: "credentialId", label: "Google connection", providers: ["GOOGLE"] },
+    { kind: "resource", key: "fileId", label: "File", resource: "google-drive-item", credentialKey: "credentialId", placeholder: "Search files and folders" },
+  ],
+  "action.google-drive.create-folder": (): NodeConfigurationField[] => [
+    { kind: "credential", key: "credentialId", label: "Google connection", providers: ["GOOGLE"] },
+    { kind: "text", key: "name", label: "Folder name" },
+    { kind: "resource", key: "parentId", label: "Parent folder (optional)", resource: "google-folder", credentialKey: "credentialId", placeholder: "Search folders" },
+  ],
   "action.google-drive": (): NodeConfigurationField[] => [
       { kind: "credential", key: "credentialId", label: "Google credential", providers: ["GOOGLE"] },
       { kind: "select", key: "operation", label: "Operation", options: [
@@ -41,6 +50,7 @@ export const googleNodeFields = {
         { value: "downloadText", label: "Download text file" },
       ] },
       { kind: "drive-search", key: "query", label: "Search files", visibleWhen: { key: "operation", equals: "search" } },
+      { kind: "boolean", key: "collectPages", label: "Automatically fetch more results", defaultChecked: false, visibleWhen: { key: "operation", equals: ["list", "search"], fallback: "list" } },
       { kind: "text", key: "pageToken", label: "Continuation token", visibleWhen: { key: "operation", equals: ["list", "search"], fallback: "list" }, advanced: { summary: "Advanced pagination", help: "Use nextPageToken from the previous output with the same connection, operation and query. Each page contains up to 100 files. If Drive rejects the token, clear it and start again; results can change between pages." } },
       { kind: "resource", key: "fileId", label: "Text file", resource: "google-file", credentialKey: "credentialId", placeholder: "Search loaded text files", visibleWhen: { key: "operation", equals: "downloadText" } },
       { kind: "text", key: "name", label: "File name", visibleWhen: { key: "operation", equals: "uploadText" } },
@@ -68,6 +78,7 @@ export const googleNodeFields = {
       { kind: "select", key: "mailbox", label: "Messages", options: [{ value: "inbox", label: "Inbox" }, { value: "unread", label: "Unread inbox" }, { value: "all", label: "All mail" }] },
       { kind: "text", key: "query", label: "Additional Gmail search (optional)" },
       { kind: "number", key: "limit", label: "Maximum messages (1–10)", fallbackValue: 5 },
+      { kind: "boolean", key: "collectPages", label: "Automatically fetch more results", defaultChecked: false },
       { kind: "text", key: "pageToken", label: "Continuation token", advanced: { summary: "Continue a previous page", help: "Use nextPageToken from the previous output with the same connection, mailbox and search." } },
     ],
   "action.gmail.get-message": (): NodeConfigurationField[] => [

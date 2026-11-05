@@ -63,12 +63,13 @@ export async function getGmailMessage(token: string, id: string, transport: Tran
 }
 
 type GmailListOutput = { messages: Array<Omit<Awaited<ReturnType<typeof getGmailMessage>>, "labels">>; count: number; hasMore: boolean; nextPageToken?: string | null };
-export async function listGmailMessages(token: string, query: string, limit: number, transport: Transport = fetchSafeOutbound, pageToken?: string, paginationVersion: 1 | 2 = 2): Promise<GmailListOutput> {
+export async function listGmailMessages(token: string, query: string, limit: number, transport: Transport = fetchSafeOutbound, pageToken?: string, paginationVersion: 1 | 2 = 2, requireBoundedPage = false): Promise<GmailListOutput> {
   if (!token || token.length > 4096 || /\s/.test(token) || query.length > 500 || !Number.isInteger(limit) || limit < 1 || limit > 10 || (pageToken !== undefined && !/^[\x21-\x7e]{1,1024}$/.test(pageToken))) throw new NodeFailure("INVALID_INPUT", "Enter a valid Gmail query, page token and limit between 1 and 10.", false);
   const params = new URLSearchParams({ maxResults: String(limit), q: query });
   if (pageToken) params.set("pageToken", pageToken);
   const list = await getGmailJson(`https://gmail.googleapis.com/gmail/v1/users/me/messages?${params}`, token, transport);
   if (list.messages !== undefined && !Array.isArray(list.messages)) throw new NodeFailure("INVALID_RESPONSE", "Gmail returned an invalid message list.", false);
+  if (requireBoundedPage && Array.isArray(list.messages) && list.messages.length > limit) throw new NodeFailure("INVALID_RESPONSE", "Gmail returned more messages than requested.", false);
   const refs = (Array.isArray(list.messages) ? list.messages : []).slice(0, limit);
   const messages = [];
   for (const entry of refs) {
@@ -91,6 +92,8 @@ export async function executeGmailRead(config: Record<string, unknown>, mode: "m
   const query = typeof config.query === "string" ? config.query : "";
   const limit = config.limit === undefined ? 5 : config.limit;
   const mailbox = config.mailbox === undefined ? "inbox" : config.mailbox;
+  const collectPages = paginationVersion === 2 && config.collectPages === true;
+  if (paginationVersion === 2 && Object.hasOwn(config, "collectPages") && typeof config.collectPages !== "boolean") throw new NodeFailure("INVALID_INPUT", "Choose whether to collect additional Gmail results.", false);
   if (paginationVersion === 2 && Object.hasOwn(config, "pageToken") && config.pageToken === undefined) throw new NodeFailure("INVALID_INPUT", "Gmail page token could not be resolved.", false);
   const pageToken = paginationVersion === 1 || config.pageToken === undefined || config.pageToken === "" ? undefined : config.pageToken;
   if (query.length > 470 || !["all", "inbox", "unread"].includes(String(mailbox)) || typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > 10 || (pageToken !== undefined && (typeof pageToken !== "string" || !/^[\x21-\x7e]{1,1024}$/.test(pageToken)))) throw new NodeFailure("INVALID_INPUT", "Enter a valid Gmail filter, page token and limit between 1 and 10.", false);
@@ -103,6 +106,21 @@ export async function executeGmailRead(config: Record<string, unknown>, mode: "m
   const credential = await credentials.readGoogleForExecution(credentialId, workspaceId, CredentialProvider.GMAIL);
   const token = typeof credential.accessToken === "string" ? credential.accessToken : "";
   const search = [mailbox === "inbox" ? "in:inbox" : mailbox === "unread" ? "in:inbox is:unread" : "", query.trim()].filter(Boolean).join(" ");
+  if (collectPages) {
+    const messages: GmailListOutput["messages"] = [];
+    let next = pageToken as string | undefined;
+    const seen = new Set<string>(next === undefined ? [] : [next]);
+    for (let request = 0; request < 5; request++) {
+      const result = await read(token, search, limit - messages.length, undefined, next, 2, true);
+      messages.push(...result.messages);
+      if (!result.hasMore) return { status: "succeeded", output: markPageTokenOutput({ messages, count: messages.length, hasMore: false, nextPageToken: null }), route: "success" };
+      if (!result.nextPageToken || seen.has(result.nextPageToken)) throw new NodeFailure("INVALID_RESPONSE", "Gmail returned a repeated or missing continuation token.", false);
+      next = result.nextPageToken;
+      seen.add(next);
+      if (messages.length >= limit || request === 4) return { status: "succeeded", output: markPageTokenOutput({ messages, count: messages.length, hasMore: true, nextPageToken: next }), route: "success" };
+    }
+    throw new NodeFailure("INVALID_RESPONSE", "Gmail pagination did not complete.", false);
+  }
   const result = await read(token, search, limit, undefined, pageToken as string | undefined, paginationVersion);
   const output = paginationVersion === 1 ? { messages: result.messages, count: result.count, hasMore: result.hasMore } : result;
   return { status: "succeeded", output, route: "success" };

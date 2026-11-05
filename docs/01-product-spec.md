@@ -105,6 +105,25 @@ See `docs/35-connector-coverage-and-discovery.md` for the exact operations, poin
 - Mobile-first editor.
 - Deployment and VPS setup were outside the original three-day MVP; the later production deployment and its qualification limits are tracked in `docs/15-deployment.md` and `docs/35-connector-coverage-and-discovery.md`.
 
+Notion page search retains its existing single-request behavior by default.
+The existing paginated node may opt in to collecting additional provider pages,
+up to the configured maximum of 100 returned pages and at most five requests.
+The output retains `hasMore` and `nextCursor` if more results may be available.
+This is bounded pagination within one node, not workflow item iteration or an
+unlimited “return all”; provider ordering and results may change between calls.
+Google Drive list/search also retains its original single-request default and
+can opt in to at most five requests and 100 file results; an available
+`nextPageToken` is returned for continuation. This does not guarantee a
+complete search, and it does not affect uploads or downloads.
+Separate Drive actions read an accessible file/folder's limited metadata and
+create a folder in My Drive or a selected parent. Creation is a live write;
+an uncertain outcome must not be automatically retried because it can create
+a duplicate. The folder picker may fall back to a manually entered ID.
+Gmail read similarly offers optional bounded collection within its existing
+maximum of ten messages: at most five list requests plus a detail request for
+each message. It retains a continuation token when more results may exist. It
+does not change the Gmail polling trigger or its checkpoint.
+
 ## 5. Workflow editor requirements
 
 - Desktop-first drag-and-drop graph editor.

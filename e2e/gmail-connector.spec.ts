@@ -25,6 +25,27 @@ test("Gmail uses a dedicated connection and guided inbox filter", async ({ page 
   await expect(page.getByLabel("Messages", { exact: true })).toHaveValue("inbox");
 });
 
+test("Gmail read explains the optional bounded pagination", async ({ page }) => {
+  const graph = { nodes: [{ id: "gmail", type: "action.gmail.read.v2", position: { x: 100, y: 100 }, config: { credentialId: "gmail-1", mailbox: "unread", limit: 5 } }], edges: [] };
+  const workflow = { id: "gmail-pagination", workspaceId: "workspace-1", name: "Gmail pagination", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+    if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
+    if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
+    if (path.endsWith("/credentials")) return send({ credentials: [{ id: "gmail-1", provider: "GMAIL", label: "My Gmail" }] });
+    if (path.endsWith("/workflows/gmail-pagination")) return send({ workflow });
+    return route.abort();
+  });
+  await page.goto("/editor?workflow=gmail-pagination");
+  await page.locator('.react-flow__node[data-id="gmail"]').click();
+  const checkbox = page.getByLabel("Automatically fetch more results");
+  await expect(checkbox).not.toBeChecked();
+  await checkbox.check();
+  await expect(page.getByText(/at most five Gmail list requests/)).toBeVisible();
+  await expect(page.getByText(/one request per message/)).toBeVisible();
+});
+
 test("Gmail trigger shows polling choices and requires confirmation before checkpoint reset", async ({ page }) => {
   const graph = { nodes: [{ id: "mail", type: "trigger.gmail", position: { x: 100, y: 100 }, config: { credentialId: "gmail-1", mailbox: "inbox", pollMinutes: "5" } }], edges: [] };
   const workflow = { id: "gmail-trigger-test", workspaceId: "workspace-1", name: "Gmail trigger", description: null, isActive: false, draft: { id: "draft", version: 2, graph }, published: { id: "published", version: 1, graph } };

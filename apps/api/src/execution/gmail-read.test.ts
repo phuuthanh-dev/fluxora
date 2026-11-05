@@ -21,6 +21,45 @@ test("Gmail list returns and accepts bounded continuation tokens", async () => {
   await assert.rejects(listGmailMessages("synthetic-token", "", 5, transport as never, "bad\nheader"), /page token/);
 });
 
+test("Gmail can collect multiple short pages up to the configured total", async () => {
+  const credentials = { readGoogleForExecution: async () => ({ accessToken: "synthetic-token" }) } as unknown as CredentialService;
+  const listRequests: URL[] = []; const messageRequests: string[] = [];
+  const read: typeof listGmailMessages = (token, query, limit, _transport, pageToken, version, bounded) => listGmailMessages(token, query, limit, async (url) => {
+    const parsed = new URL(String(url));
+    if (parsed.pathname.endsWith("/messages")) {
+      listRequests.push(parsed);
+      return listRequests.length === 1 ? Response.json({ messages: [], nextPageToken: "first" }) : listRequests.length === 2 ? Response.json({ messages: [{ id: "a" }], nextPageToken: "second" }) : Response.json({ messages: [{ id: "b" }], nextPageToken: "third" });
+    }
+    messageRequests.push(parsed.pathname); return Response.json({ payload: { headers: [] }, snippet: "example" });
+  }, pageToken, version, bounded);
+  const result = await executeGmailRead({ credentialId: "connection", mailbox: "unread", query: "from:example.test", limit: 2, collectPages: true }, "live", "workspace", credentials, read);
+  assert.deepEqual(listRequests.map((url) => [url.searchParams.get("maxResults"), url.searchParams.get("pageToken"), url.searchParams.get("q")]), [["2", null, "in:inbox is:unread from:example.test"], ["2", "first", "in:inbox is:unread from:example.test"], ["1", "second", "in:inbox is:unread from:example.test"]]);
+  assert.equal(messageRequests.length, 2);
+  assert.equal(result.output.count, 2);
+  assert.equal(result.output.hasMore, true);
+  assert.equal((redactValue(result.output) as { nextPageToken: string }).nextPageToken, "third");
+});
+
+test("Gmail bounds automatic pagination, detects cycles and preserves old behavior", async () => {
+  const credentials = { readGoogleForExecution: async () => ({ accessToken: "synthetic-token" }) } as unknown as CredentialService;
+  let calls = 0;
+  const empty: typeof listGmailMessages = async () => ({ messages: [], count: 0, hasMore: true, nextPageToken: `cursor-${++calls}` });
+  const result = await executeGmailRead({ credentialId: "connection", collectPages: true }, "live", "workspace", credentials, empty);
+  assert.equal(calls, 5);
+  assert.equal(result.output.nextPageToken, "cursor-5");
+  calls = 0;
+  const repeat: typeof listGmailMessages = async () => { calls++; return { messages: [], count: 0, hasMore: true, nextPageToken: "same" }; };
+  await assert.rejects(executeGmailRead({ credentialId: "connection", collectPages: true }, "live", "workspace", credentials, repeat), /repeated or missing/);
+  assert.equal(calls, 2);
+  calls = 0;
+  await executeGmailRead({ credentialId: "connection" }, "live", "workspace", credentials, empty);
+  assert.equal(calls, 1);
+  await executeGmailRead({ credentialId: "connection", collectPages: true }, "live", "workspace", credentials, empty, 1);
+  assert.equal(calls, 2);
+  await assert.rejects(executeGmailRead({ collectPages: "true" }, "mock", "workspace", credentials), /Choose whether/);
+  await assert.rejects(listGmailMessages("synthetic-token", "", 1, async () => Response.json({ messages: [{ id: "a" }, { id: "b" }] }), undefined, 2, true), /more messages than requested/);
+});
+
 test("Gmail read returns bounded plain text and headers; no credential in output", async () => {
   const urls: string[] = [];
   const transport = async (url: string | URL | Request) => {

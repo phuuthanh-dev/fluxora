@@ -589,6 +589,7 @@
         "apps/api/src/execution/gmail-write.ts",
         "apps/api/src/execution/google-calendar.ts",
         "apps/api/src/execution/google-chat-oauth.ts",
+        "apps/api/src/execution/google-drive-file-operations.ts",
         "apps/api/src/execution/google-drive-pagination.ts",
         "apps/api/src/execution/google-workspace-adapter.ts",
         "apps/api/src/execution/http-request-adapter.ts",
@@ -889,6 +890,19 @@
         "@prisma/client",
         "node:crypto"
       ]
+    },
+    {
+      "id": "apps/api/src/execution/google-drive-file-operations.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-credential-safety.ts",
+        "apps/api/src/execution/provider-request-policy.ts",
+        "apps/api/src/execution/retry-policy.ts"
+      ],
+      "externalImports": []
     },
     {
       "id": "apps/api/src/execution/google-drive-pagination.ts",
@@ -4083,6 +4097,10 @@
     },
     {
       "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/google-drive-file-operations.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
       "to": "apps/api/src/execution/google-drive-pagination.ts"
     },
     {
@@ -4536,6 +4554,30 @@
     {
       "from": "apps/api/src/execution/google-chat-oauth.ts",
       "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-drive-file-operations.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-drive-file-operations.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-drive-file-operations.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-drive-file-operations.ts",
+      "to": "apps/api/src/execution/provider-credential-safety.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-drive-file-operations.ts",
+      "to": "apps/api/src/execution/provider-request-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-drive-file-operations.ts",
+      "to": "apps/api/src/execution/retry-policy.ts"
     },
     {
       "from": "apps/api/src/execution/google-drive-pagination.ts",

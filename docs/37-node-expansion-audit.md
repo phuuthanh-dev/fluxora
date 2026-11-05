@@ -2,6 +2,73 @@
 
 ## Trạng thái phát hành mới nhất — 05/11/2026
 
+Verify cô lập tại `d51d100` đã đạt `npm run verify`: 994 test API, 80 test
+web và 221 Playwright, cùng harness, typecheck và build. Database, Redis và
+provider dùng dữ liệu giả; kết quả không chứng minh kết nối thật. Bản này chưa
+được phát hành và vẫn cần CI trên PR cùng kiểm tra deploy.
+
+Verify cô lập tại `99ebca0` đạt 994 test API, 80 test web, typecheck và build;
+Playwright đạt 220 và thất bại một bài do selector cũ yêu cầu Drive chỉ có một
+operation. Đã sửa selector để không cố định số lượng; lượt verify sau tại
+`d51d100` đã đạt.
+
+Lượt verify cô lập tại `70a00cb` đã qua các test API/web nhưng dừng ở API
+typecheck: test metadata mới truy cập `continuation.preserve` khi trường này
+có thể không tồn tại. Bản sửa test có trong lượt verify sau đã đạt.
+
+**NX-03 Drive local đã verify, chưa phát hành:** thêm action riêng
+đọc metadata giới hạn (ID, tên, MIME type) và tạo folder trong My Drive hoặc
+folder được chọn. Picker metadata có cả file không phải text. Tạo folder là ghi
+không có idempotency; lỗi không chắc chắn không tự retry. Bản này chưa thử Drive
+thật. Node type mới cần mọi API/worker hiểu trước khi publish workflow sử dụng.
+[Google Drive](https://developers.google.com/workspace/drive/api/guides/folder)
+xem folder là file có MIME type riêng; bỏ parent sẽ tạo tại My Drive root.
+[n8n](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.googledrive/)
+cũng hỗ trợ tạo folder và nhiều thao tác Drive khác; hai action này không bao
+phủ toàn bộ connector của họ.
+
+**NX-02 Gmail local đã verify, chưa phát hành:** đọc danh sách có
+tùy chọn lấy tối đa số thư đã chọn (1–10), qua tối đa năm request danh sách
+và một request chi tiết cho mỗi thư. `hasMore`/`nextPageToken` cho biết khả
+năng còn kết quả. Nó không thay đổi Gmail Trigger hoặc checkpoint. Giống các
+node khác, graph import có sẵn `collectPages` có thể đổi nghĩa và worker cũ
+không hiểu tùy chọn; không bật cho live khi còn worker cũ. Test giả đã đạt, chưa thử
+Gmail thật. [Gmail API](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/list)
+chỉ trả ID trong danh sách và yêu cầu request riêng để lấy nội dung thư.
+
+**NX-02 Drive local đã verify, chưa phát hành:** list/search có tùy
+chọn lấy tối đa 100 file qua tối đa năm request. Một trang ngắn/rỗng không
+đồng nghĩa đã hết; kết quả giữ `nextPageToken` nếu dừng mà còn token, còn token
+lặp và response vượt giới hạn bị từ chối. Mặc định là một request và upload,
+download không đổi. Tổng output tự phân trang được giới hạn một triệu byte và
+báo lỗi thay vì âm thầm cắt nếu vượt giới hạn. Giống Notion, graph import thủ công đã chứa `collectPages`
+có thể đổi nghĩa; worker cũ không hiểu tùy chọn. Không kết luận kết quả đầy đủ:
+[Google Drive](https://developers.google.com/workspace/drive/api/reference/rest/v3/files/list)
+cảnh báo dữ liệu thay đổi giữa trang và có trường hợp tìm kiếm không đầy đủ.
+Test dùng transport giả đã đạt, chưa thử Drive thật.
+
+**NX-02 Notion local đã verify, chưa phát hành:** Notion search có tùy
+chọn chủ động lấy thêm trang kết quả trong cùng một node, tối đa năm request
+và tổng số trang Notion đã chọn (không quá 100). Output vẫn có `hasMore` và
+`nextCursor` nếu dừng khi còn dữ liệu; cursor lặp hoặc response vượt giới hạn
+bị từ chối. Mặc định cũ giữ một request; node type cũ giữ nguyên hành vi.
+Graph paginated đã nhập thủ công có sẵn key `collectPages` sẽ được hiểu theo
+ý nghĩa mới; giá trị khác boolean sẽ bị từ chối, nên cần kiểm tra graph nhập
+tùy biến trước khi cập nhật. Các process cũ chưa hiểu key này, vì vậy không
+bật tùy chọn cho workflow live khi còn worker cũ đang xử lý.
+[n8n Gmail Get Many](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.gmail/message-operations/)
+có Return All/Limit; tùy chọn có giới hạn này không tuyên bố tương đương Return
+All không giới hạn. Không gọi Notion thật trong quá trình phát triển.
+
+PR [#86](https://github.com/phuuthanh-dev/fluxora/pull/86) đã merge tại
+`08827f4d39620065e01c1a1e66ff572a4981e3d7`. [Quality gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41952346345)
+và [deploy](https://github.com/phuuthanh-dev/fluxora/actions/runs/41953773213)
+thành công; landing, login, API health và readiness trả HTTP 200 sau deploy.
+Đây là smoke check tại thời điểm, không chứng minh mọi workflow hay provider thật.
+Việc gộp node v1/v2 được chủ dự án tạm hoãn.
+
+### Snapshot trước PR #86
+
 PR [#85](https://github.com/phuuthanh-dev/fluxora/pull/85) đã merge tại
 `40d9aa04dda858a9b3f318d40f6e9242f84776b6`; [quality gate trên main](https://github.com/phuuthanh-dev/fluxora/actions/runs/41943156831)
 và [deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/41944819012)
@@ -11,7 +78,7 @@ Các sửa đổi trường cấu hình chung và kiểm thử metadata nêu dư
 
 **Verify local sau PR #85:** `npm run verify` tại `d876cbb` đạt 980 bài API,
 80 bài web và 217 bài Playwright trên database/Redis thử tách biệt; các
-provider trong phạm vi sửa đổi dùng giả lập. Bản này chưa được phát hành;
+provider trong phạm vi sửa đổi dùng giả lập. Bản này đã phát hành trong PR #86;
 kết quả không chứng minh quyền hoặc kết nối provider thật.
 
 **NX-02 sửa local sau PR #85, đã verify:** khi người dùng đổi property trong

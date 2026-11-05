@@ -102,6 +102,7 @@ export const dataNodeFields = {
       { kind: "credential", key: "credentialId", label: "Notion credential", providers: ["NOTION"] },
       { kind: "text", key: "query", label: "Page title contains (optional)" },
       { kind: "number", key: "pageSize", label: "Maximum pages (1–100)", fallbackValue: 20 },
+      { kind: "boolean", key: "collectPages", label: "Automatically fetch more results", defaultChecked: false },
       { kind: "text", key: "cursor", label: "Next cursor (optional)", advanced: { summary: "Advanced pagination", help: "Use nextCursor from the previous Notion search output to continue with the same search." } },
     ],
   "action.mongodb": (): NodeConfigurationField[] => [

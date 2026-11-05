@@ -63,6 +63,28 @@ test("execution pagination help describes the recorded run in both themes", asyn
   await expect(pagination).toBeVisible();
 });
 
+test("Drive automatic pagination appears for read operations only and stays opt-in", async ({ page }) => {
+  const graph = { nodes: [{ id: "drive", type: "action.google-drive.v2", position: { x: 100, y: 100 }, config: { credentialId: "google", operation: "search" } }], edges: [] };
+  const workflow = { id: "drive-pagination", workspaceId: "workspace", name: "Drive pagination", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+    if (path.endsWith("/auth/me")) return send({ user: { id: "user", name: "Owner", email: "owner@example.test" } });
+    if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace", name: "Workspace", slug: "test", role: "OWNER" }] });
+    if (path.endsWith("/credentials")) return send({ credentials: [{ id: "google", provider: "GOOGLE", label: "Google" }] });
+    if (path.endsWith("/workflows/drive-pagination")) return send({ workflow });
+    return route.abort();
+  });
+  await page.goto("/editor?workflow=drive-pagination");
+  await page.locator('.react-flow__node[data-id="drive"]').click();
+  const checkbox = page.getByLabel("Automatically fetch more results");
+  await expect(checkbox).not.toBeChecked();
+  await checkbox.check();
+  await expect(page.getByText(/at most five Drive requests/)).toBeVisible();
+  await page.getByLabel("Operation", { exact: true }).selectOption("uploadText");
+  await expect(checkbox).toHaveCount(0);
+});
+
 test("Sheets append explains legacy mock-only counts without implying they exist live", async ({ page }) => {
   const graph = { nodes: [{ id: "append", type: "action.google-sheets.v2", position: { x: 100, y: 100 }, config: { operation: "append" } }], edges: [] };
   const workflow = { id: "sheets-workflow", workspaceId: "workspace", name: "Sheets", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };

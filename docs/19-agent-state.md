@@ -6,12 +6,51 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- Full isolated `npm run verify` passed at `d51d100`: 994 API tests, 80 web
+  tests and 221 Playwright tests, plus harness, typecheck and build. Database,
+  Redis, credentials and provider responses were synthetic. This batch is not
+  deployed yet and the result does not qualify live Google, Gmail or Notion.
+- Isolated verify at `99ebca0` passed 994 API and 80 web tests, typecheck and
+  build; Playwright had 220 passes and one failure because an onboarding test
+  hard-coded the former one-operation Drive label. The selector was fixed and
+  the complete gate passed on `d51d100`.
+- Isolated final verify at `70a00cb` passed the API and web test stages but
+  stopped at API typecheck: `continuation.preserve` may be undefined in a new
+  metadata test. A test-only correction was included in the later passing gate.
+- Local, verified at `d51d100` but not released: separate Drive get-file-metadata and
+  create-folder actions with Google workspace credential readiness, a picker
+  that includes non-text files, and mock/transport tests. Folder creation has
+  no automatic retry when outcome is uncertain. It has not been tried against
+  Google; new node types must not be published while old workers are running.
+  The Drive `root` alias is accepted as a folder ID; picker IDs and aggregate
+  auto-paginated output are bounded. These checks passed the isolated gate.
+- Local, verified at `d51d100` but not released: optional bounded Gmail read pagination,
+  at most five list requests and ten message-detail requests. It does not alter
+  the Gmail trigger; `hasMore` and the continuation token signal more data.
+  Tests use synthetic transport; no live Gmail request was made for this work.
+- Local, verified at `d51d100` but not released: optional bounded collection for Drive
+  list/search, up to five requests and 100 files. It retains the next page token
+  if more may exist; short and empty pages do not imply completion. The normal
+  single-request default and upload/download behavior stay unchanged. Tests use
+  synthetic transport; no live Google Drive request has been made for this work.
+- Local, verified at `d51d100` but not released: opt-in bounded multi-page Notion search
+  on the existing paginated node. Up to five read requests and 100 results;
+  `hasMore`/`nextCursor` signal remaining results. Old nodes and the default
+  single-page behavior remain unchanged. Synthetic tests passed the isolated
+  gate; no real Notion call was made for this change.
+- [PR #86](https://github.com/phuuthanh-dev/fluxora/pull/86) merged as
+  `08827f4d39620065e01c1a1e66ff572a4981e3d7`. Its [main gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41952346345)
+  and [production deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/41953773213)
+  succeeded; landing, login, API health and readiness returned HTTP 200 after
+  deploy. This point-in-time smoke check does not qualify live providers.
+  The owner deferred consolidation of v1/v2 node types. Do not repeat the
+  cursor, numeric field or provider-output work from this PR.
 - After PR #85, isolated `npm run verify` at `d876cbb` passed 980 API, 80 web
   and 217 Playwright tests. This local batch covers Notion property cursor
   resets, numeric default UX and guards against current-credential echoes in
   Reddit, Calendar and Gmail output; provider tests use mocks. It also blocks
-  persisted lowercase redaction markers in expressions. The batch is not yet
-  deployed. Trigger processing can stop on a token echo; a literal redaction
+  persisted lowercase redaction markers in expressions. The batch was deployed
+  in PR #86. Trigger processing can stop on a token echo; a literal redaction
   marker can be rejected after persistence. Do not treat this verification as
   live provider qualification.
 - [PR #85](https://github.com/phuuthanh-dev/fluxora/pull/85) merged as
@@ -25,7 +64,7 @@ complete in the delivery ledger.
 - After PR #85, the local editor clears a Notion property pagination cursor
   when the selected property changes; the existing picker E2E now covers both
   list selection and manual ID entry. The batch passed final verify at
-  `d876cbb` and is not deployed. PostgreSQL/Supabase intentionally retain selection
+  `d876cbb` and was deployed in PR #86. PostgreSQL/Supabase intentionally retain selection
   settings when their table changes, with a warning; do not silently clear them.
 - [PR #84](https://github.com/phuuthanh-dev/fluxora/pull/84) merged as
   `ff4302dbf2e48618b1721770975666a094aaa2c8`. Its [PR gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41926442270),
