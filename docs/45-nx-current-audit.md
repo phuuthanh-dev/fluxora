@@ -78,7 +78,7 @@ their existence does not establish that every template was run live.
 
 | Scope | Present in current release | What remains unproved or out of scope |
 | --- | --- | --- |
-| NX-02 — metadata and pagination | One node type per operation; typed metadata and paginated resource pickers; selected Drive, Notion and Gmail reads have bounded page collection. | Metadata is descriptive, not a complete input/output validation schema. Not every provider exposes automatic page collection. |
+| NX-02 — metadata and pagination | Current node types have no V1/V2 suffix; some expose multiple operations. Typed metadata and paginated resource pickers exist; selected Drive, Notion and Gmail reads have bounded page collection. | Metadata is descriptive, not a complete input/output validation schema. Not every provider exposes automatic page collection. |
 | NX-03 — data apps | PostgreSQL/Supabase selection, Supabase insert, Sheets mapping, Notion page/data-source operations and Trello card actions are in the registry. Five data-app sample templates are present. | Source coverage does not equal every vendor API; individual provider permissions and live results are not established by this audit. |
 | NX-04 — communications and developer apps | Gmail, Chat, Telegram, GitHub, Sentry and Vercel operations are registered, with provider-specific credential requirements. | Live qualification, provider scope and behavior remain specific to each action; see the dated evidence in `35-connector-coverage-and-discovery.md`. |
 | NX-05 — triggers | RSS polling and Kuma, Telegram, Trello, Sentry and Vercel webhook handlers are present alongside Gmail polling and existing triggers. | Some remote registration is manual; sustained real delivery, recovery and all provider/account eligibility are not established. Cron has the recovery limit described above. |
@@ -88,6 +88,26 @@ their existence does not establish that every template was run live.
 This checklist distinguishes shipped source from validation and provider
 evidence. It does not mark NX complete or create work solely to preserve older
 node versions.
+
+### Evidence against the original NX criteria
+
+The original criteria are in section 6 of `37-node-expansion-audit.md`.
+The owner's subsequent direction replaces parallel node versions and legacy
+graph compatibility with one current node implementation; it does not
+authorize removing stored workflows or credentials.
+
+| Criterion | Evidence checked at `166ff404` | Assessment |
+| --- | --- | --- |
+| NX-02 metadata, pagination and account-aware OAuth | `packages/workflow-contracts/src/operation-metadata.ts`; `apps/api/src/execution/operation-metadata.test.ts`; Gmail/Drive/Notion cursor paths and credential OAuth code | Partially evidenced: registry, picker metadata and selected cursors exist, but metadata is not a complete per-node validation schema and pagination is not uniform across providers. No parallel V1/V2 work is required by current owner direction. |
+| NX-03 data operations and sample workflows | `packages/workflow-contracts/src/index.ts`; `apps/api/src/workflows/system-templates.ts`; PostgreSQL/Supabase, Sheets, Notion and Trello executors | Listed operation families and sample templates exist. Source presence and synthetic checks do not prove every template, provider account, permission or resource was exercised end to end. |
+| NX-04 communications and developer operations | Node registry; `apps/api/src/execution/github-update-issue.ts`, `github-write-adapter.ts`, `sentry.ts`, `vercel.ts`, `vercel-observability.ts` | Listed families, issue update, PR reads/merge and Sentry detail exist. Vercel detail is explicitly a limited public lookup whose ownership is not verified. Real behavior and permissions remain operation-specific. |
+| NX-05 trigger lifecycle | RSS scheduler and `apps/api/src/webhooks/*trigger*` ingress and synthetic cases | Trigger implementations exist; manual registration, real delivery, lost-event recovery, provider eligibility and full lifecycle behavior are not established for every provider by their presence or isolated fixtures. |
+| NX-06 structured AI and request limits | `ai-structured-output.ts`, `ai-request-limits.ts`, `gemini-text.ts`, `openai-text.ts` and corresponding synthetic cases | Structured schemas, validation, optional usage and per-request ceilings exist. Model support and real calls remain provider-dependent; per-request limits are not an aggregate spending budget. |
+| NX-07 decisions and supported follow-through | `38-nx07-design-decisions.md`; node registry and trigger implementations | Design decisions and selected trigger/social behavior are documented. Item fan-out, binary storage and DB change capture are not implemented; provider restrictions also remain. Do not infer their delivery from a design document. |
+
+PR #90 and its quality gates provide evidence for that committed release, not
+for the stopped local retry/timeout experiment or any future change. Check the
+owner's latest scope before proposing further implementation from this table.
 
 ### Converging paths in the engine
 
