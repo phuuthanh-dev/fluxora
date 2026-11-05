@@ -6,6 +6,12 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- Post-PR #87 metadata work in progress: the existing configured-mock
+  contract matrix now includes all registered action node types and checks
+  advertised output fields, except the conditional Trello pagination warning.
+  The matrix is written but not yet run; it does not prove live provider
+  behavior, all operation variants, runtime schemas or secret redaction.
+
 - Post-PR #87 Google Drive/Sheets output audit in progress: existing adapters
   now inspect response strings and keys for the current access token, including
   Drive text and Sheets cells. A write whose response contains the token is

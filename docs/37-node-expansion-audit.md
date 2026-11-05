@@ -2,6 +2,13 @@
 
 ## Trạng thái phát hành mới nhất — 05/11/2026
 
+**NX-02 đang phát triển sau PR #87 — chưa verify:** mở rộng bảng fixture
+mock có cấu hình hợp lệ cho mọi action đã đăng ký và đối chiếu các trường
+output được metadata khai báo. Test cũng yêu cầu fixture bao phủ đúng registry;
+riêng cảnh báo pagination Trello chỉ có khi xảy ra trường hợp tương ứng.
+Bài test chưa chạy, không xác nhận provider thật, mọi operation con, runtime
+schema hay bảo vệ secret của từng nhánh.
+
 **Đang phát triển sau PR #87 — Drive/Sheets, chưa verify hoặc phát hành:**
 các adapter Drive và Sheets hiện có kiểm tra token truy cập hiện tại trong
 toàn bộ chuỗi và tên trường của response JSON, kể cả nội dung file text và ô

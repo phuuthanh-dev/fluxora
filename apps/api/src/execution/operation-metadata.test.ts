@@ -104,12 +104,27 @@ test("notification receipt metadata matches successful mock output", async () =>
 test("configured mock outputs contain the fields advertised by operation metadata", async () => {
   const credentials = new Proxy({}, { get() { throw new Error("Mock must not read credentials"); } }) as never;
   const cases = [
+    ["action.google-chat.webhook", { message: "Example message" }],
+    ["action.discord.webhook", { content: "Example message" }],
+    ["action.telegram.message", { chatId: "12345", text: "Example message" }],
+    ["action.telegram.reply", { chatId: "12345", messageId: 1, text: "Example reply" }],
+    ["action.telegram.edit-message", { chatId: "12345", messageId: 1, text: "Example edit" }],
+    ["action.google-chat.oauth", { space: "spaces/example", message: "Example message" }],
+    ["action.google-chat.oauth.v2", { space: "spaces/example", message: "Example message" }],
+    ["action.google-chat.reply", { space: "spaces/example", threadName: "spaces/example/threads/thread-1", message: "Example reply" }],
+    ["action.google-chat.edit-message", { space: "spaces/example", messageName: "spaces/example/messages/message-1", message: "Example edit" }],
+    ["action.google-drive", { operation: "list" }],
+    ["action.google-drive.v2", { operation: "list" }],
+    ["action.gemini", { model: "example-model", prompt: "Example prompt", maxOutputTokens: 50 }],
+    ["action.openai", { model: "example-model", prompt: "Example prompt", maxOutputTokens: 50 }],
     ["action.google-drive.get-file", { fileId: "synthetic-file" }],
     ["action.google-drive.create-folder", { name: "Example folder" }],
     ["action.mongodb", { database: "example", collection: "items" }],
     ["action.mongodb.insert", { database: "example", collection: "items", document: { name: "sample" } }],
     ["action.postgres.select", { schema: "public", table: "items" }],
+    ["action.postgres.select.v2", { schema: "public", table: "items" }],
     ["action.supabase.select", { table: "items" }],
+    ["action.supabase.select.v2", { table: "items" }],
     ["action.rss.read", { url: "https://example.test/feed.xml" }],
     ["action.http-request", { url: "https://example.test/", method: "GET" }],
     ["action.email", { to: "recipient@example.test", subject: "Example", body: "Example" }],
@@ -119,6 +134,8 @@ test("configured mock outputs contain the fields advertised by operation metadat
     ["action.trello.update-card", { cardId: "cccccccccccccccccccccccc", title: "Example" }],
     ["action.trello.move-card", { cardId: "cccccccccccccccccccccccc", boardId: "aaaaaaaaaaaaaaaaaaaaaaaa", listId: "bbbbbbbbbbbbbbbbbbbbbbbb" }],
     ["action.trello.archive-card", { cardId: "cccccccccccccccccccccccc" }],
+    ["action.trello.list-cards", { boardId: "aaaaaaaaaaaaaaaaaaaaaaaa" }],
+    ["action.trello.find-cards", { boardId: "aaaaaaaaaaaaaaaaaaaaaaaa", query: "example", searchPagination: "pages", page: 0 }],
     ["action.sentry.get-issue", { organization: "example", project: "project", issueId: "123" }],
     ["action.vercel.public-deployment-lookup", { deploymentId: "dpl_example" }],
     ["action.reddit.list-posts", { subreddit: "example" }],
@@ -146,6 +163,7 @@ test("configured mock outputs contain the fields advertised by operation metadat
     ["action.notion.create-page", { parentPageId: "01234567-89ab-cdef-0123-456789abcdef", title: "Example" }],
     ["action.notion.update-title", { pageId: "01234567-89ab-cdef-0123-456789abcdef", title: "Example" }],
     ["action.google-calendar.create-event", { calendarId: "primary", summary: "Example", start: "2030-01-01T09:00:00Z", end: "2030-01-01T10:00:00Z" }],
+    ["action.google-calendar.list-events", { calendarId: "primary" }],
     ["action.google-calendar.get-event", { calendarId: "primary", eventId: "event-1" }],
     ["action.google-calendar.update-event", { calendarId: "primary", eventId: "event-1", summary: "Updated" }],
     ["action.google-calendar.delete-event", { calendarId: "primary", eventId: "event-1" }],
@@ -155,17 +173,25 @@ test("configured mock outputs contain the fields advertised by operation metadat
     ["action.google-sheets", { operation: "read", range: "Sheet1!A1:B2" }],
     ["action.google-sheets.v2", { operation: "read", range: "Sheet1!A1:B2" }],
     ["action.sentry.list-issues", { organization: "example", project: "project" }],
+    ["action.sentry.list-issues.v2", { organization: "example", project: "project" }],
     ["action.vercel.list-deployments", { team: "personal", project: "prj_example" }],
+    ["action.vercel.list-deployments.v2", { team: "personal", project: "prj_example" }],
+    ["action.notion.search-pages.v2", { query: "Example" }],
     ["action.supabase.insert-row", { table: "items", fields: [{ column: "name", type: "text", value: "Sample" }] }],
     ["action.riot-lol", { operation: "accountByRiotId", platform: "vn2", gameName: "Test Player", tagLine: "VN2" }],
     ["action.riot-tft", { operation: "accountByRiotId", platform: "vn2", gameName: "Test Player", tagLine: "VN2" }],
   ] as const;
+  assert.deepEqual(new Set(cases.map(([type]) => type)), new Set(registeredConnectorNodeTypes));
   for (const [type, config] of cases) {
     const node = { id: "example", type, position: { x: 0, y: 0 }, config };
     const result = await executeNode(node, config, {}, "mock", "workspace", credentials, "execution");
     const metadata = getOperationMetadata(type);
     assert.ok(metadata && "knownFields" in metadata.output, type);
-    for (const field of metadata.output.knownFields) assert.ok(Object.hasOwn(result.output, field), `${type} is missing ${field}`);
+    for (const field of metadata.output.knownFields) {
+      // Warnings are present only when the provider reports an ambiguous boundary.
+      if (type === "action.trello.find-cards" && field === "paginationWarning") continue;
+      assert.ok(Object.hasOwn(result.output, field), `${type} is missing ${field}`);
+    }
   }
 });
 
