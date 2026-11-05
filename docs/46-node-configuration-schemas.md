@@ -54,6 +54,16 @@ precision remain enforced by their existing server-side validators. Cron syntax,
 webhook authenticity and trigger-specific protocol rules also remain enforced
 by their server-side validators.
 
+### Unreleased Google validation correction
+
+The PR #91 rules accepted whitespace-only spreadsheet IDs, Sheets ranges and
+Drive text-download file IDs. Synthetic mock executions also succeeded with
+those values. The local follow-up rejects blank-only selections at static and
+resolved validation, while preserving expressions and nonblank ranges that
+contain spaces. Two focused API test files passed 27/27 using synthetic data;
+the full quality gate and release remain pending. This does not validate every
+possible provider resource ID or establish access to a live Google account.
+
 Each further family must enumerate its supported operations and conditional
 fields from the actual adapter before migration, preserve expression behavior,
 and include synthetic cases for valid/invalid inputs, provider non-invocation,
