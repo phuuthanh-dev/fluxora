@@ -9,56 +9,60 @@ và [deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/419448190
 Đây là kiểm tra tại thời điểm, không xác nhận mọi workflow hoặc provider thật.
 Các sửa đổi trường cấu hình chung và kiểm thử metadata nêu dưới đã phát hành.
 
-**NX-02 sửa local sau PR #85, chờ verify:** khi người dùng đổi property trong
+**Verify local sau PR #85:** `npm run verify` tại `d876cbb` đạt 980 bài API,
+80 bài web và 217 bài Playwright trên database/Redis thử tách biệt; các
+provider trong phạm vi sửa đổi dùng giả lập. Bản này chưa được phát hành;
+kết quả không chứng minh quyền hoặc kết nối provider thật.
+
+**NX-02 sửa local sau PR #85, đã verify:** khi người dùng đổi property trong
 node Notion retrieve-property, editor xóa cursor của property trước để tránh
 dùng nhầm trang tiếp; thay đổi chỉ áp dụng khi người dùng sửa cấu hình, không
 tự đổi graph đã lưu. Bài E2E picker hiện có được mở rộng cho cả chọn property
 từ danh sách và nhập ID thủ công;
 chưa có kiểm thử provider thật.
 
-**NX-02 trường số local, chờ verify:** nếu graph không có trường số và
+**NX-02 trường số local, đã verify:** nếu graph không có trường số và
 metadata có default của adapter, ô nhập gợi ý giá trị đó mà không ghi vào
 graph. Khi ô đã bị xóa, người dùng có thể chọn dùng default để bỏ key. Trello
 search ở chế độ chọn trang yêu cầu `page` cụ thể, nên metadata không còn khai
 báo default `0`; khi thiếu giá trị, UI yêu cầu nhập. Bài E2E và kiểm thử
-contract giả lập cho PostgreSQL, Supabase và Trello được bổ sung; tất cả đang
-chờ verify. Chưa kết luận mọi default metadata trùng với mọi adapter hoặc
+contract giả lập cho PostgreSQL, Supabase và Trello đã đạt. Chưa kết luận mọi default metadata trùng với mọi adapter hoặc
 môi trường, nhất là giới hạn AI do người vận hành cấu hình.
 
-**NX-02 Reddit redaction local, chờ verify:** output danh sách bài viết bị từ
+**NX-02 Reddit redaction local, đã verify:** output danh sách bài viết bị từ
 chối nếu một trường sẽ hiển thị chứa nguyên client secret, access token hoặc
 Basic credential mã hóa của connection hiện tại. Kiểm tra thực hiện trước khi
 cắt ngắn chuỗi; lỗi không bao gồm giá trị bị phát hiện. Đây là thay đổi có thể
 khiến một kết quả hợp lệ bị từ chối nếu nội dung trùng credential; không phát
 hiện mọi cách biến đổi, mã hóa hay các bí mật khác. Chưa kiểm thử Reddit thật,
-không có bằng chứng rằng credential đã bị lộ. Test transport giả chờ verify.
+không có bằng chứng rằng credential đã bị lộ. Test transport giả đã đạt.
 
-**NX-02 Calendar redaction local, chờ verify:** các trường sự kiện được trả
+**NX-02 Calendar redaction local, đã verify:** các trường sự kiện được trả
 về từ list/get và receipt khôi phục sau create được kiểm tra token trước khi
 cắt chuỗi. List/get từ chối output không an toàn; trong nhánh khôi phục create,
 lỗi không retry tự động và yêu cầu kiểm tra lịch vì sự kiện có thể đã được tạo.
 Kiểm thử dùng token và transport giả; không chứng minh mọi dữ liệu Google hoặc
 mọi cách mã hóa secret được phát hiện, và không chứng minh đã có rò rỉ.
 Danh sách lịch dùng cho picker cũng từ chối tên, ID được trả ra hoặc cursor
-chứa nguyên token trước khi trả về browser; test controller giả chờ verify.
+chứa nguyên token trước khi trả về browser; test controller giả đã đạt.
 Free/busy chỉ trả các khoảng thời gian đã kiểm tra và không trả ID lịch do
 provider phân giải; không mở rộng guard sang dữ liệu không được lưu hoặc trả.
 
-**NX-02 Gmail redaction local, chờ verify:** đường đọc danh sách và trigger dùng
+**NX-02 Gmail redaction local, đã verify:** đường đọc danh sách và trigger dùng
 `getGmailMessage` kiểm tra token hiện tại trong ID, header, snippet, label và
 plain text đã giải mã trước khi cắt ngắn. Khi trùng, node trả lỗi thay vì đưa
 giá trị vào output; trigger không dispatch hoặc tiến checkpoint trong lượt lỗi
 và có thể thử lại. Điều này có thể tạm ngăn xử lý thư cho đến khi token thay
-đổi hoặc nguyên nhân được xử lý. Test giả cho adapter và trigger đang chờ
-verify; không khẳng định phát hiện mọi secret hay có rò rỉ đã xảy ra.
+đổi hoặc nguyên nhân được xử lý. Test giả cho adapter và trigger đã đạt;
+không khẳng định phát hiện mọi secret hay có rò rỉ đã xảy ra.
 
-**NX-02 expression redaction local, chờ verify:** dữ liệu khôi phục sau
+**NX-02 expression redaction local, đã verify:** dữ liệu khôi phục sau
 approval/retry hoặc trigger đã lưu bị từ chối khi đường dẫn expression chứa
 `[redacted]` của Gmail, tương tự `[REDACTED]` của bộ che chung. Dữ liệu mới
 trong cùng lượt giữ hành vi cũ. Chuỗi hợp lệ tình cờ chứa đúng dấu này cũng có
 thể bị từ chối sau khi lưu; đây là fail-closed, không khôi phục dữ liệu gốc và
 không phát hiện mọi dạng thay thế bí mật. Kiểm thử resolver và continuation
-với fixture giả đang chờ verify.
+với fixture giả đã đạt.
 
 ### Snapshot trước PR #85
 

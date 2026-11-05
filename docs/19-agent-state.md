@@ -6,6 +6,14 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- After PR #85, isolated `npm run verify` at `d876cbb` passed 980 API, 80 web
+  and 217 Playwright tests. This local batch covers Notion property cursor
+  resets, numeric default UX and guards against current-credential echoes in
+  Reddit, Calendar and Gmail output; provider tests use mocks. It also blocks
+  persisted lowercase redaction markers in expressions. The batch is not yet
+  deployed. Trigger processing can stop on a token echo; a literal redaction
+  marker can be rejected after persistence. Do not treat this verification as
+  live provider qualification.
 - [PR #85](https://github.com/phuuthanh-dev/fluxora/pull/85) merged as
   `40d9aa04dda858a9b3f318d40f6e9242f84776b6`; its [main gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41943156831)
   and [deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/41944819012)
@@ -16,8 +24,8 @@ complete in the delivery ledger.
   972 API, 80 web and 216 Playwright tests. Do not implement these changes again.
 - After PR #85, the local editor clears a Notion property pagination cursor
   when the selected property changes; the existing picker E2E now covers both
-  list selection and manual ID entry. This draft has not passed final verify
-  and is not deployed. PostgreSQL/Supabase intentionally retain selection
+  list selection and manual ID entry. The batch passed final verify at
+  `d876cbb` and is not deployed. PostgreSQL/Supabase intentionally retain selection
   settings when their table changes, with a warning; do not silently clear them.
 - [PR #84](https://github.com/phuuthanh-dev/fluxora/pull/84) merged as
   `ff4302dbf2e48618b1721770975666a094aaa2c8`. Its [PR gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41926442270),
