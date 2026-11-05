@@ -4,8 +4,22 @@ This file is the compact, machine-checked handoff point for the next coding
 loop. It prevents an agent from proposing implementation work that is already
 complete in the delivery ledger.
 
-## Latest snapshot — 2026-11-05
+## Latest snapshot — 2026-11-06
 
+- [PR #91](https://github.com/phuuthanh-dev/fluxora/pull/91) merged as
+  `31a1637acd28343358352692448d32e43978833e`; its
+  [PR gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/42081700786),
+  [main gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/42083785009)
+  and [production deploy](https://github.com/phuuthanh-dev/fluxora/actions/runs/42085712733)
+  passed. The deployment's internal health check passed and the public landing
+  returned HTTP 200. The isolated local gate passed 1,024 API tests with one
+  skipped, 72 web tests and 213 browser tests, using synthetic provider data.
+- PR #91 released shared configuration rule entries for all 84 executable
+  node types, organized by provider, and corrected the Gemini/OpenAI structured
+  output controls. Entries do not prove complete field, provider, output or
+  security validation. See [schema coverage](46-node-configuration-schemas.md).
+  Draft templates can be incomplete; a workflow with invalid inputs may need
+  correction before publication or execution. Do not implement this batch again.
 - [PR #90](https://github.com/phuuthanh-dev/fluxora/pull/90) merged as
   `166ff404d9a30a11d48a387643784b9f6c3ed819`. Its [PR gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/42054698344),
   [main gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/42057337713),
@@ -46,14 +60,13 @@ complete in the delivery ledger.
   code still has some legacy paths; this inventory does not justify deleting
   real credentials, webhook registrations or user data.
 - The editor's mock run can succeed without validating a real connection or
-  every live input. The local follow-up adds a short explanation to its result;
-  it passed the isolated synthetic gate but has not shipped.
-- A local verify attempt stopped in deployment checks because the disposable
+  every live input. The explanatory follow-up shipped in PR #90.
+- A historical PR #90 local verify attempt stopped in deployment checks because the disposable
   database name lacked the required `test` substring (57 passed, two test
   guards failed); it is not a successful quality gate. Following audit and
   corrections, final isolated `npm run verify` passed 996 API, 72 web and 213
   Playwright tests, including the approval database integration. Provider calls
-  were synthetic; the local batch is not yet released.
+  were synthetic; the batch subsequently shipped in PR #90.
 
 - NX-06 cost-control review: per-request prompt/output limits and structured
   output are deployed; an aggregate monetary cap is not. The owner has been

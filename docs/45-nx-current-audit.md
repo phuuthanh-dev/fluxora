@@ -1,6 +1,15 @@
 # NX: current product and simplification audit
 
-Snapshot: 2026-11-05, released commit `166ff404d9a30a11d48a387643784b9f6c3ed819`.
+Snapshot: 2026-11-06, released commit `31a1637acd28343358352692448d32e43978833e`.
+[PR #91](https://github.com/phuuthanh-dev/fluxora/pull/91), its
+[PR gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/42081700786),
+[main gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/42083785009)
+and [production deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/42085712733)
+succeeded. The deployment's internal health check passed; the public landing
+returned HTTP 200. Local verification passed 1,024 API tests with one skipped,
+72 web tests and 213 E2E tests using synthetic providers.
+
+Prior release evidence:
 [PR #90](https://github.com/phuuthanh-dev/fluxora/pull/90), its PR/main quality
 gates and [production deployment, attempt 2](https://github.com/phuuthanh-dev/fluxora/actions/runs/42059277966)
 succeeded. Public landing/login and VPS API health/readiness returned HTTP 200.
@@ -38,7 +47,7 @@ is not a current backlog. An unrelated later retry/timeout experiment on
 | Reddit | A list-posts action and access guidance exist. | Mock coverage does not establish that this application's Reddit API access works. |
 | Authentication | Email/password, Google/GitHub sign-in and Steam account linking have separate code paths; session cookies are HttpOnly and marked Secure in production. | Source alone does not verify current provider approvals, environment configuration or the absence of security defects. |
 | NX-07 | Decisions about arrays/items, binary, change streams and eligible social integrations are recorded in `38-nx07-design-decisions.md`. | These systems are not implemented merely because a design exists. Prioritize a real use case rather than add infrastructure by default. |
-| Release | PR #90, its PR/main gates and production deployment succeeded; post-deploy homepage, login and API health/readiness were 200. | This is point-in-time evidence, not proof every workflow or provider is healthy. |
+| Release | PR #91, its PR/main gates and production deployment succeeded; the deployment health check passed and the homepage returned HTTP 200. | This is point-in-time evidence, not proof every workflow or provider is healthy. |
 
 Trigger review: cron only considers occurrences within the last 65 seconds, so
 an outage longer than that may miss scheduled runs; recovery covers accepted
@@ -78,7 +87,7 @@ their existence does not establish that every template was run live.
 
 | Scope | Present in current release | What remains unproved or out of scope |
 | --- | --- | --- |
-| NX-02 — metadata and pagination | Current node types have no V1/V2 suffix; some expose multiple operations. Typed metadata and paginated resource pickers exist; selected Drive, Notion and Gmail reads have bounded page collection. | Metadata is descriptive, not a complete input/output validation schema. Not every provider exposes automatic page collection. |
+| NX-02 — metadata and pagination | Current node types have no V1/V2 suffix; some expose multiple operations. Typed metadata, provider-organized shared configuration rules and paginated resource pickers exist; selected Drive, Notion and Gmail reads have bounded page collection. | The configuration registry has an entry for each executable type, not a guarantee of every field or output. Provider-specific safety checks remain on the backend; not every provider exposes automatic page collection. |
 | NX-03 — data apps | PostgreSQL/Supabase selection, Supabase insert, Sheets mapping, Notion page/data-source operations and Trello card actions are in the registry. Five data-app sample templates are present. | Source coverage does not equal every vendor API; individual provider permissions and live results are not established by this audit. |
 | NX-04 — communications and developer apps | Gmail, Chat, Telegram, GitHub, Sentry and Vercel operations are registered, with provider-specific credential requirements. | Live qualification, provider scope and behavior remain specific to each action; see the dated evidence in `35-connector-coverage-and-discovery.md`. |
 | NX-05 — triggers | RSS polling and Kuma, Telegram, Trello, Sentry and Vercel webhook handlers are present alongside Gmail polling and existing triggers. | Some remote registration is manual; sustained real delivery, recovery and all provider/account eligibility are not established. Cron has the recovery limit described above. |
@@ -110,8 +119,9 @@ for the stopped local retry/timeout experiment or any future change. Check the
 owner's latest scope before proposing further implementation from this table.
 
 Owner update: after the validator audit, the owner explicitly authorized shared
-schemas and project-wide standardization. Follow `46-node-configuration-schemas.md`;
-do not mistake partially migrated nodes for a complete schema rollout.
+schemas and project-wide standardization, released in PR #91. Follow
+`46-node-configuration-schemas.md`; registry coverage does not imply complete
+validation of every provider operation or response.
 At `166ff404`, Steam snapshot treats non-boolean `includeOwnedGames` or
 `includeRecentGames` values as enabled, and ignores non-string optional
 `achievementAppId` values or forwards malformed text to Steam. The local
