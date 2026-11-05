@@ -19,7 +19,7 @@ test("Kuma deduplication is atomic, detects conflicts and respects lifecycle", {
     await prisma.user.create({ data: { id: userId, email: `${suffix}@example.test` } });
     await prisma.workspace.create({ data: { id: workspaceId, ownerId: userId, name: "Synthetic", slug: `kuma-${suffix}` } });
     await prisma.workflow.create({ data: { id: workflowId, workspaceId, name: "Synthetic", isActive: true } });
-    const graph = { nodes: [{ id: "kuma", type: "trigger.uptime-kuma.alert.v2", position: { x: 0, y: 0 }, config: {} }], edges: [] };
+    const graph = { nodes: [{ id: "kuma", type: "trigger.uptime-kuma.alert", position: { x: 0, y: 0 }, config: {} }], edges: [] };
     await prisma.workflowVersion.create({ data: { id: versionId, workflowId, version: 1, status: "PUBLISHED", graph } });
     await prisma.workflow.update({ where: { id: workflowId }, data: { publishedVersionId: versionId } });
     await prisma.webhookEndpoint.create({ data: { id: endpointId, path, workflowId, workflowVersionId: versionId, secretHash: "synthetic-hash" } });

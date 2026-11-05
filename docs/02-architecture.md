@@ -134,34 +134,14 @@ infra: Docker Compose, deployment scripts, and Nginx templates for the VPS runti
 
 `Workflow` owns metadata and current draft pointer. `WorkflowVersion` stores the graph snapshot as JSONB and is immutable once published. An `Execution` references `workflowVersionId`; a `NodeExecution` references `executionId` and `nodeId`.
 
-Nodes may carry an explicit `nodeVersion`; the current supported node version is
-v1. Historical PostgreSQL and Supabase select types preserve their original
-`SELECT *`, limit, credential identity, ignored extra config and `{ rows, count }`
-output. New selections have distinct types `action.postgres.select.v2` and
-`action.supabase.select.v2`; they apply selection fields and strict validation.
-The editor upgrades a draft only after explicit consent, keeping all config;
-previously ignored fields take effect and unsupported fields may need correction.
-Published graphs and historical execution versions are not rewritten. A worker
-with the 3c9ac35 parser and its matching type registry rejects a graph containing
-the new types before executing any graph node. This does not guarantee job
-availability: an old worker can fail the job rather than defer it. The guarantee
-does not apply to an old parser paired with a newer shared registry, or to
-previously stored graphs that used the old types with `nodeVersion: 2`. Rollout,
-package pairing and rollback must be reviewed separately; see the integration
-handoff.
-
-The existing Drive, Gmail read, Notion page search, Sentry issues and Vercel
-deployments types likewise keep their original first-page requests and output.
-The distinct `.v2` types accept the new continuation fields. New nodes use v2;
-upgrades require an explicit draft action and retain the complete config. A saved
-cursor which was previously ignored can change results or fail after upgrade.
-Drive v2 also retains upload and download operations and existing write safety.
-Provider cursor redaction, bounded responses and write-retry protections remain
-independent of this compatibility boundary. Runtime helpers called directly
-without a selector retain their existing paginated defaults; the graph dispatcher
-explicitly chooses the legacy or v2 path based on node type.
- Node branch kinds come from the shared contracts
-package for both API graph validation and editor handles.
+Each node operation has one canonical type and one current execution behavior. The
+legacy `.v2` type suffix and node-specific `nodeVersion` are not supported. Old
+workflows using removed types must be recreated; existing unsuffixed nodes now
+use current semantics, so review them before publishing or running them live.
+No database records or credentials are deleted by this change. Workflow versions
+and executions remain separate immutable snapshots as described above.
+Node branch kinds come from the shared contracts package for both API graph
+validation and editor handles.
 
 Node configuration must be validated twice: once in the web editor for feedback and once in the API/worker as the trust boundary.
 
@@ -258,9 +238,9 @@ are presentation metadata rather than a server-side validation schema. The
 adapter remains authoritative for validation, credentials, redaction and retry.
 An absent shared descriptor does not imply an operation has no configuration.
 
-The server dispatches all 65 executable action node types through a typed,
+The server dispatches executable action node types through a typed,
 server-only executor registry. The registration maps each persisted node type
-to its existing adapter and explicitly preserves legacy/v2 variants. The runner
+to its current adapter. The runner
 still rejects unavailable types first, and still applies its existing output
 redaction and retry rules. Core triggers, conditions and approval remain in the
 runner; a registry entry is not proof of complete provider coverage or a
@@ -483,14 +463,12 @@ receipts currently have no automatic retention cleanup. Polling is not instant; 
 push and real-mailbox qualification remain separate work.
 
 
-### Google Drive pagination (NX-02 draft)
+### Google Drive pagination
 
-The new `action.google-drive.v2` list and search operations return `operation`
-and `files` plus `nextPageToken` (null when absent). The legacy
-`action.google-drive` retains its old first-page request and output. Each v2
-request asks Drive for at most 100 files; oversized pages and malformed or
-over-1,024-character continuation tokens fail rather than silently dropping
-files or cursors. The bounded provider response reader remains in use.
+The `action.google-drive` list and search operations return `operation`, `files`
+and `nextPageToken` (null when absent). Requests are bounded to 100 files per
+page; malformed or oversized continuation tokens fail instead of being dropped.
+The bounded provider response reader remains in use.
 
 In the inspector, changing the connection, operation or query clears a saved
 page token. A token supplied via an expression or an imported/API-edited graph

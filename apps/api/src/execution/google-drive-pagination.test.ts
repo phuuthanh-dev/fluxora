@@ -31,7 +31,7 @@ test("Drive can collect short and empty result pages without exceeding its resul
       if (requests.length === 2) return Response.json({ files: [{ id: "file-1" }], nextPageToken: "page-3" });
       return Response.json({ files: [{ id: "file-2" }] });
     }) as typeof fetch;
-    const output = await executeGoogleDrive({ accessToken: "synthetic-token" }, { operation: "search", query: "name contains 'a'", collectPages: true }, true);
+    const output = await executeGoogleDrive({ accessToken: "synthetic-token" }, { operation: "search", query: "name contains 'a'", collectPages: true });
     assert.deepEqual(requests.map((request) => [request.searchParams.get("pageToken"), request.searchParams.get("pageSize"), request.searchParams.get("q")]), [[null, "100", "name contains 'a'"], ["page-2", "100", "name contains 'a'"], ["page-3", "99", "name contains 'a'"]]);
     assert.deepEqual((output as { files: unknown[] }).files, [{ id: "file-1" }, { id: "file-2" }]);
     assert.equal((redactValue(output) as { nextPageToken: string | null }).nextPageToken, null);
@@ -43,22 +43,22 @@ test("Drive bounds automatic pagination and rejects cyclic or oversized response
   try {
     let calls = 0;
     globalThis.fetch = (async () => Response.json({ files: [], nextPageToken: `page-${++calls}` })) as typeof fetch;
-    const capped = await executeGoogleDrive({ accessToken: "synthetic-token" }, { collectPages: true }, true);
+    const capped = await executeGoogleDrive({ accessToken: "synthetic-token" }, { collectPages: true });
     assert.equal(calls, 5);
     assert.equal((redactValue(capped) as { nextPageToken: string }).nextPageToken, "page-5");
     calls = 0;
     globalThis.fetch = (async () => { calls++; return Response.json({ files: Array.from({ length: 100 }, (_, index) => ({ id: `file-${index}` })), nextPageToken: "more" }); }) as typeof fetch;
-    const full = await executeGoogleDrive({ accessToken: "synthetic-token" }, { collectPages: true }, true);
+    const full = await executeGoogleDrive({ accessToken: "synthetic-token" }, { collectPages: true });
     assert.equal(calls, 1);
     assert.equal((full as { files: unknown[] }).files.length, 100);
     assert.equal((redactValue(full) as { nextPageToken: string }).nextPageToken, "more");
     calls = 0;
     globalThis.fetch = (async () => Response.json({ files: [{ name: "x".repeat(550_000) }], nextPageToken: `page-${++calls}` })) as typeof fetch;
-    await assert.rejects(executeGoogleDrive({ accessToken: "synthetic-token" }, { collectPages: true }, true), (error: unknown) => error instanceof NodeFailure && error.code === "RESPONSE_TOO_LARGE" && !error.retryable);
+    await assert.rejects(executeGoogleDrive({ accessToken: "synthetic-token" }, { collectPages: true }), (error: unknown) => error instanceof NodeFailure && error.code === "RESPONSE_TOO_LARGE" && !error.retryable);
     assert.equal(calls, 2);
     calls = 0;
     globalThis.fetch = (async () => { calls++; return Response.json({ files: [], nextPageToken: "same-page" }); }) as typeof fetch;
-    await assert.rejects(executeGoogleDrive({ accessToken: "synthetic-token" }, { collectPages: true }, true), /repeated continuation/);
+    await assert.rejects(executeGoogleDrive({ accessToken: "synthetic-token" }, { collectPages: true }), /repeated continuation/);
     assert.equal(calls, 2);
     assert.throws(() => driveListOutput("list", { files: [{}, {}] }, "synthetic-token", 1), /invalid file list/);
     for (const invalid of [undefined, null, "true", 0]) assert.throws(() => readDriveCollectPages({ collectPages: invalid }), /Choose whether/);

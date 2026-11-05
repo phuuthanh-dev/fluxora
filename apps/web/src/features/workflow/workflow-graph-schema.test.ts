@@ -12,32 +12,6 @@ test("accepts a valid exported workflow graph", () => {
   assert.deepEqual(graph.edges.map((edge) => edge.kind), ["success", "success"]);
 });
 
-test("API round-trip preserves unversioned legacy nodes and versioned new nodes", () => {
-  const legacy = { nodes: [{ id: "manual", type: "trigger.manual" as const, position: { x: 0, y: 0 }, config: {} }], edges: [] };
-  assert.deepEqual(graphForApi(graphFromApi(legacy)), legacy);
-  const versioned = { ...legacy, nodes: [{ ...legacy.nodes[0]!, nodeVersion: 1 }] };
-  assert.deepEqual(graphForApi(graphFromApi(versioned)), versioned);
-  assert.equal(createNodeData(getNodeDefinition("trigger.manual")!).nodeVersion, 1);
-  assert.throws(() => graphFromApi({ ...legacy, nodes: [{ ...legacy.nodes[0]!, nodeVersion: 2 }] }), /Unsupported node version/);
-});
-
-test("historical and .v2 node identities survive editor import and export", () => {
-  for (const base of ["trigger.uptime-kuma.alert", "action.google-drive", "action.google-sheets", "action.google-chat.oauth", "action.gmail.read", "action.notion.search-pages", "action.sentry.list-issues", "action.vercel.list-deployments", "action.postgres.select", "action.supabase.select"]) {
-    for (const suffix of ["", ".v2"]) for (const version of [undefined, 1]) {
-      const node = { id: "historical", type: (base + suffix) as WorkflowNodeType, ...(version === undefined ? {} : { nodeVersion: version }), position: { x: 2, y: 3 }, config: { savedValue: "preserve" } };
-      const graph = { nodes: [node], edges: [] };
-      assert.deepEqual(graphForApi(graphFromApi(graph)), graph, `${node.type} version ${version ?? "missing"}`);
-    }
-  }
-});
-
-test("editor rejects numeric version 2 for old and existing .v2 node types", () => {
-  for (const type of ["action.google-drive", "action.google-drive.v2", "trigger.uptime-kuma.alert", "trigger.uptime-kuma.alert.v2"] as const) {
-    const graph = { nodes: [{ id: "node", type, nodeVersion: 2, position: { x: 0, y: 0 }, config: {} }], edges: [] };
-    assert.throws(() => graphFromApi(graph), /Unsupported node version/);
-  }
-});
-
 test("new Telegram message nodes use plain text while existing formatting survives a round trip", () => {
   assert.equal(createNodeData(getNodeDefinition("action.telegram.message")!).config.parseMode, "");
   const graph = { nodes: [{ id: "telegram", type: "action.telegram.message" as const, position: { x: 0, y: 0 }, config: { text: "*formatted*", parseMode: "Markdown" } }], edges: [] };
@@ -195,7 +169,7 @@ test("Google connector fields follow operation-specific runtime contracts", () =
   assert.deepEqual(drive.configurationFields?.find((field) => field.key === "name")?.visibleWhen, { key: "operation", equals: "uploadText" });
   assert.deepEqual(drive.configurationFields?.find((field) => field.key === "text")?.visibleWhen, { key: "operation", equals: "uploadText" });
 
-  const sheetsV2 = getNodeDefinition("action.google-sheets.v2");
+  const sheetsV2 = getNodeDefinition("action.google-sheets");
   assert.ok(sheetsV2);
   const inputOption = sheetsV2.configurationFields?.find((field) => field.key === "valueInputOption");
   assert.equal(inputOption?.kind, "select");
@@ -229,30 +203,7 @@ test("executable node capabilities stay aligned with the UI catalog", () => {
   assert.ok(nodeCatalog.filter((definition) => !definition.available).every((definition) => !isExecutableWorkflowNodeType(definition.type)));
 });
 
-
-test("relational v2 types round trip without changing historical types", () => {
-  for (const type of ["action.postgres.select.v2", "action.supabase.select.v2"] as const) {
-    const graph = { nodes: [{ id: "read", type, nodeVersion: 1, position: { x: 0, y: 0 }, config: { table: "items", columns: ["id"], custom: "retained" } }], edges: [] };
-    assert.deepEqual(graphForApi(graphFromApi(graph)), graph);
-    assert.equal(createNodeData(getNodeDefinition(type)!).nodeVersion, 1);
-  }
-});
-
 test("Sheets input mode survives draft export and import", () => {
-  const graph = { nodes: [{ id: "sheet", type: "action.google-sheets.v2" as const, nodeVersion: 1, position: { x: 0, y: 0 }, config: { operation: "append", valueInputOption: "RAW", values: [["=1+2"]] } }], edges: [] };
+  const graph = { nodes: [{ id: "sheet", type: "action.google-sheets" as const, position: { x: 0, y: 0 }, config: { operation: "append", valueInputOption: "RAW", values: [["=1+2"]] } }], edges: [] };
   assert.deepEqual(graphForApi(graphFromApi(graph)), graph);
-});
-
-test("library offers one current selection per provider while old graphs remain supported", async () => {
-  const { operationsForApp, matchesNodeLibraryFilter, libraryNodeType } = await import("./node-catalog");
-  assert.equal(libraryNodeType("action.google-sheets"), "action.google-sheets.v2");
-  assert.deepEqual(operationsForApp("google-sheets").filter((node) => node.operationId === "read-write-rows").map((node) => node.type), ["action.google-sheets.v2"]);
-  for (const provider of ["postgres", "supabase"] as const) {
-    const oldType = `action.${provider}.select`;
-    const currentType = `${oldType}.v2`;
-    assert.equal(getNodeDefinition(oldType)?.available, true);
-    assert.equal(matchesNodeLibraryFilter(getNodeDefinition(oldType)!, "all", provider), false);
-    assert.deepEqual(operationsForApp(provider).filter((node) => node.operationId === "select-rows").map((node) => node.type), [currentType]);
-    assert.equal(libraryNodeType(oldType), currentType);
-  }
 });

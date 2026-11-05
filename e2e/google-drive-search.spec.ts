@@ -4,8 +4,8 @@ test("Drive filters build a safe query, clear a stale cursor and preserve advanc
   const originalQuery = "trashed = false or name = 'Report'";
   const graph = { nodes: [
     { id: "manual", type: "trigger.manual", position: { x: 0, y: 200 }, config: {} },
-    { id: "guided", type: "action.google-drive.v2", position: { x: 300, y: 100 }, config: { credentialId: "google-1", operation: "search", query: "", pageToken: "old-page" } },
-    { id: "advanced", type: "action.google-drive.v2", position: { x: 300, y: 350 }, config: { credentialId: "google-1", operation: "search", query: originalQuery } },
+    { id: "guided", type: "action.google-drive", position: { x: 300, y: 100 }, config: { credentialId: "google-1", operation: "search", query: "", pageToken: "old-page" } },
+    { id: "advanced", type: "action.google-drive", position: { x: 300, y: 350 }, config: { credentialId: "google-1", operation: "search", query: originalQuery } },
   ], edges: [] };
   const workflow = { id: "drive-search", workspaceId: "workspace-1", name: "Drive search", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
   const saves: Array<{ graph: typeof graph }> = [];

@@ -4,7 +4,7 @@ import { getConnectorExecutor } from "./connector-executors";
 
 const base = { credentialId: "synthetic", spreadsheetId: "sheet", range: "Sheet1!A1", values: [["=1+2"]] };
 
-test("Sheets preserves legacy interpretation and supports explicit raw writes on v2", async () => {
+test("Sheets supports default and explicit raw writes", async () => {
   const originalFetch = globalThis.fetch;
   const calls: Array<{ url: URL; method: string; body: unknown }> = [];
   const reads: string[] = [];
@@ -12,19 +12,18 @@ test("Sheets preserves legacy interpretation and supports explicit raw writes on
   const run = (type: string, config: Record<string, unknown>, mode: "mock" | "live" = "live") => getConnectorExecutor(type)!({ config, mode, workspaceId: "synthetic-workspace", credentials, executionId: "execution", nodeId: "node" });
   try {
     globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => { calls.push({ url: new URL(String(url)), method: init?.method ?? "GET", body: init?.body }); return Response.json({ updatedCells: 1 }); }) as typeof fetch;
+    await run("action.google-sheets", { ...base, operation: "append" });
     await run("action.google-sheets", { ...base, operation: "append", valueInputOption: "RAW" });
-    await run("action.google-sheets.v2", { ...base, operation: "append" });
-    await run("action.google-sheets.v2", { ...base, operation: "append", valueInputOption: "RAW" });
-    await run("action.google-sheets.v2", { ...base, operation: "update", valueInputOption: "RAW" });
-    assert.deepEqual(calls.map(({ url, method }) => [method, url.searchParams.get("valueInputOption")]), [["POST", "USER_ENTERED"], ["POST", "USER_ENTERED"], ["POST", "RAW"], ["PUT", "RAW"]]);
-    assert.deepEqual(JSON.parse(String(calls[2]!.body)), { values: [["=1+2"]] });
-    assert.deepEqual(reads, Array(4).fill("synthetic-workspace:synthetic"));
+    await run("action.google-sheets", { ...base, operation: "update", valueInputOption: "RAW" });
+    assert.deepEqual(calls.map(({ url, method }) => [method, url.searchParams.get("valueInputOption")]), [["POST", "USER_ENTERED"], ["POST", "RAW"], ["PUT", "RAW"]]);
+    assert.deepEqual(JSON.parse(String(calls[1]!.body)), { values: [["=1+2"]] });
+    assert.deepEqual(reads, Array(3).fill("synthetic-workspace:synthetic"));
     for (const option of [undefined, "", "INVALID", "{{$json.missing}}", null]) {
-      await assert.rejects(() => run("action.google-sheets.v2", { ...base, operation: "append", valueInputOption: option }), /interpret values/);
-      await assert.rejects(() => run("action.google-sheets.v2", { ...base, operation: "append", valueInputOption: option }, "mock"), /interpret values/);
+      await assert.rejects(() => run("action.google-sheets", { ...base, operation: "append", valueInputOption: option }), /interpret values/);
+      await assert.rejects(() => run("action.google-sheets", { ...base, operation: "append", valueInputOption: option }, "mock"), /interpret values/);
     }
-    assert.equal(reads.length, 4, "invalid input is rejected before reading the credential");
-    assert.equal(calls.length, 4, "invalid input must not call Google");
+    assert.equal(reads.length, 3, "invalid input is rejected before reading the credential");
+    assert.equal(calls.length, 3, "invalid input must not call Google");
   } finally { globalThis.fetch = originalFetch; }
 });
 
@@ -34,7 +33,7 @@ test("Sheets mock write responses include the provider shape and preserve legacy
   const updates = { spreadsheetId: "sheet", updatedRange: "Sheet1!A1", updatedRows: 1, updatedColumns: 2, updatedCells: 2 };
   try {
     globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => Response.json(init?.method === "POST" ? { spreadsheetId: "sheet", tableRange: "", updates } : updates)) as typeof fetch;
-    for (const type of ["action.google-sheets", "action.google-sheets.v2"] as const) {
+    for (const type of ["action.google-sheets"] as const) {
       for (const operation of ["append", "update"] as const) {
         const config = { ...base, values: [["first", "second"]], operation };
         const run = (mode: "mock" | "live") => getConnectorExecutor(type)!({ config, mode, workspaceId: "workspace", credentials, executionId: "execution", nodeId: "node" });

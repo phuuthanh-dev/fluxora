@@ -2,33 +2,44 @@
 
 ## Trạng thái phát hành mới nhất — 05/11/2026
 
+PR [#88](https://github.com/phuuthanh-dev/fluxora/pull/88) đã merge tại
+`a2734f5cc3a9600f60e848750fbbe01b22bafc1d`; [CI PR](https://github.com/phuuthanh-dev/fluxora/actions/runs/41983355671),
+[CI main](https://github.com/phuuthanh-dev/fluxora/actions/runs/41985095176)
+và [deploy](https://github.com/phuuthanh-dev/fluxora/actions/runs/41986739676)
+đạt. Landing/login và health/readiness trên `api.fluxora.io.vn` trả HTTP 200;
+local web/API cũng trả 200. Đây là smoke check tại thời điểm, không xác nhận
+provider thật. CI PR đạt 222 Playwright, 1.000 API, 80 web; bài Riot bị CI
+bỏ qua đã đạt trong lượt PostgreSQL cô lập riêng. Hai full gate local không
+xanh do các lỗi được ghi ngay bên dưới; không xóa hay diễn giải lại kết quả.
+Picker Calendar, các bảo vệ Google/Trello và test tương ứng đã phát hành.
+
 Verify cô lập tại `66f13af` đạt 1.001/1.001 API (bao gồm Riot PostgreSQL),
 80/80 web, typecheck và build; Playwright đạt 220/222. Hai bài editor loading
 và Connections timeout khi trang còn đang tải; cả hai đạt ở lượt full trước
 và khi chạy lại riêng. Calendar đã đạt trong lượt full này. Chưa xác định được
 nguyên nhân gốc của timeout; các lượt chạy riêng không thay thế full gate. CI
-độc lập phải đạt trước khi merge; không khẳng định đã verify toàn bộ thành công.
+độc lập sau đó đã đạt trước khi merge; không diễn giải lượt local thành công.
 
 Verify cô lập tại `236fa1a` đạt 1.000 bài API (một bài Riot PostgreSQL bị
 bỏ qua), 80 bài web, typecheck/build và 221/222 Playwright. Bài Calendar sai
 do giả định thứ tự request; đã sửa tại `6561561` và chạy riêng đạt. Bài Riot
-bị bỏ qua đã chạy riêng đạt trên database thử. Cần chạy lại full gate trên
-commit đã sửa; chưa phát hành các thay đổi sau PR #87.
+bị bỏ qua đã chạy riêng đạt trên database thử. Bản sửa sau đó đạt CI PR và
+đã phát hành trong PR #88.
 
-**NX-05 đang phát triển sau PR #87 — chờ full gate:** mở rộng bài integration
+**NX-05 đã phát hành trong PR #88:** mở rộng bài integration
 Telegram hiện có trên PostgreSQL thử để kiểm tra update đến sai thứ tự, khôi
 phục execution đã nhận nhưng chưa bắt đầu, bỏ qua execution đã chạy và từ chối
 delivery mới sau khi workflow tắt. Test đạt tại `236fa1a`; không xác nhận Telegram
 thật, không chứng minh exactly-once và không thay đổi cơ chế trigger hiện có.
 
-**NX-02 đang phát triển sau PR #87 — chờ full gate:** mở rộng bảng fixture
+**NX-02 đã phát hành trong PR #88:** mở rộng bảng fixture
 mock có cấu hình hợp lệ cho mọi action đã đăng ký và đối chiếu các trường
 output được metadata khai báo. Test cũng yêu cầu fixture bao phủ đúng registry;
 riêng cảnh báo pagination Trello chỉ có khi xảy ra trường hợp tương ứng.
 Test đạt tại `236fa1a`, không xác nhận provider thật, mọi operation con, runtime
 schema hay bảo vệ secret của từng nhánh.
 
-**Đang phát triển sau PR #87 — Drive/Sheets, chờ full gate:**
+**Drive/Sheets đã phát hành trong PR #88:**
 các adapter Drive và Sheets hiện có kiểm tra token truy cập hiện tại trong
 toàn bộ chuỗi và tên trường của response JSON, kể cả nội dung file text và ô
 Sheet. Nếu response sau thao tác ghi chứa token, kết quả được báo chưa chắc
@@ -37,7 +48,7 @@ Việc từ chối có thể ảnh hưởng dữ liệu hợp lệ trùng token;
 bị chia nhỏ, mã hóa hoặc secret khác. Test transport giả đạt tại `236fa1a`;
 chưa thử Google thật. Không thay đổi quyền OAuth hay nội dung provider.
 
-**Đang phát triển sau PR #87 — Trello, chờ full gate:** audit
+**Trello đã phát hành trong PR #88:** audit
 phát hiện đường tạo card cũ dùng transport có thể theo redirect và dữ liệu
 board/list cùng card vừa tạo chưa kiểm tra token/key bị provider lặp lại.
 Thay đổi local dùng transport chặn redirect cho POST; redirect, 408, 429,
@@ -49,7 +60,7 @@ không phát hiện mọi dạng mã hóa hay secret khác. Test giả lập đ�
 xác định tạo card là POST; [tài liệu rate limit](https://developer.atlassian.com/cloud/trello/guides/rest-api/rate-limits/)
 mô tả 429, còn chính sách không tự retry ở đây là lựa chọn thận trọng của Fluxora.
 
-**Đang phát triển sau PR #87 — chờ full gate:** picker sự kiện
+**Picker Calendar đã phát hành trong PR #88:** picker sự kiện
 Calendar có thể tải thêm từng trang, thay vì chỉ chọn trong 50 sự kiện đầu.
 Backend trả cursor và thời điểm bắt đầu của trang đầu; khi tải thêm, editor
 giữ nguyên lịch, connection và thời điểm đó. Đổi lịch hoặc connection bắt đầu
@@ -59,7 +70,7 @@ Chưa kiểm thử Google thật. [Google yêu cầu giữ các tham số ban đ
 trang tiếp](https://developers.google.com/workspace/calendar/api/guides/pagination).
 Lựa chọn này không làm thay đổi node list-events hoặc workflow đã lưu.
 Test giả lập cũng kiểm tra từ chối owner khác trước khi đọc credential và không
-dùng cursor cũ sau khi đổi account; chờ full gate của bản E2E đã sửa.
+dùng cursor cũ sau khi đổi account; bản E2E đã sửa đạt CI PR.
 Khi đang tìm kiếm và còn trang chưa tải, picker dùng chung hiển thị rõ tìm kiếm
 chỉ áp dụng cho danh sách đã tải và có thể chọn tải thêm; đây không phải tìm
 kiếm phía provider.
@@ -537,6 +548,7 @@ có thể downgrade an toàn.
 - **NX-02/03 output và retry local:** metadata bổ sung các trường output đã xác định từ adapter Notion retrieve, Trello card, Sentry detail, Vercel public lookup, Reddit, HTTP và SMTP. Với SMTP, `delivered` chỉ là trường tương thích; `submissionStatus`/`deliveryConfirmed` phản ánh việc nhận gửi, không xác nhận vào inbox. Notion search nay hủy response body khi provider trả lỗi trước khi thông báo retry; nội dung lỗi không được đọc hoặc lưu. Test mock có config hợp lệ và test hủy stream được thêm, chưa chạy; không chứng minh các provider thật hay đầy đủ mọi trường output.
 - **NX-02 trigger output local:** metadata chỉ khai báo wrapper `received` dùng chung cho 15 trigger; payload bên trong vẫn theo provider và không được xem là có schema đồng nhất. Bổ sung các trường chung của approval và Drive legacy; 92 executable type nay đều có ít nhất một trường output được mô tả, không đồng nghĩa schema đầy đủ, mock có cấu hình hợp lệ cho mọi node hay mọi nhánh được kiểm thử. Test mới kiểm tra wrapper với payload giả trong mock/live mà không đọc credential, chưa chạy.
 - **NX-02 inventory 05/11:** registry hiện bao phủ 92 executable type nhưng 53 entry chưa khai báo trường output đã biết; mô tả field của editor cũng không phải runtime schema. Test registry xác nhận đường dispatch/mock không đọc credential và planned node không chạy, nhưng một số mock có thể trả lỗi input nên chưa chứng minh mọi operation chạy thành công với config hợp lệ. Redaction là cơ chế tập trung có ngoại lệ cursor/usage được đánh dấu, không phải metadata riêng đã được xác minh cho từng node. Cần đối chiếu hợp đồng thật theo từng operation; không điền danh sách trường phỏng đoán chỉ để đủ coverage.
+- **NX-02 đối chiếu mô hình n8n:** [hướng dẫn node lập trình của n8n](https://github.com/n8n-io/n8n-docs/blob/main/docs/connect/create-nodes/build-your-node/tutorial-build-a-programmatic-style-node.md) tách `description.properties` dùng để dựng editor khỏi phương thức thực thi; [cấu trúc node của n8n](https://github.com/n8n-io/n8n/blob/master/packages/nodes-base/AGENTS.md) còn có các phương thức riêng cho polling và webhook. Đây không chứng minh mọi node n8n có schema runtime đầy đủ trong metadata. Ở Fluxora, field descriptor cũng chỉ mô tả UI và adapter kiểm tra riêng; không nên sao chép descriptor rồi tuyên bố đó là runtime schema. Yêu cầu schema/redaction theo từng operation của NX-02 vẫn chưa được chứng minh, cần đánh giá validator và behavior thực tế trước khi thay đổi kiến trúc.
 - **NX-02 hướng dẫn phân trang trong kết quả local:** inspector dùng metadata có sẵn và `nodeType`/version, input, output của lần chạy đã ghi để hiển thị phần Pagination thu gọn khi operation thực sự hỗ trợ và có trường output tương ứng. Hướng dẫn không hiển thị lại giá trị cursor, không khẳng định thiếu cursor là đã đủ dữ liệu và không tự yêu cầu trang tiếp. Điều kiện operation lấy từ input lần chạy, không lấy từ draft có thể đã sửa. [n8n Gmail Get Many](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.gmail/message-operations/) có lựa chọn Return All/Limit; Fluxora hiện vẫn xử lý từng trang thủ công, không tuyên bố tự lấy tất cả như n8n. Test hành vi và UI đã bổ sung; cần kiểm thử lại trước release.
 - **Lượt verify cô lập 05/11, commit `466f229`:** `npm run verify` exit 0: 957 test API, 71 test web và 211 Playwright, không bỏ qua bài; PostgreSQL 16.15 được migrate riêng 35 migration, Redis và cổng web/API tách biệt, scheduler tắt, không dùng credential thật. Node local là 23.7.0; CI Node 22 và kiểm thử provider thật vẫn là bằng chứng riêng. Trước đó lượt trên `ccd22d2` có 210/211 Playwright đạt: test theme editor chặn request có thể thuộc lần điều hướng trước. Commit `466f229` chờ editor đầu tiên tải xong trước khi chặn request của lần tải lại; test này chạy riêng đạt 5 lần và đạt tiếp trong lượt verify đầy đủ. Một lượt khởi chạy trung gian dùng tên database thiếu chữ `test` bị guard từ chối; không liên quan database người dùng. Log headless có cảnh báo WebGL và GSAP target rỗng. Không suy ra tất cả tiêu chí NX hay cutover/rollback production đã hoàn tất.
 - **Lượt verify cô lập 05/11:** `npm run verify` trên commit `4198e17179e88ab94df5b1098120fa40d23c2da9` kết thúc exit 0: 957 test API, 70 test web và 211 Playwright; các nhóm integration được bật, API/web không bỏ qua bài nào. PostgreSQL 16.15 rỗng được migrate riêng, Redis và cổng web/API tách biệt, scheduler tắt, dữ liệu/credential giả; Node local là 23.7.0, còn CI dùng Node 22. Checkout thử chỉ thay đổi `apps/web/next-env.d.ts` do Next tạo lại. Log có cảnh báo headless WebGL và một số GSAP target rỗng. Kết quả không chứng minh provider thật, production cutover/rollback, hay toàn bộ tiêu chí NX còn mở; PR và CI trên commit phát hành vẫn cần thực hiện.
@@ -554,6 +566,7 @@ có thể downgrade an toàn.
 - **NX-05 Telegram activation local:** hộp thoại kích hoạt giải thích endpoint và webhook bot cần được cấu hình riêng, Fluxora chưa xác minh webhook từ xa, và đăng ký mới có thể thay webhook bot hiện tại. Hướng dẫn chi tiết trong panel endpoint vẫn giữ nguyên; không tự gọi `setWebhook`. So sánh [n8n Telegram Trigger](https://docs.n8n.io/integrations/builtin/trigger-nodes/n8n-nodes-base.telegramtrigger/) và [Telegram Bot API](https://core.telegram.org/bots/api#setwebhook). E2E đã cập nhật và chờ final verify; chưa thử provider thật.
 - **NX-03 Supabase update/delete — đối chiếu 05/11:** [n8n](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.supabase/) có update/delete row; Fluxora chưa có. `Prefer: handling=strict, max-affected=1` là ứng viên cho giới hạn phía server, nhưng [PostgREST](https://docs.postgrest.org/en/v12/references/api/preferences.html) nói tính năng có ở 12.2 trong khi [Supabase JS](https://supabase.com/docs/reference/javascript/using-modifiers-maxaffected) ghi v13+. Không suy ra mọi project hỗ trợ; chỉ kiểm tra `Preference-Applied` sau request không ngăn được ghi quá mức trên server không thực thi preference. Trước khi mở action cần kiểm chứng trên instance cô lập có hỗ trợ và không hỗ trợ: điều kiện trùng/không khớp, rollback, RLS, trigger và lỗi không chắc chắn; phải có cơ chế fail-closed **trước khi gửi mutation**. Không dùng Management token để vượt RLS. Action update/delete chưa được thêm hoặc thử live.
 - **Supabase mutation — thử nghiệm PostgREST cô lập:** với bảng giả và hai dòng cùng điều kiện, `PATCH` kèm `handling=strict,max-affected=1` trên PostgREST 11.2.2 trả 200 và sửa cả hai dòng; 12.2.3 và 13.0.7 trả 400 và không sửa dòng nào. Trên ba bản đó, `Accept: application/vnd.pgrst.object+json` cùng `return=representation` trả 406 và rollback khi hai dòng khớp. Một GET thử preference không hợp lệ trả 200 trên bản 11, 400 trên bản 12 và 13. Các kết quả này chỉ áp dụng cho fixture và cấu hình thử; chưa chứng minh hành vi DELETE, RLS, database trigger, proxy, quyền của provider thật hay trường hợp lỗi giữa request và response. Đặc biệt không dùng kết quả GET làm bảo đảm rằng mutation sau đó sẽ được proxy/server thực thi cùng preference. Chưa bật action update/delete.
+- **Supabase mutation — thử bổ sung 05/11:** trên PostgreSQL 16, PostgREST 11.2.2 và 13.0.7, với RLS cho phép tenant 1 và trigger ghi audit cùng transaction, đã thử cả `PATCH` và `DELETE` qua hai chế độ: singular response (`Accept: application/vnd.pgrst.object+json`, `Prefer: return=representation`) và `handling=strict,max-affected=1`. Mỗi chế độ thử hai dòng nhìn thấy, một dòng nhìn thấy, không có dòng khớp, và một dòng nhìn thấy cộng một dòng RLS ẩn. Với singular response, hai dòng nhìn thấy hoặc không có dòng trả 406/PGRST116; dữ liệu và audit trong transaction không đổi. Một dòng nhìn thấy trả 200 và chỉ dòng đó thay đổi, kể cả khi có dòng ẩn. Với `max-affected`, bản 11 trả 200 và thay đổi cả hai dòng; bản 13 trả 400/PGRST124 và rollback. Không coi một dòng bị RLS ẩn là không tồn tại. Đây là 32 phép thử trên fixture cô lập, không chứng minh các phiên bản/cấu hình khác, proxy, side effect ngoài transaction, quyền thực tế hay trạng thái sau khi mất response. Singular response là phương án cần đánh giá tiếp, chưa phải bảo đảm phổ quát hoặc action đã triển khai.
 - **Supabase mutation — hệ quả UX và quyền:** [PostgREST mô tả response singular](https://docs.postgrest.org/en/v11/references/api/resource_representation.html) trả 406 khi kết quả không phải đúng một dòng, bao gồm cả không có dòng. [Supabase](https://supabase.com/docs/reference/javascript/update) ghi rằng muốn trả dòng sau update phải yêu cầu `select`; điều này có thể cần quyền đọc ngoài quyền ghi. Filter theo tên cột không tự chứng minh cột có unique constraint, và đọc đếm trước khi ghi không thay thế giới hạn nguyên tử vì dữ liệu có thể đổi giữa hai request. Vì thế UX không nên hứa phân biệt không tìm thấy, không đủ quyền và nhiều dòng chỉ từ mã 406; lỗi sau khi gửi vẫn cần phân loại theo bằng chứng provider, không log response thô. Đây là phân tích thiết kế, chưa phải một action update/delete được hỗ trợ.
 
 - NX-03 starter workflows, bản local sau `ff0740a`: mẫu PostgreSQL và Supabase

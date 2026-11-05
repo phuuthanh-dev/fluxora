@@ -67,25 +67,25 @@ export async function listVercelProjects(credential: Record<string, unknown>, te
 }
 
 type VercelDeploymentsOutput = { deployments: Array<{ id: string; name: string; state: string; target: string; createdAt: number | null; url: string }>; hasMore: boolean; nextCursor?: string | null; partial?: boolean; partialReasons?: string[] };
-export async function executeVercelListDeployments(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport | undefined = undefined, paginationVersion: 1 | 2 = 2): Promise<{ status: "succeeded"; output: VercelDeploymentsOutput; route: "success" }> {
-  if (paginationVersion === 2 && ((Object.hasOwn(config, "cursor") && (config.cursor === undefined || config.cursor === null)) || (Object.hasOwn(config, "limit") && config.limit === undefined) || (Object.hasOwn(config, "team") && typeof config.team !== "string"))) {
+export async function executeVercelListDeployments(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport | undefined = undefined): Promise<{ status: "succeeded"; output: VercelDeploymentsOutput; route: "success" }> {
+  if (((Object.hasOwn(config, "cursor") && (config.cursor === undefined || config.cursor === null)) || (Object.hasOwn(config, "limit") && config.limit === undefined) || (Object.hasOwn(config, "team") && typeof config.team !== "string"))) {
     throw new NodeFailure("INVALID_INPUT", "Vercel account or pagination could not be resolved.", false);
   }
   const team = typeof config.team === "string" ? config.team : "personal";
   const project = typeof config.project === "string" ? config.project : "";
   const limit = config.limit === undefined ? 20 : config.limit;
-  const cursor = paginationVersion === 1 || config.cursor === undefined || config.cursor === null || config.cursor === "" ? null : cursorValue(config.cursor);
-  if (!validTeam(team) || !validProject(project) || typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > 100 || (paginationVersion === 2 && config.cursor !== undefined && config.cursor !== null && config.cursor !== "" && cursor === null)) throw new NodeFailure("INVALID_INPUT", "Choose an account and project, a limit between 1 and 100, and a valid cursor.", false);
+  const cursor = config.cursor === undefined || config.cursor === null || config.cursor === "" ? null : cursorValue(config.cursor);
+  if (!validTeam(team) || !validProject(project) || typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > 100 || (config.cursor !== undefined && config.cursor !== null && config.cursor !== "" && cursor === null)) throw new NodeFailure("INVALID_INPUT", "Choose an account and project, a limit between 1 and 100, and a valid cursor.", false);
   if (mode === "mock") {
     const output = { deployments: [{ id: "dpl_example", name: "Example deployment", state: "READY", target: "production", createdAt: 0, url: "example.vercel.app" }], hasMore: false };
-    return { status: "succeeded", output: paginationVersion === 1 ? output : { ...output, nextCursor: null, partial: false, partialReasons: [] }, route: "success" };
+    return { status: "succeeded", output: { ...output, nextCursor: null, partial: false, partialReasons: [] }, route: "success" };
   }
   const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
   if (!credentialId) throw new NodeFailure("CREDENTIAL_REQUIRED", "Select a Vercel connection.", false);
   const credential = await credentials.readForExecution(credentialId, workspaceId, CredentialProvider.VERCEL);
   const params = parameters(team, limit); params.set("projectId", project);
   if (cursor !== null) params.set("until", cursor);
-  const result = await get(`v6/deployments?${params}`, tokenFrom(credential), transport ?? (paginationVersion === 1 ? fetchSafeOutbound : observabilityTransport));
+  const result = await get(`v6/deployments?${params}`, tokenFrom(credential), transport ?? observabilityTransport);
   const accessToken = tokenFrom(credential);
   if (!Array.isArray(result.deployments)) throw new NodeFailure("INVALID_RESPONSE", "Vercel returned an invalid deployment list.", false);
   const deployments = result.deployments.slice(0, limit).flatMap((value: unknown) => {
@@ -95,7 +95,6 @@ export async function executeVercelListDeployments(config: Record<string, unknow
     const url = text(entry?.url, 253);
     return [{ id, name: text(entry?.name), state: text(entry?.state ?? entry?.readyState, 50), target: text(entry?.target, 50), createdAt: typeof entry?.created === "number" ? entry.created : null, url: /^[a-z0-9.-]+\.vercel\.app$/i.test(url) ? url : "" }];
   });
-  if (paginationVersion === 1) return { status: "succeeded", output: { deployments, hasMore: nextPage(result) || result.deployments.length > limit }, route: "success" };
   const pagination = object(result.pagination);
   const hasNext = pagination !== undefined && Object.hasOwn(pagination, "next");
   const rawNext = pagination?.next;

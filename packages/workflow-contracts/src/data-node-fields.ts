@@ -66,22 +66,11 @@ export const dataNodeFields = {
       { kind: "resource", key: "table", label: "Table", resource: "postgres-table", credentialKey: "credentialId", dependencyKey: "schema", placeholder: "Search tables" },
       { kind: "number", key: "limit", label: "Maximum rows (1–100)", fallbackValue: 20 },
     ],
-  "action.postgres.select.v2": (): NodeConfigurationField[] => [
-      { kind: "credential", key: "credentialId", label: "PostgreSQL credential", providers: ["POSTGRES"] },
-      { kind: "resource", key: "schema", label: "Schema", resource: "postgres-schema", credentialKey: "credentialId", placeholder: "Search schemas" },
-      { kind: "resource", key: "table", label: "Table", resource: "postgres-table", credentialKey: "credentialId", dependencyKey: "schema", placeholder: "Search tables" },
-      { kind: "number", key: "limit", label: "Maximum rows (1–100)", fallbackValue: 20 },
-    ],
   "action.rss.read": (): NodeConfigurationField[] => [
       { kind: "text", key: "url", label: "Public feed URL (no secrets)" },
       { kind: "number", key: "limit", label: "Maximum items (1–100)", fallbackValue: 20 },
     ],
   "action.supabase.select": (): NodeConfigurationField[] => [
-      { kind: "credential", key: "credentialId", label: "Supabase connection", providers: ["SUPABASE"] },
-      { kind: "resource", key: "table", label: "Table", resource: "supabase-table", credentialKey: "credentialId", placeholder: "Search tables" },
-      { kind: "number", key: "limit", label: "Maximum rows (1–100)", fallbackValue: 20 },
-    ],
-  "action.supabase.select.v2": (): NodeConfigurationField[] => [
       { kind: "credential", key: "credentialId", label: "Supabase connection", providers: ["SUPABASE"] },
       { kind: "resource", key: "table", label: "Table", resource: "supabase-table", credentialKey: "credentialId", placeholder: "Search tables" },
       { kind: "number", key: "limit", label: "Maximum rows (1–100)", fallbackValue: 20 },
@@ -94,11 +83,6 @@ export const dataNodeFields = {
       { kind: "number", key: "timeoutMs", label: "Timeout (ms)", fallbackValue: 10_000, advanced: { summary: "Advanced settings", help: "1,000–120,000 ms. A timeout can leave the write outcome uncertain; check the table before retrying." } },
     ],
   "action.notion.search-pages": (): NodeConfigurationField[] => [
-      { kind: "credential", key: "credentialId", label: "Notion credential", providers: ["NOTION"] },
-      { kind: "text", key: "query", label: "Page title contains (optional)" },
-      { kind: "number", key: "pageSize", label: "Maximum pages (1–100)", fallbackValue: 20 },
-    ],
-  "action.notion.search-pages.v2": (): NodeConfigurationField[] => [
       { kind: "credential", key: "credentialId", label: "Notion credential", providers: ["NOTION"] },
       { kind: "text", key: "query", label: "Page title contains (optional)" },
       { kind: "number", key: "pageSize", label: "Maximum pages (1–100)", fallbackValue: 20 },

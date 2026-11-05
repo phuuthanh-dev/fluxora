@@ -5,6 +5,7 @@ import { BSON, MongoClient, MongoNetworkTimeoutError } from "mongodb";
 import type { CredentialService } from "../credentials/credential.service";
 import { isBlockedAddress } from "./outbound-url-policy";
 import { NodeFailure } from "./node-failure";
+import { assertNoCredentialInProviderValue } from "./provider-credential-safety";
 
 type MongoConnection = { host: string; port: number; username: string; password: string; authDatabase: string; connectionMode?: "auto" | "direct" | "srv"; writeConcern?: "majority" | number; appName?: string };
 type Document = Record<string, unknown>;
@@ -170,6 +171,7 @@ export async function executeMongoFind(config: Document, mode: "mock" | "live", 
       const value = BSON.EJSON.serialize(document, { relaxed: true });
       size += Buffer.byteLength(JSON.stringify(value));
       if (size > 200_000) throw new NodeFailure("RESPONSE_TOO_LARGE", "MongoDB results exceed the output size limit.", false);
+      assertNoCredentialInProviderValue(value, connection.password);
       documents.push(value);
     }
     return { status: "succeeded" as const, output: { documents, count: documents.length }, route: "success" as const };
@@ -197,7 +199,9 @@ export async function executeMongoInsert(config: Document, mode: "mock" | "live"
     try {
       const result = await client.db(database).collection(collection).insertOne(document as Document, { timeoutMS: 10_000 });
       if (!result.acknowledged) throw new Error("Unacknowledged insert");
-      return { status: "succeeded" as const, output: { inserted: true, insertedId: BSON.EJSON.serialize(result.insertedId, { relaxed: true }) }, route: "success" as const };
+      const insertedId = BSON.EJSON.serialize(result.insertedId, { relaxed: true });
+      assertNoCredentialInProviderValue(insertedId, connection.password);
+      return { status: "succeeded" as const, output: { inserted: true, insertedId }, route: "success" as const };
     } catch { throw new NodeFailure("WRITE_UNCERTAIN", "MongoDB did not confirm the insert. Check the collection before retrying.", false); }
   } catch (error) {
     if (error instanceof NodeFailure) throw error;
@@ -205,26 +209,32 @@ export async function executeMongoInsert(config: Document, mode: "mock" | "live"
   } finally { await client?.close().catch(() => undefined); }
 }
 
-export async function listMongoCollections(data: Document, database: string) {
+export async function listMongoCollections(data: Document, database: string, makeClient: MongoClientFactory = createResolvedMongoClient) {
   if (!validDatabase(database)) throw new NodeFailure("INVALID_INPUT", "Enter a valid database first.", false);
-  const client = await createResolvedMongoClient(readConnection(data));
+  const connection = readConnection(data);
+  const client = await makeClient(connection);
   try {
     await client.connect();
     const collections: Array<{ id: string; name: string }> = [];
     for await (const item of client.db(database).listCollections({}, { nameOnly: true, maxTimeMS: 10_000 })) {
-      if (validCollection(item.name)) collections.push({ id: item.name, name: item.name });
+      if (validCollection(item.name)) {
+        assertNoCredentialInProviderValue(item.name, connection.password);
+        collections.push({ id: item.name, name: item.name });
+      }
       if (collections.length > 100) break;
     }
     return { collections: collections.slice(0, 100), hasMore: collections.length > 100 };
   } finally { await client.close().catch(() => undefined); }
 }
 
-export async function listMongoDatabases(data: Document) {
-  const client = await createResolvedMongoClient(readConnection(data));
+export async function listMongoDatabases(data: Document, makeClient: MongoClientFactory = createResolvedMongoClient) {
+  const connection = readConnection(data);
+  const client = await makeClient(connection);
   try {
     await client.connect();
     const result = await client.db("admin").admin().listDatabases({ nameOnly: true, authorizedDatabases: true, maxTimeMS: 10_000 });
     const names = result.databases.filter((item) => validDatabase(item.name));
+    assertNoCredentialInProviderValue(names.map((item) => item.name), connection.password);
     return { databases: names.slice(0, 100).map((item) => ({ id: item.name, name: item.name })), hasMore: names.length > 100 };
   } finally { await client.close().catch(() => undefined); }
 }

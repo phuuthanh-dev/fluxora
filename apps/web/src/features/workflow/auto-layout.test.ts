@@ -29,7 +29,7 @@ test("new Supabase reads enable precision protection without altering saved node
   const definition = operationsForApp("supabase").find((item) => item.operationId === "select-rows");
   assert.ok(definition);
   assert.equal(createNodeData(definition).config.rejectUnsafeNumbers, true);
-  const saved = { nodes: [{ id: "read", type: "action.supabase.select.v2" as const, position: { x: 0, y: 0 }, config: { table: "items" } }], edges: [] };
+  const saved = { nodes: [{ id: "read", type: "action.supabase.select" as const, position: { x: 0, y: 0 }, config: { table: "items" } }], edges: [] };
   assert.deepEqual(graphForApi(graphFromApi(saved)), saved);
 });
 

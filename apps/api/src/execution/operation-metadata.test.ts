@@ -110,11 +110,11 @@ test("configured mock outputs contain the fields advertised by operation metadat
     ["action.telegram.reply", { chatId: "12345", messageId: 1, text: "Example reply" }],
     ["action.telegram.edit-message", { chatId: "12345", messageId: 1, text: "Example edit" }],
     ["action.google-chat.oauth", { space: "spaces/example", message: "Example message" }],
-    ["action.google-chat.oauth.v2", { space: "spaces/example", message: "Example message" }],
+    ["action.google-chat.oauth", { space: "spaces/example", message: "Example message" }],
     ["action.google-chat.reply", { space: "spaces/example", threadName: "spaces/example/threads/thread-1", message: "Example reply" }],
     ["action.google-chat.edit-message", { space: "spaces/example", messageName: "spaces/example/messages/message-1", message: "Example edit" }],
     ["action.google-drive", { operation: "list" }],
-    ["action.google-drive.v2", { operation: "list" }],
+    ["action.google-drive", { operation: "list" }],
     ["action.gemini", { model: "example-model", prompt: "Example prompt", maxOutputTokens: 50 }],
     ["action.openai", { model: "example-model", prompt: "Example prompt", maxOutputTokens: 50 }],
     ["action.google-drive.get-file", { fileId: "synthetic-file" }],
@@ -122,9 +122,9 @@ test("configured mock outputs contain the fields advertised by operation metadat
     ["action.mongodb", { database: "example", collection: "items" }],
     ["action.mongodb.insert", { database: "example", collection: "items", document: { name: "sample" } }],
     ["action.postgres.select", { schema: "public", table: "items" }],
-    ["action.postgres.select.v2", { schema: "public", table: "items" }],
+    ["action.postgres.select", { schema: "public", table: "items" }],
     ["action.supabase.select", { table: "items" }],
-    ["action.supabase.select.v2", { table: "items" }],
+    ["action.supabase.select", { table: "items" }],
     ["action.rss.read", { url: "https://example.test/feed.xml" }],
     ["action.http-request", { url: "https://example.test/", method: "GET" }],
     ["action.email", { to: "recipient@example.test", subject: "Example", body: "Example" }],
@@ -150,7 +150,7 @@ test("configured mock outputs contain the fields advertised by operation metadat
     ["action.github.get-pull-request", { repository: "example/project", pullRequestNumber: 1 }],
     ["action.gmail.get-message", { messageId: "message-1" }],
     ["action.gmail.read", { mailbox: "inbox" }],
-    ["action.gmail.read.v2", { mailbox: "inbox" }],
+    ["action.gmail.read", { mailbox: "inbox" }],
     ["action.gmail.send", { to: "a@example.test", subject: "Example", text: "Hello" }],
     ["action.gmail.reply", { to: "a@example.test", messageId: "message-1", text: "Hello" }],
     ["action.gmail.create-draft", { to: "a@example.test", subject: "Example", text: "Hello" }],
@@ -171,12 +171,12 @@ test("configured mock outputs contain the fields advertised by operation metadat
     ["action.steam", { operation: "profile" }],
     ["action.steam.account-snapshot", {}],
     ["action.google-sheets", { operation: "read", range: "Sheet1!A1:B2" }],
-    ["action.google-sheets.v2", { operation: "read", range: "Sheet1!A1:B2" }],
+    ["action.google-sheets", { operation: "read", range: "Sheet1!A1:B2" }],
     ["action.sentry.list-issues", { organization: "example", project: "project" }],
-    ["action.sentry.list-issues.v2", { organization: "example", project: "project" }],
+    ["action.sentry.list-issues", { organization: "example", project: "project" }],
     ["action.vercel.list-deployments", { team: "personal", project: "prj_example" }],
-    ["action.vercel.list-deployments.v2", { team: "personal", project: "prj_example" }],
-    ["action.notion.search-pages.v2", { query: "Example" }],
+    ["action.vercel.list-deployments", { team: "personal", project: "prj_example" }],
+    ["action.notion.search-pages", { query: "Example" }],
     ["action.supabase.insert-row", { table: "items", fields: [{ column: "name", type: "text", value: "Sample" }] }],
     ["action.riot-lol", { operation: "accountByRiotId", platform: "vn2", gameName: "Test Player", tagLine: "VN2" }],
     ["action.riot-tft", { operation: "accountByRiotId", platform: "vn2", gameName: "Test Player", tagLine: "VN2" }],
@@ -198,8 +198,8 @@ test("configured mock outputs contain the fields advertised by operation metadat
 test("numeric inspector defaults match relational reads and Trello search requires an explicit page", async () => {
   const credentials = new Proxy({}, { get() { throw new Error("Mock must not read credentials"); } }) as never;
   for (const [type, config] of [
-    ["action.postgres.select.v2", { schema: "public", table: "items" }],
-    ["action.supabase.select.v2", { table: "items" }],
+    ["action.postgres.select", { schema: "public", table: "items" }],
+    ["action.supabase.select", { table: "items" }],
   ] as const) {
     const field = getSharedNodeConfigurationFields(type)?.find((candidate) => candidate.kind === "number" && candidate.key === "limit");
     assert.ok(field && field.kind === "number" && field.fallbackValue !== undefined, type);
@@ -230,7 +230,7 @@ test("calendar metadata describes the actual synthetic continuation and stable s
 });
 
 test("Notion search exposes an input cursor and the advertised output fields", async () => {
-  const metadata = getOperationMetadata("action.notion.search-pages.v2");
+  const metadata = getOperationMetadata("action.notion.search-pages");
   assert.ok(metadata && metadata.pagination.kind === "continuation");
   assert.equal(metadata.pagination.input, "cursor");
   const result = await executeNotionSearch({}, "mock", "workspace", { readForExecution: () => { throw new Error("mock must not read credentials"); } } as never);
@@ -241,8 +241,8 @@ test("Notion search exposes an input cursor and the advertised output fields", a
 
 test("relational offset metadata matches v2 outputs without claiming a next page", async () => {
   for (const [type, selection, preserve] of [
-    ["action.postgres.select.v2", { schema: "public", orderBy: "id", orderDirection: "asc" }, ["credentialId", "schema", "table", "limit", "columns", "conditions", "orderBy", "orderDirection"]],
-    ["action.supabase.select.v2", { order: [{ column: "id", direction: "asc" }] }, ["credentialId", "table", "limit", "columns", "filters", "order", "rejectUnsafeNumbers"]],
+    ["action.postgres.select", { schema: "public", orderBy: "id", orderDirection: "asc" }, ["credentialId", "schema", "table", "limit", "columns", "conditions", "orderBy", "orderDirection"]],
+    ["action.supabase.select", { order: [{ column: "id", direction: "asc" }] }, ["credentialId", "table", "limit", "columns", "filters", "order", "rejectUnsafeNumbers"]],
   ] as const) {
     const metadata = getOperationMetadata(type);
     assert.ok(metadata && metadata.pagination.kind === "offset");
@@ -254,7 +254,6 @@ test("relational offset metadata matches v2 outputs without claiming a next page
     if ("knownFields" in metadata.output) for (const key of metadata.output.knownFields) assert.ok(key in result.output, key);
     assert.ok(!("hasMore" in result.output));
     assert.ok(!("nextOffset" in result.output));
-    assert.equal(getOperationMetadata(type.replace(".v2", ""))?.pagination.kind, "unspecified");
   }
 });
 
@@ -275,14 +274,14 @@ test("AI metadata describes outputs common to plain and structured mock runs", a
 
 test("continuation metadata identifies the connection and query context that must stay consistent", () => {
   for (const [type, expected] of [
-    ["action.notion.search-pages.v2", ["credentialId", "query", "pageSize", "collectPages"]],
+    ["action.notion.search-pages", ["credentialId", "query", "pageSize", "collectPages"]],
     ["action.notion.list-children", ["credentialId", "blockId", "pageSize"]],
     ["action.notion.retrieve-property", ["credentialId", "pageId", "propertyId", "pageSize"]],
     ["action.trello.list-cards", ["credentialId", "boardId", "filter", "limit"]],
     ["action.github.list-issues", ["credentialId", "repository", "state", "pageSize"]],
     ["action.github.list-pull-requests", ["credentialId", "repository", "state", "pageSize"]],
-    ["action.sentry.list-issues.v2", ["credentialId", "organization", "project", "status", "limit"]],
-    ["action.vercel.list-deployments.v2", ["credentialId", "team", "project", "limit"]],
+    ["action.sentry.list-issues", ["credentialId", "organization", "project", "status", "limit"]],
+    ["action.vercel.list-deployments", ["credentialId", "team", "project", "limit"]],
   ] as const) {
     const metadata = getOperationMetadata(type);
     assert.ok(metadata && metadata.pagination.kind === "continuation", type);
@@ -291,7 +290,7 @@ test("continuation metadata identifies the connection and query context that mus
 });
 
 test("Drive v2 advertises pagination only for list and search, matching the dispatcher", async () => {
-  const metadata = getOperationMetadata("action.google-drive.v2");
+  const metadata = getOperationMetadata("action.google-drive");
   assert.ok(metadata && metadata.pagination.kind === "conditional");
   const pagination = metadata.pagination;
   assert.equal(pagination.selector, "operation");
@@ -303,16 +302,15 @@ test("Drive v2 advertises pagination only for list and search, matching the disp
   assert.equal(continuation.next, "nextPageToken");
   for (const operation of ["list", "search", "uploadText", "downloadText"]) {
     const config = { operation, pageToken: "synthetic-page" };
-    const node = { id: "drive", type: "action.google-drive.v2" as const, position: { x: 0, y: 0 }, config };
+    const node = { id: "drive", type: "action.google-drive" as const, position: { x: 0, y: 0 }, config };
     const result = await executeNode(node, config, {}, "mock", "workspace", {} as never, "execution");
     assert.equal(continuation.next in result.output, operation === "list" || operation === "search", operation);
   }
   const config = {};
-  const node = { id: "drive", type: "action.google-drive.v2" as const, position: { x: 0, y: 0 }, config };
+  const node = { id: "drive", type: "action.google-drive" as const, position: { x: 0, y: 0 }, config };
   const result = await executeNode(node, config, {}, "mock", "workspace", {} as never, "execution");
   assert.equal(result.output.operation, pagination.fallback);
   assert.ok(continuation.next in result.output);
   await assert.rejects(executeNode({ ...node, config: { operation: "unknown" } }, { operation: "unknown" }, {}, "mock", "workspace", {} as never, "execution"), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT");
   await assert.rejects(executeNode({ ...node, config: { operation: "list", collectPages: "yes" } }, { operation: "list", collectPages: "yes" }, {}, "mock", "workspace", {} as never, "execution"), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT");
-  assert.equal(getOperationMetadata("action.google-drive")?.pagination.kind, "unspecified");
 });

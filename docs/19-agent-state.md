@@ -6,52 +6,123 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- Owner directed simplification to one current node implementation per operation;
+  node-specific versions and old `.v2` compatibility are no longer required.
+  Consolidation is locally verified on isolated synthetic PostgreSQL/Redis:
+  `npm run verify` passed 990 API, 72 web and 214 Playwright tests. Real
+  provider operations were not exercised by this gate. It is not yet released.
+  See `docs/43-node-versioning-migration.md`.
+
+- Owner chose to audit existing adapter validators rather than introduce a
+  parallel schema layer. [NX-02 validator inventory](44-nx-validator-audit.md)
+  enumerates 97 catalog types: 82 inspected partially, ten entries with
+  seven source-observed gaps and five planned. Findings
+  have not yet been reproduced by tests; partial review is not full coverage.
+  The owner has since requested consolidation; this inventory predates it.
+- NX-02 cron publish guard is local and unverified: the publish path now uses
+  the scheduler's cron parser and default timezone to reject invalid schedules.
+  Drafts and stored versions remain readable; already-published graphs are not
+  revalidated. Unit tests have been added but not run, and no production or
+  real-provider behavior is claimed.
+- NX-02 If/approval publish guard is local and unverified: unknown static If
+  operators or approval providers are rejected during publish. Missing,
+  null and empty values retain legacy defaults, dynamic expressions are still
+  allowed, and existing published graphs are unchanged. A dynamic expression
+  that resolves to an invalid choice still falls back at runtime; this change
+  is not a runtime validation guarantee. Added tests have not run.
+
+- NX-02 Supabase output guard, locally verified but not released: select adapters
+  reject an exact echo of credentials actually sent to the data API in row
+  values or keys before limiting rows. Table/column discovery rejects echoes
+  of the credential used for discovery in the metadata it returns. This may
+  reject legitimate matching data; it does not detect partial or encoded
+  secrets. Test fixtures use synthetic responses; live behavior is untested.
+- NX-02 PostgreSQL output guard, locally verified but not released: the shared streamed
+  read rejects rows or discovered metadata containing the exact database
+  password before returning them. An incidental match can reject legitimate
+  data, especially for short passwords. Partial/encoded echoes and credentials
+  not used by the current connection are outside this check. Test fixtures use
+  a synthetic stream; no real database was contacted.
+- NX-02 MongoDB output guard, locally verified but not released: document reads and
+  database/collection discovery reject an exact echo of the active connection
+  password. A matching returned insert ID reports an uncertain write, because
+  the insert may already have succeeded; it is not retried. An incidental match
+  can reject legitimate data, particularly with short passwords; encoded or
+  partial echoes are not covered. Fixtures use synthetic clients only.
+- The above three guards passed a complete isolated `npm run verify` on Node
+  22.23.4: 1,006 API tests, 80 web tests and 222 Playwright tests; all enabled
+  database integration flags passed. The test worktree's code diff and graph
+  hash matched the working source; only the test worktree's generated
+  `next-env.d.ts` differed. Database, Redis and credentials were synthetic.
+  Log: `/private/tmp/fluxora-nx-batch-verify-20261105.log`. Live providers and
+  the compatibility impact of incidental short-password matches remain
+  unqualified. The local web and API returned HTTP 200 after the gate.
+
+- NX-06 cost-control review: per-request prompt/output limits and structured
+  output are deployed; an aggregate monetary cap is not. The owner has been
+  asked whether to rely on provider controls or design a separate Fluxora
+  budget. Do not implement or claim a hard spend cap until that choice is made.
+  Provider documentation notes enforcement or reporting delays; see
+  [cost controls](39-nx06-ai-cost-controls.md).
+
+- [PR #88](https://github.com/phuuthanh-dev/fluxora/pull/88) merged as
+  `a2734f5cc3a9600f60e848750fbbe01b22bafc1d`; the [PR gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41983355671),
+  [main gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41985095176)
+  and [production deploy](https://github.com/phuuthanh-dev/fluxora/actions/runs/41986739676)
+  succeeded. Production landing, login and the API subdomain's health/readiness
+  returned HTTP 200; local web/API also returned 200. This is a point-in-time
+  smoke check, not provider qualification. Calendar event picker pagination,
+  Trello and Google output safety and associated tests shipped; do not redo.
+  PR CI passed 222 E2E, 1,000 API and 80 web tests; one Riot integration was
+  skipped in CI but passed in the separately configured isolated local run.
+  The two full local runs were not green; see the next entries for details.
+
 - Isolated `npm run verify` at `66f13af` passed 1,001 API tests including
   the Riot PostgreSQL integration, 80 web tests and typecheck/build, but
   Playwright had 220/222 passes. The editor loading and guided Connections
   tests timed out while pages were loading; both passed in the previous full
   run and on a targeted retry. The Calendar pagination case passed in this
   full run. Root cause of the intermittent timeouts is unproven; do not treat
-  targeted retries as a passing full gate. Independent PR CI must pass.
+  targeted retries as a passing full gate. Independent PR CI later passed.
 
 - Isolated `npm run verify` at `236fa1a` passed 1,000 API tests (one Riot
   database integration skipped), 80 web tests, typecheck/build and 221/222
   Playwright cases. Calendar picker E2E assumed a fixed request index; that
   assertion was corrected at `6561561` and the case passed in isolation. The
-  skipped Riot database integration also passed separately. A fresh full gate
-  on the corrected commit is still required before release.
+  skipped Riot database integration also passed separately. The corrected
+  commit later passed independent PR CI and was released in PR #88.
 
-- Post-PR #87 NX-05 work in progress: the existing disposable-Postgres
+- Released in PR #88, NX-05: the existing disposable-Postgres
   Telegram delivery integration test now covers out-of-order update IDs,
   recovery of an accepted queued execution without requeueing a started one,
   and rejection after deactivation. It passed at `236fa1a` and does not
   establish provider delivery behavior or exactly-once processing.
 
-- Post-PR #87 metadata work in progress: the existing configured-mock
+- Released in PR #88, NX-02: the existing configured-mock
   contract matrix now includes all registered action node types and checks
   advertised output fields, except the conditional Trello pagination warning.
   The matrix passed at `236fa1a`; it does not prove live provider
   behavior, all operation variants, runtime schemas or secret redaction.
 
-- Post-PR #87 Google Drive/Sheets output audit in progress: existing adapters
+- Released in PR #88, Google Drive/Sheets output audit: existing adapters
   now inspect response strings and keys for the current access token, including
   Drive text and Sheets cells. A write whose response contains the token is
   reported uncertain rather than retried. Synthetic API tests passed at
   `236fa1a`; no live Google call. Exact token matches in legitimate data are rejected;
   partial, encoded or other secrets are not covered.
 
-- Post-PR #87 Trello safety audit in progress: the existing create-card POST
+- Released in PR #88, Trello safety audit: the existing create-card POST
   now uses the no-write-redirect transport and reports an uncertain outcome
   for redirects, timeouts, 429 and 5xx; it does not automatically retry.
   Discovery and the created-card output reject current credential echoes before
   truncation; after a write this reports uncertainty. Synthetic API tests passed
   at `236fa1a`. No live Trello request was made for this change.
 
-- Post-PR #87 work in progress: Calendar event picker can request additional
+- Released in PR #88: Calendar event picker can request additional
   pages using the original `timeMin`, reset when its calendar/connection
   changes, and retain manual ID entry. Synthetic API and editor tests are
   written; the API tests passed and E2E passed after correcting its request
-  assertion, but full verify and release remain pending. Search
+  assertion; independent PR CI passed and the change was deployed. Search
   filters loaded pages only; a hint now says so when more are available across
   paginated pickers. Added synthetic coverage for owner denial and switching
   accounts after pagination. Do not mistake this picker work for changing
@@ -100,7 +171,7 @@ complete in the delivery ledger.
   and [production deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/41953773213)
   succeeded; landing, login, API health and readiness returned HTTP 200 after
   deploy. This point-in-time smoke check does not qualify live providers.
-  The owner deferred consolidation of v1/v2 node types. Do not repeat the
+  At that time consolidation was deferred; the owner has since requested it. Do not repeat the
   cursor, numeric field or provider-output work from this PR.
 - After PR #85, isolated `npm run verify` at `d876cbb` passed 980 API, 80 web
   and 217 Playwright tests. This local batch covers Notion property cursor
@@ -146,9 +217,8 @@ complete in the delivery ledger.
 - Before PR #84, a previous full verify at `c2d6367` passed 971 API, 78 web and
   214 E2E; its scope is superseded by the later verified snapshot above.
 - The owner requested one consolidated verification and release, to avoid
-  repeated small PRs. Existing `.v2` node types must remain compatible; the
-  unreleased experimental numeric `nodeVersion: 2` reader was removed. Do not
-  interpret the older NX-02 note below as a request to rebuild that experiment.
+  repeated small PRs. The later owner decision removes parallel `.v2` node
+  types and numerical node versions; old graphs need not remain compatible.
 
 ## Historical verified snapshot — 2026-11-02
 
@@ -473,14 +543,14 @@ one of these IDs or explicitly reopen a completed ledger slice.
 | `APP-EXPANSION-1` | Deepen existing app operations and remaining qualification; initial seven-app implementation and app discovery already exist | pending | Do not rebuild initial nodes. See docs/35 for latest live evidence and docs/37 for operation/trigger/auth/UX gaps and priorities. Reddit access remains blocked; future live calls require owner-authorized resources. |
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
 | `CONNECTOR-LIVE-2` | Remaining Google, GitHub and SMTP live qualification | pending | Drive upload/read, Sheets append/read/update, GitHub create issue/comment/label and one Gmail SMTP delivery to the intended inbox succeeded on owner-approved test resources. Local Google refresh is inferred from a credential update during a successful demo run; production refresh, GitHub PR merge and sustained delivery remain unverified. See the 2026-10-31 connector reports and 2026-11-01 recovery report. |
-| `AI-GEMINI-1` | Gemini text generation with workspace credential, model discovery and execution | pending | Local live generation succeeded once with Gemini 3.1 Flash Lite; a 2.5 Flash request returned 404 and a 3.8 Flash request timed out. Causes, other models and sustained or production behavior remain unverified. See `.agent/reports/2026-10-31-gemini-live.md`. |
-| `AI-OPENAI-1` | OpenAI text generation with workspace credential, model discovery and execution | pending | Implemented and verified locally; owner deferred real-provider testing. Migration applied only to local database. |
+| `AI-GEMINI-1` | Qualify the existing Gemini connector across models and production | pending | Local live generation succeeded once with Gemini 3.1 Flash Lite; a 2.5 Flash request returned 404 and a 3.8 Flash request timed out. Causes, other models and sustained or production behavior remain unverified. See `.agent/reports/2026-10-31-gemini-live.md`. |
+| `AI-OPENAI-1` | Qualify the existing OpenAI connector with an authorized live test | pending | Implemented and verified locally; owner deferred real-provider testing. Migration applied only to local database. |
 | `EDITOR-QUALIFICATION-1` | Audit credential status, picker, validation and mock/live node-debug UX | planned | Reuse completed editor work; implement only evidenced gaps |
-| `NOTION-1` | Add Notion connector with user-owned credential and guided page operations | pending | Search pages implemented in PR #56; live search qualified once locally. More operations and production qualification remain. |
-| `POSTGRES-1` | Add PostgreSQL connector with user-owned credential and guided operations | pending | Select rows implemented in PR #56; one local Supabase PostgreSQL LIVE workflow read succeeded with verified TLS and a one-row limit. Production qualification, sustained behavior and further operations remain. |
-| `GMAIL-1` | Add Gmail read operations and a durable new-message trigger with a separate owner-authorized Google connection | pending | Released in PR #57. Gmail Read and one targeted local trigger poll succeeded against a test email; sustained polling and restricted-scope approval remain. Pub/Sub push is not implemented. See `.agent/reports/2026-11-01-gmail-trigger-calendar-expansion.md`. |
-| `CALENDAR-1` | Add Google Calendar connection and actions | pending | Released in PR #57. Local test evidence includes create/get/update/delete, free/busy intervals and a populated 2030 list page through a direct adapter diagnostic; a far-future list anomaly, production qualification and public scope approval remain. A Calendar trigger is not implemented. |
-| `EMAIL-UX-1` | Group Gmail and SMTP connection choices in the UI | pending | Released in PR #57; Gmail and SMTP keep separate providers and nodes. Further UX qualification remains separate. |
+| `NOTION-1` | Qualify and selectively extend the existing Notion connector | pending | Search pages implemented in PR #56; live search qualified once locally. More operations and production qualification remain. |
+| `POSTGRES-1` | Qualify and selectively extend the existing PostgreSQL connector | pending | Select rows implemented in PR #56; one local Supabase PostgreSQL LIVE workflow read succeeded with verified TLS and a one-row limit. Production qualification, sustained behavior and further operations remain. |
+| `GMAIL-1` | Qualify existing Gmail operations and trigger; evaluate push separately | pending | Released in PR #57. Gmail Read and one targeted local trigger poll succeeded against a test email; sustained polling and restricted-scope approval remain. Pub/Sub push is not implemented. See `.agent/reports/2026-11-01-gmail-trigger-calendar-expansion.md`. |
+| `CALENDAR-1` | Qualify existing Calendar actions; evaluate trigger separately | pending | Released in PR #57. Local test evidence includes create/get/update/delete, free/busy intervals and a populated 2030 list page through a direct adapter diagnostic; a far-future list anomaly, production qualification and public scope approval remain. A Calendar trigger is not implemented. |
+| `EMAIL-UX-1` | Qualify existing Gmail and SMTP connection UX | pending | Released in PR #57; Gmail and SMTP keep separate providers and nodes. Further UX qualification remains separate. |
 
 ## Closed boundary
 

@@ -30,7 +30,7 @@ test("Notion and PostgreSQL offer separate connections and guided fields", async
 });
 
 test("Notion search offers bounded automatic pagination without changing the saved draft until selected", async ({ page }) => {
-  const graph = { nodes: [{ id: "manual", type: "trigger.manual", position: { x: 0, y: 100 }, config: {} }, { id: "notion", type: "action.notion.search-pages.v2", position: { x: 300, y: 100 }, config: { credentialId: "notion-1", pageSize: 20 } }], edges: [] };
+  const graph = { nodes: [{ id: "manual", type: "trigger.manual", position: { x: 0, y: 100 }, config: {} }, { id: "notion", type: "action.notion.search-pages", position: { x: 300, y: 100 }, config: { credentialId: "notion-1", pageSize: 20, cursor: "stale-cursor" } }], edges: [] };
   const workflow = { id: "notion-pagination", workspaceId: "workspace-1", name: "Notion pagination", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
   const saves: Array<{ graph: { nodes: Array<{ id: string; config: Record<string, unknown> }> } }> = [];
   await page.route("**/api/v1/**", async (route) => {
@@ -49,8 +49,11 @@ test("Notion search offers bounded automatic pagination without changing the sav
   const checkbox = page.getByLabel("Automatically fetch more results");
   await expect(checkbox).not.toBeChecked();
   await checkbox.check();
+  await page.getByLabel("Page title contains (optional)").fill("Updated search");
   await expect(page.getByText(/at most five Notion requests/)).toBeVisible();
   await page.getByRole("button", { name: "Save draft" }).click();
   await expect.poll(() => saves.length).toBe(1);
-  expect(saves[0]!.graph.nodes.find((node) => node.id === "notion")!.config.collectPages).toBe(true);
+  const saved = saves[0]!.graph.nodes.find((node) => node.id === "notion")!.config;
+  expect(saved.collectPages).toBe(true);
+  expect(saved.cursor).toBe("");
 });

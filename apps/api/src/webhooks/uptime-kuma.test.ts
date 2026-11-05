@@ -21,9 +21,9 @@ test("Uptime Kuma endpoint always creates a secret, even if the client asks for 
 
 test("authenticated Kuma alert drops unrelated monitor fields before dispatch", async () => {
   let captured: unknown;
-  const storedGraph = { ...graph, nodes: [...graph.nodes, { id: "read", type: "action.supabase.select.v2", nodeVersion: 1, position: { x: 200, y: 0 }, config: { table: "items" } }] };
+  const storedGraph = { ...graph, nodes: [...graph.nodes, { id: "read", type: "action.supabase.select", position: { x: 200, y: 0 }, config: { table: "items" } }] };
   const endpoint = { id: "endpoint", isActive: true, secretHash: hashWebhookSecret("fixture-secret"), encryptedSigningSecret: null, workflow: { workspaceId: "workspace", isActive: true, archivedAt: null }, workflowVersion: { graph: storedGraph }, workflowVersionId: "version-1" };
-  const service = new WebhookService({ webhookEndpoint: { findUnique: async () => endpoint } } as never, { createLegacyWebhookExecution: async ({ payload }: { payload: unknown }) => { captured = payload; return { id: "run", status: "QUEUED", startedAt: null }; } } as never, { ensureDispatched: async () => undefined } as never, {} as never);
+  const service = new WebhookService({ webhookEndpoint: { findUnique: async () => endpoint } } as never, { createKumaScheduledExecution: async ({ payload }: { payload: unknown }) => { captured = payload; return { id: "run", status: "QUEUED", startedAt: null }; } } as never, { ensureDispatched: async () => undefined } as never, {} as never);
   const payload = { msg: "Service down", monitor: { id: 4, name: "API", url: "https://private.example/?token=private" }, heartbeat: { status: 0, time: "2026-11-01", ping: 10, password: "private" } };
   await assert.rejects(service.receive("kuma", "wrong", payload));
   endpoint.workflow.isActive = false;
@@ -43,9 +43,9 @@ test("Kuma setup test is acknowledged and malformed alerts are rejected", async 
   assert.throws(() => normalizeUptimeKumaAlert({ msg: "Malformed", monitor: { id: "../bad", name: "API" }, heartbeat: { status: 0 } }));
 });
 
-test("Kuma v2 filters authenticated alerts without changing legacy trigger behavior", async () => {
+test("Kuma filters authenticated alerts", async () => {
   let created = 0;
-  const node = { id: "kuma", type: "trigger.uptime-kuma.alert.v2", position: { x: 0, y: 0 }, config: { monitorId: "4", statusFilter: "0" } };
+  const node = { id: "kuma", type: "trigger.uptime-kuma.alert", position: { x: 0, y: 0 }, config: { monitorId: "4", statusFilter: "0" } };
   const v2Graph = { nodes: [node], edges: [] };
   const endpoint = { id: "endpoint", path: "kuma", workflowId: "workflow", isActive: true, secretHash: hashWebhookSecret("fixture-secret"), encryptedSigningSecret: null, workflow: { workspaceId: "workspace", isActive: true, archivedAt: null }, workflowVersion: { graph: v2Graph }, workflowVersionId: "version-1" };
   const jobs: unknown[] = [];
@@ -59,14 +59,11 @@ test("Kuma v2 filters authenticated alerts without changing legacy trigger behav
   assert.deepEqual(await service.receive("kuma", "fixture-secret", alert(4, 0)), { executionId: "run" });
   assert.equal(created, 1);
   assert.deepEqual(jobs, [{ executionId: "run", mode: "live", initialOnly: true }]);
-  endpoint.workflowVersion.graph = { nodes: [{ ...node, type: "trigger.uptime-kuma.alert" }], edges: [] };
-  await service.receive("kuma", "fixture-secret", alert(5, 1));
-  assert.equal(created, 2);
   assert.throws(() => validatePublishableGraph(parseWorkflowGraph({ nodes: [{ ...node, config: { statusFilter: "bogus" } }], edges: [] })));
 });
 
 test("a repeated Kuma delivery does not enqueue an execution already in progress or resumed", async () => {
-  const graph = { nodes: [{ id: "kuma", type: "trigger.uptime-kuma.alert.v2", position: { x: 0, y: 0 }, config: {} }], edges: [] };
+  const graph = { nodes: [{ id: "kuma", type: "trigger.uptime-kuma.alert", position: { x: 0, y: 0 }, config: {} }], edges: [] };
   const endpoint = { id: "endpoint", path: "kuma", workflowId: "workflow", isActive: true, secretHash: hashWebhookSecret("fixture-secret"), workflow: { workspaceId: "workspace", isActive: true, archivedAt: null }, workflowVersion: { graph }, workflowVersionId: "version" };
   let queued = 0;
   const alert = { msg: "Alert", monitor: { id: 1, name: "API" }, heartbeat: { status: 0 } };

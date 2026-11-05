@@ -1,5 +1,4 @@
 import { workflowNodeTypes, type ExecutableWorkflowNodeType, type WorkflowNodeType } from "./index";
-import { nodeExecutionType } from "./node-versioning";
 
 /** Descriptive metadata only: it must not authorize execution or determine retry policy. */
 export type OperationCredentialProvider =
@@ -80,7 +79,6 @@ const definitions = {
   "trigger.cron": executable(none, "unspecified", triggerOutput),
   "trigger.webhook": executable(conditional, "unspecified", triggerOutput),
   "trigger.uptime-kuma.alert": executable(conditional, "unspecified", triggerOutput),
-  "trigger.uptime-kuma.alert.v2": executable(conditional, "unspecified", triggerOutput),
   "trigger.github.issue-opened": executable(conditional, "unspecified", triggerOutput),
   "trigger.github.pull-request-opened": executable(conditional, "unspecified", triggerOutput),
   "trigger.github.push": executable(conditional, "unspecified", triggerOutput),
@@ -96,49 +94,40 @@ const definitions = {
   "action.riot-lor": planned,
   "action.riot-2xko": planned,
   "action.google-chat.webhook": executable(credential("GOOGLE_CHAT_WEBHOOK"), "write", notificationReceipt),
-  "action.google-chat.oauth": executable(credential("GOOGLE_CHAT_OAUTH"), "write", fields("delivered", "provider", "destination", "messageId", "sentAt")),
-  "action.google-chat.oauth.v2": executable(credential("GOOGLE_CHAT_OAUTH"), "write", fields("delivered", "provider", "destination", "messageId", "sentAt", "threadName")),
+  "action.google-chat.oauth": executable(credential("GOOGLE_CHAT_OAUTH"), "write", fields("delivered", "provider", "destination", "messageId", "sentAt", "threadName")),
   "action.google-chat.reply": executable(credential("GOOGLE_CHAT_OAUTH"), "write", fields("delivered", "provider", "destination", "messageId", "sentAt", "threadName")),
   "action.google-chat.edit-message": executable(credential("GOOGLE_CHAT_OAUTH"), "write", fields("updated", "messageId")),
   "action.discord.webhook": executable(credential("DISCORD_WEBHOOK"), "write", notificationReceipt),
   "action.telegram.message": executable(credential("TELEGRAM_BOT"), "write", notificationReceipt),
   "action.telegram.reply": executable(credential("TELEGRAM_BOT"), "write", fields(...notificationReceipt.knownFields, "operation")),
   "action.telegram.edit-message": executable(credential("TELEGRAM_BOT"), "write", fields(...notificationReceipt.knownFields, "operation")),
-  "action.google-drive": executable(credential("GOOGLE"), "configuration-dependent", fields("operation")),
   "action.google-drive.get-file": executable(credential("GOOGLE"), "read", fields("file")),
   "action.google-drive.create-folder": executable(credential("GOOGLE"), "write", fields("folder")),
-  "action.google-drive.v2": executable(credential("GOOGLE"), "configuration-dependent", fields("operation"), {
+  "action.google-drive": executable(credential("GOOGLE"), "configuration-dependent", fields("operation"), {
     kind: "conditional", selector: "operation", fallback: "list", cases: [{
       values: ["list", "search"],
       pagination: { kind: "continuation", input: "pageToken", next: "nextPageToken", preserve: ["credentialId", "operation", "query", "collectPages"], caveat: "Drive continuation applies only to list and search; results can change between pages." },
     }],
   }),
   "action.google-sheets": executable(credential("GOOGLE"), "configuration-dependent", fields("operation")),
-  "action.google-sheets.v2": executable(credential("GOOGLE"), "configuration-dependent", fields("operation")),
   "action.http-request": executable(credential("HTTP", "optional"), "configuration-dependent", fields("status", "body")),
   "action.email": executable(credential("SMTP"), "write", fields("delivered", "submissionStatus", "acceptedCount", "deliveryConfirmed", "provider", "destination", "sentAt", "mode")),
   "action.openai": executable(credential("OPENAI"), "unspecified", fields("text", "model", "finishReason")),
   "action.gemini": executable(credential("GEMINI"), "unspecified", fields("text", "model", "finishReason")),
   "action.mongodb": executable(credential("MONGODB"), "read", fields("documents", "count")),
   "action.mongodb.insert": executable(credential("MONGODB"), "write", fields("inserted", "insertedId")),
-  "action.notion.search-pages": executable(credential("NOTION"), "read", fields("pages", "hasMore", "nextCursor")),
-  "action.notion.search-pages.v2": executable(credential("NOTION"), "read", fields("pages", "hasMore", "nextCursor"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "query", "pageSize", "collectPages"] }),
+  "action.notion.search-pages": executable(credential("NOTION"), "read", fields("pages", "hasMore", "nextCursor"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "query", "pageSize", "collectPages"] }),
   "action.rss.read": executable(none, "read", fields("title", "items")),
   "action.trello.create-card": executable(credential("TRELLO"), "write", fields("id", "name", "boardId", "listId", "url")),
-  "action.sentry.list-issues": executable(credential("SENTRY"), "read", fields("issues", "hasMore")),
-  "action.sentry.list-issues.v2": executable(credential("SENTRY"), "read", fields("issues", "hasMore", "nextCursor", "partial"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "organization", "project", "status", "limit"], caveat: "Continuation can be unknown; reuse the cursor with the same project and filters." }),
+  "action.sentry.list-issues": executable(credential("SENTRY"), "read", fields("issues", "hasMore", "nextCursor", "partial"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "organization", "project", "status", "limit"], caveat: "Continuation can be unknown; reuse the cursor with the same project and filters." }),
   "action.sentry.get-issue": executable(credential("SENTRY"), "read", fields("issue")),
-  "action.vercel.list-deployments": executable(credential("VERCEL"), "read", fields("deployments", "hasMore")),
-  "action.vercel.list-deployments.v2": executable(credential("VERCEL"), "read", fields("deployments", "hasMore", "nextCursor", "partial"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "team", "project", "limit"], caveat: "Continuation can be unknown; reuse the cursor with the same account and project." }),
+  "action.vercel.list-deployments": executable(credential("VERCEL"), "read", fields("deployments", "hasMore", "nextCursor", "partial"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "team", "project", "limit"], caveat: "Continuation can be unknown; reuse the cursor with the same account and project." }),
   "action.vercel.public-deployment-lookup": executable(credential("VERCEL"), "read", fields("lookup", "ownershipVerified", "deployment")),
-  "action.supabase.select": executable(credential("SUPABASE"), "read", fields("rows", "count")),
-  "action.supabase.select.v2": executable(credential("SUPABASE"), "read", fields("rows", "count", "returnedCount", "page"), { kind: "offset", input: "offset", page: "page", preserve: ["credentialId", "table", "limit", "columns", "filters", "order", "rejectUnsafeNumbers"], caveat: "A nonzero offset requires sorting. Completeness is unknown, and changing rows can shift between pages." }),
+  "action.supabase.select": executable(credential("SUPABASE"), "read", fields("rows", "count", "returnedCount", "page"), { kind: "offset", input: "offset", page: "page", preserve: ["credentialId", "table", "limit", "columns", "filters", "order", "rejectUnsafeNumbers"], caveat: "A nonzero offset requires sorting. Completeness is unknown, and changing rows can shift between pages." }),
   "action.supabase.insert-row": executable(credential("SUPABASE"), "write", fields("accepted", "table")),
   "action.reddit.list-posts": executable(credential("REDDIT"), "read", fields("posts", "hasMore")),
-  "action.postgres.select": executable(credential("POSTGRES"), "read", fields("rows", "count")),
-  "action.postgres.select.v2": executable(credential("POSTGRES"), "read", fields("rows", "count", "returnedCount", "page"), { kind: "offset", input: "offset", page: "page", preserve: ["credentialId", "schema", "table", "limit", "columns", "conditions", "orderBy", "orderDirection"], caveat: "A nonzero offset requires sorting. Completeness is unknown, and changing rows can shift between pages." }),
-  "action.gmail.read": executable(credential("GMAIL"), "read", fields("messages", "count", "hasMore")),
-  "action.gmail.read.v2": executable(credential("GMAIL"), "read", fields("messages", "count", "hasMore", "nextPageToken"), { kind: "continuation", input: "pageToken", next: "nextPageToken", hasMore: "hasMore", preserve: ["credentialId", "mailbox", "query", "limit", "collectPages"] }),
+  "action.postgres.select": executable(credential("POSTGRES"), "read", fields("rows", "count", "returnedCount", "page"), { kind: "offset", input: "offset", page: "page", preserve: ["credentialId", "schema", "table", "limit", "columns", "conditions", "orderBy", "orderDirection"], caveat: "A nonzero offset requires sorting. Completeness is unknown, and changing rows can shift between pages." }),
+  "action.gmail.read": executable(credential("GMAIL"), "read", fields("messages", "count", "hasMore", "nextPageToken"), { kind: "continuation", input: "pageToken", next: "nextPageToken", hasMore: "hasMore", preserve: ["credentialId", "mailbox", "query", "limit", "collectPages"] }),
   "action.gmail.get-message": executable(credential("GMAIL"), "read", fields("message")),
   "action.gmail.send": executable(credential("GMAIL"), "write", fields("result")),
   "action.gmail.reply": executable(credential("GMAIL"), "write", fields("result")),
@@ -171,7 +160,6 @@ export function getOperationMetadataRegistry(): Readonly<CheckedRegistry> {
 }
 
 /** Only registered graph types are exposed; unknown strings never fall back to an executable entry. */
-export function getOperationMetadata(type: string, version?: unknown): OperationMetadata | undefined {
-  const executionType = nodeExecutionType(type, version);
-  return executionType && workflowNodeTypes.some((known) => known === type) ? definitions[executionType as WorkflowNodeType] : undefined;
+export function getOperationMetadata(type: string): OperationMetadata | undefined {
+  return workflowNodeTypes.some((known) => known === type) ? definitions[type as WorkflowNodeType] : undefined;
 }

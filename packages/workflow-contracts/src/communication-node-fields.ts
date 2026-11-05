@@ -38,11 +38,6 @@ export const communicationNodeFields = {
       { kind: "resource", key: "space", label: "Space", resource: "google-chat-space", credentialKey: "credentialId", placeholder: "Search spaces" },
       { kind: "textarea", key: "message", label: "Message template" },
     ],
-  "action.google-chat.oauth.v2": (): NodeConfigurationField[] => [
-      { kind: "credential", key: "credentialId", label: "Google Chat credential", providers: ["GOOGLE_CHAT_OAUTH"] },
-      { kind: "resource", key: "space", label: "Space", resource: "google-chat-space", credentialKey: "credentialId", placeholder: "Search spaces" },
-      { kind: "textarea", key: "message", label: "Message template" },
-    ],
   "action.google-chat.reply": (): NodeConfigurationField[] => [
       { kind: "credential", key: "credentialId", label: "Google Chat credential", providers: ["GOOGLE_CHAT_OAUTH"] },
       { kind: "resource", key: "space", label: "Space", resource: "google-chat-space", credentialKey: "credentialId", placeholder: "Search spaces" },

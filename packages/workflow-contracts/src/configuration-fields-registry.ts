@@ -1,5 +1,4 @@
 import type { WorkflowNodeType } from "./index";
-import { nodeExecutionType } from "./node-versioning";
 import type { NodeConfigurationField } from "./node-configuration-fields";
 import { gmailWriteConfigurationFields } from "./gmail-write-fields";
 import { notionReadConfigurationFields } from "./notion-read-fields";
@@ -73,8 +72,7 @@ const sharedFields = {
 
 export const sharedNodeConfigurationTypes: readonly (keyof typeof sharedFields)[] = Object.freeze(Object.keys(sharedFields) as (keyof typeof sharedFields)[]);
 
-export function getSharedNodeConfigurationFields(type: string, version?: unknown): NodeConfigurationField[] | undefined {
-  const executionType = nodeExecutionType(type, version);
-  if (!executionType || !Object.hasOwn(sharedFields, executionType)) return undefined;
-  return sharedFields[executionType as keyof typeof sharedFields]();
+export function getSharedNodeConfigurationFields(type: string): NodeConfigurationField[] | undefined {
+  if (!Object.hasOwn(sharedFields, type)) return undefined;
+  return sharedFields[type as keyof typeof sharedFields]();
 }

@@ -1,12 +1,11 @@
 import type { Edge, Node } from "@xyflow/react";
-import { currentLibraryNodeType, currentWorkflowNodeVersion, getSharedNodeConfigurationFields, riotLolActions, riotTftActions, workflowNodeOutputKinds, type WorkflowEdgeKind, type WorkflowNodeCategory, type WorkflowNodeType } from "@workflow/contracts";
+import { getSharedNodeConfigurationFields, riotLolActions, riotTftActions, workflowNodeOutputKinds, type WorkflowEdgeKind, type WorkflowNodeCategory, type WorkflowNodeType } from "@workflow/contracts";
 import type { NodeConfigurationField } from "@workflow/contracts";
 import type { NodeIconName } from "./node-icon";
 export type { NodeConfigurationField, NodeFieldVisibility, NodeResource, NodeSelectOption } from "@workflow/contracts";
 
 export type WorkflowNodeData = {
   nodeType: WorkflowNodeType;
-  nodeVersion?: number;
   label: string;
   description: string;
   category: WorkflowNodeCategory;
@@ -59,7 +58,6 @@ export type NodeDefinition = {
   aliases?: string[];
   icon: NodeIconName;
   available: boolean;
-  hiddenFromLibrary?: boolean;
   defaultConfig: Record<string, unknown>;
   configurationFields?: NodeConfigurationField[];
 };
@@ -219,15 +217,10 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { path: "steam-daily-report", secretRequired: true },
   },
   {
-    type: "trigger.uptime-kuma.alert", hiddenFromLibrary: true, label: "Uptime Kuma alert", description: "Start when an Uptime Kuma monitor sends an alert.",
-    category: "trigger", libraryGroup: "developer-data", appId: "uptime-kuma", operationId: "monitor-alert", operationLabel: "Monitor alert", operationKind: "trigger", icon: "uptime-kuma", available: true,
-    defaultConfig: { path: "uptime-kuma-alert", secretRequired: true },
-  },
-  {
-    type: "trigger.uptime-kuma.alert.v2", label: "Uptime Kuma alert", description: "Start when an Uptime Kuma monitor sends an alert.",
+    type: "trigger.uptime-kuma.alert", label: "Uptime Kuma alert", description: "Start when an Uptime Kuma monitor sends an alert.",
     category: "trigger", libraryGroup: "developer-data", appId: "uptime-kuma", operationId: "monitor-alert", operationLabel: "Monitor alert", operationKind: "trigger", icon: "uptime-kuma", available: true,
     defaultConfig: { path: "uptime-kuma-alert", secretRequired: true, monitorId: "", statusFilter: "any" },
-    configurationFields: getSharedNodeConfigurationFields("trigger.uptime-kuma.alert.v2"),
+    configurationFields: getSharedNodeConfigurationFields("trigger.uptime-kuma.alert"),
   },
   {
     type: "trigger.github.issue-opened",
@@ -400,8 +393,9 @@ export const nodeCatalog: NodeDefinition[] = [
     category: "action", libraryGroup: "communication", appId: "telegram", operationId: "edit-message", operationLabel: "Edit message text", operationKind: "action", icon: "telegram", available: true,
     defaultConfig: { credentialId: "", destinationType: "dm", chatId: "", messageId: "", text: "", parseMode: "" },
   },
+
   {
-    type: "action.google-drive", hiddenFromLibrary: true,
+    type: "action.google-drive",
     label: "Google Drive",
     description: "Search, read, or upload a file.",
     category: "action",
@@ -415,22 +409,6 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { credentialId: "", operation: "search", query: "", fileId: "", name: "daily-report.txt", text: "" },
     configurationFields: getSharedNodeConfigurationFields("action.google-drive"),
   },
-
-  {
-    type: "action.google-drive.v2",
-    label: "Google Drive",
-    description: "Search, read, or upload a file.",
-    category: "action",
-    libraryGroup: "google-workspace",
-    appId: "google-drive",
-    operationId: "manage-files",
-    operationLabel: "Manage files",
-    operationKind: "action",
-    icon: "google-drive",
-    available: true,
-    defaultConfig: { credentialId: "", operation: "search", query: "", fileId: "", name: "daily-report.txt", text: "" },
-    configurationFields: getSharedNodeConfigurationFields("action.google-drive.v2"),
-  },
   {
     type: "action.google-drive.get-file", label: "Google Drive · Get file", description: "Read the name and type of an accessible file or folder.",
     category: "action", libraryGroup: "google-workspace", appId: "google-drive", operationId: "get-file", operationLabel: "Get file metadata", operationKind: "search", icon: "google-drive", available: true,
@@ -442,22 +420,7 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { credentialId: "", name: "", parentId: "" }, configurationFields: getSharedNodeConfigurationFields("action.google-drive.create-folder"),
   },
   {
-    type: "action.google-sheets", hiddenFromLibrary: true,
-    label: "Google Sheets",
-    description: "Read or write spreadsheet data.",
-    category: "action",
-    libraryGroup: "google-workspace",
-    appId: "google-sheets",
-    operationId: "read-write-rows",
-    operationLabel: "Read or write rows",
-    operationKind: "action",
-    icon: "google-sheets",
-    available: true,
-    defaultConfig: { credentialId: "", operation: "append", spreadsheetId: "", range: "Sheet1!A1", values: [["", ""]] },
-    configurationFields: getSharedNodeConfigurationFields("action.google-sheets"),
-  },
-  {
-    type: "action.google-sheets.v2",
+    type: "action.google-sheets",
     label: "Google Sheets",
     description: "Read or write spreadsheet data.",
     category: "action",
@@ -469,7 +432,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "google-sheets",
     available: true,
     defaultConfig: { credentialId: "", operation: "append", spreadsheetId: "", range: "Sheet1!A1", values: [["", ""]], valueInputOption: "USER_ENTERED" },
-    configurationFields: getSharedNodeConfigurationFields("action.google-sheets.v2"),
+    configurationFields: getSharedNodeConfigurationFields("action.google-sheets"),
   },
   {
     type: "action.http-request",
@@ -515,25 +478,10 @@ export const nodeCatalog: NodeDefinition[] = [
     configurationFields: getSharedNodeConfigurationFields("action.email"),
   },
   {
-    type: "action.google-chat.oauth", hiddenFromLibrary: true,
-    label: "Google Chat OAuth",
-    description: "Send a Google Chat message with OAuth.",
-    category: "action",
-    libraryGroup: "google-workspace",
-    appId: "google-chat",
-    operationId: "send-oauth-message",
-    operationLabel: "Send OAuth message",
-    operationKind: "action",
-    icon: "google-chat",
-    available: true,
-    defaultConfig: { credentialId: "", space: "", message: "" },
-    configurationFields: getSharedNodeConfigurationFields("action.google-chat.oauth"),
-  },
-  {
-    type: "action.google-chat.oauth.v2", label: "Google Chat OAuth", description: "Send a Google Chat message and return its thread when available.",
+    type: "action.google-chat.oauth", label: "Google Chat OAuth", description: "Send a Google Chat message and return its thread when available.",
     category: "action", libraryGroup: "google-workspace", appId: "google-chat", operationId: "send-oauth-message", operationLabel: "Send OAuth message", operationKind: "action", icon: "google-chat", available: true,
     defaultConfig: { credentialId: "", space: "", message: "" },
-    configurationFields: getSharedNodeConfigurationFields("action.google-chat.oauth.v2"),
+    configurationFields: getSharedNodeConfigurationFields("action.google-chat.oauth"),
   },
   {
     type: "action.google-chat.reply", label: "Google Chat reply", description: "Reply to an existing Google Chat thread.",
@@ -597,8 +545,9 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { url: "", pollMinutes: "5" },
     configurationFields: getSharedNodeConfigurationFields("trigger.rss.new-item"),
   },
+
   {
-    type: "action.gmail.read", hiddenFromLibrary: true,
+    type: "action.gmail.read",
     label: "Gmail messages",
     description: "Read recent messages without changing your inbox.",
     category: "action",
@@ -611,22 +560,6 @@ export const nodeCatalog: NodeDefinition[] = [
     available: true,
     defaultConfig: { credentialId: "", mailbox: "inbox", query: "", limit: 5 },
     configurationFields: getSharedNodeConfigurationFields("action.gmail.read"),
-  },
-
-  {
-    type: "action.gmail.read.v2",
-    label: "Gmail messages",
-    description: "Read recent messages without changing your inbox.",
-    category: "action",
-    libraryGroup: "communication",
-    appId: "gmail",
-    operationId: "read-messages",
-    operationLabel: "Read messages",
-    operationKind: "search",
-    icon: "gmail",
-    available: true,
-    defaultConfig: { credentialId: "", mailbox: "inbox", query: "", limit: 5 },
-    configurationFields: getSharedNodeConfigurationFields("action.gmail.read.v2"),
   },
   {
     type: "action.gmail.get-message",
@@ -692,8 +625,9 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { credentialId: "", calendarId: "primary", start: "", end: "" },
     configurationFields: getSharedNodeConfigurationFields("action.google-calendar.availability"),
   },
+
   {
-    type: "action.postgres.select", hiddenFromLibrary: true,
+    type: "action.postgres.select",
     label: "PostgreSQL rows",
     description: "Read a bounded set of rows from a table.",
     category: "action",
@@ -706,22 +640,6 @@ export const nodeCatalog: NodeDefinition[] = [
     available: true,
     defaultConfig: { credentialId: "", schema: "public", table: "", limit: 20 },
     configurationFields: getSharedNodeConfigurationFields("action.postgres.select"),
-  },
-
-  {
-    type: "action.postgres.select.v2",
-    label: "PostgreSQL rows",
-    description: "Read a bounded set of rows from a table.",
-    category: "action",
-    libraryGroup: "developer-data",
-    appId: "postgres",
-    operationId: "select-rows",
-    operationLabel: "Select rows",
-    operationKind: "search",
-    icon: "postgres",
-    available: true,
-    defaultConfig: { credentialId: "", schema: "public", table: "", limit: 20 },
-    configurationFields: getSharedNodeConfigurationFields("action.postgres.select.v2"),
   },
   {
     type: "action.rss.read", label: "Read RSS feed", description: "Read recent items from a public RSS or Atom feed.",
@@ -747,31 +665,19 @@ export const nodeCatalog: NodeDefinition[] = [
     const fields = getSharedNodeConfigurationFields(type);
     return { type, label: `Trello · ${label}`, description: `${label} in Trello.`, category: "action", libraryGroup: "productivity", appId: "trello", operationId: type.slice("action.trello.".length), operationLabel: label, operationKind: collection || operation === "get" ? "search" : "action", icon: "trello", available: true, defaultConfig: { credentialId: "", ...(collection ? { boardId: "", limit: 20 } : { sourceBoardId: "", cardId: "" }), ...(operation === "move" ? { boardId: "", listId: "" } : {}), ...(operation === "list" ? { filter: "open" } : {}), ...(operation === "find" ? { query: "", searchPagination: "pages", page: 0 } : {}) }, configurationFields: fields };
   }),
+
   {
-    type: "action.sentry.list-issues", hiddenFromLibrary: true, label: "Sentry issues", description: "Read issues from a Sentry project.",
+    type: "action.sentry.list-issues", label: "Sentry issues", description: "Read issues from a Sentry project.",
     category: "action", libraryGroup: "developer-data", appId: "sentry", operationId: "list-issues", operationLabel: "List issues", operationKind: "search", icon: "sentry", available: true,
     defaultConfig: { credentialId: "", organization: "", project: "", status: "unresolved", limit: 20 },
     configurationFields: getSharedNodeConfigurationFields("action.sentry.list-issues"),
   },
 
   {
-    type: "action.sentry.list-issues.v2", label: "Sentry issues", description: "Read issues from a Sentry project.",
-    category: "action", libraryGroup: "developer-data", appId: "sentry", operationId: "list-issues", operationLabel: "List issues", operationKind: "search", icon: "sentry", available: true,
-    defaultConfig: { credentialId: "", organization: "", project: "", status: "unresolved", limit: 20 },
-    configurationFields: getSharedNodeConfigurationFields("action.sentry.list-issues.v2"),
-  },
-  {
-    type: "action.vercel.list-deployments", hiddenFromLibrary: true, label: "Vercel deployments", description: "Read recent deployments for a Vercel project.",
+    type: "action.vercel.list-deployments", label: "Vercel deployments", description: "Read recent deployments for a Vercel project.",
     category: "action", libraryGroup: "developer-data", appId: "vercel", operationId: "list-deployments", operationLabel: "List deployments", operationKind: "search", icon: "vercel", available: true,
     defaultConfig: { credentialId: "", team: "personal", project: "", limit: 20 },
     configurationFields: getSharedNodeConfigurationFields("action.vercel.list-deployments"),
-  },
-
-  {
-    type: "action.vercel.list-deployments.v2", label: "Vercel deployments", description: "Read recent deployments for a Vercel project.",
-    category: "action", libraryGroup: "developer-data", appId: "vercel", operationId: "list-deployments", operationLabel: "List deployments", operationKind: "search", icon: "vercel", available: true,
-    defaultConfig: { credentialId: "", team: "personal", project: "", limit: 20 },
-    configurationFields: getSharedNodeConfigurationFields("action.vercel.list-deployments.v2"),
   },
   {
     type: "action.sentry.get-issue", label: "Get Sentry issue", description: "Read a limited view of an issue in the selected project.",
@@ -791,18 +697,12 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { credentialId: "", subreddit: "", sort: "new", limit: 20 },
     configurationFields: getSharedNodeConfigurationFields("action.reddit.list-posts"),
   },
-  {
-    type: "action.supabase.select", hiddenFromLibrary: true, label: "Supabase rows", description: "Read rows from a Supabase public-schema table.",
-    category: "action", libraryGroup: "developer-data", appId: "supabase", operationId: "select-rows", operationLabel: "Select rows", operationKind: "search", icon: "supabase", available: true,
-    defaultConfig: { credentialId: "", table: "", limit: 20 },
-    configurationFields: getSharedNodeConfigurationFields("action.supabase.select"),
-  },
 
   {
-    type: "action.supabase.select.v2", label: "Supabase rows", description: "Read rows from a Supabase public-schema table.",
+    type: "action.supabase.select", label: "Supabase rows", description: "Read rows from a Supabase public-schema table.",
     category: "action", libraryGroup: "developer-data", appId: "supabase", operationId: "select-rows", operationLabel: "Select rows", operationKind: "search", icon: "supabase", available: true,
     defaultConfig: { credentialId: "", table: "", limit: 20, rejectUnsafeNumbers: true },
-    configurationFields: getSharedNodeConfigurationFields("action.supabase.select.v2"),
+    configurationFields: getSharedNodeConfigurationFields("action.supabase.select"),
   },
   {
     type: "action.supabase.insert-row", label: "Supabase · Insert row", description: "Insert one row into a public-schema table.",
@@ -810,8 +710,9 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { credentialId: "", table: "", fields: [] },
     configurationFields: getSharedNodeConfigurationFields("action.supabase.insert-row"),
   },
+
   {
-    type: "action.notion.search-pages", hiddenFromLibrary: true,
+    type: "action.notion.search-pages",
     label: "Notion pages",
     description: "Find pages shared with your Notion integration.",
     category: "action",
@@ -824,22 +725,6 @@ export const nodeCatalog: NodeDefinition[] = [
     available: true,
     defaultConfig: { credentialId: "", query: "", pageSize: 20 },
     configurationFields: getSharedNodeConfigurationFields("action.notion.search-pages"),
-  },
-
-  {
-    type: "action.notion.search-pages.v2",
-    label: "Notion pages",
-    description: "Find pages shared with your Notion integration.",
-    category: "action",
-    libraryGroup: "productivity",
-    appId: "notion",
-    operationId: "search-pages",
-    operationLabel: "Search pages",
-    operationKind: "search",
-    icon: "notion",
-    available: true,
-    defaultConfig: { credentialId: "", query: "", pageSize: 20 },
-    configurationFields: getSharedNodeConfigurationFields("action.notion.search-pages.v2"),
   },
   ...([
     ["action.notion.retrieve-page", "Get page", "page"],
@@ -1012,7 +897,7 @@ export function matchesNodeSearch(node: NodeDefinition, query: string) {
 }
 
 export function matchesNodeLibraryFilter(node: NodeDefinition, filter: NodeLibraryFilter, query = "") {
-  if (node.hiddenFromLibrary || !matchesNodeSearch(node, query)) return false;
+  if (!matchesNodeSearch(node, query)) return false;
   if (filter === "roadmap") return !node.available;
   if (!query.trim() && !node.available) return false;
   if (filter === "all") return true;
@@ -1026,7 +911,7 @@ export function getAppDefinition(appId: string) {
 }
 
 export function operationsForApp(appId: string) {
-  return libraryCatalog.filter((definition) => definition.appId === appId && !definition.hiddenFromLibrary);
+  return libraryCatalog.filter((definition) => definition.appId === appId);
 }
 
 const steamActions = [
@@ -1061,7 +946,7 @@ export function libraryDefinitionId(definition: NodeDefinition): string {
 }
 
 export function getLibraryDefinition(id: string): NodeDefinition | undefined {
-  const normalized = id === "action.steam" ? "action.steam#profile" : id === "action.riot-lol" ? "action.riot-lol#accountByRiotId" : id === "action.riot-tft" ? "action.riot-tft#accountByRiotId" : libraryNodeType(id);
+  const normalized = id === "action.steam" ? "action.steam#profile" : id === "action.riot-lol" ? "action.riot-lol#accountByRiotId" : id === "action.riot-tft" ? "action.riot-tft#accountByRiotId" : id;
   return libraryCatalog.find((definition) => libraryDefinitionId(definition) === normalized);
 }
 
@@ -1070,23 +955,6 @@ export function getNodeDefinitionForConfig(type: string, config: Record<string, 
   if (type === "action.riot-lol") return getLibraryDefinition(`action.riot-lol#${typeof config.operation === "string" ? config.operation : "accountByRiotId"}`) ?? getNodeDefinition(type);
   if (type === "action.riot-tft") return getLibraryDefinition(`action.riot-tft#${typeof config.operation === "string" ? config.operation : "accountByRiotId"}`) ?? getNodeDefinition(type);
   return getNodeDefinition(type);
-}
-
-/** Preserve old favorites/recent preferences without offering legacy nodes for new graphs. */
-export function libraryNodeType(type: string): string {
-  return currentLibraryNodeType(type);
-}
-
-/** Only an explicit draft action may change a legacy type; preserve all config. */
-export function upgradePaginationNode(data: WorkflowNodeData): WorkflowNodeData | undefined {
-  const replacements: Partial<Record<WorkflowNodeType, WorkflowNodeType>> = {
-    "action.google-drive": "action.google-drive.v2", "action.gmail.read": "action.gmail.read.v2",
-    "action.notion.search-pages": "action.notion.search-pages.v2", "action.sentry.list-issues": "action.sentry.list-issues.v2",
-    "action.vercel.list-deployments": "action.vercel.list-deployments.v2",
-  };
-  const next = replacements[data.nodeType];
-  if (!next || (data.nodeVersion !== undefined && data.nodeVersion !== 1)) return undefined;
-  return { ...data, nodeType: next, nodeVersion: currentWorkflowNodeVersion };
 }
 
 export function coreNodeDefinitions() {
@@ -1111,7 +979,6 @@ export function availableCatalogTypes() {
 export function createNodeData(definition: NodeDefinition): WorkflowNodeData {
   return {
     nodeType: definition.type,
-    nodeVersion: currentWorkflowNodeVersion,
     label: definition.label,
     description: definition.description,
     category: definition.category,

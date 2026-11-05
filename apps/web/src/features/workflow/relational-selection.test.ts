@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildRelationalSelection, isRelationalBaselineCurrent, parseRelationalManual, parseRelationalSelection, relationalBaseline, upgradeRelationalNode, type RelationalProvider } from "./relational-selection";
+import { buildRelationalSelection, isRelationalBaselineCurrent, parseRelationalManual, parseRelationalSelection, relationalBaseline, type RelationalProvider } from "./relational-selection";
 
 import { createNodeData, getNodeDefinition } from "./node-catalog";
 import { graphForApi, graphFromApi } from "./workflow-api";
@@ -89,27 +89,5 @@ test("visual numeric values reject unsafe integers before precision is lost", ()
     const text = buildRelationalSelection({ ...form, conditions: [{ ...row, type: "string", value: "9007199254740993" }] }, provider);
     assert.equal((text[provider === "postgres" ? "conditions" : "filters"] as Array<{ value: string }>)[0]!.value, "9007199254740993");
     assert.equal(parseRelationalSelection({ [provider === "postgres" ? "conditions" : "filters"]: [{ column: "id", operator: "equals", value: 9007199254740992 }] }, provider), null);
-  }
-});
-
-
-test("explicit upgrade preserves the entire config and only changes a draft node type", () => {
-  for (const type of ["action.postgres.select", "action.supabase.select"] as const) {
-    const config = { credentialId: "connection", table: "items", columns: ["id"], offset: 3, extra: { original: ["keep"] } };
-    const legacy = { nodes: [{ id: "read", type, position: { x: 0, y: 0 }, config }], edges: [] };
-    const canvas = graphFromApi(legacy);
-    const node = canvas.nodes[0]!;
-    const upgraded = upgradeRelationalNode(node.data)!;
-    assert.equal(upgraded.nodeVersion, 1);
-    assert.equal(upgraded.nodeType, `${type}.v2`);
-    assert.deepEqual(upgraded.config, config);
-    assert.equal(node.data.nodeVersion, undefined);
-    const migrated = graphForApi({ ...canvas, nodes: [{ ...node, data: upgraded }] });
-    assert.equal(migrated.nodes[0]?.nodeVersion, 1);
-    assert.equal(migrated.nodes[0]?.type, `${type}.v2`);
-    assert.deepEqual(migrated.nodes[0]?.config, config);
-    assert.deepEqual(legacy.nodes[0]?.config, config);
-    assert.equal(createNodeData(getNodeDefinition(`${type}.v2`)!).nodeVersion, 1);
-    assert.equal(upgradeRelationalNode(upgraded), undefined);
   }
 });

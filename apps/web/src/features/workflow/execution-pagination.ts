@@ -4,9 +4,9 @@ type RecordValue = Record<string, unknown>;
 const record = (value: unknown): RecordValue | undefined => value !== null && typeof value === "object" && !Array.isArray(value) ? value as RecordValue : undefined;
 
 /** Describe the recorded run, not the potentially edited draft in the inspector. */
-export function executionPagination(nodeType: string, input: unknown, output: unknown, nodeVersion?: unknown) {
+export function executionPagination(nodeType: string, input: unknown, output: unknown) {
   const result = record(output);
-  const pagination = getOperationMetadata(nodeType, nodeVersion)?.pagination;
+  const pagination = getOperationMetadata(nodeType)?.pagination;
   if (!result || !pagination) return undefined;
 
   let selected = pagination;

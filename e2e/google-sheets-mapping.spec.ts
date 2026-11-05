@@ -178,39 +178,3 @@ test("Sheets preview and node JSON cannot overwrite each other", async ({ page }
   await expect(page.getByLabel("Range", { exact: true })).toHaveValue("'New tab'!A1");
   expect(JSON.parse(await page.getByLabel("Node JSON configuration").inputValue()).values).toEqual([["old"]]);
 });
-
-test("legacy Sheets draft upgrades explicitly and preserves input values", async ({ page }) => {
-  const graph = { nodes: [
-    { id: "manual", type: "trigger.manual", position: { x: 10, y: 350 }, config: {} },
-    { id: "sheets", type: "action.google-sheets", position: { x: 100, y: 100 }, config: { credentialId: "google-1", spreadsheetId: "book-1", operation: "append", range: "Old!A1", values: [["=1+2"]] } },
-  ], edges: [] };
-  const workflow = { id: "workflow-sheets-upgrade", workspaceId: "workspace-1", name: "Sheets upgrade", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
-  let saved: { type: string; config: Record<string, unknown> } | undefined;
-  await page.route("**/api/v1/**", async (route) => {
-    const request = route.request(), url = new URL(request.url());
-    const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
-    if (url.pathname.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
-    if (url.pathname.endsWith("/auth/identities")) return send({ identities: [] });
-    if (url.pathname.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test", slug: "test", role: "OWNER" }] });
-    if (url.pathname.endsWith("/credentials")) return send({ credentials: [{ id: "google-1", provider: "GOOGLE", label: "Google" }] });
-    if (url.pathname.endsWith("/google/files")) return send({ files: [{ id: "book-1", name: "Book" }], nextPageToken: null });
-    if (url.pathname.endsWith("/workflows/workflow-sheets-upgrade/draft") && request.method() === "PATCH") {
-      const body = request.postDataJSON() as { graph: { nodes: Array<{ id: string; type: string; config: Record<string, unknown> }> } };
-      saved = body.graph.nodes.find((node) => node.id === "sheets");
-      return send({ workflow });
-    }
-    if (url.pathname.endsWith("/workflows/workflow-sheets-upgrade")) return send({ workflow });
-    return send({});
-  });
-  await page.goto("/editor?workflow=workflow-sheets-upgrade");
-  await page.getByTestId("rf__node-sheets").click();
-  await expect(page.getByLabel("Interpret values")).toHaveCount(0);
-  await page.getByRole("button", { name: "Enable value options in draft" }).click();
-  await expect(page.getByLabel("Interpret values")).toHaveValue("USER_ENTERED");
-  await page.getByLabel("Interpret values").selectOption("RAW");
-  await expect(page.getByLabel("Values row 1 column 1")).toHaveValue("=1+2");
-  await page.getByRole("button", { name: "Save draft" }).click();
-  await expect.poll(() => saved?.type).toBe("action.google-sheets.v2");
-  expect(saved?.config.valueInputOption).toBe("RAW");
-  expect(saved?.config.values).toEqual([["=1+2"]]);
-});

@@ -26,7 +26,7 @@ test("Gmail uses a dedicated connection and guided inbox filter", async ({ page 
 });
 
 test("Gmail read explains the optional bounded pagination", async ({ page }) => {
-  const graph = { nodes: [{ id: "gmail", type: "action.gmail.read.v2", position: { x: 100, y: 100 }, config: { credentialId: "gmail-1", mailbox: "unread", limit: 5 } }], edges: [] };
+  const graph = { nodes: [{ id: "gmail", type: "action.gmail.read", position: { x: 100, y: 100 }, config: { credentialId: "gmail-1", mailbox: "unread", limit: 5 } }], edges: [] };
   const workflow = { id: "gmail-pagination", workspaceId: "workspace-1", name: "Gmail pagination", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
   await page.route("**/api/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;

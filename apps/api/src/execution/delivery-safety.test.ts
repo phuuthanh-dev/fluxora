@@ -109,7 +109,7 @@ test("Google writes do not follow redirects or retry ambiguous results", async (
   try {
     for (const [type, config] of [
       ["action.google-drive", { credentialId: "synthetic", operation: "uploadText", name: "test", text: "test" }],
-      ["action.google-drive.v2", { credentialId: "synthetic", operation: "uploadText", name: "test", text: "test" }],
+      ["action.google-drive", { credentialId: "synthetic", operation: "uploadText", name: "test", text: "test" }],
       ["action.google-sheets", { credentialId: "synthetic", operation: "append", spreadsheetId: "test", range: "A1", values: [["test"]] }],
     ] as Array<[string, Record<string, unknown>]>) {
       for (const status of [307, 308]) {
@@ -277,24 +277,24 @@ test("Drive list/search pass a bounded continuation and persist it without expos
       urls.push(new URL(String(url)));
       return Response.json({ files: [{ id: "file-1", name: "Report", accessToken: "private" }], nextPageToken: "page+/=2" });
     }) as typeof fetch;
-    const first = await runAction("action.google-drive.v2", { credentialId: "synthetic", operation: "search", query: "name contains 'x'" });
+    const first = await runAction("action.google-drive", { credentialId: "synthetic", operation: "search", query: "name contains 'x'" });
     const firstOutput = first.nodeUpdates.filter((item) => item.nodeId === "action").at(-1)?.data.output;
     assert.deepEqual(firstOutput, { operation: "search", files: [{ id: "file-1", name: "Report", accessToken: "[REDACTED]" }], nextPageToken: "page+/=2" });
     assert.equal(urls[0]?.searchParams.get("pageSize"), "100");
     assert.equal(urls[0]?.searchParams.get("q"), "name contains 'x'");
     assert.equal(urls[0]?.searchParams.has("pageToken"), false);
-    await runAction("action.google-drive.v2", { credentialId: "synthetic", operation: "search", query: "name contains 'x'", pageToken: "page+/=2" });
+    await runAction("action.google-drive", { credentialId: "synthetic", operation: "search", query: "name contains 'x'", pageToken: "page+/=2" });
     assert.equal(urls[1]?.searchParams.get("pageToken"), "page+/=2");
     assert.equal(urls[1]?.searchParams.get("q"), urls[0]?.searchParams.get("q"));
-    const invalid = await runAction("action.google-drive.v2", { credentialId: "synthetic", operation: "list", pageToken: "x".repeat(1025) });
+    const invalid = await runAction("action.google-drive", { credentialId: "synthetic", operation: "list", pageToken: "x".repeat(1025) });
     assert.equal(invalid.credentialReads, 0);
     assert.equal(invalid.executionUpdates.at(-1)?.errorCode, "INVALID_INPUT");
     assert.equal(urls.length, 2);
     globalThis.fetch = (async () => Response.json({ files: [], nextPageToken: "x".repeat(1025) })) as typeof fetch;
-    const badResponse = await runAction("action.google-drive.v2", { credentialId: "synthetic", operation: "list" });
+    const badResponse = await runAction("action.google-drive", { credentialId: "synthetic", operation: "list" });
     assert.equal(badResponse.executionUpdates.at(-1)?.errorCode, "INVALID_PROVIDER_RESPONSE");
     assert.equal(badResponse.nodeUpdates.some((item) => item.nodeId === "action" && item.data.output), false);
-    const mock = await runAction("action.google-drive.v2", { operation: "list" }, false, undefined, "mock");
+    const mock = await runAction("action.google-drive", { operation: "list" }, false, undefined, "mock");
     assert.equal(mock.credentialReads, 0);
     const mockOutput = mock.nodeUpdates.filter((item) => item.nodeId === "action").at(-1)?.data.output as Record<string, unknown>;
     assert.equal(mockOutput.operation, "list");

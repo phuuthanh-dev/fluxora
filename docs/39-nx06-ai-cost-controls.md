@@ -1,5 +1,16 @@
 # NX-06 AI capabilities and cost-control boundary
 
+## Release and verification status — 2026-11-05
+
+The per-request controls, structured-output handling and provider usage fields
+described below are present in the source deployed through
+[PR #88](https://github.com/phuuthanh-dev/fluxora/pull/88). The PR and main
+quality gates and deployment passed; this does not establish real-provider
+spending behavior or prove every model accepts a schema. See the current
+[NX audit](37-node-expansion-audit.md) for verification scope and the two local
+Playwright timeouts. The monetary limit described below is **not implemented by
+Fluxora**.
+
 Gemini Generate Content and OpenAI Responses receive the existing graph's
 `maxOutputTokens` (default 1,024) as the provider output limit. The prompt is
 limited to 100,000 JavaScript UTF-16 code units, the output limit to 1–8,192
@@ -58,15 +69,17 @@ monetary boundary must configure and monitor the provider's own organization,
 project or billing controls, understand their provider-specific enforcement and
 lag, and prevent ungoverned usage of those credentials. A Fluxora-enforced spend
 cap would require authoritative pricing/account integration and concurrency-safe
-reservations/reconciliation; it is not implemented here. OpenAI documents a
-hard spend limit separately from alerts. Gemini's project cap is experimental
-and can overrun during billing delay; availability varies by billing account.
+reservations/reconciliation; it is not implemented here. [OpenAI project limits](https://help.openai.com/en/articles/9186755-managing-projects-in-the-api-platform)
+distinguish alerts from an explicitly enabled hard limit, and note that
+enforcement can lag. [Gemini project caps](https://ai.google.dev/gemini-api/docs/billing#project-spend-caps)
+are experimental and can overrun during billing delay; availability varies by
+billing account. Neither control is configured or verified by Fluxora.
 
 Model discovery does not prove an ID supports the selected API or JSON schema.
 Google now limits Gemini 2.5 access based on prior usage; its
 [Gemini 2.5 Flash model page](https://ai.google.dev/gemini-api/docs/models/gemini-2.5-flash)
 reports that restriction, while listing the stable model as still served. New
-Gemini nodes in the local draft start with no model selected and ask the user
+Gemini nodes start with no model selected and ask the user
 to select or enter one for their own project. Saved graphs keep their existing
 model, and a model list is not proof of generation access. Gemini 404 responses
 now suggest checking the model and project access; they are not retried.
@@ -92,7 +105,7 @@ the requirement. Other models and custom IDs are decided by the provider, not
 by name-prefix guesses. Mock output checks local schema syntax and represents no
 provider capability, availability, semantic quality or price guarantee.
 
-The local OpenAI draft also treats a response containing both text and a refusal
+The OpenAI connector also treats a response containing both text and a refusal
 as a non-retryable `PROVIDER_REFUSAL` in plain-text mode, as it already did for
 structured output. Previously a plain-text workflow could receive partial text
 as success and continue to later nodes; this intentional safety correction can
@@ -110,7 +123,6 @@ References, consulted 2026-11-03:
 - [Gemini Generate Content thinking](https://ai.google.dev/gemini-api/docs/generate-content/thinking)
 - [Gemini billing and spend caps](https://ai.google.dev/gemini-api/docs/billing)
 
-Draft only: provider qualification and actual spending behavior remain
-unverified. The isolated quality gate and exact scope of its evidence are
-tracked in [the NX audit](37-node-expansion-audit.md). CI on the eventual PR
-head and a safe production release remain outstanding.
+Provider qualification and actual spending behavior remain unverified. The
+quality-gate and production-release evidence, including its limits, is tracked
+in [the NX audit](37-node-expansion-audit.md).

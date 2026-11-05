@@ -1,4 +1,4 @@
-import { nodeExecutionType, type ExecutableWorkflowNodeType } from "@workflow/contracts";
+import type { ExecutableWorkflowNodeType } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { CredentialProvider } from "@prisma/client";
 import type { ConnectorExecutor } from "./node-executor-contract";
@@ -59,16 +59,10 @@ const executors = {
   "action.github.add-label": ({ config, mode, workspaceId, credentials }) => executeGitHubAddLabel(config, mode, workspaceId, credentials),
   "action.github.add-comment": ({ config, mode, workspaceId, credentials }) => executeGitHubAddComment(config, mode, workspaceId, credentials),
   "action.github.merge-pull-request": ({ config, mode, workspaceId, credentials }) => executeGitHubMergePullRequest(config, mode, workspaceId, credentials),
-  "action.google-drive": ({ config, mode, workspaceId, credentials }) => executeDriveNode(config, mode, workspaceId, credentials, false),
-  "action.google-drive.v2": ({ config, mode, workspaceId, credentials }) => executeDriveNode(config, mode, workspaceId, credentials, true),
+  "action.google-drive": ({ config, mode, workspaceId, credentials }) => executeDriveNode(config, mode, workspaceId, credentials),
   "action.google-drive.get-file": ({ config, mode, workspaceId, credentials }) => executeDriveGetFile(config, mode, workspaceId, credentials),
   "action.google-drive.create-folder": ({ config, mode, workspaceId, credentials }) => executeDriveCreateFolder(config, mode, workspaceId, credentials),
   "action.google-sheets": async ({ config, mode, workspaceId, credentials }) => {
-    if (mode === "mock") return { status: "succeeded", output: mockSheets(config), route: "success" };
-    const credential = await credentials.readGoogleForExecution(readCredentialId(config), workspaceId);
-    return { status: "succeeded", output: await executeGoogleSheets(credential, config), route: "success" };
-  },
-  "action.google-sheets.v2": async ({ config, mode, workspaceId, credentials }) => {
     if (Object.hasOwn(config, "operation") && (typeof config.operation !== "string" || !["read", "append", "update"].includes(config.operation))) {
       throw new NodeFailure("INVALID_INPUT", "Choose a valid Google Sheets operation.", false);
     }
@@ -88,8 +82,7 @@ const executors = {
   "action.openai": ({ config, mode, workspaceId, credentials }) => executeOpenAIText(config, mode, workspaceId, credentials),
   "action.mongodb": ({ config, mode, workspaceId, credentials }) => executeMongoFind(config, mode, workspaceId, credentials),
   "action.mongodb.insert": ({ config, mode, workspaceId, credentials }) => executeMongoInsert(config, mode, workspaceId, credentials),
-  "action.notion.search-pages": ({ config, mode, workspaceId, credentials }) => executeNotionSearch(config, mode, workspaceId, credentials, undefined, 1),
-  "action.notion.search-pages.v2": ({ config, mode, workspaceId, credentials }) => executeNotionSearch(config, mode, workspaceId, credentials, undefined, 2),
+  "action.notion.search-pages": ({ config, mode, workspaceId, credentials }) => executeNotionSearch(config, mode, workspaceId, credentials, undefined),
   "action.notion.retrieve-page": ({ config, mode, workspaceId, credentials }) => executeNotionOperation(config, "retrievePage", mode, workspaceId, credentials),
   "action.notion.list-children": ({ config, mode, workspaceId, credentials }) => executeNotionOperation(config, "listChildren", mode, workspaceId, credentials),
   "action.notion.retrieve-property": ({ config, mode, workspaceId, credentials }) => executeNotionOperation(config, "retrieveProperty", mode, workspaceId, credentials),
@@ -104,20 +97,15 @@ const executors = {
   "action.trello.archive-card": ({ config, mode, workspaceId, credentials }) => executeTrelloOperation("archive", config, mode, workspaceId, credentials),
   "action.trello.list-cards": ({ config, mode, workspaceId, credentials }) => executeTrelloOperation("list", config, mode, workspaceId, credentials),
   "action.trello.find-cards": ({ config, mode, workspaceId, credentials }) => executeTrelloOperation("find", config, mode, workspaceId, credentials),
-  "action.sentry.list-issues": ({ config, mode, workspaceId, credentials }) => executeSentryListIssues(config, mode, workspaceId, credentials, undefined, 1),
-  "action.sentry.list-issues.v2": ({ config, mode, workspaceId, credentials }) => executeSentryListIssues(config, mode, workspaceId, credentials, undefined, 2),
+  "action.sentry.list-issues": ({ config, mode, workspaceId, credentials }) => executeSentryListIssues(config, mode, workspaceId, credentials, undefined),
   "action.sentry.get-issue": ({ config, mode, workspaceId, credentials }) => executeSentryGetIssue(config, mode, workspaceId, credentials),
-  "action.vercel.list-deployments": ({ config, mode, workspaceId, credentials }) => executeVercelListDeployments(config, mode, workspaceId, credentials, undefined, 1),
-  "action.vercel.list-deployments.v2": ({ config, mode, workspaceId, credentials }) => executeVercelListDeployments(config, mode, workspaceId, credentials, undefined, 2),
+  "action.vercel.list-deployments": ({ config, mode, workspaceId, credentials }) => executeVercelListDeployments(config, mode, workspaceId, credentials, undefined),
   "action.vercel.public-deployment-lookup": ({ config, mode, workspaceId, credentials }) => executeVercelPublicDeploymentLookup(config, mode, workspaceId, credentials),
-  "action.supabase.select": ({ config, mode, workspaceId, credentials }) => executeSupabaseSelect(config, mode, workspaceId, credentials, undefined, 1),
-  "action.supabase.select.v2": ({ config, mode, workspaceId, credentials }) => executeSupabaseSelect(config, mode, workspaceId, credentials, undefined, 2),
+  "action.supabase.select": ({ config, mode, workspaceId, credentials }) => executeSupabaseSelect(config, mode, workspaceId, credentials, undefined),
   "action.supabase.insert-row": ({ config, mode, workspaceId, credentials }) => executeSupabaseInsert(config, mode, workspaceId, credentials),
   "action.reddit.list-posts": ({ config, mode, workspaceId, credentials }) => executeRedditListPosts(config, mode, workspaceId, credentials),
-  "action.postgres.select": ({ config, mode, workspaceId, credentials }) => executePostgresSelect(config, mode, workspaceId, credentials, undefined, 1),
-  "action.postgres.select.v2": ({ config, mode, workspaceId, credentials }) => executePostgresSelect(config, mode, workspaceId, credentials, undefined, 2),
-  "action.gmail.read": ({ config, mode, workspaceId, credentials }) => executeGmailRead(config, mode, workspaceId, credentials, undefined, 1),
-  "action.gmail.read.v2": ({ config, mode, workspaceId, credentials }) => executeGmailRead(config, mode, workspaceId, credentials, undefined, 2),
+  "action.postgres.select": ({ config, mode, workspaceId, credentials }) => executePostgresSelect(config, mode, workspaceId, credentials, undefined),
+  "action.gmail.read": ({ config, mode, workspaceId, credentials }) => executeGmailRead(config, mode, workspaceId, credentials, undefined),
   "action.gmail.get-message": ({ config, mode, workspaceId, credentials }) => executeGmailGetMessage(config, mode, workspaceId, credentials),
   "action.gmail.send": ({ config, mode, workspaceId, credentials }) => executeGmailWrite(config, "send", mode, workspaceId, credentials),
   "action.gmail.reply": ({ config, mode, workspaceId, credentials }) => executeGmailWrite(config, "reply", mode, workspaceId, credentials),
@@ -130,8 +118,7 @@ const executors = {
   "action.google-calendar.update-event": ({ config, mode, workspaceId, credentials }) => executeGoogleCalendarEvent(config, "update", mode, workspaceId, credentials),
   "action.google-calendar.delete-event": ({ config, mode, workspaceId, credentials }) => executeGoogleCalendarEvent(config, "delete", mode, workspaceId, credentials),
   "action.google-calendar.availability": ({ config, mode, workspaceId, credentials }) => executeGoogleCalendarAvailability(config, mode, workspaceId, credentials),
-  "action.google-chat.oauth": ({ config, mode, workspaceId, credentials }) => executeGoogleChatOAuth(config, mode, workspaceId, credentials),
-  "action.google-chat.oauth.v2": ({ config, mode, workspaceId, credentials }) => executeGoogleChatOAuth(config, mode, workspaceId, credentials, undefined, "send"),
+  "action.google-chat.oauth": ({ config, mode, workspaceId, credentials }) => executeGoogleChatOAuth(config, mode, workspaceId, credentials, undefined, "send"),
   "action.google-chat.reply": ({ config, mode, workspaceId, credentials }) => executeGoogleChatOAuth(config, mode, workspaceId, credentials, undefined, "reply"),
   "action.google-chat.edit-message": ({ config, mode, workspaceId, credentials }) => executeGoogleChatEdit(config, mode, workspaceId, credentials),
   "action.telegram.reply": ({ config, mode, workspaceId, credentials }) => executeTelegramMessageOperation("reply", config, mode, workspaceId, credentials),
@@ -143,22 +130,21 @@ const executors = {
   "action.github.get-pull-request": ({ config, mode, workspaceId, credentials }) => executeGitHubGetPullRequest(config, mode, workspaceId, credentials),
 } satisfies Record<Extract<ExecutableWorkflowNodeType, `action.${string}`>, ConnectorExecutor>;
 
-async function executeDriveNode(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, paginated: boolean) {
-  if (paginated && Object.hasOwn(config, "operation") && (typeof config.operation !== "string" || !["list", "search", "uploadText", "downloadText"].includes(config.operation))) {
+async function executeDriveNode(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService) {
+  if (Object.hasOwn(config, "operation") && (typeof config.operation !== "string" || !["list", "search", "uploadText", "downloadText"].includes(config.operation))) {
     throw new NodeFailure("INVALID_INPUT", "Choose a valid Google Drive operation.", false);
   }
   const operation = readOperation(config, ["list", "search", "uploadText", "downloadText"], "list");
-  if (paginated && operation === "search" && Object.hasOwn(config, "query") && typeof config.query !== "string") {
+  if (operation === "search" && Object.hasOwn(config, "query") && typeof config.query !== "string") {
     throw new NodeFailure("INVALID_INPUT", "Google Drive search could not be resolved.", false);
   }
-  if (paginated && (operation === "list" || operation === "search")) { readDrivePageToken(config); readDriveCollectPages(config); }
-  if (mode === "mock") return { status: "succeeded" as const, output: mockDrive(config, paginated), route: "success" as const };
+  if ((operation === "list" || operation === "search")) { readDrivePageToken(config); readDriveCollectPages(config); }
+  if (mode === "mock") return { status: "succeeded" as const, output: mockDrive(config), route: "success" as const };
   const credential = await credentials.readGoogleForExecution(readCredentialId(config), workspaceId);
-  return { status: "succeeded" as const, output: await executeGoogleDrive(credential, config, paginated), route: "success" as const };
+  return { status: "succeeded" as const, output: await executeGoogleDrive(credential, config), route: "success" as const };
 }
 
 export const registeredConnectorNodeTypes = Object.freeze(Object.keys(executors) as Array<keyof typeof executors>);
-export function getConnectorExecutor(type: string, version?: unknown): ConnectorExecutor | undefined {
-  const executionType = nodeExecutionType(type, version);
-  return executionType && Object.hasOwn(executors, executionType) ? executors[executionType as keyof typeof executors] : undefined;
+export function getConnectorExecutor(type: string): ConnectorExecutor | undefined {
+  return Object.hasOwn(executors, type) ? executors[type as keyof typeof executors] : undefined;
 }

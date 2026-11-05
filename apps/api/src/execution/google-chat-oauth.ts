@@ -28,13 +28,13 @@ export async function listGoogleChatSpaces(token: string, transport: Transport =
   return { spaces, hasMore: typeof data.nextPageToken === "string" && data.nextPageToken.length > 0 };
 }
 
-export async function executeGoogleChatOAuth(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport = fetchSafeOutboundWrite, variant: "legacy" | "send" | "reply" = "legacy") {
+export async function executeGoogleChatOAuth(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport = fetchSafeOutboundWrite, variant: "send" | "reply" = "send") {
   const space = typeof config.space === "string" ? config.space.trim() : "";
   const message = typeof config.message === "string" ? config.message : "";
   if (!/^spaces\/[A-Za-z0-9_-]{1,128}$/.test(space) || !message.trim() || message.length > 10_000) throw new NodeFailure("INVALID_INPUT", "Select a Google Chat space and enter a message of at most 10,000 characters.", false);
   const threadName = variant === "reply" && typeof config.threadName === "string" ? config.threadName.trim() : "";
   if (variant === "reply" && (!/^spaces\/[A-Za-z0-9_-]{1,128}\/threads\/[A-Za-z0-9._-]{1,256}$/.test(threadName) || !threadName.startsWith(`${space}/threads/`))) throw new NodeFailure("INVALID_INPUT", "Enter a thread belonging to the selected Google Chat space.", false);
-  if (mode === "mock") return { status: "succeeded" as const, output: { delivered: true, provider: "google_chat_oauth", destination: space, messageId: variant === "legacy" ? "mock-message" : `${space}/messages/mock-message`, sentAt: new Date().toISOString(), simulated: true, ...(variant === "legacy" ? {} : { threadName: variant === "reply" ? threadName : `${space}/threads/mock-thread` }) }, route: "success" as const };
+  if (mode === "mock") return { status: "succeeded" as const, output: { delivered: true, provider: "google_chat_oauth", destination: space, messageId: `${space}/messages/mock-message`, sentAt: new Date().toISOString(), simulated: true, threadName: variant === "reply" ? threadName : `${space}/threads/mock-thread` }, route: "success" as const };
   const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
   if (!credentialId) throw new NodeFailure("CREDENTIAL_REQUIRED", "Select a Google Chat connection.", false);
   const credential = await credentials.readGoogleForExecution(credentialId, workspaceId, CredentialProvider.GOOGLE_CHAT_OAUTH);
@@ -54,10 +54,10 @@ export async function executeGoogleChatOAuth(config: Record<string, unknown>, mo
   catch { throw new NodeFailure("DELIVERY_UNCERTAIN", "Google Chat did not confirm the message receipt. Check the destination before retrying.", false); }
   if (!payload || typeof payload.name !== "string" || !/^spaces\/[A-Za-z0-9_-]{1,128}\/messages\/[A-Za-z0-9._-]{1,256}$/.test(payload.name) || !payload.name.startsWith(`${space}/messages/`) || payload.name.includes(token)) throw new NodeFailure("DELIVERY_UNCERTAIN", "Google Chat did not confirm the message ID. Check the destination before retrying.", false);
   const rawThread = payload.thread && typeof payload.thread === "object" && !Array.isArray(payload.thread) ? (payload.thread as Record<string, unknown>).name : undefined;
-  if (variant !== "legacy" && payload.thread !== undefined && (!payload.thread || typeof payload.thread !== "object" || Array.isArray(payload.thread))) throw new NodeFailure("DELIVERY_UNCERTAIN", "Google Chat did not confirm the thread. Check the destination before retrying.", false);
-  if (variant !== "legacy" && rawThread !== undefined && (typeof rawThread !== "string" || !/^spaces\/[A-Za-z0-9_-]{1,128}\/threads\/[A-Za-z0-9._-]{1,256}$/.test(rawThread) || !rawThread.startsWith(`${space}/threads/`) || rawThread.includes(token))) throw new NodeFailure("DELIVERY_UNCERTAIN", "Google Chat did not confirm the thread. Check the destination before retrying.", false);
+  if (payload.thread !== undefined && (!payload.thread || typeof payload.thread !== "object" || Array.isArray(payload.thread))) throw new NodeFailure("DELIVERY_UNCERTAIN", "Google Chat did not confirm the thread. Check the destination before retrying.", false);
+  if (rawThread !== undefined && (typeof rawThread !== "string" || !/^spaces\/[A-Za-z0-9_-]{1,128}\/threads\/[A-Za-z0-9._-]{1,256}$/.test(rawThread) || !rawThread.startsWith(`${space}/threads/`) || rawThread.includes(token))) throw new NodeFailure("DELIVERY_UNCERTAIN", "Google Chat did not confirm the thread. Check the destination before retrying.", false);
   if (variant === "reply" && rawThread !== threadName) throw new NodeFailure("DELIVERY_UNCERTAIN", "Google Chat did not confirm the thread. Check the destination before retrying.", false);
-  return { status: "succeeded" as const, output: { delivered: true, provider: "google_chat_oauth", destination: space, messageId: payload.name, sentAt: new Date().toISOString(), ...(variant === "legacy" ? {} : { threadName: typeof rawThread === "string" ? rawThread : null }) }, route: "success" as const };
+  return { status: "succeeded" as const, output: { delivered: true, provider: "google_chat_oauth", destination: space, messageId: payload.name, sentAt: new Date().toISOString(), threadName: typeof rawThread === "string" ? rawThread : null }, route: "success" as const };
 }
 
 /** Editing requires an explicitly selected, provider-verified management grant. */

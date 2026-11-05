@@ -6,10 +6,16 @@ import { fetchSafeOutbound, fetchSafeOutboundWrite, wasOutboundRedirected } from
 import { readBoundedProviderJson, readBoundedProviderText } from "./provider-json";
 import { uncertainDelivery } from "./provider-request-policy";
 import { parseJsonPreservingNumbers, preservesJsonDecimal } from "./json-decimal";
+import { assertNoCredentialInProviderValue } from "./provider-credential-safety";
 
 type Transport = (url: string, init: RequestInit) => Promise<Response>;
 const identifier = /^[A-Za-z_][A-Za-z0-9_$]{0,62}$/;
 function object(value: unknown): Record<string, unknown> | undefined { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined; }
+
+function assertSafeSupabaseOutput(value: unknown, credential: Record<string, unknown>, management = false) {
+  const keys = management ? ["managementToken"] : ["apiKey", "userAccessToken"];
+  for (const key of keys) if (typeof credential[key] === "string") assertNoCredentialInProviderValue(value, credential[key] as string);
+}
 
 // Only simple identifiers and scalar comparisons are supported. In particular,
 // do not accept PostgREST select expressions, logical trees, or raw operators.
@@ -201,6 +207,7 @@ export async function listSupabaseTables(credential: Record<string, unknown>, tr
     const name = path.startsWith("/") ? path.slice(1) : "";
     return identifier.test(name) && object(object(value)?.get) ? [{ id: name, name }] : [];
   }).sort((a, b) => a.name.localeCompare(b.name));
+  assertSafeSupabaseOutput(tables, credential, Boolean(credential.managementToken));
   return { tables: tables.slice(0, 100), hasMore: tables.length > 100 };
 }
 
@@ -239,28 +246,12 @@ export async function listSupabaseColumns(credential: Record<string, unknown>, t
     columns.push({ name, type: label });
   }
   columns.sort((a, b) => a.name.localeCompare(b.name));
+  assertSafeSupabaseOutput(columns, credential, Boolean(credential.managementToken));
   if (columns.length > 50) partial = true;
   return { columns: columns.slice(0, 50), partial };
 }
 
-export async function executeSupabaseSelect(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport = fetchSafeOutbound, nodeVersion: number = 1): Promise<{ status: "succeeded"; output: { rows: unknown[]; count: number; returnedCount?: number; page?: { limit: number; offset: number; completeness: "unknown" } }; route: "success" }> {
-  if (nodeVersion !== 1 && nodeVersion !== 2) throw new NodeFailure("INVALID_CONFIGURATION", "Supabase node version is not supported.", false);
-  if (nodeVersion === 1) {
-    const table = typeof config.table === "string" ? config.table : "";
-    const limit = config.limit === undefined ? 20 : config.limit;
-    if (!identifier.test(table) || typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > 100) throw new NodeFailure("INVALID_INPUT", "Choose a table and a limit between 1 and 100.", false);
-    if (mode === "mock") return { status: "succeeded" as const, output: { rows: [{ example: true }], count: 1 }, route: "success" as const };
-    const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
-    if (!credentialId) throw new NodeFailure("CREDENTIAL_REQUIRED", "Select a Supabase connection.", false);
-    const credential = await credentials.readForExecution(credentialId, workspaceId, CredentialProvider.SUPABASE);
-    // Historical reads ignored userAccessToken, including any pre-existing extra credential property.
-    const params = new URLSearchParams({ select: "*", limit: String(limit) });
-    const result = await get(`${encodeURIComponent(table)}?${params}`, { projectRef: credential.projectRef, apiKey: credential.apiKey }, transport);
-    if (!Array.isArray(result)) throw new NodeFailure("INVALID_RESPONSE", "Supabase returned an invalid row list.", false);
-    const rows = result.slice(0, limit);
-    if (Buffer.byteLength(JSON.stringify(rows)) > 200_000) throw new NodeFailure("RESPONSE_TOO_LARGE", "Supabase rows exceed the output size limit.", false);
-    return { status: "succeeded" as const, output: { rows, count: rows.length }, route: "success" as const };
-  }
+export async function executeSupabaseSelect(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport = fetchSafeOutbound): Promise<{ status: "succeeded"; output: { rows: unknown[]; count: number; returnedCount?: number; page?: { limit: number; offset: number; completeness: "unknown" } }; route: "success" }> {
   if (Object.keys(config).some((key) => !selectConfigKeys.has(key))) throw new NodeFailure("INVALID_INPUT", "Supabase configuration contains an unsupported field.", false);
   requireResolvedSelection(config, ["limit", "columns", "filters", "order", "offset", "rejectUnsafeNumbers"], "Supabase");
   if (config.rejectUnsafeNumbers !== undefined && typeof config.rejectUnsafeNumbers !== "boolean") throw new NodeFailure("INVALID_INPUT", "Supabase number precision option must be true or false.", false);
@@ -277,6 +268,7 @@ export async function executeSupabaseSelect(config: Record<string, unknown>, mod
   const credential = await credentials.readForExecution(credentialId, workspaceId, CredentialProvider.SUPABASE);
   const result = await get(`${encodeURIComponent(table)}?${params}`, credential, transport, false, config.rejectUnsafeNumbers === true);
   if (!Array.isArray(result)) throw new NodeFailure("INVALID_RESPONSE", "Supabase returned an invalid row list.", false);
+  assertSafeSupabaseOutput(result, credential);
   const rows = result.slice(0, limit);
   if (Buffer.byteLength(JSON.stringify(rows)) > 200_000) throw new NodeFailure("RESPONSE_TOO_LARGE", "Supabase rows exceed the output size limit.", false);
   return { status: "succeeded" as const, output: output(rows), route: "success" as const };

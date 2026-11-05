@@ -166,9 +166,3 @@ export function parseRelationalManual(text: string, provider?: RelationalProvide
 }
 
 /** Upgrade only the draft node type. Retain every config field unchanged. */
-export function upgradeRelationalNode(data: WorkflowNodeData): WorkflowNodeData | undefined {
-  if (data.nodeVersion !== undefined && data.nodeVersion !== 1) return undefined;
-  if (data.nodeType === "action.postgres.select") return { ...data, nodeType: "action.postgres.select.v2", nodeVersion: 1 };
-  if (data.nodeType === "action.supabase.select") return { ...data, nodeType: "action.supabase.select.v2", nodeVersion: 1 };
-  return undefined;
-}
