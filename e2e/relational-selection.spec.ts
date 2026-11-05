@@ -6,6 +6,7 @@ type HarnessOptions = {
   provider?: Provider;
   legacy?: boolean;
   insert?: boolean;
+  configOverride?: Record<string, unknown>;
   metadata?: (table: string) => MetadataResponse | Promise<MetadataResponse>;
   clone?: () => Promise<void>;
   save?: () => Promise<void>;
@@ -28,6 +29,7 @@ function workflow(id: string, provider: Provider, table = "items", legacy = fals
 async function setup(page: Page, options: HarnessOptions = {}) {
   const provider = options.provider ?? "postgres";
   const first = workflow("first", provider, "items", options.legacy, options.insert);
+  Object.assign(first.draft.graph.nodes[1]!.config, options.configOverride);
   const second = workflow("second", provider, "other_items", options.legacy, options.insert);
   const saves: Array<Record<string, unknown>> = [];
   const requests: string[] = [];
@@ -87,6 +89,46 @@ test("current relational node saves its existing .v2 type", async ({ page }) => 
   await expect.poll(() => saves.length).toBe(1);
   const graph = saves[0]!.graph as { nodes: Array<{ id: string; type: string; nodeVersion?: number }> };
   expect(graph.nodes.find((node) => node.id === "relational")).toMatchObject({ type: "action.postgres.select.v2", nodeVersion: 1 });
+});
+
+test("a saved expression is not presented as a checked boolean or changed until selected", async ({ page }) => {
+  const { saves } = await setup(page, { provider: "supabase", configOverride: { rejectUnsafeNumbers: "{{ steps.manual.output.flag }}" } });
+  await selectRelational(page);
+  const toggle = page.getByLabel("Stop if numeric values would be rounded");
+  await expect(toggle).toHaveAttribute("aria-checked", "mixed");
+  await expect(toggle).toHaveJSProperty("indeterminate", true);
+  await expect(page.getByText(/The saved value is not a true\/false literal/)).toBeVisible();
+  await page.getByRole("button", { name: "Save draft" }).click();
+  await expect.poll(() => saves.length).toBe(1);
+  expect(configFromSave(saves[0]!).rejectUnsafeNumbers).toBe("{{ steps.manual.output.flag }}");
+  await toggle.check();
+  await expect(toggle).not.toHaveAttribute("aria-checked", "mixed");
+  await page.getByRole("button", { name: "Save draft" }).click();
+  await expect.poll(() => saves.length).toBe(2);
+  expect(configFromSave(saves[1]!).rejectUnsafeNumbers).toBe(true);
+});
+
+test("numeric fields preserve a saved expression and allow an explicit return to a fixed value", async ({ page }) => {
+  const expression = "{{ steps.manual.output.count }}";
+  const { saves } = await setup(page, { provider: "supabase", configOverride: { limit: expression } });
+  await selectRelational(page);
+  const limit = page.getByLabel("Maximum rows (1–100)");
+  await expect(limit).toHaveValue(expression);
+  await expect(page.getByRole("button", { name: "Use fixed number", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Save draft" }).click();
+  await expect.poll(() => saves.length).toBe(1);
+  expect(configFromSave(saves[0]!).limit).toBe(expression);
+  await limit.fill("12");
+  await page.getByRole("button", { name: "Use fixed number", exact: true }).click();
+  await expect(limit).toHaveAttribute("type", "number");
+  await page.getByRole("button", { name: "Save draft" }).click();
+  await expect.poll(() => saves.length).toBe(2);
+  expect(configFromSave(saves[1]!).limit).toBe(12);
+  await page.getByRole("button", { name: "Enter expression", exact: true }).click();
+  await limit.fill(expression);
+  await page.getByRole("button", { name: "Save draft" }).click();
+  await expect.poll(() => saves.length).toBe(3);
+  expect(configFromSave(saves[2]!).limit).toBe(expression);
 });
 
 test("Supabase insert builds typed columns without JSON and clears them when the table changes", async ({ page }) => {

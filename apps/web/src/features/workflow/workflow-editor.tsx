@@ -157,22 +157,41 @@ function useNarrowEditorLayout() {
   return isNarrow;
 }
 
-function ConfigField({ label, value, onChange, multiline = false, inputMode }: {
+function ConfigField({ label, value, onChange, multiline = false }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   multiline?: boolean;
-  inputMode?: "number";
 }) {
   return (
     <Field label={label} className="config-field">
       {multiline ? (
         <textarea value={value} onChange={(event) => onChange(event.target.value)} rows={5} />
       ) : (
-        <input type={inputMode} value={value} onChange={(event) => onChange(event.target.value)} />
+        <input value={value} onChange={(event) => onChange(event.target.value)} />
       )}
     </Field>
   );
+}
+
+function NumericConfigField({ label, value, allowExpressions, onChange }: { label: string; value: string; allowExpressions: boolean; onChange: (value: string | number) => void }) {
+  const isNumber = value !== "" && value.trim() !== "" && Number.isFinite(Number(value));
+  const [expressionMode, setExpressionMode] = useState(value !== "" && !isNumber);
+  const contextId = useId();
+  // An externally loaded expression must remain visible even if the user was
+  // previously editing a fixed value. Switching modes alone never clears it.
+  const manual = expressionMode || (value !== "" && !isNumber);
+  return <div className="config-field">
+    <Field label={label}><input type={manual ? "text" : "number"} value={value} placeholder={manual ? "{{ steps.example.output.value }}" : undefined} onChange={(event) => {
+      const next = event.target.value;
+      onChange(manual || next === "" ? next : Number(next));
+    }} /></Field>
+    {allowExpressions && <><span id={contextId} className="visually-hidden">For {label}</span><Button type="button" variant="ghost" aria-describedby={contextId} disabled={manual && value !== "" && !isNumber} onClick={() => {
+      if (manual && isNumber) onChange(Number(value));
+      setExpressionMode(!manual);
+    }}>{manual ? "Use fixed number" : "Enter expression"}</Button></>}
+    {manual && <small>{allowExpressions ? "Enter an expression, or replace it with a number before switching back." : "Review this saved value in Advanced. This trigger field does not support expressions."}</small>}
+  </div>;
 }
 
 function readConfigurationFieldValue(config: Record<string, unknown>, field: NodeConfigurationField) {
@@ -320,16 +339,22 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, wor
         return <CredentialField key={field.key} label={field.label} value={value} providers={field.providers} credentials={credentials} onChange={(nextValue) => onChange(field.key, nextValue)} optional={field.optional} />;
       }
       if (field.kind === "boolean") {
-        return <label key={field.key} className="checkbox-field"><input type="checkbox" checked={config[field.key] === undefined ? field.defaultChecked ?? true : config[field.key] !== false} onChange={(event) => onChange(field.key, event.target.checked)} /> {field.label}</label>;
+        const stored = config[field.key];
+        const mixed = stored !== undefined && typeof stored !== "boolean";
+        return <div key={field.key}><label className="checkbox-field"><input type="checkbox" checked={mixed ? false : stored === undefined ? field.defaultChecked ?? true : stored === true} aria-checked={mixed ? "mixed" : undefined} ref={(input) => { if (input) input.indeterminate = mixed; }} onChange={(event) => onChange(field.key, event.target.checked)} /> {field.label}</label>{mixed && <small role="status">The saved value is not a true/false literal. Review it in Advanced; selecting this checkbox replaces it.</small>}</div>;
       }
       if (field.kind === "datetime") return <DateTimeField key={field.key} label={field.label} value={value} allowExpressions={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       if (field.kind === "text" && field.advanced) return <details key={field.key} className="config-field"><summary>{field.advanced.summary}</summary><ConfigField label={field.label} value={value} onChange={(nextValue) => onChange(field.key, nextValue)} /><small>{field.advanced.help}</small></details>;
-      if (field.kind === "number" && field.advanced) return <details key={field.key} className="config-field"><summary>{field.advanced.summary}</summary><ConfigField label={field.label} value={value} inputMode="number" onChange={(nextValue) => onChange(field.key, nextValue === "" ? "" : Number(nextValue))} /><small>{field.advanced.help}</small></details>;
+      if (field.kind === "number") {
+        const input = <NumericConfigField label={field.label} value={value} allowExpressions={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
+        return field.advanced ? <details key={field.key} className="config-field"><summary>{field.advanced.summary}</summary>{input}<small>{field.advanced.help}</small></details> : <div key={field.key}>{input}</div>;
+      }
       if (field.kind === "resource") {
         return <ResourcePicker key={field.key} workspaceId={workspaceId} resource={field.resource} credentialId={readConfigText(config, field.credentialKey)} dependencyValue={field.dependencyKey ? readConfigText(config, field.dependencyKey) : undefined} secondaryDependencyValue={field.secondaryDependencyKey ? readConfigText(config, field.secondaryDependencyKey) : undefined} resourceVariant={["notion-source-property", "notion-source-option"].includes(field.resource) ? readConfigText(config, "filterMode") : undefined} label={field.label} value={value} placeholder={field.placeholder} allowExpression={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       }
       if (field.kind === "select") {
-        return <Field key={field.key} label={field.label} className="config-field"><Select aria-label={field.label} value={value} onChange={(event) => onChange(field.key, event.target.value)}>{field.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></Field>;
+        const knownValue = field.options.some((option) => option.value === value);
+        return <Field key={field.key} label={field.label} className="config-field"><Select aria-label={field.label} value={value} onChange={(event) => onChange(field.key, event.target.value)}>{!knownValue && <option value={value} disabled>{value ? "Saved value is not in this list" : "Not set — select an option"}</option>}{field.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></Field>;
       }
       if (field.kind === "key-value") {
         return <KeyValueField key={field.key} label={field.label} value={config[field.key]} keyPlaceholder={field.keyPlaceholder} valuePlaceholder={field.valuePlaceholder} onChange={(nextValue) => onChange(field.key, nextValue)} />;
@@ -351,8 +376,7 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, wor
         label={field.label}
         value={value}
         multiline={field.kind === "textarea"}
-        inputMode={field.kind === "number" ? "number" : undefined}
-        onChange={(nextValue) => onChange(field.key, field.kind === "number" && nextValue !== "" ? Number(nextValue) : nextValue)}
+        onChange={(nextValue) => onChange(field.key, nextValue)}
       />;
     })}
   </>;

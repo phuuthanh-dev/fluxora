@@ -101,7 +101,7 @@ test("notification receipt metadata matches successful mock output", async () =>
   }
 });
 
-test("data and GitHub output metadata matches configured mock runs", async () => {
+test("configured mock outputs contain the fields advertised by operation metadata", async () => {
   const credentials = new Proxy({}, { get() { throw new Error("Mock must not read credentials"); } }) as never;
   const cases = [
     ["action.mongodb", { database: "example", collection: "items" }],
@@ -126,8 +126,37 @@ test("data and GitHub output metadata matches configured mock runs", async () =>
     ["action.github.merge-pull-request", { repository: "example/project", pullRequestNumber: 1 }],
     ["action.github.list-issues", { repository: "example/project" }],
     ["action.github.get-issue", { repository: "example/project", issueNumber: 1 }],
+    ["action.github.update-issue", { repository: "example/project", issueNumber: 1, field: "title", title: "Updated" }],
     ["action.github.list-pull-requests", { repository: "example/project" }],
     ["action.github.get-pull-request", { repository: "example/project", pullRequestNumber: 1 }],
+    ["action.gmail.get-message", { messageId: "message-1" }],
+    ["action.gmail.read", { mailbox: "inbox" }],
+    ["action.gmail.read.v2", { mailbox: "inbox" }],
+    ["action.gmail.send", { to: "a@example.test", subject: "Example", text: "Hello" }],
+    ["action.gmail.reply", { to: "a@example.test", messageId: "message-1", text: "Hello" }],
+    ["action.gmail.create-draft", { to: "a@example.test", subject: "Example", text: "Hello" }],
+    ["action.gmail.update-draft", { to: "a@example.test", draftId: "draft-1", subject: "Example", text: "Hello" }],
+    ["action.gmail.modify-label", { messageId: "message-1", labelId: "Label_1", labelAction: "add" }],
+    ["action.notion.query-data-source", { dataSourceId: "01234567-89ab-cdef-0123-456789abcdef" }],
+    ["action.notion.search-pages", { query: "Example" }],
+    ["action.notion.list-children", { blockId: "01234567-89ab-cdef-0123-456789abcdef" }],
+    ["action.notion.retrieve-property", { pageId: "01234567-89ab-cdef-0123-456789abcdef", propertyId: "title" }],
+    ["action.notion.create-page", { parentPageId: "01234567-89ab-cdef-0123-456789abcdef", title: "Example" }],
+    ["action.notion.update-title", { pageId: "01234567-89ab-cdef-0123-456789abcdef", title: "Example" }],
+    ["action.google-calendar.create-event", { calendarId: "primary", summary: "Example", start: "2030-01-01T09:00:00Z", end: "2030-01-01T10:00:00Z" }],
+    ["action.google-calendar.get-event", { calendarId: "primary", eventId: "event-1" }],
+    ["action.google-calendar.update-event", { calendarId: "primary", eventId: "event-1", summary: "Updated" }],
+    ["action.google-calendar.delete-event", { calendarId: "primary", eventId: "event-1" }],
+    ["action.google-calendar.availability", { calendarId: "primary", start: "2030-01-01T09:00:00Z", end: "2030-01-01T10:00:00Z" }],
+    ["action.steam", { operation: "profile" }],
+    ["action.steam.account-snapshot", {}],
+    ["action.google-sheets", { operation: "read", range: "Sheet1!A1:B2" }],
+    ["action.google-sheets.v2", { operation: "read", range: "Sheet1!A1:B2" }],
+    ["action.sentry.list-issues", { organization: "example", project: "project" }],
+    ["action.vercel.list-deployments", { team: "personal", project: "prj_example" }],
+    ["action.supabase.insert-row", { table: "items", fields: [{ column: "name", type: "text", value: "Sample" }] }],
+    ["action.riot-lol", { operation: "accountByRiotId", platform: "vn2", gameName: "Test Player", tagLine: "VN2" }],
+    ["action.riot-tft", { operation: "accountByRiotId", platform: "vn2", gameName: "Test Player", tagLine: "VN2" }],
   ] as const;
   for (const [type, config] of cases) {
     const node = { id: "example", type, position: { x: 0, y: 0 }, config };

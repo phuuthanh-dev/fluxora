@@ -6,6 +6,16 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- [PR #84](https://github.com/phuuthanh-dev/fluxora/pull/84) merged as
+  `ff4302dbf2e48618b1721770975666a094aaa2c8`. Its [PR gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41926442270),
+  [main gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41927994423)
+  and [production deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/41929879005)
+  passed. Landing, login, API liveness and readiness returned HTTP 200 after
+  deployment; this is a point-in-time smoke check, not provider qualification.
+  Guided Drive search, upstream expression suggestions and the persisted
+  redaction guard shipped; do not reimplement them. Full isolated verify at
+  `10f1dba` passed 972 API, 80 web and 214 Playwright tests. No real provider
+  credentials were used during that verification.
 - [PR #83](https://github.com/phuuthanh-dev/fluxora/pull/83) merged as
   `3128cc661320ad38eff43f759c71ffbad5010346`. The [main quality gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41913745808)
   and [production deploy](https://github.com/phuuthanh-dev/fluxora/actions/runs/41915564897)
@@ -16,12 +26,8 @@ complete in the delivery ledger.
   check the current source and the latest table in [docs/37](37-node-expansion-audit.md).
   The remaining gaps include per-operation validation/mock/redaction evidence,
   provider qualification and capabilities deliberately deferred in NX-07.
-- Local `develop` has additional, unpushed work: guided Google Drive search and
-  fail-closed handling when expressions use persisted redacted data. A full
-  isolated `npm run verify` passed on `c2d6367`: 971 API, 78 web and 214 E2E.
-  The subsequent trigger-output redaction correction at `aa81729` and this
-  documentation update are **not covered** by that run; verify the final head
-  once after the remaining edits. No real provider credentials were used.
+- Before PR #84, a previous full verify at `c2d6367` passed 971 API, 78 web and
+  214 E2E; its scope is superseded by the later verified snapshot above.
 - The owner requested one consolidated verification and release, to avoid
   repeated small PRs. Existing `.v2` node types must remain compatible; the
   unreleased experimental numeric `nodeVersion: 2` reader was removed. Do not
