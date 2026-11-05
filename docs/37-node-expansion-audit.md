@@ -44,6 +44,14 @@ chứa nguyên token trước khi trả về browser; test controller giả ch�
 Free/busy chỉ trả các khoảng thời gian đã kiểm tra và không trả ID lịch do
 provider phân giải; không mở rộng guard sang dữ liệu không được lưu hoặc trả.
 
+**NX-02 Gmail redaction local, chờ verify:** đường đọc danh sách và trigger dùng
+`getGmailMessage` kiểm tra token hiện tại trong ID, header, snippet, label và
+plain text đã giải mã trước khi cắt ngắn. Khi trùng, node trả lỗi thay vì đưa
+giá trị vào output; trigger không dispatch hoặc tiến checkpoint trong lượt lỗi
+và có thể thử lại. Điều này có thể tạm ngăn xử lý thư cho đến khi token thay
+đổi hoặc nguyên nhân được xử lý. Test giả cho adapter và trigger đang chờ
+verify; không khẳng định phát hiện mọi secret hay có rò rỉ đã xảy ra.
+
 ### Snapshot trước PR #85
 
 PR [#84](https://github.com/phuuthanh-dev/fluxora/pull/84) đã merge tại
