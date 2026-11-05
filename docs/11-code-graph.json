@@ -864,6 +864,7 @@
         "apps/api/src/credentials/credential.service.ts",
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-credential-safety.ts",
         "apps/api/src/execution/provider-json.ts",
         "apps/api/src/execution/redaction.ts"
       ],
@@ -4493,6 +4494,10 @@
     {
       "from": "apps/api/src/execution/google-calendar.ts",
       "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-calendar.ts",
+      "to": "apps/api/src/execution/provider-credential-safety.ts"
     },
     {
       "from": "apps/api/src/execution/google-calendar.ts",

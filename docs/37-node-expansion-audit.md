@@ -33,6 +33,13 @@ khiến một kết quả hợp lệ bị từ chối nếu nội dung trùng cr
 hiện mọi cách biến đổi, mã hóa hay các bí mật khác. Chưa kiểm thử Reddit thật,
 không có bằng chứng rằng credential đã bị lộ. Test transport giả chờ verify.
 
+**NX-02 Calendar redaction local, chờ verify:** các trường sự kiện được trả
+về từ list/get và receipt khôi phục sau create được kiểm tra token trước khi
+cắt chuỗi. List/get từ chối output không an toàn; trong nhánh khôi phục create,
+lỗi không retry tự động và yêu cầu kiểm tra lịch vì sự kiện có thể đã được tạo.
+Kiểm thử dùng token và transport giả; không chứng minh mọi dữ liệu Google hoặc
+mọi cách mã hóa secret được phát hiện, và không chứng minh đã có rò rỉ.
+
 ### Snapshot trước PR #85
 
 PR [#84](https://github.com/phuuthanh-dev/fluxora/pull/84) đã merge tại

@@ -4,6 +4,7 @@ import { NodeFailure } from "./node-failure";
 import { fetchSafeOutbound, fetchSafeOutboundWrite, OutboundRequestPolicyError, wasOutboundRedirected } from "./outbound-url-policy";
 import { readBoundedProviderJson } from "./provider-json";
 import { markPageTokenOutput } from "./redaction";
+import { assertNoCredentialInProviderFields } from "./provider-credential-safety";
 import { createHash } from "node:crypto";
 
 type Transport = typeof fetchSafeOutbound;
@@ -35,6 +36,7 @@ export async function listCalendarEvents(token: string, calendarId: string, limi
   const events = (Array.isArray(data.items) ? data.items : []).slice(0, limit).map((raw: unknown) => {
     const event = record(raw) ?? {}; const start = record(event.start); const end = record(event.end);
     const text = (value: unknown, max = 1000) => typeof value === "string" ? value.slice(0, max) : "";
+    assertNoCredentialInProviderFields([event.id, event.summary, event.description, event.location, event.status, start?.dateTime ?? start?.date, start?.timeZone, end?.dateTime ?? end?.date], token);
     return { id: text(event.id), summary: text(event.summary), description: text(event.description, 10000), start: text(start?.dateTime ?? start?.date), end: text(end?.dateTime ?? end?.date), timeZone: text(start?.timeZone), location: text(event.location), status: text(event.status) };
   });
   if (data.nextPageToken !== undefined && (typeof data.nextPageToken !== "string" || data.nextPageToken.length > 512 || !/^[\x21-\x7e]+$/.test(data.nextPageToken))) throw new NodeFailure("INVALID_RESPONSE", "Google Calendar returned an invalid continuation token.", false);
@@ -105,6 +107,8 @@ export async function createCalendarEvent(token: string, input: CreateCalendarIn
     const properties = record(record(existing.extendedProperties)?.private);
     if (properties?.fluxoraRun !== marker) throw new NodeFailure("CALENDAR_EVENT_CONFLICT", "A different calendar event uses this ID. Review the calendar before retrying.", false, 409);
     const existingStart = record(existing.start); const existingEnd = record(existing.end);
+    try { assertNoCredentialInProviderFields([existing.summary, existingStart?.dateTime, existingEnd?.dateTime], token); }
+    catch { throw new NodeFailure("CALENDAR_CONFIRMATION_UNKNOWN", "The event may have been created, but its result could not be stored safely. Check the calendar before retrying.", false); }
     return { id, summary: typeof existing.summary === "string" ? existing.summary.slice(0, 500) : "", start: typeof existingStart?.dateTime === "string" ? existingStart.dateTime : "", end: typeof existingEnd?.dateTime === "string" ? existingEnd.dateTime : "", recovered: true };
   }
   if (!response.ok) throw new NodeFailure("CALENDAR_ERROR", `Google Calendar returned ${response.status}. Check the connection and permissions.`, response.status === 429 || response.status >= 500, response.status);
@@ -151,6 +155,7 @@ export async function executeGoogleCalendarEvent(config: Record<string, unknown>
   if (operation === "get") {
     const event = await googleCalendarGet(path, token, transport); const eventStart = record(event.start); const eventEnd = record(event.end);
     const text = (value: unknown, max = 1000) => typeof value === "string" ? value.slice(0, max) : "";
+    assertNoCredentialInProviderFields([event.id, event.summary, event.description, event.location, event.status, eventStart?.dateTime ?? eventStart?.date, eventEnd?.dateTime ?? eventEnd?.date], token);
     return { status: "succeeded" as const, output: { id: text(event.id), summary: text(event.summary), description: text(event.description, 10000), location: text(event.location), start: text(eventStart?.dateTime ?? eventStart?.date), end: text(eventEnd?.dateTime ?? eventEnd?.date), status: text(event.status) }, route: "success" as const };
   }
   const body = { ...(summary ? { summary } : {}), ...(description ? { description } : {}), ...(location ? { location } : {}), ...(start ? { start: { dateTime: start }, end: { dateTime: end } } : {}) };

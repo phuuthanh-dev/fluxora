@@ -70,6 +70,33 @@ test("calendar failures do not expose credentials or provider response", async (
   await assert.rejects(listCalendarEvents("token", "primary", 3, invalid as never), (error: Error) => !error.message.includes("private-invalid-response") && error.message.includes("invalid response"));
 });
 
+test("calendar read rejects access token echoes before truncating displayed fields", async () => {
+  const token = "synthetic-calendar-access-token";
+  const credentials = { readGoogleForExecution: async () => ({ accessToken: token }) } as never;
+  const config = { credentialId: "connection", calendarId: "primary", eventId: "event-id" };
+  for (const field of ["summary", "description", "location"]) {
+    const event = { id: "event-id", [field]: `${"x".repeat(field === "description" ? 9998 : 998)}${token}` };
+    const transport = async (url: string | URL | Request) => String(url).includes("/events?") ? Response.json({ items: [event] }) : Response.json(event);
+    for (const action of [
+      () => listCalendarEvents(token, "primary", 1, transport as never),
+      () => executeGoogleCalendarEvent(config, "get", "live", "workspace", credentials, transport as never),
+    ]) await assert.rejects(action(), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_RESPONSE" && !error.retryable && !error.message.includes(token));
+  }
+});
+
+test("calendar create recovery refuses an unsafe receipt without retrying the write", async () => {
+  const token = "synthetic-calendar-access-token";
+  const input = { calendarId: "primary", summary: "Meeting", start: "2030-01-01T09:00:00Z", end: "2030-01-01T10:00:00Z", description: "", location: "", attendees: [], sendUpdates: "none" as const };
+  let sent: Record<string, unknown> = {}; let calls = 0;
+  const transport = async (_url: string | URL | Request, init?: RequestInit) => {
+    calls += 1;
+    if (init?.method === "POST") { sent = JSON.parse(String(init.body)) as Record<string, unknown>; return new Response(null, { status: 409 }); }
+    return Response.json({ id: sent.id, extendedProperties: sent.extendedProperties, summary: token });
+  };
+  await assert.rejects(createCalendarEvent(token, input, "execution", "node", transport as never), (error: unknown) => error instanceof NodeFailure && error.code === "CALENDAR_CONFIRMATION_UNKNOWN" && !error.retryable && !error.message.includes(token));
+  assert.equal(calls, 2);
+});
+
 test("creating a calendar event uses a stable ID and recovers after an ambiguous retry", async () => {
   const input = { calendarId: "primary", summary: "Meeting", start: "2030-01-01T09:00:00Z", end: "2030-01-01T10:00:00Z", description: "", location: "", attendees: ["guest@example.test"], sendUpdates: "none" as const };
   let sent: Record<string, unknown> = {}; let calls = 0;
