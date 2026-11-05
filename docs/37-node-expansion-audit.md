@@ -2,6 +2,17 @@
 
 ## Trạng thái phát hành mới nhất — 05/11/2026
 
+**NX-03 Drive đang sửa local, chưa verify hoặc phát hành:** thêm action riêng
+đọc metadata giới hạn (ID, tên, MIME type) và tạo folder trong My Drive hoặc
+folder được chọn. Picker metadata có cả file không phải text. Tạo folder là ghi
+không có idempotency; lỗi không chắc chắn không tự retry. Bản này chưa thử Drive
+thật. Node type mới cần mọi API/worker hiểu trước khi publish workflow sử dụng.
+[Google Drive](https://developers.google.com/workspace/drive/api/guides/folder)
+xem folder là file có MIME type riêng; bỏ parent sẽ tạo tại My Drive root.
+[n8n](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.googledrive/)
+cũng hỗ trợ tạo folder và nhiều thao tác Drive khác; hai action này không bao
+phủ toàn bộ connector của họ.
+
 **NX-02 Gmail đang sửa local, chưa verify hoặc phát hành:** đọc danh sách có
 tùy chọn lấy tối đa số thư đã chọn (1–10), qua tối đa năm request danh sách
 và một request chi tiết cho mỗi thư. `hasMore`/`nextPageToken` cho biết khả

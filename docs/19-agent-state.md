@@ -6,6 +6,11 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- Local, not yet verified or released: separate Drive get-file-metadata and
+  create-folder actions with Google workspace credential readiness, a picker
+  that includes non-text files, and mock/transport tests. Folder creation has
+  no automatic retry when outcome is uncertain. It has not been tried against
+  Google; new node types must not be published while old workers are running.
 - Local, not yet verified or released: optional bounded Gmail read pagination,
   at most five list requests and ten message-detail requests. It does not alter
   the Gmail trigger; `hasMore` and the continuation token signal more data.

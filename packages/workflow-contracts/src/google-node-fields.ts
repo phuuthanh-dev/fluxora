@@ -19,6 +19,15 @@ function sheetsFields(includeInputOption: boolean): NodeConfigurationField[] {
 
 /** Inspector descriptors only; backend validation remains authoritative. */
 export const googleNodeFields = {
+  "action.google-drive.get-file": (): NodeConfigurationField[] => [
+    { kind: "credential", key: "credentialId", label: "Google connection", providers: ["GOOGLE"] },
+    { kind: "resource", key: "fileId", label: "File", resource: "google-drive-item", credentialKey: "credentialId", placeholder: "Search files and folders" },
+  ],
+  "action.google-drive.create-folder": (): NodeConfigurationField[] => [
+    { kind: "credential", key: "credentialId", label: "Google connection", providers: ["GOOGLE"] },
+    { kind: "text", key: "name", label: "Folder name" },
+    { kind: "resource", key: "parentId", label: "Parent folder (optional)", resource: "google-folder", credentialKey: "credentialId", placeholder: "Search folders" },
+  ],
   "action.google-drive": (): NodeConfigurationField[] => [
       { kind: "credential", key: "credentialId", label: "Google credential", providers: ["GOOGLE"] },
       { kind: "select", key: "operation", label: "Operation", options: [

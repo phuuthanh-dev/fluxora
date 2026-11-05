@@ -104,6 +104,8 @@ test("notification receipt metadata matches successful mock output", async () =>
 test("configured mock outputs contain the fields advertised by operation metadata", async () => {
   const credentials = new Proxy({}, { get() { throw new Error("Mock must not read credentials"); } }) as never;
   const cases = [
+    ["action.google-drive.get-file", { fileId: "synthetic-file" }],
+    ["action.google-drive.create-folder", { name: "Example folder" }],
     ["action.mongodb", { database: "example", collection: "items" }],
     ["action.mongodb.insert", { database: "example", collection: "items", document: { name: "sample" } }],
     ["action.postgres.select", { schema: "public", table: "items" }],

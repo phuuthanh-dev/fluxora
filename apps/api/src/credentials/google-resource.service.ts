@@ -66,13 +66,13 @@ export class GoogleResourceService {
     return { headers: row.map((name, index) => ({ column: index + 1, name })), columnLimit: 100 };
   }
 
-  async listFiles(workspaceId: string, credentialId: string, userId: string, kind: "file" | "spreadsheet" | "folder", pageToken?: string) {
+  async listFiles(workspaceId: string, credentialId: string, userId: string, kind: "file" | "spreadsheet" | "folder" | "all", pageToken?: string) {
     await this.credentials.requireOwner(workspaceId, userId);
     const credential = await this.credentials.readGoogleForExecution(credentialId, workspaceId);
     const token = typeof credential.accessToken === "string" ? credential.accessToken.trim() : "";
     if (!token) throw new BadRequestException({ code: "GOOGLE_CREDENTIAL_INVALID", message: "Google connection is missing an access token." });
     const mimeQuery = kind === "spreadsheet" ? "mimeType = 'application/vnd.google-apps.spreadsheet'" : kind === "folder" ? "mimeType = 'application/vnd.google-apps.folder'" : "mimeType contains 'text/'";
-    const params = new URLSearchParams({ pageSize: "100", fields: "nextPageToken,files(id,name,mimeType)", q: `trashed = false and ${mimeQuery}` });
+    const params = new URLSearchParams({ pageSize: "100", fields: "nextPageToken,files(id,name,mimeType)", q: kind === "all" ? "trashed = false" : `trashed = false and ${mimeQuery}` });
     if (pageToken) params.set("pageToken", pageToken);
     let response: Response;
     try {
@@ -81,9 +81,13 @@ export class GoogleResourceService {
       throw new BadRequestException({ code: "GOOGLE_RESOURCE_UNAVAILABLE", message: "Google files could not be loaded right now." });
     }
     if (!response.ok) throw new BadRequestException({ code: response.status === 401 || response.status === 403 ? "GOOGLE_CREDENTIAL_INVALID" : "GOOGLE_RESOURCE_UNAVAILABLE", message: response.status === 401 || response.status === 403 ? "Google rejected this connection or its file permissions." : "Google files could not be loaded right now." });
-    const payload: unknown = await response.json().catch(() => null);
+    const payload: unknown = kind === "all" ? await readBoundedProviderJson(response).catch(() => null) : await response.json().catch(() => null);
     if (!payload || typeof payload !== "object" || Array.isArray(payload) || !Array.isArray((payload as Record<string, unknown>).files)) throw new BadRequestException({ code: "GOOGLE_RESOURCE_INVALID", message: "Google returned an invalid file list." });
     const data = payload as { files: unknown[]; nextPageToken?: unknown };
+    if (kind === "all" && (data.files.length > 100 || data.files.some((item) => {
+      const file = record(item);
+      return !file || [file.id, file.name, file.mimeType].some((value) => typeof value !== "string" || value.length > 1024 || value.includes(token));
+    }) || (data.nextPageToken !== undefined && (typeof data.nextPageToken !== "string" || data.nextPageToken.length > 512 || !/^[\x21-\x7e]+$/.test(data.nextPageToken) || data.nextPageToken.includes(token))))) throw new BadRequestException({ code: "GOOGLE_RESOURCE_INVALID", message: "Google returned an invalid file list." });
     const files = data.files.flatMap((item) => {
       if (!item || typeof item !== "object" || Array.isArray(item)) return [];
       const file = item as Record<string, unknown>;

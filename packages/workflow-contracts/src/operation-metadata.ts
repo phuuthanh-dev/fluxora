@@ -105,6 +105,8 @@ const definitions = {
   "action.telegram.reply": executable(credential("TELEGRAM_BOT"), "write", fields(...notificationReceipt.knownFields, "operation")),
   "action.telegram.edit-message": executable(credential("TELEGRAM_BOT"), "write", fields(...notificationReceipt.knownFields, "operation")),
   "action.google-drive": executable(credential("GOOGLE"), "configuration-dependent", fields("operation")),
+  "action.google-drive.get-file": executable(credential("GOOGLE"), "read", fields("file")),
+  "action.google-drive.create-folder": executable(credential("GOOGLE"), "write", fields("folder")),
   "action.google-drive.v2": executable(credential("GOOGLE"), "configuration-dependent", fields("operation"), {
     kind: "conditional", selector: "operation", fallback: "list", cases: [{
       values: ["list", "search"],
