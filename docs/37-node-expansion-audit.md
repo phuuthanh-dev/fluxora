@@ -2,6 +2,12 @@
 
 ## Trạng thái phát hành mới nhất — 05/11/2026
 
+**NX-05 đang phát triển sau PR #87 — chưa verify:** mở rộng bài integration
+Telegram hiện có trên PostgreSQL thử để kiểm tra update đến sai thứ tự, khôi
+phục execution đã nhận nhưng chưa bắt đầu, bỏ qua execution đã chạy và từ chối
+delivery mới sau khi workflow tắt. Bài test chưa chạy; không xác nhận Telegram
+thật, không chứng minh exactly-once và không thay đổi cơ chế trigger hiện có.
+
 **NX-02 đang phát triển sau PR #87 — chưa verify:** mở rộng bảng fixture
 mock có cấu hình hợp lệ cho mọi action đã đăng ký và đối chiếu các trường
 output được metadata khai báo. Test cũng yêu cầu fixture bao phủ đúng registry;

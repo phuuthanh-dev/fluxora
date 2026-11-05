@@ -6,6 +6,12 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- Post-PR #87 NX-05 work in progress: the existing disposable-Postgres
+  Telegram delivery integration test now covers out-of-order update IDs,
+  recovery of an accepted queued execution without requeueing a started one,
+  and rejection after deactivation. This test has not run yet and does not
+  establish provider delivery behavior or exactly-once processing.
+
 - Post-PR #87 metadata work in progress: the existing configured-mock
   contract matrix now includes all registered action node types and checks
   advertised output fields, except the conditional Trello pagination warning.
