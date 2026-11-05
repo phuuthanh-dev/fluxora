@@ -6,6 +6,13 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- NX-06 cost-control review: per-request prompt/output limits and structured
+  output are deployed; an aggregate monetary cap is not. The owner has been
+  asked whether to rely on provider controls or design a separate Fluxora
+  budget. Do not implement or claim a hard spend cap until that choice is made.
+  Provider documentation notes enforcement or reporting delays; see
+  [cost controls](39-nx06-ai-cost-controls.md).
+
 - [PR #88](https://github.com/phuuthanh-dev/fluxora/pull/88) merged as
   `a2734f5cc3a9600f60e848750fbbe01b22bafc1d`; the [PR gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41983355671),
   [main gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41985095176)
