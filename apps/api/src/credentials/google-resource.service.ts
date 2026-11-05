@@ -86,7 +86,7 @@ export class GoogleResourceService {
     const data = payload as { files: unknown[]; nextPageToken?: unknown };
     if (kind === "all" && (data.files.length > 100 || data.files.some((item) => {
       const file = record(item);
-      return !file || [file.id, file.name, file.mimeType].some((value) => typeof value !== "string" || value.length > 1024 || value.includes(token));
+      return !file || typeof file.id !== "string" || !/^[A-Za-z0-9_-]{1,200}$/.test(file.id) || typeof file.name !== "string" || file.name.length > 1024 || typeof file.mimeType !== "string" || file.mimeType.length > 256 || [file.id, file.name, file.mimeType].some((value) => value.includes(token));
     }) || (data.nextPageToken !== undefined && (typeof data.nextPageToken !== "string" || data.nextPageToken.length > 512 || !/^[\x21-\x7e]+$/.test(data.nextPageToken) || data.nextPageToken.includes(token))))) throw new BadRequestException({ code: "GOOGLE_RESOURCE_INVALID", message: "Google returned an invalid file list." });
     const files = data.files.flatMap((item) => {
       if (!item || typeof item !== "object" || Array.isArray(item)) return [];

@@ -53,6 +53,7 @@ export async function executeGoogleDrive(credential: Record<string, unknown>, co
       const response = await googleFetch(driveListUrl(operation, config, next, remaining), accessToken);
       const page = driveListOutput(operation, await readProviderJson(response, "Google Drive"), accessToken, remaining);
       files.push(...page.files);
+      if (Buffer.byteLength(JSON.stringify(files), "utf8") > 1_000_000) throw new NodeFailure("RESPONSE_TOO_LARGE", "Google Drive results exceed the output size limit.", false);
       if (page.nextPageToken === null) return driveListOutput(operation, { files }, accessToken);
       if (seen.has(page.nextPageToken)) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Google Drive returned a repeated continuation token.", false);
       next = page.nextPageToken;

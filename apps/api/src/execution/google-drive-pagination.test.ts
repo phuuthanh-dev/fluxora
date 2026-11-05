@@ -53,6 +53,10 @@ test("Drive bounds automatic pagination and rejects cyclic or oversized response
     assert.equal((full as { files: unknown[] }).files.length, 100);
     assert.equal((redactValue(full) as { nextPageToken: string }).nextPageToken, "more");
     calls = 0;
+    globalThis.fetch = (async () => Response.json({ files: [{ name: "x".repeat(550_000) }], nextPageToken: `page-${++calls}` })) as typeof fetch;
+    await assert.rejects(executeGoogleDrive({ accessToken: "synthetic-token" }, { collectPages: true }, true), (error: unknown) => error instanceof NodeFailure && error.code === "RESPONSE_TOO_LARGE" && !error.retryable);
+    assert.equal(calls, 2);
+    calls = 0;
     globalThis.fetch = (async () => { calls++; return Response.json({ files: [], nextPageToken: "same-page" }); }) as typeof fetch;
     await assert.rejects(executeGoogleDrive({ accessToken: "synthetic-token" }, { collectPages: true }, true), /repeated continuation/);
     assert.equal(calls, 2);

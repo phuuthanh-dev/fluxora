@@ -35,7 +35,7 @@ function providerFile(value: unknown, token: string): { id: string; name: string
 /** Read limited metadata only. The selected file must be accessible to this connection. */
 export async function executeDriveGetFile(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, read: Transport = fetchSafeOutbound) {
   const fileId = inputId(config.fileId);
-  if (mode === "mock") return { status: "succeeded" as const, output: { file: { id: fileId, name: "Example file", mimeType: "text/plain" } }, route: "success" as const };
+  if (mode === "mock") return { status: "succeeded" as const, output: { file: { id: fileId, name: fileId === "root" ? "My Drive" : "Example file", mimeType: fileId === "root" ? folderMime : "text/plain" } }, route: "success" as const };
   const token = await accessToken(config, workspaceId, credentials);
   assertNoCredentialInProviderFields([fileId], token);
   let response: Response;
@@ -47,7 +47,8 @@ export async function executeDriveGetFile(config: Record<string, unknown>, mode:
     throw new NodeFailure("GOOGLE_DRIVE_ERROR", `Google Drive returned ${response.status}.`, (response.status === 429 && (retryAfterMs === undefined || retryAfterMs <= maximumRetryDelayMs)) || response.status >= 500, response.status, retryAfterMs);
   }
   const file = providerFile(await readProviderJson(response, "Google Drive"), token);
-  if (!file || file.id !== fileId) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Google Drive returned invalid file metadata.", false);
+  // Drive resolves its documented "root" alias to the actual root folder ID.
+  if (!file || (fileId !== "root" && file.id !== fileId) || (fileId === "root" && file.mimeType !== folderMime)) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Google Drive returned invalid file metadata.", false);
   return { status: "succeeded" as const, output: { file }, route: "success" as const };
 }
 

@@ -26,7 +26,8 @@ chỉ trả ID trong danh sách và yêu cầu request riêng để lấy nội 
 chọn lấy tối đa 100 file qua tối đa năm request. Một trang ngắn/rỗng không
 đồng nghĩa đã hết; kết quả giữ `nextPageToken` nếu dừng mà còn token, còn token
 lặp và response vượt giới hạn bị từ chối. Mặc định là một request và upload,
-download không đổi. Giống Notion, graph import thủ công đã chứa `collectPages`
+download không đổi. Tổng output tự phân trang được giới hạn một triệu byte và
+báo lỗi thay vì âm thầm cắt nếu vượt giới hạn. Giống Notion, graph import thủ công đã chứa `collectPages`
 có thể đổi nghĩa; worker cũ không hiểu tùy chọn. Không kết luận kết quả đầy đủ:
 [Google Drive](https://developers.google.com/workspace/drive/api/reference/rest/v3/files/list)
 cảnh báo dữ liệu thay đổi giữa trang và có trường hợp tìm kiếm không đầy đủ.

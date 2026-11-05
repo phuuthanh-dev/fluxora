@@ -19,6 +19,9 @@ test("Drive metadata reads only selected fields using the workspace connection",
   });
   assert.deepEqual(result.output, { file: { id: "file_123", name: "Example", mimeType: "application/pdf" } });
   assert.ok(!JSON.stringify(result).includes(token));
+  const root = await executeDriveGetFile({ credentialId: "connection", fileId: "root" }, "live", "workspace", credentials, async () => Response.json({ id: "actual_root_id", name: "My Drive", mimeType }));
+  assert.equal(root.output.file.id, "actual_root_id");
+  await assert.rejects(executeDriveGetFile({ credentialId: "connection", fileId: "root" }, "live", "workspace", credentials, async () => Response.json({ id: "not_root", name: "File", mimeType: "text/plain" })), /invalid file metadata/);
   await assert.rejects(executeDriveGetFile({ fileId: "../bad" }, "mock", "workspace", never), /valid Google Drive/);
   await assert.rejects(executeDriveGetFile({ credentialId: "connection", fileId: "file_123" }, "live", "workspace", credentials, async () => Response.json({ id: "other", name: "Example", mimeType: "text/plain" })), /invalid file metadata/);
   await assert.rejects(executeDriveGetFile({ credentialId: "connection", fileId: "file_123" }, "live", "workspace", credentials, async () => Response.json({ id: "file_123", name: token, mimeType: "text/plain" })), (error: unknown) => error instanceof NodeFailure && !error.retryable && !error.message.includes(token));

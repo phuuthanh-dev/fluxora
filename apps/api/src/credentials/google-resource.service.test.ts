@@ -43,5 +43,7 @@ test("Drive metadata picker loads all file types and rejects credential echoes",
     await assert.rejects(service.listFiles("workspace", "connection", "owner", "all"), (error: unknown) => error instanceof Error && !error.message.includes("synthetic-google-token"));
     globalThis.fetch = async () => Response.json({ files: [], nextPageToken: "synthetic-google-token" });
     await assert.rejects(service.listFiles("workspace", "connection", "owner", "all"), (error: unknown) => error instanceof Error && !error.message.includes("synthetic-google-token"));
+    globalThis.fetch = async () => Response.json({ files: [{ id: "../invalid", name: "Report", mimeType: "application/pdf" }] });
+    await assert.rejects(service.listFiles("workspace", "connection", "owner", "all"));
   } finally { globalThis.fetch = original; }
 });
