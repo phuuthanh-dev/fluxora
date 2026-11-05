@@ -111,6 +111,10 @@ up to the configured maximum of 100 returned pages and at most five requests.
 The output retains `hasMore` and `nextCursor` if more results may be available.
 This is bounded pagination within one node, not workflow item iteration or an
 unlimited “return all”; provider ordering and results may change between calls.
+Google Drive list/search also retains its original single-request default and
+can opt in to at most five requests and 100 file results; an available
+`nextPageToken` is returned for continuation. This does not guarantee a
+complete search, and it does not affect uploads or downloads.
 
 ## 5. Workflow editor requirements
 

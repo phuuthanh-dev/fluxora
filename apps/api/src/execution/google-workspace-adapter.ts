@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { NodeFailure } from "./node-failure";
 import { readCredentialValue } from "./connector-config";
-import { driveListOutput, driveListUrl, readDrivePageToken } from "./google-drive-pagination";
+import { driveListOutput, driveListUrl, readDriveCollectPages, readDrivePageToken } from "./google-drive-pagination";
 import { readBoundedProviderText } from "./provider-json";
 import { isReadOnlyMethod, requireProviderSuccess, readProviderJson, uncertainDelivery } from "./provider-request-policy";
 
@@ -44,6 +44,23 @@ export async function executeGoogleDrive(credential: Record<string, unknown>, co
     return { operation, files: body.files };
   }
   const pageToken = readDrivePageToken(config);
+  if (readDriveCollectPages(config)) {
+    const files: unknown[] = [];
+    let next = pageToken;
+    const seen = new Set<string>(pageToken === undefined ? [] : [pageToken]);
+    for (let request = 0; request < 5; request++) {
+      const remaining = 100 - files.length;
+      const response = await googleFetch(driveListUrl(operation, config, next, remaining), accessToken);
+      const page = driveListOutput(operation, await readProviderJson(response, "Google Drive"), accessToken, remaining);
+      files.push(...page.files);
+      if (page.nextPageToken === null) return driveListOutput(operation, { files }, accessToken);
+      if (seen.has(page.nextPageToken)) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Google Drive returned a repeated continuation token.", false);
+      next = page.nextPageToken;
+      seen.add(next);
+      if (files.length >= 100 || request === 4) return driveListOutput(operation, { files, nextPageToken: next }, accessToken);
+    }
+    throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Google Drive pagination did not complete.", false);
+  }
   const response = await googleFetch(driveListUrl(operation, config, pageToken), accessToken);
   const body = await readProviderJson(response, "Google Drive");
   return driveListOutput(operation, body, accessToken);

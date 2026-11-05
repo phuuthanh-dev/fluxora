@@ -2,6 +2,16 @@
 
 ## Trạng thái phát hành mới nhất — 05/11/2026
 
+**NX-02 Drive đang sửa local, chưa verify hoặc phát hành:** list/search có tùy
+chọn lấy tối đa 100 file qua tối đa năm request. Một trang ngắn/rỗng không
+đồng nghĩa đã hết; kết quả giữ `nextPageToken` nếu dừng mà còn token, còn token
+lặp và response vượt giới hạn bị từ chối. Mặc định là một request và upload,
+download không đổi. Giống Notion, graph import thủ công đã chứa `collectPages`
+có thể đổi nghĩa; worker cũ không hiểu tùy chọn. Không kết luận kết quả đầy đủ:
+[Google Drive](https://developers.google.com/workspace/drive/api/reference/rest/v3/files/list)
+cảnh báo dữ liệu thay đổi giữa trang và có trường hợp tìm kiếm không đầy đủ.
+Test dùng transport giả, chưa chạy verify hoặc Drive thật.
+
 **NX-02 đang sửa local, chưa verify hoặc phát hành:** Notion search có tùy
 chọn chủ động lấy thêm trang kết quả trong cùng một node, tối đa năm request
 và tổng số trang Notion đã chọn (không quá 100). Output vẫn có `hasMore` và

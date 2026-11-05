@@ -271,6 +271,7 @@ test("Drive v2 advertises pagination only for list and search, matching the disp
   assert.deepEqual(pagination.cases[0]?.values, ["list", "search"]);
   const continuation = pagination.cases[0]!.pagination;
   assert.equal(continuation.input, "pageToken");
+  assert.ok(continuation.preserve.includes("collectPages"));
   assert.equal(continuation.next, "nextPageToken");
   for (const operation of ["list", "search", "uploadText", "downloadText"]) {
     const config = { operation, pageToken: "synthetic-page" };
@@ -284,5 +285,6 @@ test("Drive v2 advertises pagination only for list and search, matching the disp
   assert.equal(result.output.operation, pagination.fallback);
   assert.ok(continuation.next in result.output);
   await assert.rejects(executeNode({ ...node, config: { operation: "unknown" } }, { operation: "unknown" }, {}, "mock", "workspace", {} as never, "execution"), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT");
+  await assert.rejects(executeNode({ ...node, config: { operation: "list", collectPages: "yes" } }, { operation: "list", collectPages: "yes" }, {}, "mock", "workspace", {} as never, "execution"), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT");
   assert.equal(getOperationMetadata("action.google-drive")?.pagination.kind, "unspecified");
 });

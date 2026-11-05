@@ -15,17 +15,23 @@ export function readDrivePageToken(config: Record<string, unknown>): string | un
   return config.pageToken;
 }
 
-export function driveListUrl(operation: string, config: Record<string, unknown>, pageToken?: string) {
-  const query = new URLSearchParams({ fields: "nextPageToken,files(id,name,mimeType,modifiedTime,webViewLink)", pageSize: String(drivePageSize) });
+export function readDriveCollectPages(config: Record<string, unknown>): boolean {
+  if (!Object.hasOwn(config, "collectPages")) return false;
+  if (typeof config.collectPages !== "boolean") throw new NodeFailure("INVALID_INPUT", "Choose whether to collect additional Google Drive results.", false);
+  return config.collectPages;
+}
+
+export function driveListUrl(operation: string, config: Record<string, unknown>, pageToken?: string, pageSize = drivePageSize) {
+  const query = new URLSearchParams({ fields: "nextPageToken,files(id,name,mimeType,modifiedTime,webViewLink)", pageSize: String(pageSize) });
   if (operation === "search" && typeof config.query === "string" && config.query) query.set("q", config.query);
   if (pageToken !== undefined) query.set("pageToken", pageToken);
   return `https://www.googleapis.com/drive/v3/files?${query}`;
 }
 
-export function driveListOutput(operation: string, value: unknown, accessToken?: string) {
+export function driveListOutput(operation: string, value: unknown, accessToken?: string, pageSize = drivePageSize) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Google Drive returned an invalid file list.", false);
   const body = value as Record<string, unknown>;
-  if (!Array.isArray(body.files) || body.files.length > drivePageSize || (body.nextPageToken !== undefined && (!validPageToken(body.nextPageToken) || (!!accessToken && body.nextPageToken.includes(accessToken))))) {
+  if (!Array.isArray(body.files) || body.files.length > pageSize || (body.nextPageToken !== undefined && (!validPageToken(body.nextPageToken) || (!!accessToken && body.nextPageToken.includes(accessToken))))) {
     throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Google Drive returned an invalid file list or continuation token.", false);
   }
   return markDriveListOutput({ operation, files: body.files, nextPageToken: body.nextPageToken === undefined ? null : body.nextPageToken as string });

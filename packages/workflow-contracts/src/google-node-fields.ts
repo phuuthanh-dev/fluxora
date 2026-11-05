@@ -41,6 +41,7 @@ export const googleNodeFields = {
         { value: "downloadText", label: "Download text file" },
       ] },
       { kind: "drive-search", key: "query", label: "Search files", visibleWhen: { key: "operation", equals: "search" } },
+      { kind: "boolean", key: "collectPages", label: "Automatically fetch more results", defaultChecked: false, visibleWhen: { key: "operation", equals: ["list", "search"], fallback: "list" } },
       { kind: "text", key: "pageToken", label: "Continuation token", visibleWhen: { key: "operation", equals: ["list", "search"], fallback: "list" }, advanced: { summary: "Advanced pagination", help: "Use nextPageToken from the previous output with the same connection, operation and query. Each page contains up to 100 files. If Drive rejects the token, clear it and start again; results can change between pages." } },
       { kind: "resource", key: "fileId", label: "Text file", resource: "google-file", credentialKey: "credentialId", placeholder: "Search loaded text files", visibleWhen: { key: "operation", equals: "downloadText" } },
       { kind: "text", key: "name", label: "File name", visibleWhen: { key: "operation", equals: "uploadText" } },

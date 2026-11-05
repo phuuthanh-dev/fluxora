@@ -108,7 +108,7 @@ const definitions = {
   "action.google-drive.v2": executable(credential("GOOGLE"), "configuration-dependent", fields("operation"), {
     kind: "conditional", selector: "operation", fallback: "list", cases: [{
       values: ["list", "search"],
-      pagination: { kind: "continuation", input: "pageToken", next: "nextPageToken", preserve: ["credentialId", "operation", "query"], caveat: "Drive continuation applies only to list and search; results can change between pages." },
+      pagination: { kind: "continuation", input: "pageToken", next: "nextPageToken", preserve: ["credentialId", "operation", "query", "collectPages"], caveat: "Drive continuation applies only to list and search; results can change between pages." },
     }],
   }),
   "action.google-sheets": executable(credential("GOOGLE"), "configuration-dependent", fields("operation")),
