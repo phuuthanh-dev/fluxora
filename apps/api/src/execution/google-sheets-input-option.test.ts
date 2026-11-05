@@ -30,9 +30,9 @@ test("Sheets supports default and explicit raw writes", async () => {
 test("Sheets mock checks write values and a provided range without a connection", async () => {
   const execute = getConnectorExecutor("action.google-sheets")!;
   const credentials = { readGoogleForExecution: () => { throw new Error("unexpected credential read"); } } as never;
-  const run = (config: Record<string, unknown>) => execute({ config, mode: "mock", workspaceId: "workspace", credentials, executionId: "execution", nodeId: "sheet" });
+  const run = (config: Record<string, unknown>) => execute({ config: { spreadsheetId: "mock-spreadsheet", ...config }, mode: "mock", workspaceId: "workspace", credentials, executionId: "execution", nodeId: "sheet" });
   for (const values of [undefined, "text", ["not a row"]]) await assert.rejects(run({ operation: "append", range: "A1", values }), /table/);
-  await assert.rejects(run({ operation: "read", range: "" }), /range is required/);
+  await assert.rejects(run({ operation: "read", range: "" }), /range/);
   assert.equal((await run({ operation: "read", range: "A1" })).status, "succeeded");
 });
 
@@ -56,7 +56,7 @@ test("Sheets mock write counts reflect the supplied sample rows", async () => {
   const execute = getConnectorExecutor("action.google-sheets")!;
   const credentials = { readGoogleForExecution: () => { throw new Error("unexpected credential read"); } } as never;
   for (const operation of ["append", "update"] as const) {
-    const result = await execute({ config: { operation, range: "A1", values: [["one"], ["two", "three"]] }, mode: "mock", workspaceId: "workspace", credentials, executionId: "execution", nodeId: "sheet" });
+    const result = await execute({ config: { spreadsheetId: "mock-spreadsheet", operation, range: "A1", values: [["one"], ["two", "three"]] }, mode: "mock", workspaceId: "workspace", credentials, executionId: "execution", nodeId: "sheet" });
     const updates = operation === "append" ? result.output.updates : result.output;
     assert.deepEqual(updates, { spreadsheetId: "mock-spreadsheet", updatedRange: "A1", updatedRows: 2, updatedColumns: 2, updatedCells: 3, ...(operation === "update" ? { operation } : {}) });
   }

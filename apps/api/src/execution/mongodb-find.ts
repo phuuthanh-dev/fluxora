@@ -2,6 +2,7 @@ import { lookup as dnsLookup, resolveSrv } from "node:dns/promises";
 import { isIP, type LookupFunction } from "node:net";
 import { CredentialProvider } from "@prisma/client";
 import { BSON, MongoClient, MongoNetworkTimeoutError } from "mongodb";
+import { isMongoCollection as validCollection, isMongoDatabase as validDatabase, nodeConfigIssues, parseMongoObject } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { isBlockedAddress } from "./outbound-url-policy";
 import { NodeFailure } from "./node-failure";
@@ -50,8 +51,6 @@ function readConnection(data: Record<string, unknown>): MongoConnection {
 
 export function validateMongoCredential(data: Record<string, unknown>) { readConnection(data); }
 
-function validDatabase(value: string) { return value.length > 0 && value.length <= 63 && !/[\\/. "$\0]/.test(value); }
-function validCollection(value: string) { return value.length > 0 && value.length <= 120 && !/[\0$]/.test(value) && !value.startsWith("system."); }
 
 /** Resolve and validate at socket connection time, avoiding DNS rebinding. */
 export function guardedMongoLookup(resolve = dnsLookup): LookupFunction {
@@ -132,29 +131,14 @@ export async function createResolvedMongoClient(connection: MongoConnection, dep
   throw new NodeFailure("MONGODB_ERROR", "MongoDB could not connect to a writable SRV seed. Check network access and credentials.", false);
 }
 
-function validateFilter(value: unknown): Document {
-  if (typeof value === "string") { try { value = JSON.parse(value); } catch { throw new NodeFailure("INVALID_INPUT", "Filter must be a JSON object.", false); } }
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new NodeFailure("INVALID_INPUT", "Filter must be a JSON object.", false);
-  const encoded = JSON.stringify(value);
-  if (encoded.length > 20_000) throw new NodeFailure("INVALID_INPUT", "Filter is too large.", false);
-  const visit = (item: unknown, depth: number): void => {
-    if (depth > 16) throw new NodeFailure("INVALID_INPUT", "Filter is nested too deeply.", false);
-    if (!item || typeof item !== "object") return;
-    for (const [key, child] of Object.entries(item)) {
-      if (["$where", "$function", "$accumulator"].includes(key)) throw new NodeFailure("INVALID_INPUT", "Server-side JavaScript is not supported in MongoDB filters.", false);
-      visit(child, depth + 1);
-    }
-  };
-  visit(value, 0);
-  return value as Document;
-}
-
 export async function executeMongoFind(config: Document, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, makeClient: MongoClientFactory = createResolvedMongoClient) {
+  const issue = nodeConfigIssues("action.mongodb", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   if (config.operation !== undefined && config.operation !== "find") throw new NodeFailure("INVALID_INPUT", "Only the Find documents operation is available.", false);
   const database = typeof config.database === "string" ? config.database : "";
   const collection = typeof config.collection === "string" ? config.collection : "";
   const limit = config.limit === undefined ? 20 : config.limit;
-  const filter = validateFilter(config.filter ?? {});
+  const filter = Object.hasOwn(config, "filter") ? parseMongoObject(config.filter, 20_000, true)! : {};
   if (!validDatabase(database) || !validCollection(collection) || typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > 100) throw new NodeFailure("INVALID_INPUT", "Enter a valid database, collection and limit between 1 and 100.", false);
   if (mode === "mock") return { status: "succeeded" as const, output: { documents: [{ _id: "mock-document", example: true }], count: 1 }, route: "success" as const };
   const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
@@ -183,11 +167,12 @@ export async function executeMongoFind(config: Document, mode: "mock" | "live", 
 }
 
 export async function executeMongoInsert(config: Document, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, makeClient: MongoClientFactory = createResolvedMongoClient) {
+  const issue = nodeConfigIssues("action.mongodb.insert", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   const database = typeof config.database === "string" ? config.database : "";
   const collection = typeof config.collection === "string" ? config.collection : "";
-  let document: unknown = config.document;
-  if (typeof document === "string") { try { document = JSON.parse(document); } catch { throw new NodeFailure("INVALID_INPUT", "Document must be a JSON object.", false); } }
-  if (!validDatabase(database) || !validCollection(collection) || !document || typeof document !== "object" || Array.isArray(document) || Buffer.byteLength(JSON.stringify(document)) > 200_000) throw new NodeFailure("INVALID_INPUT", "Enter a valid database, collection and JSON document under 200 KB.", false);
+  const document = parseMongoObject(config.document, 200_000, false)!;
+  if (!validDatabase(database) || !validCollection(collection)) throw new NodeFailure("INVALID_INPUT", "Enter a valid database and collection.", false);
   if (mode === "mock") return { status: "succeeded" as const, output: { inserted: true, insertedId: "mock-document" }, route: "success" as const };
   const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
   if (!credentialId) throw new NodeFailure("CREDENTIAL_REQUIRED", "Select a MongoDB connection.", false);

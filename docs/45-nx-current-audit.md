@@ -1,9 +1,14 @@
 # NX: current product and simplification audit
 
-Snapshot: 2026-11-05, released commit `d22dd018851e066595ff7337556eaa279b968869`
-plus the explicitly identified local changes below. This is a source and release
-inventory, not a claim that every configuration or live provider has been tested.
-Historical progress in `37-node-expansion-audit.md` is not a current backlog.
+Snapshot: 2026-11-05, released commit `166ff404d9a30a11d48a387643784b9f6c3ed819`.
+[PR #90](https://github.com/phuuthanh-dev/fluxora/pull/90), its PR/main quality
+gates and [production deployment, attempt 2](https://github.com/phuuthanh-dev/fluxora/actions/runs/42059277966)
+succeeded. Public landing/login and VPS API health/readiness returned HTTP 200.
+This is not live provider qualification. References below to the "local" batch,
+an unreleased change, or the formerly released FIFO runner are historical: that
+batch shipped in PR #90. Historical progress in `37-node-expansion-audit.md`
+is not a current backlog. An unrelated later retry/timeout experiment on
+`codex/nx-node-runtime-settings` is uncommitted and stopped by owner direction.
 
 ## Owner direction
 
@@ -33,7 +38,7 @@ Historical progress in `37-node-expansion-audit.md` is not a current backlog.
 | Reddit | A list-posts action and access guidance exist. | Mock coverage does not establish that this application's Reddit API access works. |
 | Authentication | Email/password, Google/GitHub sign-in and Steam account linking have separate code paths; session cookies are HttpOnly and marked Secure in production. | Source alone does not verify current provider approvals, environment configuration or the absence of security defects. |
 | NX-07 | Decisions about arrays/items, binary, change streams and eligible social integrations are recorded in `38-nx07-design-decisions.md`. | These systems are not implemented merely because a design exists. Prioritize a real use case rather than add infrastructure by default. |
-| Release | PR #89, its PR/main gates and production deployment succeeded; post-deploy homepage, login and API health/readiness were 200. | This is point-in-time evidence, not proof every workflow or provider is healthy. |
+| Release | PR #90, its PR/main gates and production deployment succeeded; post-deploy homepage, login and API health/readiness were 200. | This is point-in-time evidence, not proof every workflow or provider is healthy. |
 
 Trigger review: cron only considers occurrences within the last 65 seconds, so
 an outage longer than that may miss scheduled runs; recovery covers accepted
@@ -73,7 +78,7 @@ their existence does not establish that every template was run live.
 
 | Scope | Present in current release | What remains unproved or out of scope |
 | --- | --- | --- |
-| NX-02 — metadata and pagination | One node type per operation; typed metadata and paginated resource pickers; selected Drive, Notion and Gmail reads have bounded page collection. | Metadata is descriptive, not a complete input/output validation schema. Not every provider exposes automatic page collection. The local batch passed an isolated synthetic gate but has not been released. |
+| NX-02 — metadata and pagination | Current node types have no V1/V2 suffix; some expose multiple operations. Typed metadata and paginated resource pickers exist; selected Drive, Notion and Gmail reads have bounded page collection. | Metadata is descriptive, not a complete input/output validation schema. Not every provider exposes automatic page collection. |
 | NX-03 — data apps | PostgreSQL/Supabase selection, Supabase insert, Sheets mapping, Notion page/data-source operations and Trello card actions are in the registry. Five data-app sample templates are present. | Source coverage does not equal every vendor API; individual provider permissions and live results are not established by this audit. |
 | NX-04 — communications and developer apps | Gmail, Chat, Telegram, GitHub, Sentry and Vercel operations are registered, with provider-specific credential requirements. | Live qualification, provider scope and behavior remain specific to each action; see the dated evidence in `35-connector-coverage-and-discovery.md`. |
 | NX-05 — triggers | RSS polling and Kuma, Telegram, Trello, Sentry and Vercel webhook handlers are present alongside Gmail polling and existing triggers. | Some remote registration is manual; sustained real delivery, recovery and all provider/account eligibility are not established. Cron has the recovery limit described above. |
@@ -84,15 +89,55 @@ This checklist distinguishes shipped source from validation and provider
 evidence. It does not mark NX complete or create work solely to preserve older
 node versions.
 
+### Evidence against the original NX criteria
+
+The original criteria are in section 6 of `37-node-expansion-audit.md`.
+The owner's subsequent direction replaces parallel node versions and legacy
+graph compatibility with one current node implementation; it does not
+authorize removing stored workflows or credentials.
+
+| Criterion | Evidence checked at `166ff404` | Assessment |
+| --- | --- | --- |
+| NX-02 metadata, pagination and account-aware OAuth | `packages/workflow-contracts/src/operation-metadata.ts`; `apps/api/src/execution/operation-metadata.test.ts`; Gmail/Drive/Notion cursor paths and credential OAuth code | Partially evidenced: registry, picker metadata and selected cursors exist, but metadata is not a complete per-node validation schema and pagination is not uniform across providers. No parallel V1/V2 work is required by current owner direction. |
+| NX-03 data operations and sample workflows | `packages/workflow-contracts/src/index.ts`; `apps/api/src/workflows/system-templates.ts`; PostgreSQL/Supabase, Sheets, Notion and Trello executors | Listed operation families and sample templates exist. Source presence and synthetic checks do not prove every template, provider account, permission or resource was exercised end to end. |
+| NX-04 communications and developer operations | Node registry; `apps/api/src/execution/github-update-issue.ts`, `github-write-adapter.ts`, `sentry.ts`, `vercel.ts`, `vercel-observability.ts` | Listed families, issue update, PR reads/merge and Sentry detail exist. Vercel detail is explicitly a limited public lookup whose ownership is not verified. Real behavior and permissions remain operation-specific. |
+| NX-05 trigger lifecycle | RSS scheduler and `apps/api/src/webhooks/*trigger*` ingress and synthetic cases | Trigger implementations exist; manual registration, real delivery, lost-event recovery, provider eligibility and full lifecycle behavior are not established for every provider by their presence or isolated fixtures. |
+| NX-06 structured AI and request limits | `ai-structured-output.ts`, `ai-request-limits.ts`, `gemini-text.ts`, `openai-text.ts` and corresponding synthetic cases | Structured schemas, validation, optional usage and per-request ceilings exist. Model support and real calls remain provider-dependent; per-request limits are not an aggregate spending budget. |
+| NX-07 decisions and supported follow-through | `38-nx07-design-decisions.md`; node registry and trigger implementations | Design decisions and selected trigger/social behavior are documented. Item fan-out, binary storage and DB change capture are not implemented; provider restrictions also remain. Do not infer their delivery from a design document. |
+
+PR #90 and its quality gates provide evidence for that committed release, not
+for the stopped local retry/timeout experiment or any future change. Check the
+owner's latest scope before proposing further implementation from this table.
+
+Owner update: after the validator audit, the owner explicitly authorized shared
+schemas and project-wide standardization. Follow `46-node-configuration-schemas.md`;
+do not mistake partially migrated nodes for a complete schema rollout.
+At `166ff404`, Steam snapshot treats non-boolean `includeOwnedGames` or
+`includeRecentGames` values as enabled, and ignores non-string optional
+`achievementAppId` values or forwards malformed text to Steam. The local
+`codex/nx-validator-steam` follow-up rejects these inputs in mock/live and reuses
+the existing App ID validator. It has regression cases but they have not been
+run; it is not committed, deployed or live-qualified. The same follow-up also
+addresses explicit invalid or unresolved Steam operation, account ID,
+played-free-games choice and achievement language being treated as omitted
+and replaced with a default or credential account. Empty optional fields and
+genuinely absent fields retain their established defaults.
+After the owner authorized shared schemas, the same local batch introduced
+per-app schema files. See `46-node-configuration-schemas.md` for the current
+family inventory and its limitations. MongoDB
+Find now rejects an explicit invalid or unresolved filter instead of falling
+back to an unfiltered query. These local changes and added synthetic cases have
+not yet been verified.
+
 ### Converging paths in the engine
 
-The released runner uses a FIFO queue and visits each node once. In a graph
+Before PR #90, the runner used a FIFO queue and visited each node once. In a graph
 `start → short → finish` and `start → middle → long → finish`, it can run
 `finish` before `long` and leave expressions from `long` unresolved. The graph
 parser permits those multiple incoming connections even though a separate Merge
 node and item-level joins are outside the product scope.
 
-The local runner now ranks the already validated acyclic graph by predecessor
+The released runner now ranks the already validated acyclic graph by predecessor
 depth and takes the shallowest pending node first. This ensures a reachable
 longer path is processed before its downstream converging node in an ordinary
 run. It still runs that node at most once, and it does not wait for a branch
@@ -101,7 +146,7 @@ output and passed in the isolated gate. This is not item fan-out or a new Merge 
 
 Approval was a separate limitation: when a node waited, the runner marked other
 unvisited nodes skipped and resumed only from approval's success targets. A
-parallel sibling path pending at that moment could disappear. The local change
+parallel sibling path pending at that moment could disappear. The released change
 persists those pending node IDs in the existing execution continuation field,
 then resumes them together with the approved branch; rejecting the approval
 still fails the run. A disposable-database integration case covers approval,
@@ -294,7 +339,7 @@ the chosen node. Do not present either as n8n-equivalent live partial execution
 or as proof of a real connection. User-configurable pinned data and execution
 of upstream nodes would be separate product work, not part of this correction.
 
-## Changes in this local batch
+## Historical batch — shipped in PR #90
 
 - The If operator and approval notification provider reject unsupported runtime
   values rather than silently selecting another behavior. The approval provider
@@ -320,7 +365,7 @@ of upstream nodes would be separate product work, not part of this correction.
   in mock/live and for the credential fallback in live mode. Invalid values
   fail before a Steam request; an omitted mock ID still uses sample data. IDs
   must be strings: a previously accepted numeric value must be entered as text.
-  This local change passed the synthetic gate and has not been released.
+  This change passed the synthetic gate and shipped in PR #90.
 - Steam Snapshot mock now uses `profile.steamid`, matching the profile field
   returned by Steam in live mode. A mock-only expression using the old
   `profile.steamId` needs to be changed; stored execution results are unchanged.
@@ -340,7 +385,7 @@ of upstream nodes would be separate product work, not part of this correction.
 - Current-state and specification documents were corrected to distinguish
   deployed work, historical notes and work that remains unverified.
 
-These changes are local; they are not yet a PR or a deployment.
+These changes shipped in PR #90 and production commit `166ff404`.
 On 2026-11-05 an attempted full verify stopped at the deployment test stage:
 57 tests passed and two test guards rejected the disposable database name
 because it did not contain `test`. A later isolated `npm run verify` with a
@@ -353,9 +398,12 @@ were enabled against a disposable local database; no live provider was used.
 Playwright logged existing GSAP missing-target and WebGL extension warnings;
 the associated tests passed.
 
-## Remaining work and order
+## Remaining boundaries
 
-1. Review the final diff, prepare one PR and follow CI/deployment. Do not
-   describe synthetic tests as provider tests.
-2. Qualify individual real providers only when their credentials, permissions,
-   intended destination and potential side effects have been explicitly allowed.
+- The NX table above distinguishes existing operations from incomplete provider
+  and pagination coverage; a registry entry is not proof of live behavior.
+- Item fan-out, binary storage and database change capture remain unimplemented;
+  the NX-07 document records decisions, not a claim of delivery. Do not start
+  those systems or a new scope solely because they are listed here.
+- Qualify individual real providers only when their credentials, permissions,
+  intended destination and potential side effects have been explicitly allowed.

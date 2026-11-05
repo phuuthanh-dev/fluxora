@@ -5,6 +5,7 @@ import { NodeFailure } from "./node-failure";
 import { mockSteamSnapshot } from "./steam-adapter";
 import { getOperationMetadata } from "@workflow/contracts";
 import { getConnectorExecutor } from "./connector-executors";
+import { resolveExpressions } from "./expression";
 
 test("Steam snapshot returns profile, current/recent/owned games, and optional achievements", async () => {
   const requested: string[] = [];
@@ -56,10 +57,40 @@ test("Steam snapshot mock respects game options and returns internally consisten
   assert.deepEqual(included.output.achievements, { steamID: "7656", achievements: [{ apiname: "EXAMPLE_ACHIEVEMENT", achieved: 1 }] });
 });
 
+test("Steam snapshot rejects non-boolean or unresolved game options before provider requests", async () => {
+  let requests = 0;
+  const transport = async () => { requests++; throw new Error("unexpected provider request"); };
+  const credential = { apiKey: "synthetic-key", steamId: "7656" };
+  for (const key of ["includeOwnedGames", "includeRecentGames"]) {
+    const unresolved = resolveExpressions({ [key]: "{{ steps.missing.output }}" }, { steps: {} }) as Record<string, unknown>;
+    for (const config of [{ [key]: "false" }, { [key]: 0 }, { [key]: null }, unresolved]) {
+      const invalid = (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT" && error.retryable === false;
+      assert.throws(() => mockSteamSnapshot("7656", config), invalid);
+      await assert.rejects(steamSnapshot(credential, config, transport), invalid);
+    }
+  }
+  assert.equal(requests, 0);
+});
+
+test("Steam snapshot validates optional achievement App ID in mock and live modes", async () => {
+  let requests = 0;
+  const transport = async () => { requests++; throw new Error("unexpected provider request"); };
+  const credential = { apiKey: "synthetic-key", steamId: "7656" };
+  const unresolved = resolveExpressions({ achievementAppId: "{{ steps.missing.output }}" }, { steps: {} }) as Record<string, unknown>;
+  for (const config of [{ achievementAppId: "not-an-app-id" }, { achievementAppId: "0" }, { achievementAppId: "4294967296" }, { achievementAppId: 620 }, { achievementAppId: null }, unresolved]) {
+    const invalid = (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT" && error.retryable === false;
+    assert.throws(() => mockSteamSnapshot("7656", config), invalid);
+    await assert.rejects(steamSnapshot(credential, config, transport), invalid);
+  }
+  assert.equal(mockSteamSnapshot("7656", { achievementAppId: " 620 " }).achievements?.steamID, "7656");
+  assert.equal(mockSteamSnapshot("7656", { achievementAppId: "" }).achievements, null);
+  assert.equal(requests, 0);
+});
+
 test("Steam snapshot rejects invalid IDs before provider access in mock and live modes", async () => {
   const execute = getConnectorExecutor("action.steam.account-snapshot")!;
   const credentials = { readForExecution: () => { throw new Error("unexpected credential read"); } } as never;
-  for (const steamId of ["abc", "-1", "0", "18446744073709551616", 123, null]) {
+  for (const steamId of ["abc", "-1", "0", "18446744073709551616", 123, null, undefined]) {
     for (const mode of ["mock", "live"] as const) {
       await assert.rejects(execute({ config: { steamId }, mode, workspaceId: "workspace", credentials, executionId: "execution", nodeId: "steam" }), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT" && !error.retryable);
     }

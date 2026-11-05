@@ -1,4 +1,4 @@
-import { isExecutableWorkflowNodeType, workflowEdgeKinds, workflowNodeOutputKinds, workflowNodeTypes, type WorkflowEdgeKind, type WorkflowGraph, type WorkflowNodeType } from "@workflow/contracts";
+import { isExecutableWorkflowNodeType, nodeConfigIssues, workflowEdgeKinds, workflowNodeOutputKinds, workflowNodeTypes, type WorkflowEdgeKind, type WorkflowGraph, type WorkflowNodeType } from "@workflow/contracts";
 import { BadRequestException } from "@nestjs/common";
 import { parseExpression } from "cron-parser";
 import { readUptimeKumaFilter } from "../webhooks/uptime-kuma-filter";
@@ -60,6 +60,8 @@ export function validatePublishableGraph(graph: WorkflowGraph) {
     if (node.type === "trigger.trello.board-action") readTrelloTriggerFilter(node.config);
     if (node.type === "trigger.sentry.issue-created") readSentryIssueCreatedFilter(node.config);
     if (node.type === "trigger.uptime-kuma.alert") readUptimeKumaFilter(node.config);
+    const issue = nodeConfigIssues(node.type, node.config, "static")[0];
+    if (issue) invalid(`Node ${node.id}: ${issue.message}`);
     if (node.type !== "condition.switch") continue;
     const values = switchCaseValues(node.config);
     if (!values.length) invalid(`Switch node ${node.id} needs at least one non-empty case value.`);

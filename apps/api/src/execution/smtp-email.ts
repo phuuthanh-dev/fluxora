@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { nodeConfigIssues } from "@workflow/contracts";
 import { isIP } from "node:net";
 import { domainToASCII } from "node:url";
 import { CredentialProvider } from "@prisma/client";
@@ -43,6 +44,8 @@ export async function executeSmtpEmail(
   credentials: CredentialService,
   dependencies: SmtpEmailDependencies = {},
 ) {
+  const issue = nodeConfigIssues("action.email", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_CONFIGURATION", issue.message, false);
   const message = readSmtpMessage(config);
   const recipients = intendedRecipients(message);
   if (mode === "mock") {

@@ -1,4 +1,5 @@
 import { CredentialProvider } from "@prisma/client";
+import { nodeConfigIssues } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
 import { fetchSafeOutbound } from "./outbound-url-policy";
@@ -68,6 +69,8 @@ export async function listVercelProjects(credential: Record<string, unknown>, te
 
 type VercelDeploymentsOutput = { deployments: Array<{ id: string; name: string; state: string; target: string; createdAt: number | null; url: string }>; hasMore: boolean; nextCursor?: string | null; partial?: boolean; partialReasons?: string[] };
 export async function executeVercelListDeployments(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport | undefined = undefined): Promise<{ status: "succeeded"; output: VercelDeploymentsOutput; route: "success" }> {
+  const issue = nodeConfigIssues("action.vercel.list-deployments", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   if (((Object.hasOwn(config, "cursor") && (config.cursor === undefined || config.cursor === null)) || (Object.hasOwn(config, "limit") && config.limit === undefined) || (Object.hasOwn(config, "team") && typeof config.team !== "string"))) {
     throw new NodeFailure("INVALID_INPUT", "Vercel account or pagination could not be resolved.", false);
   }

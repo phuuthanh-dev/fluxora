@@ -1,5 +1,5 @@
 import { CredentialProvider } from "@prisma/client";
-import { riotLolActions, riotLolPlatforms, riotTftActions, type RiotLolOperation, type RiotTftOperation } from "@workflow/contracts";
+import { nodeConfigIssues, riotLolActions, riotLolPlatforms, riotTftActions, type RiotLolOperation, type RiotTftOperation } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { readCredentialId, readCredentialValue } from "./connector-config";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
@@ -90,6 +90,8 @@ function prepare(config: Record<string, unknown>, game: "lol" | "tft") {
 }
 
 async function executeRiotGame(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, game: "lol" | "tft", transport: Transport = fetchSafeOutbound) {
+  const issue = nodeConfigIssues(game === "lol" ? "action.riot-lol" : "action.riot-tft", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   const { operation, url } = prepare(config, game);
   if (mode === "mock") return { status: "succeeded" as const, output: { operation, result: operation === "currentGame" ? { active: false } : operation === "matchIds" || operation === "ranked" || operation === "masteries" || operation === "topMasteries" ? [] : { sample: true } }, route: "success" as const };
   // Public availability requires Riot's decision on this workflow use case.

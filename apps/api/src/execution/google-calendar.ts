@@ -1,4 +1,5 @@
 import { CredentialProvider } from "@prisma/client";
+import { isCalendarResourceId, nodeConfigIssues } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure } from "./node-failure";
 import { fetchSafeOutbound, fetchSafeOutboundWrite, OutboundRequestPolicyError, wasOutboundRedirected } from "./outbound-url-policy";
@@ -9,7 +10,7 @@ import { createHash } from "node:crypto";
 
 type Transport = typeof fetchSafeOutbound;
 const record = (value: unknown): Record<string, unknown> | null => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
-export const isCalendarResourceId = (value: string) => Boolean(value) && value.length <= 512 && value !== "." && value !== ".." && !/[\\/%\x00-\x1f\x7f]/.test(value);
+export { isCalendarResourceId };
 
 export async function googleCalendarGet(path: string, token: string, transport: Transport = fetchSafeOutbound) {
   let url: URL;
@@ -46,6 +47,8 @@ export async function listCalendarEvents(token: string, calendarId: string, limi
 }
 
 export async function executeGoogleCalendar(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, read = listCalendarEvents) {
+  const issue = nodeConfigIssues("action.google-calendar.list-events", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   // A present but unresolved expression must never silently restart at the
   // first page or select the primary calendar instead of the requested one.
   for (const key of ["calendarId", "pageToken", "timeMin"] as const) {
@@ -120,6 +123,8 @@ export async function createCalendarEvent(token: string, input: CreateCalendarIn
 }
 
 export async function executeGoogleCalendarCreate(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, executionId: string, nodeId: string, create = createCalendarEvent) {
+  const issue = nodeConfigIssues("action.google-calendar.create-event", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   const input = readCreateInput(config);
   if (mode === "mock") return { status: "succeeded" as const, output: { id: "example-event", summary: input.summary, start: input.start, end: input.end, recovered: false, mocked: true }, route: "success" as const };
   const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
@@ -129,6 +134,8 @@ export async function executeGoogleCalendarCreate(config: Record<string, unknown
 }
 
 export async function executeGoogleCalendarEvent(config: Record<string, unknown>, operation: "get" | "update" | "delete", mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport = operation === "get" ? fetchSafeOutbound : fetchSafeOutboundWrite) {
+  const issue = nodeConfigIssues(`action.google-calendar.${operation}-event`, config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   const calendarId = typeof config.calendarId === "string" ? config.calendarId.trim() : "";
   const eventId = typeof config.eventId === "string" ? config.eventId.trim() : "";
   if (!isCalendarResourceId(calendarId) || !isCalendarResourceId(eventId)) throw new NodeFailure("INVALID_INPUT", "Select a calendar and event.", false);
@@ -183,6 +190,8 @@ function calendarWriteUnknown(operation: "update" | "delete", status?: number) {
 }
 
 export async function executeGoogleCalendarAvailability(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport = fetchSafeOutbound) {
+  const issue = nodeConfigIssues("action.google-calendar.availability", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   const calendarId = typeof config.calendarId === "string" ? config.calendarId.trim() : "";
   const start = typeof config.start === "string" ? config.start : "";
   const end = typeof config.end === "string" ? config.end : "";

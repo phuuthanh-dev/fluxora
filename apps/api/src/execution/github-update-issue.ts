@@ -1,4 +1,5 @@
 import { CredentialProvider } from "@prisma/client";
+import { nodeConfigIssues } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { fetchSafeOutbound, fetchSafeOutboundWrite, wasOutboundRedirected } from "./outbound-url-policy";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
@@ -10,6 +11,8 @@ const object = (value: unknown): Record<string, unknown> | undefined => value !=
 /** Updates exactly one field. GitHub does not provide an atomic precondition
  * for this PATCH, so a concurrent edit can still be overwritten. */
 export async function executeGitHubUpdateIssue(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, read: Transport = fetchSafeOutbound, write: Transport = fetchSafeOutboundWrite) {
+  const issue = nodeConfigIssues("action.github.update-issue", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_CONFIGURATION", issue.message, false);
   const repository = typeof config.repository === "string" ? config.repository.trim() : "";
   const parts = repository.split("/");
   const rawNumber = typeof config.issueNumber === "number" && Number.isSafeInteger(config.issueNumber) ? String(config.issueNumber) : typeof config.issueNumber === "string" ? config.issueNumber.trim() : "";

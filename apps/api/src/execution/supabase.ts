@@ -1,4 +1,5 @@
 import { CredentialProvider } from "@prisma/client";
+import { nodeConfigIssues } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
 import { requireResolvedSelection, requireSafeSelectionNumber } from "./relational-selection-validation";
@@ -117,6 +118,8 @@ async function get(path: string, credential: Record<string, unknown>, transport:
 
 /** Insert exactly one row. Provider errors and uncertain writes never expose response bodies. */
 export async function executeSupabaseInsert(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport = fetchSafeOutboundWrite) {
+  const issue = nodeConfigIssues("action.supabase.insert-row", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   const allowed = new Set(["credentialId", "table", "fields", "retryAttempts", "timeoutMs"]);
   const invalid = (): never => { throw new NodeFailure("INVALID_INPUT", "Choose a table and enter valid, distinct column values.", false); };
   if (Object.keys(config).some((key) => !allowed.has(key))) invalid();
@@ -259,6 +262,8 @@ export async function executeSupabaseSelect(config: Record<string, unknown>, mod
   const limit = Object.hasOwn(config, "limit") ? config.limit : 20;
   if (!identifier.test(table) || typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > 100) throw new NodeFailure("INVALID_INPUT", "Choose a table and a limit between 1 and 100.", false);
   const params = selectParams(config, limit);
+  const issue = nodeConfigIssues("action.supabase.select", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   // The provider may impose a smaller row cap. A short or full page does not
   // establish whether more rows exist, so completeness remains unknown.
   const output = (rows: unknown[]) => ({ rows, count: rows.length, returnedCount: rows.length, page: { limit, offset: typeof config.offset === "number" ? config.offset : 0, completeness: "unknown" as const } });

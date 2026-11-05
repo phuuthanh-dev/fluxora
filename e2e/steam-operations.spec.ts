@@ -4,6 +4,7 @@ test("Steam offers the community operations and an owned-game picker with manual
   const graph = { nodes: [
     { id: "manual", type: "trigger.manual", position: { x: 100, y: 100 }, config: {} },
     { id: "steam", type: "action.steam", position: { x: 400, y: 100 }, config: { credentialId: "steam-1", operation: "profile", steamId: "", vanity: "", appId: "", language: "english" } },
+    { id: "snapshot", type: "action.steam.account-snapshot", position: { x: 700, y: 100 }, config: { steamId: "", achievementAppId: "", includeOwnedGames: true, includeRecentGames: true } },
   ], edges: [] };
   const workflow = { id: "steam-test", workspaceId: "workspace-1", name: "Steam test", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
   let gameRequests = 0;
@@ -18,6 +19,11 @@ test("Steam offers the community operations and an owned-game picker with manual
     return route.continue();
   });
   await page.goto("/editor?workflow=steam-test");
+  await page.locator('.react-flow__node[data-id="snapshot"]').click();
+  await page.getByLabel("Steam ID 64", { exact: true }).fill("invalid");
+  await expect(page.getByRole("alert").filter({ hasText: "Enter a valid Steam ID 64 as text." })).toBeVisible();
+  await page.getByLabel("Steam ID 64", { exact: true }).fill("76561198000000000");
+  await expect(page.getByRole("alert").filter({ hasText: "Enter a valid Steam ID 64 as text." })).toHaveCount(0);
   await page.locator(".react-flow__node").filter({ hasText: "Get user profile" }).click();
   const operation = page.getByLabel("Operation", { exact: true });
   await expect(operation.locator("option")).toHaveCount(7);

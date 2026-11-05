@@ -1,4 +1,5 @@
 import { CredentialProvider } from "@prisma/client";
+import { nodeConfigIssues } from "@workflow/contracts";
 import { createHash } from "node:crypto";
 import type { CredentialService } from "../credentials/credential.service";
 import { chatManageScope } from "../credentials/google-oauth-policy";
@@ -29,6 +30,8 @@ export async function listGoogleChatSpaces(token: string, transport: Transport =
 }
 
 export async function executeGoogleChatOAuth(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport = fetchSafeOutboundWrite, variant: "send" | "reply" = "send") {
+  const issue = nodeConfigIssues(variant === "reply" ? "action.google-chat.reply" : "action.google-chat.oauth", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   const space = typeof config.space === "string" ? config.space.trim() : "";
   const message = typeof config.message === "string" ? config.message : "";
   if (!/^spaces\/[A-Za-z0-9_-]{1,128}$/.test(space) || !message.trim() || message.length > 10_000) throw new NodeFailure("INVALID_INPUT", "Select a Google Chat space and enter a message of at most 10,000 characters.", false);
@@ -62,6 +65,8 @@ export async function executeGoogleChatOAuth(config: Record<string, unknown>, mo
 
 /** Editing requires an explicitly selected, provider-verified management grant. */
 export async function executeGoogleChatEdit(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport = fetchSafeOutboundWrite) {
+  const issue = nodeConfigIssues("action.google-chat.edit-message", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   const space = typeof config.space === "string" ? config.space.trim() : "";
   const messageName = typeof config.messageName === "string" ? config.messageName.trim() : "";
   const message = typeof config.message === "string" ? config.message : "";

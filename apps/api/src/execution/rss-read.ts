@@ -1,4 +1,5 @@
 import { XMLParser, XMLValidator } from "fast-xml-parser";
+import { nodeConfigIssues } from "@workflow/contracts";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
 import { fetchSafeOutbound } from "./outbound-url-policy";
 
@@ -92,6 +93,8 @@ export function parseRssFeed(xml: string, limit: number) {
 }
 
 export async function executeRssRead(config: Record<string, unknown>, mode: "mock" | "live", transport: Transport = fetchSafeOutbound) {
+  const issue = nodeConfigIssues("action.rss.read", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   const url = typeof config.url === "string" ? config.url.trim() : "";
   const limit = config.limit === undefined ? 20 : config.limit;
   if (!url || url.length > 2048 || typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > 100) throw new NodeFailure("INVALID_INPUT", "Enter a public feed URL and a limit between 1 and 100.", false);

@@ -1,4 +1,5 @@
 import { CredentialProvider } from "@prisma/client";
+import { nodeConfigIssues } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
 import { fetchSafeOutbound, fetchSafeOutboundWrite } from "./outbound-url-policy";
@@ -75,6 +76,8 @@ export async function generateOpenAIText(input: OpenAIInput, transport: Transpor
 }
 
 export async function executeOpenAIText(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, generate: typeof generateOpenAIText = generateOpenAIText) {
+  const issue = nodeConfigIssues("action.openai", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   assertResolvedAiLimits(config);
   const model = typeof config.model === "string" ? config.model : "";
   const prompt = typeof config.prompt === "string" ? config.prompt : "";

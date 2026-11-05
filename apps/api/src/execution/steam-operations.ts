@@ -1,4 +1,5 @@
 import { CredentialProvider } from "@prisma/client";
+import { isSteamAppId, isSteamId, nodeConfigIssues, parseSteamVanity } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { readCredentialId, readCredentialValue } from "./connector-config";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
@@ -17,29 +18,20 @@ function object(value: unknown): ObjectValue | undefined {
 function invalidResponse(): never { throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Steam returned an unexpected response.", false); }
 function unavailable(): never { throw new NodeFailure("STEAM_DATA_UNAVAILABLE", "Steam did not provide this data. Check the profile privacy settings and connection permissions.", false); }
 export function steamIdValue(value: unknown): string {
-  if (typeof value !== "string" || !/^\d{1,20}$/.test(value) || BigInt(value) === 0n || BigInt(value) > 18446744073709551615n) throw new NodeFailure("INVALID_INPUT", "Enter a valid Steam ID 64 as text.", false);
+  if (typeof value !== "string" || !isSteamId(value)) throw new NodeFailure("INVALID_INPUT", "Enter a valid Steam ID 64 as text.", false);
   return value;
 }
 function appIdValue(value: unknown): string {
-  if (typeof value !== "string" || !/^[1-9]\d{0,9}$/.test(value) || Number(value) > 4294967295) throw new NodeFailure("INVALID_INPUT", "Enter a valid Steam game App ID.", false);
+  if (typeof value !== "string" || !isSteamAppId(value)) throw new NodeFailure("INVALID_INPUT", "Enter a valid Steam game App ID.", false);
   return value;
 }
 function vanityValue(value: unknown): string {
-  if (typeof value !== "string") throw new NodeFailure("INVALID_INPUT", "Enter a Steam profile name or profile URL.", false);
-  let vanity = value.trim();
-  if (/^https?:\/\//i.test(vanity)) {
-    try {
-      const url = new URL(vanity);
-      const match = /^\/id\/([^/]+)\/?$/.exec(url.pathname);
-      if (url.protocol !== "https:" || url.hostname !== "steamcommunity.com" || url.username || url.password || url.port || url.search || url.hash || !match) throw new Error();
-      vanity = decodeURIComponent(match[1]!);
-    } catch { throw new NodeFailure("INVALID_INPUT", "Use a profile name or an https://steamcommunity.com/id/ profile URL.", false); }
-  }
-  if (!/^[A-Za-z0-9_-]{2,64}$/.test(vanity)) throw new NodeFailure("INVALID_INPUT", "Enter a valid Steam profile name.", false);
+  const vanity = parseSteamVanity(value);
+  if (!vanity) throw new NodeFailure("INVALID_INPUT", "Enter a valid Steam profile name or profile URL.", false);
   return vanity;
 }
 function selectedOperation(config: Record<string, unknown>): SteamOperation {
-  const value = config.operation ?? "profile";
+  const value = Object.hasOwn(config, "operation") ? config.operation : "profile";
   if (typeof value !== "string" || !operations.includes(value as SteamOperation)) throw new NodeFailure("INVALID_INPUT", "Choose a supported Steam operation.", false);
   return value as SteamOperation;
 }
@@ -54,6 +46,7 @@ function prepare(config: Record<string, unknown>, credential: Record<string, unk
     params.set("vanityurl", vanityValue(config.vanity));
     path = "/ISteamUser/ResolveVanityURL/v1/";
   } else {
+    if (Object.hasOwn(config, "steamId") && typeof config.steamId !== "string") throw new NodeFailure("INVALID_INPUT", "Enter a valid Steam ID 64 as text.", false);
     const rawId = typeof config.steamId === "string" && config.steamId.trim() ? config.steamId.trim() : credential.steamId ?? (mock ? defaultSteamId : undefined);
     const id = steamIdValue(rawId);
     selectedSteamId = id;
@@ -64,7 +57,7 @@ function prepare(config: Record<string, unknown>, credential: Record<string, unk
       case "badges": path = "/IPlayerService/GetBadges/v1/"; break;
       case "ownedGames":
         path = "/IPlayerService/GetOwnedGames/v1/";
-        if (config.includePlayedFreeGames !== undefined && typeof config.includePlayedFreeGames !== "boolean") throw new NodeFailure("INVALID_INPUT", "Choose whether to include played free games.", false);
+        if (Object.hasOwn(config, "includePlayedFreeGames") && typeof config.includePlayedFreeGames !== "boolean") throw new NodeFailure("INVALID_INPUT", "Choose whether to include played free games.", false);
         params.set("include_appinfo", "1");
         if (config.includePlayedFreeGames === true) params.set("include_played_free_games", "1");
         break;
@@ -72,7 +65,7 @@ function prepare(config: Record<string, unknown>, credential: Record<string, unk
       case "achievements": {
         path = "/ISteamUserStats/GetPlayerAchievements/v1/";
         params.set("appid", appIdValue(config.appId));
-        const language = config.language === undefined || config.language === "" ? "english" : config.language;
+        const language = !Object.hasOwn(config, "language") || config.language === "" ? "english" : config.language;
         if (typeof language !== "string" || !/^[A-Za-z-]{1,32}$/.test(language)) throw new NodeFailure("INVALID_INPUT", "Enter a valid achievement language.", false);
         params.set("l", language.toLowerCase());
         break;
@@ -128,6 +121,8 @@ export function parseSteamResult(operation: SteamOperation, payload: unknown, ex
 }
 
 export async function executeSteamOperation(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport = fetchSafeOutbound) {
+  const issue = nodeConfigIssues("action.steam", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   const credential = mode === "live" ? await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.STEAM) : {};
   const { operation, key, selectedSteamId, url } = prepare(config, credential, mode === "mock");
   if (mode === "mock") {

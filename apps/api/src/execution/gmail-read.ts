@@ -1,4 +1,5 @@
 import { CredentialProvider } from "@prisma/client";
+import { nodeConfigIssues } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure } from "./node-failure";
 import { fetchSafeOutbound } from "./outbound-url-policy";
@@ -94,6 +95,8 @@ export async function executeGmailRead(config: Record<string, unknown>, mode: "m
   const collectPages = config.collectPages === true;
   if (Object.hasOwn(config, "collectPages") && typeof config.collectPages !== "boolean") throw new NodeFailure("INVALID_INPUT", "Choose whether to collect additional Gmail results.", false);
   if (Object.hasOwn(config, "pageToken") && config.pageToken === undefined) throw new NodeFailure("INVALID_INPUT", "Gmail page token could not be resolved.", false);
+  const issue = nodeConfigIssues("action.gmail.read", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   const pageToken = config.pageToken === undefined || config.pageToken === "" ? undefined : config.pageToken;
   if (query.length > 470 || !["all", "inbox", "unread"].includes(String(mailbox)) || typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > 10 || (pageToken !== undefined && (typeof pageToken !== "string" || !/^[\x21-\x7e]{1,1024}$/.test(pageToken)))) throw new NodeFailure("INVALID_INPUT", "Enter a valid Gmail filter, page token and limit between 1 and 10.", false);
   if (mode === "mock") {

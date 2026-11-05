@@ -1,4 +1,5 @@
 import { CredentialProvider } from "@prisma/client";
+import { nodeConfigIssues } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
 import { fetchSafeOutbound } from "./outbound-url-policy";
@@ -262,6 +263,8 @@ export async function queryNotionDataSource(input: ListInput & { dataSourceId: s
 }
 
 export async function executeNotionDataSourceQuery(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport = fetchSafeOutbound) {
+  const issue = nodeConfigIssues("action.notion.query-data-source", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   if (["pageSize", "cursor", "sort", "editedAfter", "filterMode", "filterProperty", "filterValue"].some((key) => Object.hasOwn(config, key) && config[key] === undefined)) throw new NodeFailure("INVALID_INPUT", "Notion query settings could not be resolved.", false);
   const dataSourceId = config.dataSourceId;
   const pageSize = config.pageSize === undefined ? 20 : config.pageSize;
@@ -308,6 +311,9 @@ export async function retrieveNotionPageProperty(input: PropertyInput, transport
 
 /** Entry point for future dispatcher integration; mock mode never opens the vault. */
 export async function executeNotionOperation(config: Record<string, unknown>, operation: "retrievePage" | "listChildren" | "retrieveProperty", mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport = fetchSafeOutbound) {
+  const type = operation === "retrievePage" ? "action.notion.retrieve-page" : operation === "listChildren" ? "action.notion.list-children" : "action.notion.retrieve-property";
+  const issue = nodeConfigIssues(type, config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   if (operation !== "retrievePage" && ((Object.hasOwn(config, "cursor") && config.cursor === undefined) || (Object.hasOwn(config, "pageSize") && config.pageSize === undefined))) {
     throw new NodeFailure("INVALID_INPUT", "Notion pagination could not be resolved.", false);
   }

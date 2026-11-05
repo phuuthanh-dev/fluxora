@@ -1,4 +1,5 @@
 import { CredentialProvider } from "@prisma/client";
+import { nodeConfigIssues } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
 import { fetchSafeOutbound } from "./outbound-url-policy";
@@ -72,6 +73,9 @@ function nextPageFromLink(link: string | null, requested: URL, page: number): nu
 }
 
 async function execute(config: Record<string, unknown>, mode: Mode, workspaceId: string, credentials: CredentialService, kind: Kind, list: boolean, transport: Transport) {
+  const type = `action.github.${list ? "list" : "get"}-${kind === "issue" ? "issue" : "pull-request"}${list ? "s" : ""}`;
+  const issue = nodeConfigIssues(type, config, "resolved")[0];
+  if (issue) inputError(issue.message);
   const repository = repositoryInput(config.repository);
   const page = list ? positiveInteger(config.page, 1, maxPage, "page") : undefined;
   const pageSize = list ? positiveInteger(config.pageSize, 30, 100, "page size") : undefined;

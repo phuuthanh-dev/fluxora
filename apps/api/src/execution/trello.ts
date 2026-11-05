@@ -1,4 +1,5 @@
 import { CredentialProvider } from "@prisma/client";
+import { nodeConfigIssues } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
 import { fetchSafeOutbound, fetchSafeOutboundWrite, wasOutboundRedirected } from "./outbound-url-policy";
@@ -76,6 +77,8 @@ export async function listTrelloLists(credential: Record<string, unknown>, board
 }
 
 export async function executeTrelloCreateCard(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport?: Transport) {
+  const issue = nodeConfigIssues("action.trello.create-card", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   const boardId = typeof config.boardId === "string" ? config.boardId.trim() : "";
   const listId = typeof config.listId === "string" ? config.listId.trim() : "";
   const title = typeof config.title === "string" ? config.title.trim() : "";

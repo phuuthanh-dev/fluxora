@@ -1,11 +1,14 @@
 import { CredentialProvider } from "@prisma/client";
+import { nodeConfigIssues } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import type { RunMode, NodeResult } from "./node-executor-contract";
 import { NodeFailure } from "./node-failure";
 import { readCredentialId } from "./connector-config";
-import { defaultNotificationDispatcher, readTelegramDestinationType, validateTelegramDestination } from "../notifications";
+import { defaultNotificationDispatcher, parseDiscordAllowedMentions, parseDiscordEmbeds, readTelegramDestinationType, validateTelegramDestination } from "../notifications";
 
 export async function executeGoogleChatWebhook(config: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService): Promise<NodeResult> {
+  const issue = nodeConfigIssues("action.google-chat.webhook", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_CONFIGURATION", issue.message, false);
   const message = typeof config.message === "string" ? config.message : "";
   if (!message.trim()) throw new NodeFailure("INVALID_CONFIGURATION", "Google Chat message is required.", false);
   const credential = mode === "live" ? await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.GOOGLE_CHAT_WEBHOOK) : undefined;
@@ -25,6 +28,10 @@ export async function executeDiscordWebhook(config: Record<string, unknown>, mod
   const allowedMentions = config.allowedMentions;
 
   if (!content.trim() && (!embeds || (Array.isArray(embeds) && embeds.length === 0))) throw new NodeFailure("INVALID_CONFIGURATION", "Discord message content is required.", false);
+  parseDiscordEmbeds(embeds);
+  parseDiscordAllowedMentions(allowedMentions);
+  const issue = nodeConfigIssues("action.discord.webhook", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_CONFIGURATION", issue.message, false);
   const credential = mode === "live" ? await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.DISCORD_WEBHOOK) : undefined;
 
   const output = await defaultNotificationDispatcher.dispatch({
@@ -49,6 +56,8 @@ export async function executeTelegramMessage(config: Record<string, unknown>, mo
 
   if (!text.trim()) throw new NodeFailure("INVALID_CONFIGURATION", "Telegram message text is required.", false);
   validateTelegramDestination(destinationType, configChatId, messageThreadId);
+  const issue = nodeConfigIssues("action.telegram.message", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_CONFIGURATION", issue.message, false);
   const credential = mode === "live" ? await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.TELEGRAM_BOT) : undefined;
   if (!configChatId && credential?.chatId !== undefined && credential.chatId !== null) {
     validateTelegramDestination(destinationType, String(credential.chatId).trim() || undefined, messageThreadId);

@@ -1,4 +1,5 @@
 import { CredentialProvider } from "@prisma/client";
+import { nodeConfigIssues } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { readTelegramDestinationType, validateTelegramDestination } from "../notifications/telegram-destination";
 import { NodeFailure } from "./node-failure";
@@ -20,6 +21,8 @@ function positiveId(value: unknown, label: string) {
 /** Sends only the selected operation. A transport/receipt failure after a POST
  * is ambiguous; automatic retry is never permitted for these operations. */
 export async function executeTelegramMessageOperation(operation: Operation, config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport = fetchSafeOutboundWrite) {
+  const issue = nodeConfigIssues(operation === "reply" ? "action.telegram.reply" : "action.telegram.edit-message", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_CONFIGURATION", issue.message, false);
   const chatId = typeof config.chatId === "string" ? config.chatId.trim() : typeof config.chatId === "number" && Number.isSafeInteger(config.chatId) ? String(config.chatId) : "";
   const numericChat = /^-?[1-9]\d{0,15}$/.test(chatId) && Number.isSafeInteger(Number(chatId));
   if (!numericChat && !/^@[A-Za-z0-9_]{5,32}$/.test(chatId)) throw new NodeFailure("INVALID_CONFIGURATION", "Enter a numeric Telegram chat ID or a public @channel username.", false);

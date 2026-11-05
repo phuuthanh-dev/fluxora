@@ -30,8 +30,9 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { nodeConfigIssues, type NodeConfigIssue } from "@workflow/contracts";
 import { ApiClientError, apiRequest, apiUrl } from "../api/api-client";
 import { validateWorkflowGraph } from "./graph-validation";
 import {
@@ -155,24 +156,25 @@ function useNarrowEditorLayout() {
   return isNarrow;
 }
 
-function ConfigField({ label, value, onChange, multiline = false }: {
+function ConfigField({ label, value, onChange, multiline = false, error }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   multiline?: boolean;
+  error?: string;
 }) {
   return (
-    <Field label={label} className="config-field">
+    <Field label={label} className="config-field" error={error}>
       {multiline ? (
-        <textarea value={value} onChange={(event) => onChange(event.target.value)} rows={5} />
+        <textarea aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} rows={5} />
       ) : (
-        <input value={value} onChange={(event) => onChange(event.target.value)} />
+        <input aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} />
       )}
     </Field>
   );
 }
 
-function NumericConfigField({ label, value, configured, fallbackValue, allowExpressions, onChange }: { label: string; value: string; configured: boolean; fallbackValue?: number; allowExpressions: boolean; onChange: (value: string | number | undefined) => void }) {
+function NumericConfigField({ label, value, configured, fallbackValue, allowExpressions, onChange, error }: { label: string; value: string; configured: boolean; fallbackValue?: number; allowExpressions: boolean; onChange: (value: string | number | undefined) => void; error?: string }) {
   const isNumber = value !== "" && value.trim() !== "" && Number.isFinite(Number(value));
   const [expressionMode, setExpressionMode] = useState(value !== "" && !isNumber);
   const contextId = useId();
@@ -180,7 +182,7 @@ function NumericConfigField({ label, value, configured, fallbackValue, allowExpr
   // previously editing a fixed value. Switching modes alone never clears it.
   const manual = expressionMode || (value !== "" && !isNumber);
   return <div className="config-field">
-    <Field label={label}><input type={manual ? "text" : "number"} value={value} placeholder={manual ? "{{ steps.example.output.value }}" : !configured && fallbackValue !== undefined ? `Default: ${fallbackValue}` : undefined} onChange={(event) => {
+    <Field label={label} error={error}><input type={manual ? "text" : "number"} value={value} placeholder={manual ? "{{ steps.example.output.value }}" : !configured && fallbackValue !== undefined ? `Default: ${fallbackValue}` : undefined} onChange={(event) => {
       const next = event.target.value;
       onChange(manual || next === "" ? next : Number(next));
     }} /></Field>
@@ -277,7 +279,7 @@ function TableField({ label, value, onChange }: { label: string; value: unknown;
   );
 }
 
-function DateTimeField({ label, value, allowExpressions, onChange }: { label: string; value: string; allowExpressions: boolean; onChange: (value: string) => void }) {
+function DateTimeField({ label, value, allowExpressions, onChange, error }: { label: string; value: string; allowExpressions: boolean; onChange: (value: string) => void; error?: string }) {
   const [manual, setManual] = useState(value.includes("{{"));
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
@@ -285,7 +287,7 @@ function DateTimeField({ label, value, allowExpressions, onChange }: { label: st
   const pad = (number: number) => String(number).padStart(2, "0");
   const precision = date.getMilliseconds() ? `:${pad(date.getSeconds())}.${String(date.getMilliseconds()).padStart(3, "0")}` : date.getSeconds() ? `:${pad(date.getSeconds())}` : "";
   const local = mounted && value && Number.isFinite(date.getTime()) ? `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}${precision}` : "";
-  return <Field label={label} className="config-field">
+  return <Field label={label} className="config-field" error={error}>
     {manual ? <input aria-label={label} value={value} placeholder="ISO time or expression" onChange={(event) => onChange(event.target.value)} /> : <input aria-label={label} type="datetime-local" step="0.001" value={local} onChange={(event) => { const next = new Date(event.target.value); onChange(event.target.value && Number.isFinite(next.getTime()) ? next.toISOString() : ""); }} />}
     <small>{manual ? "Use an ISO 8601 timestamp with timezone or an expression." : "Uses your device time zone and stores the time in UTC."}</small>
     {allowExpressions && <Button type="button" variant="ghost" onClick={() => setManual((previous) => !previous)}>{manual ? "Choose date and time" : "Enter value or expression"}</Button>}
@@ -316,7 +318,7 @@ function RowValuesField({ value, onChange, workspaceId, workflowId, nodeId, owne
   </div>;
 }
 
-function NodeConfigurationFields({ fields, config, credentials, workspaceId, workflowId, nodeId, owner, allowExpressions, onChange, draft, onDraftChange }: {
+function NodeConfigurationFields({ fields, config, credentials, workspaceId, workflowId, nodeId, owner, allowExpressions, onChange, draft, onDraftChange, issues }: {
   fields: NodeConfigurationField[];
   config: Record<string, unknown>;
   credentials: CredentialSummary[];
@@ -328,6 +330,7 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, wor
   onChange: (key: string, value: unknown) => void;
   draft: InspectorDraft;
   onDraftChange: UpdateInspectorDraft;
+  issues: NodeConfigIssue[];
 }) {
   return <>
     {fields.map((field) => {
@@ -335,48 +338,51 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, wor
       const currentValue = field.visibleWhen ? config[field.visibleWhen.key] ?? field.visibleWhen.fallback : undefined;
       if (expectedValue !== undefined && !(Array.isArray(expectedValue) ? expectedValue.includes(currentValue as never) : currentValue === expectedValue)) return null;
       const value = readConfigurationFieldValue(config, field);
+      const error = issues.find((issue) => issue.field === field.key)?.message;
       if (field.kind === "credential") {
         return <CredentialField key={field.key} label={field.label} value={value} providers={field.providers} credentials={credentials} onChange={(nextValue) => onChange(field.key, nextValue)} optional={field.optional} />;
       }
       if (field.kind === "boolean") {
         const stored = config[field.key];
         const mixed = stored !== undefined && typeof stored !== "boolean";
-        return <div key={field.key}><label className="checkbox-field"><input type="checkbox" checked={mixed ? false : stored === undefined ? field.defaultChecked ?? true : stored === true} aria-checked={mixed ? "mixed" : undefined} ref={(input) => { if (input) input.indeterminate = mixed; }} onChange={(event) => onChange(field.key, event.target.checked)} /> {field.label}</label>{mixed && <small role="status">The saved value is not a true/false literal. Review it in Advanced; selecting this checkbox replaces it.</small>}</div>;
+        return <div key={field.key}><label className="checkbox-field"><input type="checkbox" checked={mixed ? false : stored === undefined ? field.defaultChecked ?? true : stored === true} aria-checked={mixed ? "mixed" : undefined} ref={(input) => { if (input) input.indeterminate = mixed; }} onChange={(event) => onChange(field.key, event.target.checked)} /> {field.label}</label>{error ? <p className="ui-field__error" role="alert">{error}</p> : mixed && <small role="status">The saved value is not a true/false literal. Review it in Advanced; selecting this checkbox replaces it.</small>}</div>;
       }
-      if (field.kind === "datetime") return <DateTimeField key={field.key} label={field.label} value={value} allowExpressions={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
-      if (field.kind === "text" && field.advanced) return <details key={field.key} className="config-field"><summary>{field.advanced.summary}</summary><ConfigField label={field.label} value={value} onChange={(nextValue) => onChange(field.key, nextValue)} /><small>{field.advanced.help}</small></details>;
+      if (field.kind === "datetime") return <DateTimeField key={field.key} label={field.label} value={value} allowExpressions={allowExpressions} error={error} onChange={(nextValue) => onChange(field.key, nextValue)} />;
+      if (field.kind === "text" && field.advanced) return <details key={field.key} className="config-field"><summary>{field.advanced.summary}</summary><ConfigField label={field.label} value={value} error={error} onChange={(nextValue) => onChange(field.key, nextValue)} /><small>{field.advanced.help}</small></details>;
       if (field.kind === "number") {
-        const input = <NumericConfigField label={field.label} value={value} configured={Object.hasOwn(config, field.key)} fallbackValue={field.fallbackValue} allowExpressions={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
+        const input = <NumericConfigField label={field.label} value={value} configured={Object.hasOwn(config, field.key)} fallbackValue={field.fallbackValue} allowExpressions={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} error={error} />;
         return field.advanced ? <details key={field.key} className="config-field"><summary>{field.advanced.summary}</summary>{input}<small>{field.advanced.help}</small></details> : <div key={field.key}>{input}</div>;
       }
       if (field.kind === "resource") {
-        return <ResourcePicker key={field.key} workspaceId={workspaceId} resource={field.resource} credentialId={readConfigText(config, field.credentialKey)} dependencyValue={field.dependencyKey ? readConfigText(config, field.dependencyKey) : undefined} secondaryDependencyValue={field.secondaryDependencyKey ? readConfigText(config, field.secondaryDependencyKey) : undefined} resourceVariant={["notion-source-property", "notion-source-option"].includes(field.resource) ? readConfigText(config, "filterMode") : undefined} label={field.label} value={value} placeholder={field.placeholder} allowExpression={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
+        return <Fragment key={field.key}><ResourcePicker workspaceId={workspaceId} resource={field.resource} credentialId={readConfigText(config, field.credentialKey)} dependencyValue={field.dependencyKey ? readConfigText(config, field.dependencyKey) : undefined} secondaryDependencyValue={field.secondaryDependencyKey ? readConfigText(config, field.secondaryDependencyKey) : undefined} resourceVariant={["notion-source-property", "notion-source-option"].includes(field.resource) ? readConfigText(config, "filterMode") : undefined} label={field.label} value={value} placeholder={field.placeholder} allowExpression={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />{error && <p className="ui-field__error" role="alert">{error}</p>}</Fragment>;
       }
       if (field.kind === "select") {
         const selectValue = !Object.hasOwn(config, field.key) && field.fallbackValue !== undefined ? field.fallbackValue : value;
         const knownValue = field.options.some((option) => option.value === selectValue);
-        return <Field key={field.key} label={field.label} className="config-field"><Select aria-label={field.label} value={selectValue} onChange={(event) => onChange(field.key, event.target.value)}>{!knownValue && <option value={selectValue} disabled>{selectValue ? "Saved value is not in this list" : "Not set — select an option"}</option>}{field.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></Field>;
+        return <Field key={field.key} label={field.label} className="config-field" error={error}><Select aria-label={field.label} value={selectValue} onChange={(event) => onChange(field.key, event.target.value)}>{!knownValue && <option value={selectValue} disabled>{selectValue ? "Saved value is not in this list" : "Not set — select an option"}</option>}{field.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></Field>;
       }
       if (field.kind === "key-value") {
-        return <KeyValueField key={field.key} label={field.label} value={config[field.key]} keyPlaceholder={field.keyPlaceholder} valuePlaceholder={field.valuePlaceholder} onChange={(nextValue) => onChange(field.key, nextValue)} />;
+        return <Fragment key={field.key}><KeyValueField label={field.label} value={config[field.key]} keyPlaceholder={field.keyPlaceholder} valuePlaceholder={field.valuePlaceholder} onChange={(nextValue) => onChange(field.key, nextValue)} />{error && <p className="ui-field__error" role="alert">{error}</p>}</Fragment>;
       }
       if (field.kind === "table") {
-        return <TableField key={field.key} label={field.label} value={config[field.key]} onChange={(nextValue) => onChange(field.key, nextValue)} />;
+        return <Fragment key={field.key}><TableField label={field.label} value={config[field.key]} onChange={(nextValue) => onChange(field.key, nextValue)} />{error && <p className="ui-field__error" role="alert">{error}</p>}</Fragment>;
       }
-      if (field.kind === "structured-output") return <section key={field.key} className="config-field">
+      if (field.kind === "structured-output") return <section key={field.key} className="config-field structured-output-setting">
         <label className="checkbox-field"><input type="checkbox" checked={config[field.key] !== undefined} disabled={draft.structuredOutput !== undefined} onChange={(event) => onChange(field.key, event.target.checked ? { type: "object", properties: { summary: { type: "string" } }, required: ["summary"], additionalProperties: false } : undefined)} /> {field.label}</label>
-        <small>When enabled, the validated result is available in the node output as <code>json</code>; <code>text</code> contains its JSON text. Model support and cost depend on the provider. Token usage appears only when the provider supplies valid usage data.</small>
-        <small>Use a text field for identifiers or numbers that must retain exact high precision.</small>
+        {error && <p className="ui-field__error" role="alert">{error}</p>}
+        <p className="structured-output-setting__help">Return the response as structured JSON with the fields you define. Model support and cost depend on the provider.</p>
+        {config[field.key] !== undefined && <p className="structured-output-setting__help">Use text for IDs and numbers that need exact precision. Token usage is shown when supplied by the provider.</p>}
         {config[field.key] !== undefined && <StructuredOutputField value={config[field.key]} onChange={(schema) => onChange(field.key, schema)} draft={draft.structuredOutput} onDraftChange={(next) => onDraftChange("structuredOutput", next)} />}
       </section>;
-      if (field.kind === "mongo-filter") return <MongoFilterField key={field.key} value={value} draft={draft.filter} onDraftChange={(next) => onDraftChange("filter", next)} rawDraft={draft.filterRaw} onRawDraftChange={(next) => onDraftChange("filterRaw", next)} onChange={(nextValue) => onChange(field.key, nextValue)} />;
-      if (field.kind === "drive-search") return <DriveSearchField key={field.key} value={value} workspaceId={workspaceId} credentialId={readConfigText(config, "credentialId")} onChange={(nextValue) => onChange(field.key, nextValue)} />;
-      if (field.kind === "row-values") return <RowValuesField key={field.key} value={config[field.key]} workspaceId={workspaceId} workflowId={workflowId} nodeId={nodeId} owner={owner} credentials={credentials} config={config} onChange={(nextValue) => onChange(field.key, nextValue)} />;
+      if (field.kind === "mongo-filter") return <Fragment key={field.key}><MongoFilterField value={value} draft={draft.filter} onDraftChange={(next) => onDraftChange("filter", next)} rawDraft={draft.filterRaw} onRawDraftChange={(next) => onDraftChange("filterRaw", next)} onChange={(nextValue) => onChange(field.key, nextValue)} />{error && <p className="ui-field__error" role="alert">{error}</p>}</Fragment>;
+      if (field.kind === "drive-search") return <Fragment key={field.key}><DriveSearchField value={value} workspaceId={workspaceId} credentialId={readConfigText(config, "credentialId")} onChange={(nextValue) => onChange(field.key, nextValue)} />{error && <p className="ui-field__error" role="alert">{error}</p>}</Fragment>;
+      if (field.kind === "row-values") return <Fragment key={field.key}><RowValuesField value={config[field.key]} workspaceId={workspaceId} workflowId={workflowId} nodeId={nodeId} owner={owner} credentials={credentials} config={config} onChange={(nextValue) => onChange(field.key, nextValue)} />{error && <p className="ui-field__error" role="alert">{error}</p>}</Fragment>;
       return <ConfigField
         key={field.key}
         label={field.label}
         value={value}
         multiline={field.kind === "textarea"}
+        error={error}
         onChange={(nextValue) => onChange(field.key, nextValue)}
       />;
     })}
@@ -930,6 +936,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
 
   const effectiveNodeType = node.data.nodeType;
   const definition = getNodeDefinition(effectiveNodeType);
+  const configIssues = nodeConfigIssues(effectiveNodeType, node.data.config, "static");
   const nodeExecution = execution?.nodeExecutions.find((item) => item.nodeId === node.id);
   const recordedNode = execution?.graph?.nodes.find((item) => item.id === node.id && item.type === nodeExecution?.nodeType);
   const pagination = recordedNode && nodeExecution?.status === "SUCCEEDED" && !nodeExecution.error
@@ -1042,15 +1049,14 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       <InspectorSection title="Configuration">
       {(effectiveNodeType === "action.riot-lol" || effectiveNodeType === "action.riot-tft") && <Status tone="warning" className="inspector-note"><strong>Riot API prototype</strong><span>Live execution on production is unavailable while Riot approval is pending. Use a key authorized for this game and product on a private prototype. Player data can appear in execution history.{effectiveNodeType === "action.riot-tft" ? " TFT is for post-game analysis; do not use it for live scouting or gameplay advice." : ""}</span></Status>}
       {effectiveNodeType === "trigger.uptime-kuma.alert" && <Status tone="info" className="inspector-note">Leave Monitor ID empty for all monitors. Repeated notifications may start multiple runs unless the sender supplies an Idempotency-Key. Matching keys are remembered while execution history is retained for this published version.</Status>}
-      {definition?.configurationFields && <NodeConfigurationFields key={`configuration-${node.id}`} fields={definition.configurationFields} config={node.data.config} credentials={credentials} workspaceId={workspaceId} workflowId={workflowId} nodeId={node.id} owner={owner} allowExpressions={!effectiveNodeType.startsWith("trigger.")} onChange={updateConfig} draft={draft} onDraftChange={onDraftChange} />}
+      {definition?.configurationFields && <NodeConfigurationFields key={`configuration-${node.id}`} fields={definition.configurationFields} config={node.data.config} credentials={credentials} workspaceId={workspaceId} workflowId={workflowId} nodeId={node.id} owner={owner} allowExpressions={!effectiveNodeType.startsWith("trigger.")} onChange={updateConfig} draft={draft} onDraftChange={onDraftChange} issues={configIssues} />}
       {effectiveNodeType === "action.reddit.list-posts" && <Status tone="warning" className="inspector-note"><strong>Reddit access is changing</strong><span>New public Data API access requests stopped on October 31, 2026. Existing approved access is being phased out; availability depends on Reddit. <a href="https://support.reddithelp.com/hc/en-us/articles/54353370049684-Changelog-October-8-2026" target="_blank" rel="noopener noreferrer">Read Reddit's migration timeline</a>.</span></Status>}
       {["action.rss.read", "trigger.rss.new-item"].includes(effectiveNodeType) && isRedditFeed(node.data.config.url) && <Status tone="warning" className="inspector-note"><strong>Reddit RSS support is ending</strong><span>Reddit announced RSS support ends November 13, 2026. This feed may stop working. <a href="https://support.reddithelp.com/hc/en-us/articles/54353370049684-Changelog-October-8-2026" target="_blank" rel="noopener noreferrer">See Reddit's announcement</a>.</span></Status>}
       {["action.openai", "action.gemini"].includes(effectiveNodeType) && <Status tone="info" className="inspector-note">Generation may incur provider charges, including after a timeout. Limits apply per request; an administrator may set lower ceilings for output and prompt size. Model and structured-output support depend on the provider.</Status>}
       {["action.openai", "action.gemini"].includes(effectiveNodeType) && !readConfigText(node.data.config, "model").trim() && <Status tone="warning" className="inspector-note">Choose a model or enter its ID before testing this node.</Status>}
-      {["action.openai", "action.gemini"].includes(effectiveNodeType) && (node.data.config.maxOutputTokens === "" || (typeof node.data.config.maxOutputTokens === "number" && (!Number.isInteger(node.data.config.maxOutputTokens) || node.data.config.maxOutputTokens < 1 || node.data.config.maxOutputTokens > 8192))) && <Status tone="warning" className="inspector-note">Max output tokens must be a whole number from 1 to 8,192. Your administrator may set a lower limit.</Status>}
-      {["action.openai", "action.gemini"].includes(effectiveNodeType) && (node.data.config.timeoutMs === "" || (typeof node.data.config.timeoutMs === "number" && (!Number.isInteger(node.data.config.timeoutMs) || node.data.config.timeoutMs < 1000 || node.data.config.timeoutMs > 120000))) && <Status tone="warning" className="inspector-note">Timeout must be a whole number between 1,000 and 120,000 milliseconds.</Status>}
       {effectiveNodeType === "action.google-sheets" && <GoogleSheetsMappingField key={`sheets-mapping-${node.id}`} workspaceId={workspaceId} config={node.data.config} draft={draft.sheetsMapping} onDraftChange={(next) => onDraftChange("sheetsMapping", next)} applyBlockedReason={draft.json ? "Apply or discard the node JSON edits before applying this preview." : undefined} onApply={onApplySheets} />}
       {["action.postgres.select", "action.supabase.select"].includes(effectiveNodeType) && <RelationalNodeField key={`relational-${node.id}`} node={node} workspaceId={workspaceId} workflowId={workflowId} owner={owner} credentials={credentials} draft={draft.relational} onDraftChange={(next) => onDraftChange("relational", next)} jsonPending={draft.json !== undefined} />}
+      {["action.postgres.select", "action.supabase.select"].includes(effectiveNodeType) && configIssues.filter((issue) => ["columns", "conditions", "filters", "order", "orderBy", "orderDirection", "offset"].includes(issue.field)).map((issue) => <p key={issue.field} className="ui-field__error" role="alert">{issue.message}</p>)}
       {effectiveNodeType === "action.trello.create-card" && <Status tone="info" className="inspector-note">Card creation can be duplicated if a run is repeated. If the result is uncertain, check Trello before retrying.</Status>}
       {effectiveNodeType === "action.github.merge-pull-request" && <Status tone="info" className="inspector-note">For a guarded merge, provide the full head SHA from an earlier GitHub pull request step. GitHub rejects the merge if the head changes. Leave it empty to retain the original behavior.</Status>}
       {effectiveNodeType === "action.google-chat.reply" && <Status tone="info" className="inspector-note">Use the threadName output of a thread-aware send in this space. If a thread is unavailable, the reply fails rather than starting a new thread.</Status>}
@@ -1084,13 +1090,13 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       {effectiveNodeType === "trigger.manual" && <TestDataEditor key={`test-data-${node.id}`} value={node.data.config.testData} onApply={(testData) => updateConfig("testData", testData)} draft={draft.testData} onDraftChange={(next) => onDraftChange("testData", next)} />}
       {effectiveNodeType === "trigger.cron" && (
         <>
-          <ConfigField label="Cron expression" value={readConfigText(node.data.config, "expression")} onChange={(value) => updateConfig("expression", value)} />
-          <ConfigField label="Timezone" value={readConfigText(node.data.config, "timezone")} onChange={(value) => updateConfig("timezone", value)} />
+          <ConfigField label="Cron expression" value={readConfigText(node.data.config, "expression")} error={configIssues.find((issue) => issue.field === "expression")?.message} onChange={(value) => updateConfig("expression", value)} />
+          <ConfigField label="Timezone" value={readConfigText(node.data.config, "timezone")} error={configIssues.find((issue) => issue.field === "timezone")?.message} onChange={(value) => updateConfig("timezone", value)} />
         </>
       )}
       {effectiveNodeType === "trigger.webhook" && (
         <>
-          <ConfigField label="Public path" value={readConfigText(node.data.config, "path")} onChange={(value) => updateConfig("path", value)} />
+          <ConfigField label="Public path" value={readConfigText(node.data.config, "path")} error={configIssues.find((issue) => issue.field === "path")?.message} onChange={(value) => updateConfig("path", value)} />
           <label className="checkbox-field"><input type="checkbox" checked={node.data.config.secretRequired !== false} onChange={(event) => updateConfig("secretRequired", event.target.checked)} /> Require <code>x-workflow-secret</code> header</label>
         </>
       )}
@@ -1115,7 +1121,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
             const destinationLabel = destinationLabels[destinationType] ?? destinationLabels.dm;
             return (
               <>
-                <Field label="Destination type" className="config-field">
+                <Field label="Destination type" className="config-field" error={configIssues.find((issue) => issue.field === "destinationType")?.message}>
                   <Select aria-label="Telegram destination type" value={destinationType} onChange={(event) => updateConfig("destinationType", event.target.value)}>
                     <option value="dm">Direct message (DM)</option>
                     <option value="group">Group</option>
@@ -1124,21 +1130,21 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
                   </Select>
                   <small>{destinationHints[destinationType] ?? destinationHints.dm}</small>
                 </Field>
-                <ConfigField label={effectiveNodeType === "action.telegram.message" ? `${destinationLabel} chat ID (legacy credential chatId is deprecated)` : `${destinationLabel} chat ID`} value={readConfigText(node.data.config, "chatId")} onChange={(value) => updateConfig("chatId", value)} />
-                {destinationType === "supergroup" && effectiveNodeType !== "action.telegram.edit-message" && <ConfigField label="Topic / thread ID (optional)" value={readConfigText(node.data.config, "messageThreadId")} onChange={(value) => updateConfig("messageThreadId", value)} />}
+                <ConfigField label={effectiveNodeType === "action.telegram.message" ? `${destinationLabel} chat ID (legacy credential chatId is deprecated)` : `${destinationLabel} chat ID`} value={readConfigText(node.data.config, "chatId")} error={configIssues.find((issue) => issue.field === "chatId")?.message} onChange={(value) => updateConfig("chatId", value)} />
+                {destinationType === "supergroup" && effectiveNodeType !== "action.telegram.edit-message" && <ConfigField label="Topic / thread ID (optional)" value={readConfigText(node.data.config, "messageThreadId")} error={configIssues.find((issue) => issue.field === "messageThreadId")?.message} onChange={(value) => updateConfig("messageThreadId", value)} />}
               </>
             );
           })()}
-          {effectiveNodeType !== "action.telegram.message" && <ConfigField label="Message ID" value={readConfigText(node.data.config, "messageId")} onChange={(value) => updateConfig("messageId", value)} />}
-          <ConfigField label="Message text" value={readConfigText(node.data.config, "text") || readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("text", value)} multiline />
-          <Field label="Parse mode" className="config-field"><Select aria-label="Telegram parse mode" value={readConfigText(node.data.config, "parseMode")} onChange={(event) => updateConfig("parseMode", event.target.value)}><option value="">Plain text</option><option value="Markdown">Markdown</option><option value="HTML">HTML</option><option value="MarkdownV2">MarkdownV2</option></Select></Field>
+          {effectiveNodeType !== "action.telegram.message" && <ConfigField label="Message ID" value={readConfigText(node.data.config, "messageId")} error={configIssues.find((issue) => issue.field === "messageId")?.message} onChange={(value) => updateConfig("messageId", value)} />}
+          <ConfigField label="Message text" value={readConfigText(node.data.config, "text") || readConfigText(node.data.config, "message")} error={configIssues.find((issue) => issue.field === "text" || issue.field === "message")?.message} onChange={(value) => updateConfig("text", value)} multiline />
+          <Field label="Parse mode" className="config-field" error={configIssues.find((issue) => issue.field === "parseMode")?.message}><Select aria-label="Telegram parse mode" value={readConfigText(node.data.config, "parseMode")} onChange={(event) => updateConfig("parseMode", event.target.value)}><option value="">Plain text</option><option value="Markdown">Markdown</option><option value="HTML">HTML</option><option value="MarkdownV2">MarkdownV2</option></Select></Field>
           {readConfigText(node.data.config, "parseMode") && <small>Telegram applies formatting to the entire message, including values from previous steps. Escape special characters in those values to avoid a formatting error.</small>}
         </>
       )}
       {effectiveNodeType === "condition.if" && (
         <>
           <ConfigField label="Left value" value={readConfigText(node.data.config, "left")} onChange={(value) => updateConfig("left", value)} />
-          <Field label="Operator" className="config-field"><Select aria-label="Condition operator" value={readConfigText(node.data.config, "operator") || "equals"} onChange={(event) => updateConfig("operator", event.target.value)}><option value="equals">Equals</option><option value="not_equals">Does not equal</option><option value="contains">Contains</option><option value="exists">Exists</option></Select></Field>
+          <Field label="Operator" className="config-field" error={configIssues.find((issue) => issue.field === "operator")?.message}><Select aria-label="Condition operator" value={readConfigText(node.data.config, "operator") || "equals"} onChange={(event) => updateConfig("operator", event.target.value)}><option value="equals">Equals</option><option value="not_equals">Does not equal</option><option value="contains">Contains</option><option value="exists">Exists</option></Select></Field>
           <ConfigField label="Right value" value={readConfigText(node.data.config, "right")} onChange={(value) => updateConfig("right", value)} />
         </>
       )}
@@ -1146,11 +1152,12 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
         <>
           <ConfigField label="Value to evaluate" value={readConfigText(node.data.config, "value")} onChange={(value) => updateConfig("value", value)} />
           <SwitchCaseEditor cases={node.data.config.cases} onChange={(cases) => updateConfig("cases", cases)} />
+          {configIssues.find((issue) => issue.field === "cases") && <p className="ui-field__error" role="alert">{configIssues.find((issue) => issue.field === "cases")?.message}</p>}
         </>
       )}
       {effectiveNodeType === "approval.request" && <>
         <ConfigField label="Approval message" value={readConfigText(node.data.config, "message")} onChange={(value) => updateConfig("message", value)} multiline />
-        <Field label="Notification provider" className="config-field"><Select aria-label="Approval notification provider" value={readConfigText(node.data.config, "notificationProvider") || "google_chat"} onChange={(event) => updateConfig("notificationProvider", event.target.value)}><option value="google_chat">Google Chat</option><option value="http_webhook">HTTP webhook</option></Select></Field>
+        <Field label="Notification provider" className="config-field" error={configIssues.find((issue) => issue.field === "notificationProvider")?.message}><Select aria-label="Approval notification provider" value={readConfigText(node.data.config, "notificationProvider") || "google_chat"} onChange={(event) => updateConfig("notificationProvider", event.target.value)}><option value="google_chat">Google Chat</option><option value="http_webhook">HTTP webhook</option></Select></Field>
         <CredentialField label="Notification credential (optional)" value={readConfigText(node.data.config, "notificationCredentialId")} providers={readConfigText(node.data.config, "notificationProvider") === "http_webhook" ? ["HTTP"] : ["GOOGLE_CHAT_WEBHOOK"]} credentials={credentials} onChange={(value) => updateConfig("notificationCredentialId", value)} optional />
       </>}
       {definition && !definition.available && <p className="planned-note">This node is visible for roadmap clarity, but cannot run in the MVP.</p>}

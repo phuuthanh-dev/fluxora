@@ -2,6 +2,14 @@
 
 This repository builds Fluxora, an open-source workflow-automation platform for personal use first, with an architecture that can grow to small teams.
 
+## Scope control — owner directive
+
+- Follow the owner's latest requested outcome and constraints. A later direction that narrows or changes the work overrides an older goal, backlog, specification suggestion, agent report, or automation continuation.
+- Before changing code, identify how the change is required for the current request. Carry out necessary implementation details and fixes within that scope; do not invent additional features, settings, compatibility layers, refactors, or architecture work just because an audit or specification mentions them.
+- An audit or request to inspect is not authorization to implement every issue discovered. Report out-of-scope findings separately, and obtain an explicit instruction before implementing them. If a scope boundary is genuinely ambiguous, ask rather than silently expanding it.
+- Confirm existing implementation and release state before starting work, so completed features are not repeated. Keep unfinished or unrelated local changes intact unless the owner explicitly directs otherwise.
+- Respect the owner's requested batch and validation timing. Do not create extra PRs, deploys, or verification loops outside that instruction. Explain any blocker and the actual status without claiming unverified work is complete.
+
 ## Mandatory reading order
 
 Before planning, coding, reviewing, or changing dependencies, read these files in order:

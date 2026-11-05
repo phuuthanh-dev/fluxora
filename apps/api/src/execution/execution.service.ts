@@ -4,7 +4,7 @@ export { mockDrive, executeGoogleDrive } from "./google-workspace-adapter";
 export { executeGoogleChatWebhook, executeDiscordWebhook, executeTelegramMessage } from "./notification-adapters";
 export { executeGitHubCreateIssue, executeGitHubAddLabel, executeGitHubAddComment, executeGitHubMergePullRequest } from "./github-write-adapter";
 import { getConnectorExecutor } from "./connector-executors";
-import { isExecutableWorkflowNodeType, type WorkflowEdge, type WorkflowGraph, type WorkflowNode } from "@workflow/contracts";
+import { isExecutableWorkflowNodeType, nodeConfigIssues, type WorkflowEdge, type WorkflowGraph, type WorkflowNode } from "@workflow/contracts";
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { ApprovalRequestStatus, CredentialProvider, ExecutionStatus, NodeExecutionStatus, Prisma } from "@prisma/client";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
@@ -864,6 +864,8 @@ export async function executeNode(node: WorkflowNode, config: Record<string, unk
   assertSupabaseWriteExpressions(node, context);
   assertGitHubSafetyExpressions(node, config, context);
   if (connectorExecutor) return connectorExecutor({ config, mode, workspaceId, credentials, executionId, nodeId: node.id });
+  const issue = nodeConfigIssues(node.type, config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_CONFIGURATION", issue.message, false);
   if (node.type === "trigger.gmail" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "gmail", message: { id: "example-message", from: "sender@example.test", to: "owner@example.test", subject: "Example message", text: "Synthetic test message", labels: ["INBOX"] } } }, route: "success" };
   if (node.type === "trigger.rss.new-item" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "rss", item: { id: "example-item", title: "Example item", link: "https://example.test/item", publishedAt: "", summary: "Synthetic feed item" } } }, route: "success" };
   if (node.type === "trigger.telegram.update" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "telegram", event: "message", updateId: 1, message: { chatId: "123456", messageId: 1, senderId: "123456", threadId: null, text: "Example message" } } }, route: "success" };

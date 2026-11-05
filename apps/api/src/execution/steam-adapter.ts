@@ -2,16 +2,24 @@ import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
 import { readCredentialValue } from "./connector-config";
 import { fetchSafeOutbound } from "./outbound-url-policy";
 import { readProviderJson } from "./provider-request-policy";
+import { nodeConfigIssues } from "@workflow/contracts";
 import { parseSteamResult, steamIdValue } from "./steam-operations";
 
 type SnapshotTransport = (url: string, init: RequestInit) => Promise<Response>;
 // Steam libraries can be large; bound the snapshot without truncating it.
 const snapshotResponseLimit = 5_000_000;
 
+function validateSnapshotOptions(config: Record<string, unknown>) {
+  const issue = nodeConfigIssues("action.steam.account-snapshot", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
+  return typeof config.achievementAppId === "string" ? config.achievementAppId.trim() : "";
+}
+
 export function mockSteamSnapshot(steamId: string, config: Record<string, unknown> = {}) {
+  const achievementAppId = validateSnapshotOptions(config);
   const ownedGames = config.includeOwnedGames === false ? [] : [{ appid: 620, name: "Portal 2", playtime_forever: 1240 }, { appid: 1145360, name: "Hades", playtime_forever: 680 }];
   const recentGames = config.includeRecentGames === false ? [] : [{ appid: 620, name: "Portal 2", playtime_2weeks: 180, playtime_forever: 1240 }];
-  const achievements = typeof config.achievementAppId === "string" && config.achievementAppId.trim()
+  const achievements = achievementAppId
     ? { steamID: steamId, achievements: [{ apiname: "EXAMPLE_ACHIEVEMENT", achieved: 1 }] } : null;
   return {
     profile: { steamid: steamId, personaname: "Mock Steam Player", profileurl: `https://steamcommunity.com/profiles/${steamId}`, communityvisibilitystate: 3 },
@@ -24,6 +32,7 @@ export function mockSteamSnapshot(steamId: string, config: Record<string, unknow
 }
 
 export async function steamSnapshot(credential: Record<string, unknown>, config: Record<string, unknown>, transport: SnapshotTransport = fetchSafeOutbound) {
+  const achievementAppId = validateSnapshotOptions(config);
   const apiKey = readCredentialValue(credential, "apiKey");
   const configuredSteamId = typeof config.steamId === "string" ? config.steamId.trim() : "";
   const steamId = steamIdValue(configuredSteamId || readCredentialValue(credential, "steamId"));
@@ -39,7 +48,6 @@ export async function steamSnapshot(credential: Record<string, unknown>, config:
     `${base}/IPlayerService/GetRecentlyPlayedGames/v0001/?${new URLSearchParams({ key: apiKey, steamid: steamId, format: "json" })}`,
     "recent games", apiKey, transport,
   ).then((body) => (parseSteamResult("recentGames", body, steamId).games ?? []) as SteamGame[]);
-  const achievementAppId = typeof config.achievementAppId === "string" ? config.achievementAppId.trim() : "";
   const achievements = achievementAppId ? await steamAchievements(base, apiKey, steamId, achievementAppId, transport) : null;
   const player = profile as Record<string, unknown>;
   const gameId = player.gameid;

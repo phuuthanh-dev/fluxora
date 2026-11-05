@@ -60,13 +60,22 @@ test("catalog executable nodes reach a mock handler without reading credentials"
 test("trigger metadata describes the common output wrapper without assuming a provider payload", async () => {
   const credentials = new Proxy({}, { get() { throw new Error("Trigger dispatch must not read credentials"); } }) as never;
   const payload = { source: "synthetic", data: { id: 1 } };
+  const configurations: Record<string, Record<string, unknown>> = {
+    "trigger.cron": { expression: "0 9 * * *", timezone: "UTC" },
+    "trigger.rss.new-item": { url: "https://example.test/feed.xml" },
+    "trigger.telegram.update": { event: "message", chatMode: "all" },
+    "trigger.vercel.deployment": { team: "personal", project: "prj_example", event: "deployment.created" },
+    "trigger.trello.board-action": { boardId: "a".repeat(24), action: "all" },
+    "trigger.sentry.issue-created": { installationId: "00000000-0000-4000-8000-000000000001", project: "example" },
+  };
   for (const type of executableWorkflowNodeTypes.filter((candidate) => candidate.startsWith("trigger."))) {
-    const node = { id: "trigger", type, position: { x: 0, y: 0 }, config: {} };
+    const config = configurations[type] ?? {};
+    const node = { id: "trigger", type, position: { x: 0, y: 0 }, config };
     const metadata = getOperationMetadata(type);
     assert.ok(metadata && "knownFields" in metadata.output, type);
     assert.deepEqual(metadata.output.knownFields, ["received"], type);
     for (const mode of ["mock", "live"] as const) {
-      const result = await executeNode(node, {}, { trigger: payload }, mode, "workspace", credentials, "execution");
+      const result = await executeNode(node, config, { trigger: payload }, mode, "workspace", credentials, "execution");
       assert.deepEqual(result.output, { received: payload }, `${type} ${mode}`);
     }
   }
@@ -76,7 +85,7 @@ test("approval and Drive metadata only describe common output fields", async () 
   const credentials = new Proxy({}, { get() { throw new Error("Mock must not read credentials"); } }) as never;
   for (const [type, configs] of [
     ["approval.request", [{}]],
-    ["action.google-drive", [{ operation: "list" }, { operation: "search" }, { operation: "uploadText" }, { operation: "downloadText" }]],
+    ["action.google-drive", [{ operation: "list" }, { operation: "search" }, { operation: "uploadText", name: "example.txt" }, { operation: "downloadText", fileId: "example-file" }]],
   ] as const) {
     const metadata = getOperationMetadata(type);
     assert.ok(metadata && "knownFields" in metadata.output, type);
@@ -165,7 +174,7 @@ test("configured mock outputs contain the fields advertised by operation metadat
     ["action.google-calendar.availability", { calendarId: "primary", start: "2030-01-01T09:00:00Z", end: "2030-01-01T10:00:00Z" }],
     ["action.steam", { operation: "profile" }],
     ["action.steam.account-snapshot", {}],
-    ["action.google-sheets", { operation: "read", range: "Sheet1!A1:B2" }],
+    ["action.google-sheets", { operation: "read", spreadsheetId: "mock-spreadsheet", range: "Sheet1!A1:B2" }],
     ["action.sentry.list-issues", { organization: "example", project: "project" }],
     ["action.vercel.list-deployments", { team: "personal", project: "prj_example" }],
     ["action.supabase.insert-row", { table: "items", fields: [{ column: "name", type: "text", value: "Sample" }] }],
@@ -293,7 +302,7 @@ test("Drive advertises pagination only for list and search, matching the dispatc
   assert.ok(continuation.preserve?.includes("collectPages"));
   assert.equal(continuation.next, "nextPageToken");
   for (const operation of ["list", "search", "uploadText", "downloadText"]) {
-    const config = { operation, pageToken: "synthetic-page" };
+    const config = { operation, pageToken: "synthetic-page", name: "example.txt", fileId: "example-file" };
     const node = { id: "drive", type: "action.google-drive" as const, position: { x: 0, y: 0 }, config };
     const result = await executeNode(node, config, {}, "mock", "workspace", {} as never, "execution");
     assert.equal(continuation.next in result.output, operation === "list" || operation === "search", operation);

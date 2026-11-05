@@ -1,4 +1,5 @@
 import { CredentialProvider } from "@prisma/client";
+import { nodeConfigIssues } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure } from "./node-failure";
 import { getJson, observabilityTransport, record, token, type ObservabilityTransport } from "./observability-read";
@@ -43,6 +44,8 @@ async function context(config: Record<string, unknown>, workspaceId: string, cre
 
 export async function executeSentryGetIssue(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: ObservabilityTransport = observabilityTransport) {
   if (!slug(config.organization) || !slug(config.project) || !issueId(config.issueId)) throw new NodeFailure("INVALID_INPUT", "Choose a Sentry organization, project and numeric issue ID.", false);
+  const configIssue = nodeConfigIssues("action.sentry.get-issue", config, "resolved")[0];
+  if (configIssue) throw new NodeFailure("INVALID_INPUT", configIssue.message, false);
   if (mode === "mock") return { status: "succeeded" as const, output: { issue: { id: config.issueId, title: "Example issue", titleTruncated: false, status: "unresolved", level: "error", firstSeen: null, lastSeen: null, count: "1", partial: true } }, route: "success" as const };
   const { base, accessToken } = await context(config, workspaceId, credentials);
   const result = await getJson(`${base}/${config.organization}/issues/${config.issueId}/?collapse=release&collapse=stats&collapse=tags`, accessToken, "Sentry", transport);

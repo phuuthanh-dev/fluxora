@@ -7,6 +7,7 @@ import { requireResolvedSelection } from "./relational-selection-validation";
 import { buildPostgresSelect, type PostgresSelection } from "./postgres-select-query";
 import { resolvePostgresTarget } from "./postgres-target";
 import { CredentialProvider } from "@prisma/client";
+import { nodeConfigIssues } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { assertNoCredentialInProviderValue } from "./provider-credential-safety";
 
@@ -92,6 +93,8 @@ const postgresSelectionKeys = ["limit", "columns", "conditions", "orderBy", "ord
 export async function executePostgresSelect(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, read: typeof readPostgresRows = readPostgresRows): Promise<{ status: "succeeded"; output: { rows: Record<string, unknown>[]; count: number; returnedCount?: number; page?: { limit: number; offset: number; completeness: "unknown" } }; route: "success" }> {
   if (Object.keys(config).some((key) => !postgresConfigKeys.has(key))) throw new NodeFailure("INVALID_INPUT", "PostgreSQL configuration contains an unsupported field.", false);
   requireResolvedSelection(config, postgresSelectionKeys, "PostgreSQL");
+  const issue = nodeConfigIssues("action.postgres.select", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   const schema = typeof config.schema === "string" ? config.schema : "";
   const table = typeof config.table === "string" ? config.table : "";
   const limit = Object.hasOwn(config, "limit") ? config.limit : 20;

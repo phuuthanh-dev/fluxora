@@ -1,6 +1,7 @@
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
 import { fetchSafeOutbound, fetchSafeOutboundWrite } from "./outbound-url-policy";
 import { CredentialProvider } from "@prisma/client";
+import { nodeConfigIssues } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { readBoundedProviderJson } from "./provider-json";
 import { assertNoAiCredentialEcho, mockAiOutput, normalizeAiUsage, parseAiOutput, parseAiSchema } from "./ai-structured-output";
@@ -117,6 +118,8 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 }
 
 export async function executeGeminiText(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, generate: typeof generateGeminiText = generateGeminiText) {
+  const issue = nodeConfigIssues("action.gemini", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   assertResolvedAiLimits(config);
   const model = typeof config.model === "string" ? config.model : "";
   const prompt = typeof config.prompt === "string" ? config.prompt : "";

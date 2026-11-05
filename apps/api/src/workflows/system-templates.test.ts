@@ -5,12 +5,12 @@ import { systemWorkflowTemplates } from "./system-templates";
 import { resolveExpressions } from "../execution/expression";
 import { executeNode } from "../execution/execution.service";
 
-test("system workflow templates are valid executable graphs with declared connections", () => {
+test("system workflow templates are valid draft graphs with declared connections", () => {
   assert.equal(new Set(systemWorkflowTemplates.map((template) => template.slug)).size, systemWorkflowTemplates.length);
   for (const template of systemWorkflowTemplates) {
     assert.ok(template.tags.length >= 1, `${template.slug} should declare at least one use-case tag`);
     assert.ok(template.requiredConnections.length >= 1, `${template.slug} should declare required connections`);
-    assert.doesNotThrow(() => validatePublishableGraph(parseWorkflowGraph(template.graph)), template.slug);
+    assert.doesNotThrow(() => parseWorkflowGraph(template.graph), template.slug);
     assert.equal(template.graph.nodes.filter((node) => node.type.startsWith("trigger.")).length, 1);
     assert.ok(template.graph.edges.length > 0, `${template.slug} should connect its nodes`);
   }
@@ -47,7 +47,8 @@ test("connector-to-chat templates compose mock output into a bounded summary wit
     const notify = template.graph.nodes.find((node) => node.id === "notify")!;
     const fixture = inspect.type === "action.postgres.select" || inspect.type === "action.supabase.select"
       ? { table: "fixture_table" }
-      : inspect.type === "action.trello.list-cards" ? { boardId: "aaaaaaaaaaaaaaaaaaaaaaaa" } : {};
+      : inspect.type === "action.trello.list-cards" ? { boardId: "aaaaaaaaaaaaaaaaaaaaaaaa" }
+      : inspect.type === "action.google-sheets" ? { spreadsheetId: "mock-spreadsheet" } : {};
     const result = await executeNode(inspect, { ...inspect.config, ...fixture }, {}, "mock", "workspace", credentials, "execution");
     const config = resolveExpressions(notify.config, { steps: { inspect: { output: result.output } } }) as Record<string, unknown>;
     assert.equal(result.status, "succeeded", template.slug);
@@ -73,6 +74,7 @@ test("AI structured summary templates need a chosen model and compose mock outpu
     const summarize = template.graph.nodes.find((item) => item.id === "summarize")!;
     const notify = template.graph.nodes.find((item) => item.id === "notify")!;
     assert.equal(summarize.config.model, "");
+    assert.throws(() => validatePublishableGraph(parseWorkflowGraph(template.graph)), /Choose a valid model/);
     await assert.rejects(executeNode(summarize, summarize.config, {}, "mock", "workspace", credentials, "execution"), { code: "INVALID_INPUT" });
     const output = await executeNode(summarize, { ...summarize.config, model: "example-model" }, {}, "mock", "workspace", credentials, "execution");
     const notification = resolveExpressions(notify.config, { steps: { summarize: { output: output.output } } }) as Record<string, unknown>;

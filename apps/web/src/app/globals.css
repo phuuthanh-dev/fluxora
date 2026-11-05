@@ -132,6 +132,12 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px soli
 .mongo-filter__condition { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-sm); display: grid; gap: 10px; margin: 10px 0; padding: 12px; }
 .mongo-filter__condition .ui-field { min-width: 0; }
 .mongo-filter__actions { justify-content: flex-start; margin-top: 10px; }
+.structured-output-setting__help { color: var(--text-secondary); font-size: 12px; line-height: 1.5; margin: 8px 0; }
+.structured-output-setting .checkbox-field { color: var(--ink); font-size: 13px; }
+.config-field .checkbox-field input[type="checkbox"] { appearance: none; flex: 0 0 16px; height: 16px; min-height: 0; padding: 0; width: 16px; }
+.config-field .checkbox-field input[type="checkbox"]:checked { background: var(--accent-strong); border-color: var(--accent-strong); }
+.config-field .checkbox-field input[type="checkbox"]:checked::after { height: 7px; left: 5px; top: 2px; }
+[data-theme="dark"] .config-field .checkbox-field input[type="checkbox"]:checked { background: var(--accent-strong); border-color: var(--accent-strong); }
 .credential-field small, .resource-picker small { color: var(--muted); display: block; font-size: 12px; line-height: 1.4; margin-top: 4px; }
 .inspector-note { background: color-mix(in srgb, var(--text-accent) 7%, var(--panel)); border: 1px solid var(--line); border-radius: 8px; color: var(--text-secondary); display: grid; font-size: 12px; gap: 4px; line-height: 1.5; margin-top: 14px; padding: 11px 12px; }
 .inspector-note strong { color: var(--ink); font-size: 12px; font-weight: 700; }

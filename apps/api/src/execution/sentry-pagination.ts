@@ -1,7 +1,8 @@
 import { NodeFailure } from "./node-failure";
+import { isSentryCursor } from "@workflow/contracts";
 
 // A continuation remains opaque to callers; accept Sentry's documented numeric cursor form only.
-export const sentryCursorValid = (value: unknown): value is string => typeof value === "string" && /^-?[0-9]{1,20}:[0-9]{1,20}:[01]$/.test(value);
+export const sentryCursorValid = isSentryCursor;
 
 function invalidLink(): never { throw new NodeFailure("INVALID_RESPONSE", "Sentry returned invalid pagination metadata.", false); }
 export function sentryNextLink(header: string | null, requestUrl: string): { hasMore: boolean | null; cursor: string | null } {

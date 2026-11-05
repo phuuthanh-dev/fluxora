@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { nodeConfigIssues } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { gmailOperations, type GmailMessageInput } from "./gmail-operations";
 import { NodeFailure } from "./node-failure";
@@ -19,6 +20,9 @@ function input(config: Record<string, unknown>, operation: Operation): GmailMess
 /** Writes use only the selected Gmail credential and never replay ambiguous provider outcomes. */
 export async function executeGmailWrite(config: Record<string, unknown>, operation: Operation, mode: "mock" | "live", workspaceId: string, credentials: CredentialService) {
   if (!["send", "reply", "draft", "updateDraft", "label"].includes(operation)) throw invalid();
+  const type = { send: "action.gmail.send", reply: "action.gmail.reply", draft: "action.gmail.create-draft", updateDraft: "action.gmail.update-draft", label: "action.gmail.modify-label" }[operation];
+  const issue = nodeConfigIssues(type, config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   const messageId = typeof config.messageId === "string" ? config.messageId.trim() : "";
   const draftId = typeof config.draftId === "string" ? config.draftId.trim() : "";
   const labelId = typeof config.labelId === "string" ? config.labelId.trim() : "";

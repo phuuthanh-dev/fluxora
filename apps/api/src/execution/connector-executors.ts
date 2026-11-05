@@ -1,4 +1,4 @@
-import type { ExecutableWorkflowNodeType } from "@workflow/contracts";
+import { nodeConfigIssues, type ExecutableWorkflowNodeType } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { CredentialProvider } from "@prisma/client";
 import type { ConnectorExecutor } from "./node-executor-contract";
@@ -46,8 +46,10 @@ const executors = {
   "action.riot-lol": ({ config, mode, workspaceId, credentials }) => executeRiotLol(config, mode, workspaceId, credentials),
   "action.riot-tft": ({ config, mode, workspaceId, credentials }) => executeRiotTft(config, mode, workspaceId, credentials),
   "action.steam.account-snapshot": async ({ config, mode, workspaceId, credentials }) => {
+    const issue = nodeConfigIssues("action.steam.account-snapshot", config, "resolved")[0];
+    if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
     const configuredSteamId = typeof config.steamId === "string" ? config.steamId.trim() : config.steamId;
-    const steamId = configuredSteamId === undefined || configuredSteamId === "" ? undefined : steamIdValue(configuredSteamId);
+    const steamId = !Object.hasOwn(config, "steamId") || configuredSteamId === "" ? undefined : steamIdValue(configuredSteamId);
     if (mode === "live") {
       const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.STEAM);
       return { status: "succeeded", output: await steamSnapshot(credential, config), route: "success" };
@@ -65,6 +67,8 @@ const executors = {
   "action.google-drive.get-file": ({ config, mode, workspaceId, credentials }) => executeDriveGetFile(config, mode, workspaceId, credentials),
   "action.google-drive.create-folder": ({ config, mode, workspaceId, credentials }) => executeDriveCreateFolder(config, mode, workspaceId, credentials),
   "action.google-sheets": async ({ config, mode, workspaceId, credentials }) => {
+    const issue = nodeConfigIssues("action.google-sheets", config, "resolved")[0];
+    if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
     if (Object.hasOwn(config, "operation") && (typeof config.operation !== "string" || !["read", "append", "update"].includes(config.operation))) {
       throw new NodeFailure("INVALID_INPUT", "Choose a valid Google Sheets operation.", false);
     }
@@ -136,6 +140,8 @@ const executors = {
 } satisfies Record<Extract<ExecutableWorkflowNodeType, `action.${string}`>, ConnectorExecutor>;
 
 async function executeDriveNode(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService) {
+  const issue = nodeConfigIssues("action.google-drive", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   if (Object.hasOwn(config, "operation") && (typeof config.operation !== "string" || !["list", "search", "uploadText", "downloadText"].includes(config.operation))) {
     throw new NodeFailure("INVALID_INPUT", "Choose a valid Google Drive operation.", false);
   }

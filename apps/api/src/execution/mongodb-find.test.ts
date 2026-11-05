@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createMongoClient, createResolvedMongoClient, executeMongoFind, executeMongoInsert, guardedMongoLookup, listMongoCollections, listMongoDatabases, validateMongoCredential } from "./mongodb-find";
+import { resolveExpressions } from "./expression";
 
 const connection = { host: "mongo.example.com", port: 27017, username: "test-user", password: "synthetic-password", authDatabase: "admin" };
 const config = { database: "sample", collection: "items", filter: "{}", limit: 20 };
@@ -10,6 +11,29 @@ test("MongoDB mock validates input and never reads credentials", async () => {
   assert.equal(result.output.count, 1);
   for (const invalid of [{ ...config, operation: "delete" }, { ...config, limit: 101 }, { ...config, filter: '{"$where":"return true"}' }, { ...config, filter: "[]" }]) {
     await assert.rejects(executeMongoFind(invalid, "mock", "workspace", {} as never));
+  }
+});
+
+test("MongoDB never replaces an invalid or unresolved filter with an unfiltered read", async () => {
+  let credentialsRead = 0;
+  const credentials = { readForExecution: async () => { credentialsRead++; throw new Error("unexpected credential read"); } } as never;
+  const unresolved = resolveExpressions({ filter: { owner: "{{ steps.missing.output.id }}" } }, { steps: {} }) as Record<string, unknown>;
+  for (const mode of ["mock", "live"] as const) {
+    for (const filter of [undefined, null, "[1]", { owner: undefined }, { nested: { $where: "return true" } }]) {
+      await assert.rejects(executeMongoFind({ database: "sample", collection: "items", filter }, mode, "workspace", credentials), /valid MongoDB filter/);
+    }
+    await assert.rejects(executeMongoFind({ database: "sample", collection: "items", ...unresolved }, mode, "workspace", credentials), /valid MongoDB filter/);
+  }
+  assert.equal(credentialsRead, 0);
+  const omitted = await executeMongoFind({ database: "sample", collection: "items" }, "mock", "workspace", credentials);
+  assert.equal(omitted.status, "succeeded");
+});
+
+test("MongoDB insert rejects unresolved document values before reading credentials", async () => {
+  const credentials = { readForExecution: async () => { throw new Error("unexpected credential read"); } } as never;
+  const document = { owner: undefined };
+  for (const mode of ["mock", "live"] as const) {
+    await assert.rejects(executeMongoInsert({ database: "sample", collection: "items", document }, mode, "workspace", credentials), /valid JSON document/);
   }
 });
 

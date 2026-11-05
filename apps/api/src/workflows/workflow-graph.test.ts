@@ -8,7 +8,7 @@ const validSwitchGraph: WorkflowGraph = {
   nodes: [
     { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
     { id: "switch", type: "condition.switch", position: { x: 200, y: 0 }, config: { value: "public", cases: [{ value: "public" }, { value: "private" }] } },
-    { id: "public-action", type: "action.http-request", position: { x: 400, y: 0 }, config: {} },
+    { id: "public-action", type: "action.http-request", position: { x: 400, y: 0 }, config: { url: "https://example.test" } },
   ],
   edges: [
     { id: "manual-switch", source: "manual", target: "switch", kind: "success" },
@@ -21,6 +21,31 @@ test("publishes a Switch graph only when case edges map to configured values", (
   const invalid = structuredClone(validSwitchGraph);
   invalid.edges[1]!.caseValue = "unknown";
   assert.throws(() => validatePublishableGraph(invalid), BadRequestException);
+});
+
+test("Steam snapshot draft is editable but publishing validates literals and defers expressions", () => {
+  const graph = (config: Record<string, unknown>) => parseWorkflowGraph({ nodes: [
+    { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
+    { id: "steam", type: "action.steam.account-snapshot", position: { x: 1, y: 0 }, config },
+  ], edges: [] });
+  for (const config of [{}, { steamId: "76561198000000000", achievementAppId: "620", includeOwnedGames: false }, { includeOwnedGames: "{{ steps.manual.output.include }}" }, { achievementAppId: "{{ steps.manual.output.appId }}" }]) {
+    assert.doesNotThrow(() => validatePublishableGraph(graph(config)));
+  }
+  for (const config of [{ steamId: 123 }, { achievementAppId: "not-an-id" }, { includeOwnedGames: "false" }, { includeRecentGames: null }]) {
+    const parsed = graph(config);
+    assert.throws(() => validatePublishableGraph(parsed), (error: unknown) => error instanceof BadRequestException && String(error.message).includes("Node steam:"));
+  }
+});
+
+test("MongoDB draft can be incomplete but publish checks static values and permits expressions", () => {
+  const graph = (config: Record<string, unknown>) => parseWorkflowGraph({ nodes: [
+    { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
+    { id: "mongo", type: "action.mongodb", position: { x: 1, y: 0 }, config },
+  ], edges: [] });
+  assert.doesNotThrow(() => validatePublishableGraph(graph({ database: "sample", collection: "items", filter: "{}" })));
+  assert.doesNotThrow(() => validatePublishableGraph(graph({ database: "{{ steps.manual.output.database }}", collection: "items" })));
+  assert.throws(() => validatePublishableGraph(graph({ database: "sample", collection: "items", filter: null })), BadRequestException);
+  assert.throws(() => validatePublishableGraph(graph({ database: "sample" })), BadRequestException);
 });
 
 test("cron drafts and stored graphs remain readable, but publishing requires a valid schedule", () => {

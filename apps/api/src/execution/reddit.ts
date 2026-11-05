@@ -1,4 +1,5 @@
 import { CredentialProvider } from "@prisma/client";
+import { nodeConfigIssues } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
 import { fetchSafeOutbound } from "./outbound-url-policy";
@@ -19,6 +20,8 @@ async function request(url: string, init: RequestInit, transport: Transport) {
 }
 
 export async function executeRedditListPosts(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport = fetchSafeOutbound) {
+  const issue = nodeConfigIssues("action.reddit.list-posts", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   const subreddit = typeof config.subreddit === "string" ? config.subreddit.trim().replace(/^r\//i, "") : "";
   const sort = config.sort === undefined ? "new" : config.sort;
   const limit = config.limit === undefined ? 20 : config.limit;

@@ -77,7 +77,7 @@ export function StructuredOutputField({ value, onChange, draft, onDraftChange }:
         <textarea rows={2} maxLength={STRUCTURED_OUTPUT_MAX_DESCRIPTION_LENGTH} value={model.description ?? ""} onChange={(event) => updateModel({ ...model, description: event.target.value })} />
       </Field>
       {model.fields.map((row, index) => <fieldset className="mongo-filter__condition" key={index}>
-        <legend>Field {index + 1}</legend>
+        <legend className="visually-hidden">Field {index + 1}</legend>
         <div className="mongo-filter__row-heading"><strong>Field {index + 1}</strong><Button variant="ghost" aria-label={`Remove field ${index + 1}${row.name ? `: ${row.name}` : ""}`} onClick={() => updateModel({ ...model, fields: model.fields.filter((_, i) => i !== index) })}>Remove</Button></div>
         <Field label="Name"><input aria-label={`Field ${index + 1} name`} placeholder="e.g. summary" maxLength={STRUCTURED_OUTPUT_MAX_NAME_LENGTH} value={row.name} onChange={(event) => updateRow(index, { name: event.target.value })} /></Field>
         <Field label="Type"><Select aria-label={`Field ${index + 1} type`} value={row.type} onChange={(event) => updateRow(index, { type: event.target.value as StructuredOutputType })}>
