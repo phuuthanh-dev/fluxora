@@ -1,4 +1,5 @@
 import type { CredentialService } from "../credentials/credential.service";
+import { nodeConfigIssues } from "@workflow/contracts";
 import { NodeFailure } from "./node-failure";
 import { fetchSafeOutbound, fetchSafeOutboundWrite, wasOutboundRedirected } from "./outbound-url-policy";
 import { assertNoCredentialInProviderFields } from "./provider-credential-safety";
@@ -34,6 +35,8 @@ function providerFile(value: unknown, token: string): { id: string; name: string
 
 /** Read limited metadata only. The selected file must be accessible to this connection. */
 export async function executeDriveGetFile(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, read: Transport = fetchSafeOutbound) {
+  const issue = nodeConfigIssues("action.google-drive.get-file", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   const fileId = inputId(config.fileId);
   if (mode === "mock") return { status: "succeeded" as const, output: { file: { id: fileId, name: fileId === "root" ? "My Drive" : "Example file", mimeType: fileId === "root" ? folderMime : "text/plain" } }, route: "success" as const };
   const token = await accessToken(config, workspaceId, credentials);
@@ -54,6 +57,8 @@ export async function executeDriveGetFile(config: Record<string, unknown>, mode:
 
 /** Creating a folder is not idempotent: uncertain outcomes must be checked before retrying. */
 export async function executeDriveCreateFolder(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, write: Transport = fetchSafeOutboundWrite) {
+  const issue = nodeConfigIssues("action.google-drive.create-folder", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   const parentId = inputId(config.parentId, true);
   const name = typeof config.name === "string" ? config.name.trim() : "";
   if (!name || name.length > 255 || /[\u0000-\u001f\u007f]/.test(name)) throw new NodeFailure("INVALID_INPUT", "Enter a folder name of at most 255 characters.", false);

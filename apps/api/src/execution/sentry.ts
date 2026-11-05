@@ -1,4 +1,5 @@
 import { CredentialProvider } from "@prisma/client";
+import { nodeConfigIssues } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
 import { fetchSafeOutbound } from "./outbound-url-policy";
@@ -73,6 +74,8 @@ export async function listSentryInstallations(credential: Record<string, unknown
 
 type SentryIssuesOutput = { issues: Array<{ id: string; shortId: string; title: string; status: string; level: string; firstSeen: string; lastSeen: string; count: string }>; hasMore: boolean; nextCursor?: string | null; partial?: boolean; partialReasons?: string[] };
 export async function executeSentryListIssues(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport | undefined = undefined): Promise<{ status: "succeeded"; output: SentryIssuesOutput; route: "success" }> {
+  const issue = nodeConfigIssues("action.sentry.list-issues", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   if (((Object.hasOwn(config, "cursor") && (config.cursor === undefined || config.cursor === null)) || (Object.hasOwn(config, "limit") && config.limit === undefined) || (Object.hasOwn(config, "status") && config.status === undefined))) {
     throw new NodeFailure("INVALID_INPUT", "Sentry filters or pagination could not be resolved.", false);
   }

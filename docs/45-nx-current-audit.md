@@ -109,6 +109,26 @@ PR #90 and its quality gates provide evidence for that committed release, not
 for the stopped local retry/timeout experiment or any future change. Check the
 owner's latest scope before proposing further implementation from this table.
 
+Owner update: after the validator audit, the owner explicitly authorized shared
+schemas and project-wide standardization. Follow `46-node-configuration-schemas.md`;
+do not mistake partially migrated nodes for a complete schema rollout.
+At `166ff404`, Steam snapshot treats non-boolean `includeOwnedGames` or
+`includeRecentGames` values as enabled, and ignores non-string optional
+`achievementAppId` values or forwards malformed text to Steam. The local
+`codex/nx-validator-steam` follow-up rejects these inputs in mock/live and reuses
+the existing App ID validator. It has regression cases but they have not been
+run; it is not committed, deployed or live-qualified. The same follow-up also
+addresses explicit invalid or unresolved Steam operation, account ID,
+played-free-games choice and achievement language being treated as omitted
+and replaced with a default or credential account. Empty optional fields and
+genuinely absent fields retain their established defaults.
+After the owner authorized shared schemas, the same local batch introduced
+per-app schema files. See `46-node-configuration-schemas.md` for the current
+family inventory and its limitations. MongoDB
+Find now rejects an explicit invalid or unresolved filter instead of falling
+back to an unfiltered query. These local changes and added synthetic cases have
+not yet been verified.
+
 ### Converging paths in the engine
 
 Before PR #90, the runner used a FIFO queue and visited each node once. In a graph

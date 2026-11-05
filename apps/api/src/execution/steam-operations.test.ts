@@ -3,6 +3,7 @@ import test from "node:test";
 import { CredentialProvider } from "@prisma/client";
 import { executeSteamOperation } from "./steam-operations";
 import { NodeFailure } from "./node-failure";
+import { resolveExpressions } from "./expression";
 
 const steamId = "76561198000000000";
 const apiKey = "mock-credential-secret-123";
@@ -78,4 +79,26 @@ test("Steam validates operation, ID, App ID and profile URL before making reques
     { operation: "resolveVanity", vanity: "https://steamcommunity.com/id/name?secret=1" },
   ];
   for (const config of invalid) await assert.rejects(() => executeSteamOperation(config, "mock", "workspace-1", {} as never), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT");
+});
+
+test("Steam does not replace invalid or unresolved choices with defaults or the connection account", async () => {
+  let requests = 0;
+  const transport = async () => { requests++; throw new Error("unexpected provider request"); };
+  const unresolved = (key: string) => resolveExpressions({ [key]: "{{ steps.missing.output }}" }, { steps: {} }) as Record<string, unknown>;
+  const invalid = [
+    { operation: null }, unresolved("operation"),
+    { operation: "profile", steamId: 7656 }, { operation: "profile", steamId: null }, { operation: "profile", ...unresolved("steamId") },
+    { operation: "ownedGames", includePlayedFreeGames: null }, { operation: "ownedGames", ...unresolved("includePlayedFreeGames") },
+    { operation: "achievements", appId: "620", ...unresolved("language") },
+  ];
+  for (const mode of ["mock", "live"] as const) {
+    for (const config of invalid) {
+      await assert.rejects(executeSteamOperation({ credentialId: "steam-connection", ...config }, mode, "workspace-1", credentials, transport), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT" && error.retryable === false);
+    }
+  }
+  const omitted = await executeSteamOperation({}, "mock", "workspace-1", credentials, transport);
+  assert.equal(omitted.output.operation, "profile");
+  const emptyId = await executeSteamOperation({ operation: "profile", steamId: "" }, "mock", "workspace-1", credentials, transport);
+  assert.equal(emptyId.output.operation, "profile");
+  assert.equal(requests, 0);
 });

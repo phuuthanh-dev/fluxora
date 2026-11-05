@@ -1,4 +1,5 @@
 import type { NodeResult } from "./node-executor-contract";
+import { nodeConfigIssues } from "@workflow/contracts";
 import { applyHttpCredential, httpCredentialSecrets, HttpCredentialError } from "./http-credential";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
 import { fetchSafeOutbound, fetchSafeOutboundWrite } from "./outbound-url-policy";
@@ -51,6 +52,8 @@ export async function executeHttpRequest(config: Record<string, unknown>, creden
 }
 
 export function readHttpRequestConfig(config: Record<string, unknown>) {
+  const issue = nodeConfigIssues("action.http-request", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_CONFIGURATION", issue.message, false);
   const url = typeof config.url === "string" ? config.url : "";
   if (!/^https?:\/\//.test(url)) throw new NodeFailure("INVALID_CONFIGURATION", "HTTP request requires an http(s) URL.", false);
   try { new URL(url); } catch { throw new NodeFailure("INVALID_CONFIGURATION", "HTTP request requires an http(s) URL.", false); }

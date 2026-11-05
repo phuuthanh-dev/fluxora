@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { nodeConfigIssues } from "@workflow/contracts";
 import { CredentialProvider } from "@prisma/client";
 import type { CredentialService } from "../credentials/credential.service";
 import type { RunMode, NodeResult } from "./node-executor-contract";
@@ -8,6 +9,7 @@ import { fetchSafeOutbound, fetchSafeOutboundWrite } from "./outbound-url-policy
 import { requireProviderSuccess, readProviderJson, uncertainDelivery } from "./provider-request-policy";
 
 export async function executeGitHubCreateIssue(config: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService): Promise<NodeResult> {
+  requireGitHubConfig("action.github", config);
   if (Object.hasOwn(config, "idempotencyKey") && config.idempotencyKey === undefined) throw new NodeFailure("INVALID_CONFIGURATION", "GitHub idempotency key could not be resolved.", false);
   const repository = readGitHubRepository(config.repository);
   const title = typeof config.title === "string" ? config.title.trim() : "";
@@ -107,6 +109,7 @@ export async function executeGitHubCreateIssue(config: Record<string, unknown>, 
 }
 
 export async function executeGitHubAddLabel(config: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService): Promise<NodeResult> {
+  requireGitHubConfig("action.github.add-label", config);
   const repository = readGitHubRepository(config.repository);
   const issueNumber = readGitHubIssueNumber(config.issueNumber);
   const label = readGitHubLabel(config.label);
@@ -177,6 +180,7 @@ export async function executeGitHubAddLabel(config: Record<string, unknown>, mod
 }
 
 export async function executeGitHubAddComment(config: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService): Promise<NodeResult> {
+  requireGitHubConfig("action.github.add-comment", config);
   const repository = readGitHubRepository(config.repository);
   const issueNumber = readGitHubIssueNumber(config.issueNumber);
   const body = readGitHubCommentBody(config.body);
@@ -247,6 +251,7 @@ export async function executeGitHubAddComment(config: Record<string, unknown>, m
 }
 
 export async function executeGitHubMergePullRequest(config: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService): Promise<NodeResult> {
+  requireGitHubConfig("action.github.merge-pull-request", config);
   const repository = readGitHubRepository(config.repository);
   const pullRequestNumber = readGitHubIssueNumber(config.pullRequestNumber);
   if (Object.hasOwn(config, "mergeMethod") && config.mergeMethod === undefined) throw new NodeFailure("INVALID_CONFIGURATION", "GitHub merge method could not be resolved.", false);
@@ -327,6 +332,11 @@ export async function executeGitHubMergePullRequest(config: Record<string, unkno
     if (policyFailure.code === "OUTBOUND_URL_BLOCKED") throw policyFailure;
     throw uncertainDelivery("GitHub");
   }
+}
+
+function requireGitHubConfig(type: string, config: Record<string, unknown>) {
+  const issue = nodeConfigIssues(type, config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_CONFIGURATION", issue.message, false);
 }
 
 function readGitHubRepository(value: unknown) {

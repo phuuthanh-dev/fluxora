@@ -25,6 +25,10 @@ test("MongoDB reads and inserts clear dependent targets when the database or con
   });
   await page.goto("/editor?workflow=mongo-target-test");
   await page.locator('.react-flow__node[data-id="find"]').click();
+  await page.getByLabel("Maximum documents (1–100)").fill("0");
+  await expect(page.getByRole("alert").filter({ hasText: "Enter a document limit between 1 and 100." })).toBeVisible();
+  await page.getByLabel("Maximum documents (1–100)").fill("20");
+  await expect(page.getByRole("alert").filter({ hasText: "Enter a document limit between 1 and 100." })).toHaveCount(0);
   await page.getByRole("group", { name: "Database" }).getByLabel("Database", { exact: true }).selectOption("other");
   await expect(page.getByRole("group", { name: "Collection" }).getByLabel("Collection", { exact: true })).toHaveValue("");
   await page.locator('.react-flow__node[data-id="insert"]').click();

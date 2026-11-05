@@ -749,7 +749,8 @@
         "apps/api/src/execution/provider-json.ts"
       ],
       "externalImports": [
-        "@prisma/client"
+        "@prisma/client",
+        "@workflow/contracts"
       ]
     },
     {
@@ -762,7 +763,8 @@
         "apps/api/src/execution/provider-request-policy.ts"
       ],
       "externalImports": [
-        "@prisma/client"
+        "@prisma/client",
+        "@workflow/contracts"
       ]
     },
     {
@@ -775,7 +777,8 @@
         "apps/api/src/execution/provider-request-policy.ts"
       ],
       "externalImports": [
-        "@prisma/client"
+        "@prisma/client",
+        "@workflow/contracts"
       ]
     },
     {
@@ -791,6 +794,7 @@
       ],
       "externalImports": [
         "@prisma/client",
+        "@workflow/contracts",
         "node:crypto"
       ]
     },
@@ -802,7 +806,9 @@
         "apps/api/src/execution/gmail-operations.ts",
         "apps/api/src/execution/node-failure.ts"
       ],
-      "externalImports": []
+      "externalImports": [
+        "@workflow/contracts"
+      ]
     },
     {
       "id": "apps/api/src/execution/gmail-history.ts",
@@ -845,7 +851,8 @@
       ],
       "externalImports": [
         "), to: header(",
-        "@prisma/client"
+        "@prisma/client",
+        "@workflow/contracts"
       ]
     },
     {
@@ -857,6 +864,7 @@
         "apps/api/src/execution/node-failure.ts"
       ],
       "externalImports": [
+        "@workflow/contracts",
         "node:crypto"
       ]
     },
@@ -873,6 +881,7 @@
       ],
       "externalImports": [
         "@prisma/client",
+        "@workflow/contracts",
         "node:crypto"
       ]
     },
@@ -888,6 +897,7 @@
       ],
       "externalImports": [
         "@prisma/client",
+        "@workflow/contracts",
         "node:crypto"
       ]
     },
@@ -902,7 +912,9 @@
         "apps/api/src/execution/provider-request-policy.ts",
         "apps/api/src/execution/retry-policy.ts"
       ],
-      "externalImports": []
+      "externalImports": [
+        "@workflow/contracts"
+      ]
     },
     {
       "id": "apps/api/src/execution/google-drive-pagination.ts",
@@ -945,7 +957,9 @@
         "apps/api/src/execution/provider-json.ts",
         "apps/api/src/execution/provider-request-policy.ts"
       ],
-      "externalImports": []
+      "externalImports": [
+        "@workflow/contracts"
+      ]
     },
     {
       "id": "apps/api/src/execution/json-decimal.ts",
@@ -973,6 +987,7 @@
       ],
       "externalImports": [
         "@prisma/client",
+        "@workflow/contracts",
         "mongodb",
         "node:dns/promises",
         "node:net"
@@ -1009,7 +1024,8 @@
         "apps/api/src/execution/node-failure.ts"
       ],
       "externalImports": [
-        "@prisma/client"
+        "@prisma/client",
+        "@workflow/contracts"
       ]
     },
     {
@@ -1022,7 +1038,8 @@
         "apps/api/src/execution/provider-request-policy.ts"
       ],
       "externalImports": [
-        "@prisma/client"
+        "@prisma/client",
+        "@workflow/contracts"
       ]
     },
     {
@@ -1038,7 +1055,8 @@
         "apps/api/src/execution/retry-policy.ts"
       ],
       "externalImports": [
-        "@prisma/client"
+        "@prisma/client",
+        "@workflow/contracts"
       ]
     },
     {
@@ -1052,7 +1070,8 @@
         "apps/api/src/execution/retry-policy.ts"
       ],
       "externalImports": [
-        "@prisma/client"
+        "@prisma/client",
+        "@workflow/contracts"
       ]
     },
     {
@@ -1079,7 +1098,8 @@
         "apps/api/src/execution/provider-json.ts"
       ],
       "externalImports": [
-        "@prisma/client"
+        "@prisma/client",
+        "@workflow/contracts"
       ]
     },
     {
@@ -1106,6 +1126,7 @@
       ],
       "externalImports": [
         "@prisma/client",
+        "@workflow/contracts",
         "node:crypto",
         "node:tls",
         "pg",
@@ -1176,7 +1197,8 @@
         "apps/api/src/execution/provider-json.ts"
       ],
       "externalImports": [
-        "@prisma/client"
+        "@prisma/client",
+        "@workflow/contracts"
       ]
     },
     {
@@ -1245,6 +1267,7 @@
         "apps/api/src/execution/outbound-url-policy.ts"
       ],
       "externalImports": [
+        "@workflow/contracts",
         "fast-xml-parser"
       ]
     },
@@ -1272,7 +1295,8 @@
         "apps/api/src/execution/provider-credential-safety.ts"
       ],
       "externalImports": [
-        "@prisma/client"
+        "@prisma/client",
+        "@workflow/contracts"
       ]
     },
     {
@@ -1281,7 +1305,9 @@
       "internalImports": [
         "apps/api/src/execution/node-failure.ts"
       ],
-      "externalImports": []
+      "externalImports": [
+        "@workflow/contracts"
+      ]
     },
     {
       "id": "apps/api/src/execution/sentry.ts",
@@ -1296,7 +1322,8 @@
         "apps/api/src/execution/sentry-pagination.ts"
       ],
       "externalImports": [
-        "@prisma/client"
+        "@prisma/client",
+        "@workflow/contracts"
       ]
     },
     {
@@ -1310,6 +1337,7 @@
       "externalImports": [
         "), ",
         "@prisma/client",
+        "@workflow/contracts",
         "node:net",
         "node:url",
         "nodemailer"
@@ -1325,7 +1353,9 @@
         "apps/api/src/execution/provider-request-policy.ts",
         "apps/api/src/execution/steam-operations.ts"
       ],
-      "externalImports": []
+      "externalImports": [
+        "@workflow/contracts"
+      ]
     },
     {
       "id": "apps/api/src/execution/steam-operations.ts",
@@ -1338,7 +1368,8 @@
         "apps/api/src/execution/provider-request-policy.ts"
       ],
       "externalImports": [
-        "@prisma/client"
+        "@prisma/client",
+        "@workflow/contracts"
       ]
     },
     {
@@ -1355,7 +1386,8 @@
         "apps/api/src/execution/relational-selection-validation.ts"
       ],
       "externalImports": [
-        "@prisma/client"
+        "@prisma/client",
+        "@workflow/contracts"
       ]
     },
     {
@@ -1369,7 +1401,8 @@
         "apps/api/src/notifications/telegram-destination.ts"
       ],
       "externalImports": [
-        "@prisma/client"
+        "@prisma/client",
+        "@workflow/contracts"
       ]
     },
     {
@@ -1384,6 +1417,7 @@
       ],
       "externalImports": [
         "@prisma/client",
+        "@workflow/contracts",
         "undici"
       ]
     },
@@ -1404,7 +1438,8 @@
         "apps/api/src/execution/provider-json.ts"
       ],
       "externalImports": [
-        "@prisma/client"
+        "@prisma/client",
+        "@workflow/contracts"
       ]
     },
     {
@@ -1417,7 +1452,8 @@
         "apps/api/src/execution/provider-credential-safety.ts"
       ],
       "externalImports": [
-        "@prisma/client"
+        "@prisma/client",
+        "@workflow/contracts"
       ]
     },
     {
@@ -1432,7 +1468,8 @@
         "apps/api/src/execution/provider-json.ts"
       ],
       "externalImports": [
-        "@prisma/client"
+        "@prisma/client",
+        "@workflow/contracts"
       ]
     },
     {
@@ -3260,6 +3297,7 @@
         "apps/web/src/features/workflow/workflow-node.tsx"
       ],
       "externalImports": [
+        "@workflow/contracts",
         "@xyflow/react",
         "@xyflow/react/dist/style.css",
         "lucide-react",
@@ -3383,6 +3421,7 @@
         "packages/workflow-contracts/src/ai-schema.ts",
         "packages/workflow-contracts/src/configuration-fields-registry.ts",
         "packages/workflow-contracts/src/gmail-write-fields.ts",
+        "packages/workflow-contracts/src/node-config-schema.ts",
         "packages/workflow-contracts/src/node-configuration-fields.ts",
         "packages/workflow-contracts/src/notion-read-fields.ts",
         "packages/workflow-contracts/src/operation-metadata.ts",
@@ -3390,6 +3429,298 @@
         "packages/workflow-contracts/src/trello-card-fields.ts"
       ],
       "externalImports": []
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schema.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/discord.ts",
+        "packages/workflow-contracts/src/node-config-schemas/flow.ts",
+        "packages/workflow-contracts/src/node-config-schemas/gemini.ts",
+        "packages/workflow-contracts/src/node-config-schemas/github.ts",
+        "packages/workflow-contracts/src/node-config-schemas/gmail.ts",
+        "packages/workflow-contracts/src/node-config-schemas/google-calendar.ts",
+        "packages/workflow-contracts/src/node-config-schemas/google-chat.ts",
+        "packages/workflow-contracts/src/node-config-schemas/google-drive.ts",
+        "packages/workflow-contracts/src/node-config-schemas/google-sheets.ts",
+        "packages/workflow-contracts/src/node-config-schemas/http.ts",
+        "packages/workflow-contracts/src/node-config-schemas/mongodb.ts",
+        "packages/workflow-contracts/src/node-config-schemas/notion.ts",
+        "packages/workflow-contracts/src/node-config-schemas/openai.ts",
+        "packages/workflow-contracts/src/node-config-schemas/reddit.ts",
+        "packages/workflow-contracts/src/node-config-schemas/relational.ts",
+        "packages/workflow-contracts/src/node-config-schemas/riot.ts",
+        "packages/workflow-contracts/src/node-config-schemas/rss.ts",
+        "packages/workflow-contracts/src/node-config-schemas/sentry.ts",
+        "packages/workflow-contracts/src/node-config-schemas/smtp.ts",
+        "packages/workflow-contracts/src/node-config-schemas/steam.ts",
+        "packages/workflow-contracts/src/node-config-schemas/telegram.ts",
+        "packages/workflow-contracts/src/node-config-schemas/trello.ts",
+        "packages/workflow-contracts/src/node-config-schemas/triggers.ts",
+        "packages/workflow-contracts/src/node-config-schemas/types.ts",
+        "packages/workflow-contracts/src/node-config-schemas/vercel.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/ai-common.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/ai-schema.ts",
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/discord.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/flow.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/gemini.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/ai-common.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/github.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/gmail.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/google-calendar.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/google-chat.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/google-drive.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/google-sheets.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/http.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/mongodb.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/notion.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/openai.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/ai-common.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/reddit.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/relational.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/riot.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts",
+        "packages/workflow-contracts/src/riot-lol.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/rss.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/sentry.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/smtp.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/steam.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/telegram.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/trello.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/triggers.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/types.ts",
+      "boundary": "contracts",
+      "internalImports": [],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/vercel.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
     },
     {
       "id": "packages/workflow-contracts/src/node-configuration-fields.ts",
@@ -6826,6 +7157,10 @@
     },
     {
       "from": "packages/workflow-contracts/src/index.ts",
+      "to": "packages/workflow-contracts/src/node-config-schema.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/index.ts",
       "to": "packages/workflow-contracts/src/node-configuration-fields.ts"
     },
     {
@@ -6843,6 +7178,214 @@
     {
       "from": "packages/workflow-contracts/src/index.ts",
       "to": "packages/workflow-contracts/src/trello-card-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/discord.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/flow.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/gemini.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/github.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/gmail.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/google-calendar.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/google-chat.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/google-drive.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/google-sheets.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/http.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/mongodb.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/notion.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/openai.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/reddit.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/relational.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/riot.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/rss.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/sentry.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/smtp.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/steam.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/telegram.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/trello.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/triggers.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/vercel.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/ai-common.ts",
+      "to": "packages/workflow-contracts/src/ai-schema.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/ai-common.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/discord.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/flow.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/gemini.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/ai-common.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/github.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/gmail.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/google-calendar.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/google-chat.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/google-drive.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/google-sheets.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/http.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/mongodb.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/notion.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/openai.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/ai-common.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/reddit.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/relational.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/riot.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/riot.ts",
+      "to": "packages/workflow-contracts/src/riot-lol.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/rss.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/sentry.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/smtp.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/steam.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/telegram.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/trello.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/triggers.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/vercel.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
     },
     {
       "from": "packages/workflow-contracts/src/node-configuration-fields.ts",

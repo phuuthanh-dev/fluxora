@@ -1,4 +1,5 @@
 import { CredentialProvider } from "@prisma/client";
+import { nodeConfigIssues } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { fetchSafeOutboundWrite, wasOutboundRedirected } from "./outbound-url-policy";
 import { NodeFailure } from "./node-failure";
@@ -40,6 +41,8 @@ const titleProperty = (title: string) => ({ type: "title", title: [{ type: "text
 
 /** Create a child page, never retrying an ambiguous provider write. */
 export async function executeNotionCreatePage(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, write: Transport = fetchSafeOutboundWrite) {
+  const issue = nodeConfigIssues("action.notion.create-page", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   const parentPageId = typeof config.parentPageId === "string" ? config.parentPageId.trim() : "";
   const title = typeof config.title === "string" ? config.title.trim() : "";
   const content = config.content;
@@ -59,6 +62,8 @@ export async function executeNotionCreatePage(config: Record<string, unknown>, m
 
 /** Replaces only the page's title; concurrent changes to that title can be overwritten. */
 export async function executeNotionUpdateTitle(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, write: Transport = fetchSafeOutboundWrite) {
+  const issue = nodeConfigIssues("action.notion.update-title", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   const pageId = typeof config.pageId === "string" ? config.pageId.trim() : "";
   const title = typeof config.title === "string" ? config.title.trim() : "";
   if (!notionId.test(pageId) || !title || title.length > 2000) throw new NodeFailure("INVALID_INPUT", "Choose a page and enter a title of at most 2,000 characters.", false);

@@ -4,6 +4,7 @@ test("structured AI fields are staged and must be applied before running", async
   const graph = { nodes: [
     { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
     { id: "gemini", type: "action.gemini", position: { x: 300, y: 0 }, config: { credentialId: "", model: "gemini-2.5-flash", prompt: "Summarize", maxOutputTokens: 256, timeoutMs: 30000 } },
+    { id: "openai", type: "action.openai", position: { x: 600, y: 0 }, config: { credentialId: "", model: "gpt-4o-mini", prompt: "Summarize", maxOutputTokens: 256, timeoutMs: 30000 } },
   ], edges: [] };
   const workflow = { id: "schema-demo", workspaceId: "workspace", name: "Schema demo", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
   await page.route("**/api/v1/**", async (route) => {
@@ -29,6 +30,21 @@ test("structured AI fields are staged and must be applied before running", async
   await expect(page.getByRole("button", { name: "Run node" })).toBeEnabled();
   await page.getByLabel("Structured output", { exact: true }).uncheck();
   await expect(page.getByLabel("Field 1 name")).toHaveCount(0);
+  for (const node of ["gemini", "openai"]) {
+    await page.getByTestId(`rf__node-${node}`).click();
+    for (const theme of ["dark", "light"]) {
+      if (await page.locator("html").getAttribute("data-theme") !== theme) await page.getByRole("button", { name: `Switch to ${theme} mode` }).click();
+      const checkbox = page.getByLabel("Structured output", { exact: true });
+      await checkbox.check();
+      const size = await checkbox.boundingBox();
+      expect(size?.width).toBeGreaterThanOrEqual(14);
+      expect(size?.width).toBeLessThanOrEqual(20);
+      expect(size?.height).toBeGreaterThanOrEqual(14);
+      expect(size?.height).toBeLessThanOrEqual(20);
+      await expect(page.getByText("Use text for IDs and numbers that need exact precision.", { exact: false })).toBeVisible();
+      await checkbox.uncheck();
+    }
+  }
 });
 
 test("AI token limit does not silently reset when cleared or set to zero", async ({ page }) => {
@@ -50,11 +66,11 @@ test("AI token limit does not silently reset when cleared or set to zero", async
   const limit = page.getByLabel("Max output tokens");
   await limit.fill("0");
   await expect(limit).toHaveValue("0");
-  await expect(page.getByText(/Max output tokens must be a whole number/)).toBeVisible();
+  await expect(page.getByText("Max output tokens must be between 1 and 8,192.")).toBeVisible();
   await limit.fill("");
   await expect(limit).toHaveValue("");
-  await expect(page.getByText(/Max output tokens must be a whole number/)).toBeVisible();
+  await expect(page.getByText("Max output tokens must be between 1 and 8,192.")).toBeVisible();
   await limit.fill("128");
   await expect(limit).toHaveValue("128");
-  await expect(page.getByText(/Max output tokens must be a whole number/)).toHaveCount(0);
+  await expect(page.getByText("Max output tokens must be between 1 and 8,192.")).toHaveCount(0);
 });

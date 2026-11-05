@@ -1,4 +1,5 @@
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
+import { nodeConfigIssues, validNotionCursor } from "@workflow/contracts";
 import { fetchSafeOutbound } from "./outbound-url-policy";
 import { readBoundedProviderJson } from "./provider-json";
 import { maximumRetryDelayMs, parseRetryAfter } from "./retry-policy";
@@ -50,6 +51,8 @@ export async function searchNotionPages(input: SearchInput, transport: Transport
 }
 
 export async function executeNotionSearch(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, search: typeof searchNotionPages = searchNotionPages) {
+  const issue = nodeConfigIssues("action.notion.search-pages", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   if (((Object.hasOwn(config, "cursor") && config.cursor === undefined) || (Object.hasOwn(config, "pageSize") && config.pageSize === undefined) || (Object.hasOwn(config, "query") && typeof config.query !== "string"))) {
     throw new NodeFailure("INVALID_INPUT", "Notion search or pagination could not be resolved.", false);
   }
@@ -82,8 +85,4 @@ export async function executeNotionSearch(config: Record<string, unknown>, mode:
   throw new NodeFailure("INVALID_RESPONSE", "Notion pagination did not complete.", false);
 }
 
-export function validNotionCursor(value: string) {
-  // Treat provider cursors as opaque; JSON encoding safely carries printable values.
-  if (value.length === 0 || value.length > 1024 || /[\u0000-\u001f\u007f-\u009f]/.test(value)) return false;
-  try { encodeURIComponent(value); return true; } catch { return false; }
-}
+export { validNotionCursor };

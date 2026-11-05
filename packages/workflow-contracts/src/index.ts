@@ -1,4 +1,5 @@
 export * from "./ai-schema";
+export * from "./node-config-schema";
 export * from "./operation-metadata";
 export * from "./riot-lol";
 export type { NodeConfigurationField, NodeFieldVisibility, NodeResource, NodeSelectOption } from "./node-configuration-fields";

@@ -1,4 +1,5 @@
 import { CredentialProvider } from "@prisma/client";
+import { nodeConfigIssues } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure } from "./node-failure";
 import { getJson, observabilityTransport, record, token, type ObservabilityTransport } from "./observability-read";
@@ -33,6 +34,8 @@ function teamParams(team: string) {
 
 // The provider can return a reduced public view. A successful lookup does not prove ownership.
 export async function executeVercelPublicDeploymentLookup(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: ObservabilityTransport = observabilityTransport) {
+  const issue = nodeConfigIssues("action.vercel.public-deployment-lookup", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   const team = config.team === undefined ? "personal" : config.team;
   if (!validTeam(team) || !validDeployment(config.deploymentId)) throw new NodeFailure("INVALID_INPUT", "Choose an account and deployment ID.", false);
   if (mode === "mock") return { status: "succeeded" as const, output: { lookup: "public" as const, ownershipVerified: false as const, deployment: { id: config.deploymentId, state: "READY", target: "production", createdAt: null, partial: true } }, route: "success" as const };

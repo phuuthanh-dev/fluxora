@@ -1,4 +1,5 @@
 import { CredentialProvider } from "@prisma/client";
+import { nodeConfigIssues } from "@workflow/contracts";
 import { Agent } from "undici";
 import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
@@ -161,6 +162,8 @@ export async function findTrelloCards(credential: Record<string, unknown>, input
 
 export async function executeTrelloOperation(operation: Operation, config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport?: Transport) {
   if (!["get", "update", "move", "archive", "list", "find"].includes(operation)) throw new NodeFailure("INVALID_INPUT", "Invalid Trello operation.", false);
+  const issue = nodeConfigIssues(`action.trello.${operation}-card${operation === "list" || operation === "find" ? "s" : ""}`, config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   const optionalFields = operation === "list" ? ["limit", "before", "filter"] : operation === "find" ? ["limit", "searchPagination"] : operation === "update" ? ["title", "description"] : [];
   if (optionalFields.some((key) => Object.hasOwn(config, key) && config[key] === undefined)) throw new NodeFailure("INVALID_INPUT", "Trello configuration could not be resolved.", false);
   const isCollection = operation === "list" || operation === "find";

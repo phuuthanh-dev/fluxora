@@ -21,4 +21,8 @@ test("OpenAI node loads connection-scoped models and supports manual model IDs",
   await expect(group.getByText(/supports text generation/)).toBeVisible();
   await group.getByRole("button", { name: /Enter value or expression/ }).click();
   await expect(group.getByLabel("Model value")).toHaveValue("example");
+  await page.getByLabel("Max output tokens").fill("0");
+  await expect(page.getByRole("alert").filter({ hasText: "Max output tokens must be between 1 and 8,192." })).toBeVisible();
+  await page.getByLabel("Max output tokens").fill("100");
+  await expect(page.getByRole("alert").filter({ hasText: "Max output tokens must be between 1 and 8,192." })).toHaveCount(0);
 });
