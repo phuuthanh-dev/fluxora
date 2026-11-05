@@ -2,6 +2,22 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { executeHttpRequest } from "./http-request-adapter";
 import { NodeFailure } from "./node-failure";
+import { getConnectorExecutor } from "./connector-executors";
+
+test("HTTP mock rejects invalid URL and headers without accessing credentials or the network", async () => {
+  const execute = getConnectorExecutor("action.http-request")!;
+  const credentials = { readForExecution: () => { throw new Error("unexpected credential read"); } } as never;
+  for (const config of [
+    { url: "invalid" },
+    { url: "https://" },
+    { url: "https://example.test", headers: "not an object" },
+    { url: "https://example.test", headers: { "X-Count": 1 } },
+  ]) {
+    await assert.rejects(execute({ config, mode: "mock", workspaceId: "workspace", credentials, executionId: "execution", nodeId: "http" }), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_CONFIGURATION");
+  }
+  const result = await execute({ config: { url: "https://example.test", headers: { "X-Example": "value" } }, mode: "mock", workspaceId: "workspace", credentials, executionId: "execution", nodeId: "http" });
+  assert.equal(result.status, "succeeded");
+});
 
 test("HTTP reads reject a connection secret echoed in text, nested JSON, keys, or encoded query data", async () => {
   const cases: Array<{ credential: Record<string, unknown>; body: string }> = [

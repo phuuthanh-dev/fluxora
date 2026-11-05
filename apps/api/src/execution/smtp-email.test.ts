@@ -64,6 +64,18 @@ test("SMTP Email: mock mode provides normalized output without a credential or t
   assert.equal(result.output.deliveryConfirmed, false);
 });
 
+test("SMTP rejects an invalid or unresolved body format before accessing credentials", async () => {
+  const noCredentials = { readForExecution: async () => assert.fail("must not read credentials") } as unknown as CredentialService;
+  for (const mode of ["mock", "live"] as const) {
+    for (const bodyFormat of [undefined, "", "markdown", null]) {
+      await assert.rejects(executeSmtpEmail({ ...message, bodyFormat }, mode, "workspace-1", noCredentials), { code: "INVALID_CONFIGURATION", message: "Choose text or HTML for the email body." });
+    }
+  }
+  const { bodyFormat: _format, ...defaultMessage } = message;
+  const result = await executeSmtpEmail(defaultMessage, "mock", "workspace-1", noCredentials);
+  assert.equal(result.status, "succeeded");
+});
+
 test("SMTP Email: success requires all recipients accepted and preserves legacy output", async () => {
   let observed: unknown;
   let submissions = 0;

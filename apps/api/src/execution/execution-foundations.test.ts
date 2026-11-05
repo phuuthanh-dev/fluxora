@@ -22,6 +22,52 @@ test("resolves generated output paths with hyphenated keys", () => {
   assert.equal(resolveExpressions("{{ steps.node-example.output.request-id }}", context), "abc");
 });
 
+test("If and approval reject invalid resolved choices instead of selecting a different behavior", async () => {
+  const credentials = { readForExecution: () => { throw new Error("unexpected credential read"); } } as never;
+  for (const [type, key, supported, fallback] of [
+    ["condition.if", "operator", ["equals", "not_equals", "contains", "exists"], "equals"],
+    ["approval.request", "notificationProvider", ["google_chat", "http_webhook"], "google_chat"],
+  ] as const) {
+    for (const mode of ["mock", "live"] as const) {
+      const run = (raw: unknown, value: unknown) => {
+        const node = { id: "choice", type, position: { x: 0, y: 0 }, config: raw === undefined ? {} : { [key]: raw } };
+        return executeNode(node, { left: "a", right: "a", ...(value === undefined ? {} : { [key]: value }) }, {}, mode, "workspace", credentials, "execution");
+      };
+      const defaultResult = await run(undefined, undefined);
+      if (type === "condition.if") assert.equal(defaultResult.route, "true");
+      else assert.equal(defaultResult.output.notificationProvider, fallback);
+      for (const choice of supported) {
+        const result = await run(choice, choice);
+        assert.equal(result.status, type === "condition.if" ? "succeeded" : "waiting");
+        if (type === "approval.request") assert.equal(result.output.notificationProvider, choice);
+      }
+      if (type === "condition.if") {
+        const raw = { left: "a", right: "b", operator: "{{ steps.previous.output.choice }}" };
+        const context = { steps: { previous: { output: { choice: "not_equals" } } } };
+        const node = { id: "choice", type, position: { x: 0, y: 0 }, config: raw };
+        const resolved = resolveExpressions(raw, context) as Record<string, unknown>;
+        assert.equal((await executeNode(node, resolved, context, mode, "workspace", credentials, "execution")).route, "true");
+        const partial = { left: "a", right: "a", operator: "equals{{ steps.missing.output.choice }}" };
+        const partiallyResolved = resolveExpressions(partial, context) as Record<string, unknown>;
+        assert.equal(partiallyResolved.operator, "equals");
+        await assert.rejects(executeNode({ ...node, config: partial }, partiallyResolved, context, mode, "workspace", credentials, "execution"), (error: unknown) => nodeFailureFromExecutionError(error).code === "INVALID_EXPRESSION");
+      }
+      for (const value of ["unsupported", 123, false]) {
+        await assert.rejects(run(value, value), (error: unknown) => {
+          const failure = nodeFailureFromExecutionError(error);
+          return failure.code === "INVALID_CONFIGURATION" && !failure.retryable;
+        });
+      }
+      for (const value of [undefined, null, ""]) {
+        await assert.rejects(run("{{ steps.previous.output.choice }}", value), (error: unknown) => {
+          const failure = nodeFailureFromExecutionError(error);
+          return failure.code === "INVALID_CONFIGURATION" && !failure.retryable;
+        });
+      }
+    }
+  }
+});
+
 test("persisted redactions cannot silently become expression values", () => {
   const context = { trigger: { secret: "[REDACTED]", label: "ok" }, steps: {
     old: { output: { name: "saved", secret: "[REDACTED]", gmailText: "hello [redacted]", items: [{ url: "https://example.test/bot[REDACTED]/send" }] } },
@@ -220,6 +266,51 @@ test("invalid expressions fail the execution instead of leaving it running", asy
   assert.equal(nodeUpdates.at(-1)?.errorCode, "INVALID_EXPRESSION");
 });
 
+test("a converging node runs after the longer active path and sees its output", async () => {
+  const executionUpdates: Array<Record<string, unknown>> = [];
+  const nodeUpdates: Array<{ id: string; data: Record<string, unknown> }> = [];
+  const http = (id: string, url: string) => ({ id, type: "action.http-request", position: { x: 0, y: 0 }, config: { url } });
+  const execution = {
+    id: "converging-paths", mode: "MOCK", status: ExecutionStatus.QUEUED, triggerData: {}, nodeExecutions: [],
+    workflowVersion: { workflow: { workspaceId: "workspace" }, graph: {
+      nodes: [
+        { id: "start", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
+        http("short", "https://example.test/short"),
+        http("middle", "https://example.test/middle"),
+        http("long", "https://example.test/long"),
+        http("finish", "https://example.test/{{ steps.long.output.status }}"),
+      ],
+      edges: [
+        { id: "1", source: "start", target: "short", kind: "success" },
+        { id: "2", source: "start", target: "middle", kind: "success" },
+        { id: "3", source: "short", target: "finish", kind: "success" },
+        { id: "4", source: "middle", target: "long", kind: "success" },
+        { id: "5", source: "long", target: "finish", kind: "success" },
+      ],
+    } },
+  };
+  let transactionPrisma: unknown;
+  const prisma = {
+    execution: {
+      findUnique: async () => execution, findUniqueOrThrow: async () => execution,
+      updateMany: async ({ data }: { data: Record<string, unknown> }) => { executionUpdates.push(data); return { count: 1 }; },
+    },
+    nodeExecution: {
+      upsert: async () => ({}), updateMany: async () => ({ count: 0 }),
+      update: async ({ where, data }: { where: { executionId_nodeId: { nodeId: string } }; data: Record<string, unknown> }) => { nodeUpdates.push({ id: where.executionId_nodeId.nodeId, data }); return {}; },
+    },
+    $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(transactionPrisma),
+  };
+  transactionPrisma = { ...prisma, $queryRaw: async () => [{ status: ExecutionStatus.RUNNING, runToken: executionUpdates[0]?.runToken }] };
+  const service = new ExecutionService(prisma as never, {} as never, { publish: () => undefined } as never);
+  await service.run(execution.id, "mock");
+  const completed = nodeUpdates.filter(({ data }) => data.status === "SUCCEEDED");
+  assert.deepEqual(completed.map(({ id }) => id), ["start", "short", "middle", "long", "finish"]);
+  const output = completed.find(({ id }) => id === "finish")?.data.output as { body?: { url?: string } };
+  assert.equal(output.body?.url, "https://example.test/200");
+  assert.equal(executionUpdates.at(-1)?.status, ExecutionStatus.SUCCEEDED);
+});
+
 for (const redacted of ["[REDACTED]", "hello [redacted]"]) test(`resumed execution stops before accessing credentials for ${redacted}`, async () => {
   const updates: Array<Record<string, unknown>> = [];
   const nodeUpdates: Array<Record<string, unknown>> = [];
@@ -297,7 +388,7 @@ test("AI schema descriptions are literal while unresolved whole-schema expressio
   }
 });
 
-test("a stored .v2 action executes its existing handler without changing the graph", async () => {
+test("a stored Supabase action executes without changing its graph", async () => {
   const updates: Array<Record<string, unknown>> = [];
   const nodeUpdates: Array<Record<string, unknown>> = [];
   const graph = { nodes: [
@@ -305,7 +396,7 @@ test("a stored .v2 action executes its existing handler without changing the gra
     { id: "read", type: "action.supabase.select", position: { x: 200, y: 0 }, config: { table: "items", limit: 5, order: [{ column: "id", direction: "asc" }], offset: 5 } },
   ], edges: [{ id: "start", source: "manual", target: "read", kind: "success" }] };
   const original = structuredClone(graph);
-  const execution = { id: "versioned-run", mode: "MOCK", status: ExecutionStatus.QUEUED, triggerData: {}, nodeExecutions: [], workflowVersion: { workflow: { workspaceId: "workspace" }, graph } };
+  const execution = { id: "supabase-run", mode: "MOCK", status: ExecutionStatus.QUEUED, triggerData: {}, nodeExecutions: [], workflowVersion: { workflow: { workspaceId: "workspace" }, graph } };
   let transactionPrisma: unknown;
   const prisma = { execution: { findUnique: async () => execution, findUniqueOrThrow: async () => execution, updateMany: async ({ data }: { data: Record<string, unknown> }) => { updates.push(data); return { count: 1 }; } }, nodeExecution: { upsert: async () => ({}), update: async ({ data }: { data: Record<string, unknown> }) => { nodeUpdates.push(data); return {}; }, updateMany: async () => ({ count: 0 }) }, $transaction: async (operations: Promise<unknown>[] | ((tx: unknown) => Promise<unknown>)) => Array.isArray(operations) ? Promise.all(operations) : operations(transactionPrisma) };
   transactionPrisma = { ...prisma, $queryRaw: async () => [{ status: ExecutionStatus.RUNNING, runToken: updates[0]?.runToken }] };

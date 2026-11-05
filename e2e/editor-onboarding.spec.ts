@@ -185,6 +185,7 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
 
   await page.getByRole("button", { name: "Run node" }).click();
   await expect(page.getByText("Mock node debug succeeded — only Steam account snapshot ran.")).toBeVisible();
+  await expect(page.getByText(/sample data does not verify live connections or all inputs/i)).toBeVisible();
   await expect(page.getByRole("region", { name: "Last execution" }).getByText(/SUCCEEDED · ATTEMPT/)).toBeVisible();
   await page.locator(".react-flow__node").filter({ hasText: "Google Chat · Action" }).first().click();
   await expect(page.getByRole("region", { name: "Last execution" }).getByText(/SKIPPED · ATTEMPT/)).toBeVisible();

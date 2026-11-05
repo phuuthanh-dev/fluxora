@@ -27,24 +27,37 @@ test("Sheets supports default and explicit raw writes", async () => {
   } finally { globalThis.fetch = originalFetch; }
 });
 
-test("Sheets mock write responses include the provider shape and preserve legacy fields", async () => {
+test("Sheets mock checks write values and a provided range without a connection", async () => {
+  const execute = getConnectorExecutor("action.google-sheets")!;
+  const credentials = { readGoogleForExecution: () => { throw new Error("unexpected credential read"); } } as never;
+  const run = (config: Record<string, unknown>) => execute({ config, mode: "mock", workspaceId: "workspace", credentials, executionId: "execution", nodeId: "sheet" });
+  for (const values of [undefined, "text", ["not a row"]]) await assert.rejects(run({ operation: "append", range: "A1", values }), /table/);
+  await assert.rejects(run({ operation: "read", range: "" }), /range is required/);
+  assert.equal((await run({ operation: "read", range: "A1" })).status, "succeeded");
+});
+
+test("Sheets mock write responses match the live provider response shape", async () => {
   const originalFetch = globalThis.fetch;
   const credentials = { readGoogleForExecution: async () => ({ accessToken: "synthetic-token" }) } as never;
   const updates = { spreadsheetId: "sheet", updatedRange: "Sheet1!A1", updatedRows: 1, updatedColumns: 2, updatedCells: 2 };
   try {
     globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => Response.json(init?.method === "POST" ? { spreadsheetId: "sheet", tableRange: "", updates } : updates)) as typeof fetch;
-    for (const type of ["action.google-sheets"] as const) {
-      for (const operation of ["append", "update"] as const) {
-        const config = { ...base, values: [["first", "second"]], operation };
-        const run = (mode: "mock" | "live") => getConnectorExecutor(type)!({ config, mode, workspaceId: "workspace", credentials, executionId: "execution", nodeId: "node" });
-        const mock = await run("mock");
-        const live = await run("live");
-        for (const field of Object.keys(live.output)) assert.ok(Object.hasOwn(mock.output, field), `${type} ${operation} mock is missing ${field}`);
-        assert.equal(mock.output.range, "Sheet1!A1");
-        assert.equal(mock.output.updatedRows, 1);
-        assert.equal(mock.output.updatedCells, 2);
-        if (operation === "append") assert.deepEqual(mock.output.updates, updates);
-      }
+    for (const operation of ["append", "update"] as const) {
+      const config = { ...base, values: [["first", "second"]], operation };
+      const run = (mode: "mock" | "live") => getConnectorExecutor("action.google-sheets")!({ config, mode, workspaceId: "workspace", credentials, executionId: "execution", nodeId: "node" });
+      const mock = await run("mock");
+      const live = await run("live");
+      assert.deepEqual(mock.output, live.output);
     }
   } finally { globalThis.fetch = originalFetch; }
+});
+
+test("Sheets mock write counts reflect the supplied sample rows", async () => {
+  const execute = getConnectorExecutor("action.google-sheets")!;
+  const credentials = { readGoogleForExecution: () => { throw new Error("unexpected credential read"); } } as never;
+  for (const operation of ["append", "update"] as const) {
+    const result = await execute({ config: { operation, range: "A1", values: [["one"], ["two", "three"]] }, mode: "mock", workspaceId: "workspace", credentials, executionId: "execution", nodeId: "sheet" });
+    const updates = operation === "append" ? result.output.updates : result.output;
+    assert.deepEqual(updates, { spreadsheetId: "mock-spreadsheet", updatedRange: "A1", updatedRows: 2, updatedColumns: 2, updatedCells: 3, ...(operation === "update" ? { operation } : {}) });
+  }
 });

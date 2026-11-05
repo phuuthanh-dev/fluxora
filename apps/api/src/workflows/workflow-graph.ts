@@ -54,7 +54,7 @@ export function validatePublishableGraph(graph: WorkflowGraph) {
   for (const node of graph.nodes) {
     if (node.type === "trigger.cron") validateCronConfig(node.config);
     if (node.type === "condition.if") validateStaticChoice(node.config.operator, ["equals", "not_equals", "contains", "exists"], "Choose a supported If operator before publishing.");
-    if (node.type === "approval.request") validateStaticChoice(node.config.notificationProvider, ["google_chat", "http_webhook"], "Choose a supported approval notification provider before publishing.");
+    if (node.type === "approval.request") validateStaticChoice(node.config.notificationProvider, ["google_chat", "http_webhook"], "Choose a supported approval notification provider before publishing.", false);
     if (node.type === "trigger.telegram.update") telegramTriggerFilterFromConfig(node.config);
     if (node.type === "trigger.vercel.deployment") vercelTriggerFilterFromConfig(node.config);
     if (node.type === "trigger.trello.board-action") readTrelloTriggerFilter(node.config);
@@ -70,10 +70,10 @@ export function validatePublishableGraph(graph: WorkflowGraph) {
   }
 }
 
-/** Preserve legacy defaults and dynamic expressions; runtime resolves expressions later. */
-function validateStaticChoice(value: unknown, choices: readonly string[], message: string) {
+/** If expressions are allowed, validate their resolved value at runtime. */
+function validateStaticChoice(value: unknown, choices: readonly string[], message: string, allowExpression = true) {
   if (value === undefined || value === null || value === "") return;
-  if (typeof value === "string" && (choices.includes(value) || /{{\s*[^{}]+?\s*}}/.test(value))) return;
+  if (typeof value === "string" && (choices.includes(value) || (allowExpression && /{{\s*[^{}]+?\s*}}/.test(value)))) return;
   invalid(message);
 }
 
@@ -147,6 +147,22 @@ function containsCycle(nodes: StoredWorkflowNode[], edges: StoredWorkflowEdge[])
     return false;
   };
   return nodes.some((node) => visit(node.id));
+}
+
+/** Rank a validated acyclic graph so a node follows all reachable predecessors. */
+export function workflowNodeDepths(graph: WorkflowGraph): Map<string, number> {
+  const parents = new Map(graph.nodes.map((node) => [node.id, [] as string[]]));
+  for (const edge of graph.edges) parents.get(edge.target)?.push(edge.source);
+  const depths = new Map<string, number>();
+  const depth = (id: string): number => {
+    const known = depths.get(id);
+    if (known !== undefined) return known;
+    const value = (parents.get(id) ?? []).reduce((max, parent) => Math.max(max, depth(parent) + 1), 0);
+    depths.set(id, value);
+    return value;
+  };
+  for (const node of graph.nodes) depth(node.id);
+  return depths;
 }
 
 function switchCaseValues(config: Record<string, unknown>) {

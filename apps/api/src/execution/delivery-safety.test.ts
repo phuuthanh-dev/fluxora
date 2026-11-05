@@ -109,7 +109,6 @@ test("Google writes do not follow redirects or retry ambiguous results", async (
   try {
     for (const [type, config] of [
       ["action.google-drive", { credentialId: "synthetic", operation: "uploadText", name: "test", text: "test" }],
-      ["action.google-drive", { credentialId: "synthetic", operation: "uploadText", name: "test", text: "test" }],
       ["action.google-sheets", { credentialId: "synthetic", operation: "append", spreadsheetId: "test", range: "A1", values: [["test"]] }],
     ] as Array<[string, Record<string, unknown>]>) {
       for (const status of [307, 308]) {

@@ -934,10 +934,6 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
   const recordedNode = execution?.graph?.nodes.find((item) => item.id === node.id && item.type === nodeExecution?.nodeType);
   const pagination = recordedNode && nodeExecution?.status === "SUCCEEDED" && !nodeExecution.error
     ? executionPagination(nodeExecution.nodeType, nodeExecution.input, nodeExecution.output) : undefined;
-  const sheetsMockAppend = execution?.mode === "mock" && nodeExecution?.status === "SUCCEEDED"
-    && ["action.google-sheets"].includes(nodeExecution.nodeType)
-    && nodeExecution.output !== null && typeof nodeExecution.output === "object" && !Array.isArray(nodeExecution.output)
-    && (nodeExecution.output as Record<string, unknown>).operation === "append";
   const approvalId = nodeExecution?.output && typeof nodeExecution.output === "object" && !Array.isArray(nodeExecution.output) && typeof (nodeExecution.output as Record<string, unknown>).approvalRequestId === "string"
     ? (nodeExecution.output as Record<string, unknown>).approvalRequestId as string
     : null;
@@ -956,7 +952,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       if (effectiveNodeType === "action.google-calendar.list-events" && ["credentialId", "calendarId", "limit", "timeMin"].includes(key) && "pageToken" in config) config.pageToken = "";
     }
     if (["action.google-drive", "action.google-drive.get-file", "action.google-drive.create-folder"].includes(effectiveNodeType) && key === "credentialId" && node.data.config.credentialId !== value) { if ("fileId" in config) config.fileId = ""; if ("parentId" in config) config.parentId = ""; }
-    if (["action.google-sheets"].includes(effectiveNodeType) && key === "credentialId" && node.data.config.credentialId !== value) config.spreadsheetId = "";
+    if (effectiveNodeType === "action.google-sheets" && key === "credentialId" && node.data.config.credentialId !== value) config.spreadsheetId = "";
     if (effectiveNodeType === "trigger.gmail" && key === "credentialId" && node.data.config.credentialId !== value) config.labelId = "";
     if (["action.gmail.reply", "action.gmail.modify-label"].includes(effectiveNodeType) && key === "credentialId" && node.data.config.credentialId !== value) {
       config.messageId = "";
@@ -1002,7 +998,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       if (["credentialId", "team"].includes(key) && "deploymentId" in config) config.deploymentId = "";
       if (effectiveNodeType === "action.vercel.list-deployments" && ["credentialId", "team", "project", "limit"].includes(key) && "cursor" in config) config.cursor = "";
     }
-    if (["action.postgres.select"].includes(effectiveNodeType) && node.data.config[key] !== value) {
+    if (effectiveNodeType === "action.postgres.select" && node.data.config[key] !== value) {
       if (key === "credentialId") { config.schema = ""; config.table = ""; }
       else if (key === "schema") config.table = "";
     }
@@ -1053,7 +1049,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       {["action.openai", "action.gemini"].includes(effectiveNodeType) && !readConfigText(node.data.config, "model").trim() && <Status tone="warning" className="inspector-note">Choose a model or enter its ID before testing this node.</Status>}
       {["action.openai", "action.gemini"].includes(effectiveNodeType) && (node.data.config.maxOutputTokens === "" || (typeof node.data.config.maxOutputTokens === "number" && (!Number.isInteger(node.data.config.maxOutputTokens) || node.data.config.maxOutputTokens < 1 || node.data.config.maxOutputTokens > 8192))) && <Status tone="warning" className="inspector-note">Max output tokens must be a whole number from 1 to 8,192. Your administrator may set a lower limit.</Status>}
       {["action.openai", "action.gemini"].includes(effectiveNodeType) && (node.data.config.timeoutMs === "" || (typeof node.data.config.timeoutMs === "number" && (!Number.isInteger(node.data.config.timeoutMs) || node.data.config.timeoutMs < 1000 || node.data.config.timeoutMs > 120000))) && <Status tone="warning" className="inspector-note">Timeout must be a whole number between 1,000 and 120,000 milliseconds.</Status>}
-      {["action.google-sheets"].includes(effectiveNodeType) && <GoogleSheetsMappingField key={`sheets-mapping-${node.id}`} workspaceId={workspaceId} config={node.data.config} draft={draft.sheetsMapping} onDraftChange={(next) => onDraftChange("sheetsMapping", next)} applyBlockedReason={draft.json ? "Apply or discard the node JSON edits before applying this preview." : undefined} onApply={onApplySheets} />}
+      {effectiveNodeType === "action.google-sheets" && <GoogleSheetsMappingField key={`sheets-mapping-${node.id}`} workspaceId={workspaceId} config={node.data.config} draft={draft.sheetsMapping} onDraftChange={(next) => onDraftChange("sheetsMapping", next)} applyBlockedReason={draft.json ? "Apply or discard the node JSON edits before applying this preview." : undefined} onApply={onApplySheets} />}
       {["action.postgres.select", "action.supabase.select"].includes(effectiveNodeType) && <RelationalNodeField key={`relational-${node.id}`} node={node} workspaceId={workspaceId} workflowId={workflowId} owner={owner} credentials={credentials} draft={draft.relational} onDraftChange={(next) => onDraftChange("relational", next)} jsonPending={draft.json !== undefined} />}
       {effectiveNodeType === "action.trello.create-card" && <Status tone="info" className="inspector-note">Card creation can be duplicated if a run is repeated. If the result is uncertain, check Trello before retrying.</Status>}
       {effectiveNodeType === "action.github.merge-pull-request" && <Status tone="info" className="inspector-note">For a guarded merge, provide the full head SHA from an earlier GitHub pull request step. GitHub rejects the merge if the head changes. Leave it empty to retain the original behavior.</Status>}
@@ -1074,7 +1070,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       {effectiveNodeType === "action.notion.create-page" && <Status tone="info" className="inspector-note">Creates a page inside the selected page. If delivery is uncertain, check Notion before running it again to avoid duplicates.</Status>}
       {effectiveNodeType === "action.notion.update-title" && <Status tone="info" className="inspector-note">Updates only the title. Changes made by someone else at the same time can be overwritten; check Notion before retrying an uncertain result.</Status>}
       {effectiveNodeType === "action.notion.list-children" && <Status tone="info" className="inspector-note">Returns direct child blocks only. Nested blocks require a separate request.</Status>}
-      {effectiveNodeType === "action.trello.find-cards" && <Status tone="info" className="inspector-note">Search uses Trello syntax. To page through results, choose “Choose a page”, keep the same connection, board, query and limit, then enter nextPage from the previous output. Results can shift as cards change; overlapping pages stop continuation, and a full page 100 cannot confirm further results. Older nodes keep first-page behavior until you change this setting.</Status>}
+      {effectiveNodeType === "action.trello.find-cards" && <Status tone="info" className="inspector-note">Search uses Trello syntax. To page through results, choose “Choose a page”, keep the same connection, board, query and limit, then enter nextPage from the previous output. Results can shift as cards change; overlapping pages stop continuation, and a full page 100 cannot confirm further results.</Status>}
       {["action.sentry.list-issues", "action.sentry.get-issue"].includes(effectiveNodeType) && <Status tone="info" className="inspector-note">Issue titles and metadata can be stored in execution history.</Status>}
       {["action.sentry.get-issue", "action.sentry.list-issues", "action.vercel.list-deployments"].includes(effectiveNodeType) && <Status tone="info" className="inspector-note">Only selected metadata is returned; check partial and continuation fields before treating a page as complete.</Status>}
       {effectiveNodeType === "action.vercel.public-deployment-lookup" && <Status tone="info" className="inspector-note">A public lookup can return deployments outside the selected account. It does not verify ownership.</Status>}
@@ -1183,7 +1179,6 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
               {pagination.kind === "offset" ? <p>To inspect another page, adjust <code>{pagination.input}</code> and keep the same connection, sorting and filters.</p> : pagination.available ? <p>The output contains <code>{pagination.next}</code>. Use it as <code>{pagination.input}</code> for another page, keeping the same connection and other settings.</p> : <p>No usable <code>{pagination.next}</code> was returned. This does not guarantee the result is complete.</p>}
               {pagination.caveat && <p>{pagination.caveat}</p>}
             </details>}
-            {sheetsMockAppend && <Status tone="info" className="inspector-note">For live appends, use <code>updates.updatedRows</code> and <code>updates.updatedCells</code>. The top-level counts are kept only for compatibility with older test runs.</Status>}
             {!nodeExecution.error && outputHasList(nodeExecution.output) && <Status tone="info" className="inspector-note">Lists stay together in this output. Connected nodes run at most once per execution, not once for each list item.</Status>}
             {nodeExecution.status === "WAITING" && approvalId && (
               <div className="approval-actions">
@@ -1685,7 +1680,7 @@ export function WorkflowEditor() {
         body: JSON.stringify({ mock: true, triggerData: manualTriggerTestData(useWorkflowEditorStore.getState().nodes) }),
       });
       setExecution(response.execution);
-      setNotice(`Mock execution ${response.execution.status.toLowerCase()} — select a node to inspect its output.`);
+      setNotice(`Mock execution ${response.execution.status.toLowerCase()} — sample data does not verify live connections or all inputs.`);
     } catch (reason) {
       setNotice(reason instanceof Error ? reason.message : "Unable to start the mock execution.");
     } finally {
@@ -1709,7 +1704,7 @@ export function WorkflowEditor() {
         body: JSON.stringify({ mock: true, nodeId: node.id, triggerData: manualTriggerTestData(useWorkflowEditorStore.getState().nodes) }),
       });
       setExecution(response.execution);
-      setNotice(`Mock node debug ${response.execution.status.toLowerCase()} — only ${node.data.label} ran.`);
+      setNotice(`Mock node debug ${response.execution.status.toLowerCase()} — only ${node.data.label} ran. Sample data does not verify live connections or all inputs.`);
     } catch (reason) {
       setNotice(reason instanceof Error ? reason.message : "Unable to run the selected node in mock mode.");
     } finally {
@@ -1940,7 +1935,7 @@ export function WorkflowEditor() {
           if (pending?.sheetsMapping !== sheetDraft || pending.json) return false;
           const state = useWorkflowEditorStore.getState();
           const latest = state.nodes.find((node) => node.id === selectedNode.id);
-          if (!latest || !["action.google-sheets"].includes(latest.data.nodeType)) return false;
+          if (!latest || latest.data.nodeType !== "action.google-sheets") return false;
           const config = applySheetsMapping(workflow?.workspaceId ?? "", latest.data.config, sheetDraft);
           state.updateNodeData(latest.id, { config });
           return true;

@@ -1,5 +1,13 @@
 # Connector coverage and scalable discovery — 2026-11-01
 
+> Historical snapshot: the table below predates later connector operations and
+> triggers. For example, Gmail write actions, additional Notion/Trello actions,
+> RSS/Telegram triggers and Supabase insert now exist in the executable registry.
+> Do not treat this table as the current implementation backlog; see
+> [the current NX audit](45-nx-current-audit.md) and the registry in
+> `packages/workflow-contracts/src/index.ts`. Existing live qualification
+> statements below remain limited to their stated dates and cases.
+
 ## Comparison and design decision
 
 Zapier's editor asks for app, event and account, then configuration and test; n8n documents operations by app and resource. Fluxora keeps the existing App → Operation model, with app categories that can be collapsed, operations grouped as triggers/actions/search/utilities, search, recent/favorites, and explicit unavailable states. Existing graph node IDs are unchanged. The grouping is presentation metadata, not a new workflow type or promise of a complete provider API. PR #71 deployed focus and favorite-control follow-ups: planned operations receive focus and no unusable favorite action, app-list arrow navigation stays within app buttons, and favorite labels identify the app. A production editor check confirmed the planned Instagram focus/return path and a ready app-specific favorite label; other paths retain automated coverage.

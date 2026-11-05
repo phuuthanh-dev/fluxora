@@ -95,6 +95,7 @@ function readSmtpMessage(config: Record<string, unknown>): SmtpMessage {
   const body = requiredText(config, "body");
   if (subject.length > 250) throw new NodeFailure("INVALID_CONFIGURATION", "Email subject must be at most 250 characters.", false);
   if (body.length > 200_000) throw new NodeFailure("INVALID_CONFIGURATION", "Email body must be at most 200,000 characters.", false);
+  if (Object.hasOwn(config, "bodyFormat") && config.bodyFormat !== "text" && config.bodyFormat !== "html") throw new NodeFailure("INVALID_CONFIGURATION", "Choose text or HTML for the email body.", false);
   const bodyFormat = config.bodyFormat === "html" ? "html" : "text";
   const replyTo = optionalSingleEmail(config.replyTo, "Reply-to address");
   return {

@@ -55,7 +55,7 @@ This table records the MVP baseline and selected later additions. Entries marked
 | Condition | Switch | Multiple cases and a default path. |
 | Action | Steam Account Snapshot | Profile, current game, owned/recent games, playtime, and optional per-game achievements. |
 | Action | Steam Web API | Community-node parity for profile, friends, badges, vanity URL, owned games, recently played games, and per-game achievements. The game picker lists visible owned games with a manual App ID fallback. Uses a workspace Steam Web API key; privacy settings still apply. |
-| Action | Riot TFT | Local prototype for Riot ID/account lookup, TFT match IDs, match detail, ranked entries and service status using an eligible workspace Riot key. Production approval and live TFT qualification remain open. |
+| Action | Riot TFT | Riot ID/account lookup, TFT match IDs, match detail, ranked entries and service status using an eligible workspace Riot key. Production approval and live TFT qualification remain open. |
 | Action | Google Chat Webhook | Send formatted daily report into one space. |
 | Action | Discord Webhook | Send content, embeds, and an explicitly allowlisted mention policy into a Discord channel via incoming webhook. |
 | Action | Telegram Message | Send message via Telegram Bot API with bot token and a typed destination: DM, group, supergroup, or channel. Supergroups may optionally target a topic/thread. |
@@ -74,14 +74,14 @@ This table records the MVP baseline and selected later additions. Entries marked
 | Action | OpenAI Generate Text | Dedicated workspace API-key connection, model discovery and Responses API text output, with mock and confirmed live modes. |
 | Action | MongoDB Find / Insert document | Dedicated credential, public single-server TLS, bounded data and database/collection pickers with manual fallback. |
 | Action | Google Chat OAuth message | Dedicated Chat OAuth connection and space picker, sending on behalf of the consenting user. |
-| Action | Notion Search pages | Search accessible pages using a dedicated connection; other Notion operations are not implied. |
+| Action | Notion | Search and retrieve pages, list content, query data sources, create pages and update titles using a dedicated connection; not full provider coverage. |
 | Action | PostgreSQL Select rows | Read bounded rows with a dedicated connection and verified TLS; an optional provider CA is supported. |
 | Action | RSS Read feed | Read bounded RSS or Atom entries over guarded outbound HTTP. |
 | Action | Trello Create card | Create a card in a chosen board and list using a workspace connection. |
 | Action | Sentry List issues | Read issues from an accessible Sentry project. |
 | Action | Vercel List deployments | Read deployments for an accessible project, with a personal-account fallback when team discovery is denied. |
 | Action | Supabase Select rows | Read bounded rows from an accessible public-schema table using Data API permissions. |
-| Action | Supabase Insert row | **Local draft:** insert one public-schema row using guided typed column values and the workspace connection; the API receipt does not return the inserted row. |
+| Action | Supabase Insert row | Insert one public-schema row using guided typed column values and the workspace connection; the API receipt does not return the inserted row. |
 | Action | Reddit List posts | List public posts only when provider access is available; real access has not been qualified. |
 | Trigger | Uptime Kuma alert | Receive and normalize an authorized monitor alert; local UP/DOWN delivery was tested. |
 | Approval | Approval | Pause, notify by Chat/webhook with an app link, then resume after UI approve/reject. |
@@ -92,7 +92,8 @@ dispatch; use the current behavior for the surviving type. Older saved graphs
 may require recreation and are not a compatibility requirement. Do not delete
 credentials, workspaces, or database records as part of the code change.
 Workflow publication versions and execution history remain separate concepts.
-This decision is being implemented; it is not yet evidence of release.
+This decision shipped in PR #89. Its synthetic verification and release evidence
+are recorded in `docs/19-agent-state.md`; old graphs are not automatically migrated.
 
 See `docs/35-connector-coverage-and-discovery.md` for the exact operations, point-in-time live evidence, provider restrictions and remaining coverage. An executable node is not a claim of full provider feature parity.
 
@@ -248,6 +249,8 @@ The owner has chosen the existing broad Drive and Sheets scopes for workflow aut
 ## 9. Approval behavior
 
 Approval pauses the workflow and creates an expiring approval request. It may notify via Google Chat or an outgoing webhook. Google Chat incoming webhooks are notification-only, so the human approves or rejects on the app's approval page; generic callback webhooks may also resume an approval.
+
+The notification provider is chosen as a fixed option before publish so readiness checks use the correct credential. If a condition operator or notification provider is invalid at execution, the node reports an error instead of silently changing its behavior.
 
 No multi-approver routing, reminder schedule, or approval policy engine is included in MVP.
 

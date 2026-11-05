@@ -16,6 +16,9 @@ export function validateTelegramDestination(
   messageThreadId: string | undefined,
 ): void {
   if (!destinationType) return;
+  if (messageThreadId && (destinationType !== "supergroup" || !/^[1-9]\d*$/.test(messageThreadId))) {
+    throw new NodeFailure("INVALID_CONFIGURATION", "Telegram topic / thread ID is only supported as a positive number on a supergroup.", false);
+  }
   // Leave the final required-value check to the adapter so legacy credentials
   // containing chatId can continue to work while new nodes prefer node config.
   if (!chatId) return;
@@ -32,8 +35,5 @@ export function validateTelegramDestination(
   }
   if (destinationType === "channel" && !((isNumericChatId && chatId.startsWith("-")) || isPublicChannelUsername)) {
     throw new NodeFailure("INVALID_CONFIGURATION", "Telegram channel must use a negative numeric ID or a public @username.", false);
-  }
-  if (messageThreadId && (destinationType !== "supergroup" || !/^[1-9]\d*$/.test(messageThreadId))) {
-    throw new NodeFailure("INVALID_CONFIGURATION", "Telegram topic / thread ID is only supported as a positive number on a supergroup.", false);
   }
 }

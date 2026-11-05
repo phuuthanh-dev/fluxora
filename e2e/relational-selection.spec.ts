@@ -86,8 +86,10 @@ test("relational node saves its current type", async ({ page }) => {
   await expect(page.getByText("Original selection behavior")).toHaveCount(0);
   await page.getByRole("button", { name: "Save draft" }).click();
   await expect.poll(() => saves.length).toBe(1);
-  const graph = saves[0]!.graph as { nodes: Array<{ id: string; type: string; nodeVersion?: number }> };
-  expect(graph.nodes.find((node) => node.id === "relational")).toMatchObject({ type: "action.postgres.select" });
+  const graph = saves[0]!.graph as { nodes: Array<{ id: string; type: string }> };
+  const node = graph.nodes.find((entry) => entry.id === "relational");
+  expect(node).toMatchObject({ type: "action.postgres.select" });
+  expect(node).not.toHaveProperty("nodeVersion");
 });
 
 test("a saved expression is not presented as a checked boolean or changed until selected", async ({ page }) => {

@@ -1,54 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { CredentialProvider } from "@prisma/client";
+import { getOperationMetadataRegistry, workflowNodeTypes } from "@workflow/contracts";
 import { liveCredentialRequirements } from "./live-readiness";
-
-test("Supabase insert requires its workspace connection for live execution", () => {
-  const requirements = liveCredentialRequirements({ nodes: [{ id: "insert", type: "action.supabase.insert-row", position: { x: 0, y: 0 }, config: { credentialId: "supabase-connection" } }], edges: [] });
-  assert.deepEqual(requirements, [{ nodeId: "insert", provider: CredentialProvider.SUPABASE, credentialId: "supabase-connection" }]);
-});
 import { ExecutionService } from "./execution.service";
 
-test("both Steam nodes require the selected workspace Steam connection", () => {
-  const nodes = (["action.steam", "action.steam.account-snapshot"] as const).map((type, index) => ({ id: String(index), type, position: { x: 0, y: 0 }, config: { credentialId: `steam-${index}` } }));
-  assert.deepEqual(liveCredentialRequirements({ nodes, edges: [] }), nodes.map((node) => ({ nodeId: node.id, provider: CredentialProvider.STEAM, credentialId: node.config.credentialId })));
-});
-
-test("versioned Google Sheets writes still require the workspace Google connection", () => {
-  const requirements = liveCredentialRequirements({ nodes: [{ id: "sheet", type: "action.google-sheets", position: { x: 0, y: 0 }, config: { credentialId: "google-connection" } }], edges: [] });
-  assert.deepEqual(requirements, [{ nodeId: "sheet", provider: CredentialProvider.GOOGLE, credentialId: "google-connection" }]);
-});
-
-test("new Trello and Notion operations retain provider-specific live-readiness checks", () => {
-  const types = ["action.notion.retrieve-page", "action.notion.list-children", "action.notion.retrieve-property", "action.notion.create-page", "action.notion.update-title", "action.trello.get-card", "action.trello.update-card", "action.trello.move-card", "action.trello.archive-card", "action.trello.list-cards", "action.trello.find-cards"] as const;
-  const nodes = types.map((type, index) => ({ id: String(index), type, position: { x: 0, y: 0 }, config: { credentialId: `credential-${index}` } }));
-  const requirements = liveCredentialRequirements({ nodes, edges: [] });
-  assert.equal(requirements.length, types.length);
-  for (let i = 0; i < types.length; i++) {
-    assert.equal(requirements[i]?.provider, types[i]!.startsWith("action.notion.") ? CredentialProvider.NOTION : CredentialProvider.TRELLO);
-    assert.equal(requirements[i]?.credentialId, `credential-${i}`);
-  }
-});
-
-test("GitHub issue and pull request operations require the workspace GitHub credential", () => {
-  const types = ["action.github.list-issues", "action.github.get-issue", "action.github.update-issue", "action.github.list-pull-requests", "action.github.get-pull-request"] as const;
-  const requirements = liveCredentialRequirements({ nodes: types.map((type, index) => ({ id: String(index), type, position: { x: 0, y: 0 }, config: { credentialId: "github" } })), edges: [] });
-  assert.equal(requirements.length, types.length);
-  assert.ok(requirements.every((entry) => entry.provider === CredentialProvider.GITHUB && entry.credentialId === "github"));
-});
-
-test("Gmail get-message requires a Gmail credential", () => {
-  const requirements = liveCredentialRequirements({ nodes: [{ id: "message", type: "action.gmail.get-message", position: { x: 0, y: 0 }, config: { credentialId: "gmail" } }], edges: [] });
-  assert.deepEqual(requirements, [{ nodeId: "message", provider: CredentialProvider.GMAIL, credentialId: "gmail" }]);
-});
-
-test("observability read operations require their own provider credential", () => {
-  const types = ["action.sentry.list-issues", "action.sentry.get-issue", "action.vercel.list-deployments", "action.vercel.public-deployment-lookup"] as const;
-  const requirements = liveCredentialRequirements({ nodes: types.map((type, index) => ({ id: String(index), type, position: { x: 0, y: 0 }, config: { credentialId: `connection-${index}` } })), edges: [] });
-  assert.equal(requirements.length, types.length);
-  for (let index = 0; index < types.length; index++) {
-    assert.equal(requirements[index]?.credentialId, `connection-${index}`);
-    assert.equal(requirements[index]?.provider, index < 2 ? CredentialProvider.SENTRY : CredentialProvider.VERCEL);
+test("executable credential metadata agrees with live readiness for every registered node", () => {
+  const metadata = getOperationMetadataRegistry();
+  for (const type of workflowNodeTypes) {
+    const entry = metadata[type];
+    if (entry.availability !== "executable" || entry.auth.kind !== "credential") continue;
+    const node = { id: type, type, position: { x: 0, y: 0 }, config: { credentialId: "example-connection" } };
+    const requirements = liveCredentialRequirements({ nodes: [node], edges: [] });
+    assert.deepEqual(requirements, [{ nodeId: type, provider: entry.auth.provider, credentialId: "example-connection" }], type);
+    if (entry.auth.requirement === "required") {
+      assert.deepEqual(liveCredentialRequirements({ nodes: [{ ...node, config: {} }], edges: [] }), [{ nodeId: type, provider: entry.auth.provider, credentialId: null }], `${type}: missing credential`);
+    }
   }
 });
 

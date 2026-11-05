@@ -50,9 +50,12 @@ test("publish rejects unknown static condition and approval choices without chan
       { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
       { id: "node", type, position: { x: 200, y: 0 }, config: value === undefined ? {} : { [key]: value } },
     ], edges: [] });
-    for (const value of [undefined, null, "", ...supported, "{{ steps.previous.output.choice }}"]) {
+    for (const value of [undefined, null, "", ...supported]) {
       assert.doesNotThrow(() => validatePublishableGraph(parseWorkflowGraph(graph(value))), `${type}: ${String(value)}`);
     }
+    const expression = "{{ steps.previous.output.choice }}";
+    if (type === "condition.if") assert.doesNotThrow(() => validatePublishableGraph(parseWorkflowGraph(graph(expression))));
+    else assert.throws(() => validatePublishableGraph(parseWorkflowGraph(graph(expression))), BadRequestException);
     for (const value of ["unsupported", 123, false]) {
       const saved = graph(value);
       assert.doesNotThrow(() => parseStoredWorkflowGraph(saved));

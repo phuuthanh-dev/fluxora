@@ -13,6 +13,7 @@ async function signUpRunAndOpenDetails(page: Page, email: string) {
   await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
   await page.getByRole("button", { name: "Run test", exact: true }).click();
   await expect(page.getByText(/Mock execution succeeded/i)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/sample data does not verify live connections or all inputs/i)).toBeVisible();
   await page.getByRole("button", { name: "Run details", exact: true }).click();
 }
 

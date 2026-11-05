@@ -169,15 +169,13 @@ test("Google connector fields follow operation-specific runtime contracts", () =
   assert.deepEqual(drive.configurationFields?.find((field) => field.key === "name")?.visibleWhen, { key: "operation", equals: "uploadText" });
   assert.deepEqual(drive.configurationFields?.find((field) => field.key === "text")?.visibleWhen, { key: "operation", equals: "uploadText" });
 
-  const sheetsV2 = getNodeDefinition("action.google-sheets");
-  assert.ok(sheetsV2);
-  const inputOption = sheetsV2.configurationFields?.find((field) => field.key === "valueInputOption");
-  assert.equal(inputOption?.kind, "select");
-  assert.deepEqual(inputOption?.visibleWhen, { key: "operation", equals: ["append", "update"] });
-  assert.equal(sheetsV2.defaultConfig.valueInputOption, "USER_ENTERED");
-
   const sheets = getNodeDefinition("action.google-sheets");
   assert.ok(sheets);
+  const inputOption = sheets.configurationFields?.find((field) => field.key === "valueInputOption");
+  assert.equal(inputOption?.kind, "select");
+  assert.deepEqual(inputOption?.visibleWhen, { key: "operation", equals: ["append", "update"] });
+  assert.equal(sheets.defaultConfig.valueInputOption, "USER_ENTERED");
+
   assert.equal(sheets.configurationFields?.find((field) => field.key === "values")?.kind, "table");
   assert.deepEqual(sheets.configurationFields?.find((field) => field.key === "values")?.visibleWhen, { key: "operation", equals: ["append", "update"] });
 });

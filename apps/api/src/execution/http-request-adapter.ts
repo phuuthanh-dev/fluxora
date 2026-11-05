@@ -6,12 +6,12 @@ import { readBoundedProviderText } from "./provider-json";
 import { isReadOnlyMethod, requireProviderSuccess, uncertainDelivery } from "./provider-request-policy";
 
 export async function executeHttpRequest(config: Record<string, unknown>, credential?: Record<string, unknown>, transport?: (url: string, init: RequestInit) => Promise<Response>): Promise<NodeResult> {
-  let url = typeof config.url === "string" ? config.url : "";
-  if (!/^https?:\/\//.test(url)) throw new NodeFailure("INVALID_CONFIGURATION", "HTTP request requires an http(s) URL.", false);
+  const request = readHttpRequestConfig(config);
+  let url = request.url;
   const timeoutMs = typeof config.timeoutMs === "number" && config.timeoutMs > 0 ? Math.min(config.timeoutMs, 60_000) : 15_000;
   const method = typeof config.method === "string" ? config.method.toUpperCase() : "GET";
   const write = !isReadOnlyMethod(method);
-  const headers = readHttpHeaders(config.headers);
+  const headers = request.headers;
   if (credential) {
     try {
       const authenticated = applyHttpCredential(url, headers, credential);
@@ -48,6 +48,13 @@ export async function executeHttpRequest(config: Record<string, unknown>, creden
     const timeout = reason instanceof Error && reason.name === "TimeoutError";
     throw new NodeFailure(timeout ? "TIMEOUT" : "NETWORK_ERROR", timeout ? "HTTP request timed out." : "HTTP request failed.", true);
   }
+}
+
+export function readHttpRequestConfig(config: Record<string, unknown>) {
+  const url = typeof config.url === "string" ? config.url : "";
+  if (!/^https?:\/\//.test(url)) throw new NodeFailure("INVALID_CONFIGURATION", "HTTP request requires an http(s) URL.", false);
+  try { new URL(url); } catch { throw new NodeFailure("INVALID_CONFIGURATION", "HTTP request requires an http(s) URL.", false); }
+  return { url, headers: readHttpHeaders(config.headers) };
 }
 
 function containsCredentialEcho(raw: string, body: unknown, secrets: string[]): boolean {

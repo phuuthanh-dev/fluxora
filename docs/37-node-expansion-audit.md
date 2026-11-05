@@ -2,6 +2,18 @@
 
 ## Trạng thái phát hành mới nhất — 05/11/2026
 
+PR [#89](https://github.com/phuuthanh-dev/fluxora/pull/89) đã merge tại
+`d22dd018851e066595ff7337556eaa279b968869`; [CI PR](https://github.com/phuuthanh-dev/fluxora/actions/runs/42017532464), [CI main](https://github.com/phuuthanh-dev/fluxora/actions/runs/42019435840) và [deploy](https://github.com/phuuthanh-dev/fluxora/actions/runs/42021280239) đều đạt. Health/readiness, landing và login trả HTTP 200 sau deploy; chưa thử provider thật.
+
+Quyết định mới của chủ dự án thay thế các ghi chú cũ về việc giữ cả hai
+type: 10 nhóm node chỉ còn type không hậu tố, dùng hành vi hiện tại. Graph
+có `.v2` đã loại bỏ cần tạo lại; workflow version và credential vẫn được giữ.
+Verify local cô lập đạt 990 API, 72 web và 214 Playwright; dữ liệu thử và
+transport giả không chứng minh toàn bộ tích hợp thật. Xem
+[quyết định hợp nhất](43-node-versioning-migration.md).
+
+Các section PR #88 trở về trước là lịch sử; không dùng chúng để đề xuất làm lại.
+
 PR [#88](https://github.com/phuuthanh-dev/fluxora/pull/88) đã merge tại
 `a2734f5cc3a9600f60e848750fbbe01b22bafc1d`; [CI PR](https://github.com/phuuthanh-dev/fluxora/actions/runs/41983355671),
 [CI main](https://github.com/phuuthanh-dev/fluxora/actions/runs/41985095176)
@@ -471,7 +483,7 @@ Giữ node library App → Operation, categories, search, favorites/recent và s
 6. Output phân biệt `items/rows`, pagination, provider receipt, partial/truncated và delivery uncertain. Metadata discovery không được quảng cáo như action đã thực thi.
 7. Provider bị chặn như Reddit có trạng thái và lý do; planned Meta/Instagram vẫn disabled. Chưa nên hiển thị điểm “production ready” chung cho cả app từ một test success.
 
-## 6. Thứ tự thi công đề xuất
+## 6. Thứ tự thi công đề xuất — lịch sử
 
 Đây là backlog từ audit tại `04d67b6`. NX-01 được triển khai trong đợt tiếp theo; trạng thái validation/release nằm trong report bên dưới. Các mã `NX-*` chỉ là checklist của báo cáo, không thay ID được phê duyệt trong `docs/19-agent-state.md`.
 
@@ -487,7 +499,7 @@ Giữ node library App → Operation, categories, search, favorites/recent và s
 
 Theo yêu cầu hiện tại của chủ dự án, phần NX còn lại do coordinator trực tiếp thực hiện và tự audit code đã nhận từ sub-agent; không phân thêm sub-agent cho đợt này. Báo cáo từ agent chỉ là đầu mối để kiểm tra source và bằng chứng, không thay thế review. Chạy **một final quality gate** sau khi hoàn tất chỉnh sửa; chỉ rerun khi có failure hoặc sửa mới.
 
-### Đối chiếu code với tiêu chí NX — snapshot 2026-11-03
+### Đối chiếu code với tiêu chí NX — snapshot lịch sử 2026-11-03
 
 Baseline `origin/main` `3c9ac35`, PR draft head `ff0740a` và snapshot code
 `388ac7b`. Snapshot `388ac7b` đã qua full verify cô lập; CI Node 22 cũng đã
@@ -536,7 +548,7 @@ có thể downgrade an toàn.
 | NX-07 | Tài liệu quyết định cho item/batch, binary, database change capture, Reddit và Meta. | Các hệ thống này chưa được coi là đã triển khai chỉ vì có thiết kế; phụ thuộc provider và phạm vi triển khai phải xét riêng. |
 | Phát hành | GitHub Quality gate đã pass tại PR head `ff0740a`; full verify cô lập pass cho source `388ac7b`. Có diễn tập cô lập và guard từ chối fleet legacy. | First cutover và rollback về release trước chưa được chứng minh. PR #75 vẫn draft tại thời điểm ghi; ghi chú restore mới chưa lên PR. Xem [review phát hành](40-nx-release-review.md). |
 
-### Tiến độ bản nháp sau audit — chưa phát hành
+### Tiến độ bản nháp sau audit — lịch sử tại thời điểm ghi
 
 - **Steam snapshot cũ local:** tái sử dụng chính sách outbound và parser giới hạn của node Steam mới, kiểm tra API key bị Steam phản hồi lại trước khi lưu output; không thay cấu trúc output hoặc tự sửa graph cũ. Mỗi phản hồi snapshot giới hạn 5 MB và lỗi nếu vượt ngưỡng, không cắt dữ liệu âm thầm; kết nối bị chuyển hướng sang origin khác bị chặn. Điều này có thể khiến workflow với thư viện rất lớn hoặc phản hồi có chứa key chuyển sang nhánh lỗi, thay vì xử lý như trước. Achievement HTTP không thành công vẫn trả `null`. Metadata các trường output được đối chiếu với mock và fixture Steam giả; test mới chưa chạy và chưa có live qualification. Không có bằng chứng từ audit này rằng key đã bị lộ.
 - **NX-02 notification receipt local:** metadata ghi các trường receipt chung cho Google Chat webhook, Discord, Telegram send/reply/edit, dựa trên `NormalizedDeliveryResult` và adapter; `messageId` có thể tùy provider. Fixture mock mới kiểm tra các trường được khai báo và không đọc credential, chưa chạy. Điều này không chứng minh delivery thật hay khả năng chống trùng.
