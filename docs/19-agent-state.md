@@ -6,39 +6,47 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- Isolated `npm run verify` at `236fa1a` passed 1,000 API tests (one Riot
+  database integration skipped), 80 web tests, typecheck/build and 221/222
+  Playwright cases. Calendar picker E2E assumed a fixed request index; that
+  assertion was corrected at `6561561` and the case passed in isolation. The
+  skipped Riot database integration also passed separately. A fresh full gate
+  on the corrected commit is still required before release.
+
 - Post-PR #87 NX-05 work in progress: the existing disposable-Postgres
   Telegram delivery integration test now covers out-of-order update IDs,
   recovery of an accepted queued execution without requeueing a started one,
-  and rejection after deactivation. This test has not run yet and does not
+  and rejection after deactivation. It passed at `236fa1a` and does not
   establish provider delivery behavior or exactly-once processing.
 
 - Post-PR #87 metadata work in progress: the existing configured-mock
   contract matrix now includes all registered action node types and checks
   advertised output fields, except the conditional Trello pagination warning.
-  The matrix is written but not yet run; it does not prove live provider
+  The matrix passed at `236fa1a`; it does not prove live provider
   behavior, all operation variants, runtime schemas or secret redaction.
 
 - Post-PR #87 Google Drive/Sheets output audit in progress: existing adapters
   now inspect response strings and keys for the current access token, including
   Drive text and Sheets cells. A write whose response contains the token is
-  reported uncertain rather than retried. Synthetic tests are written but not
-  run; no live Google call. Exact token matches in legitimate data are rejected;
+  reported uncertain rather than retried. Synthetic API tests passed at
+  `236fa1a`; no live Google call. Exact token matches in legitimate data are rejected;
   partial, encoded or other secrets are not covered.
 
 - Post-PR #87 Trello safety audit in progress: the existing create-card POST
   now uses the no-write-redirect transport and reports an uncertain outcome
   for redirects, timeouts, 429 and 5xx; it does not automatically retry.
   Discovery and the created-card output reject current credential echoes before
-  truncation; after a write this reports uncertainty. Synthetic tests are
-  written but not run. No live Trello request was made for this change.
+  truncation; after a write this reports uncertainty. Synthetic API tests passed
+  at `236fa1a`. No live Trello request was made for this change.
 
 - Post-PR #87 work in progress: Calendar event picker can request additional
   pages using the original `timeMin`, reset when its calendar/connection
   changes, and retain manual ID entry. Synthetic API and editor tests are
-  written but not yet run; final verify and release remain pending. Search
+  written; the API tests passed and E2E passed after correcting its request
+  assertion, but full verify and release remain pending. Search
   filters loaded pages only; a hint now says so when more are available across
   paginated pickers. Added synthetic coverage for owner denial and switching
-  accounts after pagination; this coverage has not run yet. Do not mistake this picker work for changing
+  accounts after pagination. Do not mistake this picker work for changing
   workflow execution or for live Google qualification.
 
 - [PR #87](https://github.com/phuuthanh-dev/fluxora/pull/87) merged as

@@ -2,51 +2,57 @@
 
 ## Trạng thái phát hành mới nhất — 05/11/2026
 
-**NX-05 đang phát triển sau PR #87 — chưa verify:** mở rộng bài integration
+Verify cô lập tại `236fa1a` đạt 1.000 bài API (một bài Riot PostgreSQL bị
+bỏ qua), 80 bài web, typecheck/build và 221/222 Playwright. Bài Calendar sai
+do giả định thứ tự request; đã sửa tại `6561561` và chạy riêng đạt. Bài Riot
+bị bỏ qua đã chạy riêng đạt trên database thử. Cần chạy lại full gate trên
+commit đã sửa; chưa phát hành các thay đổi sau PR #87.
+
+**NX-05 đang phát triển sau PR #87 — chờ full gate:** mở rộng bài integration
 Telegram hiện có trên PostgreSQL thử để kiểm tra update đến sai thứ tự, khôi
 phục execution đã nhận nhưng chưa bắt đầu, bỏ qua execution đã chạy và từ chối
-delivery mới sau khi workflow tắt. Bài test chưa chạy; không xác nhận Telegram
+delivery mới sau khi workflow tắt. Test đạt tại `236fa1a`; không xác nhận Telegram
 thật, không chứng minh exactly-once và không thay đổi cơ chế trigger hiện có.
 
-**NX-02 đang phát triển sau PR #87 — chưa verify:** mở rộng bảng fixture
+**NX-02 đang phát triển sau PR #87 — chờ full gate:** mở rộng bảng fixture
 mock có cấu hình hợp lệ cho mọi action đã đăng ký và đối chiếu các trường
 output được metadata khai báo. Test cũng yêu cầu fixture bao phủ đúng registry;
 riêng cảnh báo pagination Trello chỉ có khi xảy ra trường hợp tương ứng.
-Bài test chưa chạy, không xác nhận provider thật, mọi operation con, runtime
+Test đạt tại `236fa1a`, không xác nhận provider thật, mọi operation con, runtime
 schema hay bảo vệ secret của từng nhánh.
 
-**Đang phát triển sau PR #87 — Drive/Sheets, chưa verify hoặc phát hành:**
+**Đang phát triển sau PR #87 — Drive/Sheets, chờ full gate:**
 các adapter Drive và Sheets hiện có kiểm tra token truy cập hiện tại trong
 toàn bộ chuỗi và tên trường của response JSON, kể cả nội dung file text và ô
 Sheet. Nếu response sau thao tác ghi chứa token, kết quả được báo chưa chắc
 chắn và không tự retry; với thao tác đọc sẽ báo lỗi response không an toàn.
 Việc từ chối có thể ảnh hưởng dữ liệu hợp lệ trùng token; không phát hiện token
-bị chia nhỏ, mã hóa hoặc secret khác. Test transport giả đã viết nhưng chưa
-chạy; chưa thử Google thật. Không thay đổi quyền OAuth hay nội dung provider.
+bị chia nhỏ, mã hóa hoặc secret khác. Test transport giả đạt tại `236fa1a`;
+chưa thử Google thật. Không thay đổi quyền OAuth hay nội dung provider.
 
-**Đang phát triển sau PR #87 — Trello, chưa verify hoặc phát hành:** audit
+**Đang phát triển sau PR #87 — Trello, chờ full gate:** audit
 phát hiện đường tạo card cũ dùng transport có thể theo redirect và dữ liệu
 board/list cùng card vừa tạo chưa kiểm tra token/key bị provider lặp lại.
 Thay đổi local dùng transport chặn redirect cho POST; redirect, 408, 429,
 5xx, lỗi mạng hoặc output không an toàn sau khi ghi được báo kết quả chưa
 chắc chắn và không tự retry. Discovery từ chối giá trị chứa nguyên token/key
 trước khi cắt ngắn; có thể từ chối dữ liệu trùng credential một cách tình cờ,
-không phát hiện mọi dạng mã hóa hay secret khác. Test giả lập đã viết nhưng
-chưa chạy, chưa kiểm thử provider thật. [Trello](https://developer.atlassian.com/cloud/trello/guides/rest-api/api-introduction/)
+không phát hiện mọi dạng mã hóa hay secret khác. Test giả lập đạt tại
+`236fa1a`, chưa kiểm thử provider thật. [Trello](https://developer.atlassian.com/cloud/trello/guides/rest-api/api-introduction/)
 xác định tạo card là POST; [tài liệu rate limit](https://developer.atlassian.com/cloud/trello/guides/rest-api/rate-limits/)
 mô tả 429, còn chính sách không tự retry ở đây là lựa chọn thận trọng của Fluxora.
 
-**Đang phát triển sau PR #87 — chưa verify hoặc phát hành:** picker sự kiện
+**Đang phát triển sau PR #87 — chờ full gate:** picker sự kiện
 Calendar có thể tải thêm từng trang, thay vì chỉ chọn trong 50 sự kiện đầu.
 Backend trả cursor và thời điểm bắt đầu của trang đầu; khi tải thêm, editor
 giữ nguyên lịch, connection và thời điểm đó. Đổi lịch hoặc connection bắt đầu
 lại từ trang đầu. Người dùng vẫn có thể nhập ID thủ công; tìm kiếm hiện chỉ
-lọc các trang đã tải. Test giả lập API và editor đã được bổ sung, chưa chạy;
-chưa kiểm thử Google thật. [Google yêu cầu giữ các tham số ban đầu khi lấy
+lọc các trang đã tải. API test đạt tại `236fa1a`; E2E đạt sau khi sửa assertion.
+Chưa kiểm thử Google thật. [Google yêu cầu giữ các tham số ban đầu khi lấy
 trang tiếp](https://developers.google.com/workspace/calendar/api/guides/pagination).
 Lựa chọn này không làm thay đổi node list-events hoặc workflow đã lưu.
 Test giả lập cũng kiểm tra từ chối owner khác trước khi đọc credential và không
-dùng cursor cũ sau khi đổi account; các test này vẫn đang chờ verify.
+dùng cursor cũ sau khi đổi account; chờ full gate của bản E2E đã sửa.
 Khi đang tìm kiếm và còn trang chưa tải, picker dùng chung hiển thị rõ tìm kiếm
 chỉ áp dụng cho danh sách đã tải và có thể chọn tải thêm; đây không phải tìm
 kiếm phía provider.
