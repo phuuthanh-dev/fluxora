@@ -4,6 +4,7 @@ import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
 import { googleCalendarGet, isCalendarResourceId, listCalendarEvents } from "../execution/google-calendar";
 import { NodeFailure } from "../execution/node-failure";
+import { assertNoCredentialInProviderFields } from "../execution/provider-credential-safety";
 import { CredentialService } from "./credential.service";
 
 @Controller("workspaces/:workspaceId/credentials/:credentialId/google-calendar")
@@ -19,20 +20,26 @@ export class GoogleCalendarResourceController {
     if (pageToken !== undefined && (pageToken.length > 512 || !/^[\x21-\x7e]+$/.test(pageToken))) throw new BadRequestException({ code: "INVALID_INPUT", message: "Invalid page token." });
     await this.credentials.requireOwner(workspaceId, request.currentUser.id);
     const credential = await this.credentials.readGoogleForExecution(credentialId, workspaceId, CredentialProvider.GOOGLE_CALENDAR);
+    const token = typeof credential.accessToken === "string" ? credential.accessToken : "";
     const params = new URLSearchParams({ maxResults: "100" });
     if (pageToken) params.set("pageToken", pageToken);
     let data: Record<string, unknown>;
-    try { data = await this.getCalendar(`users/me/calendarList?${params}`, typeof credential.accessToken === "string" ? credential.accessToken : ""); }
+    try { data = await this.getCalendar(`users/me/calendarList?${params}`, token); }
     catch (error) { if (error instanceof NodeFailure) throw new BadRequestException({ code: error.code, message: error.message }); throw error; }
     if (data.items !== undefined && !Array.isArray(data.items)) throw new BadRequestException({ code: "INVALID_RESPONSE", message: "Google Calendar returned an invalid calendar list." });
-    const calendars = (Array.isArray(data.items) ? data.items : []).slice(0, 100).flatMap((value: unknown) => {
-      if (!value || typeof value !== "object" || Array.isArray(value)) return [];
-      const item = value as Record<string, unknown>;
-      if (typeof item.id !== "string" || !isCalendarResourceId(item.id)) return [];
-      const name = typeof item.summaryOverride === "string" && item.summaryOverride.trim() ? item.summaryOverride : typeof item.summary === "string" && item.summary.trim() ? item.summary : "Untitled calendar";
-      return [{ id: item.primary === true ? "primary" : item.id, name: `${name.slice(0, 200)}${item.primary === true ? " · primary" : ""}` }];
-    });
-    return { calendars, nextPageToken: typeof data.nextPageToken === "string" && data.nextPageToken.length <= 512 && /^[\x21-\x7e]+$/.test(data.nextPageToken) ? data.nextPageToken : null };
+    try {
+      const calendars = (Array.isArray(data.items) ? data.items : []).slice(0, 100).flatMap((value: unknown) => {
+        if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+        const item = value as Record<string, unknown>;
+        if (typeof item.id !== "string" || !isCalendarResourceId(item.id)) return [];
+        const name = typeof item.summaryOverride === "string" && item.summaryOverride.trim() ? item.summaryOverride : typeof item.summary === "string" && item.summary.trim() ? item.summary : "Untitled calendar";
+        assertNoCredentialInProviderFields([item.primary === true ? "primary" : item.id, name], token);
+        return [{ id: item.primary === true ? "primary" : item.id, name: `${name.slice(0, 200)}${item.primary === true ? " · primary" : ""}` }];
+      });
+      const nextPageToken = typeof data.nextPageToken === "string" && data.nextPageToken.length <= 512 && /^[\x21-\x7e]+$/.test(data.nextPageToken) ? data.nextPageToken : null;
+      assertNoCredentialInProviderFields([nextPageToken], token);
+      return { calendars, nextPageToken };
+    } catch (error) { if (error instanceof NodeFailure) throw new BadRequestException({ code: error.code, message: error.message }); throw error; }
   }
 
   @Get("events")

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { executeGmailRead, listGmailMessages } from "./gmail-read";
+import { executeGmailRead, getGmailMessage, listGmailMessages } from "./gmail-read";
+import { NodeFailure } from "./node-failure";
 import { redactValue } from "./redaction";
 import type { CredentialService } from "../credentials/credential.service";
 
@@ -58,4 +59,18 @@ test("Gmail ignores attachment data and limits decoded message text", async () =
   });
   assert.equal(output.messages[0]?.text.length, 50_000);
   assert.ok(!output.messages[0]?.text.includes("attachment"));
+});
+
+test("Gmail rejects access token echoes in headers, snippet, labels and decoded text before truncation", async () => {
+  const token = "synthetic-gmail-access-token";
+  const values = [
+    { snippet: `${"x".repeat(1998)}${token}` },
+    { labelIds: [token] },
+    { threadId: token },
+    { payload: { headers: [{ name: "Subject", value: `${"x".repeat(998)}${token}` }] } },
+    { payload: { mimeType: "text/plain", body: { data: Buffer.from(`${"x".repeat(49_998)}${token}`).toString("base64url") } } },
+  ];
+  for (const value of values) {
+    await assert.rejects(getGmailMessage(token, "message-id", async () => Response.json(value)), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_RESPONSE" && !error.retryable && !error.message.includes(token));
+  }
 });

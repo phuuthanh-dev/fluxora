@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { BadRequestException } from "@nestjs/common";
 import { GoogleCalendarResourceController } from "./google-calendar-resource.controller";
 
 test("calendar discovery checks workspace ownership and returns bounded names without tokens", async () => {
@@ -18,6 +19,25 @@ test("calendar discovery does not read a credential when owner access is denied"
   const controller = new GoogleCalendarResourceController({ requireOwner: async () => { throw new Error("denied"); }, readGoogleForExecution: async () => { reads++; } } as never);
   await assert.rejects(controller.calendars("workspace", "credential", { currentUser: { id: "other" } } as never));
   assert.equal(reads, 0);
+});
+
+test("calendar discovery does not return an access token echoed in a name, ID or cursor", async () => {
+  const token = "synthetic-calendar-access-token";
+  const variants = [
+    { items: [{ id: "owner@example.test", summary: `${"x".repeat(198)}${token}` }] },
+    { items: [{ id: `calendar-${token}`, summary: "Work" }] },
+    { items: [], nextPageToken: `cursor-${token}` },
+  ];
+  for (const data of variants) {
+    const controller = new GoogleCalendarResourceController({ requireOwner: async () => {}, readGoogleForExecution: async () => ({ accessToken: token }) } as never);
+    Object.defineProperty(controller, "getCalendar", { value: async () => data });
+    await assert.rejects(controller.calendars("workspace", "credential", { currentUser: { id: "owner" } } as never), (error: unknown) => {
+      assert.ok(error instanceof BadRequestException);
+      assert.equal((error.getResponse() as { code: string }).code, "INVALID_RESPONSE");
+      assert.ok(!JSON.stringify(error.getResponse()).includes(token));
+      return true;
+    });
+  }
 });
 
 test("event discovery returns upcoming event names after owner and credential checks", async () => {

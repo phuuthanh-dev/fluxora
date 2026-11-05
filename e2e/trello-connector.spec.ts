@@ -55,6 +55,9 @@ test("Trello search upgrades a legacy draft explicitly and resets its page when 
   await expect(pageInput).toHaveCount(0);
   await page.getByLabel("Search results").selectOption("pages");
   await expect(pageInput).toHaveValue("0");
+  await pageInput.clear();
+  await expect(page.getByText("Enter a value.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Use default", exact: true })).toHaveCount(0);
   await pageInput.fill("2");
   await expect(pageInput).toHaveValue("2");
   await page.getByLabel("Search query").fill("new search");

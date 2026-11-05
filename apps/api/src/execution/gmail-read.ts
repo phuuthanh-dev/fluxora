@@ -4,6 +4,7 @@ import { NodeFailure } from "./node-failure";
 import { fetchSafeOutbound } from "./outbound-url-policy";
 import { readBoundedProviderJson } from "./provider-json";
 import { markPageTokenOutput } from "./redaction";
+import { assertNoCredentialInProviderFields } from "./provider-credential-safety";
 
 type Transport = typeof fetchSafeOutbound;
 const record = (value: unknown): Record<string, unknown> | null => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
@@ -25,7 +26,7 @@ export async function getGmailJson(url: string, token: string, transport: Transp
   return result;
 }
 
-function plainText(payload: unknown) {
+function plainText(payload: unknown, token: string) {
   let found = "";
   const visit = (item: unknown, depth: number) => {
     if (depth > 10 || found) return;
@@ -33,7 +34,9 @@ function plainText(payload: unknown) {
     if (!part) return;
     const body = record(part.body);
     if (part.mimeType === "text/plain" && !part.filename && typeof body?.data === "string" && body.data.length <= 100_000 && /^[A-Za-z0-9_-]*={0,2}$/.test(body.data)) {
-      found = Buffer.from(body.data, "base64url").toString("utf8").slice(0, 50_000);
+      const decoded = Buffer.from(body.data, "base64url").toString("utf8");
+      assertNoCredentialInProviderFields([decoded], token);
+      found = decoded.slice(0, 50_000);
       return;
     }
     if (Array.isArray(part.parts)) for (const child of part.parts.slice(0, 50)) visit(child, depth + 1);
@@ -49,10 +52,14 @@ export async function getGmailMessage(token: string, id: string, transport: Tran
   const headers = Array.isArray(payload?.headers) ? payload.headers : [];
   const header = (name: string) => {
     const entry = headers.map(record).find((item) => typeof item?.name === "string" && item.name.toLowerCase() === name);
+    assertNoCredentialInProviderFields([entry?.value], token);
     return typeof entry?.value === "string" ? entry.value.slice(0, 1000) : "";
   };
   if (data.labelIds !== undefined && (!Array.isArray(data.labelIds) || data.labelIds.some((label) => typeof label !== "string" || label.length > 128))) throw new NodeFailure("INVALID_RESPONSE", "Gmail returned invalid labels.", false);
-  return { id, threadId: typeof data.threadId === "string" && messageIdPattern.test(data.threadId) ? data.threadId : "", from: header("from"), to: header("to"), subject: header("subject"), date: header("date"), snippet: typeof data.snippet === "string" ? data.snippet.slice(0, 2000) : "", text: plainText(payload), labels: (data.labelIds as string[] | undefined) ?? [] };
+  const threadId = typeof data.threadId === "string" && messageIdPattern.test(data.threadId) ? data.threadId : "";
+  const labels = (data.labelIds as string[] | undefined) ?? [];
+  assertNoCredentialInProviderFields([id, threadId, data.snippet, ...labels], token);
+  return { id, threadId, from: header("from"), to: header("to"), subject: header("subject"), date: header("date"), snippet: typeof data.snippet === "string" ? data.snippet.slice(0, 2000) : "", text: plainText(payload, token), labels };
 }
 
 type GmailListOutput = { messages: Array<Omit<Awaited<ReturnType<typeof getGmailMessage>>, "labels">>; count: number; hasMore: boolean; nextPageToken?: string | null };

@@ -46,3 +46,22 @@ test("provider errors and malformed tokens do not expose provider response", asy
   });
   await assert.rejects(executeRedditListPosts(config, "live", "workspace", credential, async () => Response.json({ access_token: "unsafe\ntoken", token_type: "bearer" })), /did not issue/);
 });
+
+test("Reddit rejects credential echoes in displayed fields before truncation", async () => {
+  const encodedBasic = Buffer.from("id_fixture:secret_fixture").toString("base64");
+  for (const echoed of ["secret_fixture", "token_fixture", encodedBasic]) {
+    for (const field of ["title", "subreddit", "permalink"]) {
+      let calls = 0;
+      const transport = async () => {
+        calls += 1;
+        if (calls === 1) return Response.json({ access_token: "token_fixture", token_type: "bearer" });
+        return Response.json({ data: { children: [{ data: { id: "abc", title: "Post", subreddit: "technology", permalink: "/r/technology/comments/abc/post", [field]: `${"x".repeat(498)}${echoed}` } }] } });
+      };
+      await assert.rejects(executeRedditListPosts(config, "live", "workspace", credential, transport), (error: unknown) => {
+        assert.ok(error instanceof Error && "code" in error && error.code === "INVALID_RESPONSE");
+        assert.ok(!error.message.includes(echoed));
+        return true;
+      });
+    }
+  }
+});

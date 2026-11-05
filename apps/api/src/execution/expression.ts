@@ -53,7 +53,7 @@ function resolveArgument(value: string, context: ExpressionContext, options: Res
 }
 
 function containsRedaction(value: unknown): boolean {
-  if (typeof value === "string") return value.includes("[REDACTED]");
+  if (typeof value === "string") return value.includes("[REDACTED]") || value.includes("[redacted]");
   if (Array.isArray(value)) return value.some(containsRedaction);
   return value !== null && typeof value === "object" && Object.values(value).some(containsRedaction);
 }

@@ -16,7 +16,7 @@ test("new Trello and Notion operations choose connected resources and clear stal
     { id: "notion", type: "action.notion.retrieve-page", position: { x: 600, y: 0 }, config: { credentialId: "notion", pageId: notionPage } },
     { id: "notion-create", type: "action.notion.create-page", position: { x: 0, y: 220 }, config: { credentialId: "notion", parentPageId: notionPage, title: "Daily report", content: "" } },
     { id: "notion-rename", type: "action.notion.update-title", position: { x: 300, y: 220 }, config: { credentialId: "notion", pageId: notionPage, title: "Updated report" } },
-    { id: "notion-property", type: "action.notion.retrieve-property", position: { x: 600, y: 220 }, config: { credentialId: "notion", pageId: notionPage, propertyId: "title", pageSize: 20 } },
+    { id: "notion-property", type: "action.notion.retrieve-property", position: { x: 600, y: 220 }, config: { credentialId: "notion", pageId: notionPage, propertyId: "title", pageSize: 20, cursor: "property-cursor" } },
     { id: "notion-source", type: "action.notion.query-data-source", position: { x: 300, y: 440 }, config: { credentialId: "notion", dataSourceId: notionPage, pageSize: 20, cursor: "old-cursor" } },
     { id: "trello-list", type: "action.trello.list-cards", position: { x: 0, y: 440 }, config: { credentialId: "trello", boardId: board, filter: "open", limit: 20, before: card } },
   ], edges: [] };
@@ -80,13 +80,21 @@ test("new Trello and Notion operations choose connected resources and clear stal
   await expect(page.getByText(/Changes made by someone else/)).toBeVisible();
   await page.locator('.react-flow__node[data-id="notion-property"]').click();
   const property = page.getByRole("group", { name: "Property", exact: true });
+  await page.getByText("Advanced pagination").click();
+  const propertyCursor = page.getByLabel("Next cursor (optional)");
+  await expect(propertyCursor).toHaveValue("property-cursor");
   await expect(property.getByRole("option", { name: "Status" })).toHaveAttribute("value", "f%5C%3Ap");
   await property.getByRole("combobox").selectOption("f%5C%3Ap");
+  await expect(propertyCursor).toHaveValue("");
+  await propertyCursor.fill("another-property-cursor");
   await page.getByRole("group", { name: "Page", exact: true }).getByRole("combobox").selectOption(otherPage);
+  await expect(propertyCursor).toHaveValue("");
   await expect(property.getByRole("combobox")).toHaveValue("");
   await expect(property.getByRole("option", { name: "Other property" })).toHaveAttribute("value", "other");
+  await propertyCursor.fill("manual-property-cursor");
   await property.getByRole("button", { name: /Enter.*manually|Enter value or expression/ }).click();
   await property.getByLabel("Property value").fill("custom-property-id");
+  await expect(propertyCursor).toHaveValue("");
   await page.locator('.react-flow__node[data-id="notion-source"]').click();
   const source = page.getByRole("group", { name: "Data source", exact: true });
   await expect(source.getByRole("option", { name: "Projects" })).toHaveAttribute("value", notionPage);

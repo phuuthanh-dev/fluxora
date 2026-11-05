@@ -174,7 +174,7 @@ function ConfigField({ label, value, onChange, multiline = false }: {
   );
 }
 
-function NumericConfigField({ label, value, allowExpressions, onChange }: { label: string; value: string; allowExpressions: boolean; onChange: (value: string | number) => void }) {
+function NumericConfigField({ label, value, configured, fallbackValue, allowExpressions, onChange }: { label: string; value: string; configured: boolean; fallbackValue?: number; allowExpressions: boolean; onChange: (value: string | number | undefined) => void }) {
   const isNumber = value !== "" && value.trim() !== "" && Number.isFinite(Number(value));
   const [expressionMode, setExpressionMode] = useState(value !== "" && !isNumber);
   const contextId = useId();
@@ -182,7 +182,7 @@ function NumericConfigField({ label, value, allowExpressions, onChange }: { labe
   // previously editing a fixed value. Switching modes alone never clears it.
   const manual = expressionMode || (value !== "" && !isNumber);
   return <div className="config-field">
-    <Field label={label}><input type={manual ? "text" : "number"} value={value} placeholder={manual ? "{{ steps.example.output.value }}" : undefined} onChange={(event) => {
+    <Field label={label}><input type={manual ? "text" : "number"} value={value} placeholder={manual ? "{{ steps.example.output.value }}" : !configured && fallbackValue !== undefined ? `Default: ${fallbackValue}` : undefined} onChange={(event) => {
       const next = event.target.value;
       onChange(manual || next === "" ? next : Number(next));
     }} /></Field>
@@ -190,6 +190,8 @@ function NumericConfigField({ label, value, allowExpressions, onChange }: { labe
       if (manual && isNumber) onChange(Number(value));
       setExpressionMode(!manual);
     }}>{manual ? "Use fixed number" : "Enter expression"}</Button></>}
+    {configured && value === "" && fallbackValue !== undefined && <><small>Enter a number or use the default setting.</small><Button type="button" variant="ghost" onClick={() => { onChange(undefined); setExpressionMode(false); }}>Use default</Button></>}
+    {value === "" && fallbackValue === undefined && <small>Enter a value.</small>}
     {manual && <small>{allowExpressions ? "Enter an expression, or replace it with a number before switching back." : "Review this saved value in Advanced. This trigger field does not support expressions."}</small>}
   </div>;
 }
@@ -346,7 +348,7 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, wor
       if (field.kind === "datetime") return <DateTimeField key={field.key} label={field.label} value={value} allowExpressions={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
       if (field.kind === "text" && field.advanced) return <details key={field.key} className="config-field"><summary>{field.advanced.summary}</summary><ConfigField label={field.label} value={value} onChange={(nextValue) => onChange(field.key, nextValue)} /><small>{field.advanced.help}</small></details>;
       if (field.kind === "number") {
-        const input = <NumericConfigField label={field.label} value={value} allowExpressions={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
+        const input = <NumericConfigField label={field.label} value={value} configured={Object.hasOwn(config, field.key)} fallbackValue={field.fallbackValue} allowExpressions={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />;
         return field.advanced ? <details key={field.key} className="config-field"><summary>{field.advanced.summary}</summary>{input}<small>{field.advanced.help}</small></details> : <div key={field.key}>{input}</div>;
       }
       if (field.kind === "resource") {
@@ -978,7 +980,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
         for (const dependent of effectiveNodeType === "action.notion.search-pages" ? ["pageId", "blockId", "propertyId"] : ["pageId", "parentPageId", "blockId", "propertyId", "dataSourceId", "filterProperty", "cursor"]) { if (dependent in config) config[dependent] = ""; }
         if (effectiveNodeType === "action.notion.query-data-source" && config.filterMode !== "checkbox" && "filterValue" in config) config.filterValue = "";
       }
-      else if (["query", "pageId", "blockId", "dataSourceId", "pageSize"].includes(key)) { if (effectiveNodeType !== "action.notion.search-pages" && "cursor" in config) config.cursor = ""; if (key === "pageId" && "propertyId" in config) config.propertyId = ""; if (key === "dataSourceId" && "filterProperty" in config) { config.filterProperty = ""; if ("filterValue" in config && config.filterMode !== "checkbox") config.filterValue = ""; } }
+      else if (["query", "pageId", "blockId", "propertyId", "dataSourceId", "pageSize"].includes(key)) { if (effectiveNodeType !== "action.notion.search-pages" && "cursor" in config) config.cursor = ""; if (key === "pageId" && "propertyId" in config) config.propertyId = ""; if (key === "dataSourceId" && "filterProperty" in config) { config.filterProperty = ""; if ("filterValue" in config && config.filterMode !== "checkbox") config.filterValue = ""; } }
       else if (effectiveNodeType === "action.notion.query-data-source" && ["sort", "editedAfter", "filterMode", "filterProperty", "filterValue"].includes(key)) { if ("cursor" in config) config.cursor = ""; if (key === "filterProperty" && config.filterMode !== "checkbox") config.filterValue = ""; if (key === "filterMode") { config.filterProperty = ""; config.filterValue = value === "checkbox" ? "true" : ""; } }
     }
     if ((effectiveNodeType === "action.github" || effectiveNodeType.startsWith("action.github.")) && node.data.config[key] !== value) {

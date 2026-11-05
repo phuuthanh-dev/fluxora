@@ -24,18 +24,19 @@ test("resolves generated output paths with hyphenated keys", () => {
 
 test("persisted redactions cannot silently become expression values", () => {
   const context = { trigger: { secret: "[REDACTED]", label: "ok" }, steps: {
-    old: { output: { name: "saved", secret: "[REDACTED]", items: [{ url: "https://example.test/bot[REDACTED]/send" }] } },
-    fresh: { output: { text: "[REDACTED]" } },
+    old: { output: { name: "saved", secret: "[REDACTED]", gmailText: "hello [redacted]", items: [{ url: "https://example.test/bot[REDACTED]/send" }] } },
+    fresh: { output: { text: "[REDACTED]", gmailText: "hello [redacted]" } },
   } };
   const options = { restoredSteps: new Set(["old"]), persistedTrigger: true };
   for (const expression of [
     "{{ steps.old.output.secret }}", "prefix {{ upper(steps.old.output.secret) }}",
     "{{ default(steps.old.output.secret.child, 'fallback') }}", "{{ steps.old.output.items }}",
-    "{{ steps.old.output }}", "{{ steps }}", "{{ trigger.secret }}", "{{ trigger }}",
+    "{{ steps.old.output.gmailText }}", "{{ steps.old.output }}", "{{ steps }}", "{{ trigger.secret }}", "{{ trigger }}",
   ]) assert.throws(() => resolveExpressions(expression, context, options), (error: unknown) => nodeFailureFromExecutionError(error).code === "REDACTED_INPUT_UNAVAILABLE", expression);
   assert.equal(resolveExpressions("{{ steps.old.output.name }}", context, options), "saved");
   assert.equal(resolveExpressions("{{ trigger.label }}", context, options), "ok");
   assert.equal(resolveExpressions("{{ steps.fresh.output.text }}", context, options), "[REDACTED]");
+  assert.equal(resolveExpressions("{{ steps.fresh.output.gmailText }}", context, options), "hello [redacted]");
   assert.equal(resolveExpressions("[REDACTED]", context, options), "[REDACTED]");
   assert.equal(resolveExpressions("{{ steps.old.output.secret }}", context), "[REDACTED]");
 });
@@ -219,14 +220,14 @@ test("invalid expressions fail the execution instead of leaving it running", asy
   assert.equal(nodeUpdates.at(-1)?.errorCode, "INVALID_EXPRESSION");
 });
 
-test("resumed execution stops before accessing credentials when a referenced output was redacted", async () => {
+for (const redacted of ["[REDACTED]", "hello [redacted]"]) test(`resumed execution stops before accessing credentials for ${redacted}`, async () => {
   const updates: Array<Record<string, unknown>> = [];
   const nodeUpdates: Array<Record<string, unknown>> = [];
   let credentialReads = 0;
   const execution = {
     id: "redacted-resume", mode: "LIVE", status: ExecutionStatus.QUEUED,
     startedAt: new Date("2026-11-01T00:00:00Z"), resumeToken: "nonce", resumeNodeIds: ["send"], triggerData: {},
-    nodeExecutions: [{ nodeId: "source", status: "SUCCEEDED", output: { apiKey: "[REDACTED]" } }],
+    nodeExecutions: [{ nodeId: "source", status: "SUCCEEDED", output: { apiKey: redacted } }],
     workflowVersion: { workflow: { workspaceId: "workspace" }, graph: { nodes: [
       { id: "source", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
       { id: "send", type: "action.telegram.message", position: { x: 1, y: 0 }, config: { credentialId: "bot", chatId: "123", text: "Value: {{ steps.source.output.apiKey }}" } },
