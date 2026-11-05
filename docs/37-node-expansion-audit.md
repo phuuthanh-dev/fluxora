@@ -39,6 +39,8 @@ lọc các trang đã tải. Test giả lập API và editor đã được bổ 
 chưa kiểm thử Google thật. [Google yêu cầu giữ các tham số ban đầu khi lấy
 trang tiếp](https://developers.google.com/workspace/calendar/api/guides/pagination).
 Lựa chọn này không làm thay đổi node list-events hoặc workflow đã lưu.
+Test giả lập cũng kiểm tra từ chối owner khác trước khi đọc credential và không
+dùng cursor cũ sau khi đổi account; các test này vẫn đang chờ verify.
 Khi đang tìm kiếm và còn trang chưa tải, picker dùng chung hiển thị rõ tìm kiếm
 chỉ áp dụng cho danh sách đã tải và có thể chọn tải thêm; đây không phải tìm
 kiếm phía provider.

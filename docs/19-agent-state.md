@@ -31,7 +31,8 @@ complete in the delivery ledger.
   changes, and retain manual ID entry. Synthetic API and editor tests are
   written but not yet run; final verify and release remain pending. Search
   filters loaded pages only; a hint now says so when more are available across
-  paginated pickers. Do not mistake this picker work for changing
+  paginated pickers. Added synthetic coverage for owner denial and switching
+  accounts after pagination; this coverage has not run yet. Do not mistake this picker work for changing
   workflow execution or for live Google qualification.
 
 - [PR #87](https://github.com/phuuthanh-dev/fluxora/pull/87) merged as

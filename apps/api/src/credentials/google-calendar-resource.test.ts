@@ -65,3 +65,13 @@ test("event discovery keeps the original time for the next page and rejects inco
   }
   assert.equal(reads, 1);
 });
+
+test("event discovery denies a different workspace owner before reading a connection", async () => {
+  let reads = 0;
+  const controller = new GoogleCalendarResourceController({
+    requireOwner: async () => { throw new Error("workspace denied"); },
+    readGoogleForExecution: async () => { reads++; return { accessToken: "token" }; },
+  } as never);
+  await assert.rejects(controller.events("workspace", "credential", { currentUser: { id: "other" } } as never, "primary"), /workspace denied/);
+  assert.equal(reads, 0);
+});

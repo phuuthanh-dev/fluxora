@@ -55,7 +55,7 @@ test("event picker loads later pages and resets pagination when the calendar cha
     const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
     if (url.pathname.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
     if (url.pathname.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
-    if (url.pathname.endsWith("/credentials")) return send({ credentials: [{ id: "calendar-1", provider: "GOOGLE_CALENDAR", label: "My calendar" }] });
+    if (url.pathname.endsWith("/credentials")) return send({ credentials: [{ id: "calendar-1", provider: "GOOGLE_CALENDAR", label: "My calendar" }, { id: "calendar-2", provider: "GOOGLE_CALENDAR", label: "Second account" }] });
     if (url.pathname.endsWith("/google-calendar/calendars")) return send({ calendars: [{ id: "primary", name: "Personal" }, { id: "work", name: "Work" }] });
     if (url.pathname.endsWith("/google-calendar/events")) {
       requests.push(url);
@@ -78,6 +78,11 @@ test("event picker loads later pages and resets pagination when the calendar cha
   await page.getByRole("combobox", { name: "Calendar", exact: true }).selectOption("work");
   await expect.poll(() => requests.some((request) => request.searchParams.get("calendarId") === "work")).toBe(true);
   expect(requests.filter((request) => request.searchParams.get("calendarId") === "work").every((request) => !request.searchParams.has("pageToken") && !request.searchParams.has("timeMin"))).toBe(true);
+  await page.getByRole("button", { name: "Load more events" }).click();
+  await expect.poll(() => requests.some((request) => request.searchParams.get("calendarId") === "work" && request.searchParams.has("pageToken"))).toBe(true);
+  await page.getByLabel("Google Calendar credential").selectOption("calendar-2");
+  await expect.poll(() => requests.some((request) => request.pathname.includes("/calendar-2/") && request.searchParams.get("calendarId") === "primary")).toBe(true);
+  expect(requests.filter((request) => request.pathname.includes("/calendar-2/")).every((request) => !request.searchParams.has("pageToken") && !request.searchParams.has("timeMin"))).toBe(true);
 });
 
 test("calendar continuation is cleared when its query context changes", async ({ page }) => {
