@@ -6,6 +6,10 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- Isolated verify at `99ebca0` passed 994 API and 80 web tests, typecheck and
+  build; Playwright had 220 passes and one failure because an onboarding test
+  hard-coded the former one-operation Drive label. The test selector is fixed
+  locally; rerun the complete gate on the final commit before releasing.
 - Isolated final verify at `70a00cb` passed the API and web test stages but
   stopped at API typecheck: `continuation.preserve` may be undefined in a new
   metadata test. A local test-only correction is prepared; the complete gate

@@ -233,7 +233,7 @@ test("Google connector fields follow selected operations and preserve table-shap
   await page.getByRole("button", { name: "Use Steam template" }).click();
   await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
 
-  await page.getByRole("button", { name: /Open Google Drive, 1 operation/ }).click();
+  await page.getByRole("button", { name: /Open Google Drive, \d+ operations?/ }).click();
   await page.getByRole("button", { name: /Google Drive: Manage files/ }).click();
   const driveNode = page.locator(".react-flow__node").filter({ hasText: "Google Drive" }).last();
   await expect(driveNode).toBeVisible();

@@ -2,6 +2,11 @@
 
 ## Trạng thái phát hành mới nhất — 05/11/2026
 
+Verify cô lập tại `99ebca0` đạt 994 test API, 80 test web, typecheck và build;
+Playwright đạt 220 và thất bại một bài do selector cũ yêu cầu Drive chỉ có một
+operation. Đã sửa selector local để không cố định số lượng; cần chạy lại toàn
+bộ verify trên commit cuối trước khi tạo PR.
+
 Lượt verify cô lập tại `70a00cb` đã qua các test API/web nhưng dừng ở API
 typecheck: test metadata mới truy cập `continuation.preserve` khi trường này
 có thể không tồn tại. Bản sửa test đã chuẩn bị local; phải chạy lại đầy đủ
