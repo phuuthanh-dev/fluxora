@@ -35,13 +35,21 @@ harness, typecheck/build; dữ liệu và dịch vụ đều là giả lập. Ng
 trước đó chưa được xác định, không tăng timeout hay coi đây là bằng chứng ổn định
 lâu dài. CI và deployment cho thay đổi này chưa chạy.
 
-**NX-02 contract test local, chờ verify:** mở rộng bảng fixture mock có cấu hình
+**NX-02 contract test local:** mở rộng bảng fixture mock có cấu hình
 hợp lệ để đối chiếu các trường output metadata cho Gmail write/read, Notion,
 Calendar, Steam và Riot; dùng lại test registry hiện có, credential giả không
 được đọc. Bảng cũng bao gồm các type cũ cho Gmail, Sheets, Notion, Sentry,
 Vercel và Steam, cùng Supabase insert/GitHub update. Đây không phải kiểm chứng
 API/provider thật, schema đầy đủ, từng
 operation con hay redaction cho mọi nhánh.
+
+Lượt `npm run verify` cô lập tại `2b96e31` đã đạt 972 test API, 80 test web,
+216 Playwright, harness, typecheck và build. PostgreSQL/Redis riêng, dữ liệu
+giả, scheduler tắt; không gọi provider thật. Bài credential lifecycle từng
+timeout ở lượt trước cũng đạt trong lượt này, nhưng nguyên nhân timeout trước
+chưa được xác định. Có cảnh báo GSAP/WebGL trong log; test liên quan đạt.
+Đối chiếu dispatcher cho thấy metadata If, Switch và Approval mô tả các trường
+output hiện có; điều này không xác nhận mọi trường ở mọi nhánh provider.
 
 ### Snapshot trước PR #84
 
