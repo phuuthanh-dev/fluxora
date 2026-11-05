@@ -2,17 +2,21 @@
 
 ## Trạng thái phát hành mới nhất — 05/11/2026
 
+Verify cô lập tại `d51d100` đã đạt `npm run verify`: 994 test API, 80 test
+web và 221 Playwright, cùng harness, typecheck và build. Database, Redis và
+provider dùng dữ liệu giả; kết quả không chứng minh kết nối thật. Bản này chưa
+được phát hành và vẫn cần CI trên PR cùng kiểm tra deploy.
+
 Verify cô lập tại `99ebca0` đạt 994 test API, 80 test web, typecheck và build;
 Playwright đạt 220 và thất bại một bài do selector cũ yêu cầu Drive chỉ có một
-operation. Đã sửa selector local để không cố định số lượng; cần chạy lại toàn
-bộ verify trên commit cuối trước khi tạo PR.
+operation. Đã sửa selector để không cố định số lượng; lượt verify sau tại
+`d51d100` đã đạt.
 
 Lượt verify cô lập tại `70a00cb` đã qua các test API/web nhưng dừng ở API
 typecheck: test metadata mới truy cập `continuation.preserve` khi trường này
-có thể không tồn tại. Bản sửa test đã chuẩn bị local; phải chạy lại đầy đủ
-trên commit cuối trước khi tạo PR hoặc phát hành.
+có thể không tồn tại. Bản sửa test có trong lượt verify sau đã đạt.
 
-**NX-03 Drive đang sửa local, chưa verify hoặc phát hành:** thêm action riêng
+**NX-03 Drive local đã verify, chưa phát hành:** thêm action riêng
 đọc metadata giới hạn (ID, tên, MIME type) và tạo folder trong My Drive hoặc
 folder được chọn. Picker metadata có cả file không phải text. Tạo folder là ghi
 không có idempotency; lỗi không chắc chắn không tự retry. Bản này chưa thử Drive
@@ -23,16 +27,16 @@ xem folder là file có MIME type riêng; bỏ parent sẽ tạo tại My Drive 
 cũng hỗ trợ tạo folder và nhiều thao tác Drive khác; hai action này không bao
 phủ toàn bộ connector của họ.
 
-**NX-02 Gmail đang sửa local, chưa verify hoặc phát hành:** đọc danh sách có
+**NX-02 Gmail local đã verify, chưa phát hành:** đọc danh sách có
 tùy chọn lấy tối đa số thư đã chọn (1–10), qua tối đa năm request danh sách
 và một request chi tiết cho mỗi thư. `hasMore`/`nextPageToken` cho biết khả
 năng còn kết quả. Nó không thay đổi Gmail Trigger hoặc checkpoint. Giống các
 node khác, graph import có sẵn `collectPages` có thể đổi nghĩa và worker cũ
-không hiểu tùy chọn; không bật cho live khi còn worker cũ. Test giả, chưa thử
+không hiểu tùy chọn; không bật cho live khi còn worker cũ. Test giả đã đạt, chưa thử
 Gmail thật. [Gmail API](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/list)
 chỉ trả ID trong danh sách và yêu cầu request riêng để lấy nội dung thư.
 
-**NX-02 Drive đang sửa local, chưa verify hoặc phát hành:** list/search có tùy
+**NX-02 Drive local đã verify, chưa phát hành:** list/search có tùy
 chọn lấy tối đa 100 file qua tối đa năm request. Một trang ngắn/rỗng không
 đồng nghĩa đã hết; kết quả giữ `nextPageToken` nếu dừng mà còn token, còn token
 lặp và response vượt giới hạn bị từ chối. Mặc định là một request và upload,
@@ -41,9 +45,9 @@ báo lỗi thay vì âm thầm cắt nếu vượt giới hạn. Giống Notion,
 có thể đổi nghĩa; worker cũ không hiểu tùy chọn. Không kết luận kết quả đầy đủ:
 [Google Drive](https://developers.google.com/workspace/drive/api/reference/rest/v3/files/list)
 cảnh báo dữ liệu thay đổi giữa trang và có trường hợp tìm kiếm không đầy đủ.
-Test dùng transport giả, chưa chạy verify hoặc Drive thật.
+Test dùng transport giả đã đạt, chưa thử Drive thật.
 
-**NX-02 đang sửa local, chưa verify hoặc phát hành:** Notion search có tùy
+**NX-02 Notion local đã verify, chưa phát hành:** Notion search có tùy
 chọn chủ động lấy thêm trang kết quả trong cùng một node, tối đa năm request
 và tổng số trang Notion đã chọn (không quá 100). Output vẫn có `hasMore` và
 `nextCursor` nếu dừng khi còn dữ liệu; cursor lặp hoặc response vượt giới hạn
