@@ -1,5 +1,6 @@
 import { nodeExecutionType, isExecutableWorkflowNodeType, isSupportedWorkflowNodeVersion, workflowEdgeKinds, workflowNodeOutputKinds, workflowNodeTypes, type WorkflowEdgeKind, type WorkflowGraph, type WorkflowNodeType } from "@workflow/contracts";
 import { BadRequestException } from "@nestjs/common";
+import { parseExpression } from "cron-parser";
 import { readUptimeKumaFilter } from "../webhooks/uptime-kuma-filter";
 import { rssTargets } from "../scheduler/rss-trigger-poller";
 import { NodeFailure } from "../execution/node-failure";
@@ -51,6 +52,9 @@ export function validatePublishableGraph(graph: WorkflowGraph) {
   try { rssTargets("", "", graph); }
   catch (error) { if (error instanceof NodeFailure) throw new BadRequestException({ code: error.code, message: error.message }); throw error; }
   for (const node of graph.nodes) {
+    if (node.type === "trigger.cron") validateCronConfig(node.config);
+    if (node.type === "condition.if") validateStaticChoice(node.config.operator, ["equals", "not_equals", "contains", "exists"], "Choose a supported If operator before publishing.");
+    if (node.type === "approval.request") validateStaticChoice(node.config.notificationProvider, ["google_chat", "http_webhook"], "Choose a supported approval notification provider before publishing.");
     if (node.type === "trigger.telegram.update") telegramTriggerFilterFromConfig(node.config);
     if (node.type === "trigger.vercel.deployment") vercelTriggerFilterFromConfig(node.config);
     if (node.type === "trigger.trello.board-action") readTrelloTriggerFilter(node.config);
@@ -63,6 +67,25 @@ export function validatePublishableGraph(graph: WorkflowGraph) {
     for (const edge of graph.edges.filter((edge) => edge.source === node.id && edge.kind === "case")) {
       if (!edge.caseValue || !values.includes(edge.caseValue)) invalid(`Switch case edge ${edge.id} must map to a configured case value.`);
     }
+  }
+}
+
+/** Preserve legacy defaults and dynamic expressions; runtime resolves expressions later. */
+function validateStaticChoice(value: unknown, choices: readonly string[], message: string) {
+  if (value === undefined || value === null || value === "") return;
+  if (typeof value === "string" && (choices.includes(value) || /{{\s*[^{}]+?\s*}}/.test(value))) return;
+  invalid(message);
+}
+
+/** Use the scheduler's parser and default timezone; drafts and saved versions remain readable. */
+function validateCronConfig(config: Record<string, unknown>) {
+  const expression = typeof config.expression === "string" ? config.expression : "";
+  const timezone = typeof config.timezone === "string" ? config.timezone : "Asia/Ho_Chi_Minh";
+  try {
+    if (!expression.trim() || !timezone) throw new Error("Invalid schedule");
+    parseExpression(expression, { tz: timezone }).prev();
+  } catch {
+    invalid("Enter a valid cron expression and timezone before publishing.");
   }
 }
 

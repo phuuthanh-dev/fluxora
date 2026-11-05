@@ -6,6 +6,24 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- Owner chose to audit existing adapter validators rather than introduce a
+  parallel schema layer. [NX-02 validator inventory](44-nx-validator-audit.md)
+  enumerates 97 catalog types: 82 inspected partially, ten entries with
+  seven source-observed gaps and five planned. Findings
+  have not yet been reproduced by tests; partial review is not full coverage.
+  Existing `.v2` consolidation remains deferred. This does not close NX-02.
+- NX-02 cron publish guard is local and unverified: the publish path now uses
+  the scheduler's cron parser and default timezone to reject invalid schedules.
+  Drafts and stored versions remain readable; already-published graphs are not
+  revalidated. Unit tests have been added but not run, and no production or
+  real-provider behavior is claimed.
+- NX-02 If/approval publish guard is local and unverified: unknown static If
+  operators or approval providers are rejected during publish. Missing,
+  null and empty values retain legacy defaults, dynamic expressions are still
+  allowed, and existing published graphs are unchanged. A dynamic expression
+  that resolves to an invalid choice still falls back at runtime; this change
+  is not a runtime validation guarantee. Added tests have not run.
+
 - NX-02 Supabase output guard, locally verified but not released: select adapters
   reject an exact echo of credentials actually sent to the data API in row
   values or keys before limiting rows. Table/column discovery rejects echoes

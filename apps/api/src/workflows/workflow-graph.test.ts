@@ -23,6 +23,44 @@ test("publishes a Switch graph only when case edges map to configured values", (
   assert.throws(() => validatePublishableGraph(invalid), BadRequestException);
 });
 
+test("cron drafts and stored graphs remain readable, but publishing requires a valid schedule", () => {
+  const graph = (config: Record<string, unknown>) => ({ nodes: [{ id: "cron", type: "trigger.cron", position: { x: 0, y: 0 }, config }], edges: [] });
+  for (const config of [
+    { expression: "0 9 * * *", timezone: "Asia/Ho_Chi_Minh" },
+    { expression: "*/15 * * * *", timezone: "UTC" },
+    { expression: "0 9 * * *" },
+  ]) assert.doesNotThrow(() => validatePublishableGraph(parseWorkflowGraph(graph(config))));
+  for (const config of [
+    {}, { expression: "not a cron" }, { expression: "0 9 * * *", timezone: "Invalid/Timezone" },
+    { expression: "0 9 * * *", timezone: "" },
+  ]) {
+    const draft = graph(config);
+    assert.doesNotThrow(() => parseWorkflowGraph(draft));
+    assert.doesNotThrow(() => parseStoredWorkflowGraph(draft));
+    assert.throws(() => validatePublishableGraph(parseWorkflowGraph(draft)), (error: unknown) => error instanceof BadRequestException && String(error.message).includes("cron expression and timezone"));
+  }
+});
+
+test("publish rejects unknown static condition and approval choices without changing stored graphs", () => {
+  for (const [type, key, supported] of [
+    ["condition.if", "operator", ["equals", "not_equals", "contains", "exists"]],
+    ["approval.request", "notificationProvider", ["google_chat", "http_webhook"]],
+  ] as const) {
+    const graph = (value: unknown) => ({ nodes: [
+      { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
+      { id: "node", type, position: { x: 200, y: 0 }, config: value === undefined ? {} : { [key]: value } },
+    ], edges: [] });
+    for (const value of [undefined, null, "", ...supported, "{{ steps.previous.output.choice }}"]) {
+      assert.doesNotThrow(() => validatePublishableGraph(parseWorkflowGraph(graph(value))), `${type}: ${String(value)}`);
+    }
+    for (const value of ["unsupported", 123, false]) {
+      const saved = graph(value);
+      assert.doesNotThrow(() => parseStoredWorkflowGraph(saved));
+      assert.throws(() => validatePublishableGraph(parseWorkflowGraph(saved)), BadRequestException);
+    }
+  }
+});
+
 test("planned nodes remain readable in drafts but cannot be published", () => {
   for (const type of ["action.facebook-meta", "action.instagram"] as const) {
     const graph = structuredClone(validSwitchGraph);

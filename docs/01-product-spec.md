@@ -86,7 +86,13 @@ This table records the MVP baseline and selected later additions. Entries marked
 | Trigger | Uptime Kuma alert | Receive and normalize an authorized monitor alert; local UP/DOWN delivery was tested. |
 | Approval | Approval | Pause, notify by Chat/webhook with an app link, then resume after UI approve/reject. |
 
-PostgreSQL and Supabase select nodes preserve historical behavior under their original types, even when saved graphs have no node version. New selections use distinct v2 node types. Upgrading an older node is an explicit draft edit; its previously ignored selection fields can change results and unsupported extra fields may need manual correction. The published workflow changes only after publishing the draft.
+Owner direction, 2026-11-05: use one current node type and implementation per
+operation. Remove parallel legacy/`.v2` node types and node-specific version
+dispatch; use the current behavior for the surviving type. Older saved graphs
+may require recreation and are not a compatibility requirement. Do not delete
+credentials, workspaces, or database records as part of the code change.
+Workflow publication versions and execution history remain separate concepts.
+This decision is being implemented; it is not yet evidence of release.
 
 See `docs/35-connector-coverage-and-discovery.md` for the exact operations, point-in-time live evidence, provider restrictions and remaining coverage. An executable node is not a claim of full provider feature parity.
 

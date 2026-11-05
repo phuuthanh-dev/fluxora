@@ -1,5 +1,12 @@
 # NX-02: thống nhất phiên bản node
 
+> **Quyết định mới của chủ dự án — 05/11/2026:** bỏ yêu cầu duy trì song
+> song node cũ và `.v2`. Mỗi operation có một type không hậu tố và một hành vi
+> hiện hành; bỏ `nodeVersion` và các luồng nâng cấp node. Workflow cũ có thể
+> phải tạo lại. Không tự xóa dữ liệu hoặc credential. Phiên bản workflow đã
+> publish và execution vẫn là khái niệm riêng. Phần dưới là lịch sử quyết
+> định đã bị thay thế, không phải yêu cầu thiết kế tiếp theo.
+
 Trạng thái: **giữ định dạng hiện hành; thử nghiệm reader/dispatch cho `nodeVersion: 2` đã được loại bỏ khỏi nhánh local và chưa phát hành**.
 Đối chiếu source local trong nhánh `develop`, 05/11/2026. Mục tiêu là giảm hai cách
 đặt phiên bản mà vẫn chạy đúng graph, lịch sử và trigger đã lưu.
