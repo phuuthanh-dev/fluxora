@@ -3,6 +3,7 @@ import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
 import { fetchSafeOutbound } from "./outbound-url-policy";
 import { readBoundedProviderJson } from "./provider-json";
+import { assertNoCredentialInProviderFields } from "./provider-credential-safety";
 
 type Transport = (url: string, init: RequestInit) => Promise<Response>;
 function object(value: unknown): Record<string, unknown> | undefined { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined; }
@@ -40,6 +41,10 @@ export async function executeRedditListPosts(config: Record<string, unknown>, mo
   const posts = data.children.slice(0, limit).flatMap((value: unknown) => {
     const post = object(object(value)?.data); const id = text(post?.id, 20); const permalink = text(post?.permalink, 2048);
     if (!/^[A-Za-z0-9]{1,20}$/.test(id)) return [];
+    // Check the original fields before truncation, including the encoded Basic
+    // credential, so a provider echo cannot enter execution history.
+    const fields = [post?.id, post?.title, post?.subreddit, post?.permalink];
+    for (const secret of [clientSecret, token, basic]) assertNoCredentialInProviderFields(fields, secret);
     return [{ id, title: text(post?.title), subreddit: text(post?.subreddit, 21), permalink: /^\/r\/[A-Za-z0-9_]+\/comments\/[A-Za-z0-9]+(?:\/[^?#\s]*)?$/.test(permalink) ? permalink : "", createdUtc: typeof post?.created_utc === "number" && Number.isFinite(post.created_utc) ? post.created_utc : null }];
   });
   return { status: "succeeded" as const, output: { posts, hasMore: typeof data.after === "string" && data.after.length > 0 }, route: "success" as const };

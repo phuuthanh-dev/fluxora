@@ -25,6 +25,14 @@ contract giả lập cho PostgreSQL, Supabase và Trello được bổ sung; t�
 chờ verify. Chưa kết luận mọi default metadata trùng với mọi adapter hoặc
 môi trường, nhất là giới hạn AI do người vận hành cấu hình.
 
+**NX-02 Reddit redaction local, chờ verify:** output danh sách bài viết bị từ
+chối nếu một trường sẽ hiển thị chứa nguyên client secret, access token hoặc
+Basic credential mã hóa của connection hiện tại. Kiểm tra thực hiện trước khi
+cắt ngắn chuỗi; lỗi không bao gồm giá trị bị phát hiện. Đây là thay đổi có thể
+khiến một kết quả hợp lệ bị từ chối nếu nội dung trùng credential; không phát
+hiện mọi cách biến đổi, mã hóa hay các bí mật khác. Chưa kiểm thử Reddit thật,
+không có bằng chứng rằng credential đã bị lộ. Test transport giả chờ verify.
+
 ### Snapshot trước PR #85
 
 PR [#84](https://github.com/phuuthanh-dev/fluxora/pull/84) đã merge tại
