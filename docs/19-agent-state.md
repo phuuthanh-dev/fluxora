@@ -6,10 +6,16 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- [PR #87](https://github.com/phuuthanh-dev/fluxora/pull/87) merged as
+  `74edb7972b72c2b105c2466b9e4a9533582f7ec6`; its [main gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41971975320)
+  and [production deploy](https://github.com/phuuthanh-dev/fluxora/actions/runs/41973158195)
+  succeeded. Landing, login, API health and readiness returned HTTP 200 after
+  deploy; this does not qualify provider operations. Bounded Notion/Drive/Gmail
+  pagination and Drive metadata/folder actions shipped. Do not reimplement them.
 - Full isolated `npm run verify` passed at `d51d100`: 994 API tests, 80 web
   tests and 221 Playwright tests, plus harness, typecheck and build. Database,
-  Redis, credentials and provider responses were synthetic. This batch is not
-  deployed yet and the result does not qualify live Google, Gmail or Notion.
+  Redis, credentials and provider responses were synthetic. This batch was
+  deployed in PR #87; the result does not qualify live Google, Gmail or Notion.
 - Isolated verify at `99ebca0` passed 994 API and 80 web tests, typecheck and
   build; Playwright had 220 passes and one failure because an onboarding test
   hard-coded the former one-operation Drive label. The selector was fixed and
@@ -17,23 +23,23 @@ complete in the delivery ledger.
 - Isolated final verify at `70a00cb` passed the API and web test stages but
   stopped at API typecheck: `continuation.preserve` may be undefined in a new
   metadata test. A test-only correction was included in the later passing gate.
-- Local, verified at `d51d100` but not released: separate Drive get-file-metadata and
+- Released in PR #87: separate Drive get-file-metadata and
   create-folder actions with Google workspace credential readiness, a picker
   that includes non-text files, and mock/transport tests. Folder creation has
   no automatic retry when outcome is uncertain. It has not been tried against
   Google; new node types must not be published while old workers are running.
   The Drive `root` alias is accepted as a folder ID; picker IDs and aggregate
   auto-paginated output are bounded. These checks passed the isolated gate.
-- Local, verified at `d51d100` but not released: optional bounded Gmail read pagination,
+- Released in PR #87: optional bounded Gmail read pagination,
   at most five list requests and ten message-detail requests. It does not alter
   the Gmail trigger; `hasMore` and the continuation token signal more data.
   Tests use synthetic transport; no live Gmail request was made for this work.
-- Local, verified at `d51d100` but not released: optional bounded collection for Drive
+- Released in PR #87: optional bounded collection for Drive
   list/search, up to five requests and 100 files. It retains the next page token
   if more may exist; short and empty pages do not imply completion. The normal
   single-request default and upload/download behavior stay unchanged. Tests use
   synthetic transport; no live Google Drive request has been made for this work.
-- Local, verified at `d51d100` but not released: opt-in bounded multi-page Notion search
+- Released in PR #87: opt-in bounded multi-page Notion search
   on the existing paginated node. Up to five read requests and 100 results;
   `hasMore`/`nextCursor` signal remaining results. Old nodes and the default
   single-page behavior remain unchanged. Synthetic tests passed the isolated
