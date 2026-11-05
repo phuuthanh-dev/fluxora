@@ -2,6 +2,21 @@
 
 ## Trạng thái phát hành mới nhất — 05/11/2026
 
+PR [#85](https://github.com/phuuthanh-dev/fluxora/pull/85) đã merge tại
+`40d9aa04dda858a9b3f318d40f6e9242f84776b6`; [quality gate trên main](https://github.com/phuuthanh-dev/fluxora/actions/runs/41943156831)
+và [deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/41944819012)
+đều thành công. Sau deploy, landing, login, API health và readiness trả 200.
+Đây là kiểm tra tại thời điểm, không xác nhận mọi workflow hoặc provider thật.
+Các sửa đổi trường cấu hình chung và kiểm thử metadata nêu dưới đã phát hành.
+
+**NX-02 sửa local sau PR #85, chờ verify:** khi người dùng đổi property trong
+node Notion retrieve-property, editor xóa cursor của property trước để tránh
+dùng nhầm trang tiếp; thay đổi chỉ áp dụng khi người dùng sửa cấu hình, không
+tự đổi graph đã lưu. Bài E2E picker hiện có được mở rộng với trường hợp này;
+chưa có kiểm thử provider thật.
+
+### Snapshot trước PR #85
+
 PR [#84](https://github.com/phuuthanh-dev/fluxora/pull/84) đã merge tại
 `ff4302dbf2e48618b1721770975666a094aaa2c8`. [Quality gate trên main](https://github.com/phuuthanh-dev/fluxora/actions/runs/41927994423)
 và [deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/41929879005)

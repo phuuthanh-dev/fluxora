@@ -6,6 +6,14 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- [PR #85](https://github.com/phuuthanh-dev/fluxora/pull/85) merged as
+  `40d9aa04dda858a9b3f318d40f6e9242f84776b6`; its [main gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41943156831)
+  and [deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/41944819012)
+  succeeded. Landing, login, API health and readiness returned HTTP 200 after
+  deployment; these checks do not qualify provider operations. Shared fields
+  now preserve and correctly display unset selections, numeric expressions and
+  non-boolean checkbox values. The isolated gate for the same source passed
+  972 API, 80 web and 216 Playwright tests. Do not implement these changes again.
 - [PR #84](https://github.com/phuuthanh-dev/fluxora/pull/84) merged as
   `ff4302dbf2e48618b1721770975666a094aaa2c8`. Its [PR gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41926442270),
   [main gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41927994423)
