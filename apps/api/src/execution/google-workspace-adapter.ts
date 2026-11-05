@@ -4,6 +4,12 @@ import { readCredentialValue } from "./connector-config";
 import { driveListOutput, driveListUrl, readDriveCollectPages, readDrivePageToken } from "./google-drive-pagination";
 import { readBoundedProviderText } from "./provider-json";
 import { isReadOnlyMethod, requireProviderSuccess, readProviderJson, uncertainDelivery } from "./provider-request-policy";
+import { assertNoCredentialInProviderValue } from "./provider-credential-safety";
+
+function checkGoogleOutput(value: unknown, accessToken: string, write = false, status?: number) {
+  try { assertNoCredentialInProviderValue(value, accessToken); }
+  catch (error) { if (write) throw uncertainDelivery("Google API", status); throw error; }
+}
 
 export function mockDrive(config: Record<string, unknown>, paginated: boolean) {
   const operation = readOperation(config, ["list", "search", "uploadText", "downloadText"], "list");
@@ -20,7 +26,9 @@ export async function executeGoogleDrive(credential: Record<string, unknown>, co
     const fileId = readConfigString(config, "fileId");
     const response = await googleFetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`, accessToken);
     try {
-      return { operation, file: { id: fileId, text: await readBoundedProviderText(response) } };
+      const file = { id: fileId, text: await readBoundedProviderText(response) };
+      checkGoogleOutput(file, accessToken);
+      return { operation, file };
     } catch (reason) {
       if (reason instanceof NodeFailure) throw reason;
       throw new NodeFailure("NETWORK_ERROR", "Google Drive response could not be read.", true);
@@ -34,6 +42,7 @@ export async function executeGoogleDrive(credential: Record<string, unknown>, co
     const response = await googleFetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType", accessToken, { method: "POST", headers: { "Content-Type": `multipart/related; boundary=${boundary}` }, body });
     const file = await readProviderJson(response, "Google Drive", true);
     if (!file || typeof file !== "object" || Array.isArray(file) || typeof (file as Record<string, unknown>).id !== "string") throw uncertainDelivery("Google Drive", response.status);
+    checkGoogleOutput(file, accessToken, true, response.status);
     return { operation, file };
   }
   if (!paginated) {
@@ -41,6 +50,7 @@ export async function executeGoogleDrive(credential: Record<string, unknown>, co
     const response = await googleFetch(`https://www.googleapis.com/drive/v3/files?fields=files(id,name,mimeType,modifiedTime,webViewLink)${query}`, accessToken);
     const body = await readProviderJson(response, "Google Drive") as { files?: unknown[] } | null;
     if (!body || !Array.isArray(body.files)) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Google Drive returned an invalid file list.", false);
+    checkGoogleOutput(body.files, accessToken);
     return { operation, files: body.files };
   }
   const pageToken = readDrivePageToken(config);
@@ -51,7 +61,9 @@ export async function executeGoogleDrive(credential: Record<string, unknown>, co
     for (let request = 0; request < 5; request++) {
       const remaining = 100 - files.length;
       const response = await googleFetch(driveListUrl(operation, config, next, remaining), accessToken);
-      const page = driveListOutput(operation, await readProviderJson(response, "Google Drive"), accessToken, remaining);
+      const data = await readProviderJson(response, "Google Drive");
+      checkGoogleOutput(data, accessToken);
+      const page = driveListOutput(operation, data, accessToken, remaining);
       files.push(...page.files);
       if (Buffer.byteLength(JSON.stringify(files), "utf8") > 1_000_000) throw new NodeFailure("RESPONSE_TOO_LARGE", "Google Drive results exceed the output size limit.", false);
       if (page.nextPageToken === null) return driveListOutput(operation, { files }, accessToken);
@@ -64,6 +76,7 @@ export async function executeGoogleDrive(credential: Record<string, unknown>, co
   }
   const response = await googleFetch(driveListUrl(operation, config, pageToken), accessToken);
   const body = await readProviderJson(response, "Google Drive");
+  checkGoogleOutput(body, accessToken);
   return driveListOutput(operation, body, accessToken);
 }
 
@@ -93,21 +106,22 @@ export async function executeGoogleSheets(credential: Record<string, unknown>, c
   const base = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(range)}`;
   if (operation === "read") {
     const response = await googleFetch(base, accessToken);
-    return { operation, ...await readGoogleRecord(response, false) };
+    return { operation, ...await readGoogleRecord(response, false, accessToken) };
   }
   const values = normalizeValues(config.values);
   const response = operation === "append"
     ? await googleFetch(`${base}:append?valueInputOption=${inputOption}`, accessToken, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ values }) })
     : await googleFetch(`${base}?valueInputOption=${inputOption}`, accessToken, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ values }) });
-  return { operation, ...await readGoogleRecord(response, true) };
+  return { operation, ...await readGoogleRecord(response, true, accessToken) };
 }
 
-async function readGoogleRecord(response: Response, write: boolean) {
+async function readGoogleRecord(response: Response, write: boolean, accessToken: string) {
   const value = await readProviderJson(response, "Google Sheets", write);
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     if (write) throw uncertainDelivery("Google Sheets", response.status);
     throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Google Sheets returned an invalid response.", false);
   }
+  checkGoogleOutput(value, accessToken, write, response.status);
   return value as Record<string, unknown>;
 }
 

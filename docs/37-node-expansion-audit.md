@@ -2,6 +2,15 @@
 
 ## Trạng thái phát hành mới nhất — 05/11/2026
 
+**Đang phát triển sau PR #87 — Drive/Sheets, chưa verify hoặc phát hành:**
+các adapter Drive và Sheets hiện có kiểm tra token truy cập hiện tại trong
+toàn bộ chuỗi và tên trường của response JSON, kể cả nội dung file text và ô
+Sheet. Nếu response sau thao tác ghi chứa token, kết quả được báo chưa chắc
+chắn và không tự retry; với thao tác đọc sẽ báo lỗi response không an toàn.
+Việc từ chối có thể ảnh hưởng dữ liệu hợp lệ trùng token; không phát hiện token
+bị chia nhỏ, mã hóa hoặc secret khác. Test transport giả đã viết nhưng chưa
+chạy; chưa thử Google thật. Không thay đổi quyền OAuth hay nội dung provider.
+
 **Đang phát triển sau PR #87 — Trello, chưa verify hoặc phát hành:** audit
 phát hiện đường tạo card cũ dùng transport có thể theo redirect và dữ liệu
 board/list cùng card vừa tạo chưa kiểm tra token/key bị provider lặp lại.

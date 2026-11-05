@@ -6,6 +6,13 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- Post-PR #87 Google Drive/Sheets output audit in progress: existing adapters
+  now inspect response strings and keys for the current access token, including
+  Drive text and Sheets cells. A write whose response contains the token is
+  reported uncertain rather than retried. Synthetic tests are written but not
+  run; no live Google call. Exact token matches in legitimate data are rejected;
+  partial, encoded or other secrets are not covered.
+
 - Post-PR #87 Trello safety audit in progress: the existing create-card POST
   now uses the no-write-redirect transport and reports an uncertain outcome
   for redirects, timeouts, 429 and 5xx; it does not automatically retry.
