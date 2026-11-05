@@ -3,7 +3,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import ts from "typescript";
-import { executableWorkflowNodeTypes, workflowNodeTypes } from "@workflow/contracts";
+import { executableWorkflowNodeTypes, getSharedNodeConfigurationFields, workflowNodeTypes } from "@workflow/contracts";
 import { getOperationMetadata } from "@workflow/contracts/dist/operation-metadata";
 import { executeGoogleCalendar, listCalendarEvents } from "./google-calendar";
 import { executeNotionSearch } from "./notion-search";
@@ -165,6 +165,25 @@ test("configured mock outputs contain the fields advertised by operation metadat
     assert.ok(metadata && "knownFields" in metadata.output, type);
     for (const field of metadata.output.knownFields) assert.ok(Object.hasOwn(result.output, field), `${type} is missing ${field}`);
   }
+});
+
+test("numeric inspector defaults match relational reads and Trello search requires an explicit page", async () => {
+  const credentials = new Proxy({}, { get() { throw new Error("Mock must not read credentials"); } }) as never;
+  for (const [type, config] of [
+    ["action.postgres.select.v2", { schema: "public", table: "items" }],
+    ["action.supabase.select.v2", { table: "items" }],
+  ] as const) {
+    const field = getSharedNodeConfigurationFields(type)?.find((candidate) => candidate.kind === "number" && candidate.key === "limit");
+    assert.ok(field && field.kind === "number" && field.fallbackValue !== undefined, type);
+    const result = await executeNode({ id: "node", type, position: { x: 0, y: 0 }, config }, config, {}, "mock", "workspace", credentials, "execution");
+    assert.equal((result.output.page as { limit: number }).limit, field.fallbackValue, type);
+  }
+  const type = "action.trello.find-cards" as const;
+  const page = getSharedNodeConfigurationFields(type)?.find((candidate) => candidate.kind === "number" && candidate.key === "page");
+  assert.ok(page && page.kind === "number");
+  assert.equal(page.fallbackValue, undefined);
+  const config = { boardId: "aaaaaaaaaaaaaaaaaaaaaaaa", query: "sample", searchPagination: "pages" };
+  await assert.rejects(executeNode({ id: "node", type, position: { x: 0, y: 0 }, config }, config, {}, "mock", "workspace", credentials, "execution"), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT");
 });
 
 test("calendar metadata describes the actual synthetic continuation and stable start time", async () => {

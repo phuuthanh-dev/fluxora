@@ -20,8 +20,10 @@ chưa có kiểm thử provider thật.
 metadata có default của adapter, ô nhập gợi ý giá trị đó mà không ghi vào
 graph. Khi ô đã bị xóa, người dùng có thể chọn dùng default để bỏ key. Trello
 search ở chế độ chọn trang yêu cầu `page` cụ thể, nên metadata không còn khai
-báo default `0`; khi thiếu giá trị, UI yêu cầu nhập. Hai bài E2E được mở rộng;
-chưa kết luận mọi giá trị metadata trùng với mọi adapter hoặc môi trường.
+báo default `0`; khi thiếu giá trị, UI yêu cầu nhập. Bài E2E và kiểm thử
+contract giả lập cho PostgreSQL, Supabase và Trello được bổ sung; tất cả đang
+chờ verify. Chưa kết luận mọi default metadata trùng với mọi adapter hoặc
+môi trường, nhất là giới hạn AI do người vận hành cấu hình.
 
 ### Snapshot trước PR #85
 
