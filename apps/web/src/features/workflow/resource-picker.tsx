@@ -169,6 +169,7 @@ export function ResourcePicker({ workspaceId, resource, credentialId, dependency
         {warning && !error && <small role="status">{warning}</small>}
         {!loading && !error && !resources.length && <small>No {resourcePlurals[resource]} found for this connection.</small>}
         {!loading && !error && resources.length > 0 && <small>{filteredResources.length} of {resources.length} loaded {resourcePlurals[resource]} match{nextPage ? "; more are available" : ""}.</small>}
+        {!loading && !error && query.trim() && nextPage && <small>Search only includes loaded {resourcePlurals[resource]}. Load more to search additional results.</small>}
         {!loading && !error && hasMoreModels && (resource !== "google-calendar-event" || !nextPage) && <small>Showing up to {resource === "google-calendar-event" ? "50 upcoming" : resource === "gmail-draft" ? "10" : "100"} {resourcePlurals[resource]}. Enter another value manually if needed.</small>}
         {resource === "openai-model" && <small>Choose a model that supports text generation with the Responses API.</small>}
         {resource === "gemini-model" && <small>Choose a model available to this Google project. Listing a model does not guarantee access, structured output support, or cost.</small>}

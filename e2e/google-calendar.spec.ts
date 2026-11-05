@@ -67,6 +67,9 @@ test("event picker loads later pages and resets pagination when the calendar cha
   });
   await page.goto("/editor?workflow=calendar-picker-pages");
   await page.locator('.react-flow__node[data-id="calendar"]').click();
+  const search = page.getByLabel("Event search");
+  await search.fill("Second");
+  await expect(page.getByText("Search only includes loaded events. Load more to search additional results.")).toBeVisible();
   await page.getByRole("button", { name: "Load more events" }).click();
   const event = page.getByRole("combobox", { name: "Event", exact: true });
   await expect(event.locator("option", { hasText: "Second event" })).toHaveCount(1);
