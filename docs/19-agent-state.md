@@ -6,6 +6,13 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- Post-PR #87 work in progress: Calendar event picker can request additional
+  pages using the original `timeMin`, reset when its calendar/connection
+  changes, and retain manual ID entry. Synthetic API and editor tests are
+  written but not yet run; final verify and release remain pending. Search
+  filters loaded pages only. Do not mistake this picker work for changing
+  workflow execution or for live Google qualification.
+
 - [PR #87](https://github.com/phuuthanh-dev/fluxora/pull/87) merged as
   `74edb7972b72c2b105c2466b9e4a9533582f7ec6`; its [main gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41971975320)
   and [production deploy](https://github.com/phuuthanh-dev/fluxora/actions/runs/41973158195)

@@ -43,14 +43,15 @@ export class GoogleCalendarResourceController {
   }
 
   @Get("events")
-  async events(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Req() request: AuthenticatedRequest, @Query("calendarId") calendarId?: string) {
+  async events(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Req() request: AuthenticatedRequest, @Query("calendarId") calendarId?: string, @Query("pageToken") pageToken?: string, @Query("timeMin") timeMin?: string) {
     if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
     if (!calendarId || !isCalendarResourceId(calendarId)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Select a calendar first." });
+    if ((pageToken !== undefined || timeMin !== undefined) && (typeof pageToken !== "string" || !pageToken || pageToken.length > 512 || !/^[\x21-\x7e]+$/.test(pageToken) || typeof timeMin !== "string" || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(timeMin) || !Number.isFinite(Date.parse(timeMin)) || new Date(timeMin).toISOString() !== timeMin)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Use a valid page token and the original start time." });
     await this.credentials.requireOwner(workspaceId, request.currentUser.id);
     const credential = await this.credentials.readGoogleForExecution(credentialId, workspaceId, CredentialProvider.GOOGLE_CALENDAR);
     try {
-      const result = await this.getEvents(typeof credential.accessToken === "string" ? credential.accessToken : "", calendarId, 50);
-      return { events: result.events.map((event) => ({ id: event.id, name: `${event.summary || "Untitled event"} · ${event.start || "time unavailable"}` })), hasMore: result.hasMore };
+      const result = await this.getEvents(typeof credential.accessToken === "string" ? credential.accessToken : "", calendarId, 50, undefined, timeMin ? new Date(timeMin) : undefined, pageToken);
+      return { events: result.events.map((event) => ({ id: event.id, name: `${event.summary || "Untitled event"} · ${event.start || "time unavailable"}` })), hasMore: result.hasMore, nextPageToken: result.nextPageToken, timeMin: result.timeMin };
     } catch (error) { if (error instanceof NodeFailure) throw new BadRequestException({ code: error.code, message: error.message }); throw error; }
   }
 }

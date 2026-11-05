@@ -2,6 +2,16 @@
 
 ## Trạng thái phát hành mới nhất — 05/11/2026
 
+**Đang phát triển sau PR #87 — chưa verify hoặc phát hành:** picker sự kiện
+Calendar có thể tải thêm từng trang, thay vì chỉ chọn trong 50 sự kiện đầu.
+Backend trả cursor và thời điểm bắt đầu của trang đầu; khi tải thêm, editor
+giữ nguyên lịch, connection và thời điểm đó. Đổi lịch hoặc connection bắt đầu
+lại từ trang đầu. Người dùng vẫn có thể nhập ID thủ công; tìm kiếm hiện chỉ
+lọc các trang đã tải. Test giả lập API và editor đã được bổ sung, chưa chạy;
+chưa kiểm thử Google thật. [Google yêu cầu giữ các tham số ban đầu khi lấy
+trang tiếp](https://developers.google.com/workspace/calendar/api/guides/pagination).
+Lựa chọn này không làm thay đổi node list-events hoặc workflow đã lưu.
+
 PR [#87](https://github.com/phuuthanh-dev/fluxora/pull/87) đã merge tại
 `74edb7972b72c2b105c2466b9e4a9533582f7ec6`; [quality gate trên main](https://github.com/phuuthanh-dev/fluxora/actions/runs/41971975320)
 và [deploy production](https://github.com/phuuthanh-dev/fluxora/actions/runs/41973158195)
