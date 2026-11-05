@@ -47,10 +47,11 @@ test("create validates the list belongs to the selected board before writing", a
 });
 
 test("uncertain and rejected card writes never request automatic retry", async () => {
-  for (const status of [429, 500, 503]) {
+  for (const status of [301, 302, 303, 307, 308, 408, 429, 500, 503]) {
     await assert.rejects(executeTrelloCreateCard(config, "live", "workspace", credentials, async (_url, init) => init.method === "GET" ? Response.json({ id: list, idBoard: board, closed: false }) : new Response("", { status })), (error: unknown) => {
       const failure = error as { retryable: boolean; code: string; statusCode?: number };
       assert.equal(failure.retryable, false);
+      assert.equal(failure.code, "DELIVERY_UNCERTAIN");
       assert.equal(isRetryableFailure(failure), false);
       return true;
     });
@@ -59,4 +60,37 @@ test("uncertain and rejected card writes never request automatic retry", async (
     if (init.method === "GET") return Response.json({ id: list, idBoard: board, closed: false });
     throw new Error("connection lost");
   }), /may have created the card/);
+});
+
+test("Trello discovery rejects current credentials before truncating provider names", async () => {
+  for (const secret of [credential.apiKey, credential.token]) {
+    const echoed = async () => Response.json([{ id: board, name: `${"x".repeat(298)}${secret}` }]);
+    for (const read of [() => listTrelloBoards(credential, echoed), () => listTrelloLists(credential, board, echoed)]) {
+      await assert.rejects(read(), (error: unknown) => {
+        assert.equal((error as { code: string }).code, "INVALID_RESPONSE");
+        assert.ok(!String(error).includes(secret));
+        return true;
+      });
+    }
+  }
+});
+
+test("Trello card creation does not expose echoed credentials and never retries the uncertain write", async () => {
+  for (const echoed of [{ name: `${"x".repeat(498)}${credential.token}` }, { url: `https://trello.com/c/${credential.apiKey}` }]) {
+    let writes = 0;
+    await assert.rejects(executeTrelloCreateCard(config, "live", "workspace", credentials, async (_url, init) => {
+      if (init.method === "GET") return Response.json({ id: list, idBoard: board, closed: false });
+      writes++;
+      return Response.json({ id: card, name: "Example", idBoard: board, idList: list, url: "https://trello.com/c/example", ...echoed });
+    }), (error: unknown) => {
+      const failure = error as { code: string; retryable: boolean; message: string };
+      assert.equal(failure.code, "DELIVERY_UNCERTAIN");
+      assert.equal(failure.retryable, false);
+      assert.equal(isRetryableFailure(failure), false);
+      assert.ok(!failure.message.includes(credential.apiKey));
+      assert.ok(!failure.message.includes(credential.token));
+      return true;
+    });
+    assert.equal(writes, 1);
+  }
 });

@@ -112,7 +112,7 @@ test("Drive legacy keeps its list/search URL and new type adds pagination; both 
     globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input); requests.push({ url, method: init?.method ?? "GET" });
       if (url.includes("alt=media")) return new Response("file contents");
-      if (url.includes("uploadType=multipart")) return Response.json({ id: "synthetic-id", name: "report", mimeType: "text/plain" });
+      if (url.includes("uploadType=multipart")) return Response.json({ id: "example-id", name: "report", mimeType: "text/plain" });
       return Response.json({ files: [{ id: "first" }], nextPageToken: "next" });
     }) as typeof fetch;
     const credential = { accessToken: "synthetic" };

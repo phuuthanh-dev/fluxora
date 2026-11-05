@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { randomUUID } from "node:crypto";
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { ConflictException } from "@nestjs/common";
 import { ExecutionService } from "../execution/execution.service";
+import { TelegramDeliveryRecoveryService } from "./telegram-delivery-recovery.service";
 
 test("Telegram delivery identity is durable, concurrent-safe and detects conflicts", { skip: process.env.FLUXORA_TELEGRAM_INTEGRATION !== "1" }, async () => {
   const database = new URL(process.env.DATABASE_URL ?? "");
@@ -27,6 +28,23 @@ test("Telegram delivery identity is durable, concurrent-safe and detects conflic
     assert.equal(first.id, second.id);
     assert.equal(await prisma.execution.count({ where: { workflowVersionId: versionId } }), 1);
     await assert.rejects(service.createTelegramScheduledExecution({ ...input, payload: { ...input.payload, message: { ...input.payload.message, text: "Changed" } } }), (error: unknown) => error instanceof ConflictException && (error.getResponse() as { code: string }).code === "WEBHOOK_DELIVERY_CONFLICT");
+    // Independent update IDs may arrive out of order; neither receipt replaces
+    // the other. Recovery must requeue only the one that never started.
+    const earlier = await service.createTelegramScheduledExecution({ ...input, deliveryKey: "8", payload: { ...input.payload, updateId: 8 } });
+    assert.notEqual(earlier.id, first.id);
+    assert.equal((await service.createTelegramScheduledExecution({ ...input, deliveryKey: "8", payload: { ...input.payload, updateId: 8 } })).id, earlier.id);
+    const old = new Date(Date.now() - 3 * 60_000);
+    await prisma.execution.update({ where: { id: first.id }, data: { createdAt: old } });
+    await prisma.execution.update({ where: { id: earlier.id }, data: { createdAt: old, status: "RUNNING", startedAt: old } });
+    const scoped = { execution: { findMany: (args: Prisma.ExecutionFindManyArgs) => prisma.execution.findMany({ ...args, where: { AND: [args.where ?? {}, { workflowVersionId: versionId }] } }) } };
+    const jobs: Array<{ executionId: string; mode: string; initialOnly: boolean }> = [];
+    const recovery = new TelegramDeliveryRecoveryService(scoped as never, { ensureDispatched: async (job: { executionId: string; mode: string; initialOnly: boolean }) => { jobs.push(job); } } as never);
+    await recovery.recover();
+    assert.deepEqual(jobs, [{ executionId: first.id, mode: "live", initialOnly: true }]);
+    await prisma.workflow.update({ where: { id: workflowId }, data: { isActive: false } });
+    await assert.rejects(service.createTelegramScheduledExecution({ ...input, deliveryKey: "10", payload: { ...input.payload, updateId: 10 } }));
+    assert.equal(await prisma.execution.count({ where: { workflowVersionId: versionId } }), 2);
+    await prisma.workflow.update({ where: { id: workflowId }, data: { isActive: true } });
     await prisma.webhookEndpoint.update({ where: { id: endpointId }, data: { secretHash: "rotated" } });
     await assert.rejects(service.createTelegramScheduledExecution(input));
   } finally {

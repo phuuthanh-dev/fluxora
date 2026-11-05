@@ -46,6 +46,45 @@ test("calendar event selection resets when the calendar changes", async ({ page 
   await expect(page.getByRole("combobox", { name: "Event", exact: true })).toHaveValue("");
 });
 
+test("event picker loads later pages and resets pagination when the calendar changes", async ({ page }) => {
+  const graph = { nodes: [{ id: "calendar", type: "action.google-calendar.delete-event", position: { x: 100, y: 100 }, config: { credentialId: "calendar-1", calendarId: "primary", eventId: "", sendUpdates: "none" } }], edges: [] };
+  const workflow = { id: "calendar-picker-pages", workspaceId: "workspace-1", name: "Calendar pages", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
+  const requests: URL[] = [];
+  await page.route("**/api/v1/**", async (route) => {
+    const url = new URL(route.request().url());
+    const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+    if (url.pathname.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
+    if (url.pathname.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
+    if (url.pathname.endsWith("/credentials")) return send({ credentials: [{ id: "calendar-1", provider: "GOOGLE_CALENDAR", label: "My calendar" }, { id: "calendar-2", provider: "GOOGLE_CALENDAR", label: "Second account" }] });
+    if (url.pathname.endsWith("/google-calendar/calendars")) return send({ calendars: [{ id: "primary", name: "Personal" }, { id: "work", name: "Work" }] });
+    if (url.pathname.endsWith("/google-calendar/events")) {
+      requests.push(url);
+      const second = url.searchParams.has("pageToken");
+      return send({ events: [{ id: second ? "event-2" : "event-1", name: second ? "Second event" : "First event" }], hasMore: !second, nextPageToken: second ? null : "next-page", timeMin: "2030-01-01T09:00:00.000Z" });
+    }
+    if (url.pathname.endsWith("/workflows/calendar-picker-pages")) return send({ workflow });
+    return route.continue();
+  });
+  await page.goto("/editor?workflow=calendar-picker-pages");
+  await page.locator('.react-flow__node[data-id="calendar"]').click();
+  const search = page.getByLabel("Event search");
+  await search.fill("Second");
+  await expect(page.getByText("Search only includes loaded events. Load more to search additional results.")).toBeVisible();
+  await page.getByRole("button", { name: "Load more events" }).click();
+  const event = page.getByRole("combobox", { name: "Event", exact: true });
+  await expect(event.locator("option", { hasText: "Second event" })).toHaveCount(1);
+  const continuation = requests.find((request) => request.searchParams.get("calendarId") === "primary" && request.searchParams.get("pageToken") === "next-page");
+  expect(continuation?.searchParams.get("timeMin")).toBe("2030-01-01T09:00:00.000Z");
+  await page.getByRole("combobox", { name: "Calendar", exact: true }).selectOption("work");
+  await expect.poll(() => requests.some((request) => request.searchParams.get("calendarId") === "work")).toBe(true);
+  expect(requests.filter((request) => request.searchParams.get("calendarId") === "work").every((request) => !request.searchParams.has("pageToken") && !request.searchParams.has("timeMin"))).toBe(true);
+  await page.getByRole("button", { name: "Load more events" }).click();
+  await expect.poll(() => requests.some((request) => request.searchParams.get("calendarId") === "work" && request.searchParams.has("pageToken"))).toBe(true);
+  await page.getByLabel("Google Calendar credential").selectOption("calendar-2");
+  await expect.poll(() => requests.some((request) => request.pathname.includes("/calendar-2/") && request.searchParams.get("calendarId") === "primary")).toBe(true);
+  expect(requests.filter((request) => request.pathname.includes("/calendar-2/")).every((request) => !request.searchParams.has("pageToken") && !request.searchParams.has("timeMin"))).toBe(true);
+});
+
 test("calendar continuation is cleared when its query context changes", async ({ page }) => {
   const graph = { nodes: [{ id: "manual", type: "trigger.manual", position: { x: 10, y: 350 }, config: {} }, { id: "calendar", type: "action.google-calendar.list-events", position: { x: 100, y: 100 }, config: { credentialId: "calendar-1", calendarId: "primary", limit: 10, timeMin: "2030-01-01T09:00:00.000Z", pageToken: "previous-page" } }], edges: [] };
   const workflow = { id: "calendar-page-test", workspaceId: "workspace-1", name: "Calendar pages", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };

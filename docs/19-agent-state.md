@@ -6,10 +6,67 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- Isolated `npm run verify` at `66f13af` passed 1,001 API tests including
+  the Riot PostgreSQL integration, 80 web tests and typecheck/build, but
+  Playwright had 220/222 passes. The editor loading and guided Connections
+  tests timed out while pages were loading; both passed in the previous full
+  run and on a targeted retry. The Calendar pagination case passed in this
+  full run. Root cause of the intermittent timeouts is unproven; do not treat
+  targeted retries as a passing full gate. Independent PR CI must pass.
+
+- Isolated `npm run verify` at `236fa1a` passed 1,000 API tests (one Riot
+  database integration skipped), 80 web tests, typecheck/build and 221/222
+  Playwright cases. Calendar picker E2E assumed a fixed request index; that
+  assertion was corrected at `6561561` and the case passed in isolation. The
+  skipped Riot database integration also passed separately. A fresh full gate
+  on the corrected commit is still required before release.
+
+- Post-PR #87 NX-05 work in progress: the existing disposable-Postgres
+  Telegram delivery integration test now covers out-of-order update IDs,
+  recovery of an accepted queued execution without requeueing a started one,
+  and rejection after deactivation. It passed at `236fa1a` and does not
+  establish provider delivery behavior or exactly-once processing.
+
+- Post-PR #87 metadata work in progress: the existing configured-mock
+  contract matrix now includes all registered action node types and checks
+  advertised output fields, except the conditional Trello pagination warning.
+  The matrix passed at `236fa1a`; it does not prove live provider
+  behavior, all operation variants, runtime schemas or secret redaction.
+
+- Post-PR #87 Google Drive/Sheets output audit in progress: existing adapters
+  now inspect response strings and keys for the current access token, including
+  Drive text and Sheets cells. A write whose response contains the token is
+  reported uncertain rather than retried. Synthetic API tests passed at
+  `236fa1a`; no live Google call. Exact token matches in legitimate data are rejected;
+  partial, encoded or other secrets are not covered.
+
+- Post-PR #87 Trello safety audit in progress: the existing create-card POST
+  now uses the no-write-redirect transport and reports an uncertain outcome
+  for redirects, timeouts, 429 and 5xx; it does not automatically retry.
+  Discovery and the created-card output reject current credential echoes before
+  truncation; after a write this reports uncertainty. Synthetic API tests passed
+  at `236fa1a`. No live Trello request was made for this change.
+
+- Post-PR #87 work in progress: Calendar event picker can request additional
+  pages using the original `timeMin`, reset when its calendar/connection
+  changes, and retain manual ID entry. Synthetic API and editor tests are
+  written; the API tests passed and E2E passed after correcting its request
+  assertion, but full verify and release remain pending. Search
+  filters loaded pages only; a hint now says so when more are available across
+  paginated pickers. Added synthetic coverage for owner denial and switching
+  accounts after pagination. Do not mistake this picker work for changing
+  workflow execution or for live Google qualification.
+
+- [PR #87](https://github.com/phuuthanh-dev/fluxora/pull/87) merged as
+  `74edb7972b72c2b105c2466b9e4a9533582f7ec6`; its [main gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41971975320)
+  and [production deploy](https://github.com/phuuthanh-dev/fluxora/actions/runs/41973158195)
+  succeeded. Landing, login, API health and readiness returned HTTP 200 after
+  deploy; this does not qualify provider operations. Bounded Notion/Drive/Gmail
+  pagination and Drive metadata/folder actions shipped. Do not reimplement them.
 - Full isolated `npm run verify` passed at `d51d100`: 994 API tests, 80 web
   tests and 221 Playwright tests, plus harness, typecheck and build. Database,
-  Redis, credentials and provider responses were synthetic. This batch is not
-  deployed yet and the result does not qualify live Google, Gmail or Notion.
+  Redis, credentials and provider responses were synthetic. This batch was
+  deployed in PR #87; the result does not qualify live Google, Gmail or Notion.
 - Isolated verify at `99ebca0` passed 994 API and 80 web tests, typecheck and
   build; Playwright had 220 passes and one failure because an onboarding test
   hard-coded the former one-operation Drive label. The selector was fixed and
@@ -17,23 +74,23 @@ complete in the delivery ledger.
 - Isolated final verify at `70a00cb` passed the API and web test stages but
   stopped at API typecheck: `continuation.preserve` may be undefined in a new
   metadata test. A test-only correction was included in the later passing gate.
-- Local, verified at `d51d100` but not released: separate Drive get-file-metadata and
+- Released in PR #87: separate Drive get-file-metadata and
   create-folder actions with Google workspace credential readiness, a picker
   that includes non-text files, and mock/transport tests. Folder creation has
   no automatic retry when outcome is uncertain. It has not been tried against
   Google; new node types must not be published while old workers are running.
   The Drive `root` alias is accepted as a folder ID; picker IDs and aggregate
   auto-paginated output are bounded. These checks passed the isolated gate.
-- Local, verified at `d51d100` but not released: optional bounded Gmail read pagination,
+- Released in PR #87: optional bounded Gmail read pagination,
   at most five list requests and ten message-detail requests. It does not alter
   the Gmail trigger; `hasMore` and the continuation token signal more data.
   Tests use synthetic transport; no live Gmail request was made for this work.
-- Local, verified at `d51d100` but not released: optional bounded collection for Drive
+- Released in PR #87: optional bounded collection for Drive
   list/search, up to five requests and 100 files. It retains the next page token
   if more may exist; short and empty pages do not imply completion. The normal
   single-request default and upload/download behavior stay unchanged. Tests use
   synthetic transport; no live Google Drive request has been made for this work.
-- Local, verified at `d51d100` but not released: opt-in bounded multi-page Notion search
+- Released in PR #87: opt-in bounded multi-page Notion search
   on the existing paginated node. Up to five read requests and 100 results;
   `hasMore`/`nextCursor` signal remaining results. Old nodes and the default
   single-page behavior remain unchanged. Synthetic tests passed the isolated

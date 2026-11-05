@@ -1,8 +1,9 @@
 import { CredentialProvider } from "@prisma/client";
 import type { CredentialService } from "../credentials/credential.service";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
-import { fetchSafeOutbound } from "./outbound-url-policy";
+import { fetchSafeOutbound, fetchSafeOutboundWrite, wasOutboundRedirected } from "./outbound-url-policy";
 import { readBoundedProviderJson } from "./provider-json";
+import { assertNoCredentialInProviderFields } from "./provider-credential-safety";
 
 type Transport = (url: string, init: RequestInit) => Promise<Response>;
 const idPattern = /^[a-f0-9]{24}$/i;
@@ -29,12 +30,15 @@ async function trelloRequest(path: string, credential: Record<string, unknown>, 
       signal: AbortSignal.timeout(10_000),
     });
   } catch (error) {
-    const failure = nodeFailureFromOutboundPolicy(error);
-    if (!body || failure.code.startsWith("OUTBOUND_")) throw failure;
+    if (!body) throw nodeFailureFromOutboundPolicy(error);
+    throw new NodeFailure("DELIVERY_UNCERTAIN", "Trello may have created the card. Check the list before retrying.", false);
+  }
+  if (body && (wasOutboundRedirected(response) || (response.status >= 300 && response.status < 400) || response.status === 408 || response.status === 429 || response.status >= 500)) {
+    await response.body?.cancel().catch(() => undefined);
     throw new NodeFailure("DELIVERY_UNCERTAIN", "Trello may have created the card. Check the list before retrying.", false);
   }
   if (!response.ok) {
-    if (body && response.status >= 500) throw new NodeFailure("DELIVERY_UNCERTAIN", "Trello may have created the card. Check the list before retrying.", false);
+    await response.body?.cancel().catch(() => undefined);
     // Create is not idempotent. Do not attach a retry-classifying status to writes.
     if (body) throw new NodeFailure("TRELLO_WRITE_REJECTED", `Trello returned ${response.status}.`, false);
     throw new NodeFailure("HTTP_ERROR", `Trello returned ${response.status}.`, response.status === 429 || response.status >= 500, response.status);
@@ -47,25 +51,31 @@ async function trelloRequest(path: string, credential: Record<string, unknown>, 
   }
 }
 
-function mapOptions(value: unknown, name: "boards" | "lists") {
+function rejectCredentialEcho(fields: readonly unknown[], credential: Record<string, unknown>) {
+  for (const secret of [credential.apiKey, credential.token]) if (typeof secret === "string") assertNoCredentialInProviderFields(fields, secret);
+}
+
+function mapOptions(value: unknown, name: "boards" | "lists", credential: Record<string, unknown>) {
   if (!Array.isArray(value)) throw new NodeFailure("INVALID_RESPONSE", "Trello returned an invalid resource list.", false);
   const options = value.flatMap((entry: unknown) => {
     const item = object(entry);
-    return item && typeof item.id === "string" && idPattern.test(item.id) && typeof item.name === "string" ? [{ id: item.id, name: item.name.slice(0, 300) }] : [];
+    if (!item || typeof item.id !== "string" || !idPattern.test(item.id) || typeof item.name !== "string") return [];
+    rejectCredentialEcho([item.id, item.name], credential);
+    return [{ id: item.id, name: item.name.slice(0, 300) }];
   });
   return { [name]: options.slice(0, 100), hasMore: options.length > 100 };
 }
 
 export async function listTrelloBoards(credential: Record<string, unknown>, transport: Transport = fetchSafeOutbound) {
-  return mapOptions(await trelloRequest("members/me/boards?filter=open&fields=name", credential, transport), "boards");
+  return mapOptions(await trelloRequest("members/me/boards?filter=open&fields=name", credential, transport), "boards", credential);
 }
 
 export async function listTrelloLists(credential: Record<string, unknown>, boardId: string, transport: Transport = fetchSafeOutbound) {
   if (!idPattern.test(boardId)) throw new NodeFailure("INVALID_INPUT", "Choose a Trello board.", false);
-  return mapOptions(await trelloRequest(`boards/${boardId}/lists?filter=open&fields=name`, credential, transport), "lists");
+  return mapOptions(await trelloRequest(`boards/${boardId}/lists?filter=open&fields=name`, credential, transport), "lists", credential);
 }
 
-export async function executeTrelloCreateCard(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport = fetchSafeOutbound) {
+export async function executeTrelloCreateCard(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport?: Transport) {
   const boardId = typeof config.boardId === "string" ? config.boardId.trim() : "";
   const listId = typeof config.listId === "string" ? config.listId.trim() : "";
   const title = typeof config.title === "string" ? config.title.trim() : "";
@@ -75,10 +85,12 @@ export async function executeTrelloCreateCard(config: Record<string, unknown>, m
   const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
   if (!credentialId) throw new NodeFailure("CREDENTIAL_REQUIRED", "Select a Trello connection.", false);
   const credential = await credentials.readForExecution(credentialId, workspaceId, CredentialProvider.TRELLO);
-  const list = object(await trelloRequest(`lists/${listId}?fields=id,idBoard,closed`, credential, transport));
+  const list = object(await trelloRequest(`lists/${listId}?fields=id,idBoard,closed`, credential, transport ?? fetchSafeOutbound));
   if (!list || list.id !== listId || list.idBoard !== boardId || list.closed !== false) throw new NodeFailure("INVALID_INPUT", "The selected list is closed or does not belong to the selected board.", false);
-  const result = object(await trelloRequest("cards", credential, transport, { idList: listId, name: title, desc: description }));
+  const result = object(await trelloRequest("cards", credential, transport ?? fetchSafeOutboundWrite, { idList: listId, name: title, desc: description }));
   if (!result || typeof result.id !== "string" || !idPattern.test(result.id) || typeof result.name !== "string" || result.idList !== listId || result.idBoard !== boardId) throw new NodeFailure("DELIVERY_UNCERTAIN", "Trello may have created the card. Check the list before retrying.", false);
+  try { rejectCredentialEcho([result.id, result.name, result.idList, result.idBoard, result.url], credential); }
+  catch { throw new NodeFailure("DELIVERY_UNCERTAIN", "Trello may have created the card. Check the list before retrying.", false); }
   const url = typeof result.url === "string" && /^https:\/\/trello\.com\/c\/[A-Za-z0-9_-]+(?:\/[^\s]*)?$/.test(result.url) ? result.url.slice(0, 2048) : "";
   return { status: "succeeded" as const, output: { id: result.id, name: result.name.slice(0, 500), boardId, listId, url }, route: "success" as const };
 }

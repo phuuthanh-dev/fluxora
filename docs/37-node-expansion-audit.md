@@ -2,10 +2,79 @@
 
 ## Trạng thái phát hành mới nhất — 05/11/2026
 
+Verify cô lập tại `66f13af` đạt 1.001/1.001 API (bao gồm Riot PostgreSQL),
+80/80 web, typecheck và build; Playwright đạt 220/222. Hai bài editor loading
+và Connections timeout khi trang còn đang tải; cả hai đạt ở lượt full trước
+và khi chạy lại riêng. Calendar đã đạt trong lượt full này. Chưa xác định được
+nguyên nhân gốc của timeout; các lượt chạy riêng không thay thế full gate. CI
+độc lập phải đạt trước khi merge; không khẳng định đã verify toàn bộ thành công.
+
+Verify cô lập tại `236fa1a` đạt 1.000 bài API (một bài Riot PostgreSQL bị
+bỏ qua), 80 bài web, typecheck/build và 221/222 Playwright. Bài Calendar sai
+do giả định thứ tự request; đã sửa tại `6561561` và chạy riêng đạt. Bài Riot
+bị bỏ qua đã chạy riêng đạt trên database thử. Cần chạy lại full gate trên
+commit đã sửa; chưa phát hành các thay đổi sau PR #87.
+
+**NX-05 đang phát triển sau PR #87 — chờ full gate:** mở rộng bài integration
+Telegram hiện có trên PostgreSQL thử để kiểm tra update đến sai thứ tự, khôi
+phục execution đã nhận nhưng chưa bắt đầu, bỏ qua execution đã chạy và từ chối
+delivery mới sau khi workflow tắt. Test đạt tại `236fa1a`; không xác nhận Telegram
+thật, không chứng minh exactly-once và không thay đổi cơ chế trigger hiện có.
+
+**NX-02 đang phát triển sau PR #87 — chờ full gate:** mở rộng bảng fixture
+mock có cấu hình hợp lệ cho mọi action đã đăng ký và đối chiếu các trường
+output được metadata khai báo. Test cũng yêu cầu fixture bao phủ đúng registry;
+riêng cảnh báo pagination Trello chỉ có khi xảy ra trường hợp tương ứng.
+Test đạt tại `236fa1a`, không xác nhận provider thật, mọi operation con, runtime
+schema hay bảo vệ secret của từng nhánh.
+
+**Đang phát triển sau PR #87 — Drive/Sheets, chờ full gate:**
+các adapter Drive và Sheets hiện có kiểm tra token truy cập hiện tại trong
+toàn bộ chuỗi và tên trường của response JSON, kể cả nội dung file text và ô
+Sheet. Nếu response sau thao tác ghi chứa token, kết quả được báo chưa chắc
+chắn và không tự retry; với thao tác đọc sẽ báo lỗi response không an toàn.
+Việc từ chối có thể ảnh hưởng dữ liệu hợp lệ trùng token; không phát hiện token
+bị chia nhỏ, mã hóa hoặc secret khác. Test transport giả đạt tại `236fa1a`;
+chưa thử Google thật. Không thay đổi quyền OAuth hay nội dung provider.
+
+**Đang phát triển sau PR #87 — Trello, chờ full gate:** audit
+phát hiện đường tạo card cũ dùng transport có thể theo redirect và dữ liệu
+board/list cùng card vừa tạo chưa kiểm tra token/key bị provider lặp lại.
+Thay đổi local dùng transport chặn redirect cho POST; redirect, 408, 429,
+5xx, lỗi mạng hoặc output không an toàn sau khi ghi được báo kết quả chưa
+chắc chắn và không tự retry. Discovery từ chối giá trị chứa nguyên token/key
+trước khi cắt ngắn; có thể từ chối dữ liệu trùng credential một cách tình cờ,
+không phát hiện mọi dạng mã hóa hay secret khác. Test giả lập đạt tại
+`236fa1a`, chưa kiểm thử provider thật. [Trello](https://developer.atlassian.com/cloud/trello/guides/rest-api/api-introduction/)
+xác định tạo card là POST; [tài liệu rate limit](https://developer.atlassian.com/cloud/trello/guides/rest-api/rate-limits/)
+mô tả 429, còn chính sách không tự retry ở đây là lựa chọn thận trọng của Fluxora.
+
+**Đang phát triển sau PR #87 — chờ full gate:** picker sự kiện
+Calendar có thể tải thêm từng trang, thay vì chỉ chọn trong 50 sự kiện đầu.
+Backend trả cursor và thời điểm bắt đầu của trang đầu; khi tải thêm, editor
+giữ nguyên lịch, connection và thời điểm đó. Đổi lịch hoặc connection bắt đầu
+lại từ trang đầu. Người dùng vẫn có thể nhập ID thủ công; tìm kiếm hiện chỉ
+lọc các trang đã tải. API test đạt tại `236fa1a`; E2E đạt sau khi sửa assertion.
+Chưa kiểm thử Google thật. [Google yêu cầu giữ các tham số ban đầu khi lấy
+trang tiếp](https://developers.google.com/workspace/calendar/api/guides/pagination).
+Lựa chọn này không làm thay đổi node list-events hoặc workflow đã lưu.
+Test giả lập cũng kiểm tra từ chối owner khác trước khi đọc credential và không
+dùng cursor cũ sau khi đổi account; chờ full gate của bản E2E đã sửa.
+Khi đang tìm kiếm và còn trang chưa tải, picker dùng chung hiển thị rõ tìm kiếm
+chỉ áp dụng cho danh sách đã tải và có thể chọn tải thêm; đây không phải tìm
+kiếm phía provider.
+
+PR [#87](https://github.com/phuuthanh-dev/fluxora/pull/87) đã merge tại
+`74edb7972b72c2b105c2466b9e4a9533582f7ec6`; [quality gate trên main](https://github.com/phuuthanh-dev/fluxora/actions/runs/41971975320)
+và [deploy production](https://github.com/phuuthanh-dev/fluxora/actions/runs/41973158195)
+thành công. Landing, login, API health và readiness đều trả HTTP 200 sau deploy;
+đây là smoke check, không phải thử workflow/provider thật. Bounded pagination
+Notion/Drive/Gmail và action metadata/create-folder của Drive đã phát hành.
+
 Verify cô lập tại `d51d100` đã đạt `npm run verify`: 994 test API, 80 test
 web và 221 Playwright, cùng harness, typecheck và build. Database, Redis và
-provider dùng dữ liệu giả; kết quả không chứng minh kết nối thật. Bản này chưa
-được phát hành và vẫn cần CI trên PR cùng kiểm tra deploy.
+provider dùng dữ liệu giả; kết quả không chứng minh kết nối thật. Bản này đã
+được phát hành trong PR #87, CI trên main và deploy đều thành công.
 
 Verify cô lập tại `99ebca0` đạt 994 test API, 80 test web, typecheck và build;
 Playwright đạt 220 và thất bại một bài do selector cũ yêu cầu Drive chỉ có một
@@ -16,7 +85,7 @@ Lượt verify cô lập tại `70a00cb` đã qua các test API/web nhưng dừn
 typecheck: test metadata mới truy cập `continuation.preserve` khi trường này
 có thể không tồn tại. Bản sửa test có trong lượt verify sau đã đạt.
 
-**NX-03 Drive local đã verify, chưa phát hành:** thêm action riêng
+**NX-03 Drive đã phát hành:** thêm action riêng
 đọc metadata giới hạn (ID, tên, MIME type) và tạo folder trong My Drive hoặc
 folder được chọn. Picker metadata có cả file không phải text. Tạo folder là ghi
 không có idempotency; lỗi không chắc chắn không tự retry. Bản này chưa thử Drive
@@ -27,7 +96,7 @@ xem folder là file có MIME type riêng; bỏ parent sẽ tạo tại My Drive 
 cũng hỗ trợ tạo folder và nhiều thao tác Drive khác; hai action này không bao
 phủ toàn bộ connector của họ.
 
-**NX-02 Gmail local đã verify, chưa phát hành:** đọc danh sách có
+**NX-02 Gmail đã phát hành:** đọc danh sách có
 tùy chọn lấy tối đa số thư đã chọn (1–10), qua tối đa năm request danh sách
 và một request chi tiết cho mỗi thư. `hasMore`/`nextPageToken` cho biết khả
 năng còn kết quả. Nó không thay đổi Gmail Trigger hoặc checkpoint. Giống các
@@ -36,7 +105,7 @@ không hiểu tùy chọn; không bật cho live khi còn worker cũ. Test giả
 Gmail thật. [Gmail API](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/list)
 chỉ trả ID trong danh sách và yêu cầu request riêng để lấy nội dung thư.
 
-**NX-02 Drive local đã verify, chưa phát hành:** list/search có tùy
+**NX-02 Drive đã phát hành:** list/search có tùy
 chọn lấy tối đa 100 file qua tối đa năm request. Một trang ngắn/rỗng không
 đồng nghĩa đã hết; kết quả giữ `nextPageToken` nếu dừng mà còn token, còn token
 lặp và response vượt giới hạn bị từ chối. Mặc định là một request và upload,
@@ -47,7 +116,7 @@ có thể đổi nghĩa; worker cũ không hiểu tùy chọn. Không kết lu�
 cảnh báo dữ liệu thay đổi giữa trang và có trường hợp tìm kiếm không đầy đủ.
 Test dùng transport giả đã đạt, chưa thử Drive thật.
 
-**NX-02 Notion local đã verify, chưa phát hành:** Notion search có tùy
+**NX-02 Notion đã phát hành:** Notion search có tùy
 chọn chủ động lấy thêm trang kết quả trong cùng một node, tối đa năm request
 và tổng số trang Notion đã chọn (không quá 100). Output vẫn có `hasMore` và
 `nextCursor` nếu dừng khi còn dữ liệu; cursor lặp hoặc response vượt giới hạn
@@ -200,7 +269,7 @@ những operation đã có:
 
 | Mục | Đã có trong bản phát hành | Chưa chứng minh hoặc chưa thực hiện |
 |---|---|---|
-| NX-02 | Executor registry, mô tả output/pagination, trường cấu hình dùng chung và hướng dẫn trang tiếp; giữ type cũ và `.v2`. Đã bỏ reader thử nghiệm numeric `nodeVersion: 2`. | Metadata mô tả không phải runtime schema; chưa có bằng chứng đầy đủ mock hợp lệ và redaction theo từng operation. Phân trang vẫn cần người dùng chủ động lấy trang tiếp. |
+| NX-02 | Executor registry, mô tả output/pagination, trường cấu hình dùng chung và hướng dẫn trang tiếp; giữ type cũ và `.v2`. Notion search, Drive list/search và Gmail read có tùy chọn lấy nhiều trang có giới hạn. | Metadata mô tả không phải runtime schema; chưa có bằng chứng đầy đủ mock hợp lệ và redaction theo từng operation. Các node khác vẫn cần người dùng chủ động lấy trang tiếp; ba node có tự động vẫn giới hạn request/kết quả. |
 | NX-03 | Bộ chọn/lọc dữ liệu PostgreSQL, Supabase, Sheets mapping, Notion content/property và Trello card operations; có năm workflow mẫu. | Test giả và smoke check không chứng minh quyền hoặc hành vi live của từng operation/provider. |
 | NX-04 | Các operation Gmail, Chat, Telegram, GitHub, Sentry và Vercel trong checklist đã có đường thực thi. | Chưa có live qualification đầy đủ cho từng operation, scope thực cấp và kết quả ghi không chắc chắn. |
 | NX-05 | RSS và các trigger Kuma, Telegram, Trello, Sentry, Vercel có implementation và test giả lập. | Registration một số provider vẫn thủ công; chưa chứng minh delivery/recovery thật cho mọi provider, không cam kết exactly-once. |
