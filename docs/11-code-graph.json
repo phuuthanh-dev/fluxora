@@ -418,7 +418,8 @@
         "apps/api/src/auth/authentication.guard.ts",
         "apps/api/src/credentials/credential.service.ts",
         "apps/api/src/execution/google-calendar.ts",
-        "apps/api/src/execution/node-failure.ts"
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/provider-credential-safety.ts"
       ],
       "externalImports": [
         "@nestjs/common",
@@ -3914,6 +3915,10 @@
     {
       "from": "apps/api/src/credentials/google-calendar-resource.controller.ts",
       "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/google-calendar-resource.controller.ts",
+      "to": "apps/api/src/execution/provider-credential-safety.ts"
     },
     {
       "from": "apps/api/src/credentials/google-oauth-state.service.ts",

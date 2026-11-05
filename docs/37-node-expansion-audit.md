@@ -39,6 +39,10 @@ cắt chuỗi. List/get từ chối output không an toàn; trong nhánh khôi p
 lỗi không retry tự động và yêu cầu kiểm tra lịch vì sự kiện có thể đã được tạo.
 Kiểm thử dùng token và transport giả; không chứng minh mọi dữ liệu Google hoặc
 mọi cách mã hóa secret được phát hiện, và không chứng minh đã có rò rỉ.
+Danh sách lịch dùng cho picker cũng từ chối tên, ID được trả ra hoặc cursor
+chứa nguyên token trước khi trả về browser; test controller giả chờ verify.
+Free/busy chỉ trả các khoảng thời gian đã kiểm tra và không trả ID lịch do
+provider phân giải; không mở rộng guard sang dữ liệu không được lưu hoặc trả.
 
 ### Snapshot trước PR #85
 
