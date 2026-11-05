@@ -69,6 +69,7 @@ export const googleNodeFields = {
       { kind: "select", key: "mailbox", label: "Messages", options: [{ value: "inbox", label: "Inbox" }, { value: "unread", label: "Unread inbox" }, { value: "all", label: "All mail" }] },
       { kind: "text", key: "query", label: "Additional Gmail search (optional)" },
       { kind: "number", key: "limit", label: "Maximum messages (1–10)", fallbackValue: 5 },
+      { kind: "boolean", key: "collectPages", label: "Automatically fetch more results", defaultChecked: false },
       { kind: "text", key: "pageToken", label: "Continuation token", advanced: { summary: "Continue a previous page", help: "Use nextPageToken from the previous output with the same connection, mailbox and search." } },
     ],
   "action.gmail.get-message": (): NodeConfigurationField[] => [

@@ -115,6 +115,10 @@ Google Drive list/search also retains its original single-request default and
 can opt in to at most five requests and 100 file results; an available
 `nextPageToken` is returned for continuation. This does not guarantee a
 complete search, and it does not affect uploads or downloads.
+Gmail read similarly offers optional bounded collection within its existing
+maximum of ten messages: at most five list requests plus a detail request for
+each message. It retains a continuation token when more results may exist. It
+does not change the Gmail polling trigger or its checkpoint.
 
 ## 5. Workflow editor requirements
 

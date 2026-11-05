@@ -136,7 +136,7 @@ const definitions = {
   "action.postgres.select": executable(credential("POSTGRES"), "read", fields("rows", "count")),
   "action.postgres.select.v2": executable(credential("POSTGRES"), "read", fields("rows", "count", "returnedCount", "page"), { kind: "offset", input: "offset", page: "page", preserve: ["credentialId", "schema", "table", "limit", "columns", "conditions", "orderBy", "orderDirection"], caveat: "A nonzero offset requires sorting. Completeness is unknown, and changing rows can shift between pages." }),
   "action.gmail.read": executable(credential("GMAIL"), "read", fields("messages", "count", "hasMore")),
-  "action.gmail.read.v2": executable(credential("GMAIL"), "read", fields("messages", "count", "hasMore", "nextPageToken"), { kind: "continuation", input: "pageToken", next: "nextPageToken", hasMore: "hasMore", preserve: ["credentialId", "mailbox", "query", "limit"] }),
+  "action.gmail.read.v2": executable(credential("GMAIL"), "read", fields("messages", "count", "hasMore", "nextPageToken"), { kind: "continuation", input: "pageToken", next: "nextPageToken", hasMore: "hasMore", preserve: ["credentialId", "mailbox", "query", "limit", "collectPages"] }),
   "action.gmail.get-message": executable(credential("GMAIL"), "read", fields("message")),
   "action.gmail.send": executable(credential("GMAIL"), "write", fields("result")),
   "action.gmail.reply": executable(credential("GMAIL"), "write", fields("result")),

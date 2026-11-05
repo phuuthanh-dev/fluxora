@@ -6,6 +6,10 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- Local, not yet verified or released: optional bounded Gmail read pagination,
+  at most five list requests and ten message-detail requests. It does not alter
+  the Gmail trigger; `hasMore` and the continuation token signal more data.
+  Tests use synthetic transport; no live Gmail request was made for this work.
 - Local, not yet verified or released: optional bounded collection for Drive
   list/search, up to five requests and 100 files. It retains the next page token
   if more may exist; short and empty pages do not imply completion. The normal

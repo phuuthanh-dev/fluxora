@@ -2,6 +2,15 @@
 
 ## Trạng thái phát hành mới nhất — 05/11/2026
 
+**NX-02 Gmail đang sửa local, chưa verify hoặc phát hành:** đọc danh sách có
+tùy chọn lấy tối đa số thư đã chọn (1–10), qua tối đa năm request danh sách
+và một request chi tiết cho mỗi thư. `hasMore`/`nextPageToken` cho biết khả
+năng còn kết quả. Nó không thay đổi Gmail Trigger hoặc checkpoint. Giống các
+node khác, graph import có sẵn `collectPages` có thể đổi nghĩa và worker cũ
+không hiểu tùy chọn; không bật cho live khi còn worker cũ. Test giả, chưa thử
+Gmail thật. [Gmail API](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/list)
+chỉ trả ID trong danh sách và yêu cầu request riêng để lấy nội dung thư.
+
 **NX-02 Drive đang sửa local, chưa verify hoặc phát hành:** list/search có tùy
 chọn lấy tối đa 100 file qua tối đa năm request. Một trang ngắn/rỗng không
 đồng nghĩa đã hết; kết quả giữ `nextPageToken` nếu dừng mà còn token, còn token
