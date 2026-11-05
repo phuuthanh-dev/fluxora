@@ -11,23 +11,29 @@ PR phát hành Drive search có hướng dẫn, gợi ý expression từ node ph
 guard từ chối sử dụng dữ liệu đã che được nạp lại. Các mục chưa được chứng minh
 trong bảng dưới vẫn chưa hoàn tất chỉ vì release thành công.
 
-**NX-02 bản local sau PR #84, chờ verify:** dropdown cấu hình chung không còn
+**NX-02 bản local sau PR #84:** dropdown cấu hình chung không còn
 hiện nhầm option đầu khi giá trị chưa đặt hoặc không nằm trong danh sách. UI
 hiển thị trạng thái tương ứng và giữ nguyên giá trị đã lưu cho đến khi người
 dùng chọn lại; không tự đổi graph hay hành vi mặc định của API. Trường hợp
-GitHub update issue được bổ sung vào E2E giả lập, chưa chạy.
+GitHub update issue được bổ sung vào E2E giả lập.
 Checkbox cấu hình chứa expression hoặc giá trị không phải boolean cũng được
 hiển thị ở trạng thái chưa xác định, giữ nguyên giá trị cho tới khi người dùng
-chủ động chọn; E2E Supabase giả lập được bổ sung, chưa chạy.
+chủ động chọn; E2E Supabase giả lập được bổ sung.
 Trường số action hiển thị expression đã lưu và có thể chuyển giữa nhập số và
 expression mà không tự xóa giá trị; backend vẫn kiểm tra giá trị sau khi
 phân giải. [n8n](https://docs.n8n.io/data/data-mapping/data-mapping-ui/) cũng
 cho tham chiếu dữ liệu qua expression; đây không phải implementation đầy đủ
-của expression editor n8n. E2E giả lập mới chờ verify.
+của expression editor n8n.
 Lượt verify tại `142d2d5` phát hiện checkbox bị ảnh hưởng CSS và nhãn nút
 expression khiến locator nhầm với ô số: API/web/build pass, Playwright 207 pass
 và 9 fail. Bản sửa local tách mô tả ngữ cảnh khỏi tên nút, giữ kích thước
-checkbox và mở rộng test chuyển hai chiều; chưa chạy lại.
+checkbox và mở rộng test chuyển hai chiều. Verify cô lập trên `a6f0f41` lần
+đầu đạt 215/216 Playwright, một bài credential lifecycle timeout; bài đó pass
+khi chạy riêng trên database mới và pass lại trong lượt verify đầy đủ tiếp theo.
+Lượt đầy đủ sau cùng pass 972 test API, 80 test web và 216 Playwright, cùng
+harness, typecheck/build; dữ liệu và dịch vụ đều là giả lập. Nguyên nhân timeout
+trước đó chưa được xác định, không tăng timeout hay coi đây là bằng chứng ổn định
+lâu dài. CI và deployment cho thay đổi này chưa chạy.
 
 ### Snapshot trước PR #84
 
