@@ -38,7 +38,9 @@ lâu dài. CI và deployment cho thay đổi này chưa chạy.
 **NX-02 contract test local, chờ verify:** mở rộng bảng fixture mock có cấu hình
 hợp lệ để đối chiếu các trường output metadata cho Gmail write/read, Notion,
 Calendar, Steam và Riot; dùng lại test registry hiện có, credential giả không
-được đọc. Đây không phải kiểm chứng API/provider thật, schema đầy đủ, từng
+được đọc. Bảng cũng bao gồm các type cũ cho Gmail, Sheets, Notion, Sentry,
+Vercel và Steam, cùng Supabase insert/GitHub update. Đây không phải kiểm chứng
+API/provider thật, schema đầy đủ, từng
 operation con hay redaction cho mọi nhánh.
 
 ### Snapshot trước PR #84
