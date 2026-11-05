@@ -2,6 +2,13 @@
 
 ## Trạng thái phát hành mới nhất — 05/11/2026
 
+Verify cô lập tại `66f13af` đạt 1.001/1.001 API (bao gồm Riot PostgreSQL),
+80/80 web, typecheck và build; Playwright đạt 220/222. Hai bài editor loading
+và Connections timeout khi trang còn đang tải; cả hai đạt ở lượt full trước
+và khi chạy lại riêng. Calendar đã đạt trong lượt full này. Chưa xác định được
+nguyên nhân gốc của timeout; các lượt chạy riêng không thay thế full gate. CI
+độc lập phải đạt trước khi merge; không khẳng định đã verify toàn bộ thành công.
+
 Verify cô lập tại `236fa1a` đạt 1.000 bài API (một bài Riot PostgreSQL bị
 bỏ qua), 80 bài web, typecheck/build và 221/222 Playwright. Bài Calendar sai
 do giả định thứ tự request; đã sửa tại `6561561` và chạy riêng đạt. Bài Riot

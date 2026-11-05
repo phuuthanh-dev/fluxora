@@ -6,6 +6,14 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- Isolated `npm run verify` at `66f13af` passed 1,001 API tests including
+  the Riot PostgreSQL integration, 80 web tests and typecheck/build, but
+  Playwright had 220/222 passes. The editor loading and guided Connections
+  tests timed out while pages were loading; both passed in the previous full
+  run and on a targeted retry. The Calendar pagination case passed in this
+  full run. Root cause of the intermittent timeouts is unproven; do not treat
+  targeted retries as a passing full gate. Independent PR CI must pass.
+
 - Isolated `npm run verify` at `236fa1a` passed 1,000 API tests (one Riot
   database integration skipped), 80 web tests, typecheck/build and 221/222
   Playwright cases. Calendar picker E2E assumed a fixed request index; that
