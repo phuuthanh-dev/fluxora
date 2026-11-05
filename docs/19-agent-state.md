@@ -6,52 +6,64 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- [PR #88](https://github.com/phuuthanh-dev/fluxora/pull/88) merged as
+  `a2734f5cc3a9600f60e848750fbbe01b22bafc1d`; the [PR gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41983355671),
+  [main gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41985095176)
+  and [production deploy](https://github.com/phuuthanh-dev/fluxora/actions/runs/41986739676)
+  succeeded. Production landing, login and the API subdomain's health/readiness
+  returned HTTP 200; local web/API also returned 200. This is a point-in-time
+  smoke check, not provider qualification. Calendar event picker pagination,
+  Trello and Google output safety and associated tests shipped; do not redo.
+  PR CI passed 222 E2E, 1,000 API and 80 web tests; one Riot integration was
+  skipped in CI but passed in the separately configured isolated local run.
+  The two full local runs were not green; see the next entries for details.
+
 - Isolated `npm run verify` at `66f13af` passed 1,001 API tests including
   the Riot PostgreSQL integration, 80 web tests and typecheck/build, but
   Playwright had 220/222 passes. The editor loading and guided Connections
   tests timed out while pages were loading; both passed in the previous full
   run and on a targeted retry. The Calendar pagination case passed in this
   full run. Root cause of the intermittent timeouts is unproven; do not treat
-  targeted retries as a passing full gate. Independent PR CI must pass.
+  targeted retries as a passing full gate. Independent PR CI later passed.
 
 - Isolated `npm run verify` at `236fa1a` passed 1,000 API tests (one Riot
   database integration skipped), 80 web tests, typecheck/build and 221/222
   Playwright cases. Calendar picker E2E assumed a fixed request index; that
   assertion was corrected at `6561561` and the case passed in isolation. The
-  skipped Riot database integration also passed separately. A fresh full gate
-  on the corrected commit is still required before release.
+  skipped Riot database integration also passed separately. The corrected
+  commit later passed independent PR CI and was released in PR #88.
 
-- Post-PR #87 NX-05 work in progress: the existing disposable-Postgres
+- Released in PR #88, NX-05: the existing disposable-Postgres
   Telegram delivery integration test now covers out-of-order update IDs,
   recovery of an accepted queued execution without requeueing a started one,
   and rejection after deactivation. It passed at `236fa1a` and does not
   establish provider delivery behavior or exactly-once processing.
 
-- Post-PR #87 metadata work in progress: the existing configured-mock
+- Released in PR #88, NX-02: the existing configured-mock
   contract matrix now includes all registered action node types and checks
   advertised output fields, except the conditional Trello pagination warning.
   The matrix passed at `236fa1a`; it does not prove live provider
   behavior, all operation variants, runtime schemas or secret redaction.
 
-- Post-PR #87 Google Drive/Sheets output audit in progress: existing adapters
+- Released in PR #88, Google Drive/Sheets output audit: existing adapters
   now inspect response strings and keys for the current access token, including
   Drive text and Sheets cells. A write whose response contains the token is
   reported uncertain rather than retried. Synthetic API tests passed at
   `236fa1a`; no live Google call. Exact token matches in legitimate data are rejected;
   partial, encoded or other secrets are not covered.
 
-- Post-PR #87 Trello safety audit in progress: the existing create-card POST
+- Released in PR #88, Trello safety audit: the existing create-card POST
   now uses the no-write-redirect transport and reports an uncertain outcome
   for redirects, timeouts, 429 and 5xx; it does not automatically retry.
   Discovery and the created-card output reject current credential echoes before
   truncation; after a write this reports uncertainty. Synthetic API tests passed
   at `236fa1a`. No live Trello request was made for this change.
 
-- Post-PR #87 work in progress: Calendar event picker can request additional
+- Released in PR #88: Calendar event picker can request additional
   pages using the original `timeMin`, reset when its calendar/connection
   changes, and retain manual ID entry. Synthetic API and editor tests are
   written; the API tests passed and E2E passed after correcting its request
-  assertion, but full verify and release remain pending. Search
+  assertion; independent PR CI passed and the change was deployed. Search
   filters loaded pages only; a hint now says so when more are available across
   paginated pickers. Added synthetic coverage for owner denial and switching
   accounts after pagination. Do not mistake this picker work for changing

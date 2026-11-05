@@ -2,33 +2,44 @@
 
 ## Trạng thái phát hành mới nhất — 05/11/2026
 
+PR [#88](https://github.com/phuuthanh-dev/fluxora/pull/88) đã merge tại
+`a2734f5cc3a9600f60e848750fbbe01b22bafc1d`; [CI PR](https://github.com/phuuthanh-dev/fluxora/actions/runs/41983355671),
+[CI main](https://github.com/phuuthanh-dev/fluxora/actions/runs/41985095176)
+và [deploy](https://github.com/phuuthanh-dev/fluxora/actions/runs/41986739676)
+đạt. Landing/login và health/readiness trên `api.fluxora.io.vn` trả HTTP 200;
+local web/API cũng trả 200. Đây là smoke check tại thời điểm, không xác nhận
+provider thật. CI PR đạt 222 Playwright, 1.000 API, 80 web; bài Riot bị CI
+bỏ qua đã đạt trong lượt PostgreSQL cô lập riêng. Hai full gate local không
+xanh do các lỗi được ghi ngay bên dưới; không xóa hay diễn giải lại kết quả.
+Picker Calendar, các bảo vệ Google/Trello và test tương ứng đã phát hành.
+
 Verify cô lập tại `66f13af` đạt 1.001/1.001 API (bao gồm Riot PostgreSQL),
 80/80 web, typecheck và build; Playwright đạt 220/222. Hai bài editor loading
 và Connections timeout khi trang còn đang tải; cả hai đạt ở lượt full trước
 và khi chạy lại riêng. Calendar đã đạt trong lượt full này. Chưa xác định được
 nguyên nhân gốc của timeout; các lượt chạy riêng không thay thế full gate. CI
-độc lập phải đạt trước khi merge; không khẳng định đã verify toàn bộ thành công.
+độc lập sau đó đã đạt trước khi merge; không diễn giải lượt local thành công.
 
 Verify cô lập tại `236fa1a` đạt 1.000 bài API (một bài Riot PostgreSQL bị
 bỏ qua), 80 bài web, typecheck/build và 221/222 Playwright. Bài Calendar sai
 do giả định thứ tự request; đã sửa tại `6561561` và chạy riêng đạt. Bài Riot
-bị bỏ qua đã chạy riêng đạt trên database thử. Cần chạy lại full gate trên
-commit đã sửa; chưa phát hành các thay đổi sau PR #87.
+bị bỏ qua đã chạy riêng đạt trên database thử. Bản sửa sau đó đạt CI PR và
+đã phát hành trong PR #88.
 
-**NX-05 đang phát triển sau PR #87 — chờ full gate:** mở rộng bài integration
+**NX-05 đã phát hành trong PR #88:** mở rộng bài integration
 Telegram hiện có trên PostgreSQL thử để kiểm tra update đến sai thứ tự, khôi
 phục execution đã nhận nhưng chưa bắt đầu, bỏ qua execution đã chạy và từ chối
 delivery mới sau khi workflow tắt. Test đạt tại `236fa1a`; không xác nhận Telegram
 thật, không chứng minh exactly-once và không thay đổi cơ chế trigger hiện có.
 
-**NX-02 đang phát triển sau PR #87 — chờ full gate:** mở rộng bảng fixture
+**NX-02 đã phát hành trong PR #88:** mở rộng bảng fixture
 mock có cấu hình hợp lệ cho mọi action đã đăng ký và đối chiếu các trường
 output được metadata khai báo. Test cũng yêu cầu fixture bao phủ đúng registry;
 riêng cảnh báo pagination Trello chỉ có khi xảy ra trường hợp tương ứng.
 Test đạt tại `236fa1a`, không xác nhận provider thật, mọi operation con, runtime
 schema hay bảo vệ secret của từng nhánh.
 
-**Đang phát triển sau PR #87 — Drive/Sheets, chờ full gate:**
+**Drive/Sheets đã phát hành trong PR #88:**
 các adapter Drive và Sheets hiện có kiểm tra token truy cập hiện tại trong
 toàn bộ chuỗi và tên trường của response JSON, kể cả nội dung file text và ô
 Sheet. Nếu response sau thao tác ghi chứa token, kết quả được báo chưa chắc
@@ -37,7 +48,7 @@ Việc từ chối có thể ảnh hưởng dữ liệu hợp lệ trùng token;
 bị chia nhỏ, mã hóa hoặc secret khác. Test transport giả đạt tại `236fa1a`;
 chưa thử Google thật. Không thay đổi quyền OAuth hay nội dung provider.
 
-**Đang phát triển sau PR #87 — Trello, chờ full gate:** audit
+**Trello đã phát hành trong PR #88:** audit
 phát hiện đường tạo card cũ dùng transport có thể theo redirect và dữ liệu
 board/list cùng card vừa tạo chưa kiểm tra token/key bị provider lặp lại.
 Thay đổi local dùng transport chặn redirect cho POST; redirect, 408, 429,
@@ -49,7 +60,7 @@ không phát hiện mọi dạng mã hóa hay secret khác. Test giả lập đ�
 xác định tạo card là POST; [tài liệu rate limit](https://developer.atlassian.com/cloud/trello/guides/rest-api/rate-limits/)
 mô tả 429, còn chính sách không tự retry ở đây là lựa chọn thận trọng của Fluxora.
 
-**Đang phát triển sau PR #87 — chờ full gate:** picker sự kiện
+**Picker Calendar đã phát hành trong PR #88:** picker sự kiện
 Calendar có thể tải thêm từng trang, thay vì chỉ chọn trong 50 sự kiện đầu.
 Backend trả cursor và thời điểm bắt đầu của trang đầu; khi tải thêm, editor
 giữ nguyên lịch, connection và thời điểm đó. Đổi lịch hoặc connection bắt đầu
@@ -59,7 +70,7 @@ Chưa kiểm thử Google thật. [Google yêu cầu giữ các tham số ban đ
 trang tiếp](https://developers.google.com/workspace/calendar/api/guides/pagination).
 Lựa chọn này không làm thay đổi node list-events hoặc workflow đã lưu.
 Test giả lập cũng kiểm tra từ chối owner khác trước khi đọc credential và không
-dùng cursor cũ sau khi đổi account; chờ full gate của bản E2E đã sửa.
+dùng cursor cũ sau khi đổi account; bản E2E đã sửa đạt CI PR.
 Khi đang tìm kiếm và còn trang chưa tải, picker dùng chung hiển thị rõ tìm kiếm
 chỉ áp dụng cho danh sách đã tải và có thể chọn tải thêm; đây không phải tìm
 kiếm phía provider.
