@@ -29,9 +29,8 @@ test("Uptime Kuma setup explains the required header and pins registration", asy
   await expect(panel.getByText("synthetic-secret")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(panel).toBeHidden();
-  await page.getByRole("button", { name: "Enable filters in draft" }).click();
   await expect(page.getByLabel("Monitor ID (optional)")).toBeVisible();
   await expect(page.getByLabel("Alert status")).toHaveValue("any");
   await expect(page.getByText(/Repeated notifications may start multiple runs/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Manage published webhook" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Configure webhook" })).toBeVisible();
 });

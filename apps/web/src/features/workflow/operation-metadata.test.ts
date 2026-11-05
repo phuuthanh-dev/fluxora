@@ -30,15 +30,6 @@ test("unknown and planned nodes do not acquire executable metadata", () => {
   assert.deepEqual(getOperationMetadata("action.http-request")?.auth, { kind: "credential", provider: "HTTP", requirement: "optional", context: "execution" });
 });
 
-test("metadata rejects unsupported numeric versions for old and .v2 nodes", () => {
-  for (const type of ["action.google-drive", "action.google-drive.v2", "action.supabase.select", "action.supabase.select.v2"]) {
-    assert.ok(getOperationMetadata(type, 1), type);
-    assert.equal(getOperationMetadata(type, 2), undefined, type);
-    assert.equal(getSharedNodeConfigurationFields(type, 2), undefined, type);
-  }
-  for (const invalid of [0, 3, null, "2"]) assert.equal(getOperationMetadata("action.supabase.select", invalid), undefined);
-});
-
 test("shared fields preserve the editor catalog and return independent descriptors", () => {
   assert.equal(new Set(sharedNodeConfigurationTypes).size, sharedNodeConfigurationTypes.length);
   for (const type of ["action.notion.create-page", "action.notion.update-title"]) assert.ok(sharedNodeConfigurationTypes.includes(type as typeof sharedNodeConfigurationTypes[number]), type);

@@ -3,8 +3,8 @@ import { expect, test } from "@playwright/test";
 test("Google connection changes clear selected files without deleting prepared Sheets values", async ({ page }) => {
   const graph = { nodes: [
     { id: "manual", type: "trigger.manual", position: { x: 10, y: 500 }, config: {} },
-    { id: "sheets", type: "action.google-sheets.v2", position: { x: 100, y: 100 }, config: { credentialId: "google-1", spreadsheetId: "book-1", operation: "append", range: "Sheet1!A1", values: [["keep"]], valueInputOption: "RAW" } },
-    { id: "drive", type: "action.google-drive.v2", position: { x: 100, y: 350 }, config: { credentialId: "google-1", operation: "downloadText", fileId: "file-1" } },
+    { id: "sheets", type: "action.google-sheets", position: { x: 100, y: 100 }, config: { credentialId: "google-1", spreadsheetId: "book-1", operation: "append", range: "Sheet1!A1", values: [["keep"]], valueInputOption: "RAW" } },
+    { id: "drive", type: "action.google-drive", position: { x: 100, y: 350 }, config: { credentialId: "google-1", operation: "downloadText", fileId: "file-1" } },
   ], edges: [] };
   const workflow = { id: "google-context-test", workspaceId: "workspace-1", name: "Google context", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
   const saves: Array<{ graph: { nodes: Array<{ id: string; config: Record<string, unknown> }> } }> = [];

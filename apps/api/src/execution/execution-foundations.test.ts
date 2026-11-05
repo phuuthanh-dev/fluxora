@@ -302,7 +302,7 @@ test("a stored .v2 action executes its existing handler without changing the gra
   const nodeUpdates: Array<Record<string, unknown>> = [];
   const graph = { nodes: [
     { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
-    { id: "read", type: "action.supabase.select.v2", nodeVersion: 1, position: { x: 200, y: 0 }, config: { table: "items", limit: 5, order: [{ column: "id", direction: "asc" }], offset: 5 } },
+    { id: "read", type: "action.supabase.select", position: { x: 200, y: 0 }, config: { table: "items", limit: 5, order: [{ column: "id", direction: "asc" }], offset: 5 } },
   ], edges: [{ id: "start", source: "manual", target: "read", kind: "success" }] };
   const original = structuredClone(graph);
   const execution = { id: "versioned-run", mode: "MOCK", status: ExecutionStatus.QUEUED, triggerData: {}, nodeExecutions: [], workflowVersion: { workflow: { workspaceId: "workspace" }, graph } };

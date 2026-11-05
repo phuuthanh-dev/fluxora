@@ -1,5 +1,4 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { nodeExecutionType } from "@workflow/contracts";
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../database/prisma.service";
 import { ExecutionQueueService } from "../execution/execution-queue.service";
@@ -155,7 +154,7 @@ export class WebhookService {
       if (execution.status === "QUEUED" && execution.startedAt === null) await this.queue.ensureDispatched({ executionId: execution.id, mode: "live", initialOnly: true });
       return { executionId: execution.id };
     }
-    if (normalized && !normalized.test && kumaTrigger && nodeExecutionType(kumaTrigger.type, kumaTrigger.nodeVersion) === "trigger.uptime-kuma.alert.v2") {
+    if (normalized && !normalized.test && kumaTrigger) {
       const monitor = normalized.payload.monitor as { id: string };
       const heartbeat = normalized.payload.heartbeat as { status: number };
       if (!matchesUptimeKumaFilter(kumaTrigger.config, monitor.id, heartbeat.status)) return { acknowledged: true };
@@ -208,7 +207,7 @@ export class WebhookService {
 export type GitHubEventHeaders = { githubEvent?: string; githubSignature?: string; githubDelivery?: string; rawBody?: Buffer };
 
 function isUptimeKumaTrigger(type: string) {
-  return type === "trigger.uptime-kuma.alert" || type === "trigger.uptime-kuma.alert.v2";
+  return type === "trigger.uptime-kuma.alert";
 }
 
 function githubWebhookTrigger(graph: ReturnType<typeof parseStoredWorkflowGraph>) {

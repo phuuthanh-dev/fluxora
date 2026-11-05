@@ -38,11 +38,11 @@ test("Vercel refuses credential echoes in displayed resources and deployment fie
   };
   await assert.rejects(listVercelTeams({ token: "fixture-token" }, async () => Response.json({ teams: [{ id: "team_abc", name: `${"x".repeat(298)}fixture-token` }] })), safeFailure);
   await assert.rejects(listVercelProjects({ token: "fixture-token" }, "personal", async () => Response.json({ projects: [{ id: "prj_abc", name: "fixture-token" }] })), safeFailure);
-  for (const version of [1, 2] as const) {
-    await assert.rejects(executeVercelListDeployments({ credentialId: "connection", project: "prj_abc" }, "live", "workspace", credentials, async () => Response.json({ deployments: [{ uid: "dpl_abc", name: `${"x".repeat(298)}fixture-token` }], pagination: { next: null } }), version), safeFailure);
+  {
+    await assert.rejects(executeVercelListDeployments({ credentialId: "connection", project: "prj_abc" }, "live", "workspace", credentials, async () => Response.json({ deployments: [{ uid: "dpl_abc", name: `${"x".repeat(298)}fixture-token` }], pagination: { next: null } })), safeFailure);
   }
   const numericToken = { readForExecution: async () => ({ token: "123" }) } as unknown as CredentialService;
-  await assert.rejects(executeVercelListDeployments({ credentialId: "connection", project: "prj_abc" }, "live", "workspace", numericToken, async () => Response.json({ deployments: [], pagination: { next: 123 } }), 2), (error: unknown) => (error as { code?: string }).code === "INVALID_RESPONSE");
+  await assert.rejects(executeVercelListDeployments({ credentialId: "connection", project: "prj_abc" }, "live", "workspace", numericToken, async () => Response.json({ deployments: [], pagination: { next: 123 } })), (error: unknown) => (error as { code?: string }).code === "INVALID_RESPONSE");
 });
 
 test("Vercel handles permission and rate limit failures without provider details", async () => {

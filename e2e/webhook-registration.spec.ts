@@ -319,9 +319,9 @@ test("Google Drive fields follow the selected operation without losing draft val
   });
   await page.goto("/editor?workflow=workflow-drive");
   await page.locator(".react-flow__node").filter({ hasText: "Manage files" }).click();
-  await expect(page.getByLabel("Search query")).toHaveValue("name contains 'report'");
+  await expect(page.getByLabel("Name starts with")).toHaveValue("report");
   await page.getByLabel("Operation", { exact: true }).selectOption("uploadText");
-  await expect(page.getByLabel("Search query")).toHaveCount(0);
+  await expect(page.getByLabel("Name starts with")).toHaveCount(0);
   await expect(page.getByLabel("File name")).toHaveValue("report.txt");
   await expect(page.getByLabel("Text content")).toHaveValue("retained");
   await page.getByLabel("Operation", { exact: true }).selectOption("downloadText");

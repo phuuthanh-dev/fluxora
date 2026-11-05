@@ -1,46 +1,9 @@
 import { expect, test } from "@playwright/test";
 
-for (const type of ["action.google-drive", "action.gmail.read", "action.notion.search-pages", "action.sentry.list-issues", "action.vercel.list-deployments"] as const) {
-  test(`${type}: explicit draft upgrade retains ignored continuation fields`, async ({ page }) => {
-    const config = { credentialId: "synthetic", pageToken: "old-page", cursor: "old-cursor", extra: { preserved: true } };
-    const workflow = { id: "workflow", workspaceId: "workspace", name: "Synthetic", description: null, isActive: false,
-      draft: { id: "draft", version: 1, graph: { nodes: [
-        { id: "trigger", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
-        { id: "read", type, position: { x: 300, y: 0 }, config },
-      ], edges: [] } }, published: null };
-    const saves: Array<{ graph: { nodes: Array<{ id: string; type: string; config: unknown }> } }> = [];
-    await page.route("**/api/v1/**", async (route) => {
-      const request = route.request(); const path = new URL(request.url()).pathname;
-      const send = (data: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(data) });
-      if (path.endsWith("/auth/me")) return send({ user: { id: "user", name: "Owner", email: "owner@example.test" } });
-      if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace", name: "Workspace", slug: "test", role: "OWNER" }] });
-      if (path.endsWith("/credentials")) return send({ credentials: [] });
-      if (path.endsWith("/workspaces/workspace/workflows")) return send({ workflows: [workflow] });
-      if (path.endsWith("/workflows/workflow/draft") && request.method() === "PATCH") {
-        const body = request.postDataJSON() as { graph: { nodes: Array<{ id: string; type: string; config: unknown }> } };
-        saves.push(body); return send({ workflow: { ...workflow, draft: { ...workflow.draft, graph: body.graph } } });
-      }
-      if (path.endsWith("/workflows/workflow")) return send({ workflow });
-      return route.abort();
-    });
-    await page.goto("/editor?workflow=workflow");
-    await page.locator('.react-flow__node[data-id="read"]').click();
-    await expect(page.getByText("Original pagination behavior")).toBeVisible();
-    expect(saves).toHaveLength(0);
-    await page.getByRole("button", { name: "Use paginated version in draft" }).click();
-    expect(saves).toHaveLength(0);
-    await page.getByRole("button", { name: "Save draft" }).click();
-    await expect.poll(() => saves.length).toBe(1);
-    const node = saves[0]!.graph.nodes.find((item) => item.id === "read")!;
-    expect(node.type).toBe(`${type}.v2`);
-    expect(node.config).toEqual(config);
-  });
-}
-
 test("execution pagination help describes the recorded run in both themes", async ({ page }) => {
-  const graph = { nodes: [{ id: "read", type: "action.google-drive.v2", position: { x: 100, y: 100 }, config: { operation: "search" } }], edges: [] };
+  const graph = { nodes: [{ id: "read", type: "action.google-drive", position: { x: 100, y: 100 }, config: { operation: "search" } }], edges: [] };
   const workflow = { id: "pagination-workflow", workspaceId: "workspace", name: "Pagination", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
-  const execution = { id: "pagination-execution", status: "SUCCEEDED", mode: "mock", workflowId: workflow.id, workflowVersion: 1, graph, error: null, createdAt: "2026-01-01T00:00:00Z", startedAt: null, completedAt: null, durationMs: 5, recoveryCount: 0, nodeExecutions: [{ nodeId: "read", nodeType: "action.google-drive.v2", status: "SUCCEEDED", attempt: 1, input: { config: { operation: "search" } }, output: { files: [], nextPageToken: "synthetic-cursor" }, error: null, startedAt: null, completedAt: null, durationMs: 5, failureHandling: null, skipReason: null }] };
+  const execution = { id: "pagination-execution", status: "SUCCEEDED", mode: "mock", workflowId: workflow.id, workflowVersion: 1, graph, error: null, createdAt: "2026-01-01T00:00:00Z", startedAt: null, completedAt: null, durationMs: 5, recoveryCount: 0, nodeExecutions: [{ nodeId: "read", nodeType: "action.google-drive", status: "SUCCEEDED", attempt: 1, input: { config: { operation: "search" } }, output: { files: [], nextPageToken: "synthetic-cursor" }, error: null, startedAt: null, completedAt: null, durationMs: 5, failureHandling: null, skipReason: null }] };
   await page.route("**/api/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
@@ -64,7 +27,7 @@ test("execution pagination help describes the recorded run in both themes", asyn
 });
 
 test("Drive automatic pagination appears for read operations only and stays opt-in", async ({ page }) => {
-  const graph = { nodes: [{ id: "drive", type: "action.google-drive.v2", position: { x: 100, y: 100 }, config: { credentialId: "google", operation: "search" } }], edges: [] };
+  const graph = { nodes: [{ id: "drive", type: "action.google-drive", position: { x: 100, y: 100 }, config: { credentialId: "google", operation: "search" } }], edges: [] };
   const workflow = { id: "drive-pagination", workspaceId: "workspace", name: "Drive pagination", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
   await page.route("**/api/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -86,7 +49,7 @@ test("Drive automatic pagination appears for read operations only and stays opt-
 });
 
 test("Sheets append explains legacy mock-only counts without implying they exist live", async ({ page }) => {
-  const graph = { nodes: [{ id: "append", type: "action.google-sheets.v2", position: { x: 100, y: 100 }, config: { operation: "append" } }], edges: [] };
+  const graph = { nodes: [{ id: "append", type: "action.google-sheets", position: { x: 100, y: 100 }, config: { operation: "append" } }], edges: [] };
   const workflow = { id: "sheets-workflow", workspaceId: "workspace", name: "Sheets", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
   let mode: "mock" | "live" = "mock";
   await page.route("**/api/v1/**", async (route) => {
@@ -96,7 +59,7 @@ test("Sheets append explains legacy mock-only counts without implying they exist
     if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace", name: "Workspace", slug: "test", role: "OWNER" }] });
     if (path.endsWith("/credentials")) return send({ credentials: [] });
     if (path.endsWith("/workflows/sheets-workflow")) return send({ workflow });
-    if (path.endsWith("/executions/sheets-execution")) return send({ execution: { id: "sheets-execution", status: "SUCCEEDED", mode, workflowId: workflow.id, workflowVersion: 1, graph, error: null, createdAt: "2026-01-01T00:00:00Z", startedAt: null, completedAt: null, durationMs: 5, recoveryCount: 0, nodeExecutions: [{ nodeId: "append", nodeType: "action.google-sheets.v2", status: "SUCCEEDED", attempt: 1, input: { config: { operation: "append" } }, output: { operation: "append", updates: { updatedRows: 1, updatedCells: 2 } }, error: null, startedAt: null, completedAt: null, durationMs: 5, failureHandling: null, skipReason: null }] } });
+    if (path.endsWith("/executions/sheets-execution")) return send({ execution: { id: "sheets-execution", status: "SUCCEEDED", mode, workflowId: workflow.id, workflowVersion: 1, graph, error: null, createdAt: "2026-01-01T00:00:00Z", startedAt: null, completedAt: null, durationMs: 5, recoveryCount: 0, nodeExecutions: [{ nodeId: "append", nodeType: "action.google-sheets", status: "SUCCEEDED", attempt: 1, input: { config: { operation: "append" } }, output: { operation: "append", updates: { updatedRows: 1, updatedCells: 2 } }, error: null, startedAt: null, completedAt: null, durationMs: 5, failureHandling: null, skipReason: null }] } });
     return route.abort();
   });
   await page.goto("/editor?execution=sheets-execution");

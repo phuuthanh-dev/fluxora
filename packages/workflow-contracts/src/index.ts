@@ -1,6 +1,5 @@
 export * from "./ai-schema";
 export * from "./operation-metadata";
-export { currentLibraryNodeType, nodeExecutionType } from "./node-versioning";
 export * from "./riot-lol";
 export type { NodeConfigurationField, NodeFieldVisibility, NodeResource, NodeSelectOption } from "./node-configuration-fields";
 export { trelloCardConfigurationFields } from "./trello-card-fields";
@@ -26,7 +25,6 @@ export const workflowNodeTypes = [
   "trigger.cron",
   "trigger.webhook",
   "trigger.uptime-kuma.alert",
-  "trigger.uptime-kuma.alert.v2",
   "trigger.github.issue-opened",
   "trigger.github.pull-request-opened",
   "trigger.github.push",
@@ -46,16 +44,13 @@ export const workflowNodeTypes = [
   "action.telegram.reply",
   "action.telegram.edit-message",
   "action.google-drive",
-  "action.google-drive.v2",
   "action.google-drive.get-file",
   "action.google-drive.create-folder",
   "action.google-sheets",
-  "action.google-sheets.v2",
   "action.http-request",
   "approval.request",
   "action.email",
   "action.google-chat.oauth",
-  "action.google-chat.oauth.v2",
   "action.google-chat.reply",
   "action.google-chat.edit-message",
   "action.openai",
@@ -63,7 +58,6 @@ export const workflowNodeTypes = [
   "action.mongodb",
   "action.mongodb.insert",
   "action.notion.search-pages",
-  "action.notion.search-pages.v2",
   "action.notion.retrieve-page",
   "action.notion.list-children",
   "action.notion.retrieve-property",
@@ -79,19 +73,14 @@ export const workflowNodeTypes = [
   "action.trello.list-cards",
   "action.trello.find-cards",
   "action.sentry.list-issues",
-  "action.sentry.list-issues.v2",
   "action.sentry.get-issue",
   "action.vercel.list-deployments",
-  "action.vercel.list-deployments.v2",
   "action.vercel.public-deployment-lookup",
   "action.supabase.select",
-  "action.supabase.select.v2",
   "action.supabase.insert-row",
   "action.reddit.list-posts",
   "action.postgres.select",
-  "action.postgres.select.v2",
   "action.gmail.read",
-  "action.gmail.read.v2",
   "action.gmail.get-message",
   "action.gmail.send",
   "action.gmail.reply",
@@ -138,7 +127,6 @@ export const executableWorkflowNodeTypes = [
   "trigger.cron",
   "trigger.webhook",
   "trigger.uptime-kuma.alert",
-  "trigger.uptime-kuma.alert.v2",
   "trigger.github.issue-opened",
   "trigger.github.pull-request-opened",
   "trigger.github.push",
@@ -155,11 +143,9 @@ export const executableWorkflowNodeTypes = [
   "action.telegram.reply",
   "action.telegram.edit-message",
   "action.google-drive",
-  "action.google-drive.v2",
   "action.google-drive.get-file",
   "action.google-drive.create-folder",
   "action.google-sheets",
-  "action.google-sheets.v2",
   "action.http-request",
   "action.email",
   "action.gemini",
@@ -167,7 +153,6 @@ export const executableWorkflowNodeTypes = [
   "action.mongodb",
   "action.mongodb.insert",
   "action.notion.search-pages",
-  "action.notion.search-pages.v2",
   "action.notion.retrieve-page",
   "action.notion.list-children",
   "action.notion.retrieve-property",
@@ -183,19 +168,14 @@ export const executableWorkflowNodeTypes = [
   "action.trello.list-cards",
   "action.trello.find-cards",
   "action.sentry.list-issues",
-  "action.sentry.list-issues.v2",
   "action.sentry.get-issue",
   "action.vercel.list-deployments",
-  "action.vercel.list-deployments.v2",
   "action.vercel.public-deployment-lookup",
   "action.supabase.select",
-  "action.supabase.select.v2",
   "action.supabase.insert-row",
   "action.reddit.list-posts",
   "action.postgres.select",
-  "action.postgres.select.v2",
   "action.gmail.read",
-  "action.gmail.read.v2",
   "action.gmail.get-message",
   "action.gmail.send",
   "action.gmail.reply",
@@ -209,7 +189,6 @@ export const executableWorkflowNodeTypes = [
   "action.google-calendar.delete-event",
   "action.google-calendar.availability",
   "action.google-chat.oauth",
-  "action.google-chat.oauth.v2",
   "action.google-chat.reply",
   "action.google-chat.edit-message",
   "approval.request",
@@ -232,20 +211,9 @@ export function isExecutableWorkflowNodeType(type: WorkflowNodeType | string): t
   return executableWorkflowNodeTypeSet.has(type);
 }
 
-/** Absent versions on historical graphs retain the original v1 behavior. */
-export const legacyWorkflowNodeVersion = 1 as const;
-export const currentWorkflowNodeVersion = legacyWorkflowNodeVersion;
-
-export function isSupportedWorkflowNodeVersion(version: unknown): version is 1 {
-  // This must not follow a future default implicitly: supporting another
-  // version requires an explicit compatible parser and execution path.
-  return version === legacyWorkflowNodeVersion;
-}
-
 export type WorkflowNode = {
   id: string;
   type: WorkflowNodeType;
-  nodeVersion?: number;
   position: { x: number; y: number };
   config: Record<string, unknown>;
 };

@@ -16,7 +16,7 @@ test("Drive inspector clears a stale cursor when its context changes", () => {
 });
 
 test("Drive advanced continuation help appears for list and search only", () => {
-  const field = getNodeDefinition("action.google-drive.v2")?.configurationFields?.find((entry) => entry.key === "pageToken");
+  const field = getNodeDefinition("action.google-drive")?.configurationFields?.find((entry) => entry.key === "pageToken");
   assert.ok(field && field.kind === "text");
   assert.deepEqual(field.visibleWhen, { key: "operation", equals: ["list", "search"], fallback: "list" });
   assert.match(field.advanced?.help ?? "", /same connection, operation and query/i);

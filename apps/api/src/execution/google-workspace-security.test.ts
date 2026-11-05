@@ -18,12 +18,12 @@ test("Drive rejects credential echoes in text, file lists and nested provider fi
   const previous = globalThis.fetch;
   try {
     globalThis.fetch = (async () => new Response(`file ${token}`)) as typeof fetch;
-    await assert.rejects(executeGoogleDrive(credential, { operation: "downloadText", fileId: "file-1" }, false), failure("INVALID_RESPONSE"));
-    for (const paginated of [false, true]) {
+    await assert.rejects(executeGoogleDrive(credential, { operation: "downloadText", fileId: "file-1" }), failure("INVALID_RESPONSE"));
+    {
       globalThis.fetch = (async () => Response.json({ files: [{ id: "file-1", name: `Report ${token}` }] })) as typeof fetch;
-      await assert.rejects(executeGoogleDrive(credential, { operation: "list" }, paginated), failure("INVALID_RESPONSE"));
+      await assert.rejects(executeGoogleDrive(credential, { operation: "list" }), failure("INVALID_RESPONSE"));
       globalThis.fetch = (async () => Response.json({ files: [{ [token]: "hidden in a key" }] })) as typeof fetch;
-      await assert.rejects(executeGoogleDrive(credential, { operation: "list" }, paginated), failure("INVALID_RESPONSE"));
+      await assert.rejects(executeGoogleDrive(credential, { operation: "list" }), failure("INVALID_RESPONSE"));
     }
   } finally { globalThis.fetch = previous; }
 });
@@ -33,7 +33,7 @@ test("Drive and Sheets writes with unsafe output are uncertain and cannot be ret
   try {
     let calls = 0;
     globalThis.fetch = (async () => { calls++; return Response.json({ id: "file-1", name: token }); }) as typeof fetch;
-    await assert.rejects(executeGoogleDrive(credential, { operation: "uploadText", name: "Report", text: "content" }, true), failure("DELIVERY_UNCERTAIN"));
+    await assert.rejects(executeGoogleDrive(credential, { operation: "uploadText", name: "Report", text: "content" }), failure("DELIVERY_UNCERTAIN"));
     assert.equal(calls, 1);
     calls = 0;
     globalThis.fetch = (async () => { calls++; return Response.json({ updates: { updatedRange: token } }); }) as typeof fetch;

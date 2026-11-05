@@ -4,7 +4,6 @@ type Provider = "postgres" | "supabase";
 type MetadataResponse = { status?: number; body: unknown };
 type HarnessOptions = {
   provider?: Provider;
-  legacy?: boolean;
   insert?: boolean;
   configOverride?: Record<string, unknown>;
   metadata?: (table: string) => MetadataResponse | Promise<MetadataResponse>;
@@ -12,7 +11,7 @@ type HarnessOptions = {
   save?: () => Promise<void>;
 };
 
-function workflow(id: string, provider: Provider, table = "items", legacy = false, insert = false) {
+function workflow(id: string, provider: Provider, table = "items", insert = false) {
   const config = insert ? { credentialId: "sb-1", table, fields: [] } : provider === "postgres"
     ? { credentialId: "pg-1", schema: "public", table, limit: 20, columns: ["id"], orderBy: "id", orderDirection: "asc", offset: 0, retryAttempts: 2 }
     : { credentialId: "sb-1", table, limit: 20, columns: ["id"], filters: [{ column: "active", operator: "equals", value: true }], order: [{ column: "id", direction: "desc", nulls: "last" }], offset: 0, timeoutMs: 9000 };
@@ -21,16 +20,16 @@ function workflow(id: string, provider: Provider, table = "items", legacy = fals
     draft: { id: `draft-${id}`, version: 1, graph: { nodes: [
       { id: "manual", type: "trigger.manual", position: { x: 50, y: 100 }, config: {} },
       // Deliberately reuse the node ID in both workflows.
-      { id: "relational", type: insert ? "action.supabase.insert-row" : `action.${provider}.select${legacy ? "" : ".v2"}`, ...(legacy ? {} : { nodeVersion: 1 }), position: { x: 420, y: 100 }, config },
+      { id: "relational", type: insert ? "action.supabase.insert-row" : `action.${provider}.select`, position: { x: 420, y: 100 }, config },
     ], edges: [] } }, published: null,
   };
 }
 
 async function setup(page: Page, options: HarnessOptions = {}) {
   const provider = options.provider ?? "postgres";
-  const first = workflow("first", provider, "items", options.legacy, options.insert);
+  const first = workflow("first", provider, "items", options.insert);
   Object.assign(first.draft.graph.nodes[1]!.config, options.configOverride);
-  const second = workflow("second", provider, "other_items", options.legacy, options.insert);
+  const second = workflow("second", provider, "other_items", options.insert);
   const saves: Array<Record<string, unknown>> = [];
   const requests: string[] = [];
   const metadataRequests: Array<{ provider: string; credential: string; table: string | null; schema: string | null }> = [];
@@ -80,7 +79,7 @@ const configFromSave = (save: Record<string, unknown>) => {
   return graph.nodes.find((node) => node.id === "relational")!.config;
 };
 
-test("current relational node saves its existing .v2 type", async ({ page }) => {
+test("relational node saves its current type", async ({ page }) => {
   const { saves } = await setup(page, { provider: "postgres" });
   await selectRelational(page);
   await expect(page.getByText("Choose rows and columns")).toBeVisible();
@@ -88,7 +87,7 @@ test("current relational node saves its existing .v2 type", async ({ page }) => 
   await page.getByRole("button", { name: "Save draft" }).click();
   await expect.poll(() => saves.length).toBe(1);
   const graph = saves[0]!.graph as { nodes: Array<{ id: string; type: string; nodeVersion?: number }> };
-  expect(graph.nodes.find((node) => node.id === "relational")).toMatchObject({ type: "action.postgres.select.v2", nodeVersion: 1 });
+  expect(graph.nodes.find((node) => node.id === "relational")).toMatchObject({ type: "action.postgres.select" });
 });
 
 test("a saved expression is not presented as a checked boolean or changed until selected", async ({ page }) => {
@@ -376,24 +375,4 @@ test("unsafe numeric conditions direct the user to text instead of rounding", as
   await page.getByLabel("Condition 1 value", { exact: true }).fill("9007199254740993");
   await page.getByRole("button", { name: "Apply selection" }).click();
   await expect(page.getByRole("button", { name: "Save draft" })).toBeEnabled();
-});
-
-
-for (const provider of ["postgres", "supabase"] as const) test(`${provider} legacy selection upgrades only after explicit opt-in`, async ({ page }) => {
-  const { saves, first } = await setup(page, { provider, legacy: true });
-  await selectRelational(page);
-  await expect(page.getByText("Original selection behavior")).toBeVisible();
-  if (provider === "supabase") await expect(page.getByText(/This version ignores a connection's user access token/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Add column" })).toHaveCount(0);
-  expect(saves).toHaveLength(0);
-  await page.getByRole("button", { name: "Use new selection in draft" }).click();
-  await expect(page.getByRole("button", { name: "Add column" })).toBeVisible();
-  expect(saves).toHaveLength(0);
-  await page.getByRole("button", { name: "Save draft" }).click();
-  await expect.poll(() => saves.length).toBe(1);
-  const graph = saves[0]!.graph as { nodes: Array<{ id: string; type: string; nodeVersion?: number; config: unknown }> };
-  const migrated = graph.nodes.find((node) => node.id === "relational")!;
-  expect(migrated.nodeVersion).toBe(1);
-  expect(migrated.type).toBe(`action.${provider}.select.v2`);
-  expect(migrated.config).toEqual(first.draft.graph.nodes.find((node) => node.id === "relational")!.config);
 });

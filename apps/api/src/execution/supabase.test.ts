@@ -6,7 +6,7 @@ import { executeSupabaseSelect as executeSupabaseSelectVersioned, listSupabaseCo
 import { resolveExpressions } from "./expression";
 
 // Existing query-builder cases exercise the explicit v2 contract.
-const executeSupabaseSelect = (config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport?: Parameters<typeof executeSupabaseSelectVersioned>[4]) => executeSupabaseSelectVersioned(config, mode, workspaceId, credentials, transport, 2);
+const executeSupabaseSelect = (config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport?: Parameters<typeof executeSupabaseSelectVersioned>[4]) => executeSupabaseSelectVersioned(config, mode, workspaceId, credentials, transport);
 
 const credentials = { readForExecution: async (id: string, workspace: string, provider: CredentialProvider) => {
   assert.equal(id, "connection"); assert.equal(workspace, "workspace"); assert.equal(provider, CredentialProvider.SUPABASE);
@@ -18,10 +18,10 @@ test("Supabase refuses credential echoes in returned rows before truncation", as
   const scoped = { readForExecution: async () => ({ projectRef: "abcdefghijklmnopqrst", apiKey: "sb_secret_fixture", userAccessToken: token }) } as unknown as CredentialService;
   const config = { credentialId: "connection", table: "items", limit: 1 };
   const unsafe = (secret: string, inKey: boolean) => async () => Response.json([{ id: 1 }, inKey ? { [secret]: "value" } : { nested: [{ note: `prefix ${secret} suffix` }] }]);
-  for (const version of [1, 2]) {
-    for (const secret of version === 1 ? ["sb_secret_fixture"] : ["sb_secret_fixture", token]) {
+  {
+    for (const secret of ["sb_secret_fixture", token]) {
       for (const inKey of [false, true]) {
-        await assert.rejects(executeSupabaseSelectVersioned(config, "live", "workspace", scoped, unsafe(secret, inKey), version), (error: unknown) => {
+        await assert.rejects(executeSupabaseSelectVersioned(config, "live", "workspace", scoped, unsafe(secret, inKey)), (error: unknown) => {
           const failure = error as { code: string; message: string; retryable: boolean };
           assert.equal(failure.code, "INVALID_RESPONSE");
           assert.equal(failure.retryable, false);
@@ -54,8 +54,6 @@ test("Supabase precision guard is explicit and leaves older saved reads unchange
     assert.ok(!failure.message.includes("9007199254740993"));
     return true;
   });
-  const legacy = await executeSupabaseSelectVersioned(config, "live", "workspace", credentials, unsafe, 1);
-  assert.deepEqual(legacy.output.rows, [{ nested: { id: 9007199254740992 } }]);
   const existingV2 = await executeSupabaseSelect(config, "live", "workspace", credentials, unsafe);
   assert.deepEqual(existingV2.output.rows, [{ nested: { id: 9007199254740992 } }]);
   const safe = await executeSupabaseSelect({ ...config, rejectUnsafeNumbers: true }, "live", "workspace", credentials, async () => new Response('[{"id":"9007199254740993","fraction":0.1}]', { status: 200 }));

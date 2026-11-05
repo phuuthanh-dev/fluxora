@@ -15,7 +15,7 @@ test("both Steam nodes require the selected workspace Steam connection", () => {
 });
 
 test("versioned Google Sheets writes still require the workspace Google connection", () => {
-  const requirements = liveCredentialRequirements({ nodes: [{ id: "sheet", type: "action.google-sheets.v2", position: { x: 0, y: 0 }, config: { credentialId: "google-connection" } }], edges: [] });
+  const requirements = liveCredentialRequirements({ nodes: [{ id: "sheet", type: "action.google-sheets", position: { x: 0, y: 0 }, config: { credentialId: "google-connection" } }], edges: [] });
   assert.deepEqual(requirements, [{ nodeId: "sheet", provider: CredentialProvider.GOOGLE, credentialId: "google-connection" }]);
 });
 

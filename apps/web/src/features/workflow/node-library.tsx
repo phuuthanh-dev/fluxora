@@ -231,8 +231,8 @@ export const NodeLibrary = forwardRef<NodeLibraryHandle, NodeLibraryProps>(funct
         <button className="palette-back" type="button" onClick={returnToApps}><ArrowLeft size={14} /> All apps</button>
       ) : (
         <div className="node-palette__summary" aria-label="Node availability">
-          <span><i className="status-dot status-dot--ready" />{libraryCatalog.filter((node) => node.available && !node.hiddenFromLibrary).length} ready</span>
-          <span><i className="status-dot" />{libraryCatalog.filter((node) => !node.available && !node.hiddenFromLibrary).length} roadmap</span>
+          <span><i className="status-dot status-dot--ready" />{libraryCatalog.filter((node) => node.available).length} ready</span>
+          <span><i className="status-dot" />{libraryCatalog.filter((node) => !node.available).length} roadmap</span>
         </div>
       )}
       <p className="node-palette__hint">{selectedApp ? selectedApp.description : "Choose a core step or open an app to select one operation."}</p>

@@ -45,7 +45,7 @@ test("connector-to-chat templates compose mock output into a bounded summary wit
   for (const template of summaries) {
     const inspect = template.graph.nodes.find((node) => node.id === "inspect")!;
     const notify = template.graph.nodes.find((node) => node.id === "notify")!;
-    const fixture = inspect.type === "action.postgres.select.v2" || inspect.type === "action.supabase.select.v2"
+    const fixture = inspect.type === "action.postgres.select" || inspect.type === "action.supabase.select"
       ? { table: "fixture_table" }
       : inspect.type === "action.trello.list-cards" ? { boardId: "aaaaaaaaaaaaaaaaaaaaaaaa" } : {};
     const result = await executeNode(inspect, { ...inspect.config, ...fixture }, {}, "mock", "workspace", credentials, "execution");

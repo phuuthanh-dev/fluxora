@@ -11,7 +11,7 @@ import { executePostgresSelect as executePostgresSelectVersioned, readPostgresRo
 import { resolveExpressions } from "./expression";
 
 // These existing selection tests exercise the new, explicit v2 contract.
-const executePostgresSelect = (config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, read?: typeof readPostgresRows) => executePostgresSelectVersioned(config, mode, workspaceId, credentials, read, 2);
+const executePostgresSelect = (config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, read?: typeof readPostgresRows) => executePostgresSelectVersioned(config, mode, workspaceId, credentials, read);
 
 test("Notion search sends bounded request and returns only page identifiers and titles", async () => {
   let captured: { url: string; init: RequestInit } | undefined;
@@ -104,8 +104,6 @@ test("Notion search remains one request unless automatic pagination is explicitl
   const result = await executeNotionSearch({ credentialId: "connection" }, "live", "workspace", credentials, search);
   assert.equal(calls, 1);
   assert.equal(result.output.nextCursor, "next");
-  await executeNotionSearch({ credentialId: "connection", collectPages: true }, "live", "workspace", credentials, search, 1);
-  assert.equal(calls, 2);
 });
 
 test("Notion respects bounded Retry-After and declines unsafe shorter retries", async () => {

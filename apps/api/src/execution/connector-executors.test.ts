@@ -3,41 +3,6 @@ import test from "node:test";
 import { CredentialProvider } from "@prisma/client";
 import type { WorkflowNodeType } from "@workflow/contracts";
 import { executeNode } from "./execution.service";
-import { getConnectorExecutor } from "./connector-executors";
-import { NodeFailure } from "./node-failure";
-
-test("executor selection rejects unknown versions before credentials and preserves legacy v1", async () => {
-  const config = { parentPageId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", title: "Example", content: "" };
-  const node = { id: "page", type: "action.notion.create-page" as const, config, position: { x: 0, y: 0 } };
-  const credentials = { readForExecution: () => { throw new Error("unexpected credential access"); } } as never;
-  assert.equal(getConnectorExecutor(node.type), getConnectorExecutor(node.type, 1));
-  for (const invalid of [2, 0, -1, null, "1"]) {
-    assert.equal(getConnectorExecutor(node.type, invalid), undefined);
-    await assert.rejects(
-      executeNode({ ...node, nodeVersion: invalid as number }, config, {}, "live", "workspace", credentials, "execution"),
-      (error: unknown) => error instanceof NodeFailure && error.code === "NODE_VERSION_UNSUPPORTED" && !error.retryable,
-    );
-  }
-  const legacy = await executeNode(node, config, {}, "mock", "workspace", credentials, "execution");
-  const explicit = await executeNode({ ...node, nodeVersion: 1 }, config, {}, "mock", "workspace", credentials, "execution");
-  assert.deepEqual(explicit, legacy);
-  await assert.rejects(
-    executeNode({ ...node, type: "trigger.manual", nodeVersion: 2 }, {}, {}, "mock", "workspace", credentials, "execution"),
-    (error: unknown) => error instanceof NodeFailure && error.code === "NODE_VERSION_UNSUPPORTED",
-  );
-});
-
-test("saved node types remain distinct and numeric version 2 is rejected", async () => {
-  const credentials = { readForExecution: () => { throw new Error("unexpected credential access"); } } as never;
-  for (const type of ["action.google-drive", "action.google-sheets", "action.google-chat.oauth", "action.gmail.read", "action.notion.search-pages", "action.sentry.list-issues", "action.vercel.list-deployments", "action.postgres.select", "action.supabase.select"] as const) {
-    assert.ok(getConnectorExecutor(type, 1), type);
-    assert.ok(getConnectorExecutor(`${type}.v2`, 1), type);
-    assert.notEqual(getConnectorExecutor(type, 1), getConnectorExecutor(`${type}.v2`, 1), type);
-    assert.equal(getConnectorExecutor(type, 2), undefined, type);
-    const node = { id: "node", type, nodeVersion: 2, position: { x: 0, y: 0 }, config: {} };
-    await assert.rejects(executeNode(node, {}, {}, "mock", "workspace", credentials, "execution"), (error: unknown) => error instanceof NodeFailure && error.code === "NODE_VERSION_UNSUPPORTED");
-  }
-});
 
 test("Notion page creation is dispatched in mock mode without credentials", async () => {
   const config = { parentPageId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", title: "Example", content: "" };
@@ -56,7 +21,7 @@ test("GitHub issue update is dispatched in mock mode without credentials", async
   assert.deepEqual(result.output, { repository: "owner/repo", issueNumber: 42, updatedField: "state" });
 });
 
-test("live registry dispatch uses the selected workspace connection and preserves legacy pagination", async () => {
+test("live registry dispatch uses the selected workspace connection and pagination", async () => {
   const originalFetch = globalThis.fetch;
   const originalAllowed = process.env.OUTBOUND_ALLOWED_HOSTNAMES;
   const calls: Array<{ url: URL; method: string }> = [];
@@ -97,25 +62,21 @@ test("live registry dispatch uses the selected workspace connection and preserve
     const github = await run("action.github.list-issues", { credentialId: "github", repository: "example/repo", state: "open", page: 2, pageSize: 5 });
     const notion = await run("action.notion.retrieve-page", { credentialId: "notion", pageId });
     const trello = await run("action.trello.get-card", { credentialId: "trello", cardId });
-    const legacy = await run("action.google-drive", { credentialId: "google", operation: "list", pageToken: "ignored-legacy" });
-    const current = await run("action.google-drive.v2", { credentialId: "google", operation: "list", pageToken: "next-page" });
+    const current = await run("action.google-drive", { credentialId: "google", operation: "list", pageToken: "next-page" });
     const ai = await run("action.gemini", { credentialId: "gemini", model: "example", prompt: "Hello", outputSchema: { type: "object", properties: { answer: { type: "string" } }, required: ["answer"], additionalProperties: false } });
     assert.deepEqual(reads, [
       { id: "github", workspace: "synthetic-workspace", provider: "GITHUB" },
       { id: "notion", workspace: "synthetic-workspace", provider: "NOTION" },
       { id: "trello", workspace: "synthetic-workspace", provider: "TRELLO" },
       { id: "google", workspace: "synthetic-workspace", provider: "GOOGLE" },
-      { id: "google", workspace: "synthetic-workspace", provider: "GOOGLE" },
       { id: "gemini", workspace: "synthetic-workspace", provider: "GEMINI" },
     ]);
-    assert.equal(calls.length, 6);
+    assert.equal(calls.length, 5);
     assert.equal(calls[0]?.url.searchParams.get("page"), "2");
-    assert.equal(calls[3]?.url.searchParams.has("pageToken"), false);
-    assert.equal(calls[4]?.url.searchParams.get("pageToken"), "next-page");
-    assert.equal("nextPageToken" in legacy.output, false);
+    assert.equal(calls[3]?.url.searchParams.get("pageToken"), "next-page");
     assert.equal(current.output.nextPageToken, "synthetic-page");
     assert.deepEqual(ai.output.json, { answer: "ok" });
-    assert.doesNotMatch(JSON.stringify([github.output, notion.output, trello.output, legacy.output, current.output, ai.output]), /synthetic-(token|secret|key)/);
+    assert.doesNotMatch(JSON.stringify([github.output, notion.output, trello.output, current.output, ai.output]), /synthetic-(token|secret|key)/);
   } finally {
     globalThis.fetch = originalFetch;
     if (originalAllowed === undefined) delete process.env.OUTBOUND_ALLOWED_HOSTNAMES;

@@ -15,7 +15,7 @@ test("Google Chat simulated send and reply expose the live receipt fields", asyn
   const mockCredentials = new Proxy({}, { get() { throw new Error("Mock must not read credentials"); } }) as never;
   const liveCredentials = { readGoogleForExecution: async () => ({ accessToken: "synthetic-token" }) } as never;
   const config = { credentialId: "connection", space: "spaces/abc", message: "Example", threadName: "spaces/abc/threads/thread1" };
-  for (const [variant, type] of [["legacy", "action.google-chat.oauth"], ["send", "action.google-chat.oauth.v2"], ["reply", "action.google-chat.reply"]] as const) {
+  for (const [variant, type] of [["send", "action.google-chat.oauth"], ["reply", "action.google-chat.reply"]] as const) {
     const transport = async () => Response.json({ name: "spaces/abc/messages/message1", thread: { name: config.threadName } });
     const mock = await executeGoogleChatOAuth(config, "mock", "workspace", mockCredentials, transport, variant);
     const live = await executeGoogleChatOAuth(config, "live", "workspace", liveCredentials, transport, variant);
@@ -62,13 +62,11 @@ test("Google Chat sends via scoped credential and never exposes its token", asyn
   await assert.rejects(executeGoogleChatOAuth({ credentialId: "connection", space: "spaces/abc", message: "Hello" }, "live", "workspace", credentials as never, async () => { throw new Error("synthetic-token"); }), (error: unknown) => error instanceof Error && !error.message.includes("synthetic-token") && "retryable" in error && error.retryable === false);
 });
 
-test("thread-aware Google Chat sends expose the thread while legacy output stays compatible", async () => {
+test("Google Chat sends expose the thread", async () => {
   const credentials = { readGoogleForExecution: async () => ({ accessToken: "synthetic-token" }) };
   const config = { credentialId: "connection", space: "spaces/abc", message: "Hello" };
   const transport = async () => Response.json({ name: "spaces/abc/messages/msg1", thread: { name: "spaces/abc/threads/thread1" } });
-  const legacy = await executeGoogleChatOAuth(config, "live", "workspace", credentials as never, transport);
   const send = await executeGoogleChatOAuth(config, "live", "workspace", credentials as never, transport, "send");
-  assert.equal("threadName" in legacy.output, false);
   assert.equal("threadName" in send.output && send.output.threadName, "spaces/abc/threads/thread1");
   const noThread = await executeGoogleChatOAuth(config, "live", "workspace", credentials as never, async () => Response.json({ name: "spaces/abc/messages/msg1" }), "send");
   assert.equal("threadName" in noThread.output && noThread.output.threadName, null);

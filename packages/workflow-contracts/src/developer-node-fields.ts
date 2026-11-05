@@ -20,9 +20,9 @@ export const developerNodeFields = {
       { kind: "resource", key: "project", label: "Project", resource: "vercel-project", credentialKey: "credentialId", dependencyKey: "team", placeholder: "Search projects" },
       { kind: "select", key: "event", label: "Event", options: [{ value: "deployment.created", label: "Deployment created" }, { value: "deployment.succeeded", label: "Deployment succeeded (after checks)" }, { value: "deployment.error", label: "Deployment failed" }, { value: "deployment.canceled", label: "Deployment canceled" }, { value: "deployment.ready", label: "Deployment ready (integration checks)" }] },
     ],
-  "trigger.uptime-kuma.alert.v2": (): NodeConfigurationField[] => [
+  "trigger.uptime-kuma.alert": (): NodeConfigurationField[] => [
       { kind: "text", key: "monitorId", label: "Monitor ID (optional)" },
-      { kind: "select", key: "statusFilter", label: "Alert status", options: [{ value: "any", label: "All statuses" }, { value: "0", label: "Down" }, { value: "1", label: "Up" }, { value: "2", label: "Pending" }, { value: "3", label: "Maintenance" }] },
+      { kind: "select", key: "statusFilter", label: "Alert status", fallbackValue: "any", options: [{ value: "any", label: "All statuses" }, { value: "0", label: "Down" }, { value: "1", label: "Up" }, { value: "2", label: "Pending" }, { value: "3", label: "Maintenance" }] },
     ],
   "trigger.github.issue-opened": (): NodeConfigurationField[] => [
       { kind: "credential", key: "credentialId", label: "GitHub connector credential", providers: ["GITHUB"] },
@@ -53,22 +53,9 @@ export const developerNodeFields = {
       { kind: "resource", key: "project", label: "Project", resource: "sentry-project", credentialKey: "credentialId", dependencyKey: "organization", placeholder: "Search projects" },
       { kind: "select", key: "status", label: "Issue status", options: [{ value: "unresolved", label: "Unresolved" }, { value: "resolved", label: "Resolved" }, { value: "all", label: "All" }] },
       { kind: "number", key: "limit", label: "Maximum issues (1–100)", fallbackValue: 20 },
-    ],
-  "action.sentry.list-issues.v2": (): NodeConfigurationField[] => [
-      { kind: "credential", key: "credentialId", label: "Sentry connection", providers: ["SENTRY"] },
-      { kind: "resource", key: "organization", label: "Organization", resource: "sentry-organization", credentialKey: "credentialId", placeholder: "Search organizations" },
-      { kind: "resource", key: "project", label: "Project", resource: "sentry-project", credentialKey: "credentialId", dependencyKey: "organization", placeholder: "Search projects" },
-      { kind: "select", key: "status", label: "Issue status", options: [{ value: "unresolved", label: "Unresolved" }, { value: "resolved", label: "Resolved" }, { value: "all", label: "All" }] },
-      { kind: "number", key: "limit", label: "Maximum issues (1–100)", fallbackValue: 20 },
       { kind: "text", key: "cursor", label: "Continuation cursor", advanced: { summary: "Continue a previous page", help: "Use the previous nextCursor with the same organization, project and status. Continuation can be unknown." } },
     ],
   "action.vercel.list-deployments": (): NodeConfigurationField[] => [
-      { kind: "credential", key: "credentialId", label: "Vercel connection", providers: ["VERCEL"] },
-      { kind: "resource", key: "team", label: "Account or team", resource: "vercel-team", credentialKey: "credentialId", placeholder: "Search teams" },
-      { kind: "resource", key: "project", label: "Project", resource: "vercel-project", credentialKey: "credentialId", dependencyKey: "team", placeholder: "Search projects" },
-      { kind: "number", key: "limit", label: "Maximum deployments (1–100)", fallbackValue: 20 },
-    ],
-  "action.vercel.list-deployments.v2": (): NodeConfigurationField[] => [
       { kind: "credential", key: "credentialId", label: "Vercel connection", providers: ["VERCEL"] },
       { kind: "resource", key: "team", label: "Account or team", resource: "vercel-team", credentialKey: "credentialId", placeholder: "Search teams" },
       { kind: "resource", key: "project", label: "Project", resource: "vercel-project", credentialKey: "credentialId", dependencyKey: "team", placeholder: "Search projects" },

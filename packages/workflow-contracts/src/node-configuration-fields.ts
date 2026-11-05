@@ -14,7 +14,7 @@ export type NodeConfigurationField =
   | ({ kind: "text" | "textarea"; key: string; label: string; advanced?: { summary: string; help: string } } & NodeFieldVisibility)
   | ({ kind: "datetime"; key: string; label: string } & NodeFieldVisibility)
   | ({ kind: "number"; key: string; label: string; fallbackValue?: number; advanced?: { summary: string; help: string } } & NodeFieldVisibility)
-  | ({ kind: "select"; key: string; label: string; options: NodeSelectOption[] } & NodeFieldVisibility)
+  | ({ kind: "select"; key: string; label: string; options: NodeSelectOption[]; fallbackValue?: string } & NodeFieldVisibility)
   | ({ kind: "key-value"; key: string; label: string; keyPlaceholder?: string; valuePlaceholder?: string } & NodeFieldVisibility)
   | ({ kind: "table"; key: string; label: string } & NodeFieldVisibility)
   | ({ kind: "structured-output"; key: string; label: string } & NodeFieldVisibility)

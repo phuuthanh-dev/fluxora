@@ -89,20 +89,7 @@ export async function listPostgresColumns(credential: PostgresCredential, schema
 const postgresConfigKeys = new Set(["credentialId", "schema", "table", "limit", "columns", "conditions", "orderBy", "orderDirection", "offset", "retryAttempts", "timeoutMs"]);
 const postgresSelectionKeys = ["limit", "columns", "conditions", "orderBy", "orderDirection", "offset"] as const;
 
-export async function executePostgresSelect(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, read: typeof readPostgresRows = readPostgresRows, nodeVersion: number = 1): Promise<{ status: "succeeded"; output: { rows: Record<string, unknown>[]; count: number; returnedCount?: number; page?: { limit: number; offset: number; completeness: "unknown" } }; route: "success" }> {
-  if (nodeVersion !== 1 && nodeVersion !== 2) throw new NodeFailure("INVALID_CONFIGURATION", "PostgreSQL node version is not supported.", false);
-  if (nodeVersion === 1) {
-    const schema = typeof config.schema === "string" ? config.schema : "";
-    const table = typeof config.table === "string" ? config.table : "";
-    const limit = config.limit === undefined ? 20 : config.limit;
-    if (typeof limit !== "number") throw new NodeFailure("INVALID_INPUT", "Enter a valid row limit.", false);
-    buildPostgresSelect({ schema, table, columns: [], conditions: [], limit });
-    if (mode === "mock") return { status: "succeeded" as const, output: { rows: [{ example: true }], count: 1 }, route: "success" as const };
-    const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
-    if (!credentialId) throw new NodeFailure("CREDENTIAL_REQUIRED", "Select a PostgreSQL connection.", false);
-    const credential = validatePostgresCredential(await credentials.readForExecution(credentialId, workspaceId, CredentialProvider.POSTGRES));
-    return { status: "succeeded" as const, output: await read(credential, schema, table, limit), route: "success" as const };
-  }
+export async function executePostgresSelect(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, read: typeof readPostgresRows = readPostgresRows): Promise<{ status: "succeeded"; output: { rows: Record<string, unknown>[]; count: number; returnedCount?: number; page?: { limit: number; offset: number; completeness: "unknown" } }; route: "success" }> {
   if (Object.keys(config).some((key) => !postgresConfigKeys.has(key))) throw new NodeFailure("INVALID_INPUT", "PostgreSQL configuration contains an unsupported field.", false);
   requireResolvedSelection(config, postgresSelectionKeys, "PostgreSQL");
   const schema = typeof config.schema === "string" ? config.schema : "";

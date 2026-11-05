@@ -23,6 +23,44 @@ test("publishes a Switch graph only when case edges map to configured values", (
   assert.throws(() => validatePublishableGraph(invalid), BadRequestException);
 });
 
+test("cron drafts and stored graphs remain readable, but publishing requires a valid schedule", () => {
+  const graph = (config: Record<string, unknown>) => ({ nodes: [{ id: "cron", type: "trigger.cron", position: { x: 0, y: 0 }, config }], edges: [] });
+  for (const config of [
+    { expression: "0 9 * * *", timezone: "Asia/Ho_Chi_Minh" },
+    { expression: "*/15 * * * *", timezone: "UTC" },
+    { expression: "0 9 * * *" },
+  ]) assert.doesNotThrow(() => validatePublishableGraph(parseWorkflowGraph(graph(config))));
+  for (const config of [
+    {}, { expression: "not a cron" }, { expression: "0 9 * * *", timezone: "Invalid/Timezone" },
+    { expression: "0 9 * * *", timezone: "" },
+  ]) {
+    const draft = graph(config);
+    assert.doesNotThrow(() => parseWorkflowGraph(draft));
+    assert.doesNotThrow(() => parseStoredWorkflowGraph(draft));
+    assert.throws(() => validatePublishableGraph(parseWorkflowGraph(draft)), (error: unknown) => error instanceof BadRequestException && String(error.message).includes("cron expression and timezone"));
+  }
+});
+
+test("publish rejects unknown static condition and approval choices without changing stored graphs", () => {
+  for (const [type, key, supported] of [
+    ["condition.if", "operator", ["equals", "not_equals", "contains", "exists"]],
+    ["approval.request", "notificationProvider", ["google_chat", "http_webhook"]],
+  ] as const) {
+    const graph = (value: unknown) => ({ nodes: [
+      { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
+      { id: "node", type, position: { x: 200, y: 0 }, config: value === undefined ? {} : { [key]: value } },
+    ], edges: [] });
+    for (const value of [undefined, null, "", ...supported, "{{ steps.previous.output.choice }}"]) {
+      assert.doesNotThrow(() => validatePublishableGraph(parseWorkflowGraph(graph(value))), `${type}: ${String(value)}`);
+    }
+    for (const value of ["unsupported", 123, false]) {
+      const saved = graph(value);
+      assert.doesNotThrow(() => parseStoredWorkflowGraph(saved));
+      assert.throws(() => validatePublishableGraph(parseWorkflowGraph(saved)), BadRequestException);
+    }
+  }
+});
+
 test("planned nodes remain readable in drafts but cannot be published", () => {
   for (const type of ["action.facebook-meta", "action.instagram"] as const) {
     const graph = structuredClone(validSwitchGraph);
@@ -30,44 +68,6 @@ test("planned nodes remain readable in drafts but cannot be published", () => {
     const parsed = parseWorkflowGraph(graph);
     assert.equal(parsed.nodes.at(-1)?.type, type);
     assert.throws(() => validatePublishableGraph(parsed), (error: unknown) => error instanceof BadRequestException && (error.getResponse() as { code?: string }).code === "NODE_UNAVAILABLE");
-  }
-});
-
-test("node versions preserve legacy graphs, retain v1 and reject unsupported values", () => {
-  const legacy = structuredClone(validSwitchGraph);
-  assert.equal(Object.hasOwn(parseWorkflowGraph(legacy).nodes[0]!, "nodeVersion"), false);
-  const explicit = structuredClone(validSwitchGraph);
-  explicit.nodes[0]!.nodeVersion = 1;
-  assert.equal(parseWorkflowGraph(explicit).nodes[0]?.nodeVersion, 1);
-  for (const invalidVersion of [0, 2, -1, 1.5, null, "1"]) {
-    const graph = structuredClone(validSwitchGraph) as unknown as { nodes: Array<Record<string, unknown>>; edges: unknown[] };
-    graph.nodes[0]!.nodeVersion = invalidVersion;
-    assert.throws(() => parseWorkflowGraph(graph), BadRequestException);
-  }
-});
-
-test("historical and .v2 node identities survive API parsing with or without nodeVersion", () => {
-  for (const base of ["trigger.uptime-kuma.alert", "action.google-drive", "action.google-sheets", "action.google-chat.oauth", "action.gmail.read", "action.notion.search-pages", "action.sentry.list-issues", "action.vercel.list-deployments", "action.postgres.select", "action.supabase.select"]) {
-    for (const suffix of ["", ".v2"]) for (const version of [undefined, 1]) {
-      const node = { id: "historical", type: base + suffix, ...(version === undefined ? {} : { nodeVersion: version }), position: { x: 2, y: 3 }, config: { savedValue: "preserve" } };
-      assert.deepEqual(parseWorkflowGraph({ nodes: [node], edges: [] }).nodes[0], node);
-    }
-  }
-});
-
-test("mixed canvas and API node versions cannot silently conflict", () => {
-  const node = { id: "read", type: "workflowNode", nodeVersion: 1, position: { x: 0, y: 0 }, data: { nodeType: "action.supabase.select.v2", nodeVersion: 2, config: { table: "items" } } };
-  assert.throws(() => parseWorkflowGraph({ nodes: [node], edges: [] }), (error: unknown) => error instanceof BadRequestException && String(error.message).includes("version"));
-  assert.equal(parseWorkflowGraph({ nodes: [{ ...node, data: { ...node.data, nodeVersion: 1 } }], edges: [] }).nodes[0]?.nodeVersion, 1);
-  assert.equal(parseWorkflowGraph({ nodes: [{ ...node, nodeVersion: undefined, data: { ...node.data, nodeVersion: 1 } }], edges: [] }).nodes[0]?.nodeVersion, 1);
-  assert.equal(parseWorkflowGraph({ nodes: [{ ...node, data: { ...node.data, nodeVersion: undefined } }], edges: [] }).nodes[0]?.nodeVersion, 1);
-});
-
-test("stored and submitted graphs both reject numeric version 2", () => {
-  for (const type of ["action.google-drive", "action.supabase.select", "action.supabase.select.v2", "trigger.uptime-kuma.alert", "trigger.uptime-kuma.alert.v2"]) {
-    const graph = { nodes: [{ id: "node", type, nodeVersion: 2, position: { x: 0, y: 0 }, config: {} }], edges: [] };
-    assert.throws(() => parseStoredWorkflowGraph(graph), /version/i, type);
-    assert.throws(() => parseWorkflowGraph(graph), /version/i, type);
   }
 });
 

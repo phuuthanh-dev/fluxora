@@ -72,33 +72,32 @@ export async function listSentryInstallations(credential: Record<string, unknown
 }
 
 type SentryIssuesOutput = { issues: Array<{ id: string; shortId: string; title: string; status: string; level: string; firstSeen: string; lastSeen: string; count: string }>; hasMore: boolean; nextCursor?: string | null; partial?: boolean; partialReasons?: string[] };
-export async function executeSentryListIssues(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport | undefined = undefined, paginationVersion: 1 | 2 = 2): Promise<{ status: "succeeded"; output: SentryIssuesOutput; route: "success" }> {
-  if (paginationVersion === 2 && ((Object.hasOwn(config, "cursor") && (config.cursor === undefined || config.cursor === null)) || (Object.hasOwn(config, "limit") && config.limit === undefined) || (Object.hasOwn(config, "status") && config.status === undefined))) {
+export async function executeSentryListIssues(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport: Transport | undefined = undefined): Promise<{ status: "succeeded"; output: SentryIssuesOutput; route: "success" }> {
+  if (((Object.hasOwn(config, "cursor") && (config.cursor === undefined || config.cursor === null)) || (Object.hasOwn(config, "limit") && config.limit === undefined) || (Object.hasOwn(config, "status") && config.status === undefined))) {
     throw new NodeFailure("INVALID_INPUT", "Sentry filters or pagination could not be resolved.", false);
   }
   const organization = slug(config.organization);
   const project = slug(config.project);
   const status = config.status === undefined ? "unresolved" : config.status;
   const limit = config.limit === undefined ? 20 : config.limit;
-  const cursor = paginationVersion === 1 || config.cursor === undefined || config.cursor === null || config.cursor === "" ? null : config.cursor;
+  const cursor = config.cursor === undefined || config.cursor === null || config.cursor === "" ? null : config.cursor;
   if (!organization || !project || !["unresolved", "resolved", "all"].includes(String(status)) || typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > 100 || (cursor !== null && !sentryCursorValid(cursor))) throw new NodeFailure("INVALID_INPUT", "Choose an organization, project and status, a limit between 1 and 100, and a valid cursor.", false);
   if (mode === "mock") {
     const output = { issues: [{ id: "123", shortId: "EXAMPLE-1", title: "Example issue", status: "unresolved", level: "error", firstSeen: "", lastSeen: "", count: "1" }], hasMore: false };
-    return { status: "succeeded", output: paginationVersion === 1 ? output : { ...output, nextCursor: null, partial: false, partialReasons: [] }, route: "success" };
+    return { status: "succeeded", output: { ...output, nextCursor: null, partial: false, partialReasons: [] }, route: "success" };
   }
   const credentialId = typeof config.credentialId === "string" ? config.credentialId : "";
   if (!credentialId) throw new NodeFailure("CREDENTIAL_REQUIRED", "Select a Sentry connection.", false);
   const credential = await credentials.readForExecution(credentialId, workspaceId, CredentialProvider.SENTRY);
   const params = new URLSearchParams({ project, query: status === "all" ? "" : `is:${status}`, limit: String(limit) });
   if (cursor !== null) params.set("cursor", cursor);
-  const result = await sentryGet(`organizations/${organization}/issues/?${params}`, credential, transport ?? (paginationVersion === 1 ? fetchSafeOutbound : observabilityTransport));
+  const result = await sentryGet(`organizations/${organization}/issues/?${params}`, credential, transport ?? observabilityTransport);
   const accessToken = typeof credential.token === "string" ? credential.token : "";
   const issues = result.data.slice(0, limit).flatMap((value: unknown) => {
     const issue = itemRecord(value); const id = text(issue?.id, 100);
     if (id) assertNoCredentialInProviderFields([issue?.id, issue?.shortId, issue?.title, issue?.status, issue?.level, issue?.firstSeen, issue?.lastSeen, issue?.count], accessToken);
     return id ? [{ id, shortId: text(issue?.shortId, 100), title: text(issue?.title), status: text(issue?.status, 50), level: text(issue?.level, 50), firstSeen: text(issue?.firstSeen, 100), lastSeen: text(issue?.lastSeen, 100), count: text(issue?.count, 50) }] : [];
   });
-  if (paginationVersion === 1) return { status: "succeeded", output: { issues, hasMore: result.hasMore || result.data.length > limit }, route: "success" };
   const page = sentryNextLink(result.link, result.url);
   assertNoCredentialInProviderFields([page.cursor], accessToken);
   const reasons: string[] = [];

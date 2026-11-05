@@ -1,7 +1,7 @@
 import { getOperationMetadata, validateAiSchema, type AiSchema } from "@workflow/contracts";
 
 type NodeExecutionOutput = { nodeId: string; output: unknown };
-type SuggestionNode = { id: string; data: { nodeType: string; nodeVersion?: number; config?: Record<string, unknown> } };
+type SuggestionNode = { id: string; data: { nodeType: string; config?: Record<string, unknown> } };
 type SuggestionEdge = { source: string; target: string };
 const pathSegment = /^[A-Za-z_][A-Za-z0-9_-]*$/;
 
@@ -25,7 +25,7 @@ export function buildPossibleExpressionSuggestions(nodes: SuggestionNode[], upst
   const suggestions = new Set<string>();
   for (const node of nodes) {
     if (!upstream.has(node.id) || !pathSegment.test(node.id)) continue;
-    const output = getOperationMetadata(node.data.nodeType, node.data.nodeVersion)?.output;
+    const output = getOperationMetadata(node.data.nodeType)?.output;
     if (!output || !("knownFields" in output)) continue;
     for (const field of output.knownFields) if (pathSegment.test(field)) suggestions.add(`{{ steps.${node.id}.output.${field} }}`);
     if (node.data.nodeType === "action.gemini" || node.data.nodeType === "action.openai") {

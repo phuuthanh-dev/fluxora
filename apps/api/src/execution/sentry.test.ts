@@ -59,14 +59,14 @@ test("Sentry refuses credential echoes in displayed resources and issue fields b
   };
   await assert.rejects(listSentryOrganizations(credential, async () => Response.json([{ slug: "example", name: `${"x".repeat(297)}fixture-token` }])), safeFailure);
   await assert.rejects(listSentryProjects(credential, "example", async () => Response.json([{ slug: "fixture-token", name: "Example" }])), safeFailure);
-  for (const version of [1, 2] as const) {
-    await assert.rejects(executeSentryListIssues({ credentialId: "connection", organization: "example", project: "web" }, "live", "workspace", credentials, async () => Response.json([{ id: "1", title: `${"x".repeat(497)}fixture-token` }]), version), safeFailure);
+  {
+    await assert.rejects(executeSentryListIssues({ credentialId: "connection", organization: "example", project: "web" }, "live", "workspace", credentials, async () => Response.json([{ id: "1", title: `${"x".repeat(497)}fixture-token` }])), safeFailure);
   }
   const numericToken = { readForExecution: async () => ({ token: "123", region: "de" }) } as unknown as CredentialService;
   await assert.rejects(executeSentryListIssues({ credentialId: "connection", organization: "example", project: "web" }, "live", "workspace", numericToken, async (url) => {
     const next = new URL(url); next.searchParams.set("cursor", "123:0:1");
     return Response.json([], { headers: { link: `<${next}>; rel="next"; results="true"; cursor="123:0:1"` } });
-  }, 2), (error: unknown) => (error as { code?: string }).code === "INVALID_RESPONSE");
+  }), (error: unknown) => (error as { code?: string }).code === "INVALID_RESPONSE");
 });
 
 test("Sentry rejects invalid regions and classifies rate limits without exposing tokens", async () => {

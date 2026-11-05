@@ -11,15 +11,15 @@ function checkGoogleOutput(value: unknown, accessToken: string, write = false, s
   catch (error) { if (write) throw uncertainDelivery("Google API", status); throw error; }
 }
 
-export function mockDrive(config: Record<string, unknown>, paginated: boolean) {
+export function mockDrive(config: Record<string, unknown>) {
   const operation = readOperation(config, ["list", "search", "uploadText", "downloadText"], "list");
   if (operation === "downloadText") return { operation, file: { id: String(config.fileId ?? "mock-file-1"), name: "daily-report.txt", text: "Mock Drive report" } };
   if (operation === "uploadText") return { operation, file: { id: "mock-upload-1", name: String(config.name ?? "daily-report.txt"), mimeType: "text/plain" } };
   const body = { files: [{ id: "mock-file-1", name: "Steam report", mimeType: "text/plain", modifiedTime: "2026-10-23T08:00:00.000Z" }] };
-  return paginated ? driveListOutput(operation, body) : { operation, ...body };
+  return driveListOutput(operation, body);
 }
 
-export async function executeGoogleDrive(credential: Record<string, unknown>, config: Record<string, unknown>, paginated: boolean) {
+export async function executeGoogleDrive(credential: Record<string, unknown>, config: Record<string, unknown>) {
   const accessToken = readCredentialValue(credential, "accessToken");
   const operation = readOperation(config, ["list", "search", "uploadText", "downloadText"], "list");
   if (operation === "downloadText") {
@@ -44,14 +44,6 @@ export async function executeGoogleDrive(credential: Record<string, unknown>, co
     if (!file || typeof file !== "object" || Array.isArray(file) || typeof (file as Record<string, unknown>).id !== "string") throw uncertainDelivery("Google Drive", response.status);
     checkGoogleOutput(file, accessToken, true, response.status);
     return { operation, file };
-  }
-  if (!paginated) {
-    const query = operation === "search" && typeof config.query === "string" && config.query ? `&q=${encodeURIComponent(config.query)}` : "";
-    const response = await googleFetch(`https://www.googleapis.com/drive/v3/files?fields=files(id,name,mimeType,modifiedTime,webViewLink)${query}`, accessToken);
-    const body = await readProviderJson(response, "Google Drive") as { files?: unknown[] } | null;
-    if (!body || !Array.isArray(body.files)) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Google Drive returned an invalid file list.", false);
-    checkGoogleOutput(body.files, accessToken);
-    return { operation, files: body.files };
   }
   const pageToken = readDrivePageToken(config);
   if (readDriveCollectPages(config)) {
