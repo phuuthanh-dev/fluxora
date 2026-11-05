@@ -2,6 +2,11 @@
 
 ## Trạng thái phát hành mới nhất — 05/11/2026
 
+Lượt verify cô lập tại `70a00cb` đã qua các test API/web nhưng dừng ở API
+typecheck: test metadata mới truy cập `continuation.preserve` khi trường này
+có thể không tồn tại. Bản sửa test đã chuẩn bị local; phải chạy lại đầy đủ
+trên commit cuối trước khi tạo PR hoặc phát hành.
+
 **NX-03 Drive đang sửa local, chưa verify hoặc phát hành:** thêm action riêng
 đọc metadata giới hạn (ID, tên, MIME type) và tạo folder trong My Drive hoặc
 folder được chọn. Picker metadata có cả file không phải text. Tạo folder là ghi

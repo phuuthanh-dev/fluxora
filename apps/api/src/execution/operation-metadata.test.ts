@@ -273,7 +273,7 @@ test("Drive v2 advertises pagination only for list and search, matching the disp
   assert.deepEqual(pagination.cases[0]?.values, ["list", "search"]);
   const continuation = pagination.cases[0]!.pagination;
   assert.equal(continuation.input, "pageToken");
-  assert.ok(continuation.preserve.includes("collectPages"));
+  assert.ok(continuation.preserve?.includes("collectPages"));
   assert.equal(continuation.next, "nextPageToken");
   for (const operation of ["list", "search", "uploadText", "downloadText"]) {
     const config = { operation, pageToken: "synthetic-page" };

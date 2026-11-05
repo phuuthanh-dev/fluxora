@@ -6,6 +6,10 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- Isolated final verify at `70a00cb` passed the API and web test stages but
+  stopped at API typecheck: `continuation.preserve` may be undefined in a new
+  metadata test. A local test-only correction is prepared; the complete gate
+  must run again on its exact commit before any release.
 - Local, not yet verified or released: separate Drive get-file-metadata and
   create-folder actions with Google workspace credential readiness, a picker
   that includes non-text files, and mock/transport tests. Folder creation has
