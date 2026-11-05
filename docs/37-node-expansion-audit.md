@@ -35,6 +35,12 @@ harness, typecheck/build; dữ liệu và dịch vụ đều là giả lập. Ng
 trước đó chưa được xác định, không tăng timeout hay coi đây là bằng chứng ổn định
 lâu dài. CI và deployment cho thay đổi này chưa chạy.
 
+**NX-02 contract test local, chờ verify:** mở rộng bảng fixture mock có cấu hình
+hợp lệ để đối chiếu các trường output metadata cho Gmail write/read, Notion,
+Calendar, Steam và Riot; dùng lại test registry hiện có, credential giả không
+được đọc. Đây không phải kiểm chứng API/provider thật, schema đầy đủ, từng
+operation con hay redaction cho mọi nhánh.
+
 ### Snapshot trước PR #84
 
 PR [#83](https://github.com/phuuthanh-dev/fluxora/pull/83) đã merge vào
