@@ -6,6 +6,15 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- [PR #90](https://github.com/phuuthanh-dev/fluxora/pull/90) merged as
+  `166ff404d9a30a11d48a387643784b9f6c3ed819`. Its [PR gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/42054698344),
+  [main gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/42057337713),
+  and [production deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/42059277966)
+  passed; deployment succeeded on attempt 2 after owner-approved removal of the
+  unused rollback images. Production web/API/worker ran this image; landing,
+  login, and VPS API health/readiness returned HTTP 200. This does not qualify
+  every provider. The isolated pre-merge gate passed 996 API, 72 web and 213
+  Playwright tests using synthetic data.
 - For the concise current NX inventory, owner direction and outstanding work,
   see [current audit](45-nx-current-audit.md). Older dated entries below are
   evidence of their own snapshots, not instructions to reimplement them.
@@ -23,10 +32,11 @@ complete in the delivery ledger.
   and can reject a legitimate exact password match. See the historical
   [validator inventory](44-nx-validator-audit.md); its counts and unresolved
   observations predate node consolidation and require rechecking.
-- NX runtime correctness follow-up is in progress on the local task branch:
-  stop silently choosing a different If or approval behavior for invalid
-  resolved choices, and require a static approval provider for preflight. This
-  follow-up passed an isolated synthetic gate and is not yet released.
+- NX runtime correctness, including invalid If/approval choice handling and
+  static approval provider preflight, shipped in PR #90; do not implement it again.
+- A later unrelated retry/timeout experiment remains uncommitted on
+  `codex/nx-node-runtime-settings`. The owner stopped that expansion. Do not
+  continue, discard, verify or include it in a PR without a new instruction.
 - Current registry source contains 84 executable types and five planned types
   (Facebook, Instagram, Valorant, Legends of Runeterra and 2XKO); none uses a
   `.v2` suffix. These counts describe dispatch capability, not complete app
