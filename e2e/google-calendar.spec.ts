@@ -73,8 +73,8 @@ test("event picker loads later pages and resets pagination when the calendar cha
   await page.getByRole("button", { name: "Load more events" }).click();
   const event = page.getByRole("combobox", { name: "Event", exact: true });
   await expect(event.locator("option", { hasText: "Second event" })).toHaveCount(1);
-  expect(requests[1]?.searchParams.get("pageToken")).toBe("next-page");
-  expect(requests[1]?.searchParams.get("timeMin")).toBe("2030-01-01T09:00:00.000Z");
+  const continuation = requests.find((request) => request.searchParams.get("calendarId") === "primary" && request.searchParams.get("pageToken") === "next-page");
+  expect(continuation?.searchParams.get("timeMin")).toBe("2030-01-01T09:00:00.000Z");
   await page.getByRole("combobox", { name: "Calendar", exact: true }).selectOption("work");
   await expect.poll(() => requests.some((request) => request.searchParams.get("calendarId") === "work")).toBe(true);
   expect(requests.filter((request) => request.searchParams.get("calendarId") === "work").every((request) => !request.searchParams.has("pageToken") && !request.searchParams.has("timeMin"))).toBe(true);
