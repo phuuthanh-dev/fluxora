@@ -12,7 +12,8 @@ Các sửa đổi trường cấu hình chung và kiểm thử metadata nêu dư
 **NX-02 sửa local sau PR #85, chờ verify:** khi người dùng đổi property trong
 node Notion retrieve-property, editor xóa cursor của property trước để tránh
 dùng nhầm trang tiếp; thay đổi chỉ áp dụng khi người dùng sửa cấu hình, không
-tự đổi graph đã lưu. Bài E2E picker hiện có được mở rộng với trường hợp này;
+tự đổi graph đã lưu. Bài E2E picker hiện có được mở rộng cho cả chọn property
+từ danh sách và nhập ID thủ công;
 chưa có kiểm thử provider thật.
 
 ### Snapshot trước PR #85

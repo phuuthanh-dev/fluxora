@@ -91,8 +91,10 @@ test("new Trello and Notion operations choose connected resources and clear stal
   await expect(propertyCursor).toHaveValue("");
   await expect(property.getByRole("combobox")).toHaveValue("");
   await expect(property.getByRole("option", { name: "Other property" })).toHaveAttribute("value", "other");
+  await propertyCursor.fill("manual-property-cursor");
   await property.getByRole("button", { name: /Enter.*manually|Enter value or expression/ }).click();
   await property.getByLabel("Property value").fill("custom-property-id");
+  await expect(propertyCursor).toHaveValue("");
   await page.locator('.react-flow__node[data-id="notion-source"]').click();
   const source = page.getByRole("group", { name: "Data source", exact: true });
   await expect(source.getByRole("option", { name: "Projects" })).toHaveAttribute("value", notionPage);
