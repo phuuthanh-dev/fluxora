@@ -207,6 +207,28 @@ test("PostgreSQL read pins the address, requires verified TLS and bounds streame
   assert.equal(events.at(-1), "end");
 });
 
+test("PostgreSQL refuses rows containing the current database password", async () => {
+  const password = "synthetic_password_123";
+  const credential = { host: "db.example.com", port: 5432, database: "test", username: "user", password };
+  let ended = 0;
+  let rows: unknown[] = [];
+  const dependencies = {
+    resolve: async () => ({ address: "8.8.8.8", servername: "db.example.com" }),
+    createClient: () => ({ connect: async () => {}, query: (q: unknown) => typeof q === "string" ? Promise.resolve() : Readable.from(rows), end: async () => { ended++; } }),
+  } as unknown as NonNullable<Parameters<typeof readPostgresRows>[4]>;
+  for (const row of [{ nested: [{ text: `prefix ${password} suffix` }] }, { [password]: "value" }]) {
+    rows = [{ name: "safe" }, row];
+    await assert.rejects(readPostgresRows(credential, "public", "items", 20, dependencies), (error: unknown) => {
+      const failure = error as { code: string; message: string; retryable: boolean };
+      assert.equal(failure.code, "INVALID_RESPONSE");
+      assert.equal(failure.retryable, false);
+      assert.ok(!failure.message.includes(password));
+      return true;
+    });
+  }
+  assert.equal(ended, 2);
+});
+
 test("PostgreSQL custom CA is bounded, validated and used without weakening TLS", async () => {
   const base = { host: "db.example.com", port: 5432, database: "test", username: "user", password: "secret" };
   const ca = rootCertificates[0]!;

@@ -6,6 +6,33 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- NX-02 Supabase output guard, locally verified but not released: select adapters
+  reject an exact echo of credentials actually sent to the data API in row
+  values or keys before limiting rows. Table/column discovery rejects echoes
+  of the credential used for discovery in the metadata it returns. This may
+  reject legitimate matching data; it does not detect partial or encoded
+  secrets. Test fixtures use synthetic responses; live behavior is untested.
+- NX-02 PostgreSQL output guard, locally verified but not released: the shared streamed
+  read rejects rows or discovered metadata containing the exact database
+  password before returning them. An incidental match can reject legitimate
+  data, especially for short passwords. Partial/encoded echoes and credentials
+  not used by the current connection are outside this check. Test fixtures use
+  a synthetic stream; no real database was contacted.
+- NX-02 MongoDB output guard, locally verified but not released: document reads and
+  database/collection discovery reject an exact echo of the active connection
+  password. A matching returned insert ID reports an uncertain write, because
+  the insert may already have succeeded; it is not retried. An incidental match
+  can reject legitimate data, particularly with short passwords; encoded or
+  partial echoes are not covered. Fixtures use synthetic clients only.
+- The above three guards passed a complete isolated `npm run verify` on Node
+  22.23.4: 1,006 API tests, 80 web tests and 222 Playwright tests; all enabled
+  database integration flags passed. The test worktree's code diff and graph
+  hash matched the working source; only the test worktree's generated
+  `next-env.d.ts` differed. Database, Redis and credentials were synthetic.
+  Log: `/private/tmp/fluxora-nx-batch-verify-20261105.log`. Live providers and
+  the compatibility impact of incidental short-password matches remain
+  unqualified. The local web and API returned HTTP 200 after the gate.
+
 - NX-06 cost-control review: per-request prompt/output limits and structured
   output are deployed; an aggregate monetary cap is not. The owner has been
   asked whether to rely on provider controls or design a separate Fluxora

@@ -13,6 +13,37 @@ const credentials = { readForExecution: async (id: string, workspace: string, pr
   return { projectRef: "abcdefghijklmnopqrst", apiKey: "sb_secret_fixture" };
 } } as unknown as CredentialService;
 
+test("Supabase refuses credential echoes in returned rows before truncation", async () => {
+  const token = "eyJsynthetic.header.payload";
+  const scoped = { readForExecution: async () => ({ projectRef: "abcdefghijklmnopqrst", apiKey: "sb_secret_fixture", userAccessToken: token }) } as unknown as CredentialService;
+  const config = { credentialId: "connection", table: "items", limit: 1 };
+  const unsafe = (secret: string, inKey: boolean) => async () => Response.json([{ id: 1 }, inKey ? { [secret]: "value" } : { nested: [{ note: `prefix ${secret} suffix` }] }]);
+  for (const version of [1, 2]) {
+    for (const secret of version === 1 ? ["sb_secret_fixture"] : ["sb_secret_fixture", token]) {
+      for (const inKey of [false, true]) {
+        await assert.rejects(executeSupabaseSelectVersioned(config, "live", "workspace", scoped, unsafe(secret, inKey), version), (error: unknown) => {
+          const failure = error as { code: string; message: string; retryable: boolean };
+          assert.equal(failure.code, "INVALID_RESPONSE");
+          assert.equal(failure.retryable, false);
+          assert.ok(!failure.message.includes(secret));
+          return true;
+        });
+      }
+    }
+  }
+  const safe = await executeSupabaseSelect(config, "live", "workspace", scoped, async () => Response.json([{ name: "safe" }]));
+  assert.deepEqual(safe.output.rows, [{ name: "safe" }]);
+});
+
+test("Supabase discovery refuses echoed credentials in returned table and column names", async () => {
+  for (const management of [false, true]) {
+    const secret = management ? "sbp_synthetic_token" : "sb_publishable_fixture";
+    const credential = { projectRef: "abcdefghijklmnopqrst", apiKey: "sb_publishable_fixture", ...(management ? { managementToken: secret } : {}) };
+    await assert.rejects(listSupabaseTables(credential, async () => Response.json({ paths: { [`/${secret}`]: { get: {} } } })), { code: "INVALID_RESPONSE" });
+    await assert.rejects(listSupabaseColumns(credential, "items", async () => Response.json({ paths: { "/items": { get: {} } }, definitions: { items: { properties: { [secret]: { type: "string" } } } } })), { code: "INVALID_RESPONSE" });
+  }
+});
+
 test("Supabase precision guard is explicit and leaves older saved reads unchanged", async () => {
   const config = { credentialId: "connection", table: "items" };
   const unsafe = async () => new Response('[{"nested":{"id":9007199254740993}}]', { status: 200 });

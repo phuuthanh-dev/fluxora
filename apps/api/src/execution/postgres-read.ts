@@ -8,6 +8,7 @@ import { buildPostgresSelect, type PostgresSelection } from "./postgres-select-q
 import { resolvePostgresTarget } from "./postgres-target";
 import { CredentialProvider } from "@prisma/client";
 import type { CredentialService } from "../credentials/credential.service";
+import { assertNoCredentialInProviderValue } from "./provider-credential-safety";
 
 export type PostgresCredential = { host: string; port: number; database: string; username: string; password: string; caCertificate?: string };
 
@@ -55,7 +56,9 @@ async function readPostgresQuery(credential: PostgresCredential, query: { text: 
       const serialized = JSON.stringify(row);
       size += Buffer.byteLength(serialized);
       if (size > 200_000) { stream.destroy(); throw new NodeFailure("RESPONSE_TOO_LARGE", "PostgreSQL results exceed the output size limit.", false); }
-      rows.push(JSON.parse(serialized) as Record<string, unknown>);
+      const safeRow = JSON.parse(serialized) as Record<string, unknown>;
+      assertNoCredentialInProviderValue(safeRow, credential.password);
+      rows.push(safeRow);
     }
     return { rows, count: rows.length };
   } catch (error) {

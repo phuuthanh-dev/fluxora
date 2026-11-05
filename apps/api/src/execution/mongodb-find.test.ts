@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createMongoClient, createResolvedMongoClient, executeMongoFind, executeMongoInsert, guardedMongoLookup, validateMongoCredential } from "./mongodb-find";
+import { createMongoClient, createResolvedMongoClient, executeMongoFind, executeMongoInsert, guardedMongoLookup, listMongoCollections, listMongoDatabases, validateMongoCredential } from "./mongodb-find";
 
 const connection = { host: "mongo.example.com", port: 27017, username: "test-user", password: "synthetic-password", authDatabase: "admin" };
 const config = { database: "sample", collection: "items", filter: "{}", limit: 20 };
@@ -126,6 +126,49 @@ test("MongoDB failures are sanitized and connection is closed", async () => {
   const client = { connect: async () => { throw new Error("synthetic-password"); }, close: async () => { closed = true; } };
   await assert.rejects(executeMongoFind({ ...config, credentialId: "mongo-credential" }, "live", "workspace", credentials as never, (() => client) as never), (error: unknown) => error instanceof Error && !error.message.includes("synthetic-password"));
   assert.equal(closed, true);
+});
+
+test("MongoDB rejects credential echoes in documents and reports uncertain inserts", async () => {
+  const credentials = { readForExecution: async () => connection };
+  let closed = 0;
+  let writes = 0;
+  let document: unknown = {};
+  const cursor = { limit() { return this; }, batchSize() { return this; }, async *[Symbol.asyncIterator]() { yield document; } };
+  const client = { connect: async () => {}, close: async () => { closed++; }, db: () => ({ collection: () => ({
+    find: () => cursor,
+    insertOne: async () => { writes++; return { acknowledged: true, insertedId: connection.password }; },
+  }) }) };
+  for (const value of [{ nested: [`prefix ${connection.password} suffix`] }, { [connection.password]: "value" }]) {
+    document = value;
+    await assert.rejects(executeMongoFind({ ...config, credentialId: "mongo" }, "live", "workspace", credentials as never, (() => client) as never), (error: unknown) => {
+      const failure = error as { code: string; message: string; retryable: boolean };
+      assert.equal(failure.code, "INVALID_RESPONSE"); assert.equal(failure.retryable, false); assert.ok(!failure.message.includes(connection.password));
+      return true;
+    });
+  }
+  await assert.rejects(executeMongoInsert({ ...config, credentialId: "mongo", document: { name: "example" } }, "live", "workspace", credentials as never, (() => client) as never), (error: unknown) => {
+    const failure = error as { code: string; message: string; retryable: boolean };
+    assert.equal(failure.code, "WRITE_UNCERTAIN"); assert.equal(failure.retryable, false); assert.ok(!failure.message.includes(connection.password));
+    return true;
+  });
+  assert.equal(writes, 1); assert.equal(closed, 3);
+});
+
+test("MongoDB discovery refuses names containing the current password", async () => {
+  let closed = 0;
+  const client = { connect: async () => {}, close: async () => { closed++; }, db: () => ({
+    listCollections: () => ({ async *[Symbol.asyncIterator]() { yield { name: connection.password }; } }),
+    admin: () => ({ listDatabases: async () => ({ databases: [{ name: connection.password }] }) }),
+  }) };
+  const factory = (() => client) as never;
+  for (const discover of [() => listMongoCollections(connection, "sample", factory), () => listMongoDatabases(connection, factory)]) {
+    await assert.rejects(discover(), (error: unknown) => {
+      const failure = error as { code: string; message: string; retryable: boolean };
+      assert.equal(failure.code, "INVALID_RESPONSE"); assert.equal(failure.retryable, false); assert.ok(!failure.message.includes(connection.password));
+      return true;
+    });
+  }
+  assert.equal(closed, 2);
 });
 
 test("MongoDB insert validates input and mock does not read credentials", async () => {

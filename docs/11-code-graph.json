@@ -968,7 +968,8 @@
       "internalImports": [
         "apps/api/src/credentials/credential.service.ts",
         "apps/api/src/execution/node-failure.ts",
-        "apps/api/src/execution/outbound-url-policy.ts"
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-credential-safety.ts"
       ],
       "externalImports": [
         "@prisma/client",
@@ -1100,6 +1101,7 @@
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/postgres-select-query.ts",
         "apps/api/src/execution/postgres-target.ts",
+        "apps/api/src/execution/provider-credential-safety.ts",
         "apps/api/src/execution/relational-selection-validation.ts"
       ],
       "externalImports": [
@@ -1346,6 +1348,7 @@
         "apps/api/src/execution/json-decimal.ts",
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-credential-safety.ts",
         "apps/api/src/execution/provider-json.ts",
         "apps/api/src/execution/provider-request-policy.ts",
         "apps/api/src/execution/relational-selection-validation.ts"
@@ -4650,6 +4653,10 @@
       "to": "apps/api/src/execution/outbound-url-policy.ts"
     },
     {
+      "from": "apps/api/src/execution/mongodb-find.ts",
+      "to": "apps/api/src/execution/provider-credential-safety.ts"
+    },
+    {
       "from": "apps/api/src/execution/node-executor-contract.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
     },
@@ -4792,6 +4799,10 @@
     {
       "from": "apps/api/src/execution/postgres-read.ts",
       "to": "apps/api/src/execution/postgres-target.ts"
+    },
+    {
+      "from": "apps/api/src/execution/postgres-read.ts",
+      "to": "apps/api/src/execution/provider-credential-safety.ts"
     },
     {
       "from": "apps/api/src/execution/postgres-read.ts",
@@ -5032,6 +5043,10 @@
     {
       "from": "apps/api/src/execution/supabase.ts",
       "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/supabase.ts",
+      "to": "apps/api/src/execution/provider-credential-safety.ts"
     },
     {
       "from": "apps/api/src/execution/supabase.ts",
