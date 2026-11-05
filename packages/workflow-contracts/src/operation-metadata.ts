@@ -120,7 +120,7 @@ const definitions = {
   "action.mongodb": executable(credential("MONGODB"), "read", fields("documents", "count")),
   "action.mongodb.insert": executable(credential("MONGODB"), "write", fields("inserted", "insertedId")),
   "action.notion.search-pages": executable(credential("NOTION"), "read", fields("pages", "hasMore", "nextCursor")),
-  "action.notion.search-pages.v2": executable(credential("NOTION"), "read", fields("pages", "hasMore", "nextCursor"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "query", "pageSize"] }),
+  "action.notion.search-pages.v2": executable(credential("NOTION"), "read", fields("pages", "hasMore", "nextCursor"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "query", "pageSize", "collectPages"] }),
   "action.rss.read": executable(none, "read", fields("title", "items")),
   "action.trello.create-card": executable(credential("TRELLO"), "write", fields("id", "name", "boardId", "listId", "url")),
   "action.sentry.list-issues": executable(credential("SENTRY"), "read", fields("issues", "hasMore")),

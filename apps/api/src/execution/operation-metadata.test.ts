@@ -247,7 +247,7 @@ test("AI metadata describes outputs common to plain and structured mock runs", a
 
 test("continuation metadata identifies the connection and query context that must stay consistent", () => {
   for (const [type, expected] of [
-    ["action.notion.search-pages.v2", ["credentialId", "query", "pageSize"]],
+    ["action.notion.search-pages.v2", ["credentialId", "query", "pageSize", "collectPages"]],
     ["action.notion.list-children", ["credentialId", "blockId", "pageSize"]],
     ["action.notion.retrieve-property", ["credentialId", "pageId", "propertyId", "pageSize"]],
     ["action.trello.list-cards", ["credentialId", "boardId", "filter", "limit"]],

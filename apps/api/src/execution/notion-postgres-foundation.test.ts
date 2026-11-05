@@ -44,6 +44,70 @@ test("Notion search passes an opaque continuation cursor through the executor", 
   await assert.rejects(executeNotionSearch({ cursor: "bad\nheader" }, "mock", "workspace", credentials), /pagination cursor/);
 });
 
+test("Notion can collect successive short pages up to the requested limit", async () => {
+  const credentials = { readForExecution: async () => ({ token: "synthetic-token" }) } as unknown as CredentialService;
+  const requests: Array<Record<string, unknown>> = [];
+  const ids = ["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002", "00000000-0000-0000-0000-000000000003"];
+  const search: typeof searchNotionPages = (input) => searchNotionPages(input, async (_url, init) => {
+    const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+    requests.push(body);
+    const index = requests.length - 1;
+    return Response.json({ has_more: true, next_cursor: `cursor-${index + 1}`, results: [{ object: "page", id: ids[index], properties: {} }] });
+  });
+  const result = await executeNotionSearch({ credentialId: "connection", query: "notes", pageSize: 3, collectPages: true }, "live", "workspace", credentials, search);
+  assert.deepEqual(requests.map((request) => [request.page_size, request.start_cursor, request.query]), [[3, undefined, "notes"], [2, "cursor-1", "notes"], [1, "cursor-2", "notes"]]);
+  assert.deepEqual(result.output.pages.map((page) => page.id), ids);
+  assert.equal(result.output.hasMore, true);
+  assert.equal(result.output.nextCursor, "cursor-3");
+});
+
+test("Notion automatic pagination stops after five requests and rejects repeated cursors", async () => {
+  const credentials = { readForExecution: async () => ({ token: "synthetic-token" }) } as unknown as CredentialService;
+  let calls = 0;
+  const emptyPages: typeof searchNotionPages = async () => ({ pages: [], hasMore: true, nextCursor: `cursor-${++calls}` });
+  const capped = await executeNotionSearch({ credentialId: "connection", pageSize: 10, collectPages: true }, "live", "workspace", credentials, emptyPages);
+  assert.equal(calls, 5);
+  assert.equal(capped.output.nextCursor, "cursor-5");
+  assert.equal(capped.output.hasMore, true);
+  calls = 0;
+  const repeated: typeof searchNotionPages = async () => { calls++; return { pages: [], hasMore: true, nextCursor: "same-cursor" }; };
+  await assert.rejects(executeNotionSearch({ credentialId: "connection", pageSize: 10, collectPages: true }, "live", "workspace", credentials, repeated), /repeated or missing/);
+  assert.equal(calls, 2);
+  await assert.rejects(searchNotionPages({ token: "synthetic-token", query: "", pageSize: 1, requireBoundedPage: true }, async () => Response.json({ results: [{}, {}], has_more: false, next_cursor: null })), /more results than requested/);
+  await assert.rejects(searchNotionPages({ token: "synthetic-token", query: "", pageSize: 1, requireBoundedPage: true }, async () => Response.json({ results: [{}], has_more: false, next_cursor: null })), /invalid page result/);
+  await assert.rejects(executeNotionSearch({ collectPages: "true" }, "mock", "workspace", credentials), /Choose whether/);
+});
+
+test("Notion automatic pagination reports exhaustion and does not return partial output on failure", async () => {
+  const credentials = { readForExecution: async () => ({ token: "synthetic-token" }) } as unknown as CredentialService;
+  let calls = 0;
+  const search: typeof searchNotionPages = async () => ++calls === 1
+    ? { pages: [{ id: "first", title: "First" }], hasMore: true, nextCursor: "next" }
+    : { pages: [{ id: "second", title: "Second" }], hasMore: false, nextCursor: null };
+  const result = await executeNotionSearch({ credentialId: "connection", pageSize: 5, collectPages: true }, "live", "workspace", credentials, search);
+  assert.equal(result.output.pages.length, 2);
+  assert.equal(result.output.hasMore, false);
+  assert.equal(result.output.nextCursor, null);
+  calls = 0;
+  const failing: typeof searchNotionPages = async () => {
+    if (++calls === 1) return { pages: [{ id: "first", title: "First" }], hasMore: true, nextCursor: "next" };
+    throw new Error("provider failed");
+  };
+  await assert.rejects(executeNotionSearch({ credentialId: "connection", pageSize: 5, collectPages: true }, "live", "workspace", credentials, failing), /provider failed/);
+  assert.equal(calls, 2);
+});
+
+test("Notion search remains one request unless automatic pagination is explicitly enabled", async () => {
+  const credentials = { readForExecution: async () => ({ token: "synthetic-token" }) } as unknown as CredentialService;
+  let calls = 0;
+  const search: typeof searchNotionPages = async () => { calls++; return { pages: [], hasMore: true, nextCursor: "next" }; };
+  const result = await executeNotionSearch({ credentialId: "connection" }, "live", "workspace", credentials, search);
+  assert.equal(calls, 1);
+  assert.equal(result.output.nextCursor, "next");
+  await executeNotionSearch({ credentialId: "connection", collectPages: true }, "live", "workspace", credentials, search, 1);
+  assert.equal(calls, 2);
+});
+
 test("Notion respects bounded Retry-After and declines unsafe shorter retries", async () => {
   for (const [header, expectedRetryable, expectedDelay] of [["5", true, 5000], ["120", false, 120000]] as const) {
     await assert.rejects(searchNotionPages({ token: "synthetic", query: "", pageSize: 20 }, async () => new Response(null, { status: 429, headers: { "retry-after": header } })), (reason: unknown) => {

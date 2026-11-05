@@ -6,12 +6,24 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
+- Local, not yet verified or released: opt-in bounded multi-page Notion search
+  on the existing paginated node. Up to five read requests and 100 results;
+  `hasMore`/`nextCursor` signal remaining results. Old nodes and the default
+  single-page behavior remain unchanged. Synthetic tests have been written;
+  no real Notion call or complete quality gate has been run for this change.
+- [PR #86](https://github.com/phuuthanh-dev/fluxora/pull/86) merged as
+  `08827f4d39620065e01c1a1e66ff572a4981e3d7`. Its [main gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41952346345)
+  and [production deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/41953773213)
+  succeeded; landing, login, API health and readiness returned HTTP 200 after
+  deploy. This point-in-time smoke check does not qualify live providers.
+  The owner deferred consolidation of v1/v2 node types. Do not repeat the
+  cursor, numeric field or provider-output work from this PR.
 - After PR #85, isolated `npm run verify` at `d876cbb` passed 980 API, 80 web
   and 217 Playwright tests. This local batch covers Notion property cursor
   resets, numeric default UX and guards against current-credential echoes in
   Reddit, Calendar and Gmail output; provider tests use mocks. It also blocks
-  persisted lowercase redaction markers in expressions. The batch is not yet
-  deployed. Trigger processing can stop on a token echo; a literal redaction
+  persisted lowercase redaction markers in expressions. The batch was deployed
+  in PR #86. Trigger processing can stop on a token echo; a literal redaction
   marker can be rejected after persistence. Do not treat this verification as
   live provider qualification.
 - [PR #85](https://github.com/phuuthanh-dev/fluxora/pull/85) merged as
@@ -25,7 +37,7 @@ complete in the delivery ledger.
 - After PR #85, the local editor clears a Notion property pagination cursor
   when the selected property changes; the existing picker E2E now covers both
   list selection and manual ID entry. The batch passed final verify at
-  `d876cbb` and is not deployed. PostgreSQL/Supabase intentionally retain selection
+  `d876cbb` and was deployed in PR #86. PostgreSQL/Supabase intentionally retain selection
   settings when their table changes, with a warning; do not silently clear them.
 - [PR #84](https://github.com/phuuthanh-dev/fluxora/pull/84) merged as
   `ff4302dbf2e48618b1721770975666a094aaa2c8`. Its [PR gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41926442270),

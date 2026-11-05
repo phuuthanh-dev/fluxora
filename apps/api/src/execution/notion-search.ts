@@ -6,7 +6,7 @@ import { CredentialProvider } from "@prisma/client";
 import type { CredentialService } from "../credentials/credential.service";
 
 type Transport = (url: string, init: RequestInit) => Promise<Response>;
-type SearchInput = { token: string; query: string; pageSize: number; cursor?: string; legacyReceipt?: boolean };
+type SearchInput = { token: string; query: string; pageSize: number; cursor?: string; legacyReceipt?: boolean; requireBoundedPage?: boolean };
 
 /** Search only pages shared with the connection; never return a provider token. */
 export async function searchNotionPages(input: SearchInput, transport: Transport = fetchSafeOutbound) {
@@ -33,6 +33,7 @@ export async function searchNotionPages(input: SearchInput, transport: Transport
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new NodeFailure("INVALID_RESPONSE", "Notion returned an invalid page list.", false);
   const root = payload as Record<string, unknown>;
   if (!Array.isArray(root.results) || typeof root.has_more !== "boolean" || (input.legacyReceipt ? !(root.next_cursor === null || typeof root.next_cursor === "string") : (root.has_more ? typeof root.next_cursor !== "string" || !validNotionCursor(root.next_cursor) : root.next_cursor !== null)) || (typeof root.next_cursor === "string" && root.next_cursor.includes(input.token))) throw new NodeFailure("INVALID_RESPONSE", "Notion returned an invalid page list.", false);
+  if (input.requireBoundedPage && root.results.length > input.pageSize) throw new NodeFailure("INVALID_RESPONSE", "Notion returned more results than requested.", false);
   const pages = root.results.slice(0, input.pageSize).flatMap((item: unknown) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) return [];
     const page = item as Record<string, unknown>;
@@ -44,6 +45,7 @@ export async function searchNotionPages(input: SearchInput, transport: Transport
     const title = Array.isArray(titleProperty?.title) ? titleProperty.title.map((part: unknown) => part && typeof part === "object" && typeof (part as Record<string, unknown>).plain_text === "string" ? (part as Record<string, string>).plain_text : "").join("").split(input.token).join("[REDACTED]").slice(0, 300) : "";
     return [{ id: page.id, title: title || "Untitled page" }];
   });
+  if (input.requireBoundedPage && pages.length !== root.results.length) throw new NodeFailure("INVALID_RESPONSE", "Notion returned an invalid page result.", false);
   return { pages, hasMore: root.has_more, nextCursor: root.next_cursor as string | null };
 }
 
@@ -54,6 +56,8 @@ export async function executeNotionSearch(config: Record<string, unknown>, mode:
   const query = typeof config.query === "string" ? config.query : "";
   const pageSize = config.pageSize === undefined ? 20 : config.pageSize;
   const cursor = paginationVersion === 1 || config.cursor === undefined || config.cursor === "" ? undefined : config.cursor;
+  const collectPages = paginationVersion === 2 && config.collectPages === true;
+  if (paginationVersion === 2 && Object.hasOwn(config, "collectPages") && typeof config.collectPages !== "boolean") throw new NodeFailure("INVALID_INPUT", "Choose whether to collect additional Notion results.", false);
   if (query.length > 200 || typeof pageSize !== "number" || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) throw new NodeFailure("INVALID_INPUT", "Enter a search term and a limit between 1 and 100.", false);
   if (cursor !== undefined && (typeof cursor !== "string" || !validNotionCursor(cursor))) throw new NodeFailure("INVALID_INPUT", "Enter a valid Notion pagination cursor.", false);
   if (mode === "mock") return { status: "succeeded" as const, output: { pages: [{ id: "01234567-89ab-cdef-0123-456789abcdef", title: "Example page" }], hasMore: false, nextCursor: null }, route: "success" as const };
@@ -61,7 +65,21 @@ export async function executeNotionSearch(config: Record<string, unknown>, mode:
   if (!credentialId) throw new NodeFailure("CREDENTIAL_REQUIRED", "Select a Notion connection.", false);
   const credential = await credentials.readForExecution(credentialId, workspaceId, CredentialProvider.NOTION);
   const token = typeof credential.token === "string" ? credential.token : "";
-  return { status: "succeeded" as const, output: await search({ token, query, pageSize, ...(paginationVersion === 1 ? { legacyReceipt: true } : {}), ...(cursor === undefined ? {} : { cursor }) }), route: "success" as const };
+  if (!collectPages) return { status: "succeeded" as const, output: await search({ token, query, pageSize, ...(paginationVersion === 1 ? { legacyReceipt: true } : {}), ...(cursor === undefined ? {} : { cursor }) }), route: "success" as const };
+
+  const pages: Array<{ id: string; title: string }> = [];
+  let nextCursor = cursor;
+  const seen = new Set<string>(cursor === undefined ? [] : [cursor]);
+  for (let request = 0; request < 5; request++) {
+    const result = await search({ token, query, pageSize: pageSize - pages.length, requireBoundedPage: true, ...(nextCursor === undefined ? {} : { cursor: nextCursor }) });
+    pages.push(...result.pages);
+    if (!result.hasMore) return { status: "succeeded" as const, output: { pages, hasMore: false, nextCursor: null }, route: "success" as const };
+    if (!result.nextCursor || seen.has(result.nextCursor)) throw new NodeFailure("INVALID_RESPONSE", "Notion returned a repeated or missing continuation cursor.", false);
+    nextCursor = result.nextCursor;
+    seen.add(nextCursor);
+    if (pages.length >= pageSize || request === 4) return { status: "succeeded" as const, output: { pages, hasMore: true, nextCursor }, route: "success" as const };
+  }
+  throw new NodeFailure("INVALID_RESPONSE", "Notion pagination did not complete.", false);
 }
 
 export function validNotionCursor(value: string) {

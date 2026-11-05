@@ -2,6 +2,28 @@
 
 ## Trạng thái phát hành mới nhất — 05/11/2026
 
+**NX-02 đang sửa local, chưa verify hoặc phát hành:** Notion search có tùy
+chọn chủ động lấy thêm trang kết quả trong cùng một node, tối đa năm request
+và tổng số trang Notion đã chọn (không quá 100). Output vẫn có `hasMore` và
+`nextCursor` nếu dừng khi còn dữ liệu; cursor lặp hoặc response vượt giới hạn
+bị từ chối. Mặc định cũ giữ một request; node type cũ giữ nguyên hành vi.
+Graph paginated đã nhập thủ công có sẵn key `collectPages` sẽ được hiểu theo
+ý nghĩa mới; giá trị khác boolean sẽ bị từ chối, nên cần kiểm tra graph nhập
+tùy biến trước khi cập nhật. Các process cũ chưa hiểu key này, vì vậy không
+bật tùy chọn cho workflow live khi còn worker cũ đang xử lý.
+[n8n Gmail Get Many](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.gmail/message-operations/)
+có Return All/Limit; tùy chọn có giới hạn này không tuyên bố tương đương Return
+All không giới hạn. Không gọi Notion thật trong quá trình phát triển.
+
+PR [#86](https://github.com/phuuthanh-dev/fluxora/pull/86) đã merge tại
+`08827f4d39620065e01c1a1e66ff572a4981e3d7`. [Quality gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41952346345)
+và [deploy](https://github.com/phuuthanh-dev/fluxora/actions/runs/41953773213)
+thành công; landing, login, API health và readiness trả HTTP 200 sau deploy.
+Đây là smoke check tại thời điểm, không chứng minh mọi workflow hay provider thật.
+Việc gộp node v1/v2 được chủ dự án tạm hoãn.
+
+### Snapshot trước PR #86
+
 PR [#85](https://github.com/phuuthanh-dev/fluxora/pull/85) đã merge tại
 `40d9aa04dda858a9b3f318d40f6e9242f84776b6`; [quality gate trên main](https://github.com/phuuthanh-dev/fluxora/actions/runs/41943156831)
 và [deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/41944819012)
@@ -11,7 +33,7 @@ Các sửa đổi trường cấu hình chung và kiểm thử metadata nêu dư
 
 **Verify local sau PR #85:** `npm run verify` tại `d876cbb` đạt 980 bài API,
 80 bài web và 217 bài Playwright trên database/Redis thử tách biệt; các
-provider trong phạm vi sửa đổi dùng giả lập. Bản này chưa được phát hành;
+provider trong phạm vi sửa đổi dùng giả lập. Bản này đã phát hành trong PR #86;
 kết quả không chứng minh quyền hoặc kết nối provider thật.
 
 **NX-02 sửa local sau PR #85, đã verify:** khi người dùng đổi property trong

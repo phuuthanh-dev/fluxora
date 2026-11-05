@@ -105,6 +105,13 @@ See `docs/35-connector-coverage-and-discovery.md` for the exact operations, poin
 - Mobile-first editor.
 - Deployment and VPS setup were outside the original three-day MVP; the later production deployment and its qualification limits are tracked in `docs/15-deployment.md` and `docs/35-connector-coverage-and-discovery.md`.
 
+Notion page search retains its existing single-request behavior by default.
+The existing paginated node may opt in to collecting additional provider pages,
+up to the configured maximum of 100 returned pages and at most five requests.
+The output retains `hasMore` and `nextCursor` if more results may be available.
+This is bounded pagination within one node, not workflow item iteration or an
+unlimited “return all”; provider ordering and results may change between calls.
+
 ## 5. Workflow editor requirements
 
 - Desktop-first drag-and-drop graph editor.

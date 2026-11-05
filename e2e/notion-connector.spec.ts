@@ -28,3 +28,29 @@ test("Notion and PostgreSQL offer separate connections and guided fields", async
   await expect(page.getByRole("group", { name: "Schema" }).getByRole("option", { name: "public" })).toHaveAttribute("value", "public");
   await expect(page.getByRole("group", { name: "Table" }).getByRole("option", { name: "items" })).toHaveAttribute("value", "items");
 });
+
+test("Notion search offers bounded automatic pagination without changing the saved draft until selected", async ({ page }) => {
+  const graph = { nodes: [{ id: "manual", type: "trigger.manual", position: { x: 0, y: 100 }, config: {} }, { id: "notion", type: "action.notion.search-pages.v2", position: { x: 300, y: 100 }, config: { credentialId: "notion-1", pageSize: 20 } }], edges: [] };
+  const workflow = { id: "notion-pagination", workspaceId: "workspace-1", name: "Notion pagination", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
+  const saves: Array<{ graph: { nodes: Array<{ id: string; config: Record<string, unknown> }> } }> = [];
+  await page.route("**/api/v1/**", async (route) => {
+    const request = route.request(); const path = new URL(request.url()).pathname;
+    const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+    if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
+    if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
+    if (path.endsWith("/credentials")) return send({ credentials: [{ id: "notion-1", provider: "NOTION", label: "My Notion" }] });
+    if (path.endsWith("/workspaces/workspace-1/workflows")) return send({ workflows: [workflow] });
+    if (path.endsWith("/workflows/notion-pagination") && request.method() === "GET") return send({ workflow });
+    if (path.endsWith("/workflows/notion-pagination/draft") && request.method() === "PATCH") { const body = request.postDataJSON(); saves.push(body); return send({ workflow: { ...workflow, draft: { ...workflow.draft, graph: body.graph } } }); }
+    return route.abort();
+  });
+  await page.goto("/editor?workflow=notion-pagination");
+  await page.locator(".react-flow__node").filter({ hasText: "Search pages" }).click();
+  const checkbox = page.getByLabel("Automatically fetch more results");
+  await expect(checkbox).not.toBeChecked();
+  await checkbox.check();
+  await expect(page.getByText(/at most five Notion requests/)).toBeVisible();
+  await page.getByRole("button", { name: "Save draft" }).click();
+  await expect.poll(() => saves.length).toBe(1);
+  expect(saves[0]!.graph.nodes.find((node) => node.id === "notion")!.config.collectPages).toBe(true);
+});
