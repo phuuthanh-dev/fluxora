@@ -11,6 +11,8 @@ complete in the delivery ledger.
   that includes non-text files, and mock/transport tests. Folder creation has
   no automatic retry when outcome is uncertain. It has not been tried against
   Google; new node types must not be published while old workers are running.
+  The Drive `root` alias is accepted as a folder ID; picker IDs and aggregate
+  auto-paginated output are bounded. These checks have not run through verify.
 - Local, not yet verified or released: optional bounded Gmail read pagination,
   at most five list requests and ten message-detail requests. It does not alter
   the Gmail trigger; `hasMore` and the continuation token signal more data.

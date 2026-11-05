@@ -41,6 +41,10 @@ test("Drive folder creation uses an optional single parent and returns a bounded
     return Response.json({ id: "folder_1", name: "Reports", mimeType, other: token });
   });
   assert.deepEqual(result.output, { folder: { id: "folder_1", name: "Reports", mimeType } });
+  await executeDriveCreateFolder({ credentialId: "connection", name: "Root folder" }, "live", "workspace", credentials, async (_url, init) => {
+    assert.deepEqual(JSON.parse(String(init.body)), { name: "Root folder", mimeType });
+    return Response.json({ id: "folder_2", name: "Root folder", mimeType });
+  });
   const mock = await executeDriveCreateFolder({ name: "Example" }, "mock", "workspace", never);
   assert.equal(mock.output.folder.name, "Example");
   await assert.rejects(executeDriveCreateFolder({ name: " " }, "mock", "workspace", never), /folder name/);
