@@ -59,6 +59,43 @@ test("concurrent decisions resolve an approval once and a terminal approval comp
     assert.equal(finished.resumeToken, null);
     assert.equal((await prisma.nodeExecution.findUniqueOrThrow({ where: { executionId_nodeId: { executionId: continuation.executionId, nodeId: "next" } } })).status, "SUCCEEDED");
 
+    // Pending parallel work is retained across approval instead of disappearing.
+    for (const [version, decision] of [[41, "approved"], [42, "rejected"]] as const) {
+      const graph = { nodes: [
+        { id: "start", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
+        { id: "approval", type: "approval.request", position: { x: 1, y: 0 }, config: {} },
+        { id: "sibling", type: "action.http-request", position: { x: 1, y: 1 }, config: { url: "https://example.test/sibling" } },
+        { id: "finish", type: "action.http-request", position: { x: 2, y: 0 }, config: { url: "https://example.test/{{ steps.sibling.output.status }}" } },
+      ], edges: [
+        { id: "a", source: "start", target: "approval", kind: "success" },
+        { id: "b", source: "start", target: "sibling", kind: "success" },
+        { id: "c", source: "approval", target: "finish", kind: "success" },
+        { id: "d", source: "sibling", target: "finish", kind: "success" },
+      ] };
+      const versionId = `parallel-version-${version}-${suffix}`, executionId = `parallel-execution-${version}-${suffix}`;
+      await prisma.workflowVersion.create({ data: { id: versionId, workflowId, version, status: "PUBLISHED", graph } });
+      await prisma.execution.create({ data: { id: executionId, workflowVersionId: versionId, mode: "MOCK" } });
+      await service.run(executionId, "mock");
+      const waiting = await prisma.execution.findUniqueOrThrow({ where: { id: executionId }, include: { approvalRequests: true } });
+      assert.equal(waiting.status, "WAITING_APPROVAL");
+      assert.deepEqual(waiting.resumeNodeIds, ["sibling"]);
+      const result = await service.resolveApproval(waiting.approvalRequests[0]!.id, userId, decision);
+      if (decision === "rejected") {
+        assert.equal((await prisma.execution.findUniqueOrThrow({ where: { id: executionId } })).status, "FAILED");
+        assert.equal((await prisma.nodeExecution.findUniqueOrThrow({ where: { executionId_nodeId: { executionId, nodeId: "sibling" } } })).status, "SKIPPED");
+      } else {
+        assert.deepEqual(result.startNodeIds, ["sibling", "finish"]);
+        assert.ok(result.resumeToken);
+        await service.run(executionId, "mock", undefined, undefined, false, result.resumeToken);
+        const finished = await prisma.execution.findUniqueOrThrow({ where: { id: executionId }, include: { nodeExecutions: true } });
+        assert.equal(finished.status, "SUCCEEDED");
+        assert.equal(finished.nodeExecutions.find((node) => node.nodeId === "sibling")?.status, "SUCCEEDED");
+        const finish = finished.nodeExecutions.find((node) => node.nodeId === "finish");
+        assert.equal(finish?.status, "SUCCEEDED");
+        assert.equal((finish?.output as { body?: { url?: string } })?.body?.url, "https://example.test/200");
+      }
+    }
+
     // A bad queue payload must not turn a saved mock run into a live send or
     // consume the claim needed by the correct job. The credential service is
     // intentionally empty; no real provider is contacted by either call.

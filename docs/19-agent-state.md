@@ -6,57 +6,44 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-05
 
-- Owner directed simplification to one current node implementation per operation;
-  node-specific versions and old `.v2` compatibility are no longer required.
-  Consolidation is locally verified on isolated synthetic PostgreSQL/Redis:
-  `npm run verify` passed 990 API, 72 web and 214 Playwright tests. Real
-  provider operations were not exercised by this gate. It is not yet released.
-  See `docs/43-node-versioning-migration.md`.
-
-- Owner chose to audit existing adapter validators rather than introduce a
-  parallel schema layer. [NX-02 validator inventory](44-nx-validator-audit.md)
-  enumerates 97 catalog types: 82 inspected partially, ten entries with
-  seven source-observed gaps and five planned. Findings
-  have not yet been reproduced by tests; partial review is not full coverage.
-  The owner has since requested consolidation; this inventory predates it.
-- NX-02 cron publish guard is local and unverified: the publish path now uses
-  the scheduler's cron parser and default timezone to reject invalid schedules.
-  Drafts and stored versions remain readable; already-published graphs are not
-  revalidated. Unit tests have been added but not run, and no production or
-  real-provider behavior is claimed.
-- NX-02 If/approval publish guard is local and unverified: unknown static If
-  operators or approval providers are rejected during publish. Missing,
-  null and empty values retain legacy defaults, dynamic expressions are still
-  allowed, and existing published graphs are unchanged. A dynamic expression
-  that resolves to an invalid choice still falls back at runtime; this change
-  is not a runtime validation guarantee. Added tests have not run.
-
-- NX-02 Supabase output guard, locally verified but not released: select adapters
-  reject an exact echo of credentials actually sent to the data API in row
-  values or keys before limiting rows. Table/column discovery rejects echoes
-  of the credential used for discovery in the metadata it returns. This may
-  reject legitimate matching data; it does not detect partial or encoded
-  secrets. Test fixtures use synthetic responses; live behavior is untested.
-- NX-02 PostgreSQL output guard, locally verified but not released: the shared streamed
-  read rejects rows or discovered metadata containing the exact database
-  password before returning them. An incidental match can reject legitimate
-  data, especially for short passwords. Partial/encoded echoes and credentials
-  not used by the current connection are outside this check. Test fixtures use
-  a synthetic stream; no real database was contacted.
-- NX-02 MongoDB output guard, locally verified but not released: document reads and
-  database/collection discovery reject an exact echo of the active connection
-  password. A matching returned insert ID reports an uncertain write, because
-  the insert may already have succeeded; it is not retried. An incidental match
-  can reject legitimate data, particularly with short passwords; encoded or
-  partial echoes are not covered. Fixtures use synthetic clients only.
-- The above three guards passed a complete isolated `npm run verify` on Node
-  22.23.4: 1,006 API tests, 80 web tests and 222 Playwright tests; all enabled
-  database integration flags passed. The test worktree's code diff and graph
-  hash matched the working source; only the test worktree's generated
-  `next-env.d.ts` differed. Database, Redis and credentials were synthetic.
-  Log: `/private/tmp/fluxora-nx-batch-verify-20261105.log`. Live providers and
-  the compatibility impact of incidental short-password matches remain
-  unqualified. The local web and API returned HTTP 200 after the gate.
+- For the concise current NX inventory, owner direction and outstanding work,
+  see [current audit](45-nx-current-audit.md). Older dated entries below are
+  evidence of their own snapshots, not instructions to reimplement them.
+- [PR #89](https://github.com/phuuthanh-dev/fluxora/pull/89) merged as
+  `d22dd018851e066595ff7337556eaa279b968869`; its [PR gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/42017532464), [main gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/42019435840) and [production deploy](https://github.com/phuuthanh-dev/fluxora/actions/runs/42021280239) passed. At the post-deploy check the homepage, login, API health and readiness returned HTTP 200. This is not provider qualification.
+- The owner directed one unsuffixed node implementation per operation; parallel
+  `.v2` types and numeric node versions were removed in PR #89. Graphs using
+  removed types require recreation; unsuffixed nodes use current behavior. No
+  workflow or credential records were deleted by the change. Workflow publish
+  versions and execution snapshots remain separate. Local isolated verify
+  passed 990 API, 72 web and 214 Playwright cases using synthetic providers.
+- PR #89 also released the publish-time cron and static choice guards and the
+  PostgreSQL, MongoDB and Supabase credential-echo guards. These use synthetic
+  tests, do not prove all validation or detect encoded/partial credential echoes,
+  and can reject a legitimate exact password match. See the historical
+  [validator inventory](44-nx-validator-audit.md); its counts and unresolved
+  observations predate node consolidation and require rechecking.
+- NX runtime correctness follow-up is in progress on the local task branch:
+  stop silently choosing a different If or approval behavior for invalid
+  resolved choices, and require a static approval provider for preflight. This
+  follow-up passed an isolated synthetic gate and is not yet released.
+- Current registry source contains 84 executable types and five planned types
+  (Facebook, Instagram, Valorant, Legends of Runeterra and 2XKO); none uses a
+  `.v2` suffix. These counts describe dispatch capability, not complete app
+  coverage or live qualification. Steam's snapshot composes multiple API calls
+  into a report while its operation node exposes individual reads: their inputs
+  and outputs differ, so they are not a duplicate V1/V2 pair. OAuth and webhook
+  code still has some legacy paths; this inventory does not justify deleting
+  real credentials, webhook registrations or user data.
+- The editor's mock run can succeed without validating a real connection or
+  every live input. The local follow-up adds a short explanation to its result;
+  it passed the isolated synthetic gate but has not shipped.
+- A local verify attempt stopped in deployment checks because the disposable
+  database name lacked the required `test` substring (57 passed, two test
+  guards failed); it is not a successful quality gate. Following audit and
+  corrections, final isolated `npm run verify` passed 996 API, 72 web and 213
+  Playwright tests, including the approval database integration. Provider calls
+  were synthetic; the local batch is not yet released.
 
 - NX-06 cost-control review: per-request prompt/output limits and structured
   output are deployed; an aggregate monetary cap is not. The owner has been
@@ -437,9 +424,11 @@ complete in the delivery ledger.
   an owner-designated MongoDB collection; the test workflow was deactivated. The document was
   left in place. This qualifies one operation, not replica failover, private
   hosts, sustained behavior or update/delete. See `docs/20-connector-audit.md`.
-- Shared inspector pending-edit safety is in progress on local branch
-  `codex/guided-filter-safety`, not yet released. Track its final verification
-  in `.agent/tasks/2026-11-01-inspector-pending-edits.md`.
+- The inspector pending-edit implementation at `b5a831f` is an ancestor of
+  PR #55 and current `main`; it is not an unmerged local-only change. Its
+  original report records an interrupted local gate at that time, not a pass.
+  Current source still contains draft preservation and action blocking; do not
+  infer that every later editor scenario has been individually requalified.
 
 The older snapshots below describe their dates and must not be read as current.
 

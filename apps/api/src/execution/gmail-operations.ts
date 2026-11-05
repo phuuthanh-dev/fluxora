@@ -279,8 +279,6 @@ export function gmailOperations(connection: GmailConnection) {
     updateDraft: (draftId: string, input: GmailMessageInput, replyToMessageId?: string) => compose(input, "updateDraft", draftId, replyToMessageId),
     sendMessage: (input: GmailMessageInput) => compose(input, "send"),
     reply: (messageId: string, input: GmailMessageInput) => compose(input, "send", undefined, messageId),
-    // Disabled until the coordinator supplies safe draft identity/recovery semantics.
-    sendDraft: async (_draftId: string): Promise<never> => { throw new NodeFailure("GMAIL_OPERATION_DISABLED", "Sending an existing draft is not available yet.", false); },
     updateLabel: async (labelId: string, patch: GmailLabelPatch) => {
       const target = id(labelId);
       if (!patch || typeof patch !== "object" || Object.keys(patch).some((key) => !["name", "labelListVisibility", "messageListVisibility"].includes(key)) || !Object.keys(patch).length) throw invalid();

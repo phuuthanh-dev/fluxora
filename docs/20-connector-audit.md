@@ -1,5 +1,10 @@
 # Connector audit — pre-production baseline
 
+> Historical audit: its feature and release statements reflect the dates below,
+> not the current catalog. The inspector pending-edit implementation from
+> `b5a831f` is in current `main` (through PR #55), and later releases added
+> connector operations. See [the current NX audit](45-nx-current-audit.md).
+
 **Audit date:** 2026-10-28
 **Scope:** the complete source-owned catalog in
 `apps/web/src/features/workflow/node-catalog.ts`, the execution dispatch in
@@ -19,7 +24,7 @@ remains there and the workflow is inactive. This supersedes older MongoDB live
 qualification and deployment statements in the table below; it is not evidence
 of sustained or production runtime behavior.
 
-The shared inspector pending-edit change is local and not released: it retains
+At this snapshot the shared inspector pending-edit change was local: it retains
 unapplied visual MongoDB conditions, advanced filter JSON, node configuration
 JSON and manual test data when switching nodes, and blocks operations that would
 otherwise use stale configuration. It does not replace provider-specific guided

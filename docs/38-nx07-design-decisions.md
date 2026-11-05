@@ -6,9 +6,8 @@ that the capabilities below are already shipped or qualified.
 ## Item processing
 
 Today a node runs once per execution and the unique execution identity is
-`(executionId, nodeId)`. An output array does not fan out downstream. Existing
-published graphs retain these semantics. Introduce an opt-in, versioned,
-bounded map only with stable item identities, per-item state and expression
+`(executionId, nodeId)`. An output array does not fan out downstream. A future
+bounded map needs stable item identities, per-item state and expression
 context, explicit item/concurrency limits, branch and cancellation semantics,
 and per-item ambiguous-write handling. Start with a linear mock read → map;
 joins, nested loops and per-item approvals need separate designs. n8n's
@@ -16,7 +15,7 @@ joins, nested loops and per-item approvals need separate designs. n8n's
 is a useful reference, not evidence that Fluxora already behaves that way.
 Unlike Fluxora's current engine, n8n normally processes each incoming item
 automatically; its [loop documentation](https://docs.n8n.io/build/flow-logic/loop/)
-also lists exceptions and a separate batching node. A local editor hint now
+also lists exceptions and a separate batching node. The editor hint
 explains Fluxora's behavior when an output contains a top-level list. It does
 not implement iteration, detect every nested array, or alter saved workflows.
 
@@ -26,8 +25,10 @@ and preserve the original item in the expression context without exposing a
 different workspace. Retry eligibility is decided per item and write attempt;
 an unknown provider outcome requires review rather than an automatic replay.
 Failure, cancellation and restart semantics must be specified before exposing
-the feature. Existing version-one graphs do not fan out when an action returns
-an array, even after an item engine becomes available.
+the feature. Per the owner decision in `docs/43-node-versioning-migration.md`, do not create
+parallel V1/V2 node implementations merely to keep old graphs working; a
+future breaking item model must be explicit and old workflows may need to be
+recreated. Preserve workflow publish snapshots as a separate concept.
 
 ## Binary data
 
@@ -67,10 +68,10 @@ credentials do not automatically authorize creation of a trigger or outbox.
 ## Reddit and Meta
 
 Reddit read nodes exist but their long-term provider access is externally gated;
-retain compatibility and surface provider availability. Reddit announced an
+surface provider availability without promising continued access. Reddit announced an
 [API transition schedule](https://support.reddithelp.com/hc/en-us/articles/54353370049684-Changelog-October-8-2026);
 confirm current access and a permitted migration before promising a replacement.
-The draft editor now displays the published API transition notice on Reddit
+The editor displays the published API transition notice on Reddit
 nodes. It also warns when an RSS node contains a literal `reddit.com` URL:
 Reddit announced that RSS support ends on 13 November 2026. This UI check
 cannot detect a Reddit URL supplied by an expression or an intermediary feed;
@@ -98,9 +99,9 @@ webhook endpoint; a personal read token by itself does not establish webhook
 ownership. The provider's
 [integration configuration](https://docs.sentry.io/api/integration/update-an-existing-custom-integration/)
 and account permissions must be checked for the selected event and deployment.
-Do not imply either trigger is operational until authenticated ingress, durable
-receipts, version pinning, recovery and the actual provider eligibility have
-been implemented and verified.
+The released source includes authenticated ingress and recovery handling for
+both triggers. Provider eligibility, real delivery and sustained recovery for
+the selected deployment have not been established by their presence in source.
 
 ## Trello inbound events
 
@@ -113,11 +114,11 @@ callback URL using the app secret, which is a distinct secret from the API key
 and user token. OAuth 2.0 webhooks use the OAuth client secret instead. See
 [Trello's webhook guide](https://developer.atlassian.com/cloud/trello/guides/rest-api/webhooks/).
 
-The current local draft includes a board trigger with an explicitly supplied
+The released source includes a board trigger with an explicitly supplied
 app secret and callback, raw-body verification, a HEAD response and recovery
 for accepted but unstarted deliveries. Remote webhook registration remains
-manual; no live qualification or final verification has been completed. The
-draft does not infer a signing secret from the API key or create a remote
+manual; real provider delivery has not been qualified. The implementation does
+not infer a signing secret from the API key or create a remote
 webhook. Trello retries only a bounded number of times, so unavailable ingress
 or a lost accepted delivery needs a visible gap/reconciliation policy rather
 than an exactly-once claim. Automated registration and lifecycle reconciliation

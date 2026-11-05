@@ -128,6 +128,10 @@ export class DiscordNotificationAdapter implements NotificationAdapter {
     const embeds = parseDiscordEmbeds(payload.embeds);
     const allowedMentions = parseDiscordAllowedMentions(payload.allowedMentions);
 
+    if (!content.trim() && (!embeds || embeds.length === 0)) {
+      throw new NodeFailure("INVALID_CONFIGURATION", "Discord message content is required.", false);
+    }
+
     if (mode === "mock") {
       return {
         delivered: true,
@@ -137,10 +141,6 @@ export class DiscordNotificationAdapter implements NotificationAdapter {
         sentAt: new Date().toISOString(),
         mode: "mock",
       };
-    }
-
-    if (!content.trim() && (!embeds || embeds.length === 0)) {
-      throw new NodeFailure("INVALID_CONFIGURATION", "Discord message content is required.", false);
     }
 
     const webhookUrl = credentialData?.webhookUrl;

@@ -51,10 +51,11 @@ Retry-After handling, registry/versioning and pagination are tracked separately;
 their current implementation and verification state is recorded in
 `docs/37-node-expansion-audit.md`.
 
-MongoDB uses a dedicated workspace credential and direct TLS adapter. Every
+MongoDB uses a dedicated workspace credential and TLS adapter. Every
 socket uses guarded DNS lookup to reject private, loopback, link-local and
-mixed public/private results; URI options, SRV, replica discovery and arbitrary
-certificate paths are unavailable. Owner-scoped metadata pickers use the same
+mixed public/private results. Guarded SRV seed discovery is supported; arbitrary
+URI options, unrestricted topology discovery and certificate paths are not.
+Owner-scoped metadata pickers use the same
 guard. The adapter bounds document count, query time and output size. Insert
 supports one bounded document and never retries an uncertain write automatically.
 
@@ -145,6 +146,8 @@ validation and editor handles.
 
 Node configuration must be validated twice: once in the web editor for feedback and once in the API/worker as the trust boundary.
 
+For If nodes, the resolved comparison operator must be supported; an unresolved or unsupported operator fails instead of silently using equality. Approval notification provider is a fixed publish-time choice because live readiness must check a credential of the corresponding provider. Runtime rejects unsupported choices and empty or unresolved expression results before waiting or notifying. Omitted choices use their documented defaults.
+
 ## Execution algorithm
 
 1. Create execution record with the current draft version for mock test runs, or the immutable published version for live/scheduled/webhook runs.
@@ -164,7 +167,7 @@ Execution detail is owner-scoped and derived from the immutable workflow version
 
 ## Connector architecture
 
-### Gmail read slice — in progress
+### Gmail read slice — historical implementation notes
 
 Gmail uses a separate owner-scoped, encrypted `GMAIL` connection; its OAuth
 consent requests `gmail.readonly` and does not replace Drive or Chat. That scope
@@ -181,7 +184,7 @@ and lossless pagination before it can be advertised as reliable. A recurring
 schedule plus Read messages is not a new-message trigger and must not be
 described as one. No Gmail cloud scopes have been configured by this slice.
 
-### Work in progress: Notion and PostgreSQL — 2026-11-01
+### Notion and PostgreSQL — historical notes from 2026-11-01
 
 The owner requested both connectors. On the local development branch, a Notion
 integration-token credential and page-search operation are being implemented;

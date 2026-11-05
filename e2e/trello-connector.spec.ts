@@ -32,7 +32,7 @@ test("Trello card setup offers connected boards and lists and clears a stale lis
   await expect(listSelect).toHaveValue("");
 });
 
-test("Trello search upgrades a legacy draft explicitly and resets its page when the query changes", async ({ page }) => {
+test("Trello search enables page selection and resets the page when the query changes", async ({ page }) => {
   const board = "aaaaaaaaaaaaaaaaaaaaaaaa";
   const graph = { nodes: [
     { id: "manual", type: "trigger.manual", position: { x: 100, y: 100 }, config: {} },

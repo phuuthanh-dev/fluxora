@@ -2,39 +2,43 @@ import { NodeFailure, nodeFailureFromOutboundPolicy } from "./node-failure";
 import { readCredentialValue } from "./connector-config";
 import { fetchSafeOutbound } from "./outbound-url-policy";
 import { readProviderJson } from "./provider-request-policy";
+import { parseSteamResult, steamIdValue } from "./steam-operations";
 
 type SnapshotTransport = (url: string, init: RequestInit) => Promise<Response>;
-// Steam libraries can be large; bound the legacy snapshot without truncating it.
+// Steam libraries can be large; bound the snapshot without truncating it.
 const snapshotResponseLimit = 5_000_000;
 
-export function mockSteamSnapshot(steamId: string) {
-  const ownedGames = [{ appid: 620, name: "Portal 2", playtime_forever: 1240 }, { appid: 1145360, name: "Hades", playtime_forever: 680 }];
+export function mockSteamSnapshot(steamId: string, config: Record<string, unknown> = {}) {
+  const ownedGames = config.includeOwnedGames === false ? [] : [{ appid: 620, name: "Portal 2", playtime_forever: 1240 }, { appid: 1145360, name: "Hades", playtime_forever: 680 }];
+  const recentGames = config.includeRecentGames === false ? [] : [{ appid: 620, name: "Portal 2", playtime_2weeks: 180, playtime_forever: 1240 }];
+  const achievements = typeof config.achievementAppId === "string" && config.achievementAppId.trim()
+    ? { steamID: steamId, achievements: [{ apiname: "EXAMPLE_ACHIEVEMENT", achieved: 1 }] } : null;
   return {
-    profile: { steamId, personaname: "Mock Steam Player", profileurl: `https://steamcommunity.com/profiles/${steamId}`, communityvisibilitystate: 3 },
+    profile: { steamid: steamId, personaname: "Mock Steam Player", profileurl: `https://steamcommunity.com/profiles/${steamId}`, communityvisibilitystate: 3 },
     currentGame: null,
     ownedGames,
-    recentGames: [{ appid: 620, name: "Portal 2", playtime_2weeks: 180, playtime_forever: 1240 }],
-    achievements: null,
-    summary: { totalGames: 42, topGames: topSteamGames(ownedGames) },
+    recentGames,
+    achievements,
+    summary: { totalGames: ownedGames.length, topGames: topSteamGames(ownedGames) },
   };
 }
 
 export async function steamSnapshot(credential: Record<string, unknown>, config: Record<string, unknown>, transport: SnapshotTransport = fetchSafeOutbound) {
   const apiKey = readCredentialValue(credential, "apiKey");
-  const steamId = typeof config.steamId === "string" && config.steamId ? config.steamId : readCredentialValue(credential, "steamId");
+  const configuredSteamId = typeof config.steamId === "string" ? config.steamId.trim() : "";
+  const steamId = steamIdValue(configuredSteamId || readCredentialValue(credential, "steamId"));
   const base = "https://api.steampowered.com";
   const params = new URLSearchParams({ key: apiKey, steamids: steamId });
-  const profileJson = await steamResponse<{ response?: { players?: unknown[] } }>(`${base}/ISteamUser/GetPlayerSummaries/v0002/?${params}`, "profile", apiKey, transport);
-  const profile = profileJson?.response?.players?.[0];
-  if (!profile || typeof profile !== "object") throw new NodeFailure("STEAM_PROFILE_NOT_FOUND", "Steam did not return a public profile for this Steam ID.", false);
-  const ownedGames = config.includeOwnedGames === false ? [] : await steamResponse<{ response?: { game_count?: number; games?: SteamGame[] } }>(
+  const profileJson = await steamResponse<unknown>(`${base}/ISteamUser/GetPlayerSummaries/v0002/?${params}`, "profile", apiKey, transport);
+  const profile = parseSteamResult("profile", profileJson, steamId);
+  const ownedGames = config.includeOwnedGames === false ? [] : await steamResponse<unknown>(
     `${base}/IPlayerService/GetOwnedGames/v0001/?${new URLSearchParams({ key: apiKey, steamid: steamId, include_appinfo: "1", include_played_free_games: "1" })}`,
     "owned games", apiKey, transport,
-  ).then((body) => body?.response?.games ?? []);
-  const recentGames = config.includeRecentGames === false ? [] : await steamResponse<{ response?: { games?: SteamGame[] } }>(
+  ).then((body) => (parseSteamResult("ownedGames", body, steamId).games ?? []) as SteamGame[]);
+  const recentGames = config.includeRecentGames === false ? [] : await steamResponse<unknown>(
     `${base}/IPlayerService/GetRecentlyPlayedGames/v0001/?${new URLSearchParams({ key: apiKey, steamid: steamId, format: "json" })}`,
     "recent games", apiKey, transport,
-  ).then((body) => body?.response?.games ?? []);
+  ).then((body) => (parseSteamResult("recentGames", body, steamId).games ?? []) as SteamGame[]);
   const achievementAppId = typeof config.achievementAppId === "string" ? config.achievementAppId.trim() : "";
   const achievements = achievementAppId ? await steamAchievements(base, apiKey, steamId, achievementAppId, transport) : null;
   const player = profile as Record<string, unknown>;

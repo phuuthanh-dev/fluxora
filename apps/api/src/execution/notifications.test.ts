@@ -243,6 +243,19 @@ function createMockCredentials(store: Record<string, { provider: CredentialProvi
   } as unknown as CredentialService;
 }
 
+test("notification mock rejects missing content and invalid configured Telegram destinations", async () => {
+  const credentials = { readForExecution: () => { throw new Error("unexpected credential read"); } } as unknown as CredentialService;
+  for (const run of [
+    () => executeGoogleChatWebhook({ message: "  " }, "mock", "workspace-1", credentials),
+    () => executeDiscordWebhook({ content: "", embeds: "[]" }, "mock", "workspace-1", credentials),
+    () => executeTelegramMessage({ text: " " }, "mock", "workspace-1", credentials),
+    () => executeTelegramMessage({ text: "Hello", destinationType: "dm", chatId: "-100123" }, "mock", "workspace-1", credentials),
+  ]) await assert.rejects(run, (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_CONFIGURATION");
+
+  const embedsOnly = await executeDiscordWebhook({ embeds: '[{"title":"Example"}]' }, "mock", "workspace-1", credentials);
+  assert.equal(embedsOnly.status, "succeeded");
+});
+
 test("Discord webhook: mock mode returns delivered payload without external calls", async () => {
   const credentials = createMockCredentials({});
   const result = await executeDiscordWebhook(
@@ -616,6 +629,26 @@ test("Telegram message: rejects a DM configuration with a group ID", async () =>
     () => executeTelegramMessage({ credentialId: "tg-cred", destinationType: "dm", chatId: "-1004413027775", text: "Invalid target" }, "live", "workspace-1", credentials),
     { message: "Telegram DM chat ID must be a positive numeric user ID." },
   );
+});
+
+test("Telegram message validates a credential fallback destination before sending", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  const credentials = { readForExecution: async () => ({ botToken: "123:synthetic", chatId: "-100123" }) } as never;
+  globalThis.fetch = (async () => { calls++; throw new Error("unexpected request"); }) as typeof fetch;
+  try {
+    await assert.rejects(
+      () => executeTelegramMessage({ credentialId: "tg", destinationType: "dm", text: "Hello" }, "live", "workspace", credentials),
+      /Telegram DM chat ID must be a positive numeric user ID/,
+    );
+    for (const mode of ["mock", "live"] as const) {
+      await assert.rejects(
+        () => executeTelegramMessage({ credentialId: "tg", destinationType: "dm", messageThreadId: "42", text: "Hello" }, mode, "workspace", credentials),
+        /thread ID is only supported/,
+      );
+    }
+    assert.equal(calls, 0);
+  } finally { globalThis.fetch = originalFetch; }
 });
 
 test("Telegram message: redacts bot token in error messages", async () => {

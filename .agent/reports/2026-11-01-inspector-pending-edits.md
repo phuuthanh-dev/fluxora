@@ -1,5 +1,9 @@
 # Inspector pending-edit safety
 
+> Historical report: the interrupted gate and release status below describe
+> the original snapshot. Commit `b5a831f` is in current `main` through PR #55;
+> this later ancestry does not turn the interrupted local run into a pass.
+
 ## Outcome
 
 - Status: partial. Implementation and focused browser test are complete;

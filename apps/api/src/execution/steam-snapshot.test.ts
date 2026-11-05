@@ -4,6 +4,7 @@ import { steamSnapshot } from "./execution.service";
 import { NodeFailure } from "./node-failure";
 import { mockSteamSnapshot } from "./steam-adapter";
 import { getOperationMetadata } from "@workflow/contracts";
+import { getConnectorExecutor } from "./connector-executors";
 
 test("Steam snapshot returns profile, current/recent/owned games, and optional achievements", async () => {
   const requested: string[] = [];
@@ -16,6 +17,7 @@ test("Steam snapshot returns profile, current/recent/owned games, and optional a
     throw new Error(`Unexpected Steam URL: ${url}`);
   };
   const snapshot = await steamSnapshot({ apiKey: "test-key", steamId: "7656" }, { includeOwnedGames: true, includeRecentGames: true, achievementAppId: "620" }, transport);
+  assert.equal((snapshot.profile as { steamid: string }).steamid, mockSteamSnapshot("7656").profile.steamid);
   assert.equal((snapshot.currentGame as { name: string }).name, "Portal 2");
   assert.equal(snapshot.currentGame?.appId, 620);
   assert.equal((snapshot.ownedGames as unknown[]).length, 2);
@@ -39,7 +41,35 @@ test("Steam current game accepts numeric IDs and ignores malformed or missing ID
   }
 });
 
-test("legacy snapshot rejects an echoed API key before storing provider output", async () => {
+test("Steam snapshot mock respects game options and returns internally consistent sample data", async () => {
+  const execute = getConnectorExecutor("action.steam.account-snapshot")!;
+  const credentials = { readForExecution: () => { throw new Error("unexpected credential read"); } } as never;
+  const run = (config: Record<string, unknown>) => execute({ config, mode: "mock", workspaceId: "workspace", credentials, executionId: "execution", nodeId: "steam" });
+  const skipped = await run({ includeOwnedGames: false, includeRecentGames: false });
+  assert.deepEqual(skipped.output.ownedGames, []);
+  assert.deepEqual(skipped.output.recentGames, []);
+  assert.deepEqual(skipped.output.summary, { totalGames: 0, topGames: [] });
+  assert.equal(skipped.output.achievements, null);
+  const included = await run({ steamId: "7656", achievementAppId: "620" });
+  const games = included.output.ownedGames as unknown[];
+  assert.equal((included.output.summary as { totalGames: number }).totalGames, games.length);
+  assert.deepEqual(included.output.achievements, { steamID: "7656", achievements: [{ apiname: "EXAMPLE_ACHIEVEMENT", achieved: 1 }] });
+});
+
+test("Steam snapshot rejects invalid IDs before provider access in mock and live modes", async () => {
+  const execute = getConnectorExecutor("action.steam.account-snapshot")!;
+  const credentials = { readForExecution: () => { throw new Error("unexpected credential read"); } } as never;
+  for (const steamId of ["abc", "-1", "0", "18446744073709551616", 123, null]) {
+    for (const mode of ["mock", "live"] as const) {
+      await assert.rejects(execute({ config: { steamId }, mode, workspaceId: "workspace", credentials, executionId: "execution", nodeId: "steam" }), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT" && !error.retryable);
+    }
+  }
+  const mock = await execute({ config: { steamId: " 76561198000000000 " }, mode: "mock", workspaceId: "workspace", credentials, executionId: "execution", nodeId: "steam" });
+  assert.equal((mock.output.profile as { steamid: string }).steamid, "76561198000000000");
+  await assert.rejects(steamSnapshot({ apiKey: "synthetic-key", steamId: "invalid" }, {}, async () => { throw new Error("unexpected provider call"); }), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT");
+});
+
+test("Steam snapshot rejects an echoed API key before storing provider output", async () => {
   const key = "synthetic-steam-api-key";
   for (const target of ["GetPlayerSummaries", "GetOwnedGames", "GetRecentlyPlayedGames", "GetPlayerAchievements"]) {
     const transport = async (url: string) => {
@@ -51,7 +81,25 @@ test("legacy snapshot rejects an echoed API key before storing provider output",
   }
 });
 
-test("legacy snapshot bounds provider payloads and does not expose transport errors", async () => {
+test("Steam snapshot rejects unavailable or invalid account data instead of reporting an empty library", async () => {
+  const credential = { apiKey: "synthetic-key", steamId: "7656" };
+  const profile = { response: { players: [{ steamid: "7656" }] } };
+  const otherProfile = async () => Response.json({ response: { players: [{ steamid: "1234" }] } });
+  await assert.rejects(steamSnapshot(credential, { includeOwnedGames: false, includeRecentGames: false }, otherProfile), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_PROVIDER_RESPONSE");
+  for (const unavailable of ["GetOwnedGames", "GetRecentlyPlayedGames"]) {
+    const transport = async (url: string) => {
+      if (url.includes("GetPlayerSummaries")) return Response.json(profile);
+      if (url.includes(unavailable)) return Response.json({ response: {} });
+      return Response.json({ response: { game_count: 0 } });
+    };
+    await assert.rejects(steamSnapshot(credential, { includeOwnedGames: true, includeRecentGames: true }, transport), (error: unknown) => error instanceof NodeFailure && error.code === "STEAM_DATA_UNAVAILABLE");
+  }
+  const empty = async (url: string) => url.includes("GetPlayerSummaries") ? Response.json(profile) : Response.json({ response: url.includes("GetOwnedGames") ? { game_count: 0 } : { total_count: 0 } });
+  const result = await steamSnapshot(credential, {}, empty);
+  assert.deepEqual(result.summary, { totalGames: 0, topGames: [] });
+});
+
+test("Steam snapshot bounds provider payloads and does not expose transport errors", async () => {
   const credential = { apiKey: "synthetic-steam-api-key", steamId: "7656" };
   const config = { includeOwnedGames: false, includeRecentGames: false };
   const oversized = async () => new Response("{}", { headers: { "content-length": "5000001" } });

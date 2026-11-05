@@ -16,7 +16,7 @@ function object(value: unknown): ObjectValue | undefined {
 }
 function invalidResponse(): never { throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Steam returned an unexpected response.", false); }
 function unavailable(): never { throw new NodeFailure("STEAM_DATA_UNAVAILABLE", "Steam did not provide this data. Check the profile privacy settings and connection permissions.", false); }
-function steamIdValue(value: unknown): string {
+export function steamIdValue(value: unknown): string {
   if (typeof value !== "string" || !/^\d{1,20}$/.test(value) || BigInt(value) === 0n || BigInt(value) > 18446744073709551615n) throw new NodeFailure("INVALID_INPUT", "Enter a valid Steam ID 64 as text.", false);
   return value;
 }
@@ -82,7 +82,7 @@ function prepare(config: Record<string, unknown>, credential: Record<string, unk
   return { operation, key, selectedSteamId, url: `https://api.steampowered.com${path}?${params}` };
 }
 
-function parseResult(operation: SteamOperation, payload: unknown, expectedSteamId: string): ObjectValue {
+export function parseSteamResult(operation: SteamOperation, payload: unknown, expectedSteamId: string): ObjectValue {
   const root = object(payload);
   if (!root) return invalidResponse();
   if (operation === "friends") {
@@ -151,6 +151,6 @@ export async function executeSteamOperation(config: Record<string, unknown>, mod
   const payload = await readProviderJson(response, "Steam");
   // The API key is sent as a query parameter; never persist it if echoed back.
   if (JSON.stringify(payload).includes(key)) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Steam returned an unsafe response.", false);
-  const result = parseResult(operation, payload, selectedSteamId);
+  const result = parseSteamResult(operation, payload, selectedSteamId);
   return { status: "succeeded" as const, output: { operation, result }, route: "success" as const };
 }

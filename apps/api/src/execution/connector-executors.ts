@@ -5,14 +5,14 @@ import type { ConnectorExecutor } from "./node-executor-contract";
 import { NodeFailure } from "./node-failure";
 import { readCredentialId } from "./connector-config";
 import { mockSteamSnapshot, steamSnapshot } from "./steam-adapter";
-import { executeSteamOperation } from "./steam-operations";
+import { executeSteamOperation, steamIdValue } from "./steam-operations";
 import { executeRiotLol, executeRiotTft } from "./riot-lol";
 import { mockDrive, executeGoogleDrive, mockSheets, executeGoogleSheets, readOperation, readSheetsInputOption } from "./google-workspace-adapter";
 import { readDriveCollectPages, readDrivePageToken } from "./google-drive-pagination";
 import { executeDriveCreateFolder, executeDriveGetFile } from "./google-drive-file-operations";
 import { executeGoogleChatWebhook, executeDiscordWebhook, executeTelegramMessage } from "./notification-adapters";
 import { executeGitHubCreateIssue, executeGitHubAddLabel, executeGitHubAddComment, executeGitHubMergePullRequest } from "./github-write-adapter";
-import { executeHttpRequest } from "./http-request-adapter";
+import { executeHttpRequest, readHttpRequestConfig } from "./http-request-adapter";
 import { executeSmtpEmail } from "./smtp-email";
 import { executeGeminiText } from "./gemini-text";
 import { executeOpenAIText } from "./openai-text";
@@ -46,11 +46,13 @@ const executors = {
   "action.riot-lol": ({ config, mode, workspaceId, credentials }) => executeRiotLol(config, mode, workspaceId, credentials),
   "action.riot-tft": ({ config, mode, workspaceId, credentials }) => executeRiotTft(config, mode, workspaceId, credentials),
   "action.steam.account-snapshot": async ({ config, mode, workspaceId, credentials }) => {
+    const configuredSteamId = typeof config.steamId === "string" ? config.steamId.trim() : config.steamId;
+    const steamId = configuredSteamId === undefined || configuredSteamId === "" ? undefined : steamIdValue(configuredSteamId);
     if (mode === "live") {
       const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.STEAM);
       return { status: "succeeded", output: await steamSnapshot(credential, config), route: "success" };
     }
-    return { status: "succeeded", output: mockSteamSnapshot(String(config.steamId ?? "76561198000000000")), route: "success" };
+    return { status: "succeeded", output: mockSteamSnapshot(steamId ?? "76561198000000000", config), route: "success" };
   },
   "action.google-chat.webhook": ({ config, mode, workspaceId, credentials }) => executeGoogleChatWebhook(config, mode, workspaceId, credentials),
   "action.discord.webhook": ({ config, mode, workspaceId, credentials }) => executeDiscordWebhook(config, mode, workspaceId, credentials),
@@ -73,7 +75,10 @@ const executors = {
     return { status: "succeeded", output: await executeGoogleSheets(credential, config, inputOption), route: "success" };
   },
   "action.http-request": async ({ config, mode, workspaceId, credentials }) => {
-    if (mode === "mock") return { status: "succeeded", output: { status: 200, body: { mocked: true, url: config.url ?? "", method: config.method ?? "GET" } }, route: "success" };
+    if (mode === "mock") {
+      readHttpRequestConfig(config);
+      return { status: "succeeded", output: { status: 200, body: { mocked: true, url: config.url ?? "", method: config.method ?? "GET" } }, route: "success" };
+    }
     const credential = typeof config.credentialId === "string" && config.credentialId ? await credentials.readForExecution(config.credentialId, workspaceId, CredentialProvider.HTTP) : undefined;
     return executeHttpRequest(config, credential);
   },
@@ -82,7 +87,7 @@ const executors = {
   "action.openai": ({ config, mode, workspaceId, credentials }) => executeOpenAIText(config, mode, workspaceId, credentials),
   "action.mongodb": ({ config, mode, workspaceId, credentials }) => executeMongoFind(config, mode, workspaceId, credentials),
   "action.mongodb.insert": ({ config, mode, workspaceId, credentials }) => executeMongoInsert(config, mode, workspaceId, credentials),
-  "action.notion.search-pages": ({ config, mode, workspaceId, credentials }) => executeNotionSearch(config, mode, workspaceId, credentials, undefined),
+  "action.notion.search-pages": ({ config, mode, workspaceId, credentials }) => executeNotionSearch(config, mode, workspaceId, credentials),
   "action.notion.retrieve-page": ({ config, mode, workspaceId, credentials }) => executeNotionOperation(config, "retrievePage", mode, workspaceId, credentials),
   "action.notion.list-children": ({ config, mode, workspaceId, credentials }) => executeNotionOperation(config, "listChildren", mode, workspaceId, credentials),
   "action.notion.retrieve-property": ({ config, mode, workspaceId, credentials }) => executeNotionOperation(config, "retrieveProperty", mode, workspaceId, credentials),
@@ -97,15 +102,15 @@ const executors = {
   "action.trello.archive-card": ({ config, mode, workspaceId, credentials }) => executeTrelloOperation("archive", config, mode, workspaceId, credentials),
   "action.trello.list-cards": ({ config, mode, workspaceId, credentials }) => executeTrelloOperation("list", config, mode, workspaceId, credentials),
   "action.trello.find-cards": ({ config, mode, workspaceId, credentials }) => executeTrelloOperation("find", config, mode, workspaceId, credentials),
-  "action.sentry.list-issues": ({ config, mode, workspaceId, credentials }) => executeSentryListIssues(config, mode, workspaceId, credentials, undefined),
+  "action.sentry.list-issues": ({ config, mode, workspaceId, credentials }) => executeSentryListIssues(config, mode, workspaceId, credentials),
   "action.sentry.get-issue": ({ config, mode, workspaceId, credentials }) => executeSentryGetIssue(config, mode, workspaceId, credentials),
-  "action.vercel.list-deployments": ({ config, mode, workspaceId, credentials }) => executeVercelListDeployments(config, mode, workspaceId, credentials, undefined),
+  "action.vercel.list-deployments": ({ config, mode, workspaceId, credentials }) => executeVercelListDeployments(config, mode, workspaceId, credentials),
   "action.vercel.public-deployment-lookup": ({ config, mode, workspaceId, credentials }) => executeVercelPublicDeploymentLookup(config, mode, workspaceId, credentials),
-  "action.supabase.select": ({ config, mode, workspaceId, credentials }) => executeSupabaseSelect(config, mode, workspaceId, credentials, undefined),
+  "action.supabase.select": ({ config, mode, workspaceId, credentials }) => executeSupabaseSelect(config, mode, workspaceId, credentials),
   "action.supabase.insert-row": ({ config, mode, workspaceId, credentials }) => executeSupabaseInsert(config, mode, workspaceId, credentials),
   "action.reddit.list-posts": ({ config, mode, workspaceId, credentials }) => executeRedditListPosts(config, mode, workspaceId, credentials),
-  "action.postgres.select": ({ config, mode, workspaceId, credentials }) => executePostgresSelect(config, mode, workspaceId, credentials, undefined),
-  "action.gmail.read": ({ config, mode, workspaceId, credentials }) => executeGmailRead(config, mode, workspaceId, credentials, undefined),
+  "action.postgres.select": ({ config, mode, workspaceId, credentials }) => executePostgresSelect(config, mode, workspaceId, credentials),
+  "action.gmail.read": ({ config, mode, workspaceId, credentials }) => executeGmailRead(config, mode, workspaceId, credentials),
   "action.gmail.get-message": ({ config, mode, workspaceId, credentials }) => executeGmailGetMessage(config, mode, workspaceId, credentials),
   "action.gmail.send": ({ config, mode, workspaceId, credentials }) => executeGmailWrite(config, "send", mode, workspaceId, credentials),
   "action.gmail.reply": ({ config, mode, workspaceId, credentials }) => executeGmailWrite(config, "reply", mode, workspaceId, credentials),

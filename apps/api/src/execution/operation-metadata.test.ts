@@ -110,10 +110,8 @@ test("configured mock outputs contain the fields advertised by operation metadat
     ["action.telegram.reply", { chatId: "12345", messageId: 1, text: "Example reply" }],
     ["action.telegram.edit-message", { chatId: "12345", messageId: 1, text: "Example edit" }],
     ["action.google-chat.oauth", { space: "spaces/example", message: "Example message" }],
-    ["action.google-chat.oauth", { space: "spaces/example", message: "Example message" }],
     ["action.google-chat.reply", { space: "spaces/example", threadName: "spaces/example/threads/thread-1", message: "Example reply" }],
     ["action.google-chat.edit-message", { space: "spaces/example", messageName: "spaces/example/messages/message-1", message: "Example edit" }],
-    ["action.google-drive", { operation: "list" }],
     ["action.google-drive", { operation: "list" }],
     ["action.gemini", { model: "example-model", prompt: "Example prompt", maxOutputTokens: 50 }],
     ["action.openai", { model: "example-model", prompt: "Example prompt", maxOutputTokens: 50 }],
@@ -122,8 +120,6 @@ test("configured mock outputs contain the fields advertised by operation metadat
     ["action.mongodb", { database: "example", collection: "items" }],
     ["action.mongodb.insert", { database: "example", collection: "items", document: { name: "sample" } }],
     ["action.postgres.select", { schema: "public", table: "items" }],
-    ["action.postgres.select", { schema: "public", table: "items" }],
-    ["action.supabase.select", { table: "items" }],
     ["action.supabase.select", { table: "items" }],
     ["action.rss.read", { url: "https://example.test/feed.xml" }],
     ["action.http-request", { url: "https://example.test/", method: "GET" }],
@@ -150,7 +146,6 @@ test("configured mock outputs contain the fields advertised by operation metadat
     ["action.github.get-pull-request", { repository: "example/project", pullRequestNumber: 1 }],
     ["action.gmail.get-message", { messageId: "message-1" }],
     ["action.gmail.read", { mailbox: "inbox" }],
-    ["action.gmail.read", { mailbox: "inbox" }],
     ["action.gmail.send", { to: "a@example.test", subject: "Example", text: "Hello" }],
     ["action.gmail.reply", { to: "a@example.test", messageId: "message-1", text: "Hello" }],
     ["action.gmail.create-draft", { to: "a@example.test", subject: "Example", text: "Hello" }],
@@ -171,16 +166,13 @@ test("configured mock outputs contain the fields advertised by operation metadat
     ["action.steam", { operation: "profile" }],
     ["action.steam.account-snapshot", {}],
     ["action.google-sheets", { operation: "read", range: "Sheet1!A1:B2" }],
-    ["action.google-sheets", { operation: "read", range: "Sheet1!A1:B2" }],
-    ["action.sentry.list-issues", { organization: "example", project: "project" }],
     ["action.sentry.list-issues", { organization: "example", project: "project" }],
     ["action.vercel.list-deployments", { team: "personal", project: "prj_example" }],
-    ["action.vercel.list-deployments", { team: "personal", project: "prj_example" }],
-    ["action.notion.search-pages", { query: "Example" }],
     ["action.supabase.insert-row", { table: "items", fields: [{ column: "name", type: "text", value: "Sample" }] }],
     ["action.riot-lol", { operation: "accountByRiotId", platform: "vn2", gameName: "Test Player", tagLine: "VN2" }],
     ["action.riot-tft", { operation: "accountByRiotId", platform: "vn2", gameName: "Test Player", tagLine: "VN2" }],
   ] as const;
+  assert.equal(new Set(cases.map(([type]) => type)).size, cases.length, "use one fixture per registered action");
   assert.deepEqual(new Set(cases.map(([type]) => type)), new Set(registeredConnectorNodeTypes));
   for (const [type, config] of cases) {
     const node = { id: "example", type, position: { x: 0, y: 0 }, config };
@@ -239,7 +231,7 @@ test("Notion search exposes an input cursor and the advertised output fields", a
   if ("knownFields" in metadata.output) for (const key of metadata.output.knownFields) assert.ok(key in result.output, key);
 });
 
-test("relational offset metadata matches v2 outputs without claiming a next page", async () => {
+test("relational offset metadata matches output without claiming a next page", async () => {
   for (const [type, selection, preserve] of [
     ["action.postgres.select", { schema: "public", orderBy: "id", orderDirection: "asc" }, ["credentialId", "schema", "table", "limit", "columns", "conditions", "orderBy", "orderDirection"]],
     ["action.supabase.select", { order: [{ column: "id", direction: "asc" }] }, ["credentialId", "table", "limit", "columns", "filters", "order", "rejectUnsafeNumbers"]],
@@ -289,7 +281,7 @@ test("continuation metadata identifies the connection and query context that mus
   }
 });
 
-test("Drive v2 advertises pagination only for list and search, matching the dispatcher", async () => {
+test("Drive advertises pagination only for list and search, matching the dispatcher", async () => {
   const metadata = getOperationMetadata("action.google-drive");
   assert.ok(metadata && metadata.pagination.kind === "conditional");
   const pagination = metadata.pagination;

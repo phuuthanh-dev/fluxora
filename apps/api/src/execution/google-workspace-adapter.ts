@@ -74,12 +74,18 @@ export async function executeGoogleDrive(credential: Record<string, unknown>, co
 
 export function mockSheets(config: Record<string, unknown>) {
   const operation = readOperation(config, ["read", "append", "update"], "read");
-  const range = String(config.range ?? "Sheet1!A1");
+  const range = config.range === undefined ? "Sheet1!A1" : readConfigString(config, "range");
   if (operation === "read") return { operation, range, values: [["Mock Steam Player", "42 games"]] };
+  const values = normalizeValues(config.values);
   const spreadsheetId = typeof config.spreadsheetId === "string" && config.spreadsheetId ? config.spreadsheetId : "mock-spreadsheet";
-  const updates = { spreadsheetId, updatedRange: range, updatedRows: 1, updatedColumns: 2, updatedCells: 2 };
-  // Keep the original mock-only top-level fields for saved test workflows.
-  return operation === "append" ? { operation, range, updatedRows: 1, updatedCells: 2, spreadsheetId, tableRange: "", updates } : { operation, range, ...updates };
+  const updates = {
+    spreadsheetId,
+    updatedRange: range,
+    updatedRows: values.length,
+    updatedColumns: values.reduce((max, row) => Math.max(max, row.length), 0),
+    updatedCells: values.reduce((count, row) => count + row.length, 0),
+  };
+  return operation === "append" ? { operation, spreadsheetId, tableRange: "", updates } : { operation, ...updates };
 }
 
 export function readSheetsInputOption(config: Record<string, unknown>): "USER_ENTERED" | "RAW" {
@@ -144,7 +150,7 @@ function readConfigString(config: Record<string, unknown>, key: string) {
   return config[key] as string;
 }
 
-function normalizeValues(value: unknown) {
+function normalizeValues(value: unknown): unknown[][] {
   if (!Array.isArray(value) || !value.every((row) => Array.isArray(row))) throw new NodeFailure("INVALID_CONFIGURATION", "values must be a table (an array of rows).", false);
-  return value;
+  return value as unknown[][];
 }

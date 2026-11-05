@@ -14,6 +14,18 @@ type Row = { id: string; workspaceId: string; provider: CredentialProvider; labe
 const grant = (subject: string, scopes = googleConnectionPolicy.google.scopes) => ({ accessToken: `access-${subject}`, scopeTokenHash: createHash("sha256").update(`access-${subject}`).digest("hex"), refreshToken: `refresh-${subject}`, expiresAt: "2099-01-01T00:00:00Z", googleSubject: subject, googleEmail: `${subject}@example.test`, grantedScopes: scopes });
 const codeOf = (error: unknown) => (error as { response?: { code?: string } }).response?.code;
 
+test("Google Drive and Sheets connection requests the agreed full-access scopes", async () => {
+  const restore = oauthEnvironment();
+  const h = oauthHarness({ requireOwner: async () => {} });
+  try {
+    await h.controller.connect("ws", h.request, h.response);
+    const scopes = new URL(h.redirect()).searchParams.get("scope")?.split(" ") ?? [];
+    assert.ok(scopes.includes("https://www.googleapis.com/auth/drive"));
+    assert.ok(scopes.includes("https://www.googleapis.com/auth/spreadsheets"));
+    assert.equal(scopes.includes("https://www.googleapis.com/auth/drive.file"), false);
+  } finally { restore(); }
+});
+
 test("Google Chat management is available only with explicit consent and a verified grant", async () => {
   const f = fixture();
   const scopes = [...googleConnectionPolicy.chat.scopes, chatManageScope];

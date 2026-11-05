@@ -81,9 +81,8 @@ test("invalid or ambiguous parent metadata never sends a reply", async () => {
   assert.equal(calls.length, 1);
 });
 
-test("draft creation, replacement and label patch normalize receipts; draft send is disabled", async () => {
+test("draft creation, replacement and label patch normalize receipts", async () => {
   const { api, calls } = fixture(({ url, init }) => {
-    if (url.endsWith("/drafts/send")) return Response.json({ id: "sent1", threadId: "t1" });
     if (url.includes("/labels/")) return Response.json({ id: "Label_1", name: "Renamed", extra: "synthetic-secret" });
     return Response.json({ id: "d1", message: { id: init.method === "PUT" ? "m2" : "m1", threadId: "t1" } });
   });
@@ -91,7 +90,6 @@ test("draft creation, replacement and label patch normalize receipts; draft send
   assert.deepEqual(await api.updateDraft("d1", mail), { draftId: "d1", messageId: "m2", threadId: "t1" });
   assert.match(calls[1]!.url, /\/drafts\/d1$/); assert.equal(calls[1]!.init.method, "PUT");
   assert.match(rawFrom(calls[0]!, true).mime, /Subject: Hello/);
-  await assert.rejects(api.sendDraft("d1"), isFailure("GMAIL_OPERATION_DISABLED"));
   assert.equal(calls.length, 2);
   assert.deepEqual(await api.updateLabel("Label_1", { name: "Renamed" }), { id: "Label_1", name: "Renamed" });
   await assert.rejects(api.updateLabel("Label_1", { name: "x\ninjected" }), isFailure("INVALID_INPUT"));

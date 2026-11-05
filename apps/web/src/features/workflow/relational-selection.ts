@@ -164,5 +164,3 @@ export function parseRelationalManual(text: string, provider?: RelationalProvide
   if (!object(value) || Object.keys(value).some((key) => !allowed.has(key))) throw new Error("Enter an object containing only selection keys for this provider.");
   return value;
 }
-
-/** Upgrade only the draft node type. Retain every config field unchanged. */

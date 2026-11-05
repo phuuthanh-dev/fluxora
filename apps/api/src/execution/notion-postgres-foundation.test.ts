@@ -7,11 +7,8 @@ import { resolvePostgresTarget } from "./postgres-target";
 import type { lookup } from "node:dns/promises";
 import { Readable } from "node:stream";
 import { rootCertificates } from "node:tls";
-import { executePostgresSelect as executePostgresSelectVersioned, readPostgresRows, validatePostgresCredential } from "./postgres-read";
+import { executePostgresSelect, readPostgresRows, validatePostgresCredential } from "./postgres-read";
 import { resolveExpressions } from "./expression";
-
-// These existing selection tests exercise the new, explicit v2 contract.
-const executePostgresSelect = (config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, read?: typeof readPostgresRows) => executePostgresSelectVersioned(config, mode, workspaceId, credentials, read);
 
 test("Notion search sends bounded request and returns only page identifiers and titles", async () => {
   let captured: { url: string; init: RequestInit } | undefined;

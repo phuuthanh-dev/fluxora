@@ -15,7 +15,7 @@ import { ExecutionEventsService } from "./execution-events.service";
 import { resolveExpressions } from "./expression";
 import { redactValue } from "./redaction";
 import { isRetryableFailure, retryDelayMs } from "./retry-policy";
-import { parseStoredWorkflowGraph, unavailableWorkflowNodes } from "../workflows/workflow-graph";
+import { parseStoredWorkflowGraph, unavailableWorkflowNodes, workflowNodeDepths } from "../workflows/workflow-graph";
 import { liveCredentialRequirements } from "./live-readiness";
 import { executionRetentionPolicy } from "./retention-policy";
 
@@ -472,12 +472,14 @@ export class ExecutionService {
       ? graph.nodes.filter((node) => node.id === debugNodeId)
       : (startNodeIds ? graph.nodes.filter((node) => startNodeIds.includes(node.id)) : graph.nodes.filter((node) => node.type.startsWith("trigger.")));
     const visited = new Set(execution.nodeExecutions.filter((node) => node.status !== NodeExecutionStatus.PENDING && node.status !== NodeExecutionStatus.SKIPPED).map((node) => node.nodeId));
+    const depths = workflowNodeDepths(graph);
 
     while (pending.length) {
       if (await this.isCancelled(executionId)) return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
       // Do not begin another node if cancellation or lease maintenance has
       // already ended this execution while the previous node was running.
       if (!await this.renewLease(executionId, runToken)) return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
+      pending.sort((left, right) => depths.get(left.id)! - depths.get(right.id)!);
       const node = pending.shift();
       if (!node || visited.has(node.id)) continue;
       visited.add(node.id);
@@ -492,10 +494,11 @@ export class ExecutionService {
         return this.finishRunning(executionId, runToken, { status: ExecutionStatus.SUCCEEDED, completedAt, leaseExpiresAt: null }, "execution.succeeded");
       }
       if (result.status === "waiting") {
+        const pendingNodeIds = [...new Set(pending.filter((item) => !visited.has(item.id)).map((item) => item.id))];
         const approval = await this.prisma.$transaction(async (transaction) => {
           // Use the same execution-first lock order as cancel/resolve. The
           // request and WAITING state must become visible together, or not at all.
-          const claimed = await transaction.execution.updateMany({ where: { id: executionId, status: ExecutionStatus.RUNNING, runToken }, data: { status: ExecutionStatus.WAITING_APPROVAL, leaseExpiresAt: null, runToken: null } });
+          const claimed = await transaction.execution.updateMany({ where: { id: executionId, status: ExecutionStatus.RUNNING, runToken }, data: { status: ExecutionStatus.WAITING_APPROVAL, leaseExpiresAt: null, runToken: null, resumeNodeIds: pendingNodeIds.length ? pendingNodeIds : Prisma.DbNull } });
           if (!claimed.count) return null;
           const created = await transaction.approvalRequest.create({ data: {
             executionId,
@@ -563,7 +566,12 @@ export class ExecutionService {
     const waitingNode = await this.prisma.nodeExecution.findFirst({ where: { executionId: approval.executionId, status: NodeExecutionStatus.WAITING, output: { path: ["approvalRequestId"], equals: approval.id } } });
     if (!waitingNode) throw new NotFoundException({ code: "APPROVAL_NODE_NOT_FOUND", message: "Execution is not waiting on an approval node." });
     const graph = parseStoredWorkflowGraph(approval.execution.workflowVersion.graph);
-    const nextNodeIds = decision === "approved" ? [...new Set(graph.edges.filter((edge) => edge.source === waitingNode.nodeId && edge.kind === "success").map((edge) => edge.target))] : [];
+    const pendingNodeIds = approval.execution.resumeNodeIds;
+    if (decision === "approved" && pendingNodeIds != null && (!Array.isArray(pendingNodeIds) || pendingNodeIds.some((id) => typeof id !== "string" || !graph.nodes.some((node) => node.id === id)))) {
+      throw new ConflictException({ code: "APPROVAL_CONTINUATION_INVALID", message: "The approval continuation requires review." });
+    }
+    const pendingIds = Array.isArray(pendingNodeIds) ? pendingNodeIds as string[] : [];
+    const nextNodeIds = decision === "approved" ? [...new Set([...pendingIds, ...graph.edges.filter((edge) => edge.source === waitingNode.nodeId && edge.kind === "success").map((edge) => edge.target)])] : [];
     const finalStatus = decision === "rejected" ? ExecutionStatus.FAILED : nextNodeIds.length ? ExecutionStatus.QUEUED : ExecutionStatus.SUCCEEDED;
     const resumeToken = finalStatus === ExecutionStatus.QUEUED ? randomBytes(24).toString("hex") : undefined;
     const expired = await this.prisma.$transaction(async (transaction) => {
@@ -851,8 +859,7 @@ function assertGitHubSafetyExpressions(node: WorkflowNode, config: Record<string
 
 export async function executeNode(node: WorkflowNode, config: Record<string, unknown>, context: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService, executionId: string): Promise<NodeResult> {
   if (!isExecutableWorkflowNodeType(node.type)) throw new NodeFailure("NODE_UNAVAILABLE", `${node.type} is not available in this MVP execution engine.`, false);
-  // Execution can also be called outside the graph parser; fail before any
-  // credential access or provider side effect for an unknown version.
+  // Execution can also be called outside the graph parser; reject unavailable nodes.
   const connectorExecutor = getConnectorExecutor(node.type);
   assertSupabaseWriteExpressions(node, context);
   assertGitHubSafetyExpressions(node, config, context);
@@ -865,7 +872,8 @@ export async function executeNode(node: WorkflowNode, config: Record<string, unk
   if (node.type === "trigger.sentry.issue-created" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "sentry", event: "issue.created", installationId: config.installationId, project: config.project, issueId: "12345", title: "Example issue", level: "error" } }, route: "success" };
   if (node.type.startsWith("trigger.")) return { status: "succeeded", output: { received: context.trigger ?? {} }, route: "success" };
   if (node.type === "condition.if") {
-    const matches = compare(config.left, String(config.operator ?? "equals"), config.right);
+    const operator = readChoice(node, config, context, "operator", ["equals", "not_equals", "contains", "exists"], "equals");
+    const matches = compare(config.left, operator, config.right);
     return { status: "succeeded", output: { matches }, route: matches ? "true" : "false" };
   }
   if (node.type === "condition.switch") {
@@ -874,9 +882,25 @@ export async function executeNode(node: WorkflowNode, config: Record<string, unk
     const matched = cases.find((item) => item && typeof item === "object" && switchCaseValue((item as Record<string, unknown>).value) === value) as Record<string, unknown> | undefined;
     return { status: "succeeded", output: { value, matched: matched ? switchCaseValue(matched.value) : null }, route: matched ? "case" : "default" };
   }
-  if (node.type === "approval.request") return { status: "waiting", output: { message: String(config.message ?? "Approval requested"), expiresInHours: typeof config.expiresInHours === "number" ? config.expiresInHours : 24, notificationProvider: config.notificationProvider === "http_webhook" ? "http_webhook" : "google_chat", notificationCredentialId: typeof config.notificationCredentialId === "string" ? config.notificationCredentialId : "" } };
+  if (node.type === "approval.request") {
+    const notificationProvider = readChoice(node, config, context, "notificationProvider", ["google_chat", "http_webhook"], "google_chat");
+    return { status: "waiting", output: { message: String(config.message ?? "Approval requested"), expiresInHours: typeof config.expiresInHours === "number" ? config.expiresInHours : 24, notificationProvider, notificationCredentialId: typeof config.notificationCredentialId === "string" ? config.notificationCredentialId : "" } };
+  }
 
   throw new NodeFailure("NODE_UNAVAILABLE", `${node.type} is not available in this MVP execution engine.`, false);
+}
+
+function readChoice(node: WorkflowNode, config: Record<string, unknown>, context: Record<string, unknown>, key: string, choices: readonly string[], fallback: string) {
+  const value = config[key];
+  const raw = node.config[key];
+  const isExpression = typeof raw === "string" && /{{\s*[^{}]+?\s*}}/.test(raw);
+  if (value === undefined || value === null || value === "") {
+    if (isExpression) throw new NodeFailure("INVALID_CONFIGURATION", `The ${key} expression did not resolve to a supported choice.`, false);
+    return fallback;
+  }
+  if (isExpression) resolveExpressions(raw, context, { rejectMissing: true });
+  if (typeof value !== "string" || !choices.includes(value)) throw new NodeFailure("INVALID_CONFIGURATION", `Choose a supported ${key}.`, false);
+  return value;
 }
 
 function compare(left: unknown, operator: string, right: unknown) {
