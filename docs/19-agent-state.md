@@ -14,6 +14,11 @@ complete in the delivery ledger.
   now preserve and correctly display unset selections, numeric expressions and
   non-boolean checkbox values. The isolated gate for the same source passed
   972 API, 80 web and 216 Playwright tests. Do not implement these changes again.
+- After PR #85, the local editor clears a Notion property pagination cursor
+  when the selected property changes; the existing picker E2E now covers both
+  list selection and manual ID entry. This draft has not passed final verify
+  and is not deployed. PostgreSQL/Supabase intentionally retain selection
+  settings when their table changes, with a warning; do not silently clear them.
 - [PR #84](https://github.com/phuuthanh-dev/fluxora/pull/84) merged as
   `ff4302dbf2e48618b1721770975666a094aaa2c8`. Its [PR gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41926442270),
   [main gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/41927994423)
