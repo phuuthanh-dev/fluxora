@@ -1,6 +1,10 @@
 # NX: current product and simplification audit
 
 Snapshot: 2026-11-06, released commit `31a1637acd28343358352692448d32e43978833e`.
+PR #92 subsequently merged into main as `a2285e488a08a4754557ac7468c2f39cd06fb9da`;
+its PR and main gates passed, while production deployment failed its disk-space
+preflight. The bounded item subset described below is merged source, not yet
+proven deployed. Earlier sections describe their historical snapshots.
 [PR #91](https://github.com/phuuthanh-dev/fluxora/pull/91), its
 [PR gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/42081700786),
 [main gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/42083785009)
@@ -46,8 +50,8 @@ is not a current backlog. An unrelated later retry/timeout experiment on
 | Google Calendar | Read, create, update, delete and availability actions have implementations. | A controlled 2030 adapter list contained the test event. A 2100 event was absent from both the adapter and the raw Google list response although free/busy reported busy; its cause is unknown. See `35-connector-coverage-and-discovery.md` for the limits of those tests. |
 | Reddit | A list-posts action and access guidance exist. | Mock coverage does not establish that this application's Reddit API access works. |
 | Authentication | Email/password, Google/GitHub sign-in and Steam account linking have separate code paths; session cookies are HttpOnly and marked Secure in production. | Source alone does not verify current provider approvals, environment configuration or the absence of security defects. |
-| NX-07 | Decisions about arrays/items, binary, change streams and eligible social integrations are recorded in `38-nx07-design-decisions.md`. | These systems are not implemented merely because a design exists. Prioritize a real use case rather than add infrastructure by default. |
-| Release | PR #91, its PR/main gates and production deployment succeeded; the deployment health check passed and the homepage returned HTTP 200. | This is point-in-time evidence, not proof every workflow or provider is healthy. |
+| NX-07 | PR #92 implements bounded automatic items on a single action path; binary, database changes and social-provider decisions are documented in `38-nx07-design-decisions.md`. | PR #92 production deployment failed disk-space preflight. Branches, conditions, joins and approvals after list sources, binary storage and database change capture remain out of scope. |
+| Release | PR #91 was the active production image when PR #92 deployment failed disk-space preflight; production readiness and homepage HTTP checks passed after the failure. | This is point-in-time evidence, not proof every workflow or provider is healthy. |
 
 Trigger review: cron only considers occurrences within the last 65 seconds, so
 an outage longer than that may miss scheduled runs; recovery covers accepted
@@ -92,7 +96,7 @@ their existence does not establish that every template was run live.
 | NX-04 — communications and developer apps | Gmail, Chat, Telegram, GitHub, Sentry and Vercel operations are registered, with provider-specific credential requirements. | Live qualification, provider scope and behavior remain specific to each action; see the dated evidence in `35-connector-coverage-and-discovery.md`. |
 | NX-05 — triggers | RSS polling and Kuma, Telegram, Trello, Sentry and Vercel webhook handlers are present alongside Gmail polling and existing triggers. | Some remote registration is manual; sustained real delivery, recovery and all provider/account eligibility are not established. Cron has the recovery limit described above. |
 | NX-06 — AI | Gemini/OpenAI have structured output, schema validation, usage when returned, and per-request limits. | Live provider/model qualification is incomplete; per-request limits are not an aggregate budget. |
-| NX-07 — design decisions | Item iteration, binary storage, database change triggers and Reddit/Meta decisions are documented in `38-nx07-design-decisions.md`. | Item fan-out, binary storage and database change capture are not implemented. Meta/Instagram remain planned; Reddit access is externally gated. These must not be presented as finished features. |
+| NX-07 — supported items and design decisions | PR #92 implements bounded items along a single action path and documents binary, database change triggers and Reddit/Meta decisions in `38-nx07-design-decisions.md`. | The item subset is not full n8n parity; deployment failed disk-space preflight. Binary and DB change capture are not implemented. Meta/Instagram remain planned; Reddit access is externally gated. |
 
 This checklist distinguishes shipped source from validation and provider
 evidence. It does not mark NX complete or create work solely to preserve older
@@ -112,7 +116,7 @@ authorize removing stored workflows or credentials.
 | NX-04 communications and developer operations | Node registry; `apps/api/src/execution/github-update-issue.ts`, `github-write-adapter.ts`, `sentry.ts`, `vercel.ts`, `vercel-observability.ts` | Listed families, issue update, PR reads/merge and Sentry detail exist. Vercel detail is explicitly a limited public lookup whose ownership is not verified. Real behavior and permissions remain operation-specific. |
 | NX-05 trigger lifecycle | RSS scheduler and `apps/api/src/webhooks/*trigger*` ingress and synthetic cases | Trigger implementations exist; manual registration, real delivery, lost-event recovery, provider eligibility and full lifecycle behavior are not established for every provider by their presence or isolated fixtures. |
 | NX-06 structured AI and request limits | `ai-structured-output.ts`, `ai-request-limits.ts`, `gemini-text.ts`, `openai-text.ts` and corresponding synthetic cases | Structured schemas, validation, optional usage and per-request ceilings exist. Model support and real calls remain provider-dependent; per-request limits are not an aggregate spending budget. |
-| NX-07 decisions and supported follow-through | `38-nx07-design-decisions.md`; node registry and trigger implementations | Design decisions and selected trigger/social behavior are documented. Item fan-out, binary storage and DB change capture are not implemented; provider restrictions also remain. Do not infer their delivery from a design document. |
+| NX-07 decisions and supported follow-through | `38-nx07-design-decisions.md`; `apps/api/src/execution/item-stream.ts`; PR #92 | Bounded linear item processing is merged and main CI passed; deployment failed disk-space preflight. Binary and DB change capture remain unimplemented; provider restrictions remain. Do not infer full n8n parity. |
 
 PR #90 and its quality gates provide evidence for that committed release, not
 for the stopped local retry/timeout experiment or any future change. Check the
@@ -122,12 +126,12 @@ Owner update: after the validator audit, the owner explicitly authorized shared
 schemas and project-wide standardization, released in PR #91. Follow
 `46-node-configuration-schemas.md`; registry coverage does not imply complete
 validation of every provider operation or response.
-At `166ff404`, Steam snapshot treats non-boolean `includeOwnedGames` or
+Historical observation at `166ff404`: Steam snapshot treated non-boolean `includeOwnedGames` or
 `includeRecentGames` values as enabled, and ignores non-string optional
 `achievementAppId` values or forwards malformed text to Steam. The local
-`codex/nx-validator-steam` follow-up rejects these inputs in mock/live and reuses
-the existing App ID validator. It has regression cases but they have not been
-run; it is not committed, deployed or live-qualified. The same follow-up also
+`codex/nx-validator-steam` follow-up rejected these inputs in mock/live and reused
+the existing App ID validator. This follow-up shipped with PR #91; synthetic
+verification is not live-provider qualification. The same follow-up also
 addresses explicit invalid or unresolved Steam operation, account ID,
 played-free-games choice and achievement language being treated as omitted
 and replaced with a default or credential account. Empty optional fields and
@@ -135,9 +139,8 @@ genuinely absent fields retain their established defaults.
 After the owner authorized shared schemas, the same local batch introduced
 per-app schema files. See `46-node-configuration-schemas.md` for the current
 family inventory and its limitations. MongoDB
-Find now rejects an explicit invalid or unresolved filter instead of falling
-back to an unfiltered query. These local changes and added synthetic cases have
-not yet been verified.
+Find rejects an explicit invalid or unresolved filter instead of falling
+back to an unfiltered query. These changes and synthetic cases shipped in PR #91.
 
 ### Converging paths in the engine
 
@@ -152,7 +155,8 @@ depth and takes the shallowest pending node first. This ensures a reachable
 longer path is processed before its downstream converging node in an ordinary
 run. It still runs that node at most once, and it does not wait for a branch
 that was not selected. A synthetic execution case checks the order and resolved
-output and passed in the isolated gate. This is not item fan-out or a new Merge node.
+output and passed in the isolated gate. This ordinary graph ordering is separate
+from PR #92's bounded item processing and is not a new Merge node.
 
 Approval was a separate limitation: when a node waited, the runner marked other
 unvisited nodes skipped and resumed only from approval's success targets. A
@@ -412,8 +416,8 @@ the associated tests passed.
 
 - The NX table above distinguishes existing operations from incomplete provider
   and pagination coverage; a registry entry is not proof of live behavior.
-- Item fan-out, binary storage and database change capture remain unimplemented;
-  the NX-07 document records decisions, not a claim of delivery. Do not start
-  those systems or a new scope solely because they are listed here.
+- Bounded linear item processing is merged in PR #92; broader item routing,
+  binary storage and database change capture remain unimplemented. Do not start
+  deferred systems or a new scope solely because they are listed here.
 - Qualify individual real providers only when their credentials, permissions,
   intended destination and potential side effects have been explicitly allowed.

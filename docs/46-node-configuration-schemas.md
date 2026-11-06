@@ -54,14 +54,16 @@ precision remain enforced by their existing server-side validators. Cron syntax,
 webhook authenticity and trigger-specific protocol rules also remain enforced
 by their server-side validators.
 
-### Unreleased Google validation correction
+### Google validation correction — merged in PR #92
 
 The PR #91 rules accepted whitespace-only spreadsheet IDs, Sheets ranges and
 Drive text-download file IDs. Synthetic mock executions also succeeded with
-those values. The local follow-up rejects blank-only selections at static and
+those values. The follow-up rejects blank-only selections at static and
 resolved validation, while preserving expressions and nonblank ranges that
 contain spaces. Two focused API test files passed 27/27 using synthetic data;
-the full quality gate and release remain pending. This does not validate every
+the final isolated verify and PR #92 and main quality gates passed; production
+deployment failed disk-space preflight and has not been established at this
+update. This does not validate every
 possible provider resource ID or establish access to a live Google account.
 
 Each further family must enumerate its supported operations and conditional
