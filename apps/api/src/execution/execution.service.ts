@@ -596,7 +596,8 @@ export class ExecutionService {
           this.events.publish(executionId, "node.updated");
           // A malformed or over-limit list failed at the source, before any
           // downstream item was processed. Honor its existing error branch.
-          const errorTargets = !itemRun ? graph.edges.filter((edge) => edge.source === node.id && edge.kind === "error") : [];
+          const sourceOutputFailure = !itemRun && ["INVALID_PROVIDER_RESPONSE", "ITEM_LIMIT_EXCEEDED", "ITEM_SIZE_EXCEEDED"].includes(failure.code);
+          const errorTargets = sourceOutputFailure ? graph.edges.filter((edge) => edge.source === node.id && edge.kind === "error") : [];
           if (errorTargets.length) {
             delete outputs[node.id];
             pending.push(...this.targets(graph, errorTargets));

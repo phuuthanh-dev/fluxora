@@ -36,7 +36,7 @@ so If and Switch can route each original item separately. Item outputs retain
 their immediate parent link. Unselected paths do not run; joins, approvals and
 action error branches on item paths remain rejected before execution.
 
-Local draft, not yet verified or released: an error branch on a list source
+Local change, verified but not yet released: an error branch on a list source
 without item input uses the ordinary node-level runner before an item stream
 exists. Malformed or over-limit source output follows that same branch. This
 does not enable continuing after a failure within per-item processing.

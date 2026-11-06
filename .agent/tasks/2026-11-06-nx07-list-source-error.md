@@ -36,11 +36,11 @@ per-item error handling or adding a new node setting.
 
 ## Acceptance criteria
 
-- [ ] A failing source with an error edge executes that branch and does not run
+- [x] A failing source with an error edge executes that branch and does not run
   its success branch; a valid source executes only its success path.
-- [ ] Invalid/oversized source item output follows the same error-branch rule.
-- [ ] A failing source without an error edge fails the execution.
-- [ ] An error edge on an action that processes items is rejected before nodes
+- [x] Invalid/oversized source item output follows the same error-branch rule.
+- [x] A failing source without an error edge fails the execution.
+- [x] An error edge on an action that processes items is rejected before nodes
   run; unsupported joins and approval paths remain rejected.
 - [ ] Verify the complete batch once, then use a single develop-to-main PR.
 

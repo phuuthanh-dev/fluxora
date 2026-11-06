@@ -164,7 +164,7 @@ through its matching output, passing its original JSON to the following node.
 Unselected outputs do not run. Joins, approvals and error branches after item
 sources remain unsupported and must fail before workflow nodes run.
 
-Local draft, not yet verified or released: a list source without item input may
+Local change, verified but not yet released: a list source without item input may
 use its normal error branch if the source fails or its list is malformed or over
 the item limit. Per-item action error branches remain unsupported.
 
