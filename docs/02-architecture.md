@@ -31,6 +31,11 @@ external writes must retain the existing uncertain-outcome and cancellation
 boundaries. Recovery must not automatically replay an ambiguous write. This
 paragraph records the intended change, not a claim that it has shipped.
 
+Local change, verified but not yet released: item streams are associated with graph edges
+so If and Switch can route each original item separately. Item outputs retain
+their immediate parent link. Unselected paths do not run; joins, approvals and
+action error branches on item paths remain rejected before execution.
+
 The implementation stores bounded per-item state in `NodeExecutionItem`, with
 links to the immediate parent item and redacted inputs and outputs. It processes
 items sequentially, stops on an error and marks unstarted items skipped. Lease

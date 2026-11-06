@@ -32,6 +32,14 @@ passed) using isolated test data. It shipped in [PR #93](https://github.com/phuu
 merged as `240b6ee`; PR and main CI and production deployment passed. This does
 not verify delivery through a real provider. See [n8n node settings](https://docs.n8n.io/workflows/components/nodes/#node-settings).
 
+Local follow-up, verified but not yet released: If and Switch route each input
+item to its matching branch with its original JSON and parent-item link. Empty
+outputs do not run; joins, approvals and action error branches after item sources
+remain unsupported. The runner-only `executeOnce` setting is removed before
+provider adapter validation. Local `npm run verify` passed 1,045 API tests
+(one skipped), 73 web tests and 214 browser tests with synthetic data. This is
+not a live-provider or production qualification.
+
 n8n normally processes incoming items automatically and has broader branching
 and item-linking behavior. Its [item data model](https://docs.n8n.io/build/work-with-data/understand-n8ns-data-structure/)
 and [loop documentation](https://docs.n8n.io/build/flow-logic/loop/) are

@@ -13,7 +13,7 @@ import { lockGraphCredentials } from "../credentials/credential-references";
 import { PrismaService } from "../database/prisma.service";
 import { ExecutionEventsService } from "./execution-events.service";
 import { resolveExpressions } from "./expression";
-import { assertLinearItemPath, isCollectionProducer, maximumOutputItems, outputItems, type WorkflowItem } from "./item-stream";
+import { assertSupportedItemPath, isCollectionProducer, maximumOutputItems, outputItems, type WorkflowItem } from "./item-stream";
 import { redactValue } from "./redaction";
 import { isRetryableFailure, retryDelayMs } from "./retry-policy";
 import { parseStoredWorkflowGraph, unavailableWorkflowNodes, workflowNodeDepths } from "../workflows/workflow-graph";
@@ -477,13 +477,13 @@ export class ExecutionService {
     }
 
     // Reject unsupported collection paths before any node can make a write.
-    // Per-item branches and approvals need their own execution semantics.
+    // Item joins and approvals need their own execution semantics.
     {
       try {
         for (const candidate of graph.nodes) {
           const config = candidate.config as Record<string, unknown>;
           if ((!debugNodeId || candidate.id === debugNodeId) && candidate.type.startsWith("action.") && Object.hasOwn(config, "executeOnce") && typeof config.executeOnce !== "boolean") throw new NodeFailure("INVALID_CONFIGURATION", "Run once must be on or off.", false);
-          if (!debugNodeId && isCollectionProducer(candidate, config)) assertLinearItemPath(graph, candidate.id);
+          if (!debugNodeId && isCollectionProducer(candidate, config)) assertSupportedItemPath(graph, candidate.id);
         }
       } catch (reason) {
         const failure = nodeFailureFromExecutionError(reason);
@@ -506,7 +506,7 @@ export class ExecutionService {
       : (startNodeIds ? graph.nodes.filter((node) => startNodeIds.includes(node.id)) : graph.nodes.filter((node) => node.type.startsWith("trigger.")));
     const visited = new Set(execution.nodeExecutions.filter((node) => node.status !== NodeExecutionStatus.PENDING && node.status !== NodeExecutionStatus.SKIPPED).map((node) => node.nodeId));
     const depths = workflowNodeDepths(graph);
-    const itemStreams = new Map<string, WorkflowItem[]>();
+    const itemStreams = new Map<WorkflowEdge, WorkflowItem[]>();
 
     while (pending.length) {
       if (await this.isCancelled(executionId)) return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
@@ -517,8 +517,8 @@ export class ExecutionService {
       const node = pending.shift();
       if (!node || visited.has(node.id)) continue;
       visited.add(node.id);
-      const incoming = graph.edges.find((edge) => edge.target === node.id && itemStreams.has(edge.source));
-      const inputItems = incoming ? itemStreams.get(incoming.source) : undefined;
+      const incoming = graph.edges.find((edge) => edge.target === node.id && itemStreams.has(edge));
+      const inputItems = incoming ? itemStreams.get(incoming) : undefined;
       const itemRun = inputItems ? await this.runItemNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, inputItems, mode, execution.idempotencyRootId ?? execution.id, runToken, restoredSteps) : undefined;
       const result = itemRun?.result ?? await this.runNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, mode, execution.idempotencyRootId ?? execution.id, runToken, restoredSteps);
       if (result.status === "interrupted") return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
@@ -576,14 +576,19 @@ export class ExecutionService {
       // already been redacted even though the trigger just ran in this phase.
       if (node.type.startsWith("trigger.")) restoredSteps.add(node.id);
       else restoredSteps.delete(node.id);
-      const nextEdges = graph.edges.filter((edge) => edge.source === node.id && edgeMatchesResult(edge, result));
+      let nextEdges = graph.edges.filter((edge) => edge.source === node.id && edgeMatchesResult(edge, result));
       const outputConfig = { ...node.config, ...(typeof result.output.operation === "string" ? { operation: result.output.operation } : {}) };
       if (itemRun || isCollectionProducer(node, outputConfig)) {
         try {
-          assertLinearItemPath(graph, node.id);
+          assertSupportedItemPath(graph, node.id);
           const items = itemRun?.items ?? outputItems(node, outputConfig, result.output).map((item, itemIndex) => ({ ...item, pairedItem: { nodeId: node.id, itemIndex } }));
-          itemStreams.set(node.id, items);
           if (!items.length) continue;
+          if (itemRun?.routedItems) {
+            nextEdges = graph.edges.filter((edge) => edge.source === node.id && itemRun.routedItems!.some((entry) => edgeMatchesResult(edge, entry.result)));
+            for (const edge of nextEdges) itemStreams.set(edge, itemRun.routedItems.filter((entry) => edgeMatchesResult(edge, entry.result)).map((entry) => entry.item));
+          } else {
+            for (const edge of nextEdges) itemStreams.set(edge, items);
+          }
         } catch (reason) {
           const failure = nodeFailureFromExecutionError(reason);
           await this.updateNodeWhileRunning(executionId, runToken, node.id, { status: NodeExecutionStatus.FAILED, errorCode: failure.code, errorMessage: failure.message, errorRetryable: false, completedAt: new Date() });
@@ -726,7 +731,7 @@ export class ExecutionService {
     if (failed.count) this.events.publish(executionId, "execution.failed");
   }
 
-  private async runItemNode(executionId: string, workspaceId: string, node: WorkflowNode, context: Record<string, unknown>, inputs: WorkflowItem[], mode: RunMode, idempotencyRootId: string, runToken: string, restoredSteps: ReadonlySet<string>): Promise<{ result: NodeResult; items: WorkflowItem[] }> {
+  private async runItemNode(executionId: string, workspaceId: string, node: WorkflowNode, context: Record<string, unknown>, inputs: WorkflowItem[], mode: RunMode, idempotencyRootId: string, runToken: string, restoredSteps: ReadonlySet<string>): Promise<{ result: NodeResult; items: WorkflowItem[]; routedItems?: Array<{ item: WorkflowItem; result: NodeResult }> }> {
     const interrupted = () => ({ result: { status: "interrupted" as const, output: {} }, items: [] });
     const rawConfig = node.config as Record<string, unknown>;
     const selectedInputs = rawConfig.executeOnce === true ? inputs.slice(0, 1) : inputs;
@@ -741,6 +746,8 @@ export class ExecutionService {
     if (!nodeExecutionId) return interrupted();
     this.events.publish(executionId, "node.updated");
     const items: WorkflowItem[] = [];
+    const conditional = node.type === "condition.if" || node.type === "condition.switch";
+    const routedItems: Array<{ item: WorkflowItem; result: NodeResult }> = [];
     const retries = readRetries(rawConfig);
     for (let itemIndex = 0; itemIndex < selectedInputs.length; itemIndex++) {
       if (await this.isCancelled(executionId) || !await this.renewLease(executionId, runToken)) return interrupted();
@@ -761,11 +768,12 @@ export class ExecutionService {
           const itemRootId = createHash("sha256").update(idempotencyRootId).update("\0").update(node.id).update("\0").update(String(itemIndex)).update("\0").update(JSON.stringify({ item: current.json, config })).digest("hex");
           const result = await executeNode(node, config, itemContext, mode, workspaceId, this.credentials, itemRootId);
           if (result.status !== "succeeded") throw new NodeFailure("ITEM_FLOW_UNSUPPORTED", "This node cannot wait or change execution state while processing items.", false);
-          const next = outputItems(node, config, result.output, { nodeId: node.id, itemIndex });
+          const next = conditional ? [{ json: current.json, pairedItem: { nodeId: node.id, itemIndex } }] : outputItems(node, config, result.output, { nodeId: node.id, itemIndex });
           if (items.length + next.length > maximumOutputItems) throw new NodeFailure("ITEM_LIMIT_EXCEEDED", `A node can return at most ${maximumOutputItems} items.`, false);
           if (Buffer.byteLength(JSON.stringify([...items, ...next]), "utf8") > 1_000_000) throw new NodeFailure("ITEM_SIZE_EXCEEDED", "Item output exceeds the 1 MB limit. An action may have completed; inspect the provider before retrying.", false);
           if (!await this.updateItemWhileRunning(executionId, runToken, nodeExecutionId, itemIndex, { status: NodeExecutionStatus.SUCCEEDED, output: redactValue(result.output) as Prisma.InputJsonValue, completedAt: new Date() })) return interrupted();
           items.push(...next);
+          if (conditional) routedItems.push({ item: next[0]!, result });
           completed = true;
           this.events.publish(executionId, "node.updated");
           break;
@@ -788,7 +796,7 @@ export class ExecutionService {
     const output = { items: items.map((item) => item.json), count: items.length };
     if (!await this.updateNodeWhileRunning(executionId, runToken, node.id, { status: NodeExecutionStatus.SUCCEEDED, output: redactValue(output) as Prisma.InputJsonValue, completedAt: new Date() })) return interrupted();
     this.events.publish(executionId, "node.updated");
-    return { result: { status: "succeeded", output, route: "success" }, items };
+    return { result: { status: "succeeded", output, route: "success" }, items, ...(conditional ? { routedItems } : {}) };
   }
 
   private async updateItemWhileRunning(executionId: string, runToken: string, nodeExecutionId: string, itemIndex: number, data: Prisma.NodeExecutionItemUpdateInput) {
@@ -999,7 +1007,13 @@ export async function executeNode(node: WorkflowNode, config: Record<string, unk
   const connectorExecutor = getConnectorExecutor(node.type);
   assertSupabaseWriteExpressions(node, context);
   assertGitHubSafetyExpressions(node, config, context);
-  if (connectorExecutor) return connectorExecutor({ config, mode, workspaceId, credentials, executionId, nodeId: node.id });
+  if (connectorExecutor) {
+    if (Object.hasOwn(config, "executeOnce") && typeof config.executeOnce !== "boolean") throw new NodeFailure("INVALID_CONFIGURATION", "Run once must be on or off.", false);
+    // This setting belongs to the runner, not the provider's configuration.
+    const connectorConfig = { ...config };
+    delete connectorConfig.executeOnce;
+    return connectorExecutor({ config: connectorConfig, mode, workspaceId, credentials, executionId, nodeId: node.id });
+  }
   const issue = nodeConfigIssues(node.type, config, "resolved")[0];
   if (issue) throw new NodeFailure("INVALID_CONFIGURATION", issue.message, false);
   if (node.type === "trigger.gmail" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "gmail", message: { id: "example-message", from: "sender@example.test", to: "owner@example.test", subject: "Example message", text: "Synthetic test message", labels: ["INBOX"] } } }, route: "success" };
