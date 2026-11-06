@@ -6,6 +6,18 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-06
 
+- [PR #94](https://github.com/phuuthanh-dev/fluxora/pull/94) merged as
+  `6b2cd5948ebde884f0abd8bd83851451edc188d2` after its PR and main gates
+  passed. [Production deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/42179889730)
+  succeeded; web, API and worker used this image, and landing, login, API health
+  and readiness returned HTTP 200. The isolated local `npm run verify` passed
+  1,045 API tests (one skipped), 73 web tests and 214 browser tests. No live
+  provider call was made for this qualification.
+- PR #94 routes bounded list items through If and Switch, preserves original
+  item data and immediate parent links, and skips empty branches. Joins,
+  approvals and action error branches after item sources are still unsupported;
+  100-item and 1 MB limits remain. It also prevents runner-only `executeOnce`
+  from reaching PostgreSQL/Supabase adapters. Do not implement this batch again.
 - [PR #93](https://github.com/phuuthanh-dev/fluxora/pull/93) merged as
   `240b6ee5ce476e0fa1dee9e718c6aea18861869a`; the PR and main quality gates
   passed and [production deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/42172497321)

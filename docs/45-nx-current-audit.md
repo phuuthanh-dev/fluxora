@@ -1,6 +1,13 @@
 # NX: current product and simplification audit
 
-Latest release: [PR #93](https://github.com/phuuthanh-dev/fluxora/pull/93)
+Latest release: [PR #94](https://github.com/phuuthanh-dev/fluxora/pull/94)
+merged and deployed as `6b2cd5948ebde884f0abd8bd83851451edc188d2` after
+PR and main CI passed. Bounded item paths now support If/Switch splits;
+joins, approval and action error branches remain unsupported. The runner-only
+`executeOnce` setting no longer reaches strict PostgreSQL/Supabase adapters.
+Health checks passed; real providers were not exercised for this release.
+
+Previous release: [PR #93](https://github.com/phuuthanh-dev/fluxora/pull/93)
 merged and deployed as `240b6ee5ce476e0fa1dee9e718c6aea18861869a` after its
 PR and main gates passed. It fixes duplicate summary notifications for newly
 created data-read templates; existing saved workflows need the setting enabled
@@ -57,7 +64,7 @@ is not a current backlog. An unrelated later retry/timeout experiment on
 | Google Calendar | Read, create, update, delete and availability actions have implementations. | A controlled 2030 adapter list contained the test event. A 2100 event was absent from both the adapter and the raw Google list response although free/busy reported busy; its cause is unknown. See `35-connector-coverage-and-discovery.md` for the limits of those tests. |
 | Reddit | A list-posts action and access guidance exist. | Mock coverage does not establish that this application's Reddit API access works. |
 | Authentication | Email/password, Google/GitHub sign-in and Steam account linking have separate code paths; session cookies are HttpOnly and marked Secure in production. | Source alone does not verify current provider approvals, environment configuration or the absence of security defects. |
-| NX-07 | PR #92 implements bounded automatic items on a single action path; binary, database changes and social-provider decisions are documented in `38-nx07-design-decisions.md`. | Branches, conditions, joins and approvals after list sources, binary storage and database change capture remain out of scope. |
+| NX-07 | PR #92 implements bounded automatic items; PR #94 adds If/Switch item routing. Binary, database changes and social-provider decisions are documented in `38-nx07-design-decisions.md`. | Joins, approvals and action error branches after list sources, binary storage and database change capture remain unsupported. |
 | Release | PR #92 deployment succeeded on attempt 2; production readiness and landing/login HTTP checks passed. | This is point-in-time evidence, not proof every workflow or provider is healthy. |
 
 Trigger review: cron only considers occurrences within the last 65 seconds, so
@@ -103,7 +110,7 @@ their existence does not establish that every template was run live.
 | NX-04 — communications and developer apps | Gmail, Chat, Telegram, GitHub, Sentry and Vercel operations are registered, with provider-specific credential requirements. | Live qualification, provider scope and behavior remain specific to each action; see the dated evidence in `35-connector-coverage-and-discovery.md`. |
 | NX-05 — triggers | RSS polling and Kuma, Telegram, Trello, Sentry and Vercel webhook handlers are present alongside Gmail polling and existing triggers. | Some remote registration is manual; sustained real delivery, recovery and all provider/account eligibility are not established. Cron has the recovery limit described above. |
 | NX-06 — AI | Gemini/OpenAI have structured output, schema validation, usage when returned, and per-request limits. | Live provider/model qualification is incomplete; per-request limits are not an aggregate budget. |
-| NX-07 — supported items and design decisions | PR #92 implements bounded items along a single action path and documents binary, database change triggers and Reddit/Meta decisions in `38-nx07-design-decisions.md`. | The item subset is not full n8n parity. Binary and DB change capture are not implemented. Meta/Instagram remain planned; Reddit access is externally gated. |
+| NX-07 — supported items and design decisions | PR #92 implements bounded items; PR #94 adds If/Switch routing. Binary, database change triggers and Reddit/Meta decisions are documented in `38-nx07-design-decisions.md`. | The item subset is not full n8n parity: joins, approvals and action error paths remain unsupported. Binary and DB change capture are not implemented. Meta/Instagram remain planned; Reddit access is externally gated. |
 
 This checklist distinguishes shipped source from validation and provider
 evidence. It does not mark NX complete or create work solely to preserve older
