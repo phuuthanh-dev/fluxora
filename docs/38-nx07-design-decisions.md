@@ -14,6 +14,13 @@ list before running the graph. The local synthetic verification and PR gate
 and main CI passed; production deployment succeeded on attempt 2 after an
 owner-approved cleanup of the previous rollback image pair.
 
+Post-deploy synthetic audit: 18 declared list-source configurations returned
+the array field selected by `getItemCollectionField`, and `outputItems` produced
+the same number of items. The mock Notion list-children and query-data-source
+results were empty; a separate fake-transport check returned two blocks and two
+pages and confirmed both were mapped into distinct items with content preserved.
+These checks do not establish live provider behavior or multi-node item routing.
+
 n8n normally processes incoming items automatically and has broader branching
 and item-linking behavior. Its [item data model](https://docs.n8n.io/build/work-with-data/understand-n8ns-data-structure/)
 and [loop documentation](https://docs.n8n.io/build/flow-logic/loop/) are
