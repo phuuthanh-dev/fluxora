@@ -1,6 +1,8 @@
 # NX: current product and simplification audit
 
-Latest release: [PR #96](https://github.com/phuuthanh-dev/fluxora/pull/96) merged as `42d42865e51510f6bf72c1054ccec35ff5da2870`; PR/main CI and [deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/42202455357) passed. Production web, API and worker run this image; landing, login, API health and readiness returned HTTP 200. Local verify passed 1,067 API tests (one skipped), 73 web tests and 214 browser tests on synthetic data. No live provider was tested. With an Error edge, failed items route to Error and other items to Success; without one the run stops. Fatal limits/internal errors still stop; joins and approvals after item sources remain unsupported. Do not implement this slice again.
+Latest release: [PR #97](https://github.com/phuuthanh-dev/fluxora/pull/97) merged as `398e397f7805ba3dfe027f2451af30c21eda993e`; PR/main CI and [deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/42217626999) passed. Production web/API/worker run this commit; landing, login, health and readiness returned HTTP 200. The isolated local gate passed 1,069 API tests (including Riot database integration; no API skips), 73 web tests and 215 browser tests. No real provider was exercised. The release refreshes execution status after an authorized SSE connection/reconnection, corrects item error/list guidance, adds synthetic end-to-end coverage, and updates this NX audit. Redis events lost while SSE remains connected are not replayed.
+
+Previous release: [PR #96](https://github.com/phuuthanh-dev/fluxora/pull/96) merged as `42d42865e51510f6bf72c1054ccec35ff5da2870`; PR/main CI and [deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/42202455357) passed. Production web, API and worker run this image; landing, login, API health and readiness returned HTTP 200. Local verify passed 1,067 API tests (one skipped), 73 web tests and 214 browser tests on synthetic data. No live provider was tested. With an Error edge, failed items route to Error and other items to Success; without one the run stops. Fatal limits/internal errors still stop; joins and approvals after item sources remain unsupported. Do not implement this slice again.
 
 Previous release: [PR #95](https://github.com/phuuthanh-dev/fluxora/pull/95)
 merged and deployed as `34204082407687b3cc8855c0e27d3e6a6aa1e5a7`; PR and
@@ -74,7 +76,7 @@ is not a current backlog. An unrelated later retry/timeout experiment on
 | Reddit | A list-posts action and access guidance exist. | Mock coverage does not establish that this application's Reddit API access works. |
 | Authentication | Email/password, Google/GitHub sign-in and Steam account linking have separate code paths; session cookies are HttpOnly and marked Secure in production. | Source alone does not verify current provider approvals, environment configuration or the absence of security defects. |
 | NX-07 | PR #92 implements bounded items; PR #94 adds If/Switch routing; PR #95 handles source errors and PR #96 routes individual failed items to a connected Error branch. Binary, database changes and social-provider decisions are documented in `38-nx07-design-decisions.md`. | Joins, approvals after list sources, binary storage and database change capture remain unsupported. |
-| Release | PR #96 deployed as `42d4286` after PR and main quality gates passed; landing/login and API health/readiness returned HTTP 200. | This is point-in-time evidence, not proof every workflow or provider is healthy. |
+| Release | PR #97 deployed as `398e397` after PR and main quality gates passed; landing/login and API health/readiness returned HTTP 200. | This is point-in-time evidence, not proof every workflow or provider is healthy. |
 
 Trigger review: cron only considers occurrences within the last 65 seconds, so
 an outage longer than that may miss scheduled runs; recovery covers accepted
@@ -143,9 +145,8 @@ node versions.
 - `execution.service.ts`, `item-stream.ts`, and the item tests contain the
   bounded item, condition and Error routing delivered in PRs #92–96. The API
   integration fixture covers mixed outcomes and fatal size limits; the canvas
-  E2E exercises node colours using synthetic execution state. A local E2E was
-  added for one failed mock item, its Error branch, and canvas colours without
-  substituting the execution response; the final isolated gate passed it. These checks do not
+  E2E exercises node colours using synthetic execution state. PR #97 added an E2E for one failed mock item, its Error branch, and canvas
+  colours without substituting the execution response; the final isolated gate passed it. These checks do not
   prove an end-to-end real-provider mixed-item workflow. Joins and approvals
   after list sources remain unsupported. Binary storage and database change
   capture are design boundaries, not released capabilities.
@@ -158,13 +159,13 @@ node versions.
 - Audit finding: when a fatal per-item limit or internal error stops execution
   even though an Error edge is connected, the API reports `execution_failed`
   with no routed target. The previous timeline text incorrectly said no Error
-  edge was connected. A local UI correction uses neutral stop wording, and list
+  edge was connected. PR #97 uses neutral stop wording, and list
   guidance now mentions supported conditions instead of claiming a single path.
   The updated UI assertion passed in the final isolated gate.
 - Source audit: the editor reads execution state once and then refreshes on SSE
   messages, while the previous SSE stream did not emit a current-state signal
   on subscription. A status change while the stream was connecting or
-  reconnecting could therefore be missed. A local change subscribes first and
+  reconnecting could therefore be missed. PR #97 subscribes first and
   then emits a connection signal, causing the existing client to refresh after
   each authorized subscription. Its controller test passed in the final gate. This does
   not guarantee recovery if Redis delivery is lost while SSE stays connected.
