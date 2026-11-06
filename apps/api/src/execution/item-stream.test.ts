@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { WorkflowNode, WorkflowNodeType } from "@workflow/contracts";
-import { assertLinearItemPath, maximumOutputItems, outputItems } from "./item-stream";
+import { assertSupportedItemPath, maximumOutputItems, outputItems } from "./item-stream";
 
 const node = (type: WorkflowNodeType): WorkflowNode => ({ id: "source", type, position: { x: 0, y: 0 }, config: {} });
 
@@ -21,9 +21,24 @@ test("item flows fail explicitly on branches and joins before downstream executi
   const target = { ...node("action.telegram.message"), id: "send" };
   const third = { ...node("action.github"), id: "other" };
   const graph = { nodes: [source, target, third], edges: [{ id: "one", source: "source", target: "send", kind: "success" as const }] };
-  assert.doesNotThrow(() => assertLinearItemPath(graph, source.id));
-  assert.throws(() => assertLinearItemPath({ ...graph, edges: [...graph.edges, { id: "two", source: "source", target: "other", kind: "success" }] }, source.id), { code: "ITEM_FLOW_UNSUPPORTED" });
-  assert.throws(() => assertLinearItemPath({ ...graph, edges: [...graph.edges, { id: "join", source: "other", target: "send", kind: "success" }] }, source.id), { code: "ITEM_FLOW_UNSUPPORTED" });
+  assert.doesNotThrow(() => assertSupportedItemPath(graph, source.id));
+  assert.throws(() => assertSupportedItemPath({ ...graph, edges: [...graph.edges, { id: "two", source: "source", target: "other", kind: "success" }] }, source.id), { code: "ITEM_FLOW_UNSUPPORTED" });
+  assert.throws(() => assertSupportedItemPath({ ...graph, edges: [...graph.edges, { id: "join", source: "other", target: "send", kind: "success" }] }, source.id), { code: "ITEM_FLOW_UNSUPPORTED" });
+});
+
+test("item conditions may split paths but cannot rejoin or lead to approval", () => {
+  const source = node("action.postgres.select");
+  const condition = { ...node("condition.if"), id: "if" };
+  const yes = { ...node("action.http-request"), id: "yes" };
+  const no = { ...node("action.http-request"), id: "no" };
+  const graph = { nodes: [source, condition, yes, no], edges: [
+    { id: "source-if", source: "source", target: "if", kind: "success" as const },
+    { id: "if-yes", source: "if", target: "yes", kind: "true" as const },
+    { id: "if-no", source: "if", target: "no", kind: "false" as const },
+  ] };
+  assert.doesNotThrow(() => assertSupportedItemPath(graph, source.id));
+  assert.throws(() => assertSupportedItemPath({ ...graph, edges: [...graph.edges, { id: "join", source: "no", target: "yes", kind: "success" }] }, source.id), { code: "ITEM_FLOW_UNSUPPORTED" });
+  assert.throws(() => assertSupportedItemPath({ ...graph, nodes: [...graph.nodes, { ...node("approval.request"), id: "approval" }], edges: [...graph.edges, { id: "pause", source: "yes", target: "approval", kind: "success" }] }, source.id), { code: "ITEM_FLOW_UNSUPPORTED" });
 });
 
 test("empty and malformed collections have bounded and explicit behavior", () => {

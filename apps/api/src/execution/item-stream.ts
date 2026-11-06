@@ -9,20 +9,24 @@ export function isCollectionProducer(node: WorkflowNode, config: Record<string, 
   return getItemCollectionField(node.type, config) !== undefined;
 }
 
-/** This first delivery cannot route per-item branches or pauses safely. */
-export function assertLinearItemPath(graph: WorkflowGraph, sourceId: string): void {
-  let current = sourceId;
+/** Validate item paths before any node runs. Joins and pauses are not supported. */
+export function assertSupportedItemPath(graph: WorkflowGraph, sourceId: string): void {
+  const pending = [sourceId];
   const visited = new Set<string>();
-  while (!visited.has(current)) {
+  while (pending.length) {
+    const current = pending.pop()!;
+    if (visited.has(current)) throw new NodeFailure("ITEM_FLOW_UNSUPPORTED", "Item paths cannot contain joins or cycles.", false);
     visited.add(current);
     const outgoing = graph.edges.filter((edge) => edge.source === current);
-    if (!outgoing.length) return;
-    if (outgoing.length !== 1 || outgoing[0]?.kind !== "success") break;
-    const target = graph.nodes.find((node) => node.id === outgoing[0]!.target);
-    if (!target || !target.type.startsWith("action.") || graph.edges.filter((edge) => edge.target === target.id).length !== 1) break;
-    current = target.id;
+    const node = graph.nodes.find((entry) => entry.id === current);
+    const conditional = node?.type === "condition.if" || node?.type === "condition.switch";
+    if (!conditional && (outgoing.length > 1 || outgoing.some((edge) => edge.kind !== "success"))) throw new NodeFailure("ITEM_FLOW_UNSUPPORTED", "Item actions currently support one success path without error branches.", false);
+    for (const edge of outgoing) {
+      const target = graph.nodes.find((entry) => entry.id === edge.target);
+      if (!target || !(target.type.startsWith("action.") || target.type === "condition.if" || target.type === "condition.switch") || graph.edges.filter((entry) => entry.target === target.id).length !== 1) throw new NodeFailure("ITEM_FLOW_UNSUPPORTED", "Item paths cannot contain joins or approvals.", false);
+      pending.push(target.id);
+    }
   }
-  throw new NodeFailure("ITEM_FLOW_UNSUPPORTED", "Item processing currently supports a single path of action nodes. Remove branches, joins, conditions and approvals after the list, or use a different workflow.", false);
 }
 
 /** Turn one connector result into items without losing its separately stored receipt. */

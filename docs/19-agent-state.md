@@ -6,6 +6,19 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-06
 
+- [PR #93](https://github.com/phuuthanh-dev/fluxora/pull/93) merged as
+  `240b6ee5ce476e0fa1dee9e718c6aea18861869a`; the PR and main quality gates
+  passed and [production deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/42172497321)
+  succeeded. Web, API and worker ran this image; public landing/login and API
+  health/readiness returned HTTP 200. Local `npm run verify` passed 1,034 API
+  tests (one skipped), 73 web tests and 214 browser tests with synthetic data.
+  This is point-in-time evidence, not qualification of live providers.
+- PR #93 corrected repeated summary notifications from five newly created
+  data-read-to-Chat templates by setting their action to process only the first
+  input item. The optional setting is available in the action's Advanced panel;
+  previously saved workflows are unchanged and must be updated and republished
+  if the behavior is desired. An empty item list does not run the action. Do not
+  implement this fix again; NX-07's single-path limitations still apply.
 - [PR #92](https://github.com/phuuthanh-dev/fluxora/pull/92) merged as
   `a2285e488a08a4754557ac7468c2f39cd06fb9da`; its
   [PR gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/42150543062)

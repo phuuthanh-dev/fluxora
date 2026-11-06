@@ -159,6 +159,11 @@ change triggers, or parallel V1/V2 implementations. Supported nodes, graph
 shapes and failure limits must be stated accurately as implementation proceeds;
 this decision is not a claim that full n8n behavior is already available.
 
+Local change, verified but not yet released: If and Switch may route each item
+through its matching output, passing its original JSON to the following node.
+Unselected outputs do not run. Joins, approvals and error branches after item
+sources remain unsupported and must fail before workflow nodes run.
+
 The initial implementation recognizes the list fields declared in
 `packages/workflow-contracts/src/item-metadata.ts`. Each list can contain up to
 100 items and 1 MB of item data. A supported source must feed a single path of
