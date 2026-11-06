@@ -2,6 +2,17 @@
 
 ## Trạng thái phát hành mới nhất — 06/11/2026
 
+PR [#92](https://github.com/phuuthanh-dev/fluxora/pull/92) đã merge tại
+`a2285e488a08a4754557ac7468c2f39cd06fb9da`; CI PR và CI main đạt. Deploy
+thành công ở lần hai sau khi chủ dự án cho phép xóa cặp image rollback cũ;
+lần đầu thất bại vì thiếu dung lượng. Production chạy `a2285e4`, migration
+thành công, health và landing/login đạt; chưa kiểm thử provider thật.
+Source đã có xử lý item giới hạn trên một
+nhánh action, lịch sử từng item và trạng thái node trong editor; chưa hỗ trợ
+điều kiện, approval, tách/gộp nhánh sau danh sách. Danh sách tối đa 100 item,
+1 MB mỗi node. Sửa validation Google cũng có trong PR này. Xem trạng thái
+triển khai và giới hạn trong [agent state](19-agent-state.md).
+
 PR [#91](https://github.com/phuuthanh-dev/fluxora/pull/91) đã merge tại
 `31a1637acd28343358352692448d32e43978833e`; [CI PR](https://github.com/phuuthanh-dev/fluxora/actions/runs/42081700786),
 [CI main](https://github.com/phuuthanh-dev/fluxora/actions/runs/42083785009) và

@@ -239,6 +239,12 @@ test("Google connector fields follow selected operations and preserve table-shap
   const driveNode = page.locator(".react-flow__node").filter({ hasText: "Google Drive" }).last();
   await expect(driveNode).toBeVisible();
   await driveNode.click();
+  const runOnce = page.getByRole("checkbox", { name: "Run once for the first item" });
+  await expect(runOnce).not.toBeChecked();
+  await runOnce.check();
+  await expect(runOnce).toBeChecked();
+  await runOnce.uncheck();
+  await expect(runOnce).not.toBeChecked();
   await expect(page.getByRole("textbox", { name: "File name" })).toHaveCount(0);
   await expect(page.getByRole("textbox", { name: "Text content" })).toHaveCount(0);
   await page.getByRole("combobox", { name: "Operation" }).selectOption("uploadText");

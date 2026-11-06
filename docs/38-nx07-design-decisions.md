@@ -1,31 +1,44 @@
 # NX-07: architecture decisions and provider gates
 
-Baseline: `3c9ac35`. These decisions guide implementation; they do not claim
-that the capabilities below are already shipped or qualified.
+Original baseline: `3c9ac35`. Later updates below distinguish merged work from
+design decisions and do not imply that a real provider has been qualified.
 
 ## Item processing
 
-Today a node runs once per execution and the unique execution identity is
-`(executionId, nodeId)`. An output array does not fan out downstream. A future
-bounded map needs stable item identities, per-item state and expression
-context, explicit item/concurrency limits, branch and cancellation semantics,
-and per-item ambiguous-write handling. Start with a linear mock read → map;
-joins, nested loops and per-item approvals need separate designs. n8n's
-[item data model](https://docs.n8n.io/build/work-with-data/understand-n8ns-data-structure.md)
-is a useful reference, not evidence that Fluxora already behaves that way.
-Unlike Fluxora's current engine, n8n normally processes each incoming item
-automatically; its [loop documentation](https://docs.n8n.io/build/flow-logic/loop/)
-also lists exceptions and a separate batching node. The editor hint
-explains Fluxora's behavior when an output contains a top-level list. It does
-not implement iteration, detect every nested array, or alter saved workflows.
+PR #92 implements an initial bounded item model for explicitly registered list
+outputs. Items flow automatically through a single sequence of action nodes,
+with current-item `$json` expressions and recorded per-item state. It supports
+up to 100 items and 1 MB per node; lists of arbitrary nested fields are not
+split. The runner rejects branches, joins, conditions and approvals after a
+list before running the graph. The local synthetic verification and PR gate
+and main CI passed; production deployment succeeded on attempt 2 after an
+owner-approved cleanup of the previous rollback image pair.
 
-An implementation must persist the source execution, parent item and stable
-ordinal alongside each item's state, use a configured concurrency ceiling,
-and preserve the original item in the expression context without exposing a
-different workspace. Retry eligibility is decided per item and write attempt;
-an unknown provider outcome requires review rather than an automatic replay.
-Failure, cancellation and restart semantics must be specified before exposing
-the feature. Per the owner decision in `docs/43-node-versioning-migration.md`, do not create
+Post-deploy synthetic audit: 18 declared list-source configurations returned
+the array field selected by `getItemCollectionField`, and `outputItems` produced
+the same number of items. The mock Notion list-children and query-data-source
+results were empty; a separate fake-transport check returned two blocks and two
+pages and confirmed both were mapped into distinct items with content preserved.
+These checks do not establish live provider behavior or multi-node item routing.
+
+Regression found after PR #92: data-read-to-Chat summary templates ran the same
+summary action once per item. The local follow-up adds an optional static
+`executeOnce` action setting based on n8n's node setting, enables it in the five
+newly created summary templates, and leaves normal per-item behavior unchanged.
+Existing workflows are not modified; users can enable the setting and republish.
+An empty list still stops before the action. The follow-up passed local `npm run
+verify` (1,034 API tests passed, one skipped; 73 web tests and 214 browser tests
+passed) using isolated test data. It has not yet been deployed. See [n8n node settings](https://docs.n8n.io/workflows/components/nodes/#node-settings).
+
+n8n normally processes incoming items automatically and has broader branching
+and item-linking behavior. Its [item data model](https://docs.n8n.io/build/work-with-data/understand-n8ns-data-structure/)
+and [loop documentation](https://docs.n8n.io/build/flow-logic/loop/) are
+references; Fluxora does not yet implement full n8n semantics.
+
+The implementation records parent node/item and ordinal, processes sequentially,
+and applies existing per-item write retry and cancellation rules. A manual
+workflow retry may repeat earlier writes; an unknown outcome needs review.
+Per the owner decision in `docs/43-node-versioning-migration.md`, do not create
 parallel V1/V2 node implementations merely to keep old graphs working; a
 future breaking item model must be explicit and old workflows may need to be
 recreated. Preserve workflow publish snapshots as a separate concept.

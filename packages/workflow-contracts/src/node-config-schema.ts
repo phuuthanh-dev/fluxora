@@ -140,8 +140,11 @@ function containsExpression(value: unknown): boolean {
 /** Static checks defer expressions; resolved checks reject missing expression values. */
 export function nodeConfigIssues(type: string, config: Record<string, unknown>, phase: "static" | "resolved"): NodeConfigIssue[] {
   const nodeRules = Object.hasOwn(rules, type) ? rules[type] : undefined;
-  if (!nodeRules) return [];
   const issues: NodeConfigIssue[] = [];
+  if (type.startsWith("action.") && Object.hasOwn(config, "executeOnce") && typeof config.executeOnce !== "boolean") {
+    issues.push({ field: "executeOnce", message: "Run once must be on or off." });
+  }
+  if (!nodeRules) return issues;
   for (const [field, rule] of Object.entries(nodeRules)) {
     const selectors = rule.dependsOn ?? ["operation"];
     if (rule.when && phase === "static" && selectors.some((key) => containsExpression(config[key]))) continue;

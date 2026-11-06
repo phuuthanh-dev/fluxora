@@ -6,6 +6,25 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-06
 
+- [PR #92](https://github.com/phuuthanh-dev/fluxora/pull/92) merged as
+  `a2285e488a08a4754557ac7468c2f39cd06fb9da`; its
+  [PR gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/42150543062)
+  passed. The [main gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/42152146473)
+  passed. [Production deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/42153611664)
+  succeeded on attempt 2, after the owner approved removing the unused rollback
+  image pair `166ff404` following an insufficient-disk failure on attempt 1.
+  Production API, worker and web ran `a2285e4`; migration
+  `20261106100000_node_execution_items` applied, readiness, landing and login
+  checks passed. These checks do not qualify live providers. The local isolated
+  gate passed 1,015 API tests, 73 web tests
+  and 214 Playwright tests; 17 conditional API tests were skipped locally. A
+  separate synthetic PostgreSQL check exercised a workflow and two item records.
+- PR #92 implements bounded automatic list-item execution along a single path
+  of action nodes, per-item execution history, safe `$json` expressions and
+  editor run-state indicators; it also corrects Google resource validation.
+  This is not full n8n item parity. Branches, conditions, joins and approvals
+  after a list are rejected, and supported lists are limited to 100 items and
+  1 MB. No real-provider qualification follows from the mock tests.
 - [PR #91](https://github.com/phuuthanh-dev/fluxora/pull/91) merged as
   `31a1637acd28343358352692448d32e43978833e`; its
   [PR gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/42081700786),

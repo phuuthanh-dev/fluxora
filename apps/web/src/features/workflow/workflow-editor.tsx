@@ -1178,6 +1178,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
         </section>
       </InspectorSection>
       <InspectorSection title="Advanced">
+        {node.data.category === "action" && <div className="config-field"><label className="checkbox-field"><input type="checkbox" checked={node.data.config.executeOnce === true} onChange={(event) => updateConfig("executeOnce", event.target.checked ? true : undefined)} /> Run once for the first item</label><small>When the previous step returns multiple items, run this action only for the first. No items means this action does not run.</small>{configIssues.find((issue) => issue.field === "executeOnce") && <p className="ui-field__error" role="alert">{configIssues.find((issue) => issue.field === "executeOnce")?.message}</p>}</div>}
         <JsonConfigEditor key={node.id} config={node.data.config} onApply={(config) => updateNodeData(node.id, { config })} draft={draft.json} onDraftChange={(next) => onDraftChange("json", next)} otherPending={draft.filter !== undefined || draft.filterRaw !== undefined || draft.testData !== undefined || draft.structuredOutput !== undefined || draft.relational !== undefined || draft.sheetsMapping !== undefined} />
         <ExpressionSuggestions suggestions={suggestions} possible={possible} />
       </InspectorSection>

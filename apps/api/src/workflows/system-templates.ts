@@ -105,13 +105,13 @@ export const systemWorkflowTemplates: SystemWorkflowTemplate[] = [
   })),
   ...dataReadSamples.map((sample): SystemWorkflowTemplate => ({
     slug: `${sample.slug}-chat-summary`, name: `${sample.connection} read summary to Google Chat`,
-    description: `${sample.description} Send a short summary to a Google Chat webhook.`,
+    description: `${sample.description} Send one summary to a Google Chat webhook when results are found.`,
     tags: ["Data", "Notifications"], requiredConnections: [sample.connection, "Google Chat"],
     graph: {
       nodes: [
         { id: "manual", type: "trigger.manual", position: { x: 100, y: 220 }, config: {} },
         { id: "inspect", type: sample.type, position: { x: 400, y: 220 }, config: { ...sample.config } },
-        { id: "notify", type: "action.google-chat.webhook", position: { x: 700, y: 220 }, config: { credentialId: "", message: sample.summary } },
+        { id: "notify", type: "action.google-chat.webhook", position: { x: 700, y: 220 }, config: { credentialId: "", message: sample.summary, executeOnce: true } },
       ],
       edges: [{ id: "manual-to-inspect", source: "manual", target: "inspect", kind: "success" }, { id: "inspect-to-notify", source: "inspect", target: "notify", kind: "success" }],
     },
