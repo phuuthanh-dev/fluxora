@@ -43,12 +43,28 @@ provider adapter validation. Local `npm run verify` passed 1,045 API tests
 main CI and deployment passed; production health checks returned HTTP 200.
 This is not a live-provider qualification.
 
-Local change, verified but not yet released: restore the source node's existing
+Released in [PR #95](https://github.com/phuuthanh-dev/fluxora/pull/95) as
+`3420408`: restore the source node's existing
 error branch when a list-producing node fails before creating any items,
 including malformed or over-limit list output. Per-item action error handling
 remains unsupported and is still rejected during preflight. Local `npm run
 verify` passed 1,052 API tests (one skipped), 73 web tests and 214 browser tests
-using synthetic data. No real-provider qualification follows from this test.
+using synthetic data. PR/main CI and deployment passed; public health checks
+returned HTTP 200. No real-provider qualification follows from these checks.
+
+Owner decision, verified locally (not yet released): when an item action
+has an Error edge, continue processing the other items and route failures to the
+Error branch. Without one, stop on the first failure. Global limits and unknown
+internal errors still stop. Error items retain their input fields but replace an
+existing `error` field with a safe generic error object; provider exception text
+is not propagated to downstream nodes. Uncertain writes are never auto-retried.
+Unlike [n8n's separate On Error setting](https://docs.n8n.io/build/understand-workflows/workflow-components/work-with-nodes/#node-settings),
+Fluxora uses the existing connected Error edge to select this behavior; it adds
+no new setting. Connecting Error permits later items to run, including after an
+uncertain outcome; the affected item itself is not automatically retried.
+Local `npm run verify` passed 1,067 API tests (one skipped), 73 web tests and
+214 browser tests using an isolated database and synthetic data; real provider
+behavior was not tested.
 
 n8n normally processes incoming items automatically and has broader branching
 and item-linking behavior. Its [item data model](https://docs.n8n.io/build/work-with-data/understand-n8ns-data-structure/)

@@ -1,6 +1,12 @@
 # NX: current product and simplification audit
 
-Latest release: [PR #94](https://github.com/phuuthanh-dev/fluxora/pull/94)
+Latest release: [PR #95](https://github.com/phuuthanh-dev/fluxora/pull/95)
+merged and deployed as `34204082407687b3cc8855c0e27d3e6a6aa1e5a7`; PR and
+main CI and health checks passed. A list source's existing error branch works
+when the source fails before emitting items. Per-item error branches remain
+unsupported. No real provider was qualified for this release.
+
+Previous release: [PR #94](https://github.com/phuuthanh-dev/fluxora/pull/94)
 merged and deployed as `6b2cd5948ebde884f0abd8bd83851451edc188d2` after
 PR and main CI passed. Bounded item paths now support If/Switch splits;
 joins, approval and action error branches remain unsupported. The runner-only

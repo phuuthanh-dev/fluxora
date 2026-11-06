@@ -36,14 +36,22 @@ so If and Switch can route each original item separately. Item outputs retain
 their immediate parent link. Unselected paths do not run; joins, approvals and
 action error branches on item paths remain rejected before execution.
 
-Local change, verified but not yet released: an error branch on a list source
+Released in PR #95: an error branch on a list source
 without item input uses the ordinary node-level runner before an item stream
 exists. Malformed or over-limit source output follows that same branch. This
 does not enable continuing after a failure within per-item processing.
 
+Owner decision, verified locally (not yet released): an action with a
+connected Error output partitions per-item success and failure, retaining each
+item's parent link. Its node record is failed if any item fails, while handled
+failures can continue on their respective branches. Error output uses a generic
+safe message and a coarse error code; detailed errors remain in the execution
+inspector. Unknown internal errors and item count/size limit failures remain
+fatal even with an Error output. Existing retry and uncertain-write rules apply.
+
 The implementation stores bounded per-item state in `NodeExecutionItem`, with
 links to the immediate parent item and redacted inputs and outputs. It processes
-items sequentially, stops on an error and marks unstarted items skipped. Lease
+items sequentially; without a connected Error output, it stops on an error and marks unstarted items skipped. Lease
 loss or cancellation does not replay an in-flight write. Before any node runs,
 the runner rejects unsupported joins, approval and action error paths after a
 list. This subset has a maximum of 100 items and 1 MB of item data per

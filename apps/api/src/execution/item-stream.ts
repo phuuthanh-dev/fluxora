@@ -23,7 +23,7 @@ export function assertSupportedItemPath(graph: WorkflowGraph, sourceId: string, 
     const sourceError = allowSourceError && current === sourceId && node !== undefined && isCollectionProducer(node, node.config);
     const outgoing = graph.edges.filter((edge) => edge.source === current && !(sourceError && edge.kind === "error"));
     const conditional = node?.type === "condition.if" || node?.type === "condition.switch";
-    if (!conditional && (outgoing.length > 1 || outgoing.some((edge) => edge.kind !== "success"))) throw new NodeFailure("ITEM_FLOW_UNSUPPORTED", "Item actions currently support one success path without error branches.", false);
+    if (!conditional && outgoing.some((edge) => edge.kind !== "success" && edge.kind !== "error")) throw new NodeFailure("ITEM_FLOW_UNSUPPORTED", "Item actions support success and error paths only.", false);
     for (const edge of outgoing) {
       const target = graph.nodes.find((entry) => entry.id === edge.target);
       if (!target || !(target.type.startsWith("action.") || target.type === "condition.if" || target.type === "condition.switch") || graph.edges.filter((entry) => entry.target === target.id).length !== 1) throw new NodeFailure("ITEM_FLOW_UNSUPPORTED", "Item paths cannot contain joins or approvals.", false);

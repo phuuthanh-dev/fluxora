@@ -16,13 +16,13 @@ test("explicit list outputs become individual linked items, while other arrays s
   assert.deepEqual(outputItems(node("action.google-drive"), { operation: "downloadText" }, { text: "example" }), [{ json: { text: "example" } }]);
 });
 
-test("item flows fail explicitly on branches and joins before downstream execution", () => {
+test("item flows allow explicit action branches but reject joins before downstream execution", () => {
   const source = node("action.postgres.select");
   const target = { ...node("action.telegram.message"), id: "send" };
   const third = { ...node("action.github"), id: "other" };
   const graph = { nodes: [source, target, third], edges: [{ id: "one", source: "source", target: "send", kind: "success" as const }] };
   assert.doesNotThrow(() => assertSupportedItemPath(graph, source.id));
-  assert.throws(() => assertSupportedItemPath({ ...graph, edges: [...graph.edges, { id: "two", source: "source", target: "other", kind: "success" }] }, source.id), { code: "ITEM_FLOW_UNSUPPORTED" });
+  assert.doesNotThrow(() => assertSupportedItemPath({ ...graph, edges: [...graph.edges, { id: "two", source: "source", target: "other", kind: "success" }] }, source.id));
   assert.throws(() => assertSupportedItemPath({ ...graph, edges: [...graph.edges, { id: "join", source: "other", target: "send", kind: "success" }] }, source.id), { code: "ITEM_FLOW_UNSUPPORTED" });
 });
 
@@ -41,7 +41,7 @@ test("item conditions may split paths but cannot rejoin or lead to approval", ()
   assert.throws(() => assertSupportedItemPath({ ...graph, nodes: [...graph.nodes, { ...node("approval.request"), id: "approval" }], edges: [...graph.edges, { id: "pause", source: "yes", target: "approval", kind: "success" }] }, source.id), { code: "ITEM_FLOW_UNSUPPORTED" });
 });
 
-test("a list source may have an error branch, while per-item actions may not", () => {
+test("a list source and per-item actions may have separate error branches", () => {
   const source = node("action.postgres.select");
   const action = { ...node("action.http-request"), id: "action" };
   const recovery = { ...node("action.http-request"), id: "recovery" };
@@ -50,9 +50,9 @@ test("a list source may have an error branch, while per-item actions may not", (
     { id: "error", source: "source", target: "recovery", kind: "error" as const },
   ] };
   assert.doesNotThrow(() => assertSupportedItemPath(graph, source.id, true));
-  assert.throws(() => assertSupportedItemPath({ ...graph, edges: [graph.edges[0]!, { ...graph.edges[1]!, source: "action" }] }, source.id, true), { code: "ITEM_FLOW_UNSUPPORTED" });
+  assert.doesNotThrow(() => assertSupportedItemPath({ ...graph, edges: [graph.edges[0]!, { ...graph.edges[1]!, source: "action" }] }, source.id, true));
   const nestedSource = { ...node("action.supabase.select"), id: "action" };
-  assert.throws(() => assertSupportedItemPath({ ...graph, nodes: [source, nestedSource, recovery], edges: [graph.edges[0]!, { ...graph.edges[1]!, source: "action" }] }, source.id, true), { code: "ITEM_FLOW_UNSUPPORTED" });
+  assert.doesNotThrow(() => assertSupportedItemPath({ ...graph, nodes: [source, nestedSource, recovery], edges: [graph.edges[0]!, { ...graph.edges[1]!, source: "action" }] }, source.id, true));
 });
 
 test("empty and malformed collections have bounded and explicit behavior", () => {

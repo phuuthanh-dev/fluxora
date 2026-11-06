@@ -164,9 +164,18 @@ through its matching output, passing its original JSON to the following node.
 Unselected outputs do not run. Joins, approvals and error branches after item
 sources remain unsupported and must fail before workflow nodes run.
 
-Local change, verified but not yet released: a list source without item input may
+Released in PR #95: a list source without item input may
 use its normal error branch if the source fails or its list is malformed or over
 the item limit. Per-item action error branches remain unsupported.
+
+Owner decision, verified locally (not yet released): when a per-item
+action has a connected Error output, it processes later items, sends failed
+items to Error and successful items to Success. The failed action stays red;
+handled failures alone do not fail the workflow. An error item retains the input
+fields and adds an `error` object, replacing an existing field of that name;
+provider exception text is not copied into that object. Without Error, the first
+failure stops execution. Global size/count limits and internal failures also
+stop the execution even if Error is connected. Uncertain writes are not retried.
 
 The runner recognizes the list fields declared in
 `packages/workflow-contracts/src/item-metadata.ts`. Each list can contain up to

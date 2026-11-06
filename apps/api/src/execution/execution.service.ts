@@ -5,7 +5,7 @@ export { executeGoogleChatWebhook, executeDiscordWebhook, executeTelegramMessage
 export { executeGitHubCreateIssue, executeGitHubAddLabel, executeGitHubAddComment, executeGitHubMergePullRequest } from "./github-write-adapter";
 import { getConnectorExecutor } from "./connector-executors";
 import { isExecutableWorkflowNodeType, nodeConfigIssues, type WorkflowEdge, type WorkflowGraph, type WorkflowNode } from "@workflow/contracts";
-import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, HttpException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { ApprovalRequestStatus, CredentialProvider, ExecutionStatus, NodeExecutionStatus, Prisma } from "@prisma/client";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { CredentialService } from "../credentials/credential.service";
@@ -246,7 +246,7 @@ export class ExecutionService {
         startedAt: node.startedAt,
         completedAt: node.completedAt,
         durationMs: node.startedAt && node.completedAt ? node.completedAt.getTime() - node.startedAt.getTime() : null,
-        failureHandling: node.status === NodeExecutionStatus.FAILED ? failureHandling(graph, node.nodeId) : null,
+        failureHandling: node.status === NodeExecutionStatus.FAILED ? failureHandling(graph, node.nodeId, execution.status, execution.nodeExecutions, (node.items ?? []).length > 0) : null,
         skipReason: node.status === NodeExecutionStatus.SKIPPED ? skippedReason(execution.status) : null,
       })),
     };
@@ -519,7 +519,8 @@ export class ExecutionService {
       visited.add(node.id);
       const incoming = graph.edges.find((edge) => edge.target === node.id && itemStreams.has(edge));
       const inputItems = incoming ? itemStreams.get(incoming) : undefined;
-      const itemRun = inputItems ? await this.runItemNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, inputItems, mode, execution.idempotencyRootId ?? execution.id, runToken, restoredSteps) : undefined;
+      const routeItemErrors = node.type.startsWith("action.") && graph.edges.some((edge) => edge.source === node.id && edge.kind === "error");
+      const itemRun = inputItems ? await this.runItemNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, inputItems, mode, execution.idempotencyRootId ?? execution.id, runToken, restoredSteps, routeItemErrors) : undefined;
       const result = itemRun?.result ?? await this.runNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, mode, execution.idempotencyRootId ?? execution.id, runToken, restoredSteps);
       if (result.status === "interrupted") return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
       if (debugNodeId) {
@@ -563,7 +564,9 @@ export class ExecutionService {
         return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
       }
       if (result.status === "failed") {
-        const errorTargets = graph.edges.filter((edge) => edge.source === node.id && edge.kind === "error");
+        // Item failures with an error edge are routed by runItemNode. A failed
+        // item run here is a fatal limit/internal failure and must not continue.
+        const errorTargets = itemRun ? [] : graph.edges.filter((edge) => edge.source === node.id && edge.kind === "error");
         if (!errorTargets.length) {
           await this.markUnvisitedSkipped(executionId, runToken, graph, visited);
           return this.finishRunning(executionId, runToken, { status: ExecutionStatus.FAILED, completedAt: new Date(), leaseExpiresAt: null, errorCode: result.error?.code ?? "NODE_FAILED", errorMessage: result.error?.message ?? "Workflow node failed.", errorRetryable: result.error?.retryable ?? false }, "execution.failed");
@@ -742,7 +745,7 @@ export class ExecutionService {
     if (failed.count) this.events.publish(executionId, "execution.failed");
   }
 
-  private async runItemNode(executionId: string, workspaceId: string, node: WorkflowNode, context: Record<string, unknown>, inputs: WorkflowItem[], mode: RunMode, idempotencyRootId: string, runToken: string, restoredSteps: ReadonlySet<string>): Promise<{ result: NodeResult; items: WorkflowItem[]; routedItems?: Array<{ item: WorkflowItem; result: NodeResult }> }> {
+  private async runItemNode(executionId: string, workspaceId: string, node: WorkflowNode, context: Record<string, unknown>, inputs: WorkflowItem[], mode: RunMode, idempotencyRootId: string, runToken: string, restoredSteps: ReadonlySet<string>, routeItemErrors = false): Promise<{ result: NodeResult; items: WorkflowItem[]; routedItems?: Array<{ item: WorkflowItem; result: NodeResult }> }> {
     const interrupted = () => ({ result: { status: "interrupted" as const, output: {} }, items: [] });
     const rawConfig = node.config as Record<string, unknown>;
     const selectedInputs = rawConfig.executeOnce === true ? inputs.slice(0, 1) : inputs;
@@ -757,8 +760,11 @@ export class ExecutionService {
     if (!nodeExecutionId) return interrupted();
     this.events.publish(executionId, "node.updated");
     const items: WorkflowItem[] = [];
+    const errors: WorkflowItem[] = [];
     const conditional = node.type === "condition.if" || node.type === "condition.switch";
     const routedItems: Array<{ item: WorkflowItem; result: NodeResult }> = [];
+    let firstHandledFailure: NodeFailure | undefined;
+    let highestAttempt = 0;
     const retries = readRetries(rawConfig);
     for (let itemIndex = 0; itemIndex < selectedInputs.length; itemIndex++) {
       if (await this.isCancelled(executionId) || !await this.renewLease(executionId, runToken)) return interrupted();
@@ -766,6 +772,7 @@ export class ExecutionService {
       const itemContext = { ...context, $json: current.json };
       let completed = false;
       for (let attempt = 1; attempt <= retries; attempt++) {
+        highestAttempt = Math.max(highestAttempt, attempt);
         if (!await this.updateItemWhileRunning(executionId, runToken, nodeExecutionId, itemIndex, { status: NodeExecutionStatus.RUNNING, attempt, startedAt: new Date(), completedAt: null, errorCode: null, errorMessage: null, errorRetryable: null })) return interrupted();
         try {
           const schemaValue = rawConfig.outputSchema;
@@ -780,11 +787,11 @@ export class ExecutionService {
           const result = await executeNode(node, config, itemContext, mode, workspaceId, this.credentials, itemRootId);
           if (result.status !== "succeeded") throw new NodeFailure("ITEM_FLOW_UNSUPPORTED", "This node cannot wait or change execution state while processing items.", false);
           const next = conditional ? [{ json: current.json, pairedItem: { nodeId: node.id, itemIndex } }] : outputItems(node, config, result.output, { nodeId: node.id, itemIndex });
-          if (items.length + next.length > maximumOutputItems) throw new NodeFailure("ITEM_LIMIT_EXCEEDED", `A node can return at most ${maximumOutputItems} items.`, false);
-          if (Buffer.byteLength(JSON.stringify([...items, ...next]), "utf8") > 1_000_000) throw new NodeFailure("ITEM_SIZE_EXCEEDED", "Item output exceeds the 1 MB limit. An action may have completed; inspect the provider before retrying.", false);
+          if (items.length + errors.length + next.length > maximumOutputItems) throw new NodeFailure("ITEM_LIMIT_EXCEEDED", `A node can return at most ${maximumOutputItems} items.`, false);
+          if (Buffer.byteLength(JSON.stringify([...items, ...errors, ...next]), "utf8") > 1_000_000) throw new NodeFailure("ITEM_SIZE_EXCEEDED", "Item output exceeds the 1 MB limit. An action may have completed; inspect the provider before retrying.", false);
           if (!await this.updateItemWhileRunning(executionId, runToken, nodeExecutionId, itemIndex, { status: NodeExecutionStatus.SUCCEEDED, output: redactValue(result.output) as Prisma.InputJsonValue, completedAt: new Date() })) return interrupted();
           items.push(...next);
-          if (conditional) routedItems.push({ item: next[0]!, result });
+          if (conditional || routeItemErrors) for (const item of next) routedItems.push({ item, result: conditional ? result : { ...result, route: "success" } });
           completed = true;
           this.events.publish(executionId, "node.updated");
           break;
@@ -794,9 +801,27 @@ export class ExecutionService {
           if (!await this.updateItemWhileRunning(executionId, runToken, nodeExecutionId, itemIndex, { status: NodeExecutionStatus.FAILED, errorCode: failure.code, errorMessage: failure.message, errorRetryable: retryable, completedAt: new Date() })) return interrupted();
           this.events.publish(executionId, "node.updated");
           if (!retryable || attempt >= retries) {
+            let terminalFailure = failure;
+            const clientError = reason instanceof HttpException && reason.getStatus() >= 400 && reason.getStatus() < 500;
+            const routable = routeItemErrors && !conditional && (reason instanceof NodeFailure || clientError) && !["ITEM_LIMIT_EXCEEDED", "ITEM_SIZE_EXCEEDED", "ITEM_FLOW_UNSUPPORTED"].includes(failure.code);
+            if (routable) {
+              const uncertain = ["DELIVERY_UNCERTAIN", "WRITE_UNCERTAIN", "GMAIL_WRITE_UNCERTAIN", "SMTP_PARTIAL_REJECTION", "CALENDAR_UPDATE_OUTCOME_UNKNOWN", "CALENDAR_DELETE_OUTCOME_UNKNOWN"].includes(failure.code);
+              const item: WorkflowItem = { json: { ...current.json, error: { code: uncertain ? "OUTCOME_UNKNOWN" : "ITEM_FAILED", message: uncertain ? "The provider may have applied this request. Check it before retrying." : "This item failed. See execution details.", retryable } }, pairedItem: { nodeId: node.id, itemIndex } };
+              const tooMany = items.length + errors.length + 1 > maximumOutputItems;
+              const withinLimit = !tooMany && Buffer.byteLength(JSON.stringify([...items, ...errors, item]), "utf8") <= 1_000_000;
+              if (withinLimit) {
+                if (!await this.updateItemWhileRunning(executionId, runToken, nodeExecutionId, itemIndex, { output: redactValue(item.json) as Prisma.InputJsonValue })) return interrupted();
+                errors.push(item);
+                routedItems.push({ item, result: { status: "succeeded", output: {}, route: "error" } });
+                firstHandledFailure ??= failure;
+                completed = true;
+                break;
+              }
+              terminalFailure = new NodeFailure(tooMany ? "ITEM_LIMIT_EXCEEDED" : "ITEM_SIZE_EXCEEDED", "Item output exceeds its count or size limit. An action may have completed; inspect the provider before retrying.", false);
+            }
             await this.skipPendingItems(executionId, runToken, nodeExecutionId);
-            if (!await this.updateNodeWhileRunning(executionId, runToken, node.id, { status: NodeExecutionStatus.FAILED, errorCode: failure.code, errorMessage: failure.message, errorRetryable: retryable, completedAt: new Date() })) return interrupted();
-            return { result: { status: "failed", output: {}, error: failure }, items: [] };
+            if (!await this.updateNodeWhileRunning(executionId, runToken, node.id, { status: NodeExecutionStatus.FAILED, attempt: highestAttempt, errorCode: terminalFailure.code, errorMessage: terminalFailure.message, errorRetryable: isRetryableFailure(terminalFailure), completedAt: new Date() })) return interrupted();
+            return { result: { status: "failed", output: {}, error: terminalFailure }, items: [] };
           }
           await delay(retryDelayMs(attempt, failure.retryAfterMs));
           if (!await this.renewLease(executionId, runToken)) return interrupted();
@@ -804,10 +829,11 @@ export class ExecutionService {
       }
       if (!completed) return interrupted();
     }
-    const output = { items: items.map((item) => item.json), count: items.length };
-    if (!await this.updateNodeWhileRunning(executionId, runToken, node.id, { status: NodeExecutionStatus.SUCCEEDED, output: redactValue(output) as Prisma.InputJsonValue, completedAt: new Date() })) return interrupted();
+    const output = { items: items.map((item) => item.json), count: items.length, ...(routeItemErrors ? { errorItems: errors.map((item) => item.json), errorCount: errors.length } : {}) };
+    const nodeStatus = firstHandledFailure ? NodeExecutionStatus.FAILED : NodeExecutionStatus.SUCCEEDED;
+    if (!await this.updateNodeWhileRunning(executionId, runToken, node.id, { status: nodeStatus, attempt: highestAttempt, output: redactValue(output) as Prisma.InputJsonValue, ...(firstHandledFailure ? { errorCode: firstHandledFailure.code, errorMessage: firstHandledFailure.message, errorRetryable: isRetryableFailure(firstHandledFailure) } : {}), completedAt: new Date() })) return interrupted();
     this.events.publish(executionId, "node.updated");
-    return { result: { status: "succeeded", output, route: "success" }, items, ...(conditional ? { routedItems } : {}) };
+    return { result: { status: "succeeded", output, route: "success" }, items: [...items, ...errors], ...(conditional || routeItemErrors ? { routedItems } : {}) };
   }
 
   private async updateItemWhileRunning(executionId: string, runToken: string, nodeExecutionId: string, itemIndex: number, data: Prisma.NodeExecutionItemUpdateInput) {
@@ -960,8 +986,11 @@ export class ExecutionService {
   }
 }
 
-function failureHandling(graph: WorkflowGraph, nodeId: string) {
+function failureHandling(graph: WorkflowGraph, nodeId: string, status: ExecutionStatus, nodes: Array<{ nodeId: string; status: NodeExecutionStatus }>, hasItems: boolean) {
   const targets = graph.edges.filter((edge) => edge.source === nodeId && edge.kind === "error").map((edge) => edge.target);
+  // A fatal item limit or infrastructure error stops the run even if an error
+  // edge is connected. Do not claim it was routed when every target was skipped.
+  if (hasItems && status === ExecutionStatus.FAILED && targets.length && targets.every((id) => nodes.some((node) => node.nodeId === id && node.status === NodeExecutionStatus.SKIPPED))) return { kind: "execution_failed" as const, targetNodeIds: [] };
   return targets.length
     ? { kind: "error_branch" as const, targetNodeIds: targets }
     : { kind: "execution_failed" as const, targetNodeIds: [] };

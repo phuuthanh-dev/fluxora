@@ -6,6 +6,16 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-06
 
+- [PR #95](https://github.com/phuuthanh-dev/fluxora/pull/95) merged as
+  `34204082407687b3cc8855c0e27d3e6a6aa1e5a7` after PR and main CI passed;
+  [deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/42186760985)
+  succeeded. Production web, API and worker ran this image; landing, login,
+  health and readiness returned HTTP 200. Local `npm run verify` passed 1,052
+  API tests (one skipped), 73 web tests and 214 browser tests with synthetic
+  data. No live provider was tested for this release.
+- PR #95 restores a list source's existing error branch when the source fails
+  before producing items, including malformed or over-limit output. Per-item
+  action error branches remain unsupported. Do not repeat this fix.
 - [PR #94](https://github.com/phuuthanh-dev/fluxora/pull/94) merged as
   `6b2cd5948ebde884f0abd8bd83851451edc188d2` after its PR and main gates
   passed. [Production deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/42179889730)

@@ -42,7 +42,7 @@ per-item error handling or adding a new node setting.
 - [x] A failing source without an error edge fails the execution.
 - [x] An error edge on an action that processes items is rejected before nodes
   run; unsupported joins and approval paths remain rejected.
-- [ ] Verify the complete batch once, then use a single develop-to-main PR.
+- [x] The batch passed local verify and shipped in develop-to-main PR #95.
 
 ## Safety boundaries
 
