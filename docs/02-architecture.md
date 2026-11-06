@@ -41,7 +41,7 @@ without item input uses the ordinary node-level runner before an item stream
 exists. Malformed or over-limit source output follows that same branch. This
 does not enable continuing after a failure within per-item processing.
 
-Owner decision, verified locally (not yet released): an action with a
+Released in [PR #96](https://github.com/phuuthanh-dev/fluxora/pull/96): an action with a
 connected Error output partitions per-item success and failure, retaining each
 item's parent link. Its node record is failed if any item fails, while handled
 failures can continue on their respective branches. Error output uses a generic

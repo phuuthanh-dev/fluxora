@@ -52,7 +52,7 @@ verify` passed 1,052 API tests (one skipped), 73 web tests and 214 browser tests
 using synthetic data. PR/main CI and deployment passed; public health checks
 returned HTTP 200. No real-provider qualification follows from these checks.
 
-Owner decision, verified locally (not yet released): when an item action
+Released in [PR #96](https://github.com/phuuthanh-dev/fluxora/pull/96): when an item action
 has an Error edge, continue processing the other items and route failures to the
 Error branch. Without one, stop on the first failure. Global limits and unknown
 internal errors still stop. Error items retain their input fields but replace an

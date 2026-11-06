@@ -1,6 +1,8 @@
 # NX: current product and simplification audit
 
-Latest release: [PR #95](https://github.com/phuuthanh-dev/fluxora/pull/95)
+Latest release: [PR #96](https://github.com/phuuthanh-dev/fluxora/pull/96) merged as `42d42865e51510f6bf72c1054ccec35ff5da2870`; PR/main CI and [deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/42202455357) passed. Production web, API and worker run this image; landing, login, API health and readiness returned HTTP 200. Local verify passed 1,067 API tests (one skipped), 73 web tests and 214 browser tests on synthetic data. No live provider was tested. With an Error edge, failed items route to Error and other items to Success; without one the run stops. Fatal limits/internal errors still stop; joins and approvals after item sources remain unsupported. Do not implement this slice again.
+
+Previous release: [PR #95](https://github.com/phuuthanh-dev/fluxora/pull/95)
 merged and deployed as `34204082407687b3cc8855c0e27d3e6a6aa1e5a7`; PR and
 main CI and health checks passed. A list source's existing error branch works
 when the source fails before emitting items. Per-item error branches remain

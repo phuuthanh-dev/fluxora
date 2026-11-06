@@ -2,6 +2,8 @@
 
 ## Trạng thái phát hành mới nhất — 06/11/2026
 
+[PR #96](https://github.com/phuuthanh-dev/fluxora/pull/96) merged as `42d42865e51510f6bf72c1054ccec35ff5da2870`; PR/main CI and [deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/42202455357) passed. Production web, API and worker run this image; landing, login, API health and readiness returned HTTP 200. Local verify passed 1,067 API tests (one skipped), 73 web tests and 214 browser tests on synthetic data. No live provider was tested. With an Error edge, failed items route to Error and other items to Success; without one the run stops. Fatal limits/internal errors still stop; joins and approvals after item sources remain unsupported. Do not implement this slice again.
+
 PR [#95](https://github.com/phuuthanh-dev/fluxora/pull/95) đã merge và deploy
 thành công tại `3420408`; CI PR/main và health đạt. Node đọc danh sách có thể
 dùng nhánh error khi lỗi trước khi tạo item hoặc dữ liệu danh sách không hợp lệ.
