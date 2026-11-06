@@ -27,7 +27,7 @@ const node = (overrides: Partial<ExecutionNodeDetail>): ExecutionNodeDetail => (
 
 test("execution explanation distinguishes retryability and error-branch routing", () => {
   assert.equal(executionFailureExplanation(node({})), "Transient failure; automatic attempts stopped after attempt 2. Routed through the error branch to fallback.");
-  assert.equal(executionFailureExplanation(node({ error: { code: "INVALID_CONFIGURATION", message: "Invalid", retryable: false }, failureHandling: { kind: "execution_failed", targetNodeIds: [] } })), "The latest failure is not retryable automatically. No error branch was connected, so the execution stopped.");
+  assert.equal(executionFailureExplanation(node({ error: { code: "INVALID_CONFIGURATION", message: "Invalid", retryable: false }, failureHandling: { kind: "execution_failed", targetNodeIds: [] } })), "The latest failure is not retryable automatically. The execution stopped after this failure.");
 });
 
 test("execution explanation gives explicit reasons for skipped nodes", () => {

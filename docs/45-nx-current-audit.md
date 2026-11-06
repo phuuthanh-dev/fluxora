@@ -1,10 +1,13 @@
 # NX: current product and simplification audit
 
-Latest release: [PR #95](https://github.com/phuuthanh-dev/fluxora/pull/95)
+Latest release: [PR #96](https://github.com/phuuthanh-dev/fluxora/pull/96) merged as `42d42865e51510f6bf72c1054ccec35ff5da2870`; PR/main CI and [deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/42202455357) passed. Production web, API and worker run this image; landing, login, API health and readiness returned HTTP 200. Local verify passed 1,067 API tests (one skipped), 73 web tests and 214 browser tests on synthetic data. No live provider was tested. With an Error edge, failed items route to Error and other items to Success; without one the run stops. Fatal limits/internal errors still stop; joins and approvals after item sources remain unsupported. Do not implement this slice again.
+
+Previous release: [PR #95](https://github.com/phuuthanh-dev/fluxora/pull/95)
 merged and deployed as `34204082407687b3cc8855c0e27d3e6a6aa1e5a7`; PR and
 main CI and health checks passed. A list source's existing error branch works
-when the source fails before emitting items. Per-item error branches remain
-unsupported. No real provider was qualified for this release.
+when the source fails before emitting items. Per-item error branches were not
+supported at that release; PR #96 subsequently added them. No real provider was
+qualified for that release.
 
 Previous release: [PR #94](https://github.com/phuuthanh-dev/fluxora/pull/94)
 merged and deployed as `6b2cd5948ebde884f0abd8bd83851451edc188d2` after
@@ -70,8 +73,8 @@ is not a current backlog. An unrelated later retry/timeout experiment on
 | Google Calendar | Read, create, update, delete and availability actions have implementations. | A controlled 2030 adapter list contained the test event. A 2100 event was absent from both the adapter and the raw Google list response although free/busy reported busy; its cause is unknown. See `35-connector-coverage-and-discovery.md` for the limits of those tests. |
 | Reddit | A list-posts action and access guidance exist. | Mock coverage does not establish that this application's Reddit API access works. |
 | Authentication | Email/password, Google/GitHub sign-in and Steam account linking have separate code paths; session cookies are HttpOnly and marked Secure in production. | Source alone does not verify current provider approvals, environment configuration or the absence of security defects. |
-| NX-07 | PR #92 implements bounded automatic items; PR #94 adds If/Switch item routing. Binary, database changes and social-provider decisions are documented in `38-nx07-design-decisions.md`. | Joins, approvals and action error branches after list sources, binary storage and database change capture remain unsupported. |
-| Release | PR #92 deployment succeeded on attempt 2; production readiness and landing/login HTTP checks passed. | This is point-in-time evidence, not proof every workflow or provider is healthy. |
+| NX-07 | PR #92 implements bounded items; PR #94 adds If/Switch routing; PR #95 handles source errors and PR #96 routes individual failed items to a connected Error branch. Binary, database changes and social-provider decisions are documented in `38-nx07-design-decisions.md`. | Joins, approvals after list sources, binary storage and database change capture remain unsupported. |
+| Release | PR #96 deployed as `42d4286` after PR and main quality gates passed; landing/login and API health/readiness returned HTTP 200. | This is point-in-time evidence, not proof every workflow or provider is healthy. |
 
 Trigger review: cron only considers occurrences within the last 65 seconds, so
 an outage longer than that may miss scheduled runs; recovery covers accepted
@@ -116,11 +119,73 @@ their existence does not establish that every template was run live.
 | NX-04 — communications and developer apps | Gmail, Chat, Telegram, GitHub, Sentry and Vercel operations are registered, with provider-specific credential requirements. | Live qualification, provider scope and behavior remain specific to each action; see the dated evidence in `35-connector-coverage-and-discovery.md`. |
 | NX-05 — triggers | RSS polling and Kuma, Telegram, Trello, Sentry and Vercel webhook handlers are present alongside Gmail polling and existing triggers. | Some remote registration is manual; sustained real delivery, recovery and all provider/account eligibility are not established. Cron has the recovery limit described above. |
 | NX-06 — AI | Gemini/OpenAI have structured output, schema validation, usage when returned, and per-request limits. | Live provider/model qualification is incomplete; per-request limits are not an aggregate budget. |
-| NX-07 — supported items and design decisions | PR #92 implements bounded items; PR #94 adds If/Switch routing. Binary, database change triggers and Reddit/Meta decisions are documented in `38-nx07-design-decisions.md`. | The item subset is not full n8n parity: joins, approvals and action error paths remain unsupported. Binary and DB change capture are not implemented. Meta/Instagram remain planned; Reddit access is externally gated. |
+| NX-07 — supported items and design decisions | PR #92 implements bounded items; PR #94 adds If/Switch routing; PR #95–96 add source and per-item Error routing. Binary, database change triggers and Reddit/Meta decisions are documented in `38-nx07-design-decisions.md`. | The item subset is not full n8n parity: joins and approvals after item sources remain unsupported. Binary and DB change capture are not implemented. Meta/Instagram remain planned; Reddit access is externally gated. |
 
 This checklist distinguishes shipped source from validation and provider
 evidence. It does not mark NX complete or create work solely to preserve older
 node versions.
+
+### Evidence recheck — 2026-11-06, after PR #96
+
+- Source inventory in `packages/workflow-contracts/src/index.ts` and
+  `node-config-schema.ts`: 89 registered types, 84 executable, five planned,
+  an entry for every executable type and no `.v2` type. Entries do not prove
+  complete field validation, live behavior or support for every vendor API.
+- Runtime and publication call `nodeConfigIssues` for resolved and static
+  configuration respectively; provider adapters retain additional validation.
+  `operation-metadata.ts` declares authentication, known fields and selected
+  pagination capabilities rather than a complete runtime output schema.
+- Source includes the NX-03/04 operation families and sample templates, NX-05
+  trigger handlers, and NX-06 structured output and per-request limits. The
+  available synthetic tests and dated live cases in `35-connector-coverage-and-discovery.md`
+  support individual paths only. Reddit access, Riot production eligibility,
+  other provider approvals and untested actions cannot be inferred from a green gate.
+- `execution.service.ts`, `item-stream.ts`, and the item tests contain the
+  bounded item, condition and Error routing delivered in PRs #92–96. The API
+  integration fixture covers mixed outcomes and fatal size limits; the canvas
+  E2E exercises node colours using synthetic execution state. A local E2E was
+  added for one failed mock item, its Error branch, and canvas colours without
+  substituting the execution response; the final isolated gate passed it. These checks do not
+  prove an end-to-end real-provider mixed-item workflow. Joins and approvals
+  after list sources remain unsupported. Binary storage and database change
+  capture are design boundaries, not released capabilities.
+- PR #96's recorded local verify passed 1,067 API tests, 73 web tests and 214
+  browser tests. The single skipped API case was the Riot database cooldown and
+  serialization integration (`FLUXORA_RIOT_INTEGRATION` was not enabled in
+  that run); it must not be counted as passed. The final isolated gate for the
+  current local batch enabled that flag and passed the case: 1,069 API tests,
+  73 web tests and 215 browser tests, no API skips. No real provider was called.
+- Audit finding: when a fatal per-item limit or internal error stops execution
+  even though an Error edge is connected, the API reports `execution_failed`
+  with no routed target. The previous timeline text incorrectly said no Error
+  edge was connected. A local UI correction uses neutral stop wording, and list
+  guidance now mentions supported conditions instead of claiming a single path.
+  The updated UI assertion passed in the final isolated gate.
+- Source audit: the editor reads execution state once and then refreshes on SSE
+  messages, while the previous SSE stream did not emit a current-state signal
+  on subscription. A status change while the stream was connecting or
+  reconnecting could therefore be missed. A local change subscribes first and
+  then emits a connection signal, causing the existing client to refresh after
+  each authorized subscription. Its controller test passed in the final gate. This does
+  not guarantee recovery if Redis delivery is lost while SSE stays connected.
+
+### Selected n8n comparison — rechecked 2026-11-06
+
+- [Postgres](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.postgres/)
+  offers select and multiple write operations; Fluxora currently exposes select.
+- [Trello](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.trello/)
+  covers resources including boards, cards, checklists and labels; Fluxora's
+  released operations are card-focused.
+- [Gmail message operations](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.gmail/message-operations/)
+  include permanent deletion; Fluxora has read/get/send/reply/draft/label
+  operations, not a message-delete action.
+- n8n's [per-node error choice](https://docs.n8n.io/build/understand-workflows/workflow-components/work-with-nodes/#node-settings)
+  includes stop and continue-via-error-output. Fluxora selects these two
+  behaviors through its existing Error connection, subject to its item limits.
+
+These are concrete differences, not proof of equal provider coverage or an
+automatic request to add every operation. Real provider permissions and costs
+remain separate from source and synthetic tests.
 
 ### Evidence against the original NX criteria
 
@@ -436,8 +501,9 @@ the associated tests passed.
 
 - The NX table above distinguishes existing operations from incomplete provider
   and pagination coverage; a registry entry is not proof of live behavior.
-- Bounded linear item processing is merged in PR #92; broader item routing,
-  binary storage and database change capture remain unimplemented. Do not start
-  deferred systems or a new scope solely because they are listed here.
+- Bounded item processing, If/Switch and connected Error routing shipped in
+  PRs #92–96. Joins and approval after item sources, binary storage and database
+  change capture remain unimplemented. Do not start deferred systems or a new
+  scope solely because they are listed here.
 - Qualify individual real providers only when their credentials, permissions,
   intended destination and potential side effects have been explicitly allowed.

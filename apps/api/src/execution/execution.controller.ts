@@ -1,5 +1,5 @@
 import { BadRequestException, Controller, Delete, Get, Inject, Param, Post, Query, Req, Sse, UseGuards } from "@nestjs/common";
-import { from, switchMap } from "rxjs";
+import { from, merge, of, switchMap } from "rxjs";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
 import { ExecutionService, type ExecutionTriageFilter } from "./execution.service";
@@ -93,7 +93,12 @@ export class ExecutionController {
 
   @Sse("executions/:executionId/events")
   eventsForExecution(@Param("executionId") executionId: string, @Req() request: AuthenticatedRequest) {
-    return from(this.executions.get(executionId, requireUserId(request))).pipe(switchMap(() => this.events.stream(executionId)));
+    // Subscribe to updates before asking the client to refresh, so events missed
+    // while connecting or reconnecting are covered by the fresh execution read.
+    return from(this.executions.get(executionId, requireUserId(request))).pipe(switchMap(() => merge(
+      this.events.stream(executionId),
+      of({ data: { executionId, kind: "execution.connected" } }),
+    )));
   }
 }
 

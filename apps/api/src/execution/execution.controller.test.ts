@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { BadRequestException } from "@nestjs/common";
-import { of } from "rxjs";
+import { firstValueFrom, of, Subject, take, tap, toArray } from "rxjs";
 import { ExecutionController } from "./execution.controller";
 
 test("manual live execution requires an explicit API confirmation", async () => {
@@ -104,6 +104,22 @@ test("execution SSE authorizes the owner before opening the event stream", async
   const observable = controller.eventsForExecution("execution-1", { currentUser: { id: "owner-1" } } as never);
   await new Promise<void>((resolve, reject) => observable.subscribe({ next: () => resolve(), error: reject }));
   assert.deepEqual(calls, [["execution-1", "owner-1"], ["stream", "execution-1"]]);
+});
+
+test("execution SSE subscribes before requesting a status refresh", { timeout: 1500 }, async () => {
+  const updates = new Subject<{ data: { executionId: string; kind: string } }>();
+  const controller = new ExecutionController(
+    { get: async () => ({ id: "execution-1" }) } as never,
+    {} as never,
+    { stream: () => updates } as never,
+  );
+  const observable = controller.eventsForExecution("execution-1", { currentUser: { id: "owner-1" } } as never);
+  const received = await firstValueFrom(observable.pipe(
+    tap((event) => { if (event.data.kind === "execution.connected") updates.next({ data: { executionId: "execution-1", kind: "node.updated" } }); }),
+    take(2),
+    toArray(),
+  ));
+  assert.deepEqual(received.map((event) => event.data.kind).sort(), ["execution.connected", "node.updated"]);
 });
 
 test("execution SSE never opens a stream when owner authorization fails", async () => {

@@ -33,6 +33,44 @@ test("canvas distinguishes successful, failed and skipped nodes without changing
   await expect(page.locator(".workflow-node--execution-failed")).toHaveCount(1);
 });
 
+test("a handled item failure appears on the canvas after a real mock run", async ({ page }) => {
+  const api = `http://localhost:${process.env.E2E_API_PORT ?? "3001"}/api/v1`;
+  const registered = await page.request.post(`${api}/auth/register`, { data: { email: `item-error-${Date.now()}@example.test`, password: "synthetic-item-test", displayName: "Item test" } });
+  expect(registered.ok()).toBeTruthy();
+  const { workspaces } = await (await page.request.get(`${api}/workspaces`)).json();
+  const graph = {
+    nodes: [
+      { id: "start", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
+      { id: "source", type: "action.mongodb", position: { x: 300, y: 0 }, config: { database: "sample", collection: "items", operation: "find", limit: 1 } },
+      { id: "failure", type: "action.http-request", position: { x: 600, y: 0 }, config: { url: "{{ $json.example }}" } },
+      { id: "success", type: "action.http-request", position: { x: 900, y: 0 }, config: { url: "https://example.test/success" } },
+      { id: "recovery", type: "action.http-request", position: { x: 900, y: 200 }, config: { url: "https://example.test/recovery" } },
+    ],
+    edges: [
+      { id: "start-source", source: "start", target: "source", kind: "success" },
+      { id: "source-failure", source: "source", target: "failure", kind: "success" },
+      { id: "failure-success", source: "failure", target: "success", kind: "success" },
+      { id: "failure-recovery", source: "failure", target: "recovery", kind: "error" },
+    ],
+  };
+  const created = await page.request.post(`${api}/workspaces/${workspaces[0].id}/workflows`, { data: { name: "Item error routing", graph } });
+  expect(created.ok()).toBeTruthy();
+  const { workflow } = await created.json();
+  const started = await page.request.post(`${api}/workflows/${workflow.id}/executions`, { data: { mock: true } });
+  expect(started.ok()).toBeTruthy();
+  const { execution: initial } = await started.json();
+  await expect.poll(async () => (await (await page.request.get(`${api}/executions/${initial.id}`)).json()).execution.status, { timeout: 15_000 }).not.toMatch(/^(QUEUED|RUNNING)$/);
+  const { execution } = await (await page.request.get(`${api}/executions/${initial.id}`)).json();
+  expect(execution.status).toBe("SUCCEEDED");
+  expect(execution.nodeExecutions.find((node: { nodeId: string }) => node.nodeId === "failure").status).toBe("FAILED");
+  expect(execution.nodeExecutions.find((node: { nodeId: string }) => node.nodeId === "recovery").status).toBe("SUCCEEDED");
+  expect(execution.nodeExecutions.find((node: { nodeId: string }) => node.nodeId === "success").status).toBe("SKIPPED");
+  await page.goto(`/editor?workflow=${encodeURIComponent(workflow.id)}&execution=${encodeURIComponent(execution.id)}`);
+  await expect(page.locator('[data-id="failure"] .workflow-node')).toHaveClass(/workflow-node--execution-failed/);
+  await expect(page.locator('[data-id="recovery"] .workflow-node')).toHaveClass(/workflow-node--execution-succeeded/);
+  await expect(page.locator('[data-id="success"] .workflow-node')).toHaveClass(/workflow-node--execution-skipped/);
+});
+
 test("execution timeline is keyboard-safe, theme-safe, zoom-safe, and downloads redacted diagnostics", async ({ page }) => {
   await page.setViewportSize({ width: 960, height: 900 });
   await signUpRunAndOpenDetails(page, `observability-${Date.now()}@example.test`);

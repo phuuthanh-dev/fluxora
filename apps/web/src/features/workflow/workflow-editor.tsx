@@ -1193,7 +1193,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
               {pagination.caveat && <p>{pagination.caveat}</p>}
             </details>}
             {nodeExecution.items?.length ? <details className="execution-pagination"><summary>Items processed ({nodeExecution.items.length})</summary>{nodeExecution.items.map((item) => <details key={item.index} className="execution-pagination"><summary>Item {item.index + 1} · {item.status}</summary><div className="execution-inspector__section"><strong>Input</strong><ResultView value={item.input} /></div><div className="execution-inspector__section"><strong>{item.error ? "Error" : "Output"}</strong><ResultView value={item.error ?? item.output} /></div></details>)}</details> : null}
-            {!nodeExecution.error && !nodeExecution.items?.length && outputHasList(nodeExecution.output) && <Status tone="info" className="inspector-note">Supported list results pass each item to the next action on a single path. Other arrays remain in the output.</Status>}
+            {!nodeExecution.error && !nodeExecution.items?.length && outputHasList(nodeExecution.output) && <Status tone="info" className="inspector-note">Supported list results pass items through connected actions and conditions. Other arrays remain in the output.</Status>}
             {nodeExecution.status === "WAITING" && approvalId && (
               <div className="approval-actions">
                 <button className="run-button" type="button" disabled={hasPending} onClick={() => onResolveApproval(approvalId, "approved")}>Approve &amp; resume</button>

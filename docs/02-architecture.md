@@ -41,7 +41,7 @@ without item input uses the ordinary node-level runner before an item stream
 exists. Malformed or over-limit source output follows that same branch. This
 does not enable continuing after a failure within per-item processing.
 
-Owner decision, verified locally (not yet released): an action with a
+Released in [PR #96](https://github.com/phuuthanh-dev/fluxora/pull/96): an action with a
 connected Error output partitions per-item success and failure, retaining each
 item's parent link. Its node record is failed if any item fails, while handled
 failures can continue on their respective branches. Error output uses a generic
@@ -132,6 +132,12 @@ NestJS API ── PostgreSQL
 The API accepts user requests and creates execution records. The worker executes nodes outside the HTTP request lifecycle. Scheduler, API, and worker are separate NestJS processes conceptually, even if local MVP development launches them together.
 
 Production uses `EXECUTION_QUEUE_MODE=redis`; it never silently degrades to inline execution. The API exposes liveness at `/api/v1/health` and dependency readiness at `/api/v1/health/ready`; readiness verifies PostgreSQL and Redis queue availability plus queue depth. The separate worker must use the same Redis URL, queue/event namespaces, and `APP_ENCRYPTION_KEY` as the API. Redis Pub/Sub carries redacted execution invalidation events from workers to the API process; the authenticated SSE route still performs the owner authorization check before subscribing.
+
+Local follow-up verified in the isolated final gate, not yet released: after authorization, an SSE
+subscription attaches to execution events and then sends a connection signal.
+The editor uses this signal to refresh the execution snapshot on initial
+connection and reconnect. This covers changes missed while the stream connects;
+it does not replay Redis events lost while an SSE connection stays open.
 
 `EXECUTION_WORKER_CONCURRENCY` bounds simultaneous jobs per worker and defaults to two (valid range: 1–20). Scale by adding workers first; readiness exposes the configured per-worker capacity and active queue count so an operator can see saturation.
 

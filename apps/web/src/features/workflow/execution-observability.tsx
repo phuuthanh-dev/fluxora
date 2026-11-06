@@ -56,7 +56,7 @@ export function executionFailureExplanation(node: ExecutionNodeDetail) {
     ? `Transient failure; automatic attempts stopped after attempt ${node.attempt}.`
     : "The latest failure is not retryable automatically.";
   if (node.failureHandling?.kind === "error_branch") return `${retry} Routed through the error branch to ${node.failureHandling.targetNodeIds.join(", ")}.`;
-  if (node.failureHandling?.kind === "execution_failed") return `${retry} No error branch was connected, so the execution stopped.`;
+  if (node.failureHandling?.kind === "execution_failed") return `${retry} The execution stopped after this failure.`;
   return retry;
 }
 
