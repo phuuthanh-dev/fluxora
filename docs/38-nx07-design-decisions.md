@@ -28,7 +28,9 @@ newly created summary templates, and leaves normal per-item behavior unchanged.
 Existing workflows are not modified; users can enable the setting and republish.
 An empty list still stops before the action. The follow-up passed local `npm run
 verify` (1,034 API tests passed, one skipped; 73 web tests and 214 browser tests
-passed) using isolated test data. It has not yet been deployed. See [n8n node settings](https://docs.n8n.io/workflows/components/nodes/#node-settings).
+passed) using isolated test data. It shipped in [PR #93](https://github.com/phuuthanh-dev/fluxora/pull/93),
+merged as `240b6ee`; PR and main CI and production deployment passed. This does
+not verify delivery through a real provider. See [n8n node settings](https://docs.n8n.io/workflows/components/nodes/#node-settings).
 
 n8n normally processes incoming items automatically and has broader branching
 and item-linking behavior. Its [item data model](https://docs.n8n.io/build/work-with-data/understand-n8ns-data-structure/)

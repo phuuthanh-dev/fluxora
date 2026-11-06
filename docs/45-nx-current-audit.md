@@ -1,5 +1,12 @@
 # NX: current product and simplification audit
 
+Latest release: [PR #93](https://github.com/phuuthanh-dev/fluxora/pull/93)
+merged and deployed as `240b6ee5ce476e0fa1dee9e718c6aea18861869a` after its
+PR and main gates passed. It fixes duplicate summary notifications for newly
+created data-read templates; existing saved workflows need the setting enabled
+and republishing when applicable. Health checks passed, but no live provider
+qualification follows from them. The NX limitations below remain applicable.
+
 Snapshot: 2026-11-06, released commit `31a1637acd28343358352692448d32e43978833e`.
 PR #92 subsequently merged into main as `a2285e488a08a4754557ac7468c2f39cd06fb9da`;
 its PR and main gates passed, and production deployment succeeded on attempt 2

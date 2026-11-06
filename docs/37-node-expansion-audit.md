@@ -2,6 +2,12 @@
 
 ## Trạng thái phát hành mới nhất — 06/11/2026
 
+PR [#93](https://github.com/phuuthanh-dev/fluxora/pull/93) đã merge và deploy
+thành công tại `240b6ee`; CI PR/main và health sau deploy đạt. Sửa template
+tóm tắt gửi trùng bằng tùy chọn chạy action một lần cho item đầu tiên; workflow
+đã lưu cần tự bật tùy chọn và publish lại nếu muốn áp dụng. Kiểm thử dùng dữ
+liệu giả, không xác nhận provider thật. Giới hạn NX-07 nêu bên dưới vẫn còn.
+
 PR [#92](https://github.com/phuuthanh-dev/fluxora/pull/92) đã merge tại
 `a2285e488a08a4754557ac7468c2f39cd06fb9da`; CI PR và CI main đạt. Deploy
 thành công ở lần hai sau khi chủ dự án cho phép xóa cặp image rollback cũ;
