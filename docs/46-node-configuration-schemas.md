@@ -62,8 +62,7 @@ those values. The follow-up rejects blank-only selections at static and
 resolved validation, while preserving expressions and nonblank ranges that
 contain spaces. Two focused API test files passed 27/27 using synthetic data;
 the final isolated verify and PR #92 and main quality gates passed; production
-deployment failed disk-space preflight and has not been established at this
-update. This does not validate every
+deployment succeeded on attempt 2 after an owner-approved image cleanup. This does not validate every
 possible provider resource ID or establish access to a live Google account.
 
 Each further family must enumerate its supported operations and conditional

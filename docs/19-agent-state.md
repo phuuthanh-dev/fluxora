@@ -11,10 +11,12 @@ complete in the delivery ledger.
   [PR gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/42150543062)
   passed. The [main gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/42152146473)
   passed. [Production deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/42153611664)
-  failed before replacing services: 2,021,160 KiB were available against a
-  2,097,152 KiB minimum. Production containers remained on `31a1637`, with
-  API readiness and homepage HTTP 200 observed after the failure. The local
-  isolated gate passed 1,015 API tests, 73 web tests
+  succeeded on attempt 2, after the owner approved removing the unused rollback
+  image pair `166ff404` following an insufficient-disk failure on attempt 1.
+  Production API, worker and web ran `a2285e4`; migration
+  `20261106100000_node_execution_items` applied, readiness, landing and login
+  checks passed. These checks do not qualify live providers. The local isolated
+  gate passed 1,015 API tests, 73 web tests
   and 214 Playwright tests; 17 conditional API tests were skipped locally. A
   separate synthetic PostgreSQL check exercised a workflow and two item records.
 - PR #92 implements bounded automatic list-item execution along a single path

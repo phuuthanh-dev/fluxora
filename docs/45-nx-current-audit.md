@@ -2,9 +2,9 @@
 
 Snapshot: 2026-11-06, released commit `31a1637acd28343358352692448d32e43978833e`.
 PR #92 subsequently merged into main as `a2285e488a08a4754557ac7468c2f39cd06fb9da`;
-its PR and main gates passed, while production deployment failed its disk-space
-preflight. The bounded item subset described below is merged source, not yet
-proven deployed. Earlier sections describe their historical snapshots.
+its PR and main gates passed, and production deployment succeeded on attempt 2
+after an owner-approved image cleanup. Health checks passed; this is not live
+provider qualification. Earlier sections describe their historical snapshots.
 [PR #91](https://github.com/phuuthanh-dev/fluxora/pull/91), its
 [PR gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/42081700786),
 [main gate](https://github.com/phuuthanh-dev/fluxora/actions/runs/42083785009)
@@ -50,8 +50,8 @@ is not a current backlog. An unrelated later retry/timeout experiment on
 | Google Calendar | Read, create, update, delete and availability actions have implementations. | A controlled 2030 adapter list contained the test event. A 2100 event was absent from both the adapter and the raw Google list response although free/busy reported busy; its cause is unknown. See `35-connector-coverage-and-discovery.md` for the limits of those tests. |
 | Reddit | A list-posts action and access guidance exist. | Mock coverage does not establish that this application's Reddit API access works. |
 | Authentication | Email/password, Google/GitHub sign-in and Steam account linking have separate code paths; session cookies are HttpOnly and marked Secure in production. | Source alone does not verify current provider approvals, environment configuration or the absence of security defects. |
-| NX-07 | PR #92 implements bounded automatic items on a single action path; binary, database changes and social-provider decisions are documented in `38-nx07-design-decisions.md`. | PR #92 production deployment failed disk-space preflight. Branches, conditions, joins and approvals after list sources, binary storage and database change capture remain out of scope. |
-| Release | PR #91 was the active production image when PR #92 deployment failed disk-space preflight; production readiness and homepage HTTP checks passed after the failure. | This is point-in-time evidence, not proof every workflow or provider is healthy. |
+| NX-07 | PR #92 implements bounded automatic items on a single action path; binary, database changes and social-provider decisions are documented in `38-nx07-design-decisions.md`. | Branches, conditions, joins and approvals after list sources, binary storage and database change capture remain out of scope. |
+| Release | PR #92 deployment succeeded on attempt 2; production readiness and landing/login HTTP checks passed. | This is point-in-time evidence, not proof every workflow or provider is healthy. |
 
 Trigger review: cron only considers occurrences within the last 65 seconds, so
 an outage longer than that may miss scheduled runs; recovery covers accepted
@@ -96,7 +96,7 @@ their existence does not establish that every template was run live.
 | NX-04 — communications and developer apps | Gmail, Chat, Telegram, GitHub, Sentry and Vercel operations are registered, with provider-specific credential requirements. | Live qualification, provider scope and behavior remain specific to each action; see the dated evidence in `35-connector-coverage-and-discovery.md`. |
 | NX-05 — triggers | RSS polling and Kuma, Telegram, Trello, Sentry and Vercel webhook handlers are present alongside Gmail polling and existing triggers. | Some remote registration is manual; sustained real delivery, recovery and all provider/account eligibility are not established. Cron has the recovery limit described above. |
 | NX-06 — AI | Gemini/OpenAI have structured output, schema validation, usage when returned, and per-request limits. | Live provider/model qualification is incomplete; per-request limits are not an aggregate budget. |
-| NX-07 — supported items and design decisions | PR #92 implements bounded items along a single action path and documents binary, database change triggers and Reddit/Meta decisions in `38-nx07-design-decisions.md`. | The item subset is not full n8n parity; deployment failed disk-space preflight. Binary and DB change capture are not implemented. Meta/Instagram remain planned; Reddit access is externally gated. |
+| NX-07 — supported items and design decisions | PR #92 implements bounded items along a single action path and documents binary, database change triggers and Reddit/Meta decisions in `38-nx07-design-decisions.md`. | The item subset is not full n8n parity. Binary and DB change capture are not implemented. Meta/Instagram remain planned; Reddit access is externally gated. |
 
 This checklist distinguishes shipped source from validation and provider
 evidence. It does not mark NX complete or create work solely to preserve older
@@ -116,7 +116,7 @@ authorize removing stored workflows or credentials.
 | NX-04 communications and developer operations | Node registry; `apps/api/src/execution/github-update-issue.ts`, `github-write-adapter.ts`, `sentry.ts`, `vercel.ts`, `vercel-observability.ts` | Listed families, issue update, PR reads/merge and Sentry detail exist. Vercel detail is explicitly a limited public lookup whose ownership is not verified. Real behavior and permissions remain operation-specific. |
 | NX-05 trigger lifecycle | RSS scheduler and `apps/api/src/webhooks/*trigger*` ingress and synthetic cases | Trigger implementations exist; manual registration, real delivery, lost-event recovery, provider eligibility and full lifecycle behavior are not established for every provider by their presence or isolated fixtures. |
 | NX-06 structured AI and request limits | `ai-structured-output.ts`, `ai-request-limits.ts`, `gemini-text.ts`, `openai-text.ts` and corresponding synthetic cases | Structured schemas, validation, optional usage and per-request ceilings exist. Model support and real calls remain provider-dependent; per-request limits are not an aggregate spending budget. |
-| NX-07 decisions and supported follow-through | `38-nx07-design-decisions.md`; `apps/api/src/execution/item-stream.ts`; PR #92 | Bounded linear item processing is merged and main CI passed; deployment failed disk-space preflight. Binary and DB change capture remain unimplemented; provider restrictions remain. Do not infer full n8n parity. |
+| NX-07 decisions and supported follow-through | `38-nx07-design-decisions.md`; `apps/api/src/execution/item-stream.ts`; PR #92 | Bounded linear item processing is deployed and main CI passed. Binary and DB change capture remain unimplemented; provider restrictions remain. Do not infer full n8n parity. |
 
 PR #90 and its quality gates provide evidence for that committed release, not
 for the stopped local retry/timeout experiment or any future change. Check the

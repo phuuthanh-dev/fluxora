@@ -11,8 +11,8 @@ with current-item `$json` expressions and recorded per-item state. It supports
 up to 100 items and 1 MB per node; lists of arbitrary nested fields are not
 split. The runner rejects branches, joins, conditions and approvals after a
 list before running the graph. The local synthetic verification and PR gate
-and main CI passed; production deployment failed the disk-space preflight and
-has not been established at this update.
+and main CI passed; production deployment succeeded on attempt 2 after an
+owner-approved cleanup of the previous rollback image pair.
 
 n8n normally processes incoming items automatically and has broader branching
 and item-linking behavior. Its [item data model](https://docs.n8n.io/build/work-with-data/understand-n8ns-data-structure/)
