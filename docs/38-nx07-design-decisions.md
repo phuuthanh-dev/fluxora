@@ -21,6 +21,15 @@ results were empty; a separate fake-transport check returned two blocks and two
 pages and confirmed both were mapped into distinct items with content preserved.
 These checks do not establish live provider behavior or multi-node item routing.
 
+Regression found after PR #92: data-read-to-Chat summary templates ran the same
+summary action once per item. The local follow-up adds an optional static
+`executeOnce` action setting based on n8n's node setting, enables it in the five
+newly created summary templates, and leaves normal per-item behavior unchanged.
+Existing workflows are not modified; users can enable the setting and republish.
+An empty list still stops before the action. The follow-up passed local `npm run
+verify` (1,034 API tests passed, one skipped; 73 web tests and 214 browser tests
+passed) using isolated test data. It has not yet been deployed. See [n8n node settings](https://docs.n8n.io/workflows/components/nodes/#node-settings).
+
 n8n normally processes incoming items automatically and has broader branching
 and item-linking behavior. Its [item data model](https://docs.n8n.io/build/work-with-data/understand-n8ns-data-structure/)
 and [loop documentation](https://docs.n8n.io/build/flow-logic/loop/) are

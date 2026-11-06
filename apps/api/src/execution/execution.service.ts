@@ -478,10 +478,12 @@ export class ExecutionService {
 
     // Reject unsupported collection paths before any node can make a write.
     // Per-item branches and approvals need their own execution semantics.
-    if (!debugNodeId) {
+    {
       try {
         for (const candidate of graph.nodes) {
-          if (isCollectionProducer(candidate, candidate.config as Record<string, unknown>)) assertLinearItemPath(graph, candidate.id);
+          const config = candidate.config as Record<string, unknown>;
+          if ((!debugNodeId || candidate.id === debugNodeId) && candidate.type.startsWith("action.") && Object.hasOwn(config, "executeOnce") && typeof config.executeOnce !== "boolean") throw new NodeFailure("INVALID_CONFIGURATION", "Run once must be on or off.", false);
+          if (!debugNodeId && isCollectionProducer(candidate, config)) assertLinearItemPath(graph, candidate.id);
         }
       } catch (reason) {
         const failure = nodeFailureFromExecutionError(reason);
@@ -727,21 +729,22 @@ export class ExecutionService {
   private async runItemNode(executionId: string, workspaceId: string, node: WorkflowNode, context: Record<string, unknown>, inputs: WorkflowItem[], mode: RunMode, idempotencyRootId: string, runToken: string, restoredSteps: ReadonlySet<string>): Promise<{ result: NodeResult; items: WorkflowItem[] }> {
     const interrupted = () => ({ result: { status: "interrupted" as const, output: {} }, items: [] });
     const rawConfig = node.config as Record<string, unknown>;
+    const selectedInputs = rawConfig.executeOnce === true ? inputs.slice(0, 1) : inputs;
     const nodeExecutionId = await this.prisma.$transaction(async (transaction) => {
       const rows = await transaction.$queryRaw<Array<{ status: ExecutionStatus; runToken: string | null }>>`SELECT status, "runToken" FROM "Execution" WHERE id = ${executionId} FOR UPDATE`;
       if (rows[0]?.status !== ExecutionStatus.RUNNING || rows[0].runToken !== runToken) return null;
       const record = await transaction.nodeExecution.findUniqueOrThrow({ where: { executionId_nodeId: { executionId, nodeId: node.id } }, select: { id: true } });
-      await transaction.nodeExecution.update({ where: { id: record.id }, data: { status: NodeExecutionStatus.RUNNING, attempt: 1, input: redactValue({ items: inputs.map((item) => item.json) }) as Prisma.InputJsonValue, startedAt: new Date(), completedAt: null } });
-      await transaction.nodeExecutionItem.createMany({ data: inputs.map((item, itemIndex) => ({ nodeExecutionId: record.id, itemIndex, parentNodeId: item.pairedItem?.nodeId ?? null, parentItemIndex: item.pairedItem?.itemIndex ?? null, input: redactValue({ item: item.json }) as Prisma.InputJsonValue })) });
+      await transaction.nodeExecution.update({ where: { id: record.id }, data: { status: NodeExecutionStatus.RUNNING, attempt: 1, input: redactValue({ items: selectedInputs.map((item) => item.json) }) as Prisma.InputJsonValue, startedAt: new Date(), completedAt: null } });
+      await transaction.nodeExecutionItem.createMany({ data: selectedInputs.map((item, itemIndex) => ({ nodeExecutionId: record.id, itemIndex, parentNodeId: item.pairedItem?.nodeId ?? null, parentItemIndex: item.pairedItem?.itemIndex ?? null, input: redactValue({ item: item.json }) as Prisma.InputJsonValue })) });
       return record.id;
     });
     if (!nodeExecutionId) return interrupted();
     this.events.publish(executionId, "node.updated");
     const items: WorkflowItem[] = [];
     const retries = readRetries(rawConfig);
-    for (let itemIndex = 0; itemIndex < inputs.length; itemIndex++) {
+    for (let itemIndex = 0; itemIndex < selectedInputs.length; itemIndex++) {
       if (await this.isCancelled(executionId) || !await this.renewLease(executionId, runToken)) return interrupted();
-      const current = inputs[itemIndex]!;
+      const current = selectedInputs[itemIndex]!;
       const itemContext = { ...context, $json: current.json };
       let completed = false;
       for (let attempt = 1; attempt <= retries; attempt++) {

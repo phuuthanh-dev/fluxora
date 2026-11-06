@@ -45,6 +45,7 @@ test("connector-to-chat templates compose mock output into a bounded summary wit
   for (const template of summaries) {
     const inspect = template.graph.nodes.find((node) => node.id === "inspect")!;
     const notify = template.graph.nodes.find((node) => node.id === "notify")!;
+    assert.equal(notify.config.executeOnce, true, `${template.slug} should send one summary for a non-empty list`);
     const fixture = inspect.type === "action.postgres.select" || inspect.type === "action.supabase.select"
       ? { table: "fixture_table" }
       : inspect.type === "action.trello.list-cards" ? { boardId: "aaaaaaaaaaaaaaaaaaaaaaaa" }

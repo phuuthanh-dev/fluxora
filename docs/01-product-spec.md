@@ -169,6 +169,13 @@ suggest fields from a preceding test run and shows per-item results. A failed
 item stops later items. A manual retry of a workflow can repeat previous writes;
 the user must inspect the provider first. This is not the complete n8n model.
 
+An action can optionally run once using the first incoming item. This is intended
+for a single summary after reading a non-empty list; an empty list does not run
+the action. New data-read-to-chat summary templates enable it. Workflows already
+created from earlier templates must enable it in the action's Advanced section
+and republish if they should send only one message. Existing workflow data is
+not rewritten automatically.
+
 Each configurable value supports all three entry modes:
 
 1. A structured form control.

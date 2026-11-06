@@ -10,6 +10,11 @@ test("each executable node has a configuration entry; planned and unknown nodes 
   assert.equal(hasNodeConfigSchema("__proto__"), false);
 });
 
+test("run-once setting accepts only a static boolean", () => {
+  for (const value of [true, false]) assert.deepEqual(nodeConfigIssues("action.http-request", { url: "https://example.test", executeOnce: value }, "static"), []);
+  for (const value of ["true", "{{ trigger.flag }}", null, 1]) assert.equal(nodeConfigIssues("action.http-request", { url: "https://example.test", executeOnce: value }, "static")[0]?.field, "executeOnce");
+});
+
 test("Steam snapshot schema distinguishes omitted, literal, expression and resolved values", () => {
   const type = "action.steam.account-snapshot";
   assert.equal(hasNodeConfigSchema(type), true);
