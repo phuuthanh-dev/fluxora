@@ -2,6 +2,8 @@
 
 ## Trạng thái phát hành mới nhất — 06/11/2026
 
+[PR #97](https://github.com/phuuthanh-dev/fluxora/pull/97) merged as `398e397f7805ba3dfe027f2451af30c21eda993e`; PR/main CI and [deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/42217626999) passed. Production web/API/worker run this commit; landing, login, health and readiness returned HTTP 200. The isolated local gate passed 1,069 API tests (including Riot database integration; no API skips), 73 web tests and 215 browser tests. No real provider was exercised. The release refreshes execution status after an authorized SSE connection/reconnection, corrects item error/list guidance, adds synthetic end-to-end coverage, and updates this NX audit. Redis events lost while SSE remains connected are not replayed.
+
 [PR #96](https://github.com/phuuthanh-dev/fluxora/pull/96) merged as `42d42865e51510f6bf72c1054ccec35ff5da2870`; PR/main CI and [deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/42202455357) passed. Production web, API and worker run this image; landing, login, API health and readiness returned HTTP 200. Local verify passed 1,067 API tests (one skipped), 73 web tests and 214 browser tests on synthetic data. No live provider was tested. With an Error edge, failed items route to Error and other items to Success; without one the run stops. Fatal limits/internal errors still stop; joins and approvals after item sources remain unsupported. Do not implement this slice again.
 
 PR [#95](https://github.com/phuuthanh-dev/fluxora/pull/95) đã merge và deploy
