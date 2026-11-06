@@ -58,6 +58,9 @@ is not a current backlog. An unrelated later retry/timeout experiment on
   workflows or credentials.
 - Work directly without subagents. Group the work and run verification at the
   end, then use one `develop` → `main` PR for the batch.
+- For NX-07, audit the remaining binary/file and database-change-trigger
+  boundaries; do not implement either simply to close the old checklist. Run
+  the next verification only once the audit and any authorized fixes are done.
 
 ## Inventory
 
@@ -127,6 +130,13 @@ This checklist distinguishes shipped source from validation and provider
 evidence. It does not mark NX complete or create work solely to preserve older
 node versions.
 
+Final audit gate, 2026-11-06: after the current-scope audit, `npm run verify`
+passed against a disposable local PostgreSQL database, isolated Redis and
+synthetic providers: 1,069 API tests with no skips, 73 web tests and 215
+Playwright tests. Chromium logged GSAP target and WebGL extension warnings;
+the suite passed, but these warnings have not been investigated in this audit.
+The gate does not qualify real providers, binary storage or database triggers.
+
 ### Evidence recheck — 2026-11-06, after PR #96
 
 - Source inventory in `packages/workflow-contracts/src/index.ts` and
@@ -142,6 +152,17 @@ node versions.
   available synthetic tests and dated live cases in `35-connector-coverage-and-discovery.md`
   support individual paths only. Reddit access, Riot production eligibility,
   other provider approvals and untested actions cannot be inferred from a green gate.
+- The previous gate log shows `system-templates.test.ts` passed draft graph
+  validation, five mock data-to-Chat summaries and both AI mock summary
+  templates. These fixtures do not publish every sample workflow or prove that
+  live provider connections and destinations work.
+- Trigger evidence rechecked against the previous isolated gate's actual log:
+  the database-backed cases for RSS checkpoint/lease, cron deactivation,
+  Telegram delivery identity, Kuma deduplication, Trello/Sentry delivery
+  fencing, Vercel deduplication and Gmail delivery/checkpoint races ran and
+  passed. Their integration flags are also enabled in the CI quality workflow.
+  These cases use a disposable database and synthetic events; they do not prove
+  real webhook registration, provider delivery, or every recovery scenario.
 - `execution.service.ts`, `item-stream.ts`, and the item tests contain the
   bounded item, condition and Error routing delivered in PRs #92–96. The API
   integration fixture covers mixed outcomes and fatal size limits; the canvas
@@ -313,6 +334,18 @@ Additional source inspection on 2026-11-05:
 
 This table records what was inspected, not a line-by-line audit of all 84
 executable types or a complete provider parity certification.
+
+Additional read-only security inspection, 2026-11-06: Google Drive/Sheets
+reject the current access token echoed in provider output; Gmail and Calendar
+check selected response fields and continuation tokens, and Google Chat checks
+the selected space and message/thread identifiers. Existing fake-provider tests
+exercise representative echo and error paths in `google-workspace-security.test.ts`,
+`gmail-operations.test.ts`, `google-calendar.test.ts` and
+`google-chat-oauth.test.ts`. The same inspection located representative
+credential-output tests for Trello, Notion and OpenAI. These checks do not cover
+every operation or every encoding of a secret, and do not establish provider
+behavior. No separate test run was performed for this inspection; the final
+gate is recorded above.
 
 Further inspection found that the Sheets mock always reported one row and two
 cells for a write, regardless of the supplied table. The local mock now derives
