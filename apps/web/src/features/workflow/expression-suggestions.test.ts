@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildExpressionSuggestions, buildPossibleExpressionSuggestions, upstreamNodeIds } from "./expression-suggestions";
+import { buildExpressionSuggestions, buildItemExpressionSuggestions, buildPossibleExpressionSuggestions, upstreamNodeIds } from "./expression-suggestions";
+
+test("suggests current item fields for a supported list", () => {
+  const node = { id: "read", data: { nodeType: "action.mongodb", config: {} } };
+  assert.deepEqual(buildItemExpressionSuggestions(node, { documents: [{ name: "demo" }] }, false), ["{{ $json }}", "{{ $json.name }}"]);
+  assert.deepEqual(buildItemExpressionSuggestions(node, { documents: [] }, false), []);
+});
 
 test("expression suggestions include nested output paths and a safe array index", () => {
   const suggestions = buildExpressionSuggestions([{ nodeId: "steam", output: { profile: { personaname: "Thanh" }, summary: { topGames: [{ name: "Hades" }] } } }]);

@@ -14,8 +14,24 @@ async function signUpRunAndOpenDetails(page: Page, email: string) {
   await page.getByRole("button", { name: "Run test", exact: true }).click();
   await expect(page.getByText(/Mock execution succeeded/i)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText(/sample data does not verify live connections or all inputs/i)).toBeVisible();
+  await expect(page.getByRole("img", { name: "Last run: Succeeded" })).toHaveCount(3);
   await page.getByRole("button", { name: "Run details", exact: true }).click();
 }
+
+test("canvas distinguishes successful, failed and skipped nodes without changing the graph", async ({ page }) => {
+  await signUpRunAndOpenDetails(page, `canvas-status-${Date.now()}@example.test`);
+  await page.getByRole("button", { name: "Close execution details" }).click();
+  const response = page.waitForResponse((result) => result.request().method() === "POST" && /\/workflows\/[^/]+\/executions$/.test(new URL(result.url()).pathname));
+  await page.getByRole("button", { name: "Run test", exact: true }).click();
+  const { execution } = await (await response).json();
+  const snapshot = { ...execution, status: "FAILED", nodeExecutions: execution.graph.nodes.map((node: { id: string; type: string }, index: number) => ({ nodeId: node.id, nodeType: node.type, status: ["SUCCEEDED", "FAILED", "SKIPPED"][index], attempt: 1, input: null, output: null, error: index === 1 ? { code: "TEST_FAILURE", message: "Synthetic failure", retryable: false } : null, startedAt: null, completedAt: null, durationMs: null, failureHandling: null, skipReason: null, items: [] })) };
+  await page.route(`**/executions/${execution.id}`, (route) => route.fulfill({ json: { execution: snapshot } }));
+  await page.goto(`/editor?workflow=${encodeURIComponent(execution.workflowId)}&execution=${encodeURIComponent(execution.id)}`);
+  await expect(page.getByRole("img", { name: "Last run: Succeeded" })).toHaveCount(1);
+  await expect(page.getByRole("img", { name: "Last run: Failed" })).toHaveCount(1);
+  await expect(page.getByRole("img", { name: "Last run: Skipped" })).toHaveCount(1);
+  await expect(page.locator(".workflow-node--execution-failed")).toHaveCount(1);
+});
 
 test("execution timeline is keyboard-safe, theme-safe, zoom-safe, and downloads redacted diagnostics", async ({ page }) => {
   await page.setViewportSize({ width: 960, height: 900 });

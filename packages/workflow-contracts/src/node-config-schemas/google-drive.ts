@@ -14,7 +14,7 @@ export const drive: ConfigRules = {
   query: { schema: z.string(), when: (config) => selectedOperation(config) === "search", message: "Enter a valid search query." },
   collectPages: { schema: z.boolean(), when: isListing, message: "Choose whether to collect additional results." },
   pageToken: { schema: pageToken, when: isListing, message: "Enter a valid Google Drive continuation token." },
-  fileId: { schema: z.string().min(1), required: true, when: (config) => selectedOperation(config) === "downloadText", message: "Choose a file to download." },
+  fileId: { schema: z.string().refine((value) => !!value.trim()), required: true, when: (config) => selectedOperation(config) === "downloadText", message: "Choose a file to download." },
   name: { schema: z.string().min(1), required: true, when: (config) => selectedOperation(config) === "uploadText", message: "Enter a file name." },
   text: { schema: z.string(), when: (config) => selectedOperation(config) === "uploadText", message: "Enter text to upload." },
 };

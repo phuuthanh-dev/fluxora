@@ -14,6 +14,7 @@ export { getSharedNodeConfigurationFields, sharedNodeConfigurationTypes } from "
 export const workflowNodeCategories = ["trigger", "condition", "action", "approval"] as const;
 
 export type WorkflowNodeCategory = (typeof workflowNodeCategories)[number];
+export { getItemCollectionField } from "./item-metadata";
 
 export const workflowNodeTypes = [
   "trigger.manual",

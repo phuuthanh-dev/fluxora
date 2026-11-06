@@ -22,6 +22,16 @@ test("resolves generated output paths with hyphenated keys", () => {
   assert.equal(resolveExpressions("{{ steps.node-example.output.request-id }}", context), "abc");
 });
 
+test("current-item expressions use safe paths and protect persisted redactions", () => {
+  const context = { $json: { name: "An", values: ["first"], secret: "[REDACTED]" } };
+  assert.equal(resolveExpressions("{{ $json.name }}", context), "An");
+  assert.equal(resolveExpressions("Hello {{ upper($json.name) }}", context), "Hello AN");
+  assert.equal(resolveExpressions("{{ $json.values[0] }}", context), "first");
+  assert.throws(() => resolveExpressions("{{ $json.constructor() }}", context), BadRequestException);
+  assert.throws(() => resolveExpressions("{{ $json.secret }}", context, { persistedItem: true }), (error: unknown) => nodeFailureFromExecutionError(error).code === "REDACTED_INPUT_UNAVAILABLE");
+  assert.equal(resolveExpressions("{{ $json.name }}", context, { persistedItem: true }), "An");
+});
+
 test("If and approval reject invalid resolved choices instead of selecting a different behavior", async () => {
   const credentials = { readForExecution: () => { throw new Error("unexpected credential read"); } } as never;
   for (const [type, key, supported, fallback] of [

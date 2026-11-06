@@ -51,7 +51,7 @@ import { WorkflowNode } from "./workflow-node";
 import { graphForApi, graphFromApi, type ApiWorkflow } from "./workflow-api";
 import { CredentialPanel } from "../credentials/credential-panel";
 import type { CredentialProvider, CredentialSummary } from "../credentials/credential-types";
-import { buildExpressionSuggestions, buildPossibleExpressionSuggestions, upstreamNodeIds } from "./expression-suggestions";
+import { buildExpressionSuggestions, buildItemExpressionSuggestions, buildPossibleExpressionSuggestions, upstreamNodeIds } from "./expression-suggestions";
 import { manualTriggerTestData } from "./test-data";
 import { NodeIcon } from "./node-icon";
 import { NodeLibrary, type NodeLibraryHandle } from "./node-library";
@@ -1028,7 +1028,12 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
   const upstream = upstreamNodeIds(node.id, graphEdges);
   const currentTypes = new Map(graphNodes.map((item) => [item.id, item.data.nodeType]));
   const recordedTypes = new Map(execution?.graph?.nodes.map((item) => [item.id, item.type]) ?? []);
-  const suggestions = buildExpressionSuggestions(execution?.nodeExecutions.filter((item) => item.status === "SUCCEEDED" && upstream.has(item.nodeId) && currentTypes.get(item.nodeId) === item.nodeType && recordedTypes.get(item.nodeId) === item.nodeType).map((item) => ({ nodeId: item.nodeId, output: item.output })) ?? []);
+  const recorded = execution?.nodeExecutions.filter((item) => item.status === "SUCCEEDED" && upstream.has(item.nodeId) && currentTypes.get(item.nodeId) === item.nodeType && recordedTypes.get(item.nodeId) === item.nodeType) ?? [];
+  const directSource = graphEdges.find((edge) => edge.target === node.id)?.source;
+  const sourceNode = graphNodes.find((item) => item.id === directSource);
+  const sourceRun = recorded.find((item) => item.nodeId === directSource);
+  const itemSuggestions = sourceNode && sourceRun ? buildItemExpressionSuggestions(sourceNode, sourceRun.output, Boolean(sourceRun.items?.length)) : [];
+  const suggestions = [...itemSuggestions, ...buildExpressionSuggestions(recorded.map((item) => ({ nodeId: item.nodeId, output: item.output })))].slice(0, 18);
   const possible = buildPossibleExpressionSuggestions(graphNodes, upstream).filter((item) => !suggestions.includes(item));
 
   return (
@@ -1186,7 +1191,8 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
               {pagination.kind === "offset" ? <p>To inspect another page, adjust <code>{pagination.input}</code> and keep the same connection, sorting and filters.</p> : pagination.available ? <p>The output contains <code>{pagination.next}</code>. Use it as <code>{pagination.input}</code> for another page, keeping the same connection and other settings.</p> : <p>No usable <code>{pagination.next}</code> was returned. This does not guarantee the result is complete.</p>}
               {pagination.caveat && <p>{pagination.caveat}</p>}
             </details>}
-            {!nodeExecution.error && outputHasList(nodeExecution.output) && <Status tone="info" className="inspector-note">Lists stay together in this output. Connected nodes run at most once per execution, not once for each list item.</Status>}
+            {nodeExecution.items?.length ? <details className="execution-pagination"><summary>Items processed ({nodeExecution.items.length})</summary>{nodeExecution.items.map((item) => <details key={item.index} className="execution-pagination"><summary>Item {item.index + 1} · {item.status}</summary><div className="execution-inspector__section"><strong>Input</strong><ResultView value={item.input} /></div><div className="execution-inspector__section"><strong>{item.error ? "Error" : "Output"}</strong><ResultView value={item.error ?? item.output} /></div></details>)}</details> : null}
+            {!nodeExecution.error && !nodeExecution.items?.length && outputHasList(nodeExecution.output) && <Status tone="info" className="inspector-note">Supported list results pass each item to the next action on a single path. Other arrays remain in the output.</Status>}
             {nodeExecution.status === "WAITING" && approvalId && (
               <div className="approval-actions">
                 <button className="run-button" type="button" disabled={hasPending} onClick={() => onResolveApproval(approvalId, "approved")}>Approve &amp; resume</button>
@@ -1262,6 +1268,17 @@ export function WorkflowEditor() {
   const redo = useWorkflowEditorStore((state) => state.redo);
   const loadGraph = useWorkflowEditorStore((state) => state.loadGraph);
   const issues = useMemo(() => validateWorkflowGraph(nodes, edges), [nodes, edges]);
+  const canvasNodes = useMemo(() => {
+    if (!execution || execution.workflowId !== workflow?.id) return nodes;
+    const recorded = new Map(execution.nodeExecutions.map((item) => [item.nodeId, item]));
+    return nodes.map((item) => {
+      const run = recorded.get(item.id);
+      const sameNode = execution.graph.nodes.some((previous) => previous.id === item.id && previous.type === item.data.nodeType);
+      const status = run?.status;
+      if (!sameNode || !status || !["RUNNING", "SUCCEEDED", "FAILED", "WAITING", "SKIPPED"].includes(status)) return item;
+      return { ...item, data: { ...item.data, executionStatus: status as NonNullable<typeof item.data.executionStatus> } };
+    });
+  }, [nodes, execution, workflow?.id]);
   const selectedNode = nodes.find((node) => node.id === selectedNodeId);
   const pendingNode = nodes.find((node) => Object.keys(inspectorDrafts[node.id] ?? {}).length > 0);
   const hasPending = Boolean(pendingNode);
@@ -1352,10 +1369,12 @@ export function WorkflowEditor() {
   useEffect(() => {
     if (!execution) return;
     let isCurrent = true;
+    let requestNumber = 0;
     const refresh = async () => {
+      const currentRequest = ++requestNumber;
       try {
         const response = await apiRequest<{ execution: ApiExecution }>(`/executions/${execution.id}`);
-        if (isCurrent) setExecution(response.execution);
+        if (isCurrent && currentRequest === requestNumber) setExecution(response.execution);
       } catch {
         // A closed session is handled by the next authenticated editor request.
       }
@@ -1907,7 +1926,7 @@ export function WorkflowEditor() {
             <Button className="canvas-navigation__minimap" variant="ghost" aria-pressed={minimapOpen} onClick={() => setMinimapOpen((open) => !open)}>{minimapOpen ? "Hide minimap" : "Show minimap"}</Button>
           </div>
           <ReactFlow
-            nodes={nodes}
+            nodes={canvasNodes}
             edges={edges}
             nodeTypes={nodeTypes}
             onNodesChange={(changes) => applyNodesChange(hasPending ? changes.filter((change) => change.type !== "remove") : changes)}

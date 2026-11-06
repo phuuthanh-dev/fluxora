@@ -19,6 +19,28 @@ Retention, activation and known boundaries: `docs/29-account-recovery.md`.
 
 ## System shape
 
+### Item processing — owner-approved implementation in progress
+
+The original runner associates one node record with each execution and node ID.
+The owner has approved extending the runner toward n8n-style automatic item
+processing. The initial scope is a bounded list-source → per-item action path,
+not arbitrary graph cycles or binary storage. A list is an explicit connector
+output contract, not every array found inside a payload. Each item needs a
+stable identity, redacted observable state and expression context; individual
+external writes must retain the existing uncertain-outcome and cancellation
+boundaries. Recovery must not automatically replay an ambiguous write. This
+paragraph records the intended change, not a claim that it has shipped.
+
+The implementation stores bounded per-item state in `NodeExecutionItem`, with
+links to the immediate parent item and redacted inputs and outputs. It processes
+items sequentially, stops on an error and marks unstarted items skipped. Lease
+loss or cancellation does not replay an in-flight write. Before any node runs,
+the initial runner rejects a list path with a branch, join, condition or
+approval. This subset has a maximum of 100 items and 1 MB of item data per
+node; no exactly-once guarantee or automatic replay of successful writes is
+implied. `npm run verify` and deployment qualification are required before
+claiming this behavior is released.
+
 ### Delivery safety (NX-01)
 
 An adapter's explicit retry decision is authoritative. The runner uses legacy

@@ -1,6 +1,17 @@
 # Audit khả năng mở rộng node — Fluxora và n8n
 
-## Trạng thái phát hành mới nhất — 05/11/2026
+## Trạng thái phát hành mới nhất — 06/11/2026
+
+PR [#91](https://github.com/phuuthanh-dev/fluxora/pull/91) đã merge tại
+`31a1637acd28343358352692448d32e43978833e`; [CI PR](https://github.com/phuuthanh-dev/fluxora/actions/runs/42081700786),
+[CI main](https://github.com/phuuthanh-dev/fluxora/actions/runs/42083785009) và
+[deploy](https://github.com/phuuthanh-dev/fluxora/actions/runs/42085712733) đạt.
+Schema cấu hình có entry cho 84 node thực thi và được tách theo provider; một số
+quy tắc chi tiết vẫn do backend xử lý. UI structured output của Gemini/OpenAI đã
+được chỉnh. Verify local đạt 1.024 API, bỏ qua một bài, 72 web và 213 E2E bằng
+dữ liệu giả; không chứng minh mọi trường hoặc kết nối provider thật. Xem
+[schema](46-node-configuration-schemas.md) và [audit hiện tại](45-nx-current-audit.md).
+Các mục và checklist cũ dưới đây là lịch sử, không tự động là việc cần làm lại.
 
 PR [#89](https://github.com/phuuthanh-dev/fluxora/pull/89) đã merge tại
 `d22dd018851e066595ff7337556eaa279b968869`; [CI PR](https://github.com/phuuthanh-dev/fluxora/actions/runs/42017532464), [CI main](https://github.com/phuuthanh-dev/fluxora/actions/runs/42019435840) và [deploy](https://github.com/phuuthanh-dev/fluxora/actions/runs/42021280239) đều đạt. Health/readiness, landing và login trả HTTP 200 sau deploy; chưa thử provider thật.

@@ -86,6 +86,13 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px soli
 .workflow-node { background: white; border: 1px solid var(--line); border-radius: 13px; box-shadow: 0 5px 16px rgba(30, 38, 67, 0.08); color: var(--ink); min-width: 218px; padding: 12px 54px 12px 14px; transition: box-shadow 140ms ease, transform 140ms ease, border-color 140ms ease; }
 .workflow-node:hover { box-shadow: 0 10px 25px rgba(42, 42, 93, 0.13); transform: translateY(-1px); }
 .workflow-node--selected { border-color: var(--accent-strong); box-shadow: 0 0 0 3px rgba(214, 255, 50, .24), 0 10px 25px rgba(8, 10, 9, .15); }
+.workflow-node.workflow-node--execution-succeeded { border-color: var(--semantic-success); }
+.workflow-node.workflow-node--execution-failed { border-color: var(--semantic-danger); }
+.workflow-node.workflow-node--execution-running, .workflow-node.workflow-node--execution-waiting { border-color: var(--semantic-warning); }
+.workflow-node__execution { position: absolute; top: 8px; right: 9px; display: inline-flex; color: var(--muted); }
+.workflow-node--execution-succeeded .workflow-node__execution { color: var(--semantic-success); }
+.workflow-node--execution-failed .workflow-node__execution { color: var(--semantic-danger); }
+.workflow-node--execution-running .workflow-node__execution, .workflow-node--execution-waiting .workflow-node__execution { color: var(--semantic-warning); }
 .workflow-node__category { color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: 0.1em; margin: 0 0 6px; text-transform: uppercase; }
 .workflow-node__heading { align-items: center; display: flex; gap: 8px; }.workflow-node__provider-icon { align-items: center; background: #f7f8fb; border: 1px solid #e7e9ef; border-radius: 7px; display: inline-flex; flex: 0 0 auto; height: 27px; justify-content: center; width: 27px; }.workflow-node h3 { font-size: 13px; line-height: 1.25; margin: 0; }
 .workflow-node p:not(.workflow-node__category) { color: var(--muted); font-size: 11px; line-height: 1.4; margin: 5px 0 0; }

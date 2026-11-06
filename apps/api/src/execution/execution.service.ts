@@ -13,6 +13,7 @@ import { lockGraphCredentials } from "../credentials/credential-references";
 import { PrismaService } from "../database/prisma.service";
 import { ExecutionEventsService } from "./execution-events.service";
 import { resolveExpressions } from "./expression";
+import { assertLinearItemPath, isCollectionProducer, maximumOutputItems, outputItems, type WorkflowItem } from "./item-stream";
 import { redactValue } from "./redaction";
 import { isRetryableFailure, retryDelayMs } from "./retry-policy";
 import { parseStoredWorkflowGraph, unavailableWorkflowNodes, workflowNodeDepths } from "../workflows/workflow-graph";
@@ -32,6 +33,11 @@ async function markApprovalExpired(transaction: Prisma.TransactionClient, execut
   await transaction.execution.update({ where: { id: executionId }, data: { status: ExecutionStatus.FAILED, completedAt: resolvedAt, leaseExpiresAt: null, runToken: null, resumeToken: null, resumeNodeIds: Prisma.DbNull, resumeQueuedAt: null, errorCode: "APPROVAL_EXPIRED", errorMessage: "Approval request has expired.", errorRetryable: false } });
   await transaction.nodeExecution.update({ where: { id: nodeExecutionId }, data: { status: NodeExecutionStatus.FAILED, completedAt: resolvedAt, errorCode: "APPROVAL_EXPIRED", errorMessage: "Approval request has expired.", errorRetryable: false } });
   await transaction.approvalRequest.update({ where: { id: approvalId }, data: { status: ApprovalRequestStatus.EXPIRED, resolvedAt } });
+}
+
+async function finishInterruptedItems(transaction: Prisma.TransactionClient, executionId: string, completedAt: Date) {
+  await transaction.nodeExecutionItem.updateMany({ where: { nodeExecution: { executionId }, status: NodeExecutionStatus.RUNNING }, data: { status: NodeExecutionStatus.FAILED, completedAt, errorCode: "ITEM_INTERRUPTED", errorMessage: "This item was interrupted; an external request may still have completed. Check the provider before retrying.", errorRetryable: false } });
+  await transaction.nodeExecutionItem.updateMany({ where: { nodeExecution: { executionId }, status: NodeExecutionStatus.PENDING }, data: { status: NodeExecutionStatus.SKIPPED, completedAt } });
 }
 
 @Injectable()
@@ -194,7 +200,7 @@ export class ExecutionService {
   async get(executionId: string, userId: string) {
     const execution = await this.prisma.execution.findFirst({
       where: { id: executionId, workflowVersion: { workflow: { workspace: { members: { some: { userId, role: "OWNER" } } } } } },
-      include: { workflowVersion: { include: { workflow: true } }, nodeExecutions: { orderBy: { startedAt: "asc" } } },
+      include: { workflowVersion: { include: { workflow: true } }, nodeExecutions: { orderBy: { startedAt: "asc" }, include: { items: { orderBy: { itemIndex: "asc" } } } } },
     });
     if (!execution) throw new NotFoundException({ code: "EXECUTION_NOT_FOUND", message: "Execution was not found." });
     const graph = parseStoredWorkflowGraph(execution.workflowVersion.graph);
@@ -226,6 +232,16 @@ export class ExecutionService {
         attempt: node.attempt,
         input: node.input,
         output: node.output,
+        items: (node.items ?? []).map((item) => ({
+          index: item.itemIndex,
+          parentNodeId: item.parentNodeId,
+          parentItemIndex: item.parentItemIndex,
+          status: item.status,
+          attempt: item.attempt,
+          input: item.input,
+          output: item.output,
+          error: item.errorCode ? { code: item.errorCode, message: item.errorMessage, retryable: item.errorRetryable ?? false } : null,
+        })),
         error: node.errorCode ? { code: node.errorCode, message: node.errorMessage, retryable: node.errorRetryable ?? isRetryableFailure({ code: node.errorCode }) } : null,
         startedAt: node.startedAt,
         completedAt: node.completedAt,
@@ -403,6 +419,7 @@ export class ExecutionService {
       // cancellation changes. A stale read must not overwrite a completed run.
       const claimed = await transaction.execution.updateMany({ where: { id: executionId, status: { in: [ExecutionStatus.QUEUED, ExecutionStatus.RUNNING, ExecutionStatus.WAITING_APPROVAL] } }, data: { status: ExecutionStatus.CANCELLED, completedAt, leaseExpiresAt: null, runToken: null, resumeToken: null, resumeNodeIds: Prisma.DbNull, resumeQueuedAt: null } });
       if (!claimed.count) throw new BadRequestException({ code: "EXECUTION_NOT_CANCELLABLE", message: "Only queued, running, or waiting executions can be cancelled." });
+      await finishInterruptedItems(transaction, executionId, completedAt);
       await transaction.nodeExecution.updateMany({ where: { executionId, status: { in: [NodeExecutionStatus.PENDING, NodeExecutionStatus.RUNNING, NodeExecutionStatus.WAITING] } }, data: { status: NodeExecutionStatus.SKIPPED, completedAt } });
       await transaction.approvalRequest.updateMany({ where: { executionId, status: ApprovalRequestStatus.PENDING }, data: { status: ApprovalRequestStatus.EXPIRED, resolvedAt: completedAt } });
       await transaction.auditLog.create({ data: { workspaceId: execution.workflowVersion.workflow.workspaceId, actorId: userId, action: "execution.cancelled", targetType: "execution", targetId: executionId } });
@@ -459,6 +476,20 @@ export class ExecutionService {
       return this.finishRunning(executionId, runToken, { status: ExecutionStatus.FAILED, completedAt: new Date(), leaseExpiresAt: null, errorCode: "NODE_UNAVAILABLE", errorMessage: "This workflow contains unavailable nodes. Remove them and publish a new version.", errorRetryable: false }, "execution.failed");
     }
 
+    // Reject unsupported collection paths before any node can make a write.
+    // Per-item branches and approvals need their own execution semantics.
+    if (!debugNodeId) {
+      try {
+        for (const candidate of graph.nodes) {
+          if (isCollectionProducer(candidate, candidate.config as Record<string, unknown>)) assertLinearItemPath(graph, candidate.id);
+        }
+      } catch (reason) {
+        const failure = nodeFailureFromExecutionError(reason);
+        await this.markUnvisitedSkipped(executionId, runToken, graph, new Set());
+        return this.finishRunning(executionId, runToken, { status: ExecutionStatus.FAILED, completedAt: new Date(), leaseExpiresAt: null, errorCode: failure.code, errorMessage: failure.message, errorRetryable: false }, "execution.failed");
+      }
+    }
+
     const context: Record<string, unknown> = { trigger: execution.triggerData ?? {}, steps: {} };
     const outputs = context.steps as Record<string, unknown>;
     const restoredSteps = new Set<string>();
@@ -473,6 +504,7 @@ export class ExecutionService {
       : (startNodeIds ? graph.nodes.filter((node) => startNodeIds.includes(node.id)) : graph.nodes.filter((node) => node.type.startsWith("trigger.")));
     const visited = new Set(execution.nodeExecutions.filter((node) => node.status !== NodeExecutionStatus.PENDING && node.status !== NodeExecutionStatus.SKIPPED).map((node) => node.nodeId));
     const depths = workflowNodeDepths(graph);
+    const itemStreams = new Map<string, WorkflowItem[]>();
 
     while (pending.length) {
       if (await this.isCancelled(executionId)) return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
@@ -483,7 +515,10 @@ export class ExecutionService {
       const node = pending.shift();
       if (!node || visited.has(node.id)) continue;
       visited.add(node.id);
-      const result = await this.runNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, mode, execution.idempotencyRootId ?? execution.id, runToken, restoredSteps);
+      const incoming = graph.edges.find((edge) => edge.target === node.id && itemStreams.has(edge.source));
+      const inputItems = incoming ? itemStreams.get(incoming.source) : undefined;
+      const itemRun = inputItems ? await this.runItemNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, inputItems, mode, execution.idempotencyRootId ?? execution.id, runToken, restoredSteps) : undefined;
+      const result = itemRun?.result ?? await this.runNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, mode, execution.idempotencyRootId ?? execution.id, runToken, restoredSteps);
       if (result.status === "interrupted") return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
       if (debugNodeId) {
         await this.markUnvisitedSkipped(executionId, runToken, graph, visited);
@@ -540,6 +575,20 @@ export class ExecutionService {
       if (node.type.startsWith("trigger.")) restoredSteps.add(node.id);
       else restoredSteps.delete(node.id);
       const nextEdges = graph.edges.filter((edge) => edge.source === node.id && edgeMatchesResult(edge, result));
+      const outputConfig = { ...node.config, ...(typeof result.output.operation === "string" ? { operation: result.output.operation } : {}) };
+      if (itemRun || isCollectionProducer(node, outputConfig)) {
+        try {
+          assertLinearItemPath(graph, node.id);
+          const items = itemRun?.items ?? outputItems(node, outputConfig, result.output).map((item, itemIndex) => ({ ...item, pairedItem: { nodeId: node.id, itemIndex } }));
+          itemStreams.set(node.id, items);
+          if (!items.length) continue;
+        } catch (reason) {
+          const failure = nodeFailureFromExecutionError(reason);
+          await this.updateNodeWhileRunning(executionId, runToken, node.id, { status: NodeExecutionStatus.FAILED, errorCode: failure.code, errorMessage: failure.message, errorRetryable: false, completedAt: new Date() });
+          await this.markUnvisitedSkipped(executionId, runToken, graph, visited);
+          return this.finishRunning(executionId, runToken, { status: ExecutionStatus.FAILED, completedAt: new Date(), leaseExpiresAt: null, errorCode: failure.code, errorMessage: failure.message, errorRetryable: false }, "execution.failed");
+        }
+      }
       pending.push(...this.targets(graph, nextEdges));
     }
 
@@ -621,6 +670,7 @@ export class ExecutionService {
         data: { status: ExecutionStatus.FAILED, completedAt, leaseExpiresAt: null, runToken: null, errorCode: code, errorMessage: message, errorRetryable: false, recoveryCount: { increment: 1 } },
       });
       if (!claimed.count) return false;
+      await finishInterruptedItems(transaction, executionId, completedAt);
       await transaction.nodeExecution.updateMany({ where: { executionId, status: NodeExecutionStatus.RUNNING }, data: { status: NodeExecutionStatus.FAILED, completedAt, errorCode: code, errorMessage: message, errorRetryable: false } });
       await transaction.nodeExecution.updateMany({ where: { executionId, status: NodeExecutionStatus.PENDING }, data: { status: NodeExecutionStatus.SKIPPED, completedAt } });
       return true;
@@ -674,6 +724,88 @@ export class ExecutionService {
     if (failed.count) this.events.publish(executionId, "execution.failed");
   }
 
+  private async runItemNode(executionId: string, workspaceId: string, node: WorkflowNode, context: Record<string, unknown>, inputs: WorkflowItem[], mode: RunMode, idempotencyRootId: string, runToken: string, restoredSteps: ReadonlySet<string>): Promise<{ result: NodeResult; items: WorkflowItem[] }> {
+    const interrupted = () => ({ result: { status: "interrupted" as const, output: {} }, items: [] });
+    const rawConfig = node.config as Record<string, unknown>;
+    const nodeExecutionId = await this.prisma.$transaction(async (transaction) => {
+      const rows = await transaction.$queryRaw<Array<{ status: ExecutionStatus; runToken: string | null }>>`SELECT status, "runToken" FROM "Execution" WHERE id = ${executionId} FOR UPDATE`;
+      if (rows[0]?.status !== ExecutionStatus.RUNNING || rows[0].runToken !== runToken) return null;
+      const record = await transaction.nodeExecution.findUniqueOrThrow({ where: { executionId_nodeId: { executionId, nodeId: node.id } }, select: { id: true } });
+      await transaction.nodeExecution.update({ where: { id: record.id }, data: { status: NodeExecutionStatus.RUNNING, attempt: 1, input: redactValue({ items: inputs.map((item) => item.json) }) as Prisma.InputJsonValue, startedAt: new Date(), completedAt: null } });
+      await transaction.nodeExecutionItem.createMany({ data: inputs.map((item, itemIndex) => ({ nodeExecutionId: record.id, itemIndex, parentNodeId: item.pairedItem?.nodeId ?? null, parentItemIndex: item.pairedItem?.itemIndex ?? null, input: redactValue({ item: item.json }) as Prisma.InputJsonValue })) });
+      return record.id;
+    });
+    if (!nodeExecutionId) return interrupted();
+    this.events.publish(executionId, "node.updated");
+    const items: WorkflowItem[] = [];
+    const retries = readRetries(rawConfig);
+    for (let itemIndex = 0; itemIndex < inputs.length; itemIndex++) {
+      if (await this.isCancelled(executionId) || !await this.renewLease(executionId, runToken)) return interrupted();
+      const current = inputs[itemIndex]!;
+      const itemContext = { ...context, $json: current.json };
+      let completed = false;
+      for (let attempt = 1; attempt <= retries; attempt++) {
+        if (!await this.updateItemWhileRunning(executionId, runToken, nodeExecutionId, itemIndex, { status: NodeExecutionStatus.RUNNING, attempt, startedAt: new Date(), completedAt: null, errorCode: null, errorMessage: null, errorRetryable: null })) return interrupted();
+        try {
+          const schemaValue = rawConfig.outputSchema;
+          const literalSchema = (node.type === "action.openai" || node.type === "action.gemini") && schemaValue !== null && typeof schemaValue === "object" && !Array.isArray(schemaValue);
+          const config = resolveExpressions(literalSchema ? { ...rawConfig, outputSchema: undefined } : rawConfig, itemContext, { restoredSteps, persistedTrigger: true }) as Record<string, unknown>;
+          if (literalSchema) config.outputSchema = schemaValue;
+          if (!await this.updateItemWhileRunning(executionId, runToken, nodeExecutionId, itemIndex, { input: redactValue({ item: current.json, config }) as Prisma.InputJsonValue })) return interrupted();
+          // A retried workflow can read a changed list. Include both the item
+          // and resolved configuration so a different row at the same index
+          // cannot be mistaken for a previously executed Calendar write.
+          const itemRootId = createHash("sha256").update(idempotencyRootId).update("\0").update(node.id).update("\0").update(String(itemIndex)).update("\0").update(JSON.stringify({ item: current.json, config })).digest("hex");
+          const result = await executeNode(node, config, itemContext, mode, workspaceId, this.credentials, itemRootId);
+          if (result.status !== "succeeded") throw new NodeFailure("ITEM_FLOW_UNSUPPORTED", "This node cannot wait or change execution state while processing items.", false);
+          const next = outputItems(node, config, result.output, { nodeId: node.id, itemIndex });
+          if (items.length + next.length > maximumOutputItems) throw new NodeFailure("ITEM_LIMIT_EXCEEDED", `A node can return at most ${maximumOutputItems} items.`, false);
+          if (Buffer.byteLength(JSON.stringify([...items, ...next]), "utf8") > 1_000_000) throw new NodeFailure("ITEM_SIZE_EXCEEDED", "Item output exceeds the 1 MB limit. An action may have completed; inspect the provider before retrying.", false);
+          if (!await this.updateItemWhileRunning(executionId, runToken, nodeExecutionId, itemIndex, { status: NodeExecutionStatus.SUCCEEDED, output: redactValue(result.output) as Prisma.InputJsonValue, completedAt: new Date() })) return interrupted();
+          items.push(...next);
+          completed = true;
+          this.events.publish(executionId, "node.updated");
+          break;
+        } catch (reason) {
+          const failure = nodeFailureFromExecutionError(reason);
+          const retryable = isRetryableFailure(failure);
+          if (!await this.updateItemWhileRunning(executionId, runToken, nodeExecutionId, itemIndex, { status: NodeExecutionStatus.FAILED, errorCode: failure.code, errorMessage: failure.message, errorRetryable: retryable, completedAt: new Date() })) return interrupted();
+          this.events.publish(executionId, "node.updated");
+          if (!retryable || attempt >= retries) {
+            await this.skipPendingItems(executionId, runToken, nodeExecutionId);
+            if (!await this.updateNodeWhileRunning(executionId, runToken, node.id, { status: NodeExecutionStatus.FAILED, errorCode: failure.code, errorMessage: failure.message, errorRetryable: retryable, completedAt: new Date() })) return interrupted();
+            return { result: { status: "failed", output: {}, error: failure }, items: [] };
+          }
+          await delay(retryDelayMs(attempt, failure.retryAfterMs));
+          if (!await this.renewLease(executionId, runToken)) return interrupted();
+        }
+      }
+      if (!completed) return interrupted();
+    }
+    const output = { items: items.map((item) => item.json), count: items.length };
+    if (!await this.updateNodeWhileRunning(executionId, runToken, node.id, { status: NodeExecutionStatus.SUCCEEDED, output: redactValue(output) as Prisma.InputJsonValue, completedAt: new Date() })) return interrupted();
+    this.events.publish(executionId, "node.updated");
+    return { result: { status: "succeeded", output, route: "success" }, items };
+  }
+
+  private async updateItemWhileRunning(executionId: string, runToken: string, nodeExecutionId: string, itemIndex: number, data: Prisma.NodeExecutionItemUpdateInput) {
+    return this.prisma.$transaction(async (transaction) => {
+      const rows = await transaction.$queryRaw<Array<{ status: ExecutionStatus; runToken: string | null }>>`SELECT status, "runToken" FROM "Execution" WHERE id = ${executionId} FOR UPDATE`;
+      if (rows[0]?.status !== ExecutionStatus.RUNNING || rows[0].runToken !== runToken) return false;
+      await transaction.nodeExecutionItem.update({ where: { nodeExecutionId_itemIndex: { nodeExecutionId, itemIndex } }, data });
+      return true;
+    });
+  }
+
+  private async skipPendingItems(executionId: string, runToken: string, nodeExecutionId: string) {
+    return this.prisma.$transaction(async (transaction) => {
+      const rows = await transaction.$queryRaw<Array<{ status: ExecutionStatus; runToken: string | null }>>`SELECT status, "runToken" FROM "Execution" WHERE id = ${executionId} FOR UPDATE`;
+      if (rows[0]?.status !== ExecutionStatus.RUNNING || rows[0].runToken !== runToken) return false;
+      await transaction.nodeExecutionItem.updateMany({ where: { nodeExecutionId, status: NodeExecutionStatus.PENDING }, data: { status: NodeExecutionStatus.SKIPPED, completedAt: new Date() } });
+      return true;
+    });
+  }
+
   private async runNode(executionId: string, workspaceId: string, node: WorkflowNode, context: Record<string, unknown>, mode: RunMode, idempotencyRootId: string, runToken: string, restoredSteps: ReadonlySet<string>): Promise<NodeResult> {
     const rawConfig = node.config as Record<string, unknown>;
     const retries = readRetries(rawConfig);
@@ -683,6 +815,7 @@ export class ExecutionService {
       const startedAt = new Date();
       const started = await this.updateNodeWhileRunning(executionId, runToken, node.id, { status: NodeExecutionStatus.RUNNING, attempt, input: redactValue({ config: rawConfig, trigger: context.trigger }) as Prisma.InputJsonValue, startedAt, completedAt: null, errorCode: null, errorMessage: null, errorRetryable: null });
       if (!started) return { status: "interrupted", output: {} };
+      this.events.publish(executionId, "node.updated");
       try {
         // Schema objects are literal contracts; template-like examples inside a
         // field description must not be interpreted as workflow expressions.

@@ -387,9 +387,30 @@ model NodeExecution {
   startedAt    DateTime?
   completedAt  DateTime?
   execution    Execution           @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  items        NodeExecutionItem[]
 
   @@unique([executionId, nodeId])
   @@index([executionId, status])
+}
+
+model NodeExecutionItem {
+  id               String              @id @default(uuid())
+  nodeExecutionId  String
+  itemIndex        Int
+  parentNodeId     String?
+  parentItemIndex  Int?
+  status           NodeExecutionStatus @default(PENDING)
+  attempt          Int                 @default(0)
+  input            Json?
+  output           Json?
+  errorCode        String?
+  errorMessage     String?
+  errorRetryable   Boolean?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  nodeExecution    NodeExecution       @relation(fields: [nodeExecutionId], references: [id], onDelete: Cascade)
+
+  @@unique([nodeExecutionId, itemIndex])
 }
 
 model ApprovalRequest {

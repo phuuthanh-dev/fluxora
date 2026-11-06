@@ -1,4 +1,4 @@
-import { getOperationMetadata, validateAiSchema, type AiSchema } from "@workflow/contracts";
+import { getItemCollectionField, getOperationMetadata, validateAiSchema, type AiSchema } from "@workflow/contracts";
 
 type NodeExecutionOutput = { nodeId: string; output: unknown };
 type SuggestionNode = { id: string; data: { nodeType: string; config?: Record<string, unknown> } };
@@ -52,6 +52,20 @@ export function buildExpressionSuggestions(executions: NodeExecutionOutput[]) {
     collectPaths(execution.output, root, suggestions, 0);
   }
   return [...suggestions].slice(0, 18).map((path) => `{{ ${path} }}`);
+}
+
+/** Suggest fields from the first available item of the immediate preceding node. */
+export function buildItemExpressionSuggestions(node: SuggestionNode, output: unknown, processedItems: boolean): string[] {
+  if (!output || typeof output !== "object" || Array.isArray(output)) return [];
+  const field = processedItems ? "items" : getItemCollectionField(node.data.nodeType, node.data.config ?? {});
+  if (!field) return [];
+  const collection = (output as Record<string, unknown>)[field];
+  if (!Array.isArray(collection) || !collection.length) return [];
+  const first = collection[0];
+  const value = first && typeof first === "object" && !Array.isArray(first) ? first : { value: first };
+  const paths = new Set<string>();
+  collectPaths(value, "$json", paths, 0);
+  return [...paths].slice(0, 18).map((path) => `{{ ${path} }}`);
 }
 
 function collectPaths(value: unknown, path: string, results: Set<string>, depth: number) {

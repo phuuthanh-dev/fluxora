@@ -1,10 +1,10 @@
 import { BadRequestException } from "@nestjs/common";
 
 const expressionPattern = /{{\s*([^{}]+?)\s*}}/g;
-const pathPattern = /^[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z_][A-Za-z0-9_-]*|\[\d+\])*$/;
+const pathPattern = /^(?:\$json|[A-Za-z_][A-Za-z0-9_-]*)(?:\.[A-Za-z_][A-Za-z0-9_-]*|\[\d+\])*$/;
 
 export type ExpressionContext = Record<string, unknown>;
-type ResolutionOptions = { rejectMissing?: boolean; restoredSteps?: ReadonlySet<string>; persistedTrigger?: boolean };
+type ResolutionOptions = { rejectMissing?: boolean; restoredSteps?: ReadonlySet<string>; persistedTrigger?: boolean; persistedItem?: boolean };
 
 export function resolveExpressions(value: unknown, context: ExpressionContext, options: ResolutionOptions = {}): unknown {
   if (typeof value === "string") return resolveTemplate(value, context, options);
@@ -63,17 +63,18 @@ function unavailableRedactedInput(): never {
 }
 
 function readPath(context: ExpressionContext, path: string, options: ResolutionOptions): unknown {
-  const tokens = [...path.matchAll(/[A-Za-z_][A-Za-z0-9_-]*|\[(\d+)\]/g)].map((match) => match[1] === undefined ? match[0] : Number(match[1]));
+  const tokens = [...path.matchAll(/\$json(?=\.|\[|$)|[A-Za-z_][A-Za-z0-9_-]*|\[(\d+)\]/g)].map((match) => match[1] === undefined ? match[0] : Number(match[1]));
   const restoredStep = tokens[0] === "steps" && typeof tokens[1] === "string" && options.restoredSteps?.has(tokens[1]);
   const persistedTrigger = tokens[0] === "trigger" && options.persistedTrigger;
+  const persistedItem = tokens[0] === "$json" && options.persistedItem;
   const value = tokens.reduce<unknown>((value, token, index) => {
     // Traversing through a redacted value must not turn it into a missing
     // value that a default helper could silently replace.
-    if (((restoredStep && index >= 2) || (persistedTrigger && index >= 1)) && typeof value === "string" && containsRedaction(value)) unavailableRedactedInput();
+    if (((restoredStep && index >= 2) || ((persistedTrigger || persistedItem) && index >= 1)) && typeof value === "string" && containsRedaction(value)) unavailableRedactedInput();
     if (typeof token === "number") return Array.isArray(value) ? value[token] : undefined;
     return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>)[token] : undefined;
   }, context);
-  if (persistedTrigger && containsRedaction(value)) unavailableRedactedInput();
+  if ((persistedTrigger || persistedItem) && containsRedaction(value)) unavailableRedactedInput();
   if (tokens[0] === "steps" && options.restoredSteps?.size) {
     const unavailable = tokens.length === 1 && value && typeof value === "object" && !Array.isArray(value)
       ? [...options.restoredSteps].some((id) => containsRedaction((value as Record<string, unknown>)[id]))

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { executableWorkflowNodeTypes, hasNodeConfigSchema, nodeConfigIssues, workflowNodeTypes } from "@workflow/contracts";
 import { resolveExpressions } from "./expression";
+import { getConnectorExecutor } from "./connector-executors";
 
 test("each executable node has a configuration entry; planned and unknown nodes do not", () => {
   for (const type of executableWorkflowNodeTypes) assert.equal(hasNodeConfigSchema(type), true, type);
@@ -132,6 +133,30 @@ test("Drive and Sheets require only fields used by the selected operation", () =
   assert.deepEqual(nodeConfigIssues("action.google-sheets", { ...sheets, operation: "read" }, "resolved"), []);
   assert.equal(nodeConfigIssues("action.google-sheets", { ...sheets, operation: "append" }, "resolved")[0]?.field, "values");
   assert.deepEqual(nodeConfigIssues("action.google-sheets", { ...sheets, operation: "append", values: [["sample"]] }, "resolved"), []);
+});
+
+test("Google resource selections reject whitespace without rejecting quoted sheet names or expressions", async () => {
+  const cases = [
+    { type: "action.google-sheets", config: { operation: "read", spreadsheetId: "  ", range: "A1" }, field: "spreadsheetId" },
+    { type: "action.google-sheets", config: { operation: "read", spreadsheetId: "sheet", range: "  " }, field: "range" },
+    { type: "action.google-drive", config: { operation: "downloadText", fileId: "  " }, field: "fileId" },
+  ] as const;
+  const credentials = new Proxy({}, { get() { throw new Error("invalid configuration must not read credentials"); } }) as never;
+  for (const { type, config, field } of cases) {
+    for (const phase of ["static", "resolved"] as const) assert.equal(nodeConfigIssues(type, config, phase)[0]?.field, field);
+    for (const mode of ["mock", "live"] as const) {
+      await assert.rejects(getConnectorExecutor(type)!({ config, mode, workspaceId: "test", credentials, executionId: "test", nodeId: "test" }), { code: "INVALID_INPUT" });
+    }
+  }
+  assert.deepEqual(nodeConfigIssues("action.google-sheets", { operation: "read", spreadsheetId: "sheet", range: "'Sales Q1'!A1:B2" }, "resolved"), []);
+  const config = { operation: "read", spreadsheetId: "{{ steps.previous.output.sheet }}", range: "A1" };
+  assert.deepEqual(nodeConfigIssues("action.google-sheets", config, "static"), []);
+  const resolved = resolveExpressions(config, { steps: { previous: { output: { sheet: " " } } } }) as Record<string, unknown>;
+  assert.equal(nodeConfigIssues("action.google-sheets", resolved, "resolved")[0]?.field, "spreadsheetId");
+  const drive = { operation: "downloadText", fileId: "{{ steps.previous.output.file }}" };
+  assert.deepEqual(nodeConfigIssues("action.google-drive", drive, "static"), []);
+  const resolvedDrive = resolveExpressions(drive, { steps: { previous: { output: { file: " " } } } }) as Record<string, unknown>;
+  assert.equal(nodeConfigIssues("action.google-drive", resolvedDrive, "resolved")[0]?.field, "fileId");
 });
 
 test("Telegram validates message targets and operation-specific fields", () => {

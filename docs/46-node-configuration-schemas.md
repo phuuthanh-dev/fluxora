@@ -26,7 +26,7 @@ do not delete stored data or introduce V1/V2 nodes for compatibility.
   it; its existing adapter validators still apply. Do not advertise all nodes
   as schema-validated until they have been individually migrated and verified.
 
-## Current local work
+## Released in PR #91
 
 Steam Snapshot, Steam operation, MongoDB Find/Insert, Gemini, OpenAI, HTTP,
 Google Chat webhook/OAuth send/reply/edit, GitHub actions, RSS Read, Reddit
@@ -42,8 +42,9 @@ dynamic operation is checked after it resolves. Their existing provider adapters
 still own credentials, responses and transport. MongoDB additionally rejects an
 unresolved filter rather than turning it into an unfiltered read. AI schema
 checks do not replace operator limits or provider model validation. GitHub's
-conditional issue update checks only its selected field. These changes are local
-until they have passed verification and been merged and deployed.
+conditional issue update checks only its selected field. PR #91 passed its PR
+and main quality gates and the production deployment. Synthetic verification
+does not establish provider permissions or live behavior.
 
 The registry currently contains entries for 84 of 84 executable node types. This
 is a source inventory, not a test result or a claim of full field coverage.
@@ -52,6 +53,16 @@ schemas check the top-level selection; detailed filters, values, SQL safety and
 precision remain enforced by their existing server-side validators. Cron syntax,
 webhook authenticity and trigger-specific protocol rules also remain enforced
 by their server-side validators.
+
+### Unreleased Google validation correction
+
+The PR #91 rules accepted whitespace-only spreadsheet IDs, Sheets ranges and
+Drive text-download file IDs. Synthetic mock executions also succeeded with
+those values. The local follow-up rejects blank-only selections at static and
+resolved validation, while preserving expressions and nonblank ranges that
+contain spaces. Two focused API test files passed 27/27 using synthetic data;
+the full quality gate and release remain pending. This does not validate every
+possible provider resource ID or establish access to a live Google account.
 
 Each further family must enumerate its supported operations and conditional
 fields from the actual adapter before migration, preserve expression behavior,
