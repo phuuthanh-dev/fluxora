@@ -26,6 +26,22 @@ do not delete stored data or introduce V1/V2 nodes for compatibility.
   it; its existing adapter validators still apply. Do not advertise all nodes
   as schema-validated until they have been individually migrated and verified.
 
+## Test behavior and execution-history metadata
+
+The existing operation registry also describes whether a node uses simulated
+provider output, trigger test data, local condition evaluation, an approval
+wait, or is unavailable. The editor uses this classification in its node-debug
+guidance. A mock action does not qualify live credentials or provider behavior;
+some trigger samples are only provided when no test data is supplied, and
+approval nodes require a full workflow test.
+
+Executable node metadata describes the existing key-based history filter; it
+does not select or enforce redaction and is not a list of every sensitive field.
+Backend history filtering and provider-specific response checks remain
+authoritative. Key matching cannot detect every secret in arbitrary text or
+encoded data. Registry and executor fixture tests check these declarations,
+but do not prove all provider operations or output values are safe.
+
 ## Released in PR #91
 
 Steam Snapshot, Steam operation, MongoDB Find/Insert, Gemini, OpenAI, HTTP,

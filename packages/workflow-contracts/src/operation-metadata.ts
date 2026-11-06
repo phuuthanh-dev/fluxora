@@ -24,6 +24,9 @@ export type OperationPagination =
   /** Fallback applies when the selector is absent; other operations have no advertised pagination and can be invalid. */
   | { kind: "conditional"; selector: string; fallback: string; cases: readonly { values: readonly string[]; pagination: ContinuationPagination }[] };
 
+/** Describes test behavior; it does not execute a mock or enforce security. */
+export type MockBehavior = "provider-sample" | "trigger-data" | "condition" | "approval" | "unavailable";
+
 export type OperationMetadata = {
   readonly availability: "executable" | "planned";
   readonly auth: Readonly<OperationAuth>;
@@ -31,10 +34,18 @@ export type OperationMetadata = {
   /** Known top-level fields, not an exhaustive schema or a uniform mock/live guarantee. */
   readonly output: { readonly knownFields: readonly string[] } | { readonly kind: "unspecified" };
   readonly pagination: Readonly<OperationPagination>;
+  readonly mockBehavior: MockBehavior;
+  /** Execution history applies a backend key-based filter, not comprehensive secret detection. */
+  readonly historyRedaction: "key-based" | "not-applicable";
 };
 
 type CheckedRegistry = { [K in WorkflowNodeType]: OperationMetadata & {
   availability: K extends ExecutableWorkflowNodeType ? "executable" : "planned";
+  mockBehavior: K extends ExecutableWorkflowNodeType
+    ? K extends `action.${string}` ? "provider-sample"
+      : K extends `trigger.${string}` ? "trigger-data"
+        : K extends `condition.${string}` ? "condition" : "approval"
+    : "unavailable";
 } };
 
 const unknownOutput = { kind: "unspecified" } as const;
@@ -43,8 +54,11 @@ const none = { kind: "none" } as const;
 const conditional = { kind: "conditional" } as const;
 const unspecifiedAuth = { kind: "unspecified" } as const;
 const credential = (provider: OperationCredentialProvider, requirement: "required" | "optional" = "required", context: "execution" | "trigger-setup" = "execution"): OperationAuth => ({ kind: "credential", provider, requirement, context });
-const executable = (auth: OperationAuth, effect: OperationEffect, output: OperationMetadata["output"] = unknownOutput, pagination: OperationPagination = unknownPagination) => ({ availability: "executable" as const, auth, effect, output, pagination });
-const planned = { availability: "planned", auth: unspecifiedAuth, effect: "unspecified", output: unknownOutput, pagination: unknownPagination } as const;
+const executable = (auth: OperationAuth, effect: OperationEffect, output: OperationMetadata["output"] = unknownOutput, pagination: OperationPagination = unknownPagination) => ({ availability: "executable" as const, auth, effect, output, pagination, mockBehavior: "provider-sample" as const, historyRedaction: "key-based" as const });
+const trigger = (...args: Parameters<typeof executable>) => ({ ...executable(...args), mockBehavior: "trigger-data" as const });
+const condition = (...args: Parameters<typeof executable>) => ({ ...executable(...args), mockBehavior: "condition" as const });
+const approval = (...args: Parameters<typeof executable>) => ({ ...executable(...args), mockBehavior: "approval" as const });
+const planned = { availability: "planned", auth: unspecifiedAuth, effect: "unspecified", output: unknownOutput, pagination: unknownPagination, mockBehavior: "unavailable", historyRedaction: "not-applicable" } as const;
 const fields = (...knownFields: string[]) => ({ knownFields });
 const notificationReceipt = fields("delivered", "provider", "destination", "messageId", "sentAt", "mode");
 const trelloCard = fields("id", "name", "description", "boardId", "listId", "closed", "url");
@@ -69,23 +83,23 @@ const definitions = {
   "action.github.update-issue": executable(credential("GITHUB"), "write", fields("repository", "issueNumber", "updatedField")),
   "action.github.list-pull-requests": executable(credential("GITHUB"), "read", fields("repository", "items", "page", "pageSize", "state", "hasMore", "nextPage", "truncated"), { kind: "continuation", input: "page", next: "nextPage", hasMore: "hasMore", preserve: ["credentialId", "repository", "state", "pageSize"], caveat: "At the page ceiling hasMore can be true while nextPage is null." }),
   "action.github.get-pull-request": executable(credential("GITHUB"), "read", fields("repository", "item")),
-  "trigger.manual": executable(none, "unspecified", triggerOutput),
-  "trigger.gmail": executable(credential("GMAIL", "required", "trigger-setup"), "unspecified", triggerOutput),
-  "trigger.rss.new-item": executable(none, "read", triggerOutput),
-  "trigger.telegram.update": executable(conditional, "read", triggerOutput),
-  "trigger.vercel.deployment": executable(conditional, "read", triggerOutput),
-  "trigger.trello.board-action": executable(conditional, "read", triggerOutput),
-  "trigger.sentry.issue-created": executable(conditional, "read", triggerOutput),
-  "trigger.cron": executable(none, "unspecified", triggerOutput),
-  "trigger.webhook": executable(conditional, "unspecified", triggerOutput),
-  "trigger.uptime-kuma.alert": executable(conditional, "unspecified", triggerOutput),
-  "trigger.github.issue-opened": executable(conditional, "unspecified", triggerOutput),
-  "trigger.github.pull-request-opened": executable(conditional, "unspecified", triggerOutput),
-  "trigger.github.push": executable(conditional, "unspecified", triggerOutput),
-  "trigger.github.workflow-run-completed": executable(conditional, "unspecified", triggerOutput),
-  "condition.if": executable(none, "unspecified", fields("matches")),
-  "condition.switch": executable(none, "unspecified", fields("value", "matched")),
-  "approval.request": executable(conditional, "unspecified", fields("message", "expiresInHours", "notificationProvider", "notificationCredentialId")),
+  "trigger.manual": trigger(none, "unspecified", triggerOutput),
+  "trigger.gmail": trigger(credential("GMAIL", "required", "trigger-setup"), "unspecified", triggerOutput),
+  "trigger.rss.new-item": trigger(none, "read", triggerOutput),
+  "trigger.telegram.update": trigger(conditional, "read", triggerOutput),
+  "trigger.vercel.deployment": trigger(conditional, "read", triggerOutput),
+  "trigger.trello.board-action": trigger(conditional, "read", triggerOutput),
+  "trigger.sentry.issue-created": trigger(conditional, "read", triggerOutput),
+  "trigger.cron": trigger(none, "unspecified", triggerOutput),
+  "trigger.webhook": trigger(conditional, "unspecified", triggerOutput),
+  "trigger.uptime-kuma.alert": trigger(conditional, "unspecified", triggerOutput),
+  "trigger.github.issue-opened": trigger(conditional, "unspecified", triggerOutput),
+  "trigger.github.pull-request-opened": trigger(conditional, "unspecified", triggerOutput),
+  "trigger.github.push": trigger(conditional, "unspecified", triggerOutput),
+  "trigger.github.workflow-run-completed": trigger(conditional, "unspecified", triggerOutput),
+  "condition.if": condition(none, "unspecified", fields("matches")),
+  "condition.switch": condition(none, "unspecified", fields("value", "matched")),
+  "approval.request": approval(conditional, "unspecified", fields("message", "expiresInHours", "notificationProvider", "notificationCredentialId")),
   "action.steam.account-snapshot": executable(credential("STEAM"), "read", fields("profile", "currentGame", "ownedGames", "recentGames", "achievements", "summary")),
   "action.steam": executable(credential("STEAM"), "read", fields("operation", "result")),
   "action.riot-lol": executable(credential("RIOT"), "read", fields("operation", "result")),

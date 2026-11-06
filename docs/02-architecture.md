@@ -279,6 +279,11 @@ only stable node type identifiers and configuration, so discovery taxonomy can
 evolve without migrating immutable workflow versions. See
 `docs/16-node-library-information-architecture.md`.
 
+Operation metadata also classifies node-test behavior for the inspector and
+describes the existing key-based execution-history filter. This description
+does not execute mocks, enforce redaction, enumerate all secrets or replace
+provider-specific checks. See `docs/46-node-configuration-schemas.md`.
+
 The manifest is being consolidated incrementally. The shared contracts package
 defines inspector-field descriptors for the 73 catalog entries that use the
 declarative field renderer; the editor reads the same descriptors. Some core

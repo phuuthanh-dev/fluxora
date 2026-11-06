@@ -237,6 +237,11 @@ Each node execution stores:
 - redacted input and output
 - normalized error `{ code, message, retryable }`
 
+The node inspector explains whether its test uses simulated provider output,
+trigger test data, a locally evaluated condition or a full-workflow approval.
+Sample output does not establish that a live connection or provider request
+will succeed.
+
 Action nodes support timeout, retry with exponential backoff, and an error edge.
 An explicit adapter retry denial always wins over status/code inference. Transient
 reads and confirmed temporary rejections may retry; ambiguous writes must stop

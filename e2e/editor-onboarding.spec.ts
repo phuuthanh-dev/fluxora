@@ -103,6 +103,14 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(page.getByRole("region", { name: "Setup" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Configuration" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Test & debug" })).toBeVisible();
+  const debugPanel = page.getByRole("region", { name: "Test & debug" });
+  await expect(debugPanel.getByText("Returns sample output without calling the provider. Only this node runs; live connections and inputs are not verified.")).toBeVisible();
+  await page.getByRole("button", { name: "Switch to dark mode" }).click();
+  await expect(debugPanel.getByText("Returns sample output without calling the provider. Only this node runs; live connections and inputs are not verified.")).toBeVisible();
+  await page.getByRole("button", { name: "Switch to light mode" }).click();
+  await page.locator(".react-flow__node").filter({ hasText: "Schedule" }).first().click();
+  await expect(debugPanel.getByText("Uses test data; some triggers provide a sample when it is empty. Only this node runs; it does not wait for a provider event.")).toBeVisible();
+  await page.locator(".react-flow__node").filter({ hasText: "Get account snapshot" }).first().click();
   await expect(page.getByRole("region", { name: "Advanced" })).toBeVisible();
   const configCheckbox = page.locator('.checkbox-field input[type="checkbox"]').first();
   await expect(configCheckbox).toBeVisible();
@@ -188,6 +196,7 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(page.getByText(/sample data does not verify live connections or all inputs/i)).toBeVisible();
   await expect(page.getByRole("region", { name: "Last execution" }).getByText(/SUCCEEDED · ATTEMPT/)).toBeVisible();
   await page.locator(".react-flow__node").filter({ hasText: "Google Chat · Action" }).first().click();
+  await expect(debugPanel.getByText("Simulates this action; no message or change is sent to the provider. Only this node runs; live connections and inputs are not verified.")).toBeVisible();
   await expect(page.getByRole("region", { name: "Last execution" }).getByText(/SKIPPED · ATTEMPT/)).toBeVisible();
 
   const goLiveButton = page.getByRole("button", { name: "Go live" });
