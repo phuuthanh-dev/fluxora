@@ -2,6 +2,13 @@
 
 ## Trạng thái phát hành mới nhất — 06/11/2026
 
+PR [#94](https://github.com/phuuthanh-dev/fluxora/pull/94) đã merge và deploy
+thành công tại `6b2cd59`; CI PR/main và health sau deploy đạt. If/Switch xử lý
+từng item, giữ dữ liệu và liên kết item cha; nhánh không có item không chạy.
+Join, approval và nhánh error sau nguồn item vẫn chưa hỗ trợ. Sửa thêm lỗi
+`executeOnce` bị chuyển nhầm tới adapter PostgreSQL/Supabase. Kiểm thử provider
+dùng dữ liệu giả, không xác nhận kết nối thật.
+
 PR [#93](https://github.com/phuuthanh-dev/fluxora/pull/93) đã merge và deploy
 thành công tại `240b6ee`; CI PR/main và health sau deploy đạt. Sửa template
 tóm tắt gửi trùng bằng tùy chọn chạy action một lần cho item đầu tiên; workflow

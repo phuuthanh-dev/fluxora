@@ -9,8 +9,9 @@ PR #92 implements an initial bounded item model for explicitly registered list
 outputs. Items flow automatically through a single sequence of action nodes,
 with current-item `$json` expressions and recorded per-item state. It supports
 up to 100 items and 1 MB per node; lists of arbitrary nested fields are not
-split. The runner rejects branches, joins, conditions and approvals after a
-list before running the graph. The local synthetic verification and PR gate
+split. At that release the runner rejected branches, joins, conditions and
+approvals after a list before running the graph; PR #94 changes condition
+routing below. The local synthetic verification and PR gate
 and main CI passed; production deployment succeeded on attempt 2 after an
 owner-approved cleanup of the previous rollback image pair.
 
@@ -32,13 +33,22 @@ passed) using isolated test data. It shipped in [PR #93](https://github.com/phuu
 merged as `240b6ee`; PR and main CI and production deployment passed. This does
 not verify delivery through a real provider. See [n8n node settings](https://docs.n8n.io/workflows/components/nodes/#node-settings).
 
-Local follow-up, verified but not yet released: If and Switch route each input
+Released in [PR #94](https://github.com/phuuthanh-dev/fluxora/pull/94) as
+`6b2cd59`: If and Switch route each input
 item to its matching branch with its original JSON and parent-item link. Empty
 outputs do not run; joins, approvals and action error branches after item sources
 remain unsupported. The runner-only `executeOnce` setting is removed before
 provider adapter validation. Local `npm run verify` passed 1,045 API tests
-(one skipped), 73 web tests and 214 browser tests with synthetic data. This is
-not a live-provider or production qualification.
+(one skipped), 73 web tests and 214 browser tests with synthetic data. PR and
+main CI and deployment passed; production health checks returned HTTP 200.
+This is not a live-provider qualification.
+
+Local change, verified but not yet released: restore the source node's existing
+error branch when a list-producing node fails before creating any items,
+including malformed or over-limit list output. Per-item action error handling
+remains unsupported and is still rejected during preflight. Local `npm run
+verify` passed 1,052 API tests (one skipped), 73 web tests and 214 browser tests
+using synthetic data. No real-provider qualification follows from this test.
 
 n8n normally processes incoming items automatically and has broader branching
 and item-linking behavior. Its [item data model](https://docs.n8n.io/build/work-with-data/understand-n8ns-data-structure/)

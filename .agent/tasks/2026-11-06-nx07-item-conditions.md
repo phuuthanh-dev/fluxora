@@ -34,7 +34,7 @@ Permit the existing If and Switch nodes to route each incoming item to the match
 - [x] A failed condition prevents its successors from running and records the failure without replaying prior writes.
 - [x] Unsupported joins and approvals are rejected before any node runs.
 - [x] Existing single-action item paths and non-item graphs retain their established semantics.
-- [ ] Final batch `npm run verify` passes before the single develop-to-main PR.
+- [x] Final batch `npm run verify` passed before PR #94 from develop to main.
 
 ## Required evidence and safety
 
