@@ -298,6 +298,7 @@ test("expired execution and node transitions roll back together on database fail
   const failingPrisma = {
     $transaction: async (callback: (transaction: unknown) => Promise<unknown>) => prisma.$transaction(async (transaction) => callback({
       execution: transaction.execution,
+      nodeExecutionItem: transaction.nodeExecutionItem,
       nodeExecution: { updateMany: async (args: Parameters<typeof transaction.nodeExecution.updateMany>[0]) => {
         await transaction.nodeExecution.updateMany(args);
         throw new Error("synthetic failure after node update");
@@ -312,11 +313,17 @@ test("expired execution and node transitions roll back together on database fail
     await prisma.workflowVersion.create({ data: { id: versionId, workflowId, version: 1, graph: { nodes: [], edges: [] } } });
     await prisma.execution.create({ data: { id: executionId, workflowVersionId: versionId, mode: "MOCK", status: "RUNNING", startedAt: new Date(), leaseExpiresAt: new Date("2020-01-01T00:00:00Z"), runToken: "synthetic-phase" } });
     await prisma.nodeExecution.createMany({ data: [{ executionId, nodeId: "running", status: "RUNNING" }, { executionId, nodeId: "pending", status: "PENDING" }] });
+    const runningNode = await prisma.nodeExecution.findUniqueOrThrow({ where: { executionId_nodeId: { executionId, nodeId: "running" } } });
+    await prisma.nodeExecutionItem.createMany({ data: [
+      { nodeExecutionId: runningNode.id, itemIndex: 0, status: "RUNNING" },
+      { nodeExecutionId: runningNode.id, itemIndex: 1, status: "PENDING" },
+    ] });
     await assert.rejects(failingService.failFromMaintenance(executionId, "TEST", "Synthetic"), /synthetic failure/);
     const unchanged = await prisma.execution.findUniqueOrThrow({ where: { id: executionId }, include: { nodeExecutions: true } });
     assert.equal(unchanged.status, "RUNNING");
     assert.equal(unchanged.runToken, "synthetic-phase");
     assert.deepEqual(unchanged.nodeExecutions.map((node) => node.status).sort(), ["PENDING", "RUNNING"]);
+    assert.deepEqual((await prisma.nodeExecutionItem.findMany({ where: { nodeExecutionId: runningNode.id }, orderBy: { itemIndex: "asc" } })).map((item) => item.status), ["RUNNING", "PENDING"]);
     assert.deepEqual(events, []);
 
     await prisma.execution.update({ where: { id: executionId }, data: { leaseExpiresAt: new Date(Date.now() + 60_000) } });
@@ -330,6 +337,7 @@ test("expired execution and node transitions roll back together on database fail
     assert.equal(finished.runToken, null);
     assert.equal(finished.recoveryCount, 1);
     assert.deepEqual(finished.nodeExecutions.map((node) => node.status).sort(), ["FAILED", "SKIPPED"]);
+    assert.deepEqual((await prisma.nodeExecutionItem.findMany({ where: { nodeExecutionId: runningNode.id }, orderBy: { itemIndex: "asc" } })).map((item) => item.status), ["FAILED", "SKIPPED"]);
     assert.deepEqual(events, ["execution.failed"]);
   } finally {
     await prisma.execution.deleteMany({ where: { id: executionId } });
