@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ExecutionStatus } from "@prisma/client";
+import { NotFoundException } from "@nestjs/common";
 import type { WorkflowNode } from "@workflow/contracts";
 import { executeNode, ExecutionService } from "./execution.service";
+import { NodeFailure } from "./node-failure";
 import type { WorkflowItem } from "./item-stream";
 
 test("run-once is a runner setting, not a PostgreSQL or Supabase provider field", async () => {
@@ -201,4 +203,216 @@ test("a failing item condition stops and skips remaining items", async () => {
   assert.equal(result.result.status, "failed");
   assert.deepEqual(result.items, []);
   assert.deepEqual(records.map((record) => record.status), ["SUCCEEDED", "FAILED", "SKIPPED"]);
+});
+
+for (const outcome of ["mixed", "success", "failure"] as const) test(`an action with Error routes ${outcome} items separately`, async () => {
+  const records: Array<Record<string, unknown>> = [];
+  const updates: Array<Record<string, unknown>> = [];
+  const transaction = {
+    $queryRaw: async () => [{ status: ExecutionStatus.RUNNING, runToken: "run" }],
+    nodeExecution: { findUniqueOrThrow: async () => ({ id: "action-execution" }), update: async ({ data }: { data: Record<string, unknown> }) => { updates.push(data); } },
+    nodeExecutionItem: {
+      createMany: async ({ data }: { data: Array<Record<string, unknown>> }) => { records.push(...data); },
+      update: async ({ where, data }: { where: { nodeExecutionId_itemIndex: { itemIndex: number } }; data: Record<string, unknown> }) => { Object.assign(records[where.nodeExecutionId_itemIndex.itemIndex]!, data); },
+      updateMany: async () => ({ count: 0 }),
+    },
+  };
+  const service = new ExecutionService({ $transaction: async (fn: (client: typeof transaction) => Promise<unknown>) => fn(transaction) } as never, {} as never, { publish: () => undefined } as never);
+  const internals = service as unknown as {
+    isCancelled: () => Promise<boolean>; renewLease: () => Promise<boolean>;
+    runItemNode: (execution: string, workspace: string, node: WorkflowNode, context: Record<string, unknown>, inputs: WorkflowItem[], mode: "mock", root: string, token: string, restored: ReadonlySet<string>, routeErrors: boolean) => Promise<{ result: { status: string }; items: WorkflowItem[]; routedItems: Array<{ item: WorkflowItem; result: { route?: string } }> }>;
+  };
+  internals.isCancelled = async () => false;
+  internals.renewLease = async () => true;
+  const node: WorkflowNode = { id: "http", type: "action.http-request", position: { x: 0, y: 0 }, config: { url: "{{ $json.url }}" } };
+  const inputs = [0, 1, 2].map((index) => ({ json: { index, url: outcome === "failure" || (outcome === "mixed" && index === 1) ? "not-a-url" : `https://example.test/${index}` } }));
+  const result = await internals.runItemNode("execution", "workspace", node, { trigger: {}, steps: {} }, inputs, "mock", "root", "run", new Set(), true);
+  const expected = outcome === "mixed" ? ["success", "error", "success"] : [outcome === "success" ? "success" : "error", outcome === "success" ? "success" : "error", outcome === "success" ? "success" : "error"];
+  assert.equal(result.result.status, "succeeded");
+  assert.deepEqual(result.routedItems.map(({ result: routed }) => routed.route), expected);
+  assert.deepEqual(records.map((record) => record.status), expected.map((route) => route === "error" ? "FAILED" : "SUCCEEDED"));
+  assert.equal(updates.at(-1)?.status, outcome === "success" ? "SUCCEEDED" : "FAILED");
+  for (const [index, routed] of result.routedItems.entries()) {
+    assert.deepEqual(routed.item.pairedItem, { nodeId: "http", itemIndex: index });
+    if (routed.result.route === "error") {
+      assert.equal(routed.item.json.index, index);
+      assert.deepEqual(routed.item.json.error, { code: "ITEM_FAILED", message: "This item failed. See execution details.", retryable: false });
+    }
+  }
+});
+
+for (const code of ["DELIVERY_UNCERTAIN", "SMTP_PARTIAL_REJECTION"]) test(`handled ${code} does not retry an item or expose exception details`, async () => {
+  const records: Array<Record<string, unknown>> = [];
+  const transaction = {
+    $queryRaw: async () => [{ status: ExecutionStatus.RUNNING, runToken: "run" }],
+    nodeExecution: { findUniqueOrThrow: async () => ({ id: "action-execution" }), update: async () => ({}) },
+    nodeExecutionItem: {
+      createMany: async ({ data }: { data: Array<Record<string, unknown>> }) => { records.push(...data); },
+      update: async ({ where, data }: { where: { nodeExecutionId_itemIndex: { itemIndex: number } }; data: Record<string, unknown> }) => { Object.assign(records[where.nodeExecutionId_itemIndex.itemIndex]!, data); },
+      updateMany: async () => ({ count: 0 }),
+    },
+  };
+  let calls = 0;
+  const secretMarker = "synthetic-provider-detail-do-not-propagate";
+  const credentials = { readForExecution: async () => { calls++; throw new NodeFailure(code, secretMarker, false); } };
+  const service = new ExecutionService({ $transaction: async (fn: (client: typeof transaction) => Promise<unknown>) => fn(transaction) } as never, credentials as never, { publish: () => undefined } as never);
+  const internals = service as unknown as {
+    isCancelled: () => Promise<boolean>; renewLease: () => Promise<boolean>;
+    runItemNode: (execution: string, workspace: string, node: WorkflowNode, context: Record<string, unknown>, inputs: WorkflowItem[], mode: "live", root: string, token: string, restored: ReadonlySet<string>, routeErrors: boolean) => Promise<{ result: { status: string }; routedItems: Array<{ item: WorkflowItem; result: { route?: string } }> }>;
+  };
+  internals.isCancelled = async () => false;
+  internals.renewLease = async () => true;
+  const node: WorkflowNode = { id: "github", type: "action.github", position: { x: 0, y: 0 }, config: { repository: "example/repo", title: "Sample", credentialId: "synthetic", retryAttempts: 3 } };
+  const result = await internals.runItemNode("execution", "workspace", node, { trigger: {}, steps: {} }, [{ json: { index: 0 } }, { json: { index: 1 } }], "live", "root", "run", new Set(), true);
+  assert.equal(result.result.status, "succeeded");
+  assert.equal(calls, 2);
+  assert.deepEqual(records.map((record) => record.attempt), [1, 1]);
+  assert.deepEqual(result.routedItems.map(({ result: routed }) => routed.route), ["error", "error"]);
+  for (const { item } of result.routedItems) {
+    assert.doesNotMatch(JSON.stringify(item.json.error), /synthetic-provider-detail-do-not-propagate/);
+    assert.deepEqual(item.json.error, { code: "OUTCOME_UNKNOWN", message: "The provider may have applied this request. Check it before retrying.", retryable: false });
+  }
+});
+
+test("an item error cannot bypass the aggregate output size limit", async () => {
+  const records: Array<Record<string, unknown>> = [];
+  const updates: Array<Record<string, unknown>> = [];
+  const transaction = {
+    $queryRaw: async () => [{ status: ExecutionStatus.RUNNING, runToken: "run" }],
+    nodeExecution: { findUniqueOrThrow: async () => ({ id: "action-execution" }), update: async ({ data }: { data: Record<string, unknown> }) => { updates.push(data); } },
+    nodeExecutionItem: {
+      createMany: async ({ data }: { data: Array<Record<string, unknown>> }) => { records.push(...data); },
+      update: async ({ where, data }: { where: { nodeExecutionId_itemIndex: { itemIndex: number } }; data: Record<string, unknown> }) => { Object.assign(records[where.nodeExecutionId_itemIndex.itemIndex]!, data); },
+      updateMany: async () => ({ count: 0 }),
+    },
+  };
+  const service = new ExecutionService({ $transaction: async (fn: (client: typeof transaction) => Promise<unknown>) => fn(transaction) } as never, {} as never, { publish: () => undefined } as never);
+  const internals = service as unknown as {
+    isCancelled: () => Promise<boolean>; renewLease: () => Promise<boolean>;
+    runItemNode: (execution: string, workspace: string, node: WorkflowNode, context: Record<string, unknown>, inputs: WorkflowItem[], mode: "mock", root: string, token: string, restored: ReadonlySet<string>, routeErrors: boolean) => Promise<{ result: { status: string; error?: { code: string } }; items: WorkflowItem[] }>;
+  };
+  internals.isCancelled = async () => false;
+  internals.renewLease = async () => true;
+  const node: WorkflowNode = { id: "http", type: "action.http-request", position: { x: 0, y: 0 }, config: { url: "{{ $json.url }}" } };
+  const result = await internals.runItemNode("execution", "workspace", node, { trigger: {}, steps: {} }, [{ json: { url: "invalid", data: "x".repeat(999_850) } }], "mock", "root", "run", new Set(), true);
+  assert.equal(result.result.status, "failed");
+  assert.equal(result.result.error?.code, "ITEM_SIZE_EXCEEDED");
+  assert.deepEqual(result.items, []);
+  assert.equal(updates.at(-1)?.status, "FAILED");
+});
+
+test("a retryable item uses its retry budget before routing an error", async () => {
+  const records: Array<Record<string, unknown>> = [];
+  const updates: Array<Record<string, unknown>> = [];
+  const transaction = {
+    $queryRaw: async () => [{ status: ExecutionStatus.RUNNING, runToken: "run" }],
+    nodeExecution: { findUniqueOrThrow: async () => ({ id: "action-execution" }), update: async ({ data }: { data: Record<string, unknown> }) => { updates.push(data); } },
+    nodeExecutionItem: {
+      createMany: async ({ data }: { data: Array<Record<string, unknown>> }) => { records.push(...data); },
+      update: async ({ where, data }: { where: { nodeExecutionId_itemIndex: { itemIndex: number } }; data: Record<string, unknown> }) => { Object.assign(records[where.nodeExecutionId_itemIndex.itemIndex]!, data); },
+      updateMany: async () => ({ count: 0 }),
+    },
+  };
+  let calls = 0;
+  const credentials = { readForExecution: async () => { calls++; throw new NodeFailure("NETWORK_ERROR", "Synthetic failure", true); } };
+  const service = new ExecutionService({ $transaction: async (fn: (client: typeof transaction) => Promise<unknown>) => fn(transaction) } as never, credentials as never, { publish: () => undefined } as never);
+  const internals = service as unknown as {
+    isCancelled: () => Promise<boolean>; renewLease: () => Promise<boolean>;
+    runItemNode: (execution: string, workspace: string, node: WorkflowNode, context: Record<string, unknown>, inputs: WorkflowItem[], mode: "live", root: string, token: string, restored: ReadonlySet<string>, routeErrors: boolean) => Promise<{ result: { status: string }; routedItems: Array<{ item: WorkflowItem; result: { route?: string } }> }>;
+  };
+  internals.isCancelled = async () => false;
+  internals.renewLease = async () => true;
+  const node: WorkflowNode = { id: "github", type: "action.github", position: { x: 0, y: 0 }, config: { repository: "example/repo", title: "Sample", credentialId: "synthetic", retryAttempts: 2 } };
+  const result = await internals.runItemNode("execution", "workspace", node, { trigger: {}, steps: {} }, [{ json: { index: 0 } }], "live", "root", "run", new Set(), true);
+  assert.equal(calls, 2);
+  assert.equal(records[0]?.attempt, 2);
+  assert.equal(updates.at(-1)?.attempt, 2);
+  assert.equal(result.result.status, "succeeded");
+  assert.equal(result.routedItems[0]?.result.route, "error");
+});
+
+test("cancellation prevents processing later items and dispatching item branches", async () => {
+  const records: Array<Record<string, unknown>> = [];
+  const transaction = {
+    $queryRaw: async () => [{ status: ExecutionStatus.RUNNING, runToken: "run" }],
+    nodeExecution: { findUniqueOrThrow: async () => ({ id: "action-execution" }), update: async () => ({}) },
+    nodeExecutionItem: {
+      createMany: async ({ data }: { data: Array<Record<string, unknown>> }) => { records.push(...data); },
+      update: async ({ where, data }: { where: { nodeExecutionId_itemIndex: { itemIndex: number } }; data: Record<string, unknown> }) => { Object.assign(records[where.nodeExecutionId_itemIndex.itemIndex]!, data); },
+      updateMany: async () => ({ count: 0 }),
+    },
+  };
+  const service = new ExecutionService({ $transaction: async (fn: (client: typeof transaction) => Promise<unknown>) => fn(transaction) } as never, {} as never, { publish: () => undefined } as never);
+  const internals = service as unknown as {
+    isCancelled: () => Promise<boolean>; renewLease: () => Promise<boolean>;
+    runItemNode: (execution: string, workspace: string, node: WorkflowNode, context: Record<string, unknown>, inputs: WorkflowItem[], mode: "mock", root: string, token: string, restored: ReadonlySet<string>, routeErrors: boolean) => Promise<{ result: { status: string }; items: WorkflowItem[] }>;
+  };
+  let checks = 0;
+  internals.isCancelled = async () => ++checks > 1;
+  internals.renewLease = async () => true;
+  const node: WorkflowNode = { id: "http", type: "action.http-request", position: { x: 0, y: 0 }, config: { url: "{{ $json.url }}" } };
+  const result = await internals.runItemNode("execution", "workspace", node, { trigger: {}, steps: {} }, [{ json: { url: "invalid" } }, { json: { url: "https://example.test/next" } }], "mock", "root", "run", new Set(), true);
+  assert.equal(result.result.status, "interrupted");
+  assert.deepEqual(result.items, []);
+  assert.equal(records[0]?.status, "FAILED");
+  assert.notEqual(records[1]?.status, "RUNNING");
+});
+
+test("unknown internal exceptions stop an item run even with Error connected", async () => {
+  const records: Array<Record<string, unknown>> = [];
+  const updates: Array<Record<string, unknown>> = [];
+  const transaction = {
+    $queryRaw: async () => [{ status: ExecutionStatus.RUNNING, runToken: "run" }],
+    nodeExecution: { findUniqueOrThrow: async () => ({ id: "action-execution" }), update: async ({ data }: { data: Record<string, unknown> }) => { updates.push(data); } },
+    nodeExecutionItem: {
+      createMany: async ({ data }: { data: Array<Record<string, unknown>> }) => { records.push(...data); },
+      update: async ({ where, data }: { where: { nodeExecutionId_itemIndex: { itemIndex: number } }; data: Record<string, unknown> }) => { Object.assign(records[where.nodeExecutionId_itemIndex.itemIndex]!, data); },
+      updateMany: async () => { for (const record of records) if (!record.status || record.status === "PENDING") record.status = "SKIPPED"; return { count: 1 }; },
+    },
+  };
+  let calls = 0;
+  const credentials = { readForExecution: async () => { calls++; throw new Error("synthetic private infrastructure detail"); } };
+  const service = new ExecutionService({ $transaction: async (fn: (client: typeof transaction) => Promise<unknown>) => fn(transaction) } as never, credentials as never, { publish: () => undefined } as never);
+  const internals = service as unknown as {
+    isCancelled: () => Promise<boolean>; renewLease: () => Promise<boolean>;
+    runItemNode: (execution: string, workspace: string, node: WorkflowNode, context: Record<string, unknown>, inputs: WorkflowItem[], mode: "live", root: string, token: string, restored: ReadonlySet<string>, routeErrors: boolean) => Promise<{ result: { status: string; error?: { code: string } }; items: WorkflowItem[] }>;
+  };
+  internals.isCancelled = async () => false;
+  internals.renewLease = async () => true;
+  const node: WorkflowNode = { id: "github", type: "action.github", position: { x: 0, y: 0 }, config: { repository: "example/repo", title: "Sample", credentialId: "synthetic" } };
+  const result = await internals.runItemNode("execution", "workspace", node, { trigger: {}, steps: {} }, [{ json: { index: 0 } }, { json: { index: 1 } }], "live", "root", "run", new Set(), true);
+  assert.equal(calls, 1);
+  assert.equal(result.result.status, "failed");
+  assert.equal(result.result.error?.code, "NODE_ERROR");
+  assert.deepEqual(records.map((record) => record.status), ["FAILED", "SKIPPED"]);
+  assert.equal(updates.at(-1)?.status, "FAILED");
+  assert.doesNotMatch(JSON.stringify(updates.at(-1)), /synthetic private infrastructure detail/);
+});
+
+test("a missing connection is routed per item when Error is connected", async () => {
+  const records: Array<Record<string, unknown>> = [];
+  const transaction = {
+    $queryRaw: async () => [{ status: ExecutionStatus.RUNNING, runToken: "run" }],
+    nodeExecution: { findUniqueOrThrow: async () => ({ id: "action-execution" }), update: async () => ({}) },
+    nodeExecutionItem: {
+      createMany: async ({ data }: { data: Array<Record<string, unknown>> }) => { records.push(...data); },
+      update: async ({ where, data }: { where: { nodeExecutionId_itemIndex: { itemIndex: number } }; data: Record<string, unknown> }) => { Object.assign(records[where.nodeExecutionId_itemIndex.itemIndex]!, data); },
+      updateMany: async () => ({ count: 0 }),
+    },
+  };
+  let calls = 0;
+  const credentials = { readForExecution: async () => { calls++; throw new NotFoundException({ code: "CREDENTIAL_NOT_FOUND", message: "Connection not found." }); } };
+  const service = new ExecutionService({ $transaction: async (fn: (client: typeof transaction) => Promise<unknown>) => fn(transaction) } as never, credentials as never, { publish: () => undefined } as never);
+  const internals = service as unknown as {
+    isCancelled: () => Promise<boolean>; renewLease: () => Promise<boolean>;
+    runItemNode: (execution: string, workspace: string, node: WorkflowNode, context: Record<string, unknown>, inputs: WorkflowItem[], mode: "live", root: string, token: string, restored: ReadonlySet<string>, routeErrors: boolean) => Promise<{ result: { status: string }; routedItems: Array<{ result: { route?: string } }> }>;
+  };
+  internals.isCancelled = async () => false;
+  internals.renewLease = async () => true;
+  const node: WorkflowNode = { id: "github", type: "action.github", position: { x: 0, y: 0 }, config: { repository: "example/repo", title: "Sample", credentialId: "missing" } };
+  const result = await internals.runItemNode("execution", "workspace", node, { trigger: {}, steps: {} }, [{ json: { index: 0 } }, { json: { index: 1 } }], "live", "root", "run", new Set(), true);
+  assert.equal(calls, 2);
+  assert.equal(result.result.status, "succeeded");
+  assert.deepEqual(result.routedItems.map(({ result: item }) => item.route), ["error", "error"]);
+  assert.deepEqual(records.map((record) => record.status), ["FAILED", "FAILED"]);
 });

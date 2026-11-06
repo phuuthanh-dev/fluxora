@@ -138,3 +138,75 @@ for (const scenario of ["source-error", "invalid-output", "too-many", "success",
     await prisma.$disconnect();
   }
 });
+
+for (const scenario of ["mixed", "all-success", "all-failure", "no-error", "fatal-limit"] as const) test(`per-item action routes ${scenario} on an isolated database`, { skip: !isDisposableDatabase() }, async () => {
+  const prisma = new PrismaClient();
+  const suffix = randomUUID();
+  const userId = `item-route-user-${suffix}`, workspaceId = `item-route-workspace-${suffix}`;
+  const workflowId = `item-route-workflow-${suffix}`, versionId = `item-route-version-${suffix}`, executionId = `item-route-execution-${suffix}`;
+  const nodes = [
+    { id: "start", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
+    { id: "source", type: "action.postgres.select", position: { x: 1, y: 0 }, config: { schema: "public", table: "items" } },
+    { id: "action", type: "action.http-request", position: { x: 2, y: 0 }, config: { url: "{{ $json.url }}" } },
+    { id: "success", type: "action.http-request", position: { x: 3, y: 0 }, config: { url: "https://example.test/success" } },
+    { id: "recover", type: "action.http-request", position: { x: 3, y: 1 }, config: { url: "https://example.test/recover" } },
+  ];
+  const edges = [
+    { id: "start-source", source: "start", target: "source", kind: "success" },
+    { id: "source-action", source: "source", target: "action", kind: "success" },
+    { id: "action-success", source: "action", target: "success", kind: "success" },
+    ...(scenario === "no-error" ? [] : [{ id: "action-error", source: "action", target: "recover", kind: "error" }]),
+  ];
+  const service = new ExecutionService(prisma as never, {} as never, { publish: () => undefined } as never);
+  const internals = service as unknown as { runNode: (execution: string, workspace: string, node: WorkflowNode, context: Record<string, unknown>, mode: RunMode, root: string, token: string, restored: ReadonlySet<string>) => Promise<NodeResult> };
+  const originalRunNode = internals.runNode.bind(service);
+  internals.runNode = async (...args) => {
+    const result = await originalRunNode(...args);
+    if (args[2].id !== "source" || result.status !== "succeeded") return result;
+    const rows = scenario === "fatal-limit" ? [{ index: 0, url: "not-a-url", data: "x".repeat(999_850) }] : [0, 1, 2].map((index) => ({ index, url: scenario === "all-failure" || ((scenario === "mixed" || scenario === "no-error") && index === 1) ? "not-a-url" : `https://example.test/${index}` }));
+    const output = { rows, count: rows.length };
+    await prisma.nodeExecution.update({ where: { executionId_nodeId: { executionId, nodeId: "source" } }, data: { output } });
+    return { ...result, output };
+  };
+  try {
+    await prisma.user.create({ data: { id: userId, email: `${suffix}@example.test` } });
+    await prisma.workspace.create({ data: { id: workspaceId, ownerId: userId, name: "Synthetic", slug: `item-route-${suffix}` } });
+    await prisma.workspaceMember.create({ data: { workspaceId, userId, role: "OWNER" } });
+    await prisma.workflow.create({ data: { id: workflowId, workspaceId, name: "Synthetic" } });
+    await prisma.workflowVersion.create({ data: { id: versionId, workflowId, version: 1, status: "DRAFT", graph: { nodes, edges } as Prisma.InputJsonValue } });
+    await prisma.execution.create({ data: { id: executionId, workflowVersionId: versionId, mode: "MOCK" } });
+    await service.run(executionId, "mock");
+    const execution = await prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
+    const nodeRows = await prisma.nodeExecution.findMany({ where: { executionId }, include: { items: { orderBy: { itemIndex: "asc" } } } });
+    const byNode = new Map(nodeRows.map((row) => [row.nodeId, row]));
+    const action = byNode.get("action")!;
+    if (scenario === "fatal-limit") {
+      assert.equal(execution.status, "FAILED");
+      assert.equal(action.errorCode, "ITEM_SIZE_EXCEEDED");
+      assert.equal(byNode.get("success")?.status, "SKIPPED");
+      assert.equal(byNode.get("recover")?.status, "SKIPPED");
+      const detail = await service.get(executionId, userId);
+      assert.deepEqual(detail.nodeExecutions.find((node) => node.nodeId === "action")?.failureHandling, { kind: "execution_failed", targetNodeIds: [] });
+      return;
+    }
+    assert.equal(execution.status, scenario === "no-error" ? "FAILED" : "SUCCEEDED");
+    assert.equal(action.status, scenario === "all-success" ? "SUCCEEDED" : "FAILED");
+    assert.deepEqual(action.items.map((item) => item.status), scenario === "mixed" ? ["SUCCEEDED", "FAILED", "SUCCEEDED"] : scenario === "no-error" ? ["SUCCEEDED", "FAILED", "SKIPPED"] : Array(3).fill(scenario === "all-success" ? "SUCCEEDED" : "FAILED"));
+    assert.equal(byNode.get("success")?.status, scenario === "all-failure" || scenario === "no-error" ? "SKIPPED" : "SUCCEEDED");
+    assert.equal(byNode.get("recover")?.status, scenario === "all-success" || scenario === "no-error" ? "SKIPPED" : "SUCCEEDED");
+    if (scenario === "mixed") {
+      assert.deepEqual(byNode.get("success")?.items.map((item) => item.parentItemIndex), [0, 2]);
+      assert.deepEqual(byNode.get("recover")?.items.map((item) => item.parentItemIndex), [1]);
+      const input = byNode.get("recover")?.items[0]?.input as { item?: { index?: number; error?: { code?: string } } } | null;
+      assert.equal(input?.item?.index, 1);
+      assert.equal(input?.item?.error?.code, "ITEM_FAILED");
+    }
+  } finally {
+    await prisma.execution.deleteMany({ where: { workflowVersionId: versionId } });
+    await prisma.workflowVersion.deleteMany({ where: { id: versionId } });
+    await prisma.workflow.deleteMany({ where: { id: workflowId } });
+    await prisma.workspace.deleteMany({ where: { id: workspaceId } });
+    await prisma.user.deleteMany({ where: { id: userId } });
+    await prisma.$disconnect();
+  }
+});
