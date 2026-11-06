@@ -2,6 +2,12 @@
 
 ## Trạng thái phát hành mới nhất — 06/11/2026
 
+PR [#95](https://github.com/phuuthanh-dev/fluxora/pull/95) đã merge và deploy
+thành công tại `3420408`; CI PR/main và health đạt. Node đọc danh sách có thể
+dùng nhánh error khi lỗi trước khi tạo item hoặc dữ liệu danh sách không hợp lệ.
+Nhánh error của action xử lý từng item vẫn chưa hỗ trợ. Test dùng dữ liệu giả,
+không chứng minh provider thật.
+
 PR [#94](https://github.com/phuuthanh-dev/fluxora/pull/94) đã merge và deploy
 thành công tại `6b2cd59`; CI PR/main và health sau deploy đạt. If/Switch xử lý
 từng item, giữ dữ liệu và liên kết item cha; nhánh không có item không chạy.

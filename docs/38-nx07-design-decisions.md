@@ -43,12 +43,14 @@ provider adapter validation. Local `npm run verify` passed 1,045 API tests
 main CI and deployment passed; production health checks returned HTTP 200.
 This is not a live-provider qualification.
 
-Local change, verified but not yet released: restore the source node's existing
+Released in [PR #95](https://github.com/phuuthanh-dev/fluxora/pull/95) as
+`3420408`: restore the source node's existing
 error branch when a list-producing node fails before creating any items,
 including malformed or over-limit list output. Per-item action error handling
 remains unsupported and is still rejected during preflight. Local `npm run
 verify` passed 1,052 API tests (one skipped), 73 web tests and 214 browser tests
-using synthetic data. No real-provider qualification follows from this test.
+using synthetic data. PR/main CI and deployment passed; public health checks
+returned HTTP 200. No real-provider qualification follows from these checks.
 
 n8n normally processes incoming items automatically and has broader branching
 and item-linking behavior. Its [item data model](https://docs.n8n.io/build/work-with-data/understand-n8ns-data-structure/)
