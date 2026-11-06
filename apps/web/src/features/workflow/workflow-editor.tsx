@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { nodeConfigIssues, type NodeConfigIssue } from "@workflow/contracts";
+import { getOperationMetadata, nodeConfigIssues, type MockBehavior, type NodeConfigIssue } from "@workflow/contracts";
 import { ApiClientError, apiRequest, apiUrl } from "../api/api-client";
 import { validateWorkflowGraph } from "./graph-validation";
 import {
@@ -73,6 +73,14 @@ import type { InspectorDraft, InspectorDraftKind, StagedText, UpdateInspectorDra
 import type { MongoFilterRow } from "./mongodb-filter";
 import { GoogleSheetsMappingField } from "./google-sheets-mapping-field";
 import { applySheetsMapping, type SheetsMappingDraft } from "./google-sheets-mapping";
+
+const mockGuidance: Record<MockBehavior, string> = {
+  "provider-sample": "Returns sample output without calling the provider. Only this node runs; live connections and inputs are not verified.",
+  "trigger-data": "Uses test data; some triggers provide a sample when it is empty. Only this node runs; it does not wait for a provider event.",
+  condition: "Evaluates the condition using test data. No downstream node runs during node debug.",
+  approval: "A full test run creates an approval request and waits. Approval nodes cannot run alone.",
+  unavailable: "This node is not available to run or test yet.",
+};
 
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNode };
 
@@ -936,6 +944,10 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
 
   const effectiveNodeType = node.data.nodeType;
   const definition = getNodeDefinition(effectiveNodeType);
+  const operationMetadata = getOperationMetadata(effectiveNodeType);
+  const debugGuidance = operationMetadata?.mockBehavior === "provider-sample" && operationMetadata.effect === "write"
+    ? "Simulates this action; no message or change is sent to the provider. Only this node runs; live connections and inputs are not verified."
+    : mockGuidance[operationMetadata?.mockBehavior ?? "unavailable"];
   const configIssues = nodeConfigIssues(effectiveNodeType, node.data.config, "static");
   const nodeExecution = execution?.nodeExecutions.find((item) => item.nodeId === node.id);
   const recordedNode = execution?.graph?.nodes.find((item) => item.id === node.id && item.type === nodeExecution?.nodeType);
@@ -1169,7 +1181,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       </InspectorSection>
       <InspectorSection title="Test & debug">
         <section className="node-debug-panel">
-          <div><p className="section-label">NODE DEBUG</p><p>Runs only this node with mock providers. No live request or downstream node will run.</p></div>
+          <div><p className="section-label">NODE DEBUG</p><p>{debugGuidance}</p></div>
           <Button variant="secondary" className="node-debug-panel__button" disabled={!definition?.available || effectiveNodeType === "approval.request" || isDebugging || hasPending} title={hasPending ? "Apply or discard pending edits first." : effectiveNodeType === "approval.request" ? "Approval nodes are tested in a full workflow run." : undefined} onClick={() => onDebugNode(node)}><Play size={14} />{isDebugging ? "Running node…" : "Run node"}</Button>
         </section>
         <section className="input-preview">

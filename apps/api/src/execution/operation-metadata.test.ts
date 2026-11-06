@@ -10,6 +10,31 @@ import { executeNotionSearch } from "./notion-search";
 import { executeNode } from "./execution.service";
 import { NodeFailure } from "./node-failure";
 import { getConnectorExecutor, registeredConnectorNodeTypes } from "./connector-executors";
+import { redactValue } from "./redaction";
+
+test("metadata distinguishes node test behavior and describes only the history filter", () => {
+  for (const type of workflowNodeTypes) {
+    const metadata = getOperationMetadata(type)!;
+    const executable = executableWorkflowNodeTypes.includes(type as typeof executableWorkflowNodeTypes[number]);
+    const expected = !executable ? "unavailable" : type.startsWith("action.") ? "provider-sample" : type.startsWith("trigger.") ? "trigger-data" : type.startsWith("condition.") ? "condition" : "approval";
+    assert.equal(metadata.mockBehavior, expected, type);
+    assert.equal(metadata.historyRedaction, executable ? "key-based" : "not-applicable", type);
+  }
+  // History filtering is a backend behavior, not a guarantee about free text.
+  assert.deepEqual(redactValue({ accessToken: "fixture-secret", note: "fixture-secret", nested: { password: "fixture-password" } }), {
+    accessToken: "[REDACTED]", note: "fixture-secret", nested: { password: "[REDACTED]" },
+  });
+});
+
+test("condition and approval test behavior uses the local runner", async () => {
+  const credentials = new Proxy({}, { get() { throw new Error("Mock must not read credentials"); } }) as never;
+  const condition = { id: "condition", type: "condition.if" as const, position: { x: 0, y: 0 }, config: { left: "same", operator: "equals", right: "same" } };
+  const approval = { id: "approval", type: "approval.request" as const, position: { x: 0, y: 0 }, config: { message: "Review" } };
+  assert.equal(getOperationMetadata(condition.type)?.mockBehavior, "condition");
+  assert.equal((await executeNode(condition, condition.config, {}, "mock", "workspace", credentials, "execution")).route, "true");
+  assert.equal(getOperationMetadata(approval.type)?.mockBehavior, "approval");
+  assert.equal((await executeNode(approval, approval.config, {}, "mock", "workspace", credentials, "execution")).status, "waiting");
+});
 
 test("each executable node has a registry executor, dispatcher branch or shared trigger branch", () => {
   const source = ts.createSourceFile("execution.service.ts", readFileSync(join(__dirname, "execution.service.ts"), "utf8"), ts.ScriptTarget.Latest, true);
@@ -73,6 +98,7 @@ test("trigger metadata describes the common output wrapper without assuming a pr
     const node = { id: "trigger", type, position: { x: 0, y: 0 }, config };
     const metadata = getOperationMetadata(type);
     assert.ok(metadata && "knownFields" in metadata.output, type);
+    assert.equal(metadata.mockBehavior, "trigger-data", type);
     assert.deepEqual(metadata.output.knownFields, ["received"], type);
     for (const mode of ["mock", "live"] as const) {
       const result = await executeNode(node, config, { trigger: payload }, mode, "workspace", credentials, "execution");
@@ -89,6 +115,7 @@ test("approval and Drive metadata only describe common output fields", async () 
   ] as const) {
     const metadata = getOperationMetadata(type);
     assert.ok(metadata && "knownFields" in metadata.output, type);
+    assert.equal(metadata.mockBehavior, type === "approval.request" ? "approval" : "provider-sample", type);
     for (const config of configs) {
       const node = { id: "node", type, position: { x: 0, y: 0 }, config };
       const result = await executeNode(node, config, {}, "mock", "workspace", credentials, "execution");
@@ -183,16 +210,25 @@ test("configured mock outputs contain the fields advertised by operation metadat
   ] as const;
   assert.equal(new Set(cases.map(([type]) => type)).size, cases.length, "use one fixture per registered action");
   assert.deepEqual(new Set(cases.map(([type]) => type)), new Set(registeredConnectorNodeTypes));
-  for (const [type, config] of cases) {
-    const node = { id: "example", type, position: { x: 0, y: 0 }, config };
-    const result = await executeNode(node, config, {}, "mock", "workspace", credentials, "execution");
-    const metadata = getOperationMetadata(type);
-    assert.ok(metadata && "knownFields" in metadata.output, type);
-    for (const field of metadata.output.knownFields) {
-      // Warnings are present only when the provider reports an ambiguous boundary.
-      if (type === "action.trello.find-cards" && field === "paginationWarning") continue;
-      assert.ok(Object.hasOwn(result.output, field), `${type} is missing ${field}`);
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => { fetchCalls++; throw new Error("Mock must not call a provider"); };
+  try {
+    for (const [type, config] of cases) {
+      const node = { id: "example", type, position: { x: 0, y: 0 }, config };
+      const result = await executeNode(node, config, {}, "mock", "workspace", credentials, "execution");
+      const metadata = getOperationMetadata(type);
+      assert.ok(metadata && "knownFields" in metadata.output, type);
+      assert.equal(metadata.mockBehavior, "provider-sample", type);
+      for (const field of metadata.output.knownFields) {
+        // Warnings are present only when the provider reports an ambiguous boundary.
+        if (type === "action.trello.find-cards" && field === "paginationWarning") continue;
+        assert.ok(Object.hasOwn(result.output, field), `${type} is missing ${field}`);
+      }
     }
+    assert.equal(fetchCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
   }
 });
 
