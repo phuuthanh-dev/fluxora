@@ -7,13 +7,14 @@
 PR [#95](https://github.com/phuuthanh-dev/fluxora/pull/95) đã merge và deploy
 thành công tại `3420408`; CI PR/main và health đạt. Node đọc danh sách có thể
 dùng nhánh error khi lỗi trước khi tạo item hoặc dữ liệu danh sách không hợp lệ.
-Nhánh error của action xử lý từng item vẫn chưa hỗ trợ. Test dùng dữ liệu giả,
-không chứng minh provider thật.
+Tại bản #95, nhánh error của action theo từng item chưa hỗ trợ; PR #96 đã bổ
+sung. Test dùng dữ liệu giả, không chứng minh provider thật.
 
 PR [#94](https://github.com/phuuthanh-dev/fluxora/pull/94) đã merge và deploy
 thành công tại `6b2cd59`; CI PR/main và health sau deploy đạt. If/Switch xử lý
 từng item, giữ dữ liệu và liên kết item cha; nhánh không có item không chạy.
-Join, approval và nhánh error sau nguồn item vẫn chưa hỗ trợ. Sửa thêm lỗi
+Tại bản #94, join, approval và nhánh error sau nguồn item chưa hỗ trợ; PR #96
+đã bổ sung nhánh error. Sửa thêm lỗi
 `executeOnce` bị chuyển nhầm tới adapter PostgreSQL/Supabase. Kiểm thử provider
 dùng dữ liệu giả, không xác nhận kết nối thật.
 
@@ -329,9 +330,9 @@ Full `npm run verify` cục bộ cho commit `386a1db` có cùng source tree vớ
 head: 968 test API, 76 test web và 213 Playwright, dùng database/Redis riêng,
 dữ liệu giả và scheduler tắt. CI xác minh lại trên Node 22.
 
-Các bảng và ghi chú bên dưới là **snapshot lịch sử**, trừ khi nêu rõ thời điểm
-khác. Dùng trạng thái sau để xác định công việc còn lại, tránh triển khai lại
-những operation đã có:
+Các bảng và ghi chú bên dưới là **snapshot lịch sử** của PR #83, trừ khi nêu
+rõ thời điểm khác. Không dùng bảng này làm trạng thái hiện tại; xem bảng trong
+[docs/45](45-nx-current-audit.md) và source trước khi chọn việc:
 
 | Mục | Đã có trong bản phát hành | Chưa chứng minh hoặc chưa thực hiện |
 |---|---|---|

@@ -133,6 +133,12 @@ The API accepts user requests and creates execution records. The worker executes
 
 Production uses `EXECUTION_QUEUE_MODE=redis`; it never silently degrades to inline execution. The API exposes liveness at `/api/v1/health` and dependency readiness at `/api/v1/health/ready`; readiness verifies PostgreSQL and Redis queue availability plus queue depth. The separate worker must use the same Redis URL, queue/event namespaces, and `APP_ENCRYPTION_KEY` as the API. Redis Pub/Sub carries redacted execution invalidation events from workers to the API process; the authenticated SSE route still performs the owner authorization check before subscribing.
 
+Local follow-up verified in the isolated final gate, not yet released: after authorization, an SSE
+subscription attaches to execution events and then sends a connection signal.
+The editor uses this signal to refresh the execution snapshot on initial
+connection and reconnect. This covers changes missed while the stream connects;
+it does not replay Redis events lost while an SSE connection stays open.
+
 `EXECUTION_WORKER_CONCURRENCY` bounds simultaneous jobs per worker and defaults to two (valid range: 1–20). Scale by adding workers first; readiness exposes the configured per-worker capacity and active queue count so an operator can see saturation.
 
 Only the API process runs scheduler ingress. The worker starts the Nest application context for execution dependencies but identifies itself as `PROCESS_ROLE=worker`, which disables cron scheduling and prevents duplicate scheduled runs when workers scale horizontally.

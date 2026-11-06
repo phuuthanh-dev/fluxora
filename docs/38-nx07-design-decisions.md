@@ -89,6 +89,14 @@ need shared durable storage; local files alone do not satisfy that requirement.
 Design and exercise cleanup before introducing attachments or media. See
 [n8n external storage](https://docs.n8n.io/hosting/scaling/external-storage/).
 
+Reference rechecked 2026-11-06: n8n documents in-memory binary storage by
+default, filesystem mode for non-queue installations, and database mode for
+queue mode; its filesystem mode is not supported with queue mode. External S3
+storage is documented separately as an Enterprise feature. These are n8n
+choices, not a requirement for Fluxora to implement the same storage system;
+Fluxora's API and worker separation must be considered before choosing one. See
+[n8n binary data handling](https://docs.n8n.io/deploy/host-n8n/configure-n8n/scaling/handle-binary-data/).
+
 The binary reference is an opaque capability resolved only after workspace
 authorization; it is not a public file URL or a filesystem path. Before a
 provider sends data, validate length and content type, stream with a hard limit,
@@ -98,6 +106,13 @@ must test storage unavailability, partial upload cleanup, backup/restore and
 quota enforcement separately from ordinary JSON output.
 
 ## Database changes
+
+Rechecked against [n8n Postgres Trigger](https://docs.n8n.io/integrations/builtin/trigger-nodes/n8n-nodes-base.postgrestrigger/)
+on 2026-11-06: n8n offers insert/update/delete via an automatically created
+database trigger, or listening on an existing channel. Automatic creation needs
+table/schema privileges and the rule is removed when the workflow is unpublished.
+This describes n8n's behavior, not a delivered Fluxora capability or a guarantee
+of event recovery while disconnected.
 
 PostgreSQL LISTEN/NOTIFY is best effort: disconnections lose notifications, and
 the [initial subscription race](https://www.postgresql.org/docs/current/sql-listen.html)

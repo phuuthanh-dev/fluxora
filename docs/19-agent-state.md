@@ -16,8 +16,9 @@ complete in the delivery ledger.
   API tests (one skipped), 73 web tests and 214 browser tests with synthetic
   data. No live provider was tested for this release.
 - PR #95 restores a list source's existing error branch when the source fails
-  before producing items, including malformed or over-limit output. Per-item
-  action error branches remain unsupported. Do not repeat this fix.
+  before producing items, including malformed or over-limit output. At that
+  release per-item action error branches were unsupported; PR #96 added them.
+  Do not repeat this fix.
 - [PR #94](https://github.com/phuuthanh-dev/fluxora/pull/94) merged as
   `6b2cd5948ebde884f0abd8bd83851451edc188d2` after its PR and main gates
   passed. [Production deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/42179889730)
@@ -27,9 +28,10 @@ complete in the delivery ledger.
   provider call was made for this qualification.
 - PR #94 routes bounded list items through If and Switch, preserves original
   item data and immediate parent links, and skips empty branches. Joins,
-  approvals and action error branches after item sources are still unsupported;
-  100-item and 1 MB limits remain. It also prevents runner-only `executeOnce`
-  from reaching PostgreSQL/Supabase adapters. Do not implement this batch again.
+  approvals and action error branches after item sources were unsupported at
+  that release; PR #96 added action error routing. The 100-item and 1 MB limits
+  remain. It also prevents runner-only `executeOnce` from reaching
+  PostgreSQL/Supabase adapters. Do not implement this batch again.
 - [PR #93](https://github.com/phuuthanh-dev/fluxora/pull/93) merged as
   `240b6ee5ce476e0fa1dee9e718c6aea18861869a`; the PR and main quality gates
   passed and [production deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/42172497321)
