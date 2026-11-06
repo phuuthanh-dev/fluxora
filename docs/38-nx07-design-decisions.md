@@ -43,6 +43,11 @@ provider adapter validation. Local `npm run verify` passed 1,045 API tests
 main CI and deployment passed; production health checks returned HTTP 200.
 This is not a live-provider qualification.
 
+Local draft, not yet verified or released: restore the source node's existing
+error branch when a list-producing node fails before creating any items,
+including malformed or over-limit list output. Per-item action error handling
+remains unsupported and is still rejected during preflight.
+
 n8n normally processes incoming items automatically and has broader branching
 and item-linking behavior. Its [item data model](https://docs.n8n.io/build/work-with-data/understand-n8ns-data-structure/)
 and [loop documentation](https://docs.n8n.io/build/flow-logic/loop/) are

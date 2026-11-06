@@ -483,7 +483,7 @@ export class ExecutionService {
         for (const candidate of graph.nodes) {
           const config = candidate.config as Record<string, unknown>;
           if ((!debugNodeId || candidate.id === debugNodeId) && candidate.type.startsWith("action.") && Object.hasOwn(config, "executeOnce") && typeof config.executeOnce !== "boolean") throw new NodeFailure("INVALID_CONFIGURATION", "Run once must be on or off.", false);
-          if (!debugNodeId && isCollectionProducer(candidate, config)) assertSupportedItemPath(graph, candidate.id);
+          if (!debugNodeId && isCollectionProducer(candidate, config)) assertSupportedItemPath(graph, candidate.id, true);
         }
       } catch (reason) {
         const failure = nodeFailureFromExecutionError(reason);
@@ -580,7 +580,7 @@ export class ExecutionService {
       const outputConfig = { ...node.config, ...(typeof result.output.operation === "string" ? { operation: result.output.operation } : {}) };
       if (itemRun || isCollectionProducer(node, outputConfig)) {
         try {
-          assertSupportedItemPath(graph, node.id);
+          assertSupportedItemPath(graph, node.id, !itemRun);
           const items = itemRun?.items ?? outputItems(node, outputConfig, result.output).map((item, itemIndex) => ({ ...item, pairedItem: { nodeId: node.id, itemIndex } }));
           if (!items.length) continue;
           if (itemRun?.routedItems) {
@@ -591,7 +591,17 @@ export class ExecutionService {
           }
         } catch (reason) {
           const failure = nodeFailureFromExecutionError(reason);
-          await this.updateNodeWhileRunning(executionId, runToken, node.id, { status: NodeExecutionStatus.FAILED, errorCode: failure.code, errorMessage: failure.message, errorRetryable: false, completedAt: new Date() });
+          const updated = await this.updateNodeWhileRunning(executionId, runToken, node.id, { status: NodeExecutionStatus.FAILED, output: Prisma.DbNull, errorCode: failure.code, errorMessage: failure.message, errorRetryable: false, completedAt: new Date() });
+          if (!updated) return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
+          this.events.publish(executionId, "node.updated");
+          // A malformed or over-limit list failed at the source, before any
+          // downstream item was processed. Honor its existing error branch.
+          const errorTargets = !itemRun ? graph.edges.filter((edge) => edge.source === node.id && edge.kind === "error") : [];
+          if (errorTargets.length) {
+            delete outputs[node.id];
+            pending.push(...this.targets(graph, errorTargets));
+            continue;
+          }
           await this.markUnvisitedSkipped(executionId, runToken, graph, visited);
           return this.finishRunning(executionId, runToken, { status: ExecutionStatus.FAILED, completedAt: new Date(), leaseExpiresAt: null, errorCode: failure.code, errorMessage: failure.message, errorRetryable: false }, "execution.failed");
         }

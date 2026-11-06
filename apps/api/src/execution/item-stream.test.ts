@@ -41,6 +41,20 @@ test("item conditions may split paths but cannot rejoin or lead to approval", ()
   assert.throws(() => assertSupportedItemPath({ ...graph, nodes: [...graph.nodes, { ...node("approval.request"), id: "approval" }], edges: [...graph.edges, { id: "pause", source: "yes", target: "approval", kind: "success" }] }, source.id), { code: "ITEM_FLOW_UNSUPPORTED" });
 });
 
+test("a list source may have an error branch, while per-item actions may not", () => {
+  const source = node("action.postgres.select");
+  const action = { ...node("action.http-request"), id: "action" };
+  const recovery = { ...node("action.http-request"), id: "recovery" };
+  const graph = { nodes: [source, action, recovery], edges: [
+    { id: "ok", source: "source", target: "action", kind: "success" as const },
+    { id: "error", source: "source", target: "recovery", kind: "error" as const },
+  ] };
+  assert.doesNotThrow(() => assertSupportedItemPath(graph, source.id, true));
+  assert.throws(() => assertSupportedItemPath({ ...graph, edges: [graph.edges[0]!, { ...graph.edges[1]!, source: "action" }] }, source.id, true), { code: "ITEM_FLOW_UNSUPPORTED" });
+  const nestedSource = { ...node("action.supabase.select"), id: "action" };
+  assert.throws(() => assertSupportedItemPath({ ...graph, nodes: [source, nestedSource, recovery], edges: [graph.edges[0]!, { ...graph.edges[1]!, source: "action" }] }, source.id, true), { code: "ITEM_FLOW_UNSUPPORTED" });
+});
+
 test("empty and malformed collections have bounded and explicit behavior", () => {
   const sheet = node("action.google-sheets");
   assert.deepEqual(outputItems(sheet, { operation: "read" }, {}), []);

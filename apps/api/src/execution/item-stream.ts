@@ -10,15 +10,18 @@ export function isCollectionProducer(node: WorkflowNode, config: Record<string, 
 }
 
 /** Validate item paths before any node runs. Joins and pauses are not supported. */
-export function assertSupportedItemPath(graph: WorkflowGraph, sourceId: string): void {
+export function assertSupportedItemPath(graph: WorkflowGraph, sourceId: string, allowSourceError = false): void {
   const pending = [sourceId];
   const visited = new Set<string>();
   while (pending.length) {
     const current = pending.pop()!;
     if (visited.has(current)) throw new NodeFailure("ITEM_FLOW_UNSUPPORTED", "Item paths cannot contain joins or cycles.", false);
     visited.add(current);
-    const outgoing = graph.edges.filter((edge) => edge.source === current);
     const node = graph.nodes.find((entry) => entry.id === current);
+    // A source failure happens before an item stream exists; its error branch
+    // uses the ordinary node-level runner, not per-item continuation.
+    const sourceError = allowSourceError && current === sourceId && node !== undefined && isCollectionProducer(node, node.config);
+    const outgoing = graph.edges.filter((edge) => edge.source === current && !(sourceError && edge.kind === "error"));
     const conditional = node?.type === "condition.if" || node?.type === "condition.switch";
     if (!conditional && (outgoing.length > 1 || outgoing.some((edge) => edge.kind !== "success"))) throw new NodeFailure("ITEM_FLOW_UNSUPPORTED", "Item actions currently support one success path without error branches.", false);
     for (const edge of outgoing) {
