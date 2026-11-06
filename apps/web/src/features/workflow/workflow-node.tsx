@@ -1,4 +1,5 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { CheckCircle2, CircleX, LoaderCircle, PauseCircle, SkipForward } from "lucide-react";
 import { getAppDefinition, getNodeDefinition, outputKindsForNodeType, type WorkflowCanvasNode } from "./node-catalog";
 import { NodeIcon } from "./node-icon";
 
@@ -14,9 +15,11 @@ export function WorkflowNode({ data, selected }: NodeProps<WorkflowCanvasNode>) 
   const definition = getNodeDefinition(data.nodeType);
   const app = definition?.appId ? getAppDefinition(definition.appId) : undefined;
   const displayLabel = definition && data.label === definition.label ? definition.operationLabel : data.label;
+  const status = data.executionStatus;
+  const statusLabel = status === "SUCCEEDED" ? "Succeeded" : status === "FAILED" ? "Failed" : status === "RUNNING" ? "Running" : status === "WAITING" ? "Waiting" : status === "SKIPPED" ? "Skipped" : null;
 
   return (
-    <article className={`workflow-node workflow-node--${data.category} ${selected ? "workflow-node--selected" : ""}`}>
+    <article className={`workflow-node workflow-node--${data.category} ${selected ? "workflow-node--selected" : ""} ${status ? `workflow-node--execution-${status.toLowerCase()}` : ""}`}>
       <Handle
         type="target"
         position={Position.Left}
@@ -25,6 +28,7 @@ export function WorkflowNode({ data, selected }: NodeProps<WorkflowCanvasNode>) 
         title="Drag to connect"
       />
       <p className="workflow-node__category">{app ? `${app.label} · ${categoryName[data.category]}` : categoryName[data.category]}</p>
+      {statusLabel && <span className="workflow-node__execution" title={`Last run: ${statusLabel}`} aria-label={`Last run: ${statusLabel}`} role="img">{status === "SUCCEEDED" ? <CheckCircle2 size={16} /> : status === "FAILED" ? <CircleX size={16} /> : status === "RUNNING" ? <LoaderCircle size={16} className="ui-spinner" /> : status === "WAITING" ? <PauseCircle size={16} /> : <SkipForward size={16} />}</span>}
       <div className="workflow-node__heading">
         {definition && <span className="workflow-node__provider-icon"><NodeIcon name={definition.icon} size={16} /></span>}
         <h3>{displayLabel}</h3>

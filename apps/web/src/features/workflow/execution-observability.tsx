@@ -21,6 +21,7 @@ export type ExecutionNodeDetail = {
   startedAt: string | null;
   completedAt: string | null;
   durationMs: number | null;
+  items?: { index: number; status: string; input: unknown; output: unknown; error: ExecutionError | null }[];
   failureHandling: { kind: "error_branch" | "execution_failed"; targetNodeIds: string[] } | null;
   skipReason: "execution_cancelled" | "waiting_for_approval" | "not_reached_after_failure" | "branch_not_selected" | null;
 };

@@ -106,7 +106,7 @@ See `docs/35-connector-coverage-and-discovery.md` for the exact operations, poin
 ### Explicitly out of scope
 
 - User-provided JavaScript/Python execution.
-- Loops, batch iteration, merge nodes, and sub-workflows.
+- Arbitrary graph loops, unrestricted batch-loop nodes, merge nodes, and sub-workflows.
 - Connector marketplace/SDK.
 - Production RBAC and multi-stage approvals.
 - Mobile-first editor.
@@ -149,6 +149,25 @@ does not change the Gmail polling trigger or its checkpoint.
 - The graph must be acyclic in MVP.
 
 ## 6. Data mapping and expressions
+
+Owner decision, 2026-11-06: implement bounded automatic processing of explicit
+node output items in the direction of n8n. The first delivery targets a list
+source followed by per-item actions, with safe current-item expressions and
+observable per-item results. This changes the original MVP's single-invocation
+assumption; it does not authorize arbitrary cycles, binary storage, database
+change triggers, or parallel V1/V2 implementations. Supported nodes, graph
+shapes and failure limits must be stated accurately as implementation proceeds;
+this decision is not a claim that full n8n behavior is already available.
+
+The initial implementation recognizes the list fields declared in
+`packages/workflow-contracts/src/item-metadata.ts`. Each list can contain up to
+100 items and 1 MB of item data. A supported source must feed a single path of
+action nodes; conditions, approval, joins, and branches after the list are not
+yet supported. Unsupported paths fail before running workflow nodes. In the
+following actions, `{{ $json.field }}` selects the current item; the editor can
+suggest fields from a preceding test run and shows per-item results. A failed
+item stops later items. A manual retry of a workflow can repeat previous writes;
+the user must inspect the provider first. This is not the complete n8n model.
 
 Each configurable value supports all three entry modes:
 

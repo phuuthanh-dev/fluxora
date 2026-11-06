@@ -712,6 +712,7 @@
         "apps/api/src/execution/expression.ts",
         "apps/api/src/execution/github-write-adapter.ts",
         "apps/api/src/execution/google-workspace-adapter.ts",
+        "apps/api/src/execution/item-stream.ts",
         "apps/api/src/execution/live-readiness.ts",
         "apps/api/src/execution/node-executor-contract.ts",
         "apps/api/src/execution/node-failure.ts",
@@ -956,6 +957,16 @@
         "apps/api/src/execution/outbound-url-policy.ts",
         "apps/api/src/execution/provider-json.ts",
         "apps/api/src/execution/provider-request-policy.ts"
+      ],
+      "externalImports": [
+        "@workflow/contracts"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/item-stream.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts"
       ],
       "externalImports": [
         "@workflow/contracts"
@@ -3324,7 +3335,8 @@
         "apps/web/src/features/workflow/node-icon.tsx"
       ],
       "externalImports": [
-        "@xyflow/react"
+        "@xyflow/react",
+        "lucide-react"
       ]
     },
     {
@@ -3421,6 +3433,7 @@
         "packages/workflow-contracts/src/ai-schema.ts",
         "packages/workflow-contracts/src/configuration-fields-registry.ts",
         "packages/workflow-contracts/src/gmail-write-fields.ts",
+        "packages/workflow-contracts/src/item-metadata.ts",
         "packages/workflow-contracts/src/node-config-schema.ts",
         "packages/workflow-contracts/src/node-configuration-fields.ts",
         "packages/workflow-contracts/src/notion-read-fields.ts",
@@ -3428,6 +3441,12 @@
         "packages/workflow-contracts/src/riot-lol.ts",
         "packages/workflow-contracts/src/trello-card-fields.ts"
       ],
+      "externalImports": []
+    },
+    {
+      "id": "packages/workflow-contracts/src/item-metadata.ts",
+      "boundary": "contracts",
+      "internalImports": [],
       "externalImports": []
     },
     {
@@ -4645,6 +4664,10 @@
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/item-stream.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/execution/live-readiness.ts"
     },
     {
@@ -4958,6 +4981,10 @@
     {
       "from": "apps/api/src/execution/http-request-adapter.ts",
       "to": "apps/api/src/execution/provider-request-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/item-stream.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
     },
     {
       "from": "apps/api/src/execution/mongodb-find.ts",
@@ -7154,6 +7181,10 @@
     {
       "from": "packages/workflow-contracts/src/index.ts",
       "to": "packages/workflow-contracts/src/gmail-write-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/index.ts",
+      "to": "packages/workflow-contracts/src/item-metadata.ts"
     },
     {
       "from": "packages/workflow-contracts/src/index.ts",
