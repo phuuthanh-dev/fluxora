@@ -139,6 +139,20 @@ test("Steam snapshot bounds provider payloads and does not expose transport erro
   await assert.rejects(steamSnapshot(credential, config, failing), (error: unknown) => error instanceof NodeFailure && error.code === "NETWORK_ERROR" && !error.message.includes(credential.apiKey));
 });
 
+test("Steam snapshot explains denied access without exposing the API key", async () => {
+  const credential = { apiKey: "synthetic-steam-api-key", steamId: "7656" };
+  for (const target of ["GetPlayerSummaries", "GetOwnedGames", "GetRecentlyPlayedGames"]) {
+    for (const status of [401, 403]) {
+      const transport = async (url: string) => {
+        if (url.includes(target)) return new Response(credential.apiKey, { status });
+        if (url.includes("GetPlayerSummaries")) return Response.json({ response: { players: [{ steamid: "7656" }] } });
+        return Response.json({ response: { game_count: 0 } });
+      };
+      await assert.rejects(steamSnapshot(credential, {}, transport), (error: unknown) => error instanceof NodeFailure && error.code === "STEAM_ACCESS_DENIED" && !error.retryable && error.message.includes("privacy") && !error.message.includes(credential.apiKey));
+    }
+  }
+});
+
 test("unavailable optional achievements still return null", async () => {
   const transport = async (url: string) => url.includes("GetPlayerAchievements") ? new Response(null, { status: 403 }) : Response.json({ response: { players: [{ steamid: "7656" }] } });
   const output = await steamSnapshot({ apiKey: "synthetic-key", steamId: "7656" }, { includeOwnedGames: false, includeRecentGames: false, achievementAppId: "620" }, transport);

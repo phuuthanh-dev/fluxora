@@ -72,6 +72,7 @@ async function steamResponse<T>(url: string, label: string, apiKey: string, tran
   if (!response.ok) {
     await response.body?.cancel().catch(() => undefined);
     if (optional) return null;
+    if (response.status === 401 || response.status === 403) throw new NodeFailure("STEAM_ACCESS_DENIED", "Steam denied access. Check the API key and profile privacy settings.", false, response.status);
     throw new NodeFailure("HTTP_ERROR", `Steam ${label} request returned ${response.status}.`, response.status === 429 || response.status >= 500, response.status);
   }
   const payload = await readProviderJson(response, "Steam", false, snapshotResponseLimit);
