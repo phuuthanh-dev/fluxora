@@ -453,15 +453,15 @@ function LargeJsonTree({ value, initiallyOpen = false }: { value: unknown; initi
   return <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}><summary>{Array.isArray(value) ? `Array · ${entries.length} items` : `Object · ${entries.length} fields`}</summary>{open && <ul className="json-tree">{entries.slice(0, visible).map(([key, child]) => <li key={key}><strong>{key}</strong> <LargeJsonTree value={child} /></li>)}{visible < entries.length && <li><button type="button" onClick={() => setVisible((count) => count + 50)}>Show more ({entries.length - visible} remaining)</button></li>}</ul>}</details>;
 }
 
-function ResultView({ value }: { value: unknown }) {
+function ResultView({ value, label }: { value: unknown; label: string }) {
   const [mode, setMode] = useState<ResultViewMode>("tree");
   const serialized = JSON.stringify(value);
   const isLarge = (serialized?.length ?? 0) > 100_000;
   const rows: Array<[string, unknown]> = value && typeof value === "object" && !Array.isArray(value) ? Object.entries(value as Record<string, unknown>) : [["value", value]];
   return (
     <div className="result-view">
-      <div className="result-view__tabs" role="tablist" aria-label="Execution output format">
-        {(["tree", "table", "raw"] as ResultViewMode[]).map((view) => <button key={view} className={mode === view ? "result-view__tab result-view__tab--active" : "result-view__tab"} type="button" onClick={() => setMode(view)}>{view === "raw" ? "Raw JSON" : view === "tree" ? "Tree" : "Table"}</button>)}
+      <div className="result-view__tabs" role="group" aria-label={`${label} format`}>
+        {(["tree", "table", "raw"] as ResultViewMode[]).map((view) => <button key={view} className={mode === view ? "result-view__tab result-view__tab--active" : "result-view__tab"} type="button" aria-pressed={mode === view} onClick={() => setMode(view)}>{view === "raw" ? "Raw JSON" : view === "tree" ? "Tree" : "Table"}</button>)}
       </div>
       {mode === "tree" && (isLarge ? <><p>Large output: expand individual sections to explore. Raw JSON contains the complete data.</p><LargeJsonTree value={value} initiallyOpen /></> : <JsonTree value={value} />)}
       {mode === "table" && <div className="result-view__table-wrap"><table><tbody>{rows.map(([key, item]) => <tr key={key}><th>{key}</th><td>{typeof item === "string" ? item : JSON.stringify(item)}</td></tr>)}</tbody></table></div>}
@@ -1198,13 +1198,13 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
         <InspectorSection title="Last execution">
           <section className="input-preview">
             <div className="section-label">{nodeExecution.status} · ATTEMPT {nodeExecution.attempt} · {nodeExecution.durationMs ?? 0}MS</div>
-            <div className="execution-inspector__section"><strong>Redacted input</strong><ResultView value={nodeExecution.input} /></div>
-            <div className="execution-inspector__section"><strong>{nodeExecution.error ? "Normalized error" : "Output"}</strong><ResultView value={nodeExecution.error ?? nodeExecution.output} /></div>
+            <div className="execution-inspector__section"><strong>Redacted input</strong><ResultView label="Redacted input" value={nodeExecution.input} /></div>
+            <div className="execution-inspector__section"><strong>{nodeExecution.error ? "Normalized error" : "Output"}</strong><ResultView label={nodeExecution.error ? "Normalized error" : "Output"} value={nodeExecution.error ?? nodeExecution.output} /></div>
             {pagination && <details className="execution-pagination"><summary>Pagination</summary>
               {pagination.kind === "offset" ? <p>To inspect another page, adjust <code>{pagination.input}</code> and keep the same connection, sorting and filters.</p> : pagination.available ? <p>The output contains <code>{pagination.next}</code>. Use it as <code>{pagination.input}</code> for another page, keeping the same connection and other settings.</p> : <p>No usable <code>{pagination.next}</code> was returned. This does not guarantee the result is complete.</p>}
               {pagination.caveat && <p>{pagination.caveat}</p>}
             </details>}
-            {nodeExecution.items?.length ? <details className="execution-pagination"><summary>Items processed ({nodeExecution.items.length})</summary>{nodeExecution.items.map((item) => <details key={item.index} className="execution-pagination"><summary>Item {item.index + 1} · {item.status}</summary><div className="execution-inspector__section"><strong>Input</strong><ResultView value={item.input} /></div><div className="execution-inspector__section"><strong>{item.error ? "Error" : "Output"}</strong><ResultView value={item.error ?? item.output} /></div></details>)}</details> : null}
+            {nodeExecution.items?.length ? <details className="execution-pagination"><summary>Items processed ({nodeExecution.items.length})</summary>{nodeExecution.items.map((item) => <details key={item.index} className="execution-pagination"><summary>Item {item.index + 1} · {item.status}</summary><div className="execution-inspector__section"><strong>Input</strong><ResultView label={`Item ${item.index + 1} input`} value={item.input} /></div><div className="execution-inspector__section"><strong>{item.error ? "Error" : "Output"}</strong><ResultView label={`Item ${item.index + 1} ${item.error ? "error" : "output"}`} value={item.error ?? item.output} /></div></details>)}</details> : null}
             {!nodeExecution.error && !nodeExecution.items?.length && outputHasList(nodeExecution.output) && <Status tone="info" className="inspector-note">Supported list results pass items through connected actions and conditions. Other arrays remain in the output.</Status>}
             {nodeExecution.status === "WAITING" && approvalId && (
               <div className="approval-actions">
@@ -1743,7 +1743,8 @@ export function WorkflowEditor() {
         body: JSON.stringify({ mock: true, nodeId: node.id, triggerData: manualTriggerTestData(useWorkflowEditorStore.getState().nodes) }),
       });
       setExecution(response.execution);
-      setNotice(`Mock node debug ${response.execution.status.toLowerCase()} — only ${node.data.label} ran. Sample data does not verify live connections or all inputs.`);
+      const scope = response.execution.status === "SUCCEEDED" ? `only ${node.data.label} ran` : `only ${node.data.label} is selected for testing`;
+      setNotice(`Mock node debug ${response.execution.status.toLowerCase()} — ${scope}. Sample data does not verify live connections or all inputs.`);
     } catch (reason) {
       setNotice(reason instanceof Error ? reason.message : "Unable to run the selected node in mock mode.");
     } finally {

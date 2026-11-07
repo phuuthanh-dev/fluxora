@@ -1,5 +1,12 @@
 # NX: current product and simplification audit
 
+Steam qualification, 2026-11-07: a read-only local run used the owner's existing
+encrypted Steam connection with the actual provider adapters. Profile, friends,
+badges, vanity resolution, owned games, recently played games, achievements for
+one owned game, and the account snapshot all succeeded. The check did not run
+a live workflow, exercise downstream notifications, or establish availability
+for other accounts, games, privacy settings, or future API responses.
+
 Latest verified release in this audit: [PR #99](https://github.com/phuuthanh-dev/fluxora/pull/99), merge `4d394da67b445ff6e4649b583d966d4ea27aa2bb`; its PR/main gates and [production deploy](https://github.com/phuuthanh-dev/fluxora/actions/runs/42230222612) passed on 2026-11-06. Local `npm run verify` passed 1,071 API tests, 73 web tests and 215 browser tests using synthetic providers. Shared metadata describes mock behavior and key-based history filtering; it does not itself enforce redaction or qualify live integrations. Production state and provider connectivity were not revalidated in this documentation update.
 
 Earlier release: [PR #97](https://github.com/phuuthanh-dev/fluxora/pull/97) merged as `398e397f7805ba3dfe027f2451af30c21eda993e`; its PR/main CI and [deployment](https://github.com/phuuthanh-dev/fluxora/actions/runs/42217626999) passed at the time. It refreshes execution status after an authorized SSE connection/reconnection. Redis events lost while SSE remains connected are not replayed.
