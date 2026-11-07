@@ -96,6 +96,13 @@ npm run db:deploy
 npm run dev
 ```
 
+Keep the working checkout in a persistent directory and keep its local `.env`
+there, rather than relying on a temporary worktree. On a shared machine, restrict
+the file to the account running Fluxora (for example, `chmod 600 .env`). Optional
+local `.codex/` configuration is also ignored by Git. When moving a checkout,
+inspect existing links and preserve any other consumers before removing an old
+path; never commit or paste the environment file into an issue or PR.
+
 Open:
 
 - Web app: http://localhost:3000

@@ -29,6 +29,21 @@ goal from conversation history alone.
 CI first determines whether a change needs full verification. See the active
 Quality gate workflow for the actual event and docs-only behavior.
 
+## Local cleanup
+
+- Keep `.env` and optional `.codex/` configuration in the persistent working
+  checkout. Preserve existing consumers when relocating them; never put secrets
+  or copies of real credentials in Git, logs, fixtures or reports.
+- A clean Git status alone is insufficient to remove a worktree: check its
+  commit, staged and untracked changes, ignored files, active processes and
+  links. Retain unknown data; prefer recoverable removal for verified artifacts.
+- Treat database names as hints, not proof of disposable data. Check ownership,
+  active connections and contents without exposing private values; retain data
+  whose provenance is unclear. Delete a test database only when its purpose and
+  safety are established, and preserve a recoverable copy where appropriate.
+- Keep cleanup inventories local and omit secret values. Track only general
+  process instructions in the repository, not machine-specific paths or dumps.
+
 ## Active delivery loops
 
 Owner follow-up to L6.11 (2026-11-01): archived workflows can be listed and
