@@ -8,12 +8,12 @@ goal from conversation history alone.
 
 ## Loop sequence
 
-1. **Select one vertical slice.** It must have a user-visible outcome and no hidden dependency on an unfinished later slice.
+1. **Select the approved scope.** A batch may contain multiple related slices when the owner requests it; check the current source and release before starting each one.
 2. **Define proof before implementation.** Add or update the narrowest relevant test first where practical.
-3. **Implement only the selected slice.** Keep the browser free of provider secrets and provider calls.
-4. **Run the quality gate.** The required command is `npm run verify`; targeted tests and a local manual check supplement it.
-5. **Review against the product acceptance criteria.** Mark the loop as done only with reproducible evidence.
-6. **Commit a focused change.** Update this file and the implementation plan when the delivered behavior changes.
+3. **Implement only the selected scope.** Provider calls run on the server; do not expose stored secrets or make unauthorized provider calls.
+4. **Verify at the end of the batch.** Use the checks appropriate to the changes. Run `npm run verify` before a product release; docs-only changes do not require a full application gate unless a specific risk or policy requires it. Do not repeat checks without a relevant change or failure.
+5. **Review the diff and resources.** Check the acceptance criteria, uncommitted changes and any test databases, containers or worktrees created for the batch. Clean up only resources identified as safe and within the owner's authorization; report anything left behind.
+6. **Commit focused changes.** Update the current state and relevant product/architecture documentation only when appropriate. Follow the owner's requested single-batch PR and release timing.
 
 ## Automated quality gate
 
@@ -26,7 +26,8 @@ goal from conversation history alone.
 5. Production build
 6. Playwright browser E2E
 
-CI runs the same gate for every pull request and push to `main`.
+CI first determines whether a change needs full verification. See the active
+Quality gate workflow for the actual event and docs-only behavior.
 
 ## Active delivery loops
 
