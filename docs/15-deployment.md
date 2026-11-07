@@ -77,6 +77,15 @@ The deploy script starts the database/Redis, creates a restricted PostgreSQL bac
 
 Before pulling a release, the deploy scripts require at least 2 GiB of free space on the application filesystem (`MIN_FREE_KB` can override the threshold). After starting the stack they check liveness, dependency readiness, and the web response. A failed preflight or smoke check stops the deployment before image cleanup.
 
+On a small VPS, check `df -Pk /opt/workflow-automation`, `docker system df -v`,
+`docker image ls` and `docker ps -a` before a release. Identify the running
+image and the intended rollback image before considering cleanup. Post-release
+retention runs only after a successful deployment, so it cannot free space for
+a preflight that already failed. Preserve volumes, unknown data and rollback
+images unless the owner authorizes a specific removal; do not lower the disk
+threshold merely to bypass the check. Increasing disk capacity is the durable
+way to maintain both free space and a local rollback image.
+
 ## Nginx and HTTPS
 
 Render the template with only the two intended variables so Nginx variables

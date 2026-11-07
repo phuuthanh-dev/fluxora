@@ -6,6 +6,32 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-07
 
+- [PR #103](https://github.com/phuuthanh-dev/fluxora/pull/103) merged as
+  `d2867d024174f0a30fcc16a43a1328363931eb8a`; its PR and main quality gates
+  passed. The editor exposes separate, accessible input/output format controls
+  and avoids claiming a queued mock node already ran. The local final gate
+  passed 1,070 API tests, 73 web tests and 215 browser tests; one unrelated
+  Riot integration test was skipped. Eight existing Steam reads succeeded
+  directly against the owner's account; this did not run a live workflow.
+- Its [production deploy](https://github.com/phuuthanh-dev/fluxora/actions/runs/42380423420/attempts/2)
+  passed on attempt two after the owner explicitly authorized removing the two
+  unused `4d394da` rollback images to clear the failed disk preflight. VPS
+  inspection confirmed web, API and worker using `d2867d0`; landing, login,
+  API health and readiness returned HTTP 200. These checks do not establish
+  workflow or provider health. Preserve database, volumes and rollback images
+  unless the owner authorizes a specific cleanup.
+- Google Cloud Verification Center showed verified branding and data access
+  under review on 2026-11-07. Other connector evidence remains scoped to the
+  individual provider operations and dates in `docs/35` and `docs/45`.
+- A short synthetic prompt succeeded through the local live Gemini adapter with
+  the owner's existing connection and `gemini-3.1-flash-lite`. This does not
+  qualify all models, structured output or production behavior.
+- A read-only walkthrough on 2026-11-07 used an existing synthetic local user
+  to inspect password sign-in, the dashboard and Connections. The existing
+  `editor-onboarding` and `execution-observability` browser cases cover editor
+  creation, mock runs, result inspection and synthetic failure routing; their
+  prior pass does not establish a new live workflow or notification delivery.
+
 - [PR #100](https://github.com/phuuthanh-dev/fluxora/pull/100) merged as `b7504edae866ebe4e7d326e7ff684266131ff17f`; its PR and main quality gates and [production deploy](https://github.com/phuuthanh-dev/fluxora/actions/runs/42334400678) passed. The code graph now records directory imports resolved through index files, the old theme storage-key fallback was removed, and workspace hygiene guidance was updated. The isolated local gate passed 1,071 API, 73 web and 215 browser tests with synthetic providers. Health and deployment evidence is point-in-time, not proof of current provider or database health.
 
 ### Earlier snapshot — 2026-11-06
@@ -623,9 +649,9 @@ one of these IDs or explicitly reopen a completed ledger slice.
 | `APP-EXPANSION-1` | Deepen existing app operations and remaining qualification; initial seven-app implementation and app discovery already exist | pending | Do not rebuild initial nodes. See docs/35 for latest live evidence and docs/37 for operation/trigger/auth/UX gaps and priorities. Reddit access remains blocked; future live calls require owner-authorized resources. |
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
 | `CONNECTOR-LIVE-2` | Remaining Google, GitHub and SMTP live qualification | pending | Drive upload/read, Sheets append/read/update, GitHub create issue/comment/label and one Gmail SMTP delivery to the intended inbox succeeded on owner-approved test resources. Local Google refresh is inferred from a credential update during a successful demo run; production refresh, GitHub PR merge and sustained delivery remain unverified. See the 2026-10-31 connector reports and 2026-11-01 recovery report. |
-| `AI-GEMINI-1` | Qualify the existing Gemini connector across models and production | pending | Local live generation succeeded once with Gemini 3.1 Flash Lite; a 2.5 Flash request returned 404 and a 3.8 Flash request timed out. Causes, other models and sustained or production behavior remain unverified. See `.agent/reports/2026-10-31-gemini-live.md`. |
+| `AI-GEMINI-1` | Qualify the existing Gemini connector across models and production | pending | Local live generation with Gemini 3.1 Flash Lite succeeded again on 2026-11-07; earlier 2.5 Flash and 3.8 Flash requests failed. Causes, other models and sustained or production behavior remain unverified. See `.agent/reports/2026-10-31-gemini-live.md`. |
 | `AI-OPENAI-1` | Qualify the existing OpenAI connector with an authorized live test | pending | Implemented and verified locally; owner deferred real-provider testing. Migration applied only to local database. |
-| `EDITOR-QUALIFICATION-1` | Audit credential status, picker, validation and mock/live node-debug UX | planned | Reuse completed editor work; implement only evidenced gaps |
+| `EDITOR-QUALIFICATION-1` | Audit credential status, picker, validation and mock/live node-debug UX | pending | PR #103 improved result-format controls and debug wording; reuse its verified work and inspect only remaining evidenced gaps. |
 | `NOTION-1` | Qualify and selectively extend the existing Notion connector | pending | Search pages implemented in PR #56; live search qualified once locally. More operations and production qualification remain. |
 | `POSTGRES-1` | Qualify and selectively extend the existing PostgreSQL connector | pending | Select rows implemented in PR #56; one local Supabase PostgreSQL LIVE workflow read succeeded with verified TLS and a one-row limit. Production qualification, sustained behavior and further operations remain. |
 | `GMAIL-1` | Qualify existing Gmail operations and trigger; evaluate push separately | pending | Released in PR #57. Gmail Read and one targeted local trigger poll succeeded against a test email; sustained polling and restricted-scope approval remain. Pub/Sub push is not implemented. See `.agent/reports/2026-11-01-gmail-trigger-calendar-expansion.md`. |

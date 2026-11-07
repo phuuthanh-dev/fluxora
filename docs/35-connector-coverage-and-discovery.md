@@ -1,12 +1,29 @@
-# Connector coverage and scalable discovery — 2026-11-01
+# Connector coverage and scalable discovery
 
-> Historical snapshot: the table below predates later connector operations and
-> triggers. For example, Gmail write actions, additional Notion/Trello actions,
-> RSS/Telegram triggers and Supabase insert now exist in the executable registry.
-> Do not treat this table as the current implementation backlog; see
-> [the current NX audit](45-nx-current-audit.md) and the registry in
-> `packages/workflow-contracts/src/index.ts`. Existing live qualification
-> statements below remain limited to their stated dates and cases.
+> This inventory was reconciled with the executable registry on 2026-11-07.
+> Live evidence is limited to the specific dates and cases stated below; see
+> [the current NX audit](45-nx-current-audit.md) for wider runtime boundaries.
+
+## Current qualification updates — 2026-11-07
+
+- Steam: the owner's existing local connection successfully read a profile,
+  friends, badges, a vanity URL, owned and recent games, achievements for one
+  owned game, and an account snapshot through the actual adapters. This was a
+  direct read-only check, not a live workflow or a guarantee for other accounts.
+- Gmail: the current registry contains a polling trigger and seven actions,
+  including send, reply, and draft operations. Their presence does not
+  establish live qualification for each operation.
+- Google verification: the owner account's Cloud Verification Center reports
+  branding verified and data access under review. Homepage and branding are
+  complete; privacy, functionality, appropriate data access, minimum scopes,
+  and additional requirements are still in progress. This is not approval.
+- Gemini: one short synthetic prompt succeeded through the local live adapter
+  using the owner's existing connection and `gemini-3.1-flash-lite` with a
+  16-token output ceiling. This is a point-in-time check, not qualification of
+  every model, structured output, production or sustained behavior.
+- Google Drive/Sheets and SMTP retain the dated, limited live evidence linked
+  below. OpenAI live testing was deferred; mock coverage is not a real provider
+  result. Do not rerun previously completed write tests by default.
 
 ## Comparison and design decision
 
@@ -20,29 +37,29 @@ This inventory describes catalog operations, not complete vendor APIs. A node ma
 
 | App | Available catalog operation(s) | Known evidence / remaining scope |
 | --- | --- | --- |
-| Steam | Account snapshot; profile, friends, badges, vanity URL, owned/recent games, achievements | The library presents the seven read operations separately, while each creates the existing `action.steam` node with its operation selected. Snapshot ran live in the owner's workflow. The seven community-node operations use the workspace credential; their provider-specific live behavior and sustained monitoring are not yet established. |
-| Google Chat | Webhook message; OAuth message | Webhook live in owner flow; OAuth subject to app/account restrictions. |
+| Steam | Account snapshot; profile, friends, badges, vanity URL, owned/recent games, achievements | The library presents seven reads separately; each uses the existing `action.steam` node with its operation selected. See the 2026-11-07 direct-read qualification above; sustained monitoring remains unqualified. |
+| Google Chat | Webhook message; OAuth send, reply and edit | Webhook live in owner flow; OAuth subject to app/account restrictions. |
 | Discord | Webhook message | Live in owner flow; bot management and triggers not implemented. |
-| Telegram | Send message | Live in owner flow; receive/update triggers and broader bot operations not implemented. |
-| Google Drive | Manage files | Search/read/upload/download modes; one local test on designated data; Google broad-scope verification remains open. |
+| Telegram | Send, reply, edit; update trigger | Send ran live in the owner flow; live qualification of every operation and trigger is not established. |
+| Google Drive | Manage files, get file metadata, create folder | Upload and download succeeded on one designated local test file; Google broad-scope verification remains open. |
 | Google Sheets | Read or write rows | Append/read/update tested once on designated data; broader spreadsheet operations remain open. |
 | Google Calendar | List, create, get, update, delete, availability | Local create/get/update/delete tested once; separate local runs observed free and busy intervals; a direct adapter diagnostic found a labelled test event in a populated 2030 page. A 2100 request remains anomalous; production and sustained behavior remain unqualified; no trigger. |
 | HTTP | API request | Generic request with credential options; not a claim that arbitrary provider-specific auth can be reused. |
 | Email | SMTP send | One local Gmail SMTP test; attachments, inbound mail, production delivery not established. |
-| Gmail | New message trigger; read messages | One local targeted polling/read test; no push trigger, sustained polling or Gmail send action. |
+| Gmail | New-message polling; read/get, send/reply, create/update draft, modify label | One targeted local polling/read test succeeded; other operations and sustained delivery are not all live-qualified. Push trigger is not implemented. |
 | OpenAI | Generate text | Implemented with mock coverage; user deferred live API test. |
-| Gemini | Generate text | One local live model succeeded; other model errors and sustained production behavior unqualified. |
+| Gemini | Generate text | Local live generation with `gemini-3.1-flash-lite` succeeded again on 2026-11-07; other models and sustained production behavior remain unqualified. |
 | MongoDB | Find documents; insert document | Local read and approved insert tested; update/delete and transactional operations absent. |
-| Notion | Search pages | One local search tested; page and database mutation absent. |
-| Trello | Create card | A new local credential loaded boards and lists and created one test card. After owner rotation, the production credential loaded the test board and lists and one live run created a labelled test card; the test workflow was deactivated afterward. n8n also supports cards, lists, labels, checklists and other resources. |
-| Sentry | List issues | Production read succeeded for test project; alerts/webhooks, pagination and other operations absent. |
-| Vercel | List deployments | Production read succeeded for `my-portfolio`. After `2eebdbc`, team discovery returned the 403-specific fallback, the UI offered Personal account, and the test project was listed. Deploy mutations/triggers absent. |
-| Supabase | Select rows | Production and local live runs each read one row from the designated test table. Local discovery initially failed with a publishable key alone; after the connection update, the picker listed the table and a diagnostic confirmed successful Management API discovery. After the owner updated the production connection, the picker loaded the designated test table; the precise discovery path was not inspected. After rotation, one bounded production LIVE run also read one row successfully; the test workflow was deactivated afterward. No mutations or arbitrary SQL. |
+| Notion | Search/retrieve pages, list children, retrieve property, query data source, create page, update title | One local search was tested live; the other operations and production remain separately unqualified. |
+| Trello | Create/get/update/move/archive/list/find cards; board-action trigger | Test cards were created locally and in production; the production card was labelled. The remaining operations and trigger require separate live evidence. |
+| Sentry | List/get issues; issue-created trigger | Production list read succeeded for a test project; get and trigger require separate live evidence. |
+| Vercel | List deployments, look up public deployment, deployment trigger | Production list read succeeded for `my-portfolio`; trigger and public lookup require separate live evidence. Deploy mutations are absent. |
+| Supabase | Select rows; insert row | Local and production select reads succeeded on the designated test table; see the dated discovery evidence below. Insert requires separate live evidence. Arbitrary SQL is not supported. |
 | Uptime Kuma | Monitor alert trigger | Uptime Kuma 2.5.9 ran locally with a synthetic HTTP monitor; DOWN and recovery notifications each produced a successful execution in an isolated Fluxora API and database. Production, TLS, replay protection and sustained delivery remain unqualified. |
 | Reddit | List public posts | Mock checks only; access and live proof remain pending. Reddit announced new public Data API access requests would close on 2026-10-31 and migration of existing access to its Developer Platform. UI guidance for this transition was released in PR #65. |
-| RSS | Read feed | Production LIVE workflows read GitHub Changelog RSS and, after PR #70, GitHub CLI releases Atom with nonempty summaries. This verifies these two public feeds, not all RSS/Atom variants or sustained reliability. No RSS trigger. |
+| RSS | Read feed; new-item polling trigger | Production LIVE reads succeeded for GitHub Changelog RSS and GitHub CLI releases Atom; this does not qualify all feeds or sustained trigger behavior. |
 | PostgreSQL | Select rows | After release of the optional provider CA in PR #65, one local manual LIVE workflow authenticated to the owner's designated Supabase PostgreSQL test project over verified TLS, discovered its schema/table and read one row. The workflow was deactivated afterward. Production and sustained behavior remain unqualified; no write operation. |
-| GitHub | Issue opened, PR opened, push, workflow run completed, create issue, add label, add comment, merge PR | Several scoped operations tested; merge operation and sustained production behavior still need explicit proof. |
+| GitHub | Four event triggers; create/list/get/update issue, add label/comment, list/get/merge pull request | Several scoped operations were tested; merge and sustained production behavior still require separate evidence. |
 | Facebook Meta | Manage content | Planned only, cannot run. |
 | Instagram | Manage content | Planned only, cannot run. |
 
@@ -62,9 +79,9 @@ An optional Supabase Management API token is available for table discovery via t
 
 At owner request, an authenticated workspace owner may see a fixed mask and at most the final two characters of eligible long opaque API keys/tokens. This leaks a small fragment and is an identification hint, not proof that a token is correct. Passwords, OAuth credentials (including Reddit app client secrets), connection strings, webhook URLs, short or non-opaque values have no hint. A follow-up removes the previously exposed two-character Reddit client-secret hint; it was released in PR #69. Full secrets stay encrypted and never return; responses carrying hints are non-cacheable.
 
-## Candidate functional scope for the seven new apps
+## Historical candidate scope for the seven new apps
 
-These are explicitly **not all implemented**. They are the proposed common-workflow scope for completing each integration, not a commitment to mirror every provider endpoint. Prioritize read paths and safe event triggers before writes. Every new operation needs the qualification checklist above.
+This earlier proposal predates the inventory above; several listed operations have since been implemented. These items are explicitly **not all implemented**. They are the proposed common-workflow scope for completing each integration, not a commitment to mirror every provider endpoint. Prioritize read paths and safe event triggers before writes. Every new operation needs the qualification checklist above.
 
 | App | Minimum useful scope to evaluate | Important design constraint |
 | --- | --- | --- |
