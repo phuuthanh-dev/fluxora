@@ -4,7 +4,11 @@ This file is the compact, machine-checked handoff point for the next coding
 loop. It prevents an agent from proposing implementation work that is already
 complete in the delivery ledger.
 
-## Latest snapshot — 2026-11-06
+## Latest snapshot — 2026-11-07
+
+- [PR #100](https://github.com/phuuthanh-dev/fluxora/pull/100) merged as `b7504edae866ebe4e7d326e7ff684266131ff17f`; its PR and main quality gates and [production deploy](https://github.com/phuuthanh-dev/fluxora/actions/runs/42334400678) passed. The code graph now records directory imports resolved through index files, the old theme storage-key fallback was removed, and workspace hygiene guidance was updated. The isolated local gate passed 1,071 API, 73 web and 215 browser tests with synthetic providers. Health and deployment evidence is point-in-time, not proof of current provider or database health.
+
+### Earlier snapshot — 2026-11-06
 
 - [PR #99](https://github.com/phuuthanh-dev/fluxora/pull/99) merged as `4d394da67b445ff6e4649b583d966d4ea27aa2bb`; its PR and main gates and [production deploy](https://github.com/phuuthanh-dev/fluxora/actions/runs/42230222612) passed. It explains existing mock behavior and key-based history filtering using shared metadata; that metadata does not enforce redaction or establish live-provider behavior. The isolated local gate passed 1,071 API tests, 73 web tests and 215 browser tests with synthetic providers. Deployment and health checks are point-in-time evidence, not continuing proof of provider or database health. PR #98 contained the preceding documentation audit.
 
