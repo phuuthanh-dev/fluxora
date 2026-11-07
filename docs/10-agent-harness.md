@@ -17,12 +17,12 @@ The source of truth is, in order: product specification, architecture, code grap
 
 ## Cost-aware delivery loop
 
-1. **Check state first.** Run `npm run agent:state`; use only a non-closed ID from `docs/19-agent-state.md`. This prevents repeating completed slices from stale chat context.
-2. **Plan once, save it.** The planner creates one `.agent/task-*.md` from the task template, declares target IDs, and points to existing docs instead of pasting repository context repeatedly.
-3. **Validate the contract.** Run `npm run agent:task:check -- path/to/task.md` before implementation. Reopening a completed slice requires concrete evidence.
-4. **Implement one vertical slice.** The implementer works in an isolated branch/worktree and commits only the contract scope.
-5. **Generate factual evidence.** The implementer runs the specified commands, updates the code graph if source imports change, and fills `.agent/report-template.md`.
-6. **Verify mechanically.** Run `npm run harness:check`, then the narrow tests, then `npm run verify` before merge. CI repeats the quality gate.
+1. **Check state first.** Run `npm run agent:state` when selecting a goal; compare the request with `docs/19-agent-state.md`, source and release evidence to avoid repeating completed work.
+2. **Keep the plan proportional.** Use a task contract when work is delegated or its complexity needs a durable handoff; an ordinary direct task does not require a separate task file.
+3. **Validate any contract.** If using one, run `npm run agent:task:check -- path/to/task.md` before implementation. Reopening a completed slice requires concrete evidence.
+4. **Implement the approved scope.** Work directly by default. Reuse a stable checkout; use a separate worktree only when concurrent work or a genuine isolation requirement needs one. Commit only the approved scope.
+5. **Generate factual evidence.** Run the specified commands and update the code graph if source imports change. A delegated handoff uses `.agent/report-template.md`; direct work can report evidence in the ordinary task response.
+6. **Verify the completed batch.** Choose checks for the actual changes and run the full gate before a product release. Avoid repeated per-slice gates unless a failure, new change or risk makes them necessary. Docs-only changes follow the CI scope rules.
 7. **Review artifacts, not prose.** The reviewer reads the task contract, `git diff <base>...<commit>`, test receipts, and CI. For high-risk changes, the reviewer reruns the critical checks independently.
 8. **Feed back by contract.** A failed criterion becomes a concise new task or review comment; it does not become an open-ended agent conversation.
 

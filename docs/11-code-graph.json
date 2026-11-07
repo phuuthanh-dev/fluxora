@@ -721,6 +721,7 @@
         "apps/api/src/execution/retention-policy.ts",
         "apps/api/src/execution/retry-policy.ts",
         "apps/api/src/execution/steam-adapter.ts",
+        "apps/api/src/notifications/index.ts",
         "apps/api/src/workflows/workflow-graph.ts"
       ],
       "externalImports": [
@@ -1032,7 +1033,8 @@
         "apps/api/src/credentials/credential.service.ts",
         "apps/api/src/execution/connector-config.ts",
         "apps/api/src/execution/node-executor-contract.ts",
-        "apps/api/src/execution/node-failure.ts"
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/notifications/index.ts"
       ],
       "externalImports": [
         "@prisma/client",
@@ -2556,6 +2558,7 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/components/brand/brand-lockup.tsx",
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/app-shell/workspace-sidebar.tsx",
         "apps/web/src/features/theme/theme-toggle.tsx"
@@ -2571,6 +2574,7 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/components/brand/brand-lockup.tsx",
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/components/ui/ui-motion.ts",
         "apps/web/src/features/theme/theme-toggle.tsx"
       ],
@@ -2583,6 +2587,7 @@
       "id": "apps/web/src/features/auth/account-settings.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/app-shell/app-shell-header.tsx",
         "apps/web/src/features/auth/password-field.tsx"
@@ -2611,6 +2616,7 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/components/brand/oauth-provider-icon.tsx",
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/components/ui/ui-motion.ts",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/auth/auth-navigation.tsx",
@@ -2626,7 +2632,9 @@
     {
       "id": "apps/web/src/features/auth/password-field.tsx",
       "boundary": "web",
-      "internalImports": [],
+      "internalImports": [
+        "apps/web/src/components/ui/index.ts"
+      ],
       "externalImports": [
         "lucide-react",
         "react"
@@ -2636,6 +2644,7 @@
       "id": "apps/web/src/features/auth/password-recovery.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/auth/auth-navigation.tsx",
         "apps/web/src/features/auth/password-field.tsx"
@@ -2650,6 +2659,7 @@
       "id": "apps/web/src/features/credentials/connections-dashboard.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/app-shell/app-shell-header.tsx",
         "apps/web/src/features/credentials/credential-panel.tsx"
@@ -2665,6 +2675,7 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/components/ui/disclosure.tsx",
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/credentials/credential-secret-fields.tsx",
         "apps/web/src/features/credentials/credential-types.ts",
@@ -2680,6 +2691,7 @@
       "id": "apps/web/src/features/credentials/credential-secret-fields.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/features/credentials/credential-types.ts"
       ],
       "externalImports": [
@@ -2701,6 +2713,7 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/components/ui/disclosure.tsx",
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/workflow/workflow-api.ts"
       ],
@@ -2714,6 +2727,7 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/components/ui/disclosure.tsx",
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/app-shell/app-shell-header.tsx",
         "apps/web/src/features/dashboard/saved-execution-views.tsx"
@@ -2729,6 +2743,7 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/components/ui/disclosure.tsx",
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/features/api/api-client.ts"
       ],
       "externalImports": [
@@ -2740,6 +2755,7 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/components/ui/disclosure.tsx",
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/app-shell/app-shell-header.tsx",
         "apps/web/src/features/dashboard/archived-workflows.tsx",
@@ -2758,6 +2774,7 @@
       "id": "apps/web/src/features/dashboard/workspace-activity.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/features/api/api-client.ts"
       ],
       "externalImports": [
@@ -3009,7 +3026,9 @@
     {
       "id": "apps/web/src/features/theme/theme-toggle.tsx",
       "boundary": "web",
-      "internalImports": [],
+      "internalImports": [
+        "apps/web/src/components/ui/index.ts"
+      ],
       "externalImports": [
         "lucide-react",
         "react"
@@ -3033,6 +3052,7 @@
       "id": "apps/web/src/features/workflow/drive-search-field.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/features/workflow/drive-search.ts",
         "apps/web/src/features/workflow/resource-picker.tsx"
       ],
@@ -3063,6 +3083,7 @@
       "id": "apps/web/src/features/workflow/execution-observability.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/features/api/api-client.ts"
       ],
       "externalImports": [
@@ -3091,6 +3112,7 @@
       "id": "apps/web/src/features/workflow/google-sheets-mapping-field.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/workflow/google-sheets-mapping.ts"
       ],
@@ -3127,6 +3149,7 @@
       "id": "apps/web/src/features/workflow/mongodb-filter-field.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/features/workflow/inspector-drafts.ts",
         "apps/web/src/features/workflow/mongodb-filter.ts"
       ],
@@ -3198,6 +3221,7 @@
       "id": "apps/web/src/features/workflow/relational-selection-field.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/features/workflow/relational-selection.ts"
       ],
       "externalImports": [
@@ -3216,6 +3240,7 @@
       "id": "apps/web/src/features/workflow/resource-picker.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/workflow/node-catalog.ts"
       ],
@@ -3227,6 +3252,7 @@
       "id": "apps/web/src/features/workflow/structured-output-field.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/features/workflow/structured-output-schema.ts"
       ],
       "externalImports": [
@@ -3276,6 +3302,7 @@
       "id": "apps/web/src/features/workflow/workflow-editor.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/components/ui/ui-motion.ts",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/app-shell/app-shell-header.tsx",
@@ -4700,6 +4727,10 @@
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/notifications/index.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/workflows/workflow-graph.ts"
     },
     {
@@ -5029,6 +5060,10 @@
     {
       "from": "apps/api/src/execution/notification-adapters.ts",
       "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notification-adapters.ts",
+      "to": "apps/api/src/notifications/index.ts"
     },
     {
       "from": "apps/api/src/execution/notion-create-page.ts",
@@ -6460,6 +6495,10 @@
     },
     {
       "from": "apps/web/src/features/app-shell/app-shell-header.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
+    },
+    {
+      "from": "apps/web/src/features/app-shell/app-shell-header.tsx",
       "to": "apps/web/src/features/api/api-client.ts"
     },
     {
@@ -6476,11 +6515,19 @@
     },
     {
       "from": "apps/web/src/features/app-shell/workspace-sidebar.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
+    },
+    {
+      "from": "apps/web/src/features/app-shell/workspace-sidebar.tsx",
       "to": "apps/web/src/components/ui/ui-motion.ts"
     },
     {
       "from": "apps/web/src/features/app-shell/workspace-sidebar.tsx",
       "to": "apps/web/src/features/theme/theme-toggle.tsx"
+    },
+    {
+      "from": "apps/web/src/features/auth/account-settings.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
     },
     {
       "from": "apps/web/src/features/auth/account-settings.tsx",
@@ -6508,6 +6555,10 @@
     },
     {
       "from": "apps/web/src/features/auth/login-form.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
+    },
+    {
+      "from": "apps/web/src/features/auth/login-form.tsx",
       "to": "apps/web/src/components/ui/ui-motion.ts"
     },
     {
@@ -6523,6 +6574,14 @@
       "to": "apps/web/src/features/workflow/node-icon.tsx"
     },
     {
+      "from": "apps/web/src/features/auth/password-field.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
+    },
+    {
+      "from": "apps/web/src/features/auth/password-recovery.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
+    },
+    {
       "from": "apps/web/src/features/auth/password-recovery.tsx",
       "to": "apps/web/src/features/api/api-client.ts"
     },
@@ -6533,6 +6592,10 @@
     {
       "from": "apps/web/src/features/auth/password-recovery.tsx",
       "to": "apps/web/src/features/auth/password-field.tsx"
+    },
+    {
+      "from": "apps/web/src/features/credentials/connections-dashboard.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
     },
     {
       "from": "apps/web/src/features/credentials/connections-dashboard.tsx",
@@ -6552,6 +6615,10 @@
     },
     {
       "from": "apps/web/src/features/credentials/credential-panel.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
+    },
+    {
+      "from": "apps/web/src/features/credentials/credential-panel.tsx",
       "to": "apps/web/src/features/api/api-client.ts"
     },
     {
@@ -6568,11 +6635,19 @@
     },
     {
       "from": "apps/web/src/features/credentials/credential-secret-fields.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
+    },
+    {
+      "from": "apps/web/src/features/credentials/credential-secret-fields.tsx",
       "to": "apps/web/src/features/credentials/credential-types.ts"
     },
     {
       "from": "apps/web/src/features/dashboard/archived-workflows.tsx",
       "to": "apps/web/src/components/ui/disclosure.tsx"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/archived-workflows.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
     },
     {
       "from": "apps/web/src/features/dashboard/archived-workflows.tsx",
@@ -6585,6 +6660,10 @@
     {
       "from": "apps/web/src/features/dashboard/executions-dashboard.tsx",
       "to": "apps/web/src/components/ui/disclosure.tsx"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/executions-dashboard.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
     },
     {
       "from": "apps/web/src/features/dashboard/executions-dashboard.tsx",
@@ -6604,11 +6683,19 @@
     },
     {
       "from": "apps/web/src/features/dashboard/saved-execution-views.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/saved-execution-views.tsx",
       "to": "apps/web/src/features/api/api-client.ts"
     },
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
       "to": "apps/web/src/components/ui/disclosure.tsx"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
     },
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
@@ -6633,6 +6720,10 @@
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
       "to": "apps/web/src/features/workflow/workflow-api.ts"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/workspace-activity.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
     },
     {
       "from": "apps/web/src/features/dashboard/workspace-activity.tsx",
@@ -6815,8 +6906,16 @@
       "to": "apps/web/src/features/public-site/site.ts"
     },
     {
+      "from": "apps/web/src/features/theme/theme-toggle.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
+    },
+    {
       "from": "apps/web/src/features/workflow/auto-layout.ts",
       "to": "apps/web/src/features/workflow/node-catalog.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/drive-search-field.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
     },
     {
       "from": "apps/web/src/features/workflow/drive-search-field.tsx",
@@ -6840,7 +6939,15 @@
     },
     {
       "from": "apps/web/src/features/workflow/execution-observability.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/execution-observability.tsx",
       "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/google-sheets-mapping-field.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
     },
     {
       "from": "apps/web/src/features/workflow/google-sheets-mapping-field.tsx",
@@ -6872,6 +6979,10 @@
     },
     {
       "from": "apps/web/src/features/workflow/mongodb-filter-field.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/mongodb-filter-field.tsx",
       "to": "apps/web/src/features/workflow/inspector-drafts.ts"
     },
     {
@@ -6896,6 +7007,10 @@
     },
     {
       "from": "apps/web/src/features/workflow/relational-selection-field.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/relational-selection-field.tsx",
       "to": "apps/web/src/features/workflow/relational-selection.ts"
     },
     {
@@ -6904,11 +7019,19 @@
     },
     {
       "from": "apps/web/src/features/workflow/resource-picker.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/resource-picker.tsx",
       "to": "apps/web/src/features/api/api-client.ts"
     },
     {
       "from": "apps/web/src/features/workflow/resource-picker.tsx",
       "to": "apps/web/src/features/workflow/node-catalog.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/structured-output-field.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
     },
     {
       "from": "apps/web/src/features/workflow/structured-output-field.tsx",
@@ -6937,6 +7060,10 @@
     {
       "from": "apps/web/src/features/workflow/workflow-api.ts",
       "to": "apps/web/src/features/workflow/workflow-graph-schema.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, extname, join, relative, resolve } from "node:path";
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
@@ -26,7 +26,7 @@ function resolveRelativeImport(fromPath, specifier) {
   if (!specifier.startsWith(".")) return null;
   const candidate = resolve(dirname(fromPath), specifier);
   const candidates = [candidate, ...[".ts", ".tsx"].map((extension) => `${candidate}${extension}`), ...["index.ts", "index.tsx"].map((indexFile) => join(candidate, indexFile))];
-  return candidates.find((path) => existsSync(path)) ?? null;
+  return candidates.find((path) => existsSync(path) && statSync(path).isFile()) ?? null;
 }
 
 function importSpecifiers(source) {
