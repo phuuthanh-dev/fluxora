@@ -36,11 +36,16 @@ Quality gate workflow for the actual event and docs-only behavior.
   or copies of real credentials in Git, logs, fixtures or reports.
 - A clean Git status alone is insufficient to remove a worktree: check its
   commit, staged and untracked changes, ignored files, active processes and
-  links. Retain unknown data; prefer recoverable removal for verified artifacts.
+  links. A missing `.git` link can leave a directory marked prunable even when
+  it still contains changes; inspect the matching Git metadata before repair
+  or removal. Retain unknown data; prefer recoverable removal for verified artifacts.
 - Treat database names as hints, not proof of disposable data. Check ownership,
   active connections and contents without exposing private values; retain data
   whose provenance is unclear. Delete a test database only when its purpose and
   safety are established, and preserve a recoverable copy where appropriate.
+  Test-looking email addresses do not establish that every credential or other
+  record is synthetic. Listing a dump confirms that it is readable, not that a
+  restore has been tested.
 - Keep cleanup inventories local and omit secret values. Track only general
   process instructions in the repository, not machine-specific paths or dumps.
 
