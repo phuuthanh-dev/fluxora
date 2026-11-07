@@ -195,6 +195,13 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(page.getByText("Mock node debug succeeded — only Steam account snapshot ran.")).toBeVisible();
   await expect(page.getByText(/sample data does not verify live connections or all inputs/i)).toBeVisible();
   await expect(page.getByRole("region", { name: "Last execution" }).getByText(/SUCCEEDED · ATTEMPT/)).toBeVisible();
+  const inputFormats = page.getByRole("group", { name: "Redacted input format" });
+  const outputFormats = page.getByRole("group", { name: "Output format", exact: true });
+  await expect(inputFormats.getByRole("button", { name: "Tree" })).toHaveAttribute("aria-pressed", "true");
+  await outputFormats.getByRole("button", { name: "Raw JSON" }).click();
+  await expect(outputFormats.getByRole("button", { name: "Raw JSON" })).toHaveAttribute("aria-pressed", "true");
+  await expect(inputFormats.getByRole("button", { name: "Tree" })).toHaveAttribute("aria-pressed", "true");
+  await expect(outputFormats.getByRole("button", { name: "Raw JSON" })).toHaveCSS("font-size", "12px");
   await page.locator(".react-flow__node").filter({ hasText: "Google Chat · Action" }).first().click();
   await expect(debugPanel.getByText("Simulates this action; no message or change is sent to the provider. Only this node runs; live connections and inputs are not verified.")).toBeVisible();
   await expect(page.getByRole("region", { name: "Last execution" }).getByText(/SKIPPED · ATTEMPT/)).toBeVisible();
