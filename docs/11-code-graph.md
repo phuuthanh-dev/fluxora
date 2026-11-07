@@ -7,7 +7,10 @@ npm run codegraph:generate
 npm run codegraph:check
 ```
 
-The graph deliberately excludes test files and third-party dependency internals. It is a navigation and review aid, not a substitute for architecture documentation.
+The graph deliberately excludes test files and third-party dependency internals.
+Relative directory imports resolve to their `index.ts` or `index.tsx` files.
+Dynamic loading and other forms of use may not appear: a missing edge is not
+proof that a file is unused. Check source and tests before removing code.
 
 ## Boundary map
 

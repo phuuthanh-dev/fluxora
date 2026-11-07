@@ -163,6 +163,8 @@ test("light and dark themes stay readable across dashboard and editor", async ({
 
   await page.getByRole("button", { name: "Switch to dark mode" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect(page.locator(".dashboard-page")).toHaveCSS("background-color", "rgb(11, 16, 12)");
   await page.getByRole("button", { name: "Use Steam template" }).click();
   await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });

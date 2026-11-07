@@ -16,6 +16,7 @@ This repository builds Fluxora, an open-source workflow-automation platform for 
 - Reuse a stable checkout and existing safe local services. Create a worktree or isolated database/container only when needed, record its purpose and ownership, and avoid placing the primary checkout in a temporary directory.
 - At the end of the approved batch, inventory resources created for that batch and clean up only when their ownership and safety are established and applicable approval requirements are met. Never prune unknown worktrees, volumes, databases, credentials, workflow data or rollback images.
 - Keep one concise current status in `docs/19-agent-state.md`; date historical snapshots. A cleanup suggestion or audit finding does not authorize an unrelated refactor or deletion.
+- Graphify is an optional local code-only navigation aid. If its graph is present, use it for relevant code searches but verify findings against source; do not treat a stale or missing graph as proof. Keep generated `graphify-out/` files out of Git and do not invoke semantic extraction for the repository.
 
 ## Mandatory reading order
 

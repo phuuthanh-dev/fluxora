@@ -1,0 +1,9 @@
+# Keep the local graph code-only and avoid indexing tests and documents.
+docs/
+.agent/
+e2e/
+package-lock.json
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
