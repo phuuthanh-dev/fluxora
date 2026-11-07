@@ -33,7 +33,7 @@ test("canvas distinguishes successful, failed and skipped nodes without changing
   await expect(page.locator(".workflow-node--execution-failed")).toHaveCount(1);
 });
 
-test("a handled item failure appears on the canvas after a real mock run", async ({ page }) => {
+test("handled and unhandled item failures appear on the canvas after mock runs", async ({ page }) => {
   const api = `http://localhost:${process.env.E2E_API_PORT ?? "3001"}/api/v1`;
   const registered = await page.request.post(`${api}/auth/register`, { data: { email: `item-error-${Date.now()}@example.test`, password: "synthetic-item-test", displayName: "Item test" } });
   expect(registered.ok()).toBeTruthy();
@@ -68,6 +68,22 @@ test("a handled item failure appears on the canvas after a real mock run", async
   await page.goto(`/editor?workflow=${encodeURIComponent(workflow.id)}&execution=${encodeURIComponent(execution.id)}`);
   await expect(page.locator('[data-id="failure"] .workflow-node')).toHaveClass(/workflow-node--execution-failed/);
   await expect(page.locator('[data-id="recovery"] .workflow-node')).toHaveClass(/workflow-node--execution-succeeded/);
+  await expect(page.locator('[data-id="success"] .workflow-node')).toHaveClass(/workflow-node--execution-skipped/);
+
+  const unhandledGraph = { nodes: graph.nodes.filter((node) => node.id !== "recovery"), edges: graph.edges.filter((edge) => edge.target !== "recovery") };
+  const unhandledCreated = await page.request.post(`${api}/workspaces/${workspaces[0].id}/workflows`, { data: { name: "Unhandled item error", graph: unhandledGraph } });
+  expect(unhandledCreated.ok()).toBeTruthy();
+  const { workflow: unhandledWorkflow } = await unhandledCreated.json();
+  const unhandledStarted = await page.request.post(`${api}/workflows/${unhandledWorkflow.id}/executions`, { data: { mock: true } });
+  expect(unhandledStarted.ok()).toBeTruthy();
+  const { execution: unhandledInitial } = await unhandledStarted.json();
+  await expect.poll(async () => (await (await page.request.get(`${api}/executions/${unhandledInitial.id}`)).json()).execution.status, { timeout: 15_000 }).not.toMatch(/^(QUEUED|RUNNING)$/);
+  const { execution: unhandled } = await (await page.request.get(`${api}/executions/${unhandledInitial.id}`)).json();
+  expect(unhandled.status).toBe("FAILED");
+  expect(unhandled.nodeExecutions.find((node: { nodeId: string }) => node.nodeId === "failure").status).toBe("FAILED");
+  expect(unhandled.nodeExecutions.find((node: { nodeId: string }) => node.nodeId === "success").status).toBe("SKIPPED");
+  await page.goto(`/editor?workflow=${encodeURIComponent(unhandledWorkflow.id)}&execution=${encodeURIComponent(unhandled.id)}`);
+  await expect(page.locator('[data-id="failure"] .workflow-node')).toHaveClass(/workflow-node--execution-failed/);
   await expect(page.locator('[data-id="success"] .workflow-node')).toHaveClass(/workflow-node--execution-skipped/);
 });
 

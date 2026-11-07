@@ -6,6 +6,20 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-07
 
+- The owner-approved local Google Drive qualification workflow was run through
+  the editor in live mode on 2026-11-07: the manual trigger and the designated
+  test-file download succeeded and the node input/output was inspectable. The
+  workflow was deactivated afterward. This is one read on local, not Google
+  verification, a production check, or evidence for other operations. The
+  Steam snapshot now gives an actionable, non-retryable 401/403 error for
+  required profile/library requests, consistent with other Steam operations;
+  the error behavior is covered with synthetic provider responses.
+- A read-only VPS check on 2026-11-07 found about 2.43 GiB free, production
+  web/API/worker healthy at `d2867d0`, and only about 106 MiB reclaimable from
+  images as reported by Docker. This is a point-in-time observation, not a
+  guarantee the next build will fit. No images or volumes were removed. Backup
+  and restore remain deferred at the owner's request.
+
 - [PR #103](https://github.com/phuuthanh-dev/fluxora/pull/103) merged as
   `d2867d024174f0a30fcc16a43a1328363931eb8a`; its PR and main quality gates
   passed. The editor exposes separate, accessible input/output format controls

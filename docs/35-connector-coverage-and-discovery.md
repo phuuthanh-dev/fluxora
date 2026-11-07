@@ -6,6 +6,15 @@
 
 ## Current qualification updates — 2026-11-07
 
+- Google Drive: the existing manual-trigger qualification workflow completed
+  a live download of the designated test file through the local editor; both
+  nodes succeeded and the Drive node's input/output was inspectable. The
+  workflow was deactivated afterward. Other operations, production and
+  sustained behavior are not established by this single run.
+- Steam snapshot: required requests that receive 401/403 now report an
+  actionable API-key/privacy error, tested with synthetic provider responses.
+  Optional achievement failure behavior is unchanged. This is not a live
+  test of denied access.
 - Steam: the owner's existing local connection successfully read a profile,
   friends, badges, a vanity URL, owned and recent games, achievements for one
   owned game, and an account snapshot through the actual adapters. This was a
