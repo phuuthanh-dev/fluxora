@@ -9,6 +9,7 @@ export type RuntimeReadiness = {
   checks: {
     database: "ready" | "unavailable";
     queue: QueueHealth;
+    scheduler: "enabled" | "disabled";
   };
 };
 
@@ -25,7 +26,7 @@ export class RuntimeHealthService {
       status: database === "ready" && queue.status === "ready" ? "ready" : "degraded",
       service: "workflow-api",
       timestamp: new Date().toISOString(),
-      checks: { database, queue },
+      checks: { database, queue, scheduler: process.env.SCHEDULER_ENABLED === "false" ? "disabled" : "enabled" },
     };
   }
 

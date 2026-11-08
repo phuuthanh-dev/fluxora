@@ -55,6 +55,7 @@ This table records the MVP baseline and selected later additions. Entries marked
 | Condition | Switch | Multiple cases and a default path. |
 | Action | Steam Account Snapshot | Profile, current game, owned/recent games, playtime, and optional per-game achievements. |
 | Action | Steam Web API | Community-node parity for profile, friends, badges, vanity URL, owned games, recently played games, and per-game achievements. The game picker lists visible owned games with a manual App ID fallback. Uses a workspace Steam Web API key; privacy settings still apply. |
+| Action | Steam game news | Read up to ten recent public news items for a game App ID, with shortened content. No Steam connection is required. This is a read action, not a news trigger. |
 | Action | Riot TFT | Riot ID/account lookup, TFT match IDs, match detail, ranked entries and service status using an eligible workspace Riot key. Production approval and live TFT qualification remain open. |
 | Action | Google Chat Webhook | Send formatted daily report into one space. |
 | Action | Discord Webhook | Send content, embeds, and an explicitly allowlisted mention policy into a Discord channel via incoming webhook. |

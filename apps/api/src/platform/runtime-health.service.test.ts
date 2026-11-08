@@ -29,3 +29,19 @@ test("readiness degrades when Redis or PostgreSQL is unavailable", async () => {
   assert.equal(result.checks.database, "unavailable");
   assert.equal(result.checks.queue.active, 1);
 });
+
+test("readiness exposes disabled scheduling separately from database and queue health", async () => {
+  const previous = process.env.SCHEDULER_ENABLED;
+  process.env.SCHEDULER_ENABLED = "false";
+  try {
+    const health = new RuntimeHealthService(
+      { $queryRawUnsafe: async () => [] } as never,
+      { health: async () => ({ status: "ready", mode: "inline", configuredWorkerConcurrency: 2, waiting: 0, active: 0, delayed: 0, failed: 0 }) } as never,
+    );
+    const result = await health.readiness();
+    assert.equal(result.status, "ready");
+    assert.equal(result.checks.scheduler, "disabled");
+  } finally {
+    if (previous === undefined) delete process.env.SCHEDULER_ENABLED; else process.env.SCHEDULER_ENABLED = previous;
+  }
+});

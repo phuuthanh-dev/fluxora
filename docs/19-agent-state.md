@@ -6,6 +6,19 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-08
 
+- PR [#107](https://github.com/phuuthanh-dev/fluxora/pull/107) merged as
+  `7e2efd4`; its PR/main checks passed and its production deploy succeeded on
+  attempt two. Attempt one failed while the runner downloaded its SSH tool,
+  before executing the deploy. The deployed web/API health checks passed.
+- Steam game news uses a public bounded read without a Steam connection. The
+  dashboard distinguishes explicitly disabled scheduling from database/queue
+  readiness; configured scheduling is not proof of trigger health. See the
+  associated release and test evidence before claiming live qualification.
+- On November 8 a read-only editor visit loaded the designated Google Drive
+  test file in the picker and the previously approved GitHub test repository
+  and issue in their pickers. No provider action, write, or message was run.
+  A fresh Google Verification Center view still showed branding verified and
+  data access under review; no approval or follow-up request was shown.
 - The owner updated the Steam report and authorized publishing v7 plus one
   manual live execution. On November 8 at 16:55 Asia/Ho_Chi_Minh it succeeded
   for all five nodes. The owner then requested a daily 17:16 schedule; v8 was

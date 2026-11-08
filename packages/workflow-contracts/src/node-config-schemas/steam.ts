@@ -23,7 +23,7 @@ export function parseSteamVanity(value: unknown): string | undefined {
   return /^[A-Za-z0-9_-]{2,64}$/.test(vanity) ? vanity : undefined;
 }
 
-const steamOperations = ["profile", "friends", "badges", "resolveVanity", "ownedGames", "recentGames", "achievements"] as const;
+const steamOperations = ["profile", "friends", "badges", "resolveVanity", "ownedGames", "recentGames", "achievements", "gameNews"] as const;
 const selectedSteamOperation = (config: Record<string, unknown>) => Object.hasOwn(config, "operation") ? config.operation : "profile";
 
 export const steamSnapshot: ConfigRules = {
@@ -35,10 +35,10 @@ export const steamSnapshot: ConfigRules = {
 
 export const steamOperation: ConfigRules = {
   operation: { schema: z.enum(steamOperations), message: "Choose a supported Steam operation." },
-  steamId: { schema: z.string().refine((value) => !value.trim() || isSteamId(value.trim())), message: "Enter a valid Steam ID 64 as text.", when: (config) => selectedSteamOperation(config) !== "resolveVanity" },
+  steamId: { schema: z.string().refine((value) => !value.trim() || isSteamId(value.trim())), message: "Enter a valid Steam ID 64 as text.", when: (config) => !["resolveVanity", "gameNews"].includes(String(selectedSteamOperation(config))) },
   includePlayedFreeGames: { schema: z.boolean(), message: "Choose whether to include played free games.", when: (config) => selectedSteamOperation(config) === "ownedGames" },
   vanity: { schema: z.string().refine((value) => parseSteamVanity(value) !== undefined), message: "Enter a valid Steam profile name or profile URL.", required: true, when: (config) => selectedSteamOperation(config) === "resolveVanity" },
-  appId: { schema: z.string().refine(isSteamAppId), message: "Enter a valid Steam game App ID.", required: true, when: (config) => selectedSteamOperation(config) === "achievements" },
+  appId: { schema: z.string().refine(isSteamAppId), message: "Enter a valid Steam game App ID.", required: true, when: (config) => ["achievements", "gameNews"].includes(String(selectedSteamOperation(config))) },
   language: { schema: z.string().refine((value) => value === "" || /^[A-Za-z-]{1,32}$/.test(value)), message: "Enter a valid achievement language.", when: (config) => selectedSteamOperation(config) === "achievements" },
 };
 

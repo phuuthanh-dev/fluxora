@@ -56,6 +56,27 @@ test("owned games can explicitly include played free games", async () => {
   });
 });
 
+test("public Steam game news uses a bounded request without reading credentials", async () => {
+  const noCredentials = new Proxy({}, { get() { throw new Error("News must not access credentials"); } }) as never;
+  const mock = await executeSteamOperation({ operation: "gameNews", appId: "620" }, "mock", "workspace-1", noCredentials);
+  assert.equal(mock.output.operation, "gameNews");
+  const result = await executeSteamOperation({ operation: "gameNews", appId: "620" }, "live", "workspace-1", noCredentials, async (url, init) => {
+    const request = new URL(url);
+    assert.equal(request.origin, "https://api.steampowered.com");
+    assert.equal(request.pathname, "/ISteamNews/GetNewsForApp/v2/");
+    assert.equal(request.searchParams.get("appid"), "620");
+    assert.equal(request.searchParams.get("count"), "10");
+    assert.equal(request.searchParams.get("maxlength"), "1000");
+    assert.equal(request.searchParams.has("key"), false);
+    assert.equal(init.method, "GET");
+    return Response.json({ appnews: { appid: 620, newsitems: [{ gid: "1", title: "Update" }], count: 1 } });
+  });
+  assert.deepEqual(result.output.result, { appid: 620, newsitems: [{ gid: "1", title: "Update" }], count: 1 });
+  await assert.rejects(() => executeSteamOperation({ operation: "gameNews", appId: "0" }, "live", "workspace-1", noCredentials), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT");
+  await assert.rejects(() => executeSteamOperation({ operation: "gameNews", appId: "620" }, "live", "workspace-1", noCredentials, async () => new Response(null, { status: 403 })), (error: unknown) => error instanceof NodeFailure && error.code === "STEAM_ACCESS_DENIED" && !error.message.includes("API key"));
+  await assert.rejects(() => executeSteamOperation({ operation: "gameNews", appId: "620" }, "live", "workspace-1", noCredentials, async () => Response.json({ appnews: { newsitems: Array.from({ length: 11 }, () => ({})) } })), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_PROVIDER_RESPONSE");
+});
+
 test("Steam distinguishes private or missing data from an empty library and redacts provider errors", async () => {
   for (const operation of ["ownedGames", "recentGames", "badges"]) {
     await assert.rejects(() => executeSteamOperation({ credentialId: "steam-connection", operation }, "live", "workspace-1", credentials, async () => Response.json({ response: {} })), (error: unknown) => error instanceof NodeFailure && error.code === "STEAM_DATA_UNAVAILABLE" && !error.retryable);
