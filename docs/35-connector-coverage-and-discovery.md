@@ -4,7 +4,32 @@
 > Live evidence is limited to the specific dates and cases stated below; see
 > [the current NX audit](45-nx-current-audit.md) for wider runtime boundaries.
 
-## Current qualification updates — 2026-11-07
+## Current qualification updates — 2026-11-08
+
+- **Production Steam daily report v6:** the scheduled runs at 13:05 local time
+  on November 6, 7 and 8 failed because the Google Chat incoming webhook
+  returned 403. The November 8 run shows successful schedule and Steam nodes,
+  failed Google Chat and skipped Discord/Telegram nodes. The recorded error is
+  only an HTTP status; its precise cause has not been verified. Google notes
+  that a webhook is registered to a specific space and can fail if that
+  webhook or space was deleted; access policy may also matter. See the
+  [Google Chat webhook documentation](https://developers.google.com/workspace/chat/quickstart/webhooks).
+  This connection is not the Google OAuth connection. No retries, messages,
+  workflow edits, credential changes or provider mutations were performed.
+- The same execution's message input shows empty playtime fields. Its published
+  template refers to `summary.currentGame.name`, `summary.totalPlaytimeMinutes`
+  and `summary.topGames[*].playtimeForeverMinutes`; the current Steam snapshot
+  instead returns `currentGame.name` and `summary.topGames[*].playtimeMinutes`,
+  and does not provide `summary.totalPlaytimeMinutes`. The owner requested
+  guidance only: after the owner verifies the correct Chat space and webhook,
+  they can update the saved message using available output paths, remove the
+  unsupported total and review/publish a new version. Missing games or a null
+  current game need appropriate fallback text. Publishing and a live test must
+  be deliberate because they affect actual notifications; do not claim the
+  delivery is fixed without a successful execution.
+- On November 8 Google Cloud still reported verified branding and data access
+  under review; five review steps were in progress. The console does not
+  establish the outcome of the review or explain the webhook's 403.
 
 - Google Drive: the existing manual-trigger qualification workflow completed
   a live download of the designated test file through the local editor; both
