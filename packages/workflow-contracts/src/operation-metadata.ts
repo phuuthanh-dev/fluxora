@@ -101,7 +101,7 @@ const definitions = {
   "condition.switch": condition(none, "unspecified", fields("value", "matched")),
   "approval.request": approval(conditional, "unspecified", fields("message", "expiresInHours", "notificationProvider", "notificationCredentialId")),
   "action.steam.account-snapshot": executable(credential("STEAM"), "read", fields("profile", "currentGame", "ownedGames", "recentGames", "achievements", "summary")),
-  "action.steam": executable(credential("STEAM"), "read", fields("operation", "result")),
+  "action.steam": executable(conditional, "read", fields("operation", "result")),
   "action.riot-lol": executable(credential("RIOT"), "read", fields("operation", "result")),
   "action.riot-tft": executable(credential("RIOT"), "read", fields("operation", "result")),
   "action.riot-valorant": planned,

@@ -924,6 +924,7 @@ const steamActions = [
   ["ownedGames", "Get owned games", "Read games visible in a Steam library."],
   ["recentGames", "Get recently played games", "Read a user's recent Steam games."],
   ["achievements", "Get game achievements", "Read a user's achievements for a game."],
+  ["gameNews", "Get game news", "Read recent public news for a Steam game by App ID."],
 ] as const;
 
 /** Presentation entries reuse the same persisted node type and executor. */

@@ -5,6 +5,12 @@ import { getOperationMetadataRegistry, workflowNodeTypes } from "@workflow/contr
 import { liveCredentialRequirements } from "./live-readiness";
 import { ExecutionService } from "./execution.service";
 
+test("Steam game news needs no credential, while profile reads still do", () => {
+  const node = { id: "steam", type: "action.steam" as const, position: { x: 0, y: 0 }, config: { operation: "gameNews", appId: "620" } };
+  assert.deepEqual(liveCredentialRequirements({ nodes: [node], edges: [] }), []);
+  assert.deepEqual(liveCredentialRequirements({ nodes: [{ ...node, config: { operation: "profile", appId: "620" } }], edges: [] }), [{ nodeId: "steam", provider: CredentialProvider.STEAM, credentialId: null }]);
+});
+
 test("executable credential metadata agrees with live readiness for every registered node", () => {
   const metadata = getOperationMetadataRegistry();
   for (const type of workflowNodeTypes) {

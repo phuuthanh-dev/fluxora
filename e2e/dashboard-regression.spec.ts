@@ -95,7 +95,7 @@ test("runtime panel shows checking state then ready state after sign-in", async 
   const readyGate = new Promise((resolve) => { resolveReady = resolve; });
   await page.route("**/health/ready", async (route) => {
     await readyGate;
-    await route.continue();
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "ready", checks: { database: "ready", scheduler: "enabled", queue: { status: "ready", mode: "inline", configuredWorkerConcurrency: 2, waiting: 0, active: 0, delayed: 0, failed: 0 } } }) });
   });
 
   await page.goto("/login");
@@ -115,6 +115,21 @@ test("runtime panel shows checking state then ready state after sign-in", async 
   resolveReady(undefined);
   await expect(page.getByText("Execution runtime ready")).toBeVisible({ timeout: 10_000 });
   await expect(runtimePanel).toHaveClass(/dashboard-runtime--ready/);
+});
+
+test("runtime panel warns when scheduling is disabled without calling the queue unhealthy", async ({ page }) => {
+  await page.route("**/health/ready", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "ready", checks: { database: "ready", scheduler: "disabled", queue: { status: "ready", mode: "inline", configuredWorkerConcurrency: 2, waiting: 0, active: 0, delayed: 0, failed: 0 } } }) }));
+  await signUpAndDashboard(page, `regression-scheduler-${Date.now()}@example.test`);
+  const panel = page.locator(".dashboard-runtime");
+  await expect(panel).toHaveClass(/dashboard-runtime--degraded/);
+  await expect(panel.getByText("Scheduled triggers disabled")).toBeVisible();
+  await expect(panel.getByText(/Scheduled and polling triggers will not run/)).toBeVisible();
+  await expect(panel.getByText(/inline queue ready/)).toBeVisible();
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
+    await expectContrast(panel.locator("strong"), 4.5);
+    await expectContrast(panel.locator("span").last(), 4.5);
+  }
 });
 
 test("runtime panel shows unreachable state when readiness endpoint fails", async ({ page }) => {

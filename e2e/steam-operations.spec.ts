@@ -26,7 +26,7 @@ test("Steam offers the community operations and an owned-game picker with manual
   await expect(page.getByRole("alert").filter({ hasText: "Enter a valid Steam ID 64 as text." })).toHaveCount(0);
   await page.locator(".react-flow__node").filter({ hasText: "Get user profile" }).click();
   const operation = page.getByLabel("Operation", { exact: true });
-  await expect(operation.locator("option")).toHaveCount(7);
+  await expect(operation.locator("option")).toHaveCount(8);
   await operation.selectOption("achievements");
   const game = page.getByRole("group", { name: "Game", exact: true });
   await expect(game.getByRole("option", { name: "Portal 2" })).toHaveAttribute("value", "620");
@@ -45,6 +45,10 @@ test("Steam offers the community operations and an owned-game picker with manual
   await page.getByLabel("Display name", { exact: true }).fill("My Steam step");
   await operation.selectOption("recentGames");
   await expect(page.locator(".react-flow__node").filter({ hasText: "My Steam step" })).toBeVisible();
+  await operation.selectOption("gameNews");
+  await expect(page.getByLabel("Steam connection")).toHaveCount(0);
+  await expect(page.getByLabel("Steam game App ID")).toBeVisible();
+  await expect(page.getByText(/No Steam connection is needed/)).toBeVisible();
 
   const library = page.getByRole("complementary", { name: "Node Library" });
   await library.getByLabel("Search apps and operations").fill("owned games");

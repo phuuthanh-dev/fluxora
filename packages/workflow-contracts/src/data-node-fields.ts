@@ -33,7 +33,7 @@ export const dataNodeFields = {
     { kind: "datetime", key: "endTime", label: "Matches before (optional)", visibleWhen: { key: "operation", equals: "matchIds" } },
   ],
   "action.steam": (): NodeConfigurationField[] => [
-      { kind: "credential", key: "credentialId", label: "Steam connection", providers: ["STEAM"] },
+      { kind: "credential", key: "credentialId", label: "Steam connection", providers: ["STEAM"], visibleWhen: { key: "operation", equals: ["profile", "friends", "badges", "resolveVanity", "ownedGames", "recentGames", "achievements"], fallback: "profile" } },
       { kind: "select", key: "operation", label: "Operation", options: [
         { value: "profile", label: "Get user profile" },
         { value: "friends", label: "Get friend list" },
@@ -42,11 +42,13 @@ export const dataNodeFields = {
         { value: "ownedGames", label: "Get owned games" },
         { value: "recentGames", label: "Get recently played games" },
         { value: "achievements", label: "Get game achievements" },
+        { value: "gameNews", label: "Get game news" },
       ] },
       { kind: "text", key: "steamId", label: "Steam ID 64 (optional: use connection)", visibleWhen: { key: "operation", equals: ["profile", "friends", "badges", "ownedGames", "recentGames", "achievements"], fallback: "profile" } },
       { kind: "boolean", key: "includePlayedFreeGames", label: "Include played free games", defaultChecked: false, visibleWhen: { key: "operation", equals: "ownedGames" } },
       { kind: "text", key: "vanity", label: "Profile name or Steam profile URL", visibleWhen: { key: "operation", equals: "resolveVanity" } },
       { kind: "resource", key: "appId", label: "Game", resource: "steam-game", credentialKey: "credentialId", dependencyKey: "steamId", placeholder: "Search owned games", visibleWhen: { key: "operation", equals: "achievements" } },
+      { kind: "text", key: "appId", label: "Steam game App ID", visibleWhen: { key: "operation", equals: "gameNews" } },
       { kind: "text", key: "language", label: "Achievement language (optional)", visibleWhen: { key: "operation", equals: "achievements" } },
     ],
   "action.steam.account-snapshot": (): NodeConfigurationField[] => [

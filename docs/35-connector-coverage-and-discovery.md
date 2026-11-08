@@ -78,7 +78,7 @@ This inventory describes catalog operations, not complete vendor APIs. A node ma
 
 | App | Available catalog operation(s) | Known evidence / remaining scope |
 | --- | --- | --- |
-| Steam | Account snapshot; profile, friends, badges, vanity URL, owned/recent games, achievements | The library presents seven reads separately; each uses the existing `action.steam` node with its operation selected. See the 2026-11-07 direct-read qualification above; sustained monitoring remains unqualified. |
+| Steam | Account snapshot; profile, friends, badges, vanity URL, owned/recent games, achievements; public game news | The library presents the eight individual reads separately using the existing `action.steam` node. Game news uses the public [GetNewsForApp](https://partner.steamgames.com/doc/webapi/ISteamNews) endpoint without a credential, limits results to ten and shortens content; it is not a trigger. On November 8 a direct live adapter read for Portal 2 returned ten items without credentials; this is not a published workflow run or proof of sustained behavior. The original seven reads were qualified on 2026-11-07 as described above. |
 | Google Chat | Webhook message; OAuth send, reply and edit | Webhook live in owner flow; OAuth subject to app/account restrictions. |
 | Discord | Webhook message | Live in owner flow; bot management and triggers not implemented. |
 | Telegram | Send, reply, edit; update trigger | Send ran live in the owner flow; live qualification of every operation and trigger is not established. |
