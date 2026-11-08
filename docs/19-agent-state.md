@@ -4,7 +4,32 @@ This file is the compact, machine-checked handoff point for the next coding
 loop. It prevents an agent from proposing implementation work that is already
 complete in the delivery ledger.
 
-## Latest snapshot — 2026-11-07
+## Latest snapshot — 2026-11-08
+
+- PR [#105](https://github.com/phuuthanh-dev/fluxora/pull/105) merged as
+  `49769d74ebee39204405f0ba635633e7516a8015`; its PR and main quality gates
+  passed and [production deploy](https://github.com/phuuthanh-dev/fluxora/actions/runs/42389440622)
+  succeeded. On November 8, web/API/worker used this image and API/web were
+  healthy. This does not imply workflows succeed.
+- Production execution history shows Steam daily report v6 failed on November
+  6, 7 and 8 at 13:05 Asia/Ho_Chi_Minh with Google Chat 403. The November 8
+  run shows schedule and Steam succeeded while Discord/Telegram were skipped.
+  The 403 alone does not establish why Google denied the webhook. The
+  message also references obsolete Steam output paths and yields blank fields.
+  The owner chose inspection and repair guidance only; do not modify, publish,
+  retry or deactivate this workflow without further instruction. See `docs/35`.
+- Google Cloud Verification Center was refreshed on November 8: branding is
+  verified and data access remains under review. The Google Chat webhook is a
+  separate credential from Google OAuth; the 403 does not prove the OAuth
+  review caused the failure. No new AI provider call was made; production
+  connection inventory did not show Gemini or OpenAI in this workspace.
+- Read-only VPS check: 2,623,320 KiB free versus the 2,097,152 KiB preflight
+  minimum, leaving 526,168 KiB headroom. Images reported only 5.602 MB
+  reclaimable; volumes may contain user data and must not be pruned. Expanding
+  storage is a candidate to investigate, not an applied change or a guarantee
+  of successful deploy. Backup/restore remains deferred by the owner.
+
+### Previous snapshot — 2026-11-07
 
 - The owner-approved local Google Drive qualification workflow was run through
   the editor in live mode on 2026-11-07: the manual trigger and the designated
