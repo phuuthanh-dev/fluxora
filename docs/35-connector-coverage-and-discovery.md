@@ -6,6 +6,13 @@
 
 ## Current qualification updates — 2026-11-08
 
+- **Steam daily report v7:** following the owner's explicit authorization,
+  a manual live run on November 8 succeeded for the schedule, Steam snapshot,
+  Google Chat, Discord and Telegram nodes. The resolved report contained three
+  game names and their playtime. The owner then changed the schedule to 17:16
+  Asia/Ho_Chi_Minh; the resulting v8 execution at 17:16 on November 8 succeeded
+  for all five nodes and recorded a matching `scheduledAt`. One scheduled run
+  does not establish sustained reliability or authorize additional test sends.
 - **Production Steam daily report v6:** the scheduled runs at 13:05 local time
   on November 6, 7 and 8 failed because the Google Chat incoming webhook
   returned 403. The November 8 run shows successful schedule and Steam nodes,
@@ -20,8 +27,8 @@
   template refers to `summary.currentGame.name`, `summary.totalPlaytimeMinutes`
   and `summary.topGames[*].playtimeForeverMinutes`; the current Steam snapshot
   instead returns `currentGame.name` and `summary.topGames[*].playtimeMinutes`,
-  and does not provide `summary.totalPlaytimeMinutes`. The owner requested
-  guidance only: after the owner verifies the correct Chat space and webhook,
+  and does not provide `summary.totalPlaytimeMinutes`. Before v7, the owner
+  requested guidance only: after verifying the correct Chat space and webhook,
   they can update the saved message using available output paths, remove the
   unsupported total and review/publish a new version. Missing games or a null
   current game need appropriate fallback text. Publishing and a live test must

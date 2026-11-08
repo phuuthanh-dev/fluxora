@@ -44,6 +44,13 @@ export type ApiExecution = {
 
 type Diagnostic = { schemaVersion: "fluxora.execution-diagnostic.v1"; execution: { id: string } };
 
+export function executionRecoveryGuidance(node: ExecutionNodeDetail) {
+  if (node.status === "FAILED" && node.nodeType === "action.google-chat.webhook" && node.error?.code === "HTTP_ERROR" && node.error.message === "Google Chat returned 403.") {
+    return "Check that the incoming webhook exists in the intended Google Chat space and that webhooks are allowed. If needed, update the webhook in Connections before retrying.";
+  }
+  return null;
+}
+
 export function executionFailureExplanation(node: ExecutionNodeDetail) {
   if (node.status === "SKIPPED") {
     if (node.skipReason === "execution_cancelled") return "Skipped because the execution was cancelled.";
@@ -128,12 +135,14 @@ export function ExecutionDetailsPanel({ executionId, onClose, onSelectNode }: { 
         {execution.nodeExecutions.length === 0 ? <EmptyState icon={<Clock3 size={22} />} title="No node activity yet" description="The run is queued or has not persisted its first node state." /> : <ol className="execution-timeline" aria-label="Node execution timeline">
           {execution.nodeExecutions.map((node) => {
             const explanation = executionFailureExplanation(node);
+            const recovery = executionRecoveryGuidance(node);
             return <li key={node.nodeId} className={`execution-timeline__item execution-timeline__item--${node.status.toLowerCase()}`}>
               <span className="execution-timeline__marker" aria-hidden="true">{node.status === "FAILED" ? <AlertTriangle size={14} /> : node.status === "SKIPPED" ? <SkipForward size={14} /> : node.status === "RUNNING" || node.status === "WAITING" ? <Clock3 size={14} /> : <CheckCircle2 size={14} />}</span>
               <div className="execution-timeline__body">
                 <div className="execution-timeline__title"><strong>{node.nodeId}</strong><span>{node.status}</span></div>
                 <p>{nodeNames.get(node.nodeId) ?? node.nodeType} · attempt {node.attempt} · {formatDuration(node.durationMs)}</p>
                 {node.error ? <code>{node.error.code}: {node.error.message}</code> : null}
+                {recovery ? <p>{recovery}</p> : null}
                 {explanation ? <div className="execution-timeline__explanation">{node.failureHandling?.kind === "error_branch" ? <GitBranch size={14} /> : node.status === "SKIPPED" ? <SkipForward size={14} /> : <RotateCcw size={14} />}<span>{explanation}</span></div> : null}
                 <Button variant="ghost" onClick={() => onSelectNode(node.nodeId)}>Inspect node</Button>
               </div>

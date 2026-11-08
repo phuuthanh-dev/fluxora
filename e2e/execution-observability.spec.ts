@@ -24,13 +24,20 @@ test("canvas distinguishes successful, failed and skipped nodes without changing
   const response = page.waitForResponse((result) => result.request().method() === "POST" && /\/workflows\/[^/]+\/executions$/.test(new URL(result.url()).pathname));
   await page.getByRole("button", { name: "Run test", exact: true }).click();
   const { execution } = await (await response).json();
-  const snapshot = { ...execution, status: "FAILED", nodeExecutions: execution.graph.nodes.map((node: { id: string; type: string }, index: number) => ({ nodeId: node.id, nodeType: node.type, status: ["SUCCEEDED", "FAILED", "SKIPPED"][index], attempt: 1, input: null, output: null, error: index === 1 ? { code: "TEST_FAILURE", message: "Synthetic failure", retryable: false } : null, startedAt: null, completedAt: null, durationMs: null, failureHandling: null, skipReason: null, items: [] })) };
-  await page.route(`**/executions/${execution.id}`, (route) => route.fulfill({ json: { execution: snapshot } }));
+  const snapshot = { ...execution, status: "FAILED", nodeExecutions: execution.graph.nodes.map((node: { id: string; type: string }, index: number) => ({ nodeId: node.id, nodeType: node.type, status: ["SUCCEEDED", "SKIPPED", "FAILED"][index], attempt: 1, input: null, output: null, error: index === 2 ? { code: "HTTP_ERROR", message: "Google Chat returned 403.", retryable: false } : null, startedAt: null, completedAt: null, durationMs: null, failureHandling: null, skipReason: null, items: [] })) };
+  await page.route(`**/executions/${execution.id}*`, (route) => route.fulfill({ json: { execution: snapshot } }));
   await page.goto(`/editor?workflow=${encodeURIComponent(execution.workflowId)}&execution=${encodeURIComponent(execution.id)}`);
   await expect(page.getByRole("img", { name: "Last run: Succeeded" })).toHaveCount(1);
   await expect(page.getByRole("img", { name: "Last run: Failed" })).toHaveCount(1);
   await expect(page.getByRole("img", { name: "Last run: Skipped" })).toHaveCount(1);
   await expect(page.locator(".workflow-node--execution-failed")).toHaveCount(1);
+  await page.locator(".workflow-node--execution-failed").click();
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
+    await expect(page.getByText(/Check that the incoming webhook exists in the intended Google Chat space/)).toBeVisible();
+  }
+  await page.getByRole("button", { name: "Run details", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Execution details" }).getByText(/Check that the incoming webhook exists in the intended Google Chat space/)).toBeVisible();
 });
 
 test("handled and unhandled item failures appear on the canvas after mock runs", async ({ page }) => {
