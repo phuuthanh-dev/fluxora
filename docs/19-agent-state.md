@@ -6,6 +6,24 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-08
 
+- The owner updated the Steam report and authorized publishing v7 plus one
+  manual live execution. On November 8 at 16:55 Asia/Ho_Chi_Minh it succeeded
+  for all five nodes. The owner then requested a daily 17:16 schedule; v8 was
+  published with `16 17 * * *` in `Asia/Ho_Chi_Minh`. Its scheduled execution
+  on November 8 at 17:16 succeeded for schedule, Steam, Google Chat, Discord
+  and Telegram. This is one scheduled run, not proof of sustained reliability.
+  Do not manually repeat sends without specific authorization.
+- The editor now gives targeted recovery guidance for a Google Chat incoming
+  webhook returning the stored `HTTP_ERROR` 403 message in both node details
+  and the timeline. It suggests checking the webhook and its space without
+  asserting a specific cause; failure classification and retries are unchanged.
+- The VPS has a 15 GiB disk with about 2.5 GiB free; the deploy preflight
+  requires 2 GiB free. `docker system df` reported only 5.602 MB of image
+  space reclaimable. The provider and the price or feasibility of a larger
+  disk are not yet confirmed. No volume, image or user data was removed and
+  no infrastructure change or purchase was made. Increasing storage is the
+  preferred option to investigate rather than assuming unused volumes are safe.
+
 - PR [#105](https://github.com/phuuthanh-dev/fluxora/pull/105) merged as
   `49769d74ebee39204405f0ba635633e7516a8015`; its PR and main quality gates
   passed and [production deploy](https://github.com/phuuthanh-dev/fluxora/actions/runs/42389440622)
@@ -16,8 +34,9 @@ complete in the delivery ledger.
   run shows schedule and Steam succeeded while Discord/Telegram were skipped.
   The 403 alone does not establish why Google denied the webhook. The
   message also references obsolete Steam output paths and yields blank fields.
-  The owner chose inspection and repair guidance only; do not modify, publish,
-  retry or deactivate this workflow without further instruction. See `docs/35`.
+  The owner initially chose inspection and repair guidance only; the later v7
+  publication and single test were separately authorized as recorded above.
+  See `docs/35`.
 - Google Cloud Verification Center was refreshed on November 8: branding is
   verified and data access remains under review. The Google Chat webhook is a
   separate credential from Google OAuth; the 403 does not prove the OAuth

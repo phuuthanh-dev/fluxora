@@ -58,7 +58,7 @@ import { NodeLibrary, type NodeLibraryHandle } from "./node-library";
 import { Button, Dialog, DialogHeader, Field, IconButton, Menu, Select, Status, useDialogFocus } from "../../components/ui";
 import { useSurfaceMotion } from "../../components/ui/ui-motion";
 import { AppShellHeader } from "../app-shell/app-shell-header";
-import { ExecutionDetailsPanel, outputHasList, type ApiExecution } from "./execution-observability";
+import { ExecutionDetailsPanel, executionRecoveryGuidance, outputHasList, type ApiExecution } from "./execution-observability";
 import { executionPagination } from "./execution-pagination";
 import { ResourcePicker } from "./resource-picker";
 import { MongoFilterField } from "./mongodb-filter-field";
@@ -1200,6 +1200,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
             <div className="section-label">{nodeExecution.status} · ATTEMPT {nodeExecution.attempt} · {nodeExecution.durationMs ?? 0}MS</div>
             <div className="execution-inspector__section"><strong>Redacted input</strong><ResultView label="Redacted input" value={nodeExecution.input} /></div>
             <div className="execution-inspector__section"><strong>{nodeExecution.error ? "Normalized error" : "Output"}</strong><ResultView label={nodeExecution.error ? "Normalized error" : "Output"} value={nodeExecution.error ?? nodeExecution.output} /></div>
+            {executionRecoveryGuidance(nodeExecution) && <Status tone="info" className="inspector-note">{executionRecoveryGuidance(nodeExecution)}</Status>}
             {pagination && <details className="execution-pagination"><summary>Pagination</summary>
               {pagination.kind === "offset" ? <p>To inspect another page, adjust <code>{pagination.input}</code> and keep the same connection, sorting and filters.</p> : pagination.available ? <p>The output contains <code>{pagination.next}</code>. Use it as <code>{pagination.input}</code> for another page, keeping the same connection and other settings.</p> : <p>No usable <code>{pagination.next}</code> was returned. This does not guarantee the result is complete.</p>}
               {pagination.caveat && <p>{pagination.caveat}</p>}

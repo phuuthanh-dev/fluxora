@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { diagnosticFileName, executionFailureExplanation, outputHasList, type ExecutionNodeDetail } from "./execution-observability";
+import { diagnosticFileName, executionFailureExplanation, executionRecoveryGuidance, outputHasList, type ExecutionNodeDetail } from "./execution-observability";
 
 test("list guidance appears for direct output lists and not scalar output", () => {
   assert.equal(outputHasList([{ id: 1 }]), true);
@@ -33,6 +33,14 @@ test("execution explanation distinguishes retryability and error-branch routing"
 test("execution explanation gives explicit reasons for skipped nodes", () => {
   assert.equal(executionFailureExplanation(node({ status: "SKIPPED", error: null, failureHandling: null, skipReason: "branch_not_selected" })), "Skipped because another condition or switch branch was selected.");
   assert.equal(executionFailureExplanation(node({ status: "SKIPPED", error: null, failureHandling: null, skipReason: "execution_cancelled" })), "Skipped because the execution was cancelled.");
+});
+
+test("Google Chat webhook 403 suggests checking the space without claiming a cause", () => {
+  const denied = node({ nodeType: "action.google-chat.webhook", error: { code: "HTTP_ERROR", message: "Google Chat returned 403.", retryable: false } });
+  assert.match(executionRecoveryGuidance(denied)!, /webhook exists.*space.*webhooks are allowed/);
+  assert.equal(executionRecoveryGuidance(node({ ...denied, nodeType: "action.google-chat.oauth" })), null);
+  assert.equal(executionRecoveryGuidance(node({ ...denied, error: { code: "HTTP_ERROR", message: "Google Chat returned 429.", retryable: true } })), null);
+  assert.equal(executionRecoveryGuidance(node({ ...denied, status: "SUCCEEDED" })), null);
 });
 
 test("diagnostic file name is stable for the same execution", () => {
