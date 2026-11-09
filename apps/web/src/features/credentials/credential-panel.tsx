@@ -11,7 +11,7 @@ import "./credentials.css";
 import { CredentialSecretFields } from "./credential-secret-fields";
 import { NodeIcon, type NodeIconName } from "../workflow/node-icon";
 
-const providerIcons: Record<CredentialProvider, NodeIconName> = { GOOGLE: "google", STEAM: "steam", RIOT: "riot-games", GOOGLE_CHAT_WEBHOOK: "google-chat", GOOGLE_CHAT_OAUTH: "google-chat", GMAIL: "gmail", GOOGLE_CALENDAR: "google-calendar", MONGODB: "mongodb", NOTION: "notion", TRELLO: "trello", SENTRY: "sentry", VERCEL: "vercel", SUPABASE: "supabase", REDDIT: "reddit", POSTGRES: "postgres", HTTP: "http", DISCORD_WEBHOOK: "discord", SLACK_WEBHOOK: "slack", SLACK_OAUTH: "slack", TELEGRAM_BOT: "telegram", GITHUB: "github", SMTP: "email", GEMINI: "gemini", OPENAI: "openai" };
+const providerIcons: Record<CredentialProvider, NodeIconName> = { GOOGLE: "google", STEAM: "steam", RIOT: "riot-games", GOOGLE_CHAT_WEBHOOK: "google-chat", GOOGLE_CHAT_OAUTH: "google-chat", GMAIL: "gmail", GOOGLE_CALENDAR: "google-calendar", MONGODB: "mongodb", NOTION: "notion", TRELLO: "trello", SENTRY: "sentry", VERCEL: "vercel", SUPABASE: "supabase", REDDIT: "reddit", POSTGRES: "postgres", HTTP: "http", DISCORD_WEBHOOK: "discord", SLACK_WEBHOOK: "slack", SLACK_OAUTH: "slack", TELEGRAM_BOT: "telegram", GITLAB: "gitlab", GITHUB: "github", SMTP: "email", GEMINI: "gemini", OPENAI: "openai" };
 
 type CredentialPreset = {
   label: string;
@@ -74,6 +74,7 @@ const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
     data: '{\n  "botToken": ""\n}',
     hint: "Enter your Telegram Bot API token from @BotFather. Destination Chat ID is configured on the Telegram message node (credential chatId is deprecated).",
   },
+  GITLAB: { label: "GitLab", data: '{\n  "token": ""\n}', hint: "Use your own gitlab.com personal access token. read_api permits reads; api is required for writes. Webhook authentication is configured separately." },
   GITHUB: {
     label: "GitHub connector",
     data: '{\n  "token": ""\n}',
@@ -90,7 +91,7 @@ type ProviderOption = { value: CredentialProvider | "EMAIL"; label: string; keyw
 const providerGroups: { label: string; options: ProviderOption[] }[] = [
   { label: "Communication", options: [{ value: "EMAIL", label: "Email", keywords: "gmail smtp" }, { value: "GOOGLE_CHAT_OAUTH", label: "Google Chat OAuth" }, { value: "GOOGLE_CHAT_WEBHOOK", label: "Google Chat webhook" }, { value: "DISCORD_WEBHOOK", label: "Discord webhook" }, { value: "SLACK_OAUTH", label: "Slack workspace" }, { value: "SLACK_WEBHOOK", label: "Slack webhook" }, { value: "TELEGRAM_BOT", label: "Telegram bot" }] },
   { label: "Productivity", options: [{ value: "GOOGLE", label: "Google Drive / Sheets" }, { value: "GOOGLE_CALENDAR", label: "Google Calendar" }, { value: "NOTION", label: "Notion" }, { value: "TRELLO", label: "Trello" }] },
-  { label: "Developer & data", options: [{ value: "GITHUB", label: "GitHub connector" }, { value: "SENTRY", label: "Sentry" }, { value: "VERCEL", label: "Vercel" }, { value: "SUPABASE", label: "Supabase" }, { value: "MONGODB", label: "MongoDB" }, { value: "POSTGRES", label: "PostgreSQL" }, { value: "HTTP", label: "HTTP" }] },
+  { label: "Developer & data", options: [{ value: "GITHUB", label: "GitHub connector" }, { value: "GITLAB", label: "GitLab" }, { value: "SENTRY", label: "Sentry" }, { value: "VERCEL", label: "Vercel" }, { value: "SUPABASE", label: "Supabase" }, { value: "MONGODB", label: "MongoDB" }, { value: "POSTGRES", label: "PostgreSQL" }, { value: "HTTP", label: "HTTP" }] },
   { label: "AI", options: [{ value: "GEMINI", label: "Gemini API" }, { value: "OPENAI", label: "OpenAI API" }] },
   { label: "Social & gaming", options: [{ value: "REDDIT", label: "Reddit" }, { value: "STEAM", label: "Steam" }, { value: "RIOT", label: "Riot Games" }] },
 ];
@@ -115,7 +116,7 @@ function credentialProviderLabel(provider: CredentialProvider) {
     SLACK_WEBHOOK: "Slack webhook",
     SLACK_OAUTH: "Slack workspace",
     TELEGRAM_BOT: "Telegram bot",
-    GITHUB: "GitHub",
+    GITLAB: "GitLab", GITHUB: "GitHub",
     SMTP: "SMTP email",
     GEMINI: "Gemini",
     OPENAI: "OpenAI",
@@ -232,7 +233,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
       SLACK_WEBHOOK: "Slack",
       SLACK_OAUTH: "Slack workspace",
       TELEGRAM_BOT: "Telegram",
-      GITHUB: "GitHub",
+      GITLAB: "GitLab", GITHUB: "GitHub",
       SMTP: "SMTP email",
       GEMINI: "Gemini",
       OPENAI: "OpenAI",

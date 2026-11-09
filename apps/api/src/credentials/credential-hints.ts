@@ -4,6 +4,7 @@ import { CredentialProvider } from "@prisma/client";
 // passwords, OAuth credentials, connection strings, or webhook URLs.
 const hintFields: Partial<Record<CredentialProvider, ReadonlyArray<{ key: string; label: string }>>> = {
   [CredentialProvider.TRELLO]: [{ key: "apiKey", label: "API key" }, { key: "token", label: "Token" }],
+  [CredentialProvider.GITLAB]: [{ key: "token", label: "Token" }],
   [CredentialProvider.GITHUB]: [{ key: "token", label: "Token" }],
   [CredentialProvider.SENTRY]: [{ key: "token", label: "Token" }],
   [CredentialProvider.VERCEL]: [{ key: "token", label: "Token" }],

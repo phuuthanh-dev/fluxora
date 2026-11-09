@@ -63,10 +63,15 @@ test("admin has separate navigation, safe account menus, states and execution fi
     await disable.click();
     await expect(page.getByRole("button", { name: "Confirm", exact: true })).toHaveClass(/ui-button--danger/);
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Confirm account action" })).toHaveCount(0);
+    await expect(page.getByLabel("other@example.test actions")).toBeFocused();
     await page.getByLabel("other@example.test actions").click();
     await page.getByRole("menuitem", { name: "Sign out sessions" }).click();
     await expect(page.getByRole("dialog", { name: "Confirm account action" })).toBeVisible();
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    // Wait for the modal exit/focus restoration before opening another row's menu.
+    await expect(page.getByRole("dialog", { name: "Confirm account action" })).toHaveCount(0);
+    await expect(page.getByLabel("other@example.test actions")).toBeFocused();
     await page.getByLabel("disabled@example.test actions").press("ArrowUp");
     const enable = page.getByRole("menuitem", { name: "Enable sign-in" });
     await expect(enable).toBeFocused();

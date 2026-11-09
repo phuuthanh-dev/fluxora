@@ -4,7 +4,25 @@ This file is the compact, machine-checked handoff point for the next coding
 loop. It prevents an agent from proposing implementation work that is already
 complete in the delivery ledger.
 
-## Latest snapshot — 2026-11-09
+## Active approved batch — 2026-11-09
+
+- Released baseline: PR #113, commit `912ad05`; main Quality gate
+  `42608924824` and deployment `42610611727` succeeded. Dashboard/Admin UX
+  and two-input Append Merge are already released; do not implement again.
+- Owner approved Aggregate/Split Out, Sort/Limit and matching-key Merge, typed
+  Notion database writes and GitLab actions/triggers. Implement as one batch;
+  audit and verify at the end, then one develop→main PR and merge. No additional
+  Slack/Calendar permission changes or live qualification are included.
+- Implementation and final local audit/verify are complete: 1,131 API tests
+  passed (one optional Riot test skipped), 75 web tests and 224 E2E passed.
+  Both themes were visually reviewed. One additive GitLab enum migration was
+  applied locally; existing data and credentials are preserved.
+- Release is delivered through the single develop→main PR associated with this
+  commit. Check that PR and its main/deploy runs for release status; do not
+  repeat this implementation from an older snapshot. No real Notion write or
+  GitLab event/account qualification is claimed. See docs/47 and the batch report.
+
+## Historical pre-release snapshot — 2026-11-09 (superseded by PR #113)
 
 - Released baseline: PR #112 merged as `07ec915`. PR Quality gate
   `42593602113`, main Quality gate `42595607603` (221 E2E) and production
@@ -747,13 +765,14 @@ one of these IDs or explicitly reopen a completed ledger slice.
 
 | ID | Outcome | Status | Owner/evidence boundary |
 |---|---|---|---|
+| `DATA-NOTION-GITLAB-1` | Aggregate/Split Out, Sort/Limit, keyed Merge, typed Notion writes and GitLab.com | pending | Implementation complete; only PR/release tracking remains. Final verify passed: 1,131 API, 75 web, 224 E2E; one optional Riot test skipped. Check the associated develop→main PR for CI/merge/deploy. No real provider qualification claimed. See docs/47. |
 | `APP-EXPANSION-1` | Deepen existing app operations and remaining qualification; initial seven-app implementation and app discovery already exist | pending | Do not rebuild initial nodes. See docs/35 for latest live evidence and docs/37 for operation/trigger/auth/UX gaps and priorities. Slack message/mention Trigger is implemented and covered in the November 9 batch; the owner deferred live qualification. Reddit access remains blocked; future live calls require owner-authorized resources. |
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
 | `CONNECTOR-LIVE-2` | Remaining Google, GitHub and SMTP live qualification | pending | Drive upload/read, Sheets append/read/update, GitHub create issue/comment/label and one Gmail SMTP delivery to the intended inbox succeeded on owner-approved test resources. Local Google refresh is inferred from a credential update during a successful demo run; production refresh, GitHub PR merge and sustained delivery remain unverified. See the 2026-10-31 connector reports and 2026-11-01 recovery report. |
 | `AI-GEMINI-1` | Qualify the existing Gemini connector across models and production | pending | Local live generation with Gemini 3.1 Flash Lite succeeded again on 2026-11-07; earlier 2.5 Flash and 3.8 Flash requests failed. Causes, other models and sustained or production behavior remain unverified. See `.agent/reports/2026-10-31-gemini-live.md`. |
 | `AI-OPENAI-1` | Qualify the existing OpenAI connector with an authorized live test | pending | Implemented and verified locally; owner deferred real-provider testing. Migration applied only to local database. |
 | `EDITOR-QUALIFICATION-1` | Audit credential status, picker, validation and mock/live node-debug UX | pending | PR #103 improved result-format controls and debug wording. November 9 adds mapping source selection and failed-node inspection, covered by E2E; reuse this work and inspect only remaining evidenced gaps. |
-| `NOTION-1` | Qualify and selectively extend the existing Notion connector | pending | Search pages implemented in PR #56; live search qualified once locally. More operations and production qualification remain. |
+| `NOTION-1` | Qualify and selectively extend the existing Notion connector | pending | Search pages implemented in PR #56; live search qualified once locally. Typed database-page create/update and property discovery are implemented in DATA-NOTION-GITLAB-1 (docs/47); do not propose rebuilding them. Real typed-write and production qualification remain. |
 | `POSTGRES-1` | Qualify and selectively extend the existing PostgreSQL connector | pending | Select rows implemented in PR #56; one local Supabase PostgreSQL LIVE workflow read succeeded with verified TLS and a one-row limit. Production qualification, sustained behavior and further operations remain. |
 | `GMAIL-1` | Qualify existing Gmail operations and trigger; evaluate push separately | pending | Released in PR #57. Gmail Read and one targeted local trigger poll succeeded against a test email; sustained polling and restricted-scope approval remain. Pub/Sub push is not implemented. See `.agent/reports/2026-11-01-gmail-trigger-calendar-expansion.md`. |
 | `CALENDAR-1` | Qualify existing Calendar actions and trigger | pending | Calendar polling trigger released in PR #110. PR #111 fixed the old-event baseline classification; one new-event local execution succeeded after that fix. One local updated-event execution and duplicate suppression passed on November 9 using controlled inline dispatch. Production polling and sustained behavior remain unqualified. |

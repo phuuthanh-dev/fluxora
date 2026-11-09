@@ -1,3 +1,5 @@
+import { gitlabProject, gitlabListIssues, gitlabIssue, gitlabCreateIssue, gitlabComment, gitlabPipeline, gitlabMergeRequest } from "./node-config-schemas/gitlab";
+import { aggregate, splitOut, sortItems, limitItems, merge } from "./node-config-schemas/data-transform";
 import { steamOperation, steamSnapshot } from "./node-config-schemas/steam";
 import { mongoFind, mongoInsert } from "./node-config-schemas/mongodb";
 import { gemini } from "./node-config-schemas/gemini";
@@ -14,7 +16,7 @@ import { drive, driveCreateFolder, driveGetFile } from "./node-config-schemas/go
 import { googleSheets } from "./node-config-schemas/google-sheets";
 import { telegramEdit, telegramReply, telegramSend } from "./node-config-schemas/telegram";
 import { trelloCreate, trelloFind, trelloGet, trelloList, trelloMove, trelloUpdate } from "./node-config-schemas/trello";
-import { notionChildren, notionCreate, notionPage, notionProperty, notionQuery, notionSearch, notionUpdate } from "./node-config-schemas/notion";
+import { notionCreateEntry, notionUpdateEntry, notionChildren, notionCreate, notionPage, notionProperty, notionQuery, notionSearch, notionUpdate } from "./node-config-schemas/notion";
 import { gmailGet, gmailLabel, gmailRead, gmailReply, gmailSend, gmailUpdateDraft } from "./node-config-schemas/gmail";
 import { calendarAvailability, calendarCreate, calendarEvent, calendarList, calendarUpdate } from "./node-config-schemas/google-calendar";
 import { postgresSelect, supabaseInsert, supabaseSelect } from "./node-config-schemas/relational";
@@ -80,6 +82,8 @@ const rules: Readonly<Record<string, ConfigRules>> = {
   "action.notion.list-children": notionChildren,
   "action.notion.retrieve-property": notionProperty,
   "action.notion.query-data-source": notionQuery,
+  "action.notion.create-entry": notionCreateEntry,
+  "action.notion.update-entry": notionUpdateEntry,
   "action.notion.create-page": notionCreate,
   "action.notion.update-title": notionUpdate,
   "action.gmail.read": gmailRead,
@@ -103,6 +107,13 @@ const rules: Readonly<Record<string, ConfigRules>> = {
   "action.discord.webhook": discordWebhook,
   "action.slack.webhook": slackWebhook,
   "action.slack.message": slackMessage,
+  "action.gitlab.get-project": gitlabProject,
+  "action.gitlab.list-issues": gitlabListIssues,
+  "action.gitlab.get-issue": gitlabIssue,
+  "action.gitlab.create-issue": gitlabCreateIssue,
+  "action.gitlab.add-comment": gitlabComment,
+  "trigger.gitlab.pipeline": gitlabPipeline,
+  "trigger.gitlab.merge-request": gitlabMergeRequest,
   "trigger.slack.event": slackTrigger,
   "trigger.manual": manual,
   "trigger.cron": cron,
@@ -123,7 +134,11 @@ const rules: Readonly<Record<string, ConfigRules>> = {
   "condition.if": ifCondition,
   "condition.switch": switchCondition,
   "action.edit-fields": editFields,
-  "action.merge": {},
+  "action.merge": merge,
+  "action.aggregate": aggregate,
+  "action.split-out": splitOut,
+  "action.sort": sortItems,
+  "action.limit": limitItems,
   "approval.request": approval,
 };
 
@@ -149,7 +164,8 @@ function containsExpression(value: unknown): boolean {
 export function nodeConfigIssues(type: string, config: Record<string, unknown>, phase: "static" | "resolved"): NodeConfigIssue[] {
   const nodeRules = Object.hasOwn(rules, type) ? rules[type] : undefined;
   const issues: NodeConfigIssue[] = [];
-  if (type === "action.merge" && Object.keys(config).length) return [{ field: "config", message: "Merge appends both inputs; it has no configurable settings." }];
+  if (["action.merge", "action.aggregate", "action.split-out", "action.sort", "action.limit"].includes(type) && containsExpression(config)) return [{ field: "config", message: "Use fixed settings for this whole-list operation. Field paths select values from incoming items." }];
+  if (["action.merge", "action.aggregate", "action.split-out", "action.sort", "action.limit"].includes(type) && Object.keys(config).some((key) => !nodeRules || !Object.hasOwn(nodeRules, key))) return [{ field: "config", message: "Remove unsupported data-node settings." }];
   if (type.startsWith("action.") && Object.hasOwn(config, "executeOnce") && typeof config.executeOnce !== "boolean") {
     issues.push({ field: "executeOnce", message: "Run once must be on or off." });
   }

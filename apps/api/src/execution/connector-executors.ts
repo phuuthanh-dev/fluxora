@@ -1,3 +1,4 @@
+import { executeGitLab } from "./gitlab";
 import { nodeConfigIssues, type ExecutableWorkflowNodeType } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
 import { CredentialProvider } from "@prisma/client";
@@ -17,6 +18,7 @@ import { executeSmtpEmail } from "./smtp-email";
 import { executeGeminiText } from "./gemini-text";
 import { executeOpenAIText } from "./openai-text";
 import { executeMongoFind, executeMongoInsert } from "./mongodb-find";
+import { executeNotionEntry } from "./notion-entry";
 import { executeNotionSearch } from "./notion-search";
 import { executeNotionDataSourceQuery, executeNotionOperation } from "./notion-operations";
 import { executeNotionCreatePage, executeNotionUpdateTitle } from "./notion-create-page";
@@ -99,6 +101,13 @@ const executors = {
   "action.notion.list-children": ({ config, mode, workspaceId, credentials }) => executeNotionOperation(config, "listChildren", mode, workspaceId, credentials),
   "action.notion.retrieve-property": ({ config, mode, workspaceId, credentials }) => executeNotionOperation(config, "retrieveProperty", mode, workspaceId, credentials),
   "action.notion.query-data-source": ({ config, mode, workspaceId, credentials }) => executeNotionDataSourceQuery(config, mode, workspaceId, credentials),
+  "action.notion.create-entry": ({ config, mode, workspaceId, credentials }) => executeNotionEntry(config, "create", mode, workspaceId, credentials),
+  "action.notion.update-entry": ({ config, mode, workspaceId, credentials }) => executeNotionEntry(config, "update", mode, workspaceId, credentials),
+  "action.gitlab.get-project": ({ config, mode, workspaceId, credentials }) => executeGitLab(config, "get-project", mode, workspaceId, credentials),
+  "action.gitlab.list-issues": ({ config, mode, workspaceId, credentials }) => executeGitLab(config, "list-issues", mode, workspaceId, credentials),
+  "action.gitlab.get-issue": ({ config, mode, workspaceId, credentials }) => executeGitLab(config, "get-issue", mode, workspaceId, credentials),
+  "action.gitlab.create-issue": ({ config, mode, workspaceId, credentials }) => executeGitLab(config, "create-issue", mode, workspaceId, credentials),
+  "action.gitlab.add-comment": ({ config, mode, workspaceId, credentials }) => executeGitLab(config, "add-comment", mode, workspaceId, credentials),
   "action.notion.create-page": ({ config, mode, workspaceId, credentials }) => executeNotionCreatePage(config, mode, workspaceId, credentials),
   "action.notion.update-title": ({ config, mode, workspaceId, credentials }) => executeNotionUpdateTitle(config, mode, workspaceId, credentials),
   "action.rss.read": ({ config, mode }) => executeRssRead(config, mode),
@@ -140,7 +149,7 @@ const executors = {
   "action.github.update-issue": ({ config, mode, workspaceId, credentials }) => executeGitHubUpdateIssue(config, mode, workspaceId, credentials),
   "action.github.list-pull-requests": ({ config, mode, workspaceId, credentials }) => executeGitHubListPullRequests(config, mode, workspaceId, credentials),
   "action.github.get-pull-request": ({ config, mode, workspaceId, credentials }) => executeGitHubGetPullRequest(config, mode, workspaceId, credentials),
-} satisfies Record<Exclude<Extract<ExecutableWorkflowNodeType, `action.${string}`>, "action.edit-fields" | "action.merge">, ConnectorExecutor>;
+} satisfies Record<Exclude<Extract<ExecutableWorkflowNodeType, `action.${string}`>, "action.edit-fields" | "action.merge" | "action.aggregate" | "action.split-out" | "action.sort" | "action.limit">, ConnectorExecutor>;
 
 async function executeDriveNode(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService) {
   const issue = nodeConfigIssues("action.google-drive", config, "resolved")[0];

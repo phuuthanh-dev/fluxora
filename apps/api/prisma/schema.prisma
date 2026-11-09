@@ -36,6 +36,7 @@ enum CredentialProvider {
   SLACK_OAUTH
   TELEGRAM_BOT
   GITHUB
+  GITLAB
   SMTP
   GEMINI
   OPENAI

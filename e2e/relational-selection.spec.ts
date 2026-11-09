@@ -333,7 +333,7 @@ test("PostgreSQL cannot apply a positive offset until a sort is supplied", async
   await page.getByRole("button", { name: "Apply selection" }).click();
   await expect(page.getByRole("alert").filter({ hasText: "PostgreSQL requires a sort order when skipping rows." })).toBeVisible();
   await expect(page.getByRole("button", { name: "Save draft" })).toBeDisabled();
-  await page.getByRole("button", { name: "Add sort" }).click();
+  await page.getByRole("button", { name: "Add sort", exact: true }).click();
   await page.getByLabel("Sort 1 column").fill("id");
   await page.getByRole("button", { name: "Apply selection" }).click();
   await expect(page.getByRole("button", { name: "Save draft" })).toBeEnabled();

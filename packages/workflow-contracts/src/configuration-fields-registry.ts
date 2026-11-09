@@ -1,3 +1,5 @@
+import { gitlabFields } from "./gitlab-fields";
+import { dataTransformFields } from "./data-transform-fields";
 import type { WorkflowNodeType } from "./index";
 import type { NodeConfigurationField } from "./node-configuration-fields";
 import { gmailWriteConfigurationFields } from "./gmail-write-fields";
@@ -14,6 +16,8 @@ import { githubReadConfigurationFields } from "./github-read-fields";
 /** Incremental UI metadata only. Missing entries mean the descriptor has not
  * moved yet; do not interpret them as an empty runtime validation schema. */
 const sharedFields = {
+  ...dataTransformFields,
+  ...gitlabFields,
   ...aiNodeFields,
   ...communicationNodeFields,
   ...dataNodeFields,
@@ -51,6 +55,17 @@ const sharedFields = {
   ],
   "action.notion.list-children": () => notionReadConfigurationFields("children"),
   "action.notion.retrieve-property": () => notionReadConfigurationFields("property"),
+  "action.notion.create-entry": () => [
+    { kind: "credential", key: "credentialId", label: "Notion connection", providers: ["NOTION"] },
+    { kind: "resource", key: "dataSourceId", label: "Data source", resource: "notion-data-source", credentialKey: "credentialId", placeholder: "Search shared data sources" },
+    { kind: "notion-properties", key: "properties", label: "Properties" },
+  ],
+  "action.notion.update-entry": () => [
+    { kind: "credential", key: "credentialId", label: "Notion connection", providers: ["NOTION"] },
+    { kind: "resource", key: "dataSourceId", label: "Data source", resource: "notion-data-source", credentialKey: "credentialId", placeholder: "Search shared data sources" },
+    { kind: "resource", key: "pageId", label: "Page", resource: "notion-page", credentialKey: "credentialId", placeholder: "Search shared pages" },
+    { kind: "notion-properties", key: "properties", label: "Properties" },
+  ],
   "action.notion.create-page": () => [
     { kind: "credential", key: "credentialId", label: "Notion connection", providers: ["NOTION"] },
     { kind: "resource", key: "parentPageId", label: "Parent page", resource: "notion-page", credentialKey: "credentialId", placeholder: "Search shared pages" },

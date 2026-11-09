@@ -1,9 +1,9 @@
-import { workflowNodeTypes, type ExecutableWorkflowNodeType, type WorkflowNodeType } from "./index";
+import { workflowNodeTypes, type DataTransformNodeType, type ExecutableWorkflowNodeType, type WorkflowNodeType } from "./index";
 
 /** Descriptive metadata only: it must not authorize execution or determine retry policy. */
 export type OperationCredentialProvider =
   | "GOOGLE" | "STEAM" | "GOOGLE_CHAT_WEBHOOK" | "GOOGLE_CHAT_OAUTH" | "GMAIL" | "GOOGLE_CALENDAR"
-  | "MONGODB" | "NOTION" | "POSTGRES" | "HTTP" | "DISCORD_WEBHOOK" | "SLACK_WEBHOOK" | "SLACK_OAUTH" | "TELEGRAM_BOT" | "GITHUB"
+  | "MONGODB" | "NOTION" | "POSTGRES" | "HTTP" | "DISCORD_WEBHOOK" | "SLACK_WEBHOOK" | "SLACK_OAUTH" | "TELEGRAM_BOT" | "GITHUB" | "GITLAB"
   | "SMTP" | "GEMINI" | "OPENAI" | "TRELLO" | "SENTRY" | "VERCEL" | "SUPABASE" | "REDDIT" | "RIOT";
 
 export type OperationAuth =
@@ -42,7 +42,7 @@ export type OperationMetadata = {
 type CheckedRegistry = { [K in WorkflowNodeType]: OperationMetadata & {
   availability: K extends ExecutableWorkflowNodeType ? "executable" : "planned";
   mockBehavior: K extends ExecutableWorkflowNodeType
-    ? K extends "action.edit-fields" | "action.merge" ? "transform" : K extends `action.${string}` ? "provider-sample"
+    ? K extends "action.edit-fields" | "action.merge" | DataTransformNodeType ? "transform" : K extends `action.${string}` ? "provider-sample"
       : K extends `trigger.${string}` ? "trigger-data"
         : K extends `condition.${string}` ? "condition" : "approval"
     : "unavailable";
@@ -70,6 +70,8 @@ const definitions = {
   "action.notion.list-children": executable(credential("NOTION"), "read", fields("blocks", "hasMore", "nextCursor"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "blockId", "pageSize"] }),
   "action.notion.retrieve-property": executable(credential("NOTION"), "read", fields("kind", "hasMore", "nextCursor"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "pageId", "propertyId", "pageSize"], caveat: "Only list-valued properties have further pages." }),
   "action.notion.query-data-source": executable(credential("NOTION"), "read", fields("results", "hasMore", "nextCursor", "queryCompleteness"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "dataSourceId", "pageSize", "sort", "editedAfter", "filterMode", "filterProperty", "filterValue"], caveat: "The provider may cap total results; check queryCompleteness." }),
+  "action.notion.create-entry": executable(credential("NOTION"), "write", fields("pageId", "dataSourceId")),
+  "action.notion.update-entry": executable(credential("NOTION"), "write", fields("pageId", "dataSourceId")),
   "action.notion.create-page": executable(credential("NOTION"), "write", fields("pageId", "parentPageId")),
   "action.notion.update-title": executable(credential("NOTION"), "write", fields("pageId", "updatedField")),
   "action.trello.get-card": executable(credential("TRELLO"), "read", trelloCard),
@@ -89,6 +91,13 @@ const definitions = {
   "trigger.rss.new-item": trigger(none, "read", triggerOutput),
   "trigger.steam.game-news": trigger(none, "read", triggerOutput),
   "trigger.telegram.update": trigger(conditional, "read", triggerOutput),
+  "trigger.gitlab.pipeline": trigger(credential("GITLAB"), "read", triggerOutput),
+  "trigger.gitlab.merge-request": trigger(credential("GITLAB"), "read", triggerOutput),
+  "action.gitlab.get-project": executable(credential("GITLAB"), "read", fields("project")),
+  "action.gitlab.get-issue": executable(credential("GITLAB"), "read", fields("issue")),
+  "action.gitlab.create-issue": executable(credential("GITLAB"), "write", fields("issue")),
+  "action.gitlab.add-comment": executable(credential("GITLAB"), "write", fields("commentId", "issueNumber", "projectId")),
+  "action.gitlab.list-issues": executable(credential("GITLAB"), "read", fields("items", "nextPage"), { kind: "continuation", input: "page", next: "nextPage", preserve: ["credentialId", "project", "state", "pageSize"] }),
   "trigger.slack.event": trigger(credential("SLACK_OAUTH"), "read", triggerOutput),
   "trigger.vercel.deployment": trigger(conditional, "read", triggerOutput),
   "trigger.trello.board-action": trigger(conditional, "read", triggerOutput),
@@ -103,6 +112,11 @@ const definitions = {
   "condition.if": condition(none, "unspecified", fields("matches")),
   "condition.switch": condition(none, "unspecified", fields("value", "matched")),
   "action.merge": { ...executable(none, "unspecified", { knownFields: ["items", "count"] }), mockBehavior: "transform" },
+  "action.aggregate": { ...executable(none, "unspecified", { knownFields: ["items", "count"] }), mockBehavior: "transform" },
+  "action.split-out": { ...executable(none, "unspecified", { knownFields: ["items", "count"] }), mockBehavior: "transform" },
+  "action.sort": { ...executable(none, "unspecified", { knownFields: ["items", "count"] }), mockBehavior: "transform" },
+  "action.limit": { ...executable(none, "unspecified", { knownFields: ["items", "count"] }), mockBehavior: "transform" },
+
   "action.edit-fields": { ...executable(none, "unspecified"), mockBehavior: "transform" },
   "approval.request": approval(conditional, "unspecified", fields("message", "expiresInHours", "notificationProvider", "notificationCredentialId")),
   "action.steam.account-snapshot": executable(credential("STEAM"), "read", fields("profile", "currentGame", "ownedGames", "recentGames", "achievements", "summary")),

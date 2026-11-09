@@ -1,5 +1,34 @@
 # Architecture
 
+## Data transforms and connector expansion — 2026-11-09
+
+Aggregate, Split Out, Sort and Limit operate once on the incoming item stream
+before the existing item runner persists results. Merge retains two named ports
+and adds matching fields beside Append. No second engine or node version is
+introduced. Settings for these list operations are fixed; field paths select
+per-item values. Existing 100-item/1 MB limits and persisted redaction guards apply.
+An empty reached stream can enter Aggregate; an unselected branch stays skipped.
+Approval continuation reconstructs completed edge streams without replaying
+providers. Approvals inside an item stream remain unsupported.
+
+Notion data-source writes reuse the outbound/vault boundary, retrieve the current
+schema, validate supported types and existing options, then send only selected
+properties. Update verifies the page belongs to the selected data source.
+Ambiguous write outcomes are not automatically retried.
+
+GitLab uses a workspace PAT against gitlab.com. Its registration stores a separate
+GitLab-generated signing token in the existing encrypted endpoint field. Ingress
+checks Standard Webhooks HMAC, timestamp, project and event filters; the stable
+`webhook-id` supplies the existing durable webhook execution idempotency key.
+No new delivery table, worker or provider registration service is added. CI
+variables are excluded from the normalized event. Only the additive GITLAB
+credential enum migration is required; existing workflows and credentials are
+not rewritten. Older binaries cannot execute the new node types.
+
+References: [n8n Merge](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.merge/),
+[Notion properties](https://developers.notion.com/reference/page-property-values),
+[GitLab webhook signing](https://docs.gitlab.com/user/project/integrations/webhooks/).
+
 ## Account security extension (ACCOUNT-1)
 
 AuthModule owns profile/session management, current-password changes and email recovery.

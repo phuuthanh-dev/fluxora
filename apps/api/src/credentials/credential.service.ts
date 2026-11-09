@@ -1,3 +1,4 @@
+import { validGitLabToken } from "../execution/gitlab";
 import { CredentialProvider, ExecutionStatus, type Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { chatManageProof, chatManageScope, chatManageValid, googleChatScopesGranted, googleSubject, googleConnectionPolicy, googleScopesGranted, googleScopeTokenHash, googleScopeProof, googleScopeProofValid, googleRefreshGrantProof, googleRefreshGrantValid, gmailCapabilityProof, gmailCapabilitiesValid, gmailCapabilitiesGranted, projectGmailScopes, validGmailCapabilities, sameGoogleScopes, type GmailCapability, type GoogleConnectionKind } from "./google-oauth-policy";
@@ -612,6 +613,7 @@ function requiredEnv(name: "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET") {
 }
 
 function validateCredentialPayload(provider: CredentialProvider, data: Record<string, unknown>) {
+  if (provider === CredentialProvider.GITLAB) { if (!validGitLabToken(data.token)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid GitLab personal access token." }); return; }
   if (provider === CredentialProvider.RIOT) {
     if (typeof data.apiKey !== "string" || !/^RGAPI-[A-Za-z0-9-]{1,128}$/.test(data.apiKey)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid Riot API key." });
     return;

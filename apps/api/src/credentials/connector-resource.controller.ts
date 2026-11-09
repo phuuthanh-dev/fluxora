@@ -1,3 +1,4 @@
+import { executeGitLab, listGitLabProjects } from "../execution/gitlab";
 import { BadRequestException, Controller, Get, Inject, Param, Query, Req, UseGuards } from "@nestjs/common";
 import { CredentialProvider } from "@prisma/client";
 import { AuthenticationGuard } from "../auth/authentication.guard";
@@ -13,6 +14,7 @@ import { listSupabaseColumns, listSupabaseTables } from "../execution/supabase";
 import { executeGitHubListIssues, executeGitHubListPullRequests } from "../execution/github-read";
 import { CredentialService } from "./credential.service";
 import { NodeFailure } from "../execution/node-failure";
+import { notionWritableProperties } from "../execution/notion-entry";
 import { listNotionPages, listTrelloCards } from "./connector-resource-discovery";
 import { executeSteamOperation } from "../execution/steam-operations";
 
@@ -73,6 +75,26 @@ export class ConnectorResourceController {
       const response = await executeSteamOperation({ credentialId, operation: "ownedGames", steamId: steamId ?? "", includePlayedFreeGames: true }, "live", workspaceId, this.credentials);
       return steamGameOptions(response.output.result.games);
     } catch { throw new BadRequestException({ code: "STEAM_GAMES_UNAVAILABLE", message: "Games could not be loaded. Check your Steam connection and game privacy, or enter the App ID manually." }); }
+  }
+
+  @Get("gitlab/projects")
+  async gitlabProjects(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Query("page") page: string | undefined, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.GITLAB);
+    try { return await listGitLabProjects(typeof credential.token === "string" ? credential.token : "", page === undefined ? 1 : Number(page)); }
+    catch { throw new BadRequestException({ code: "GITLAB_PROJECTS_UNAVAILABLE", message: "Projects could not be loaded. Check gitlab.com token permissions or enter the numeric project ID." }); }
+  }
+
+  @Get("gitlab/issues")
+  async gitlabIssues(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Query("project") project: string | undefined, @Query("page") page: string | undefined, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    try {
+      const result = await executeGitLab({ credentialId, project, page: page ?? 1, pageSize: 50, state: "all" }, "list-issues", "live", workspaceId, this.credentials);
+      const items = (result.output.items ?? []) as Array<{ iid: number; title: string }>;
+      return { items: items.map((item) => ({ id: String(item.iid), name: `#${item.iid} · ${item.title}` })), nextPage: result.output.nextPage ?? null };
+    } catch { throw new BadRequestException({ code: "GITLAB_ISSUES_UNAVAILABLE", message: "Issues could not be loaded. Check the project or enter its issue number." }); }
   }
 
   @Get("github/issues")
@@ -210,6 +232,15 @@ export class ConnectorResourceController {
     const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.NOTION);
     try { return await searchNotionDataSources({ token: typeof credential.token === "string" ? credential.token : "", query: "", pageSize: 100, ...(cursor ? { cursor } : {}) }); }
     catch { throw new BadRequestException({ code: "NOTION_DATA_SOURCES_UNAVAILABLE", message: "Data sources could not be loaded. Check the connection and sharing permissions, or enter an ID manually." }); }
+  }
+
+  @Get("notion/writable-properties")
+  async notionWritable(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Query("dataSourceId") dataSourceId: string | undefined, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.NOTION);
+    try { return await notionWritableProperties(typeof credential.token === "string" ? credential.token : "", dataSourceId ?? ""); }
+    catch { throw new BadRequestException({ code: "NOTION_PROPERTIES_UNAVAILABLE", message: "Properties could not be loaded. Check the selected data source and its sharing permissions." }); }
   }
 
   @Get("notion/data-source-properties")
