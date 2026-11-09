@@ -13,7 +13,7 @@ export class SlackOAuthController {
 
   @Get("workspaces/:workspaceId/credentials/slack/connect")
   @UseGuards(AuthenticationGuard)
-  async connect(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest, @Res() response: Response, @Query("credentialId") credentialId?: string) {
+  async connect(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest, @Res() response: Response, @Query("credentialId") credentialId?: string, @Query("permissions") permissions?: string) {
     response.setHeader("Cache-Control", "no-store");
     const userId = request.currentUser?.id;
     if (!userId) throw new Error("Authentication guard did not attach a user.");
@@ -22,11 +22,12 @@ export class SlackOAuthController {
       if (!/^[A-Za-z0-9_-]{1,128}$/.test(credentialId)) return failure(response, "invalid", workspaceId);
       await this.credentials.requireSlackReconnectTarget(workspaceId, userId, credentialId);
     }
+    if (permissions !== undefined && permissions !== "events") return failure(response, "invalid", workspaceId);
     try {
       const clientId = env("SLACK_CLIENT_ID"); const redirectUri = slackRedirectUri();
-      const issued = await this.states.issue({ workspaceId, userId, credentialId }, request, response);
+      const issued = await this.states.issue({ workspaceId, userId, credentialId, eventAccess: permissions === "events" }, request, response);
       const url = new URL("https://slack.com/oauth/v2/authorize");
-      url.search = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, scope: "channels:read,chat:write", state: issued.state }).toString();
+      url.search = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, scope: permissions === "events" ? "channels:read,chat:write,channels:history,app_mentions:read" : "channels:read,chat:write", state: issued.state }).toString();
       return response.redirect(url.toString());
     } catch { return failure(response, "unavailable", workspaceId); }
   }
@@ -54,7 +55,8 @@ export class SlackOAuthController {
       if (data.refresh_token !== undefined || data.expires_in !== undefined) return failure(response, "rotation_unsupported", workspaceId);
       const scopes = typeof data.scope === "string" ? new Set(data.scope.split(",")) : new Set<string>();
       if (data.ok !== true || typeof data.access_token !== "string" || typeof team.id !== "string" || typeof team.name !== "string" || !scopes.has("channels:read") || !scopes.has("chat:write")) return failure(response, "token_failed", workspaceId);
-      await this.credentials.saveSlackOAuth(workspaceId, user.id, { accessToken: data.access_token, teamId: team.id, teamName: team.name }, consumed.credentialId);
+      if (consumed.eventAccess && (!scopes.has("channels:history") || !scopes.has("app_mentions:read"))) return failure(response, "token_failed", workspaceId);
+      await this.credentials.saveSlackOAuth(workspaceId, user.id, { accessToken: data.access_token, teamId: team.id, teamName: team.name, grantedScopes: [...scopes] }, consumed.credentialId);
       const target = new URL("/dashboard/connections", process.env.WEB_ORIGIN ?? "http://localhost:3000"); target.searchParams.set("workspace", workspaceId); target.searchParams.set("connected", "slack");
       return response.redirect(target.toString());
     } catch { return failure(response, "failed", workspaceId); }

@@ -327,3 +327,40 @@ test("Google Drive fields follow the selected operation without losing draft val
   await page.getByLabel("Operation", { exact: true }).selectOption("downloadText");
   await expect(page.getByRole("group", { name: "Text file" })).toBeVisible();
 });
+
+test("Slack trigger uses published event settings and imports a hidden signing secret", async ({ page }) => {
+  const graph = { nodes: [{ id: "slack", type: "trigger.slack.event", position: { x: 100, y: 100 }, config: { credentialId: "slack-1", channel: "CEXAMPLE", event: "app_mention" } }], edges: [] };
+  const workflow = { id: "slack-test", workspaceId: "workspace-1", name: "Slack test", isActive: false, draft: { id: "draft", version: 1, graph }, published: { id: "published", version: 1, graph } };
+  let registration: Record<string, unknown> | undefined;
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const send = (json: unknown) => route.fulfill({ json });
+    if (path.endsWith("/auth/me")) return send({ user: { id: "owner", email: "owner@example.test" } });
+    if (path.endsWith("/auth/identities")) return send({ identities: [] });
+    if (path.endsWith("/auth/providers")) return send({ google: false, github: false, steam: false });
+    if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Synthetic", role: "OWNER" }] });
+    if (path.endsWith("/credentials")) return send({ credentials: [{ id: "slack-1", provider: "SLACK_OAUTH", label: "Slack workspace" }] });
+    if (path.endsWith("/workflows/slack-test")) return send({ workflow });
+    if (path.endsWith("/webhook-endpoint")) {
+      if (route.request().method() === "GET") return send({ endpoint: null });
+      registration = route.request().postDataJSON();
+      return send({ endpoint: { id: "endpoint", path: "slack-slack-test", secret: null, workflowVersionId: "published", createdAt: "2026-01-01", updatedAt: "2026-01-01" } });
+    }
+    if (path.endsWith("/slack/channels")) return send({ channels: [{ id: "CEXAMPLE", name: "test-channel" }], hasMore: false });
+    return route.continue();
+  });
+  await page.goto("/editor?workflow=slack-test");
+  await page.locator('.react-flow__node[data-id="slack"]').click();
+  await expect(page.getByText(/Slack sending permissions alone/)).toBeVisible();
+  await page.getByRole("button", { name: "Configure webhook", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Webhook endpoint" });
+  await expect(panel.getByText(/Slack accepts one Events Request URL per app/)).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Create registration" })).toBeDisabled();
+  await panel.getByLabel("Slack app signing secret").fill("synthetic-signing-fixture");
+  await expect(panel.getByLabel("Slack app signing secret")).toHaveAttribute("type", "password");
+  await panel.getByRole("button", { name: "Create registration" }).click();
+  await expect(panel.getByText(/Signing secret saved/)).toBeVisible();
+  expect(registration?.signingSecret).toBe("synthetic-signing-fixture");
+  expect(registration?.publishedVersionId).toBe("published");
+  await expect(panel.getByLabel("Slack app signing secret")).toHaveValue("");
+});

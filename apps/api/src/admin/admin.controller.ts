@@ -15,7 +15,7 @@ export class AdminController {
 
   @Get("access")
   @Header("Cache-Control", "no-store")
-  access() { return { allowed: true }; }
+  access(@Req() request: AuthenticatedRequest) { return { allowed: true, userId: request.currentUser!.id }; }
 
   @Get("overview")
   @Header("Cache-Control", "no-store")
@@ -23,9 +23,9 @@ export class AdminController {
     const [users, workspaces, workflows, activeWorkflows, failedRuns, health] = await Promise.all([
       this.prisma.user.count(), this.prisma.workspace.count(), this.prisma.workflow.count(),
       this.prisma.workflow.count({ where: { isActive: true, archivedAt: null } }),
-      this.prisma.execution.count({ where: { status: "FAILED" } }), this.health.readiness(),
+      this.prisma.execution.count({ where: { status: "FAILED", createdAt: { gte: new Date(Date.now() - 86400000) } } }), this.health.readiness(),
     ]);
-    return { users, workspaces, workflows, activeWorkflows, failedRuns, health };
+    return { users, workspaces, workflows, activeWorkflows, failedRuns, failedRunsPeriod: "24h", health };
   }
 
   @Get("users")
@@ -54,9 +54,13 @@ export class AdminController {
 
   @Get("executions")
   @Header("Cache-Control", "no-store")
-  async executions(@Query("q") query?: string, @Query("page") page?: string) {
+  async executions(@Query("q") query?: string, @Query("page") page?: string, @Query("status") status?: string, @Query("period") period?: string) {
     const { q, skip } = listOptions(query, page);
-    const executions = await this.prisma.execution.findMany({ take: 51, skip, orderBy: [{ createdAt: "desc" }, { id: "desc" }], where: q ? { workflowVersion: { workflow: { name: { contains: q, mode: "insensitive" } } } } : undefined, select: { id: true, status: true, mode: true, createdAt: true, workflowVersion: { select: { workflow: { select: { name: true } } } } } });
+    const statuses = ["QUEUED", "RUNNING", "WAITING_APPROVAL", "SUCCEEDED", "FAILED", "CANCELLED"] as const;
+    const selectedStatus = statuses.find((value) => value === status);
+    if (status && !selectedStatus || period && !["24h", "7d", "30d", "all"].includes(period)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Select a valid execution status and period." });
+    const days = period === "24h" ? 1 : period === "7d" ? 7 : period === "30d" ? 30 : null;
+    const executions = await this.prisma.execution.findMany({ take: 51, skip, orderBy: [{ createdAt: "desc" }, { id: "desc" }], where: { ...(q ? { workflowVersion: { workflow: { name: { contains: q, mode: "insensitive" as const } } } } : {}), ...(selectedStatus ? { status: selectedStatus } : {}), ...(days ? { createdAt: { gte: new Date(Date.now() - days * 86400000) } } : {}) }, select: { id: true, status: true, mode: true, createdAt: true, workflowVersion: { select: { workflow: { select: { name: true } } } } } });
     return { executions: executions.slice(0, 50), hasMore: executions.length > 50 };
   }
 

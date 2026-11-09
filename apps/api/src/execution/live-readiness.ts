@@ -11,7 +11,7 @@ export function liveCredentialRequirements(graph: WorkflowGraph): LiveCredential
     if (node.type === "action.riot-lol" || node.type === "action.riot-tft") return [{ nodeId: node.id, provider: CredentialProvider.RIOT, credentialId }];
     if (node.type === "action.google-chat.webhook") return [{ nodeId: node.id, provider: CredentialProvider.GOOGLE_CHAT_WEBHOOK, credentialId }];
     if (node.type === "action.slack.webhook") return [{ nodeId: node.id, provider: CredentialProvider.SLACK_WEBHOOK, credentialId }];
-    if (node.type === "action.slack.message") return [{ nodeId: node.id, provider: CredentialProvider.SLACK_OAUTH, credentialId }];
+    if (node.type === "action.slack.message" || node.type === "trigger.slack.event") return [{ nodeId: node.id, provider: CredentialProvider.SLACK_OAUTH, credentialId }];
     if (node.type === "action.discord.webhook") return [{ nodeId: node.id, provider: CredentialProvider.DISCORD_WEBHOOK, credentialId }];
     if (node.type === "action.telegram.message" || node.type === "action.telegram.reply" || node.type === "action.telegram.edit-message") return [{ nodeId: node.id, provider: CredentialProvider.TELEGRAM_BOT, credentialId }];
     if (node.type === "action.email") return [{ nodeId: node.id, provider: CredentialProvider.SMTP, credentialId }];

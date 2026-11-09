@@ -2089,6 +2089,27 @@
       ]
     },
     {
+      "id": "apps/api/src/webhooks/slack-delivery-recovery.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/execution-queue.service.ts",
+        "apps/api/src/webhooks/kuma-delivery-recovery.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/slack-trigger-protocol.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@nestjs/common",
+        "node:crypto"
+      ]
+    },
+    {
       "id": "apps/api/src/webhooks/telegram-delivery-recovery.service.ts",
       "boundary": "api",
       "internalImports": [
@@ -2169,7 +2190,8 @@
         "apps/api/src/webhooks/webhook.service.ts"
       ],
       "externalImports": [
-        "@nestjs/common"
+        "@nestjs/common",
+        "express"
       ]
     },
     {
@@ -2185,6 +2207,7 @@
         "apps/api/src/webhooks/legacy-delivery-recovery.service.ts",
         "apps/api/src/webhooks/provider-webhook-recovery.service.ts",
         "apps/api/src/webhooks/sentry-delivery-recovery.service.ts",
+        "apps/api/src/webhooks/slack-delivery-recovery.service.ts",
         "apps/api/src/webhooks/telegram-delivery-recovery.service.ts",
         "apps/api/src/webhooks/trello-delivery-recovery.service.ts",
         "apps/api/src/webhooks/vercel-delivery-recovery.service.ts",
@@ -2204,7 +2227,9 @@
         "apps/api/src/database/prisma.service.ts",
         "apps/api/src/execution/execution-queue.service.ts",
         "apps/api/src/execution/execution.service.ts",
+        "apps/api/src/platform/background-work.ts",
         "apps/api/src/webhooks/sentry-trigger-protocol.ts",
+        "apps/api/src/webhooks/slack-trigger-protocol.ts",
         "apps/api/src/webhooks/telegram-trigger-protocol.ts",
         "apps/api/src/webhooks/trello-trigger-protocol.ts",
         "apps/api/src/webhooks/uptime-kuma-filter.ts",
@@ -2325,6 +2350,18 @@
       "externalImports": [
         "@nestjs/common",
         "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/web/src/app/admin/[section]/page.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/admin/admin-dashboard.tsx",
+        "apps/web/src/features/admin/admin-sections.ts",
+        "apps/web/src/features/public-site/site.ts"
+      ],
+      "externalImports": [
+        "next/navigation"
       ]
     },
     {
@@ -2713,11 +2750,33 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/components/ui/index.ts",
-        "apps/web/src/features/api/api-client.ts",
-        "apps/web/src/features/app-shell/app-shell-header.tsx"
+        "apps/web/src/features/admin/admin-sections.ts",
+        "apps/web/src/features/admin/admin-shell.tsx",
+        "apps/web/src/features/api/api-client.ts"
       ],
       "externalImports": [
-        "next/navigation",
+        "lucide-react",
+        "next/link",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/admin/admin-sections.ts",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
+      "id": "apps/web/src/features/admin/admin-shell.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/brand/brand-lockup.tsx",
+        "apps/web/src/features/admin/admin-sections.ts",
+        "apps/web/src/features/theme/theme-toggle.tsx"
+      ],
+      "externalImports": [
+        "lucide-react",
+        "next/link",
         "react"
       ]
     },
@@ -6438,6 +6497,18 @@
       "to": "apps/api/src/webhooks/kuma-delivery-recovery.service.ts"
     },
     {
+      "from": "apps/api/src/webhooks/slack-delivery-recovery.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/slack-delivery-recovery.service.ts",
+      "to": "apps/api/src/execution/execution-queue.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/slack-delivery-recovery.service.ts",
+      "to": "apps/api/src/webhooks/kuma-delivery-recovery.service.ts"
+    },
+    {
       "from": "apps/api/src/webhooks/telegram-delivery-recovery.service.ts",
       "to": "apps/api/src/database/prisma.service.ts"
     },
@@ -6527,6 +6598,10 @@
     },
     {
       "from": "apps/api/src/webhooks/webhook.module.ts",
+      "to": "apps/api/src/webhooks/slack-delivery-recovery.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.module.ts",
       "to": "apps/api/src/webhooks/telegram-delivery-recovery.service.ts"
     },
     {
@@ -6567,7 +6642,15 @@
     },
     {
       "from": "apps/api/src/webhooks/webhook.service.ts",
+      "to": "apps/api/src/platform/background-work.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.service.ts",
       "to": "apps/api/src/webhooks/sentry-trigger-protocol.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.service.ts",
+      "to": "apps/api/src/webhooks/slack-trigger-protocol.ts"
     },
     {
       "from": "apps/api/src/webhooks/webhook.service.ts",
@@ -6724,6 +6807,18 @@
     {
       "from": "apps/api/src/workspaces/workspace.service.ts",
       "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/web/src/app/admin/[section]/page.tsx",
+      "to": "apps/web/src/features/admin/admin-dashboard.tsx"
+    },
+    {
+      "from": "apps/web/src/app/admin/[section]/page.tsx",
+      "to": "apps/web/src/features/admin/admin-sections.ts"
+    },
+    {
+      "from": "apps/web/src/app/admin/[section]/page.tsx",
+      "to": "apps/web/src/features/public-site/site.ts"
     },
     {
       "from": "apps/web/src/app/admin/page.tsx",
@@ -6915,11 +7010,27 @@
     },
     {
       "from": "apps/web/src/features/admin/admin-dashboard.tsx",
-      "to": "apps/web/src/features/api/api-client.ts"
+      "to": "apps/web/src/features/admin/admin-sections.ts"
     },
     {
       "from": "apps/web/src/features/admin/admin-dashboard.tsx",
-      "to": "apps/web/src/features/app-shell/app-shell-header.tsx"
+      "to": "apps/web/src/features/admin/admin-shell.tsx"
+    },
+    {
+      "from": "apps/web/src/features/admin/admin-dashboard.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/admin/admin-shell.tsx",
+      "to": "apps/web/src/components/brand/brand-lockup.tsx"
+    },
+    {
+      "from": "apps/web/src/features/admin/admin-shell.tsx",
+      "to": "apps/web/src/features/admin/admin-sections.ts"
+    },
+    {
+      "from": "apps/web/src/features/admin/admin-shell.tsx",
+      "to": "apps/web/src/features/theme/theme-toggle.tsx"
     },
     {
       "from": "apps/web/src/features/app-shell/app-shell-header.tsx",

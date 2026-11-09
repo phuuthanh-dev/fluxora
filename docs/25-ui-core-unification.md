@@ -105,3 +105,11 @@ Functional test passes do not establish visual acceptance: review rendered
 light/dark screenshots before handoff. The owner subsequently authorized merging
 the correction; PR #45 already contains the earlier split-header change, so the
 corrected header releases through the next develop-to-main PR.
+
+
+Admin follows the same core: a separate `/admin/*` shell identifies global
+scope and links back to the workspace. Overview separates service readiness
+from failed runs in the last 24 hours. Lists share search, pagination, empty,
+loading and error states; execution filters are validated server-side. The
+area displays operational metadata, never credentials or execution payloads.
+This does not introduce tenant impersonation, a ticket system or new RBAC.

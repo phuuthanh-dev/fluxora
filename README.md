@@ -276,3 +276,28 @@ MIT. See [`LICENSE`](./LICENSE).
 # Platform administrator
 
 Administration is disabled until the operator sets `PLATFORM_ADMIN_USER_ID` to the exact existing Fluxora user ID in the server environment and restarts the API. This is separate from workspace ownership. Visit `/admin` while signed in as that user, or open Platform administration from the account menu. The API denies all other accounts and never returns stored credential values or execution payloads in administrative lists. Disabling sign-in revokes active sessions but does not deactivate that user's workflows. User deletion, team roles and impersonation are not provided by this screen.
+
+Navigation is separate from workspaces. `/admin/executions` filters by
+workflow name, status and period. Account menus offer session sign-out and
+sign-in suspension, with confirmation and audit history. Support and deletion
+requests remain manual.
+
+### Slack Trigger
+
+Use **Slack → Slack event** to receive a human message in a selected
+public channel or an app mention. Choose the Slack workspace connection and
+channel, then publish the workflow. In Connections, **Enable Slack triggers**
+requests `channels:history` and `app_mentions:read` in addition to existing
+send/channel-discovery scopes; the owner must approve and reinstall the app.
+
+Open **Configure webhook**, enter the app's **Signing Secret** from Slack
+Basic Information (not its client secret or bot token), and save the
+registration. Enter the resulting public HTTPS URL in Slack Event
+Subscriptions and select `message.channels` or `app_mention` to match the
+node. Signed URL verification works before the workflow is active. Activate
+the workflow after Slack verifies the URL and the bot has joined the channel.
+Slack allows one Events Request URL per app: replacing it affects the previous
+destination. Fluxora does not automatically modify that Slack setting.
+Bot messages, edits and deletions are ignored. Duplicate deliveries use the
+same stored execution; execution-history retention protects their replay
+identity for at least 24 hours. Real event delivery is not yet qualified.

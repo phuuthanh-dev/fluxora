@@ -3,6 +3,11 @@ import type { NodeConfigurationField } from "./node-configuration-fields";
 
 /** Inspector descriptors only; backend validation remains authoritative. */
 export const communicationNodeFields = {
+  "trigger.slack.event": (): NodeConfigurationField[] => [
+    { kind: "credential", key: "credentialId", label: "Slack connection", providers: ["SLACK_OAUTH"] },
+    { kind: "select", key: "event", label: "Event", options: [{ value: "app_mention", label: "Bot / app mentioned" }, { value: "message", label: "New channel message" }] },
+    { kind: "resource", key: "channel", label: "Channel", resource: "slack-channel", credentialKey: "credentialId", placeholder: "Search joined channels" },
+  ],
   "action.slack.message": (): NodeConfigurationField[] => [
     { kind: "credential", key: "credentialId", label: "Slack connection", providers: ["SLACK_OAUTH"] },
     { kind: "resource", key: "channel", label: "Channel", resource: "slack-channel", credentialKey: "credentialId", placeholder: "Search joined channels" },

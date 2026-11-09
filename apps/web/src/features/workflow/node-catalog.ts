@@ -86,7 +86,7 @@ export const nodeLibraryFilters: Array<{ id: NodeLibraryFilter; label: string }>
 ];
 
 export const appCatalog: AppDefinition[] = [
-  { id: "slack", label: "Slack", description: "Send messages to a Slack channel.", icon: "slack", category: "communication", aliases: ["chat", "notification"] },
+  { id: "slack", label: "Slack", description: "Receive channel events and send Slack messages.", icon: "slack", category: "communication", aliases: ["chat", "notification"] },
   { id: "steam", label: "Steam", description: "Read public gaming profile and library data.", icon: "steam", category: "data", aliases: ["gaming", "games"] },
   { id: "riot-lol", label: "League of Legends", description: "Read League account and match data with your Riot API key.", icon: "riot-lol", category: "data", aliases: ["riot", "lol", "gaming"] },
   { id: "riot-tft", label: "Teamfight Tactics", description: "Read TFT post-game data using an eligible Riot API key.", icon: "riot-tft", category: "data", aliases: ["riot", "tft", "gaming"] },
@@ -167,6 +167,11 @@ export const nodeCatalog: NodeDefinition[] = [
     category: "trigger", libraryGroup: "productivity", appId: "trello", operationId: "board-event", operationLabel: "Board event", operationKind: "trigger", icon: "trello", available: true,
     defaultConfig: { credentialId: "", boardId: "", action: "all" },
     configurationFields: getSharedNodeConfigurationFields("trigger.trello.board-action"),
+  },
+  {
+    type: "trigger.slack.event", label: "Slack event", description: "Start on a new channel message or a mention of the app.", category: "trigger",
+    libraryGroup: "communication", appId: "slack", operationId: "event", operationLabel: "On channel event", operationKind: "trigger",
+    icon: "slack", available: true, defaultConfig: { credentialId: "", event: "app_mention", channel: "" }, configurationFields: getSharedNodeConfigurationFields("trigger.slack.event"),
   },
   {
     type: "trigger.vercel.deployment", label: "Vercel deployment event", description: "Start when a configured Vercel account webhook reports a deployment event.",

@@ -108,7 +108,7 @@ export class ExecutionMaintenanceService implements OnModuleInit, OnModuleDestro
     const webhookReplayCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const outsideWebhookReplayWindow = { OR: [
       { idempotencyKey: null },
-      { AND: [{ idempotencyKey: { not: { startsWith: "vercel-v1:" } } }, { idempotencyKey: { not: { startsWith: "trello-v1:" } } }, { idempotencyKey: { not: { startsWith: "sentry-v1:" } } }, { idempotencyKey: { not: { startsWith: "telegram-v1:" } } }, { idempotencyKey: { not: { startsWith: "kuma-v2:" } } }, { idempotencyKey: { not: { startsWith: "webhook:" } } }] },
+      { AND: [{ idempotencyKey: { not: { startsWith: "slack-v1:" } } }, { idempotencyKey: { not: { startsWith: "vercel-v1:" } } }, { idempotencyKey: { not: { startsWith: "trello-v1:" } } }, { idempotencyKey: { not: { startsWith: "sentry-v1:" } } }, { idempotencyKey: { not: { startsWith: "telegram-v1:" } } }, { idempotencyKey: { not: { startsWith: "kuma-v2:" } } }, { idempotencyKey: { not: { startsWith: "webhook:" } } }] },
       { completedAt: { lte: webhookReplayCutoff } },
     ] };
     const byAge = await this.prisma.execution.deleteMany({

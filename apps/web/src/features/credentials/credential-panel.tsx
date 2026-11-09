@@ -529,7 +529,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
                   </Button>}
                 </div>
               ) : null}
-              {credential.provider === "SLACK_OAUTH" && <div className="credential-card__oauth-managed"><p className="credential-card__oauth-text">Reconnect the same Slack workspace if access expires or is revoked.</p><Button variant="ghost" type="button" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/slack/connect?credentialId=${encodeURIComponent(credential.id)}`)}>Reconnect Slack</Button></div>}
+              {credential.provider === "SLACK_OAUTH" && <div className="credential-card__oauth-managed"><p className="credential-card__oauth-text">Reconnect the same Slack workspace if access expires or is revoked.</p><Button variant="ghost" type="button" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/slack/connect?credentialId=${encodeURIComponent(credential.id)}`)}>Reconnect Slack</Button><Button variant="ghost" type="button" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/slack/connect?credentialId=${encodeURIComponent(credential.id)}&permissions=events`)}>Enable Slack triggers</Button><small>Trigger access allows reading messages in public channels the bot has joined and receiving app mentions. Slack will ask you to approve these permissions.</small></div>}
 
               {isRenaming && (
                 <form className="credential-card__form" onSubmit={(event) => void submitRename(event, credential)}>
