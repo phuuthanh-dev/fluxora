@@ -43,7 +43,8 @@ test("admin has separate navigation, safe account menus, states and execution fi
     expect((await row.boundingBox())!.height).toBe(closedRow!.height);
     expect((await row.boundingBox())!.width).toBe(closedRow!.width);
     const firstItem = (await signOut.boundingBox())!, secondItem = (await disable.boundingBox())!;
-    expect(firstItem.height).toBeGreaterThanOrEqual(36);
+    // Chromium can round a 36px transformed DOMRect to 35.99997px.
+    expect(firstItem.height).toBeGreaterThanOrEqual(36 - 0.01);
     expect(secondItem.y).toBeGreaterThanOrEqual(firstItem.y + firstItem.height);
     expect(Math.abs(firstItem.x - secondItem.x)).toBeLessThan(1);
     await expect(disable).toHaveAttribute("data-tone", "danger");

@@ -28,6 +28,7 @@
 - Corrections: valid connected graph in new browser fixture; exact Add sort locator to distinguish the new palette favorite; wait for Admin dialog exit and restored focus.
 - Focused rerun: 21/21 E2E passed, including all three corrected cases and relational regression cases.
 - Clean `npm run verify`: passed (exit 0), API 1,131 passed / one optional Riot skipped, web 75 passed, E2E 224 passed. Prisma, harness/security, type checks and production builds passed. Local log: `/private/tmp/fluxora-data-notion-gitlab-final.log`.
+- PR #114 first CI run: 223 E2E passed; Admin menu height measured 35.99997px against a 36px minimum. Added a 0.01px DOMRect rounding tolerance without changing product CSS; the 21 affected/focused browser cases passed again. Full CI must pass on the correction before merge.
 - Browser evidence: `test-results/data-notion-gitlab-data-no-62082-nd-save-their-configuration-chromium/typed-properties-{light,dark}.png`; shared controls are readable, and the GitLab mark uses the icon asset rather than the full wordmark.
 - Migration `20261109190000_gitlab_credential` applied to the existing disposable test DB and local workspace DB. It only adds an enum value; no data deletion.
 
