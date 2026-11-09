@@ -14,10 +14,13 @@ import { WebhookModule } from "./webhooks/webhook.module";
 import { ApprovalModule } from "./approvals/approval.module";
 import { RuntimeHealthService } from "./platform/runtime-health.service";
 import { RequestDrainInterceptor } from "./platform/request-drain.interceptor";
+import { AdminController } from "./admin/admin.controller";
+import { AdminGuard } from "./admin/admin.guard";
+import { AccountRequestGuard } from "./auth/account-request.guard";
 
 @Module({
   imports: [ConfigModule.forRoot({ envFilePath: resolve(__dirname, "../../../.env"), isGlobal: true }), PrismaModule, AuthModule, WorkspaceModule, WorkflowModule, CredentialModule, ExecutionModule, SchedulerModule, WebhookModule, ApprovalModule],
-  controllers: [HealthController],
-  providers: [RuntimeHealthService, RequestDrainInterceptor, { provide: APP_INTERCEPTOR, useExisting: RequestDrainInterceptor }],
+  controllers: [HealthController, AdminController],
+  providers: [RuntimeHealthService, AdminGuard, AccountRequestGuard, RequestDrainInterceptor, { provide: APP_INTERCEPTOR, useExisting: RequestDrainInterceptor }],
 })
 export class AppModule {}

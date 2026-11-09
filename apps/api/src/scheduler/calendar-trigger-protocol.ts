@@ -25,7 +25,9 @@ export async function calendarSyncPage(accessToken: string, calendarId: string, 
     if (typeof event?.id !== "string" || event.id.length > 1024 || (event.etag !== undefined && (typeof event.etag !== "string" || event.etag.length > 1024)) || typeof event.status !== "string" || event.status.length > 50) throw new NodeFailure("INVALID_RESPONSE", "Google Calendar returned an invalid event identifier or revision.", false);
     const id = event.id; const etag = typeof event.etag === "string" ? event.etag : ""; const status = event.status;
     if (!id || !status || (status !== "cancelled" && !etag) || /[\u0000-\u001f\u007f]/.test(id + etag + status)) throw new NodeFailure("INVALID_RESPONSE", "Google Calendar returned an event without a valid identifier or revision.", false);
-    const result = { id, etag, status, summary: text(event?.summary, 1000), start: text(start?.dateTime ?? start?.date, 100), end: text(end?.dateTime ?? end?.date, 100), updated: text(event?.updated, 100) };
+    const created = text(event?.created, 100);
+    if (status !== "cancelled" && (!created || !Number.isFinite(Date.parse(created)))) throw new NodeFailure("INVALID_RESPONSE", "Google Calendar returned an event without a valid creation time.", false);
+    const result = { id, etag, status, created, summary: text(event?.summary, 1000), start: text(start?.dateTime ?? start?.date, 100), end: text(end?.dateTime ?? end?.date, 100), updated: text(event?.updated, 100) };
     assertNoCredentialInProviderFields(Object.values(result), accessToken);
     return result;
   });

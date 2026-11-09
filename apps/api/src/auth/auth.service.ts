@@ -76,7 +76,7 @@ export class AuthService {
   async login(dto: LoginDto): Promise<AuthSession> {
     const email = dto.email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user?.passwordHash || !(await argon2.verify(user.passwordHash, dto.password))) {
+    if (!user?.passwordHash || user.disabledAt || !(await argon2.verify(user.passwordHash, dto.password))) {
       throw new UnauthorizedException({ code: "INVALID_CREDENTIALS", message: "Email or password is incorrect." });
     }
 
@@ -84,8 +84,8 @@ export class AuthService {
     await this.prisma.$transaction(async tx => {
       // Serialize with password changes so an old-password login cannot survive a reset.
       await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${user.id} FOR UPDATE`;
-      const current = await tx.user.findUnique({ where: { id: user.id }, select: { passwordHash: true } });
-      if (current?.passwordHash !== user.passwordHash) throw new UnauthorizedException({ code: "INVALID_CREDENTIALS", message: "Email or password is incorrect." });
+      const current = await tx.user.findUnique({ where: { id: user.id }, select: { passwordHash: true, disabledAt: true } });
+      if (current?.passwordHash !== user.passwordHash || current?.disabledAt) throw new UnauthorizedException({ code: "INVALID_CREDENTIALS", message: "Email or password is incorrect." });
       await tx.session.create({ data: { userId: user.id, tokenHash: this.hashSessionToken(token), expiresAt: new Date(Date.now() + SESSION_DURATION_MS) } });
       await tx.auditLog.create({ data: { actorId: user.id, action: "auth.logged_in", targetType: "user", targetId: user.id } });
     });
@@ -104,6 +104,9 @@ export class AuthService {
         include: { user: true },
       });
       if (existingIdentity) {
+        await transaction.$queryRaw`SELECT id FROM "User" WHERE id = ${existingIdentity.userId} FOR UPDATE`;
+        const current = await transaction.user.findUnique({ where: { id: existingIdentity.userId }, select: { disabledAt: true } });
+        if (!current || current.disabledAt) throw new UnauthorizedException({ code: "ACCOUNT_DISABLED", message: "This account is unavailable." });
         await transaction.authIdentity.update({ where: { id: existingIdentity.id }, data: { email } });
         await transaction.session.create({ data: { userId: existingIdentity.userId, tokenHash, expiresAt: new Date(Date.now() + SESSION_DURATION_MS) } });
         await transaction.auditLog.create({ data: { actorId: existingIdentity.userId, action: "auth.identity_logged_in", targetType: "user", targetId: existingIdentity.userId, metadata: { provider: identity.provider } } });
@@ -112,6 +115,9 @@ export class AuthService {
 
       const existingUser = await transaction.user.findUnique({ where: { email } });
       const user = existingUser ?? await transaction.user.create({ data: { email, passwordHash: null, displayName, avatarColor: avatarColorForEmail(email) } });
+      await transaction.$queryRaw`SELECT id FROM "User" WHERE id = ${user.id} FOR UPDATE`;
+      const current = await transaction.user.findUnique({ where: { id: user.id }, select: { disabledAt: true } });
+      if (!current || current.disabledAt) throw new UnauthorizedException({ code: "ACCOUNT_DISABLED", message: "This account is unavailable." });
       await transaction.authIdentity.create({ data: { userId: user.id, provider: identity.provider, providerAccountId: identity.providerAccountId, email } });
       if (!existingUser) {
         const workspaceName = displayName ? `${displayName}'s workspace` : "My workspace";
@@ -168,7 +174,7 @@ export class AuthService {
       where: { tokenHash: this.hashSessionToken(token) },
       include: { user: true },
     });
-    if (!session || session.revokedAt || session.expiresAt <= new Date()) {
+    if (!session || session.revokedAt || session.user.disabledAt || session.expiresAt <= new Date()) {
       throw new UnauthorizedException({ code: "UNAUTHENTICATED", message: "Your session has expired." });
     }
     return this.toAuthenticatedUser(session.user);

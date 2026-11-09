@@ -16,7 +16,7 @@ const leaseMs = 5 * 60_000;
 const maxSeen = 10_000;
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 type Target = { workflowId: string; versionId: string; workspaceId: string; nodeId: string; credentialId: string; calendarId: string; event: "created" | "updated"; pollMinutes: number; configHash: string };
-type Baseline = { target: Target; syncToken: string; seen: Array<{ eventKey: string; revisionHash: string }> };
+type Baseline = { target: Target; syncToken: string; baselineAt: Date; seen: Array<{ eventKey: string; revisionHash: string }> };
 
 export function calendarTargets(workflowId: string, versionId: string, workspaceId: string, graph: WorkflowGraph): Target[] {
   return graph.nodes.filter((node) => node.type === "trigger.google-calendar.event").map((node) => {
@@ -53,6 +53,7 @@ export class CalendarTriggerService implements OnModuleInit, OnModuleDestroy {
         if (existing.configHash !== target.configHash || existing.state !== "READY" || existing.workflowVersionId !== versionId) throw new BadRequestException({ code: "CALENDAR_TRIGGER_RECOVERY_REQUIRED", message: "Review the Calendar trigger before reactivating it." });
         result.push({ target, baseline: null }); continue;
       }
+      const baselineAt = new Date();
       const credential = await this.credentials.readGoogleForExecution(target.credentialId, workspaceId, CredentialProvider.GOOGLE_CALENDAR);
       const accessToken = typeof credential.accessToken === "string" ? credential.accessToken : "";
       let pageToken: string | undefined; let syncToken: string | null = null;
@@ -65,7 +66,7 @@ export class CalendarTriggerService implements OnModuleInit, OnModuleDestroy {
         pageToken = page.nextPage ?? undefined;
       }
       if (!syncToken) throw new NodeFailure("CALENDAR_LIMIT", "Calendar baseline did not complete within the page limit.", false);
-      result.push({ target, baseline: { target, syncToken, seen: [...seen].map(([eventKey, revisionHash]) => ({ eventKey, revisionHash })) } });
+      result.push({ target, baseline: { target, syncToken, baselineAt, seen: [...seen].map(([eventKey, revisionHash]) => ({ eventKey, revisionHash })) } });
     }
     return result;
   }
@@ -115,7 +116,7 @@ export class CalendarTriggerService implements OnModuleInit, OnModuleDestroy {
     return this.prisma.$transaction(async (tx) => {
       const workflows = await tx.$queryRaw<Array<{ isActive: boolean; archivedAt: Date | null; publishedVersionId: string | null }>>`SELECT "isActive", "archivedAt", "publishedVersionId" FROM "Workflow" WHERE id = ${target.workflowId} FOR UPDATE`;
       if (!workflows[0]?.isActive || workflows[0].archivedAt || workflows[0].publishedVersionId !== target.versionId) return [];
-      const checkpoints = await tx.$queryRaw<Array<{ leaseToken: string | null; leaseExpiresAt: Date | null; state: string; syncToken: string }>>`SELECT "leaseToken", "leaseExpiresAt", state, "syncToken" FROM "CalendarTriggerCheckpoint" WHERE "workflowId" = ${target.workflowId} AND "nodeId" = ${target.nodeId} FOR UPDATE`;
+      const checkpoints = await tx.$queryRaw<Array<{ leaseToken: string | null; leaseExpiresAt: Date | null; state: string; syncToken: string; baselineAt: Date }>>`SELECT "leaseToken", "leaseExpiresAt", state, "syncToken", "baselineAt" FROM "CalendarTriggerCheckpoint" WHERE "workflowId" = ${target.workflowId} AND "nodeId" = ${target.nodeId} FOR UPDATE`;
       const checkpoint = checkpoints[0];
       if (!checkpoint || checkpoint.state !== "READY" || checkpoint.leaseToken !== leaseToken || !checkpoint.leaseExpiresAt || checkpoint.leaseExpiresAt <= new Date() || checkpoint.syncToken !== syncToken) return [];
       const version = await tx.workflowVersion.findUnique({ where: { id: target.versionId }, select: { workflowId: true, graph: true } });
@@ -135,7 +136,7 @@ export class CalendarTriggerService implements OnModuleInit, OnModuleDestroy {
         const eventKey = hash(event.id); const revisionHash = hash(`${event.etag}\0${event.status}`);
         const key = { workflowId_nodeId_eventKey: { workflowId: target.workflowId, nodeId: target.nodeId, eventKey } };
         const previous = await tx.calendarTriggerSeen.findUnique({ where: key });
-        const kind = previous ? "updated" : "created";
+        const kind = previous || (event.status !== "cancelled" && Date.parse(event.created) < checkpoint.baselineAt.getTime()) ? "updated" : "created";
         const changed = !previous || previous.revisionHash !== revisionHash;
         await tx.calendarTriggerSeen.upsert({ where: key, create: { workflowId: target.workflowId, nodeId: target.nodeId, eventKey, revisionHash }, update: { revisionHash } });
         if (!changed || event.status === "cancelled" || kind !== target.event) continue;

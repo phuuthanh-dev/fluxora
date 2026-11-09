@@ -1,0 +1,20 @@
+.admin-main { display: grid; gap: 20px; }
+.admin-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.admin-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 12px; }
+.admin-card, .admin-list { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-md); }
+.admin-card { display: grid; gap: 10px; padding: 18px; }
+.admin-card span, .admin-row span, .admin-list__hint { color: var(--muted); font-size: 14px; }
+.admin-card strong { color: var(--ink); font-size: 22px; }
+.admin-list__hint { margin: 0; padding: 16px; }
+.admin-row { align-items: center; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; padding: 16px; }
+.admin-row > div { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.admin-row > .admin-row__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.admin-search { align-items: end; display: flex; flex-wrap: wrap; gap: 10px; padding: 16px; }
+.admin-search label { color: var(--ink); font-size: 14px; }
+.admin-search input { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--ink); min-height: 40px; min-width: 180px; padding: 8px 12px; }
+.admin-search input:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 2px; }
+.admin-pagination { display: flex; gap: 8px; padding: 16px; }
+.admin-dialog-backdrop { align-items: center; background: rgb(0 0 0 / 60%); display: flex; inset: 0; justify-content: center; padding: 20px; position: fixed; z-index: 100; }
+.admin-dialog { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); color: var(--ink); max-width: 440px; padding: 24px; width: 100%; }
+.admin-dialog p { line-height: 1.5; overflow-wrap: anywhere; }
+.admin-dialog__actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 24px; }

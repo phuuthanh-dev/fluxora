@@ -3,6 +3,9 @@
 ## Account security extension (ACCOUNT-1)
 
 AuthModule owns profile/session management, current-password changes and email recovery.
+Platform administration is separate from workspace membership: the backend authenticates the existing session and compares its user ID to an operator-configured `PLATFORM_ADMIN_USER_ID`. An absent value fails closed; workspace ownership never grants platform access. Administrative queries select only the fields needed for operation and never return credentials or execution payloads. Administrators can revoke sessions and disable or re-enable sign-in; disabling revokes sessions and serializes with new login attempts, but does not stop workflows. Those actions are audited and do not delete workflows or credentials. Users cannot apply them to their own administrator account through the admin API.
+
+Calendar polling records the time at which its initial baseline starts. For an event absent from the baseline's seen IDs, the provider creation time distinguishes an existing event that reappeared in incremental sync from a genuinely new event. The former is treated as an update, not a creation. A reset establishes a new baseline time; an ordinary deactivation/reactivation retains the existing one. Provider events without a valid creation time fail closed rather than producing a misleading creation.
 AccountController validates requests, enforces same-origin JSON mutations and rate limits,
 and returns stable errors without logging raw database/transport exceptions. AccountService
 uses the existing User/Session/AuditLog models plus PasswordReset and AccountMail.

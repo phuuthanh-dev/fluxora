@@ -96,6 +96,7 @@ model User {
   passwordHash    String?
   displayName     String?
   avatarColor     String            @default("lime")
+  disabledAt      DateTime?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
@@ -335,6 +336,7 @@ model CalendarTriggerCheckpoint {
   workflowVersionId String
   configHash        String
   syncToken         String
+  baselineAt        DateTime
   pageToken         String?
   state             String   @default("READY")
   leaseToken        String?

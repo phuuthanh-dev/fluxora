@@ -154,7 +154,7 @@ export class WorkflowService {
         if (existing?.leaseToken && existing.leaseExpiresAt && existing.leaseExpiresAt > new Date()) throw new ConflictException({ code: "CALENDAR_POLL_IN_PROGRESS", message: "Wait for the current Calendar check to finish before resetting." });
         await transaction.$executeRaw`UPDATE "Execution" SET status = 'CANCELLED', "completedAt" = NOW() WHERE id IN (SELECT "executionId" FROM "CalendarTriggerDelivery" WHERE "workflowId" = ${workflowId} AND "nodeId" = ${target.nodeId} AND "executionId" IS NOT NULL) AND status = 'QUEUED' AND "startedAt" IS NULL`;
         if (existing) await transaction.calendarTriggerCheckpoint.delete({ where: { workflowId_nodeId: { workflowId, nodeId: target.nodeId } } });
-        await transaction.calendarTriggerCheckpoint.create({ data: { workflowId, nodeId: target.nodeId, workflowVersionId: versionId, configHash: target.configHash, syncToken: baseline.syncToken } });
+        await transaction.calendarTriggerCheckpoint.create({ data: { workflowId, nodeId: target.nodeId, workflowVersionId: versionId, configHash: target.configHash, syncToken: baseline.syncToken, baselineAt: baseline.baselineAt } });
         if (baseline.seen.length) await transaction.calendarTriggerSeen.createMany({ data: baseline.seen.map((item) => ({ workflowId, nodeId: target.nodeId, ...item })) });
       }
       await transaction.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "workflow.calendar_checkpoint_reset", targetType: "workflow", targetId: workflowId, metadata: { versionId } } });
@@ -383,7 +383,7 @@ export class WorkflowService {
           if (existing) await transaction.calendarTriggerCheckpoint.update({ where: key, data: { leaseToken: null, leaseExpiresAt: null, nextPollAt: null } });
           else {
             if (!baseline) throw new ConflictException({ code: "CALENDAR_TRIGGER_CHANGED", message: "The Calendar trigger changed. Reload and try again." });
-            await transaction.calendarTriggerCheckpoint.create({ data: { workflowId, nodeId: target.nodeId, workflowVersionId: target.versionId, configHash: target.configHash, syncToken: baseline.syncToken } });
+            await transaction.calendarTriggerCheckpoint.create({ data: { workflowId, nodeId: target.nodeId, workflowVersionId: target.versionId, configHash: target.configHash, syncToken: baseline.syncToken, baselineAt: baseline.baselineAt } });
             if (baseline.seen.length) await transaction.calendarTriggerSeen.createMany({ data: baseline.seen.map((item) => ({ workflowId, nodeId: target.nodeId, ...item })) });
           }
         }
