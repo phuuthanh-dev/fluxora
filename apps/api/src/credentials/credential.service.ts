@@ -56,6 +56,7 @@ export class CredentialService {
   async create(workspaceId: string, userId: string, input: { provider: string; label: string; data: unknown }) {
     await this.workspaces.requireOwner(workspaceId, userId);
     if (!providers.has(input.provider as CredentialProvider)) throw new BadRequestException({ code: "CREDENTIAL_PROVIDER_NOT_FOUND", message: "Credential provider is not supported." });
+    if (input.provider === CredentialProvider.SLACK_OAUTH) throw new BadRequestException({ code: "CREDENTIAL_MANAGED_BY_OAUTH", message: "Connect Slack using OAuth." });
     if (!input.data || typeof input.data !== "object" || Array.isArray(input.data)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Credential data must be a JSON object." });
     validateCredentialPayload(input.provider as CredentialProvider, input.data as Record<string, unknown>);
 
@@ -98,6 +99,7 @@ export class CredentialService {
     await this.workspaces.requireOwner(workspaceId, userId);
     const credential = await this.prisma.credential.findFirst({ where: { id: credentialId, workspaceId } });
     if (!credential) throw new NotFoundException({ code: "CREDENTIAL_NOT_FOUND", message: "A matching credential was not found in this workspace." });
+    if (credential.provider === CredentialProvider.SLACK_OAUTH && input.data !== undefined) throw new BadRequestException({ code: "CREDENTIAL_MANAGED_BY_OAUTH", message: "Reconnect Slack to change its authorization." });
 
     if (isCanonicalGoogleOAuth(credential)) {
       throw new BadRequestException({
@@ -282,6 +284,32 @@ export class CredentialService {
 
   async readForExecution(credentialId: string, workspaceId: string, provider: CredentialProvider) {
     return (await this.readForExecutionSnapshot(credentialId, workspaceId, provider)).data;
+  }
+
+  async requireSlackReconnectTarget(workspaceId: string, userId: string, credentialId: string) {
+    await this.workspaces.requireOwner(workspaceId, userId);
+    const existing = await this.prisma.credential.findFirst({ where: { id: credentialId, workspaceId, provider: CredentialProvider.SLACK_OAUTH } });
+    if (!existing) throw new NotFoundException({ code: "CREDENTIAL_NOT_FOUND", message: "Slack connection not found." });
+    return existing;
+  }
+
+  async saveSlackOAuth(workspaceId: string, userId: string, data: { accessToken: string; teamId: string; teamName: string }, credentialId?: string) {
+    await this.workspaces.requireOwner(workspaceId, userId);
+    if (!/^xoxb-[A-Za-z0-9-]{10,512}$/.test(data.accessToken) || !/^[A-Z0-9]{2,64}$/.test(data.teamId) || !data.teamName || data.teamName.length > 200) throw new BadRequestException({ code: "SLACK_OAUTH_INVALID", message: "Slack returned an invalid authorization." });
+    const encryptedData = this.vault.encrypt(data);
+    let id: string;
+    if (credentialId) {
+      const existing = await this.requireSlackReconnectTarget(workspaceId, userId, credentialId);
+      if (this.vault.decrypt(existing.encryptedData).teamId !== data.teamId) throw new ConflictException({ code: "SLACK_WORKSPACE_MISMATCH", message: "Reconnect the same Slack workspace or create a new connection." });
+      const updated = await this.prisma.credential.updateMany({ where: { id: credentialId, workspaceId, provider: CredentialProvider.SLACK_OAUTH, encryptedData: existing.encryptedData }, data: { encryptedData } });
+      if (!updated.count) throw new ConflictException({ code: "CREDENTIAL_CHANGED", message: "The Slack connection changed. Try again." });
+      id = credentialId;
+    } else {
+      const label = `Slack · ${data.teamId}`;
+      try { id = (await this.prisma.credential.create({ data: { workspaceId, provider: CredentialProvider.SLACK_OAUTH, label, encryptedData } })).id; }
+      catch (error) { if (hasErrorCode(error, "P2002")) throw new ConflictException({ code: "CREDENTIAL_LABEL_CONFLICT", message: "This Slack workspace is already connected. Reconnect it instead." }); throw error; }
+    }
+    await this.prisma.auditLog.create({ data: { workspaceId, actorId: userId, action: "credential.slack_oauth_connected", targetType: "credential", targetId: id } });
   }
 
   /** Internal snapshot for operations that must fence concurrent secret rotation. */
@@ -510,7 +538,7 @@ export class CredentialService {
       label: credential.label,
       createdAt: credential.createdAt,
       updatedAt: credential.updatedAt,
-      isManaged: isCanonicalGoogleOAuth(credential),
+      isManaged: isCanonicalGoogleOAuth(credential) || credential.provider === CredentialProvider.SLACK_OAUTH,
       ...(selectedGmailCapabilities ? { gmailCapabilities: selectedGmailCapabilities } : {}),
       ...(chatManageEnabled ? { chatManageEnabled: true } : {}),
       ...(googleReconnectRequired ? { googleReconnectRequired: true } : {}),

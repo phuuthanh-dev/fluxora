@@ -54,6 +54,29 @@ export function buildExpressionSuggestions(executions: NodeExecutionOutput[]) {
   return [...suggestions].slice(0, 18).map((path) => `{{ ${path} }}`);
 }
 
+/** Preview only values already present in the selected execution output. */
+export function buildExpressionPreviews(executions: NodeExecutionOutput[]): Record<string, string> {
+  const previews: Record<string, string> = {};
+  const visit = (value: unknown, path: string, depth: number) => {
+    const expression = `{{ ${path} }}`;
+    if (value === null) previews[expression] = "null";
+    else if (Array.isArray(value)) previews[expression] = `List · ${value.length} items`;
+    else if (typeof value === "object") previews[expression] = `Object · ${Object.keys(value as object).length} fields`;
+    else if (["string", "number", "boolean"].includes(typeof value)) {
+      const text = String(value).replace(/\s+/g, " ");
+      previews[expression] = text.length > 80 ? `${text.slice(0, 77)}…` : text || "Empty text";
+    }
+    if (depth >= 4 || !value || typeof value !== "object") return;
+    if (Array.isArray(value)) {
+      if (value.length) visit(value[0], `${path}[0]`, depth + 1);
+    } else {
+      for (const [key, child] of Object.entries(value)) if (pathSegment.test(key)) visit(child, `${path}.${key}`, depth + 1);
+    }
+  };
+  for (const execution of executions) if (pathSegment.test(execution.nodeId)) visit(execution.output, `steps.${execution.nodeId}.output`, 0);
+  return previews;
+}
+
 /** Suggest fields from the first available item of the immediate preceding node. */
 export function buildItemExpressionSuggestions(node: SuggestionNode, output: unknown, processedItems: boolean): string[] {
   if (!output || typeof output !== "object" || Array.isArray(output)) return [];

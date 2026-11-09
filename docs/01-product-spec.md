@@ -50,16 +50,16 @@ This table records the MVP baseline and selected later additions. Entries marked
 | Trigger | GitHub Push | Receive a signed GitHub `push` webhook using the registration signing secret. |
 | Trigger | GitHub Workflow run completed | Receive a signed GitHub `workflow_run` webhook with `action: completed` using the registration signing secret. |
 | Trigger | Gmail new message | Poll Gmail history with a workspace-owned connection, selectable interval and optional sender/subject/label filters. Released in PR #57; one targeted local poll succeeded. Sustained polling and Google scope verification remain open. |
-| Trigger | Steam game news | Local draft: poll the latest 10 public Steam news entries for a game App ID, baseline without historical runs, and reuse bounded durable feed checkpoints. Posts outside the window may be missed. |
+| Trigger | Steam game news | Poll the latest 10 public Steam news entries for a game App ID, baseline without historical runs, and reuse bounded durable feed checkpoints. Posts outside the window may be missed; live trigger delivery remains unqualified. |
 | Trigger | RSS new item | Code on `origin/main` polls a feed using a checkpoint and bounded recovery. Provider availability and gap handling still need qualification. |
 | Condition | If/Else | Comparison operators and true/false paths. |
 | Condition | Switch | Multiple cases and a default path. |
 | Action | Steam Account Snapshot | Profile, current game, owned/recent games, playtime, and optional per-game achievements. |
 | Action | Steam Web API | Community-node parity for profile, friends, badges, vanity URL, owned games, recently played games, and per-game achievements. The game picker lists visible owned games with a manual App ID fallback. Uses a workspace Steam Web API key; privacy settings still apply. |
-| Action | Steam game news | Read up to ten recent public news items for a game App ID, with shortened content. No Steam connection is required. This is a read action, not a news trigger. |
+| Action | Steam game news | Read up to ten recent public news items for a game App ID, with shortened content. No Steam connection is required. A separate news trigger is also available. |
 | Action | Riot TFT | Riot ID/account lookup, TFT match IDs, match detail, ranked entries and service status using an eligible workspace Riot key. Production approval and live TFT qualification remain open. |
 | Action | Google Chat Webhook | Send formatted daily report into one space. |
-| Action | Slack incoming webhook | Local draft: send a text message to the channel configured by a workspace-owned Slack webhook. |
+| Action | Slack incoming webhook | Send a text message to the channel configured by a workspace-owned Slack webhook; real delivery has not yet been qualified. |
 | Action | Discord Webhook | Send content, embeds, and an explicitly allowlisted mention policy into a Discord channel via incoming webhook. |
 | Action | Telegram Message | Send message via Telegram Bot API with bot token and a typed destination: DM, group, supergroup, or channel. Supergroups may optionally target a topic/thread. |
 | Action | GitHub Create Issue | Create an issue with a workspace-owned GitHub connector credential; an optional idempotency key reuses a previously created issue. |
@@ -352,7 +352,7 @@ providers remain available in both themes. Connection creation expands directly
 below the connection toolbar, above saved connections, and preserves drafts when
 collapsed. This changes presentation only, not credential or auth semantics.
 
-### Owner-approved workflow alerts and mapping (local draft, 2026-11-09)
+### Workflow alerts and mapping (released in PR #109, 2026-11-09)
 
 An owner can opt a workflow into concise live-failure alerts using an existing
 Google Chat incoming-webhook or Telegram connection. Mock runs and handled

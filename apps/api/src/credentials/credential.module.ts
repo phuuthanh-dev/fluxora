@@ -16,11 +16,14 @@ import { OpenAIResourceController } from "./openai-resource.controller";
 import { ConnectorResourceController } from "./connector-resource.controller";
 import { GoogleCalendarResourceController } from "./google-calendar-resource.controller";
 import { GmailResourceController } from "./gmail-resource.controller";
+import { SlackOAuthController } from "./slack-oauth.controller";
+import { SlackOAuthStateService } from "./slack-oauth-state.service";
+import { SlackResourceController } from "./slack-resource.controller";
 
 @Module({
   imports: [AuthModule, WorkspaceModule],
-  controllers: [CredentialController, GoogleOAuthController, GitHubResourceController, GoogleResourceController, GeminiResourceController, OpenAIResourceController, ConnectorResourceController, GoogleCalendarResourceController, GmailResourceController],
-  providers: [CredentialService, CredentialVaultService, GoogleOAuthStateService, GitHubResourceService, GoogleResourceService, AccountRequestGuard],
+  controllers: [CredentialController, GoogleOAuthController, SlackOAuthController, SlackResourceController, GitHubResourceController, GoogleResourceController, GeminiResourceController, OpenAIResourceController, ConnectorResourceController, GoogleCalendarResourceController, GmailResourceController],
+  providers: [CredentialService, CredentialVaultService, GoogleOAuthStateService, SlackOAuthStateService, GitHubResourceService, GoogleResourceService, AccountRequestGuard],
   exports: [CredentialService, CredentialVaultService],
 })
 export class CredentialModule {}

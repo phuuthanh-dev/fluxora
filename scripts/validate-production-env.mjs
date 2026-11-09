@@ -94,6 +94,13 @@ export function validateProductionEnv(text) {
   for (const key of ["JWT_ACCESS_SECRET", "JWT_REFRESH_SECRET"]) if (values.get(key)?.length < 32) errors.push(`${key}: must be at least 32 characters`);
   validateProviderGroup(values, ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"], errors);
   validateProviderGroup(values, ["GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET"], errors);
+  validateProviderGroup(values, ["SLACK_CLIENT_ID", "SLACK_CLIENT_SECRET", "SLACK_REDIRECT_URI"], errors);
+  if (values.get("SLACK_REDIRECT_URI")) {
+    try {
+      const url = new URL(values.get("SLACK_REDIRECT_URI"));
+      if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) errors.push("SLACK_REDIRECT_URI: must be HTTPS without credentials/query/fragment");
+    } catch { errors.push("SLACK_REDIRECT_URI: invalid URL"); }
+  }
   for (const key of ["GOOGLE_REDIRECT_URI", "GOOGLE_AUTH_REDIRECT_URI", "GITHUB_AUTH_REDIRECT_URI", "STEAM_OPENID_RETURN_URI", "STEAM_OPENID_REALM"]) {
     if (!values.get(key)) errors.push(`${key}: required callback/realm URL`);
     else {

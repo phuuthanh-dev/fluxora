@@ -33,6 +33,7 @@ enum CredentialProvider {
   HTTP
   DISCORD_WEBHOOK
   SLACK_WEBHOOK
+  SLACK_OAUTH
   TELEGRAM_BOT
   GITHUB
   SMTP
@@ -229,6 +230,7 @@ model Workflow {
   publishedVersion   WorkflowVersion?  @relation("WorkflowPublishedVersion", fields: [publishedVersionId], references: [id], onDelete: SetNull)
   webhookEndpoints   WebhookEndpoint[]
   rssTriggerCheckpoints RssTriggerCheckpoint[]
+  calendarTriggerCheckpoints CalendarTriggerCheckpoint[]
 
   @@index([workspaceId, updatedAt])
   @@index([workspaceId, archivedAt, updatedAt])
@@ -326,6 +328,49 @@ model RssTriggerDelivery {
   @@index([lastSeenAt])
 }
 
+// The sync cursor and event revisions belong to a workflow and trigger node.
+model CalendarTriggerCheckpoint {
+  workflowId        String
+  nodeId            String
+  workflowVersionId String
+  configHash        String
+  syncToken         String
+  pageToken         String?
+  state             String   @default("READY")
+  leaseToken        String?
+  leaseExpiresAt    DateTime?
+  nextPollAt        DateTime?
+  lastErrorCode     String?
+  updatedAt         DateTime @updatedAt
+  workflow          Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  seen              CalendarTriggerSeen[]
+  deliveries        CalendarTriggerDelivery[]
+
+  @@id([workflowId, nodeId])
+  @@index([state, nextPollAt, leaseExpiresAt])
+}
+
+model CalendarTriggerSeen {
+  workflowId   String
+  nodeId       String
+  eventKey     String
+  revisionHash String
+  checkpoint   CalendarTriggerCheckpoint @relation(fields: [workflowId, nodeId], references: [workflowId, nodeId], onDelete: Cascade)
+
+  @@id([workflowId, nodeId, eventKey])
+}
+
+model CalendarTriggerDelivery {
+  workflowId  String
+  nodeId      String
+  changeKey   String
+  executionId String? @unique
+  createdAt   DateTime @default(now())
+  checkpoint  CalendarTriggerCheckpoint @relation(fields: [workflowId, nodeId], references: [workflowId, nodeId], onDelete: Cascade)
+
+  @@id([workflowId, nodeId, changeKey])
+}
+
 model Credential {
   id            String             @id @default(uuid())
   workspaceId   String
@@ -356,6 +401,9 @@ model Execution {
   errorMessage      String?
   errorRetryable    Boolean?
   failureAlertClaimedAt DateTime?
+  // A claim may outlive the process or a provider response may be lost.
+  // Only mark SENT after the provider confirms the request.
+  failureAlertOutcome String?
   startedAt         DateTime?
   completedAt       DateTime?
   leaseExpiresAt    DateTime?

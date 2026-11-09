@@ -3,7 +3,7 @@ import { workflowNodeTypes, type ExecutableWorkflowNodeType, type WorkflowNodeTy
 /** Descriptive metadata only: it must not authorize execution or determine retry policy. */
 export type OperationCredentialProvider =
   | "GOOGLE" | "STEAM" | "GOOGLE_CHAT_WEBHOOK" | "GOOGLE_CHAT_OAUTH" | "GMAIL" | "GOOGLE_CALENDAR"
-  | "MONGODB" | "NOTION" | "POSTGRES" | "HTTP" | "DISCORD_WEBHOOK" | "SLACK_WEBHOOK" | "TELEGRAM_BOT" | "GITHUB"
+  | "MONGODB" | "NOTION" | "POSTGRES" | "HTTP" | "DISCORD_WEBHOOK" | "SLACK_WEBHOOK" | "SLACK_OAUTH" | "TELEGRAM_BOT" | "GITHUB"
   | "SMTP" | "GEMINI" | "OPENAI" | "TRELLO" | "SENTRY" | "VERCEL" | "SUPABASE" | "REDDIT" | "RIOT";
 
 export type OperationAuth =
@@ -25,7 +25,7 @@ export type OperationPagination =
   | { kind: "conditional"; selector: string; fallback: string; cases: readonly { values: readonly string[]; pagination: ContinuationPagination }[] };
 
 /** Describes test behavior; it does not execute a mock or enforce security. */
-export type MockBehavior = "provider-sample" | "trigger-data" | "condition" | "approval" | "unavailable";
+export type MockBehavior = "provider-sample" | "transform" | "trigger-data" | "condition" | "approval" | "unavailable";
 
 export type OperationMetadata = {
   readonly availability: "executable" | "planned";
@@ -42,7 +42,7 @@ export type OperationMetadata = {
 type CheckedRegistry = { [K in WorkflowNodeType]: OperationMetadata & {
   availability: K extends ExecutableWorkflowNodeType ? "executable" : "planned";
   mockBehavior: K extends ExecutableWorkflowNodeType
-    ? K extends `action.${string}` ? "provider-sample"
+    ? K extends "action.edit-fields" ? "transform" : K extends `action.${string}` ? "provider-sample"
       : K extends `trigger.${string}` ? "trigger-data"
         : K extends `condition.${string}` ? "condition" : "approval"
     : "unavailable";
@@ -85,6 +85,7 @@ const definitions = {
   "action.github.get-pull-request": executable(credential("GITHUB"), "read", fields("repository", "item")),
   "trigger.manual": trigger(none, "unspecified", triggerOutput),
   "trigger.gmail": trigger(credential("GMAIL", "required", "trigger-setup"), "unspecified", triggerOutput),
+  "trigger.google-calendar.event": trigger(credential("GOOGLE_CALENDAR", "required", "trigger-setup"), "read", triggerOutput),
   "trigger.rss.new-item": trigger(none, "read", triggerOutput),
   "trigger.steam.game-news": trigger(none, "read", triggerOutput),
   "trigger.telegram.update": trigger(conditional, "read", triggerOutput),
@@ -100,6 +101,7 @@ const definitions = {
   "trigger.github.workflow-run-completed": trigger(conditional, "unspecified", triggerOutput),
   "condition.if": condition(none, "unspecified", fields("matches")),
   "condition.switch": condition(none, "unspecified", fields("value", "matched")),
+  "action.edit-fields": { ...executable(none, "unspecified"), mockBehavior: "transform" },
   "approval.request": approval(conditional, "unspecified", fields("message", "expiresInHours", "notificationProvider", "notificationCredentialId")),
   "action.steam.account-snapshot": executable(credential("STEAM"), "read", fields("profile", "currentGame", "ownedGames", "recentGames", "achievements", "summary")),
   "action.steam": executable(conditional, "read", fields("operation", "result")),
@@ -114,6 +116,7 @@ const definitions = {
   "action.google-chat.edit-message": executable(credential("GOOGLE_CHAT_OAUTH"), "write", fields("updated", "messageId")),
   "action.discord.webhook": executable(credential("DISCORD_WEBHOOK"), "write", notificationReceipt),
   "action.slack.webhook": executable(credential("SLACK_WEBHOOK"), "write", fields("delivered", "provider", "destination", "sentAt", "mode")),
+  "action.slack.message": executable(credential("SLACK_OAUTH"), "write", fields("delivered", "provider", "destination", "messageId", "sentAt", "mode")),
   "action.telegram.message": executable(credential("TELEGRAM_BOT"), "write", notificationReceipt),
   "action.telegram.reply": executable(credential("TELEGRAM_BOT"), "write", fields(...notificationReceipt.knownFields, "operation")),
   "action.telegram.edit-message": executable(credential("TELEGRAM_BOT"), "write", fields(...notificationReceipt.knownFields, "operation")),

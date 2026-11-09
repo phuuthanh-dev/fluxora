@@ -19,10 +19,10 @@ import { gmailGet, gmailLabel, gmailRead, gmailReply, gmailSend, gmailUpdateDraf
 import { calendarAvailability, calendarCreate, calendarEvent, calendarList, calendarUpdate } from "./node-config-schemas/google-calendar";
 import { postgresSelect, supabaseInsert, supabaseSelect } from "./node-config-schemas/relational";
 import { riotLol, riotTft } from "./node-config-schemas/riot";
-import { slackWebhook } from "./node-config-schemas/slack";
+import { slackMessage, slackWebhook } from "./node-config-schemas/slack";
 import { discordWebhook } from "./node-config-schemas/discord";
-import { cron, githubTrigger, gmailTrigger, manual, rssTrigger, steamNewsTrigger, sentryTrigger, telegramTrigger, trelloTrigger, uptimeTrigger, vercelTrigger, webhookTrigger } from "./node-config-schemas/triggers";
-import { approval, ifCondition, switchCondition } from "./node-config-schemas/flow";
+import { calendarTrigger, cron, githubTrigger, gmailTrigger, manual, rssTrigger, steamNewsTrigger, sentryTrigger, telegramTrigger, trelloTrigger, uptimeTrigger, vercelTrigger, webhookTrigger } from "./node-config-schemas/triggers";
+import { approval, editFields, ifCondition, switchCondition } from "./node-config-schemas/flow";
 import type { ConfigRules, NodeConfigIssue } from "./node-config-schemas/types";
 
 export type { NodeConfigIssue } from "./node-config-schemas/types";
@@ -102,10 +102,12 @@ const rules: Readonly<Record<string, ConfigRules>> = {
   "action.riot-tft": riotTft,
   "action.discord.webhook": discordWebhook,
   "action.slack.webhook": slackWebhook,
+  "action.slack.message": slackMessage,
   "trigger.manual": manual,
   "trigger.cron": cron,
   "trigger.webhook": webhookTrigger,
   "trigger.gmail": gmailTrigger,
+  "trigger.google-calendar.event": calendarTrigger,
   "trigger.rss.new-item": rssTrigger,
   "trigger.steam.game-news": steamNewsTrigger,
   "trigger.telegram.update": telegramTrigger,
@@ -119,6 +121,7 @@ const rules: Readonly<Record<string, ConfigRules>> = {
   "trigger.github.workflow-run-completed": githubTrigger,
   "condition.if": ifCondition,
   "condition.switch": switchCondition,
+  "action.edit-fields": editFields,
   "approval.request": approval,
 };
 

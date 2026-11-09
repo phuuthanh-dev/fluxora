@@ -51,7 +51,7 @@ import { WorkflowNode } from "./workflow-node";
 import { graphForApi, graphFromApi, type ApiWorkflow } from "./workflow-api";
 import { CredentialPanel } from "../credentials/credential-panel";
 import type { CredentialProvider, CredentialSummary } from "../credentials/credential-types";
-import { buildExpressionSuggestions, buildItemExpressionSuggestions, buildPossibleExpressionSuggestions, upstreamNodeIds } from "./expression-suggestions";
+import { buildExpressionPreviews, buildExpressionSuggestions, buildItemExpressionSuggestions, buildPossibleExpressionSuggestions, upstreamNodeIds } from "./expression-suggestions";
 import { manualTriggerTestData } from "./test-data";
 import { NodeIcon } from "./node-icon";
 import { NodeLibrary, type NodeLibraryHandle } from "./node-library";
@@ -76,6 +76,7 @@ import { applySheetsMapping, type SheetsMappingDraft } from "./google-sheets-map
 
 const mockGuidance: Record<MockBehavior, string> = {
   "provider-sample": "Returns sample output without calling the provider. Only this node runs; live connections and inputs are not verified.",
+  transform: "Transforms the available test data. No downstream node runs during node debug.",
   "trigger-data": "Uses test data; some triggers provide a sample when it is empty. Only this node runs; it does not wait for a provider event.",
   condition: "Evaluates the condition using test data. No downstream node runs during node debug.",
   approval: "A full test run creates an approval request and waits. Approval nodes cannot run alone.",
@@ -119,6 +120,7 @@ function providerLabel(provider: CredentialProvider) {
     GOOGLE_CHAT_WEBHOOK: "Google Chat",
     DISCORD_WEBHOOK: "Discord",
     SLACK_WEBHOOK: "Slack",
+    SLACK_OAUTH: "Slack workspace",
     TELEGRAM_BOT: "Telegram",
     GOOGLE: "Google",
     GITHUB: "GitHub",
@@ -512,11 +514,30 @@ function TestDataEditor({ value, onApply, draft, onDraftChange }: { value: unkno
   return <section className="json-config-editor"><div className="section-label">TEST DATA FOR MOCK RUN</div><textarea value={text} onChange={(event) => onDraftChange(event.target.value === baseline ? undefined : { text: event.target.value, baseline: draft?.baseline ?? baseline })} rows={6} aria-label="Manual trigger test data" /><button className="ghost-button" type="button" onClick={apply}>Apply test data</button>{draft && <button className="ghost-button" type="button" onClick={() => { onDraftChange(undefined); setError(null); }}>Discard test data changes</button>}{error && <p role="alert">{error}</p>}</section>;
 }
 
-function ExpressionSuggestions({ suggestions, possible, onInsert }: { suggestions: string[]; possible: string[]; onInsert: (value: string) => boolean }) {
+function ExpressionSuggestions({ suggestions, possible, previews, hasUpstream, onInsert }: { suggestions: string[]; possible: string[]; previews: Record<string, string>; hasUpstream: boolean; onInsert: (value: string) => boolean }) {
   const [notice, setNotice] = useState("");
-  if (!suggestions.length && !possible.length) return null;
+  if (!suggestions.length && !possible.length && !hasUpstream) return null;
   const select = (suggestion: string) => setNotice(onInsert(suggestion) ? "Inserted into the selected field." : "First select a text field in Configuration, then choose a value.");
-  return <section className="expression-suggestions"><div className="section-label">USE DATA FROM AN EARLIER STEP</div><p>Select a text field in Configuration, then choose a value to insert at the cursor. Available fields depend on the steps that run.</p>{suggestions.length > 0 && <><strong>From the last run</strong><div>{suggestions.map((suggestion) => <button key={suggestion} type="button" onClick={() => select(suggestion)}>{suggestion}</button>)}</div></>}{possible.length > 0 && <><strong>Possible fields</strong><div>{possible.map((suggestion) => <button key={suggestion} type="button" onClick={() => select(suggestion)}>{suggestion}</button>)}</div></>}{notice && <small role="status">{notice}</small>}</section>;
+  return <section className="expression-suggestions"><div className="section-label">USE DATA FROM AN EARLIER STEP</div><p>Select a text field in Configuration, then choose a value to insert at the cursor. Available fields depend on the steps that run.</p>{suggestions.length > 0 && <><strong>From the selected execution</strong><p>These are sample values from that run. Select a recent run after editing to see current data.</p><div>{suggestions.map((suggestion) => <button key={suggestion} type="button" onClick={() => select(suggestion)}><span>{suggestion}</span>{previews[suggestion] !== undefined && <span className="expression-suggestions__preview">{previews[suggestion]}</span>}</button>)}</div></>}{possible.length > 0 && <><strong>Possible fields</strong><p>These fields may be available when the earlier step runs.</p><div>{possible.map((suggestion) => <button key={suggestion} type="button" onClick={() => select(suggestion)}>{suggestion}</button>)}</div></>}{!suggestions.length && <p>Run an earlier step and select its execution to see available sample values.</p>}{notice && <small role="status">{notice}</small>}</section>;
+}
+
+function EditFieldsEditor({ value, onChange, error }: { value: unknown; onChange: (value: Array<{ name: string; type: string; value: string | number | boolean }>) => void; error?: string }) {
+  const [booleanExpressions, setBooleanExpressions] = useState<number[]>([]);
+  const validRows = value === undefined || Array.isArray(value) && value.every((row) => row && typeof row === "object" && !Array.isArray(row) && typeof row.name === "string" && typeof row.type === "string" && ["string", "number", "boolean"].includes(typeof row.value));
+  const rows = validRows && Array.isArray(value) ? value as Array<{ name: string; type: string; value: string | number | boolean }> : [];
+  const update = (index: number, next: Partial<(typeof rows)[number]>) => onChange(rows.map((row, i) => i === index ? { ...row, ...next } : row));
+  const add = () => {
+    let index = 1;
+    while (rows.some((row) => row.name === `field${index}`)) index++;
+    onChange([...rows, { name: `field${index}`, type: "text", value: "" }]);
+  };
+  if (!validRows) return <Status tone="error">These saved fields are invalid. Review the node configuration before continuing.</Status>;
+  return <section className="edit-fields-editor"><p>Choose the fields to pass to the next step. Use data from an earlier step or enter a fixed value.</p>{rows.map((row, index) => <div className="edit-fields-editor__row" key={index}>
+    <Field label="Field name"><input aria-label={`Field ${index + 1} name`} value={row.name} onChange={(event) => update(index, { name: event.target.value })} /></Field>
+    <Field label="Type"><Select aria-label={`Field ${index + 1} type`} value={row.type} onChange={(event) => { setBooleanExpressions((current) => current.filter((i) => i !== index)); update(index, { type: event.target.value, value: event.target.value === "boolean" ? false : "" }); }}><option value="text">Text</option><option value="number">Number</option><option value="boolean">True / false</option></Select></Field>
+    {row.type === "boolean" && !booleanExpressions.includes(index) && !String(row.value).includes("{{") ? <><Field label="Value"><Select aria-label={`Field ${index + 1} value`} value={String(row.value)} onChange={(event) => update(index, { value: event.target.value === "true" })}><option value="false">False</option><option value="true">True</option></Select></Field><button className="ghost-button" type="button" onClick={() => { setBooleanExpressions((current) => [...current, index]); update(index, { value: "" }); }}>Use expression</button></> : <>{row.type === "boolean" ? <Field label="Value" hint="Select a value from an earlier step or enter an expression that returns true or false."><input data-expression-target aria-label={`Field ${index + 1} value`} value={String(row.value)} onChange={(event) => { setBooleanExpressions((current) => current.includes(index) ? current : [...current, index]); update(index, { value: event.target.value }); }} /></Field> : <ConfigField label={`Field ${index + 1} value`} value={String(row.value ?? "")} onChange={(next) => update(index, { value: next })} />}{row.type === "boolean" && <button className="ghost-button" type="button" onClick={() => { setBooleanExpressions((current) => current.filter((i) => i !== index)); update(index, { value: false }); }}>Use fixed value</button>}</>}
+    <button className="ghost-button" type="button" onClick={() => { setBooleanExpressions((current) => current.filter((i) => i !== index).map((i) => i > index ? i - 1 : i)); onChange(rows.filter((_, i) => i !== index)); }} aria-label={`Remove field ${index + 1}`}>Remove field</button>
+  </div>)}<button className="ghost-button" type="button" disabled={rows.length >= 30} onClick={add}>Add field</button>{error && <p className="ui-field__error" role="alert">{error}</p>}</section>;
 }
 
 function SwitchCaseEditor({ cases, onChange }: { cases: unknown; onChange: (cases: Array<{ value: string }>) => void }) {
@@ -878,6 +899,33 @@ function GmailTriggerStatus({ workflowId, nodeId }: { workflowId: string; nodeId
   </Status>;
 }
 
+function CalendarTriggerStatus({ workflowId, nodeId }: { workflowId: string; nodeId: string }) {
+  const [status, setStatus] = useState<{ active: boolean; checkpoints: Array<{ nodeId: string; state: string; lastErrorCode: string | null }> } | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
+  const [refresh, setRefresh] = useState(0);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState("");
+  useEffect(() => {
+    if (!workflowId) return;
+    let current = true;
+    const load = () => { void apiRequest<{ active: boolean; checkpoints: Array<{ nodeId: string; state: string; lastErrorCode: string | null }> }>(`/workflows/${encodeURIComponent(workflowId)}/calendar-trigger-status`).then((data) => { if (current) { setStatus(data); setUnavailable(false); } }).catch(() => { if (current) setUnavailable(true); }); };
+    load();
+    const timer = window.setInterval(load, 30_000);
+    return () => { current = false; window.clearInterval(timer); };
+  }, [workflowId, refresh]);
+  const checkpoint = status?.checkpoints.find((item) => item.nodeId === nodeId);
+  return <Status tone={checkpoint?.state === "ERROR" || unavailable ? "warning" : "info"} className="inspector-note">
+    <strong>Google Calendar polling</strong>
+    <span>Status refers to the published workflow. On activation, existing events establish a starting point and are not run.</span>
+    <span>{unavailable ? "Status is unavailable. Try refreshing." : checkpoint?.state === "ERROR" ? checkpoint.lastErrorCode === "CALENDAR_SYNC_EXPIRED" ? "Google's sync token expired. Deactivate this workflow and review the reset option." : "The trigger needs attention. Check its connection and review the reset option." : checkpoint?.lastErrorCode ? "The last check failed. Fluxora will retry without advancing the checkpoint." : status?.active && checkpoint ? "Active. Changes are checked at the selected interval." : checkpoint ? "Inactive. Reactivating resumes the saved checkpoint." : "Publish and activate to start checking."}</span>
+    <span>Google may combine multiple edits between checks. Changing the calendar, event or connection starts a new checkpoint.</span>
+    <Button type="button" variant="ghost" onClick={() => setRefresh((value) => value + 1)}>Refresh status</Button>
+    {!status?.active && checkpoint && <Button type="button" variant="ghost" onClick={() => { setResetError(""); setResetOpen(true); }}>Reset checkpoint…</Button>}
+    {resetOpen && <Dialog label="Reset Calendar checkpoint" onClose={() => { if (!resetting) setResetOpen(false); }}><DialogHeader title="Start from the current calendar?" onClose={() => { if (!resetting) setResetOpen(false); }} closeLabel="Close reset confirmation" /><p>Changes since the saved checkpoint and queued deliveries that have not started may be missed. Running executions may still finish. This cannot be undone.</p>{resetError && <Status tone="error" role="alert">{resetError}</Status>}<div className="dialog-actions"><Button variant="secondary" type="button" disabled={resetting} onClick={() => setResetOpen(false)}>Cancel</Button><Button variant="primary" type="button" disabled={resetting} onClick={() => { setResetting(true); setResetError(""); void apiRequest(`/workflows/${encodeURIComponent(workflowId)}/calendar-trigger-reset`, { method: "POST", body: JSON.stringify({ confirmDataGap: true }) }).then(() => { setResetOpen(false); setRefresh((value) => value + 1); }).catch((reason: unknown) => setResetError(reason instanceof Error ? reason.message : "Could not reset the checkpoint.")).finally(() => setResetting(false)); }}>{resetting ? "Resetting…" : "Reset checkpoint"}</Button></div></Dialog>}
+  </Status>;
+}
+
 function RssTriggerStatus({ workflowId, nodeId, steam = false }: { workflowId: string; nodeId: string; steam?: boolean }) {
   const [status, setStatus] = useState<{ active: boolean; checkpoints: Array<{ nodeId: string; state: string; lastErrorCode: string | null; lastCheckedAt: string | null }> } | null>(null);
   const [unavailable, setUnavailable] = useState(false);
@@ -1089,6 +1137,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
   const sourceRun = recorded.find((item) => item.nodeId === directSource);
   const itemSuggestions = sourceNode && sourceRun ? buildItemExpressionSuggestions(sourceNode, sourceRun.output, Boolean(sourceRun.items?.length)) : [];
   const suggestions = [...itemSuggestions, ...buildExpressionSuggestions(recorded.map((item) => ({ nodeId: item.nodeId, output: item.output })))].slice(0, 18);
+  const previews = buildExpressionPreviews(recorded.map((item) => ({ nodeId: item.nodeId, output: item.output })));
   const possible = buildPossibleExpressionSuggestions(graphNodes, upstream).filter((item) => !suggestions.includes(item));
 
   return (
@@ -1113,6 +1162,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       }}>
       {(effectiveNodeType === "action.riot-lol" || effectiveNodeType === "action.riot-tft") && <Status tone="warning" className="inspector-note"><strong>Riot API prototype</strong><span>Live execution on production is unavailable while Riot approval is pending. Use a key authorized for this game and product on a private prototype. Player data can appear in execution history.{effectiveNodeType === "action.riot-tft" ? " TFT is for post-game analysis; do not use it for live scouting or gameplay advice." : ""}</span></Status>}
       {effectiveNodeType === "trigger.uptime-kuma.alert" && <Status tone="info" className="inspector-note">Leave Monitor ID empty for all monitors. Repeated notifications may start multiple runs unless the sender supplies an Idempotency-Key. Matching keys are remembered while execution history is retained for this published version.</Status>}
+      {effectiveNodeType === "action.edit-fields" && <EditFieldsEditor key={node.id} value={node.data.config.fields} onChange={(fields) => updateConfig("fields", fields)} error={configIssues.find((issue) => issue.field === "fields")?.message} />}
       {definition?.configurationFields && <NodeConfigurationFields key={`configuration-${node.id}`} fields={definition.configurationFields} config={node.data.config} credentials={credentials} workspaceId={workspaceId} workflowId={workflowId} nodeId={node.id} owner={owner} allowExpressions={!effectiveNodeType.startsWith("trigger.")} onChange={updateConfig} draft={draft} onDraftChange={onDraftChange} issues={configIssues} />}
       {effectiveNodeType === "trigger.steam.game-news" && <Status tone="info" className="inspector-note">No connection is needed. Enter the App ID from the game's Steam store URL. The first check records the latest 10 posts without starting runs; posts outside that window can be missed.</Status>}
       {effectiveNodeType === "action.steam" && node.data.config.operation === "gameNews" && <Status tone="info" className="inspector-note">No Steam connection is needed. Find the App ID in the game's Steam store URL; for example, Portal 2 uses 620. Returns up to 10 recent items with shortened content.</Status>}
@@ -1153,6 +1203,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       {effectiveNodeType === "action.github.update-issue" && <Status tone="warning" className="inspector-note">Updates can overwrite someone else's concurrent change. If the result is uncertain, check GitHub before retrying.</Status>}
       {effectiveNodeType === "trigger.gmail" && <GmailTriggerStatus workflowId={workflowId} nodeId={node.id} />}
       {["trigger.rss.new-item", "trigger.steam.game-news"].includes(effectiveNodeType) && <RssTriggerStatus workflowId={workflowId} nodeId={node.id} steam={effectiveNodeType === "trigger.steam.game-news"} />}
+      {effectiveNodeType === "trigger.google-calendar.event" && <CalendarTriggerStatus workflowId={workflowId} nodeId={node.id} />}
       {effectiveNodeType === "trigger.manual" && <TestDataEditor key={`test-data-${node.id}`} value={node.data.config.testData} onApply={(testData) => updateConfig("testData", testData)} draft={draft.testData} onDraftChange={(next) => onDraftChange("testData", next)} />}
       {effectiveNodeType === "trigger.cron" && (
         <>
@@ -1242,7 +1293,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       <InspectorSection title="Advanced">
         {node.data.category === "action" && <div className="config-field"><label className="checkbox-field"><input type="checkbox" checked={node.data.config.executeOnce === true} onChange={(event) => updateConfig("executeOnce", event.target.checked ? true : undefined)} /> Run once for the first item</label><small>When the previous step returns multiple items, run this action only for the first. No items means this action does not run.</small>{configIssues.find((issue) => issue.field === "executeOnce") && <p className="ui-field__error" role="alert">{configIssues.find((issue) => issue.field === "executeOnce")?.message}</p>}</div>}
         <JsonConfigEditor key={node.id} config={node.data.config} onApply={(config) => updateNodeData(node.id, { config })} draft={draft.json} onDraftChange={(next) => onDraftChange("json", next)} otherPending={draft.filter !== undefined || draft.filterRaw !== undefined || draft.testData !== undefined || draft.structuredOutput !== undefined || draft.relational !== undefined || draft.sheetsMapping !== undefined} />
-        <ExpressionSuggestions suggestions={suggestions} possible={possible} onInsert={insertExpression} />
+        <ExpressionSuggestions suggestions={suggestions} possible={possible} previews={previews} hasUpstream={upstream.size > 0} onInsert={insertExpression} />
       </InspectorSection>
       {nodeExecution && (
         <InspectorSection title="Last execution">

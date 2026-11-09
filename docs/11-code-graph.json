@@ -329,6 +329,9 @@
         "apps/api/src/credentials/google-resource.controller.ts",
         "apps/api/src/credentials/google-resource.service.ts",
         "apps/api/src/credentials/openai-resource.controller.ts",
+        "apps/api/src/credentials/slack-oauth-state.service.ts",
+        "apps/api/src/credentials/slack-oauth.controller.ts",
+        "apps/api/src/credentials/slack-resource.controller.ts",
         "apps/api/src/workspaces/workspace.module.ts"
       ],
       "externalImports": [
@@ -439,13 +442,13 @@
       "id": "apps/api/src/credentials/google-oauth-state.service.ts",
       "boundary": "api",
       "internalImports": [
-        "apps/api/src/credentials/google-oauth-policy.ts"
+        "apps/api/src/credentials/google-oauth-policy.ts",
+        "apps/api/src/credentials/oauth-state-store.ts"
       ],
       "externalImports": [
         "@nestjs/common",
         "express",
-        "ioredis",
-        "node:crypto"
+        "ioredis"
       ]
     },
     {
@@ -501,6 +504,16 @@
       ]
     },
     {
+      "id": "apps/api/src/credentials/oauth-state-store.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "express",
+        "ioredis",
+        "node:crypto"
+      ]
+    },
+    {
       "id": "apps/api/src/credentials/openai-resource.controller.ts",
       "boundary": "api",
       "internalImports": [
@@ -508,6 +521,49 @@
         "apps/api/src/auth/authentication.guard.ts",
         "apps/api/src/credentials/credential.service.ts",
         "apps/api/src/execution/openai-text.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/slack-oauth-state.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/oauth-state-store.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "express",
+        "ioredis"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/slack-oauth.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/auth.service.ts",
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/credentials/slack-oauth-state.service.ts",
+        "apps/api/src/execution/provider-json.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "express"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/slack-resource.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/slack-oauth.ts"
       ],
       "externalImports": [
         "@nestjs/common",
@@ -607,6 +663,7 @@
         "apps/api/src/execution/rss-read.ts",
         "apps/api/src/execution/sentry-observability.ts",
         "apps/api/src/execution/sentry.ts",
+        "apps/api/src/execution/slack-oauth.ts",
         "apps/api/src/execution/smtp-email.ts",
         "apps/api/src/execution/steam-adapter.ts",
         "apps/api/src/execution/steam-operations.ts",
@@ -1340,6 +1397,22 @@
       ]
     },
     {
+      "id": "apps/api/src/execution/slack-oauth.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/connector-config.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-credential-safety.ts",
+        "apps/api/src/execution/provider-json.ts"
+      ],
+      "externalImports": [
+        "@prisma/client",
+        "@workflow/contracts"
+      ]
+    },
+    {
       "id": "apps/api/src/execution/smtp-email.ts",
       "boundary": "api",
       "internalImports": [
@@ -1694,6 +1767,39 @@
       ]
     },
     {
+      "id": "apps/api/src/scheduler/calendar-trigger-protocol.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/google-calendar.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/provider-credential-safety.ts"
+      ],
+      "externalImports": [
+        "@workflow/contracts"
+      ]
+    },
+    {
+      "id": "apps/api/src/scheduler/calendar-trigger.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/execution-queue.service.ts",
+        "apps/api/src/execution/live-readiness.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/redaction.ts",
+        "apps/api/src/platform/background-work.ts",
+        "apps/api/src/scheduler/calendar-trigger-protocol.ts",
+        "apps/api/src/workflows/workflow-graph.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client",
+        "@workflow/contracts",
+        "node:crypto"
+      ]
+    },
+    {
       "id": "apps/api/src/scheduler/cron-scheduler.service.ts",
       "boundary": "api",
       "internalImports": [
@@ -1787,6 +1893,7 @@
       "internalImports": [
         "apps/api/src/credentials/credential.module.ts",
         "apps/api/src/execution/execution.module.ts",
+        "apps/api/src/scheduler/calendar-trigger.service.ts",
         "apps/api/src/scheduler/cron-scheduler.service.ts",
         "apps/api/src/scheduler/gmail-trigger.service.ts",
         "apps/api/src/scheduler/rss-trigger.service.ts"
@@ -2142,6 +2249,7 @@
       "internalImports": [
         "apps/api/src/credentials/credential-references.ts",
         "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/scheduler/calendar-trigger.service.ts",
         "apps/api/src/scheduler/gmail-trigger.service.ts",
         "apps/api/src/scheduler/rss-trigger-poller.ts",
         "apps/api/src/scheduler/rss-trigger.service.ts",
@@ -3771,6 +3879,7 @@
       "id": "packages/workflow-contracts/src/node-config-schemas/triggers.ts",
       "boundary": "contracts",
       "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/google-calendar.ts",
         "packages/workflow-contracts/src/node-config-schemas/steam.ts",
         "packages/workflow-contracts/src/node-config-schemas/types.ts"
       ],
@@ -4207,6 +4316,18 @@
     },
     {
       "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/slack-oauth-state.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/slack-oauth.controller.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/slack-resource.controller.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
       "to": "apps/api/src/workspaces/workspace.module.ts"
     },
     {
@@ -4338,6 +4459,10 @@
       "to": "apps/api/src/credentials/google-oauth-policy.ts"
     },
     {
+      "from": "apps/api/src/credentials/google-oauth-state.service.ts",
+      "to": "apps/api/src/credentials/oauth-state-store.ts"
+    },
+    {
       "from": "apps/api/src/credentials/google-oauth-test-helpers.ts",
       "to": "apps/api/src/credentials/google-oauth-state.service.ts"
     },
@@ -4412,6 +4537,54 @@
     {
       "from": "apps/api/src/credentials/openai-resource.controller.ts",
       "to": "apps/api/src/execution/openai-text.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/slack-oauth-state.service.ts",
+      "to": "apps/api/src/credentials/oauth-state-store.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/slack-oauth.controller.ts",
+      "to": "apps/api/src/auth/auth.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/slack-oauth.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/slack-oauth.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/slack-oauth.controller.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/slack-oauth.controller.ts",
+      "to": "apps/api/src/credentials/slack-oauth-state.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/slack-oauth.controller.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/slack-resource.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/slack-resource.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/slack-resource.controller.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/slack-resource.controller.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/slack-resource.controller.ts",
+      "to": "apps/api/src/execution/slack-oauth.ts"
     },
     {
       "from": "apps/api/src/database/prisma.module.ts",
@@ -4564,6 +4737,10 @@
     {
       "from": "apps/api/src/execution/connector-executors.ts",
       "to": "apps/api/src/execution/sentry.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/slack-oauth.ts"
     },
     {
       "from": "apps/api/src/execution/connector-executors.ts",
@@ -5390,6 +5567,30 @@
       "to": "apps/api/src/execution/sentry-pagination.ts"
     },
     {
+      "from": "apps/api/src/execution/slack-oauth.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/slack-oauth.ts",
+      "to": "apps/api/src/execution/connector-config.ts"
+    },
+    {
+      "from": "apps/api/src/execution/slack-oauth.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/slack-oauth.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/slack-oauth.ts",
+      "to": "apps/api/src/execution/provider-credential-safety.ts"
+    },
+    {
+      "from": "apps/api/src/execution/slack-oauth.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
       "from": "apps/api/src/execution/smtp-email.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
     },
@@ -5794,6 +5995,54 @@
       "to": "apps/api/src/execution/execution-queue.service.ts"
     },
     {
+      "from": "apps/api/src/scheduler/calendar-trigger-protocol.ts",
+      "to": "apps/api/src/execution/google-calendar.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/calendar-trigger-protocol.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/calendar-trigger-protocol.ts",
+      "to": "apps/api/src/execution/provider-credential-safety.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/calendar-trigger.service.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/calendar-trigger.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/calendar-trigger.service.ts",
+      "to": "apps/api/src/execution/execution-queue.service.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/calendar-trigger.service.ts",
+      "to": "apps/api/src/execution/live-readiness.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/calendar-trigger.service.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/calendar-trigger.service.ts",
+      "to": "apps/api/src/execution/redaction.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/calendar-trigger.service.ts",
+      "to": "apps/api/src/platform/background-work.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/calendar-trigger.service.ts",
+      "to": "apps/api/src/scheduler/calendar-trigger-protocol.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/calendar-trigger.service.ts",
+      "to": "apps/api/src/workflows/workflow-graph.ts"
+    },
+    {
       "from": "apps/api/src/scheduler/cron-scheduler.service.ts",
       "to": "apps/api/src/database/prisma.service.ts"
     },
@@ -5936,6 +6185,10 @@
     {
       "from": "apps/api/src/scheduler/scheduler.module.ts",
       "to": "apps/api/src/execution/execution.module.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/scheduler.module.ts",
+      "to": "apps/api/src/scheduler/calendar-trigger.service.ts"
     },
     {
       "from": "apps/api/src/scheduler/scheduler.module.ts",
@@ -6320,6 +6573,10 @@
     {
       "from": "apps/api/src/workflows/workflow.service.ts",
       "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow.service.ts",
+      "to": "apps/api/src/scheduler/calendar-trigger.service.ts"
     },
     {
       "from": "apps/api/src/workflows/workflow.service.ts",
@@ -7604,6 +7861,10 @@
     {
       "from": "packages/workflow-contracts/src/node-config-schemas/trello.ts",
       "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/triggers.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/google-calendar.ts"
     },
     {
       "from": "packages/workflow-contracts/src/node-config-schemas/triggers.ts",

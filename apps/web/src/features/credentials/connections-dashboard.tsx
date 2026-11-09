@@ -46,6 +46,7 @@ export function ConnectionsDashboard() {
 
   const activeWorkspace = useMemo(() => workspaces.find((workspace) => workspace.id === workspaceId), [workspaceId, workspaces]);
   const oauthRecovery = searchParams.get("google_oauth");
+  const slackRecovery = searchParams.get("slack_oauth");
   const recoveryMessages: Record<string, string> = {
     missing_refresh: "Google did not return an offline refresh token. Try again and grant offline access.",
     chat_missing_refresh: "Google did not return an offline refresh token. Try again and grant offline access.",
@@ -127,6 +128,8 @@ export function ConnectionsDashboard() {
           actions={<Button variant="secondary" onClick={() => router.push("/dashboard")}><ArrowLeft size={15} /> Dashboard</Button>}
         />
         {error ? <Status tone="error" className="connections-error">{error}<Button variant="ghost" onClick={() => window.location.reload()}>Retry</Button></Status> : null}
+        {!error && slackRecovery && <Status tone="error" className="connections-oauth-error"><div><strong>Slack connection needs another try</strong><p>{slackRecovery === "denied" ? "Slack authorization was cancelled or denied." : slackRecovery === "unavailable" ? "Slack OAuth is not available. Check the app configuration and try again." : slackRecovery === "rotation_unsupported" ? "This Slack app uses rotating tokens, which are not supported yet. Connect using a compatible app or wait for token rotation support." : "Slack could not complete the connection. For an existing connection, choose the same Slack workspace."}</p></div><Button variant="ghost" onClick={() => router.replace(`/dashboard/connections?workspace=${encodeURIComponent(workspaceId)}`)}>Dismiss</Button></Status>}
+        {!error && searchParams.get("connected") === "slack" && <Status tone="success">Slack workspace connected.</Status>}
         {!error && showRecovery && activeWorkspace ? (
           <Status tone="error" className="connections-oauth-error">
             <div><strong>Google connection needs another try</strong><p>{recoveryMessage} Any existing connection was not changed.</p></div>

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ConfigRules } from "./types";
 import { isSteamAppId } from "./steam";
+import { isCalendarResourceId } from "./google-calendar";
 
 const interval = z.union([z.literal("1"), z.literal("5"), z.literal("15"), z.literal("60"), z.literal(1), z.literal(5), z.literal(15), z.literal(60)]);
 const publicFeed = z.string().refine((value) => {
@@ -23,6 +24,11 @@ export const gmailTrigger: ConfigRules = {
   subject: { schema: z.string().refine((value) => value.trim().length <= 500), message: "Enter a subject filter up to 500 characters." },
   pollMinutes: { schema: interval, message: "Choose a supported polling interval." },
   maxMessages: { schema: z.union([z.literal("10"), z.literal("25"), z.literal("50"), z.literal(10), z.literal(25), z.literal(50)]), message: "Choose a supported message limit." },
+};
+export const calendarTrigger: ConfigRules = {
+  calendarId: { schema: z.string().refine(isCalendarResourceId), required: true, message: "Select a valid Google Calendar." },
+  event: { schema: z.enum(["created", "updated"]), required: true, message: "Choose whether to monitor created or updated events." },
+  pollMinutes: { schema: interval, message: "Choose a supported polling interval." },
 };
 export const telegramTrigger: ConfigRules = {
   event: { schema: z.enum(["all", "message", "channel_post", "callback_query"]), required: true, message: "Choose a supported Telegram event." },

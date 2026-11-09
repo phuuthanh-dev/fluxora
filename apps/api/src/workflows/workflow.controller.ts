@@ -74,6 +74,16 @@ export class WorkflowController {
     return this.workflows.resetRssTrigger(workflowId, requireUserId(request), request.body?.confirmDataGap === true);
   }
 
+  @Get("workflows/:workflowId/calendar-trigger-status")
+  async calendarTriggerStatus(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return this.workflows.calendarTriggerStatus(workflowId, requireUserId(request));
+  }
+
+  @Post("workflows/:workflowId/calendar-trigger-reset")
+  async resetCalendarTrigger(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return this.workflows.resetCalendarTrigger(workflowId, requireUserId(request), request.body?.confirmDataGap === true);
+  }
+
   @Patch("workflows/:workflowId/draft")
   async updateDraft(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
     return { workflow: await this.workflows.updateDraft(workflowId, requireUserId(request), readUpdateInput(request.body)) };

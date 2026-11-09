@@ -7,6 +7,7 @@ import { assertExecutableGraph, parseStoredWorkflowGraph, parseWorkflowGraph, va
 import { systemWorkflowTemplates } from "./system-templates";
 import { GmailTriggerService } from "../scheduler/gmail-trigger.service";
 import { RssTriggerService } from "../scheduler/rss-trigger.service";
+import { CalendarTriggerService, calendarTargets } from "../scheduler/calendar-trigger.service";
 import { canResumeRssCheckpoint, rssFeedUrlHash, rssTargets } from "../scheduler/rss-trigger-poller";
 import { lockGraphCredentials } from "../credentials/credential-references";
 
@@ -20,7 +21,7 @@ const defaultGraph: WorkflowGraph = {
 
 @Injectable()
 export class WorkflowService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService, @Inject(WorkspaceService) private readonly workspaces: WorkspaceService, @Optional() @Inject(GmailTriggerService) private readonly gmailTriggers?: GmailTriggerService, @Optional() @Inject(RssTriggerService) private readonly rssTriggers?: RssTriggerService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService, @Inject(WorkspaceService) private readonly workspaces: WorkspaceService, @Optional() @Inject(GmailTriggerService) private readonly gmailTriggers?: GmailTriggerService, @Optional() @Inject(RssTriggerService) private readonly rssTriggers?: RssTriggerService, @Optional() @Inject(CalendarTriggerService) private readonly calendarTriggers?: CalendarTriggerService) {}
 
   async list(workspaceId: string, userId: string) {
     await this.workspaces.requireOwner(workspaceId, userId);
@@ -127,6 +128,38 @@ export class WorkflowService {
       if (!checkpoints.some((checkpoint) => checkpoint.nodeId === node.id)) checkpoints.push({ nodeId: node.id, state: "ERROR", lastErrorCode: "RSS_CHECKPOINT_MISSING", nextPollAt: null, lastCheckedAt: null, updatedAt: new Date() });
     }
     return { active: workflow.isActive, checkpoints };
+  }
+
+  async calendarTriggerStatus(workflowId: string, userId: string) {
+    const workflow = await this.findOwned(workflowId, userId);
+    if (!workflow.publishedVersion) return { active: workflow.isActive, checkpoints: [] };
+    const checkpoints = await this.prisma.calendarTriggerCheckpoint.findMany({ where: { workflowId, workflowVersionId: workflow.publishedVersion.id }, select: { nodeId: true, state: true, lastErrorCode: true, updatedAt: true } });
+    if (workflow.isActive) for (const node of parseStoredWorkflowGraph(workflow.publishedVersion.graph).nodes.filter((item) => item.type === "trigger.google-calendar.event")) if (!checkpoints.some((checkpoint) => checkpoint.nodeId === node.id)) checkpoints.push({ nodeId: node.id, state: "ERROR", lastErrorCode: "CALENDAR_CHECKPOINT_MISSING", updatedAt: new Date() });
+    return { active: workflow.isActive, checkpoints };
+  }
+
+  async resetCalendarTrigger(workflowId: string, userId: string, confirmDataGap: boolean) {
+    if (!confirmDataGap) throw new BadRequestException({ code: "CALENDAR_RESET_CONFIRM_REQUIRED", message: "Confirm that changes during the gap may be missed." });
+    const workflow = await this.findOwned(workflowId, userId);
+    if (workflow.isActive || !workflow.publishedVersion || !this.calendarTriggers) throw new ConflictException({ code: "CALENDAR_RESET_REQUIRES_INACTIVE", message: "Deactivate the published workflow before resetting its Calendar trigger." });
+    const versionId = workflow.publishedVersion.id;
+    const baselines = await this.calendarTriggers.baselines(workflowId, versionId, workflow.workspaceId, parseStoredWorkflowGraph(workflow.publishedVersion.graph), true);
+    if (!baselines.length) throw new BadRequestException({ code: "CALENDAR_TRIGGER_NOT_FOUND", message: "The published workflow has no Calendar trigger." });
+    await this.prisma.$transaction(async (transaction) => {
+      const locked = await transaction.$queryRaw<Array<{ publishedVersionId: string | null; isActive: boolean; archivedAt: Date | null }>>`SELECT "publishedVersionId", "isActive", "archivedAt" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
+      if (!locked[0] || locked[0].isActive || locked[0].archivedAt || locked[0].publishedVersionId !== versionId) throw new ConflictException({ code: "WORKFLOW_CHANGED", message: "The workflow changed. Reload and try again." });
+      for (const { target, baseline } of baselines) {
+        if (!baseline) throw new ConflictException({ code: "CALENDAR_TRIGGER_CHANGED", message: "Calendar baseline could not be prepared." });
+        const existing = await transaction.calendarTriggerCheckpoint.findUnique({ where: { workflowId_nodeId: { workflowId, nodeId: target.nodeId } } });
+        if (existing?.leaseToken && existing.leaseExpiresAt && existing.leaseExpiresAt > new Date()) throw new ConflictException({ code: "CALENDAR_POLL_IN_PROGRESS", message: "Wait for the current Calendar check to finish before resetting." });
+        await transaction.$executeRaw`UPDATE "Execution" SET status = 'CANCELLED', "completedAt" = NOW() WHERE id IN (SELECT "executionId" FROM "CalendarTriggerDelivery" WHERE "workflowId" = ${workflowId} AND "nodeId" = ${target.nodeId} AND "executionId" IS NOT NULL) AND status = 'QUEUED' AND "startedAt" IS NULL`;
+        if (existing) await transaction.calendarTriggerCheckpoint.delete({ where: { workflowId_nodeId: { workflowId, nodeId: target.nodeId } } });
+        await transaction.calendarTriggerCheckpoint.create({ data: { workflowId, nodeId: target.nodeId, workflowVersionId: versionId, configHash: target.configHash, syncToken: baseline.syncToken } });
+        if (baseline.seen.length) await transaction.calendarTriggerSeen.createMany({ data: baseline.seen.map((item) => ({ workflowId, nodeId: target.nodeId, ...item })) });
+      }
+      await transaction.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "workflow.calendar_checkpoint_reset", targetType: "workflow", targetId: workflowId, metadata: { versionId } } });
+    }, { maxWait: 2000, timeout: 30_000 });
+    return { success: true };
   }
 
   async resetRssTrigger(workflowId: string, userId: string, confirmDataGap: boolean) {
@@ -242,8 +275,18 @@ export class WorkflowService {
       const nextGmail = graph.nodes.find((node) => node.type === "trigger.gmail");
       const previousRss = previous ? rssTargets(workflowId, previous.id, parseStoredWorkflowGraph(previous.graph))[0] : undefined;
       const nextRss = rssTargets(workflowId, draftVersion.id, graph)[0];
+      const previousCalendar = previous ? calendarTargets(workflowId, previous.id, workflow.workspaceId, parseStoredWorkflowGraph(previous.graph))[0] : undefined;
+      const nextCalendar = calendarTargets(workflowId, draftVersion.id, workflow.workspaceId, graph)[0];
       if (locked[0]?.isActive && (nextGmail || previousGmail)) throw new ConflictException({ code: "GMAIL_TRIGGER_DEACTIVATE_TO_PUBLISH", message: "Deactivate the Gmail-triggered workflow before publishing a different version." });
       if (locked[0]?.isActive && (nextRss || previousRss)) throw new ConflictException({ code: "RSS_TRIGGER_DEACTIVATE_TO_PUBLISH", message: "Deactivate the RSS-triggered workflow before publishing a different version." });
+      if (locked[0]?.isActive && (nextCalendar || previousCalendar)) throw new ConflictException({ code: "CALENDAR_TRIGGER_DEACTIVATE_TO_PUBLISH", message: "Deactivate the Calendar-triggered workflow before publishing a different version." });
+      const calendarCheckpoint = previousCalendar ? await transaction.calendarTriggerCheckpoint.findUnique({ where: { workflowId_nodeId: { workflowId, nodeId: previousCalendar.nodeId } } }) : null;
+      if (calendarCheckpoint?.leaseToken && calendarCheckpoint.leaseExpiresAt && calendarCheckpoint.leaseExpiresAt > new Date()) throw new ConflictException({ code: "CALENDAR_POLL_IN_PROGRESS", message: "Wait for the current Calendar check to finish before publishing." });
+      const preserveCalendar = Boolean(calendarCheckpoint && previousCalendar && nextCalendar && previousCalendar.nodeId === nextCalendar.nodeId && calendarCheckpoint.configHash === nextCalendar.configHash);
+      if (calendarCheckpoint && !preserveCalendar && previousCalendar) {
+        const pending = await transaction.$queryRaw<Array<{ pending: boolean }>>`SELECT EXISTS (SELECT 1 FROM "CalendarTriggerDelivery" d JOIN "Execution" e ON e.id = d."executionId" WHERE d."workflowId" = ${workflowId} AND d."nodeId" = ${previousCalendar.nodeId} AND e.status = 'QUEUED' AND e."startedAt" IS NULL) AS pending`;
+        if (pending[0]?.pending) throw new ConflictException({ code: "CALENDAR_PENDING_RUNS", message: "Wait for queued Calendar runs to start before changing this trigger." });
+      }
       const rssRows = previousRss ? await transaction.$queryRaw<Array<{ feedUrlHash: string; state: string; leaseToken: string | null; leaseExpiresAt: Date | null }>>`SELECT "feedUrlHash", "state", "leaseToken", "leaseExpiresAt" FROM "RssTriggerCheckpoint" WHERE "workflowId" = ${workflowId} AND "nodeId" = ${previousRss.nodeId} FOR UPDATE` : [];
       const rssCheckpoint = rssRows[0];
       if (rssCheckpoint?.leaseToken && rssCheckpoint.leaseExpiresAt && rssCheckpoint.leaseExpiresAt > new Date()) throw new ConflictException({ code: "RSS_POLL_IN_PROGRESS", message: "Wait for the current RSS check to finish before publishing." });
@@ -257,6 +300,8 @@ export class WorkflowService {
         where: { id: draftVersion.id },
         data: { status: WorkflowVersionStatus.PUBLISHED, publishedAt: new Date() },
       });
+      if (calendarCheckpoint && previousCalendar && preserveCalendar) await transaction.calendarTriggerCheckpoint.update({ where: { workflowId_nodeId: { workflowId, nodeId: previousCalendar.nodeId } }, data: { workflowVersionId: published.id, leaseToken: null, leaseExpiresAt: null, nextPollAt: null } });
+      else if (calendarCheckpoint && previousCalendar) await transaction.calendarTriggerCheckpoint.delete({ where: { workflowId_nodeId: { workflowId, nodeId: previousCalendar.nodeId } } });
       if (rssCheckpoint && previousRss && preserveRss) {
         await transaction.$executeRaw`UPDATE "RssTriggerCheckpoint" SET "workflowVersionId" = ${published.id}, "leaseToken" = NULL, "leaseExpiresAt" = NULL, "nextPollAt" = NULL, "updatedAt" = NOW() WHERE "workflowId" = ${workflowId} AND "nodeId" = ${previousRss.nodeId}`;
       } else if (rssCheckpoint && previousRss && confirmDiscardRss) {
@@ -297,13 +342,16 @@ export class WorkflowService {
     assertExecutableGraph(graph);
     const gmailNodes = graph.nodes.filter((node) => node.type === "trigger.gmail");
     const rssNodes = graph.nodes.filter((node) => ["trigger.rss.new-item", "trigger.steam.game-news"].includes(node.type));
+    const calendarNodes = graph.nodes.filter((node) => node.type === "trigger.google-calendar.event");
     if (gmailNodes.length && !this.gmailTriggers) throw new BadRequestException({ code: "GMAIL_TRIGGER_UNAVAILABLE", message: "Gmail trigger is unavailable." });
     if (rssNodes.length && !this.rssTriggers) throw new BadRequestException({ code: "RSS_TRIGGER_UNAVAILABLE", message: "RSS trigger is unavailable." });
+    if (calendarNodes.length && !this.calendarTriggers) throw new BadRequestException({ code: "CALENDAR_TRIGGER_UNAVAILABLE", message: "Calendar trigger is unavailable." });
     const baselines = gmailNodes.length ? await this.gmailTriggers!.baseline(workflow.workspaceId, graph) : [];
     const rssBaselines = rssNodes.length ? await this.rssTriggers!.baselines(workflowId, workflow.publishedVersion.id, graph) : [];
+    const calendarBaselines = calendarNodes.length ? await this.calendarTriggers!.baselines(workflowId, workflow.publishedVersion.id, workflow.workspaceId, graph) : [];
     const activatedAt = new Date();
     const updated = await this.prisma.$transaction(async (transaction) => {
-      if (gmailNodes.length || rssNodes.length) {
+      if (gmailNodes.length || rssNodes.length || calendarNodes.length) {
         const locked = await transaction.$queryRaw<Array<{ publishedVersionId: string | null; isActive: boolean; archivedAt: Date | null }>>`SELECT "publishedVersionId", "isActive", "archivedAt" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
         if (!locked[0] || locked[0].isActive || locked[0].archivedAt || locked[0].publishedVersionId !== workflow.publishedVersion!.id) throw new ConflictException({ code: "WORKFLOW_CHANGED", message: "The workflow changed while activating. Reload and try again." });
         for (const baseline of baselines) {
@@ -327,6 +375,18 @@ export class WorkflowService {
             if (baseline.keys.length) await transaction.$executeRaw`INSERT INTO "RssTriggerDelivery" ("workflowId", "nodeId", "itemKey", "lastSeenAt") VALUES ${Prisma.join(baseline.keys.map((key) => Prisma.sql`(${workflowId}, ${target.nodeId}, ${key}, ${activatedAt})`))}`;
           }
         }
+        for (const { target, baseline } of calendarBaselines) {
+          const key = { workflowId_nodeId: { workflowId, nodeId: target.nodeId } };
+          const existing = await transaction.calendarTriggerCheckpoint.findUnique({ where: key });
+          if (existing && (existing.state !== "READY" || existing.workflowVersionId !== target.versionId || existing.configHash !== target.configHash)) throw new ConflictException({ code: "CALENDAR_TRIGGER_RECOVERY_REQUIRED", message: "Review the Calendar trigger before reactivating it." });
+          if (existing?.leaseToken && existing.leaseExpiresAt && existing.leaseExpiresAt > activatedAt) throw new ConflictException({ code: "CALENDAR_POLL_IN_PROGRESS", message: "Wait for the current Calendar check to finish before activating." });
+          if (existing) await transaction.calendarTriggerCheckpoint.update({ where: key, data: { leaseToken: null, leaseExpiresAt: null, nextPollAt: null } });
+          else {
+            if (!baseline) throw new ConflictException({ code: "CALENDAR_TRIGGER_CHANGED", message: "The Calendar trigger changed. Reload and try again." });
+            await transaction.calendarTriggerCheckpoint.create({ data: { workflowId, nodeId: target.nodeId, workflowVersionId: target.versionId, configHash: target.configHash, syncToken: baseline.syncToken } });
+            if (baseline.seen.length) await transaction.calendarTriggerSeen.createMany({ data: baseline.seen.map((item) => ({ workflowId, nodeId: target.nodeId, ...item })) });
+          }
+        }
       }
       const activated = await transaction.workflow.update({
         where: { id: workflowId },
@@ -335,7 +395,7 @@ export class WorkflowService {
       });
       await transaction.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "workflow.activated", targetType: "workflow", targetId: workflowId, metadata: { version: workflow.publishedVersion?.version } } });
       return activated;
-    });
+    }, { maxWait: 2000, timeout: 30_000 });
     return this.serialize(updated);
   }
 

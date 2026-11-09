@@ -39,6 +39,7 @@ export type ApiExecution = {
   completedAt: string | null;
   durationMs: number | null;
   recoveryCount: number;
+  failureAlertOutcome?: "SENT" | "UNCONFIRMED" | null;
   nodeExecutions: ExecutionNodeDetail[];
 };
 
@@ -131,6 +132,7 @@ export function ExecutionDetailsPanel({ executionId, onClose, onSelectNode }: { 
           <div><span>Duration</span><strong>{formatDuration(execution.durationMs)}</strong></div>
           <div><span>Started</span><strong>{formatTimestamp(execution.startedAt ?? execution.createdAt)}</strong></div>
         </section>
+        {execution.failureAlertOutcome === "SENT" ? <Status tone="info">The failure alert was accepted by the provider.</Status> : execution.failureAlertOutcome === "UNCONFIRMED" ? <Status tone="warning"><span>The failure alert has not been confirmed. It may still be in progress, or delivery may have failed; check the destination.</span><Button variant="ghost" onClick={() => void load()}>Refresh status</Button></Status> : null}
         {execution.error ? <Status tone="error" className="execution-observability__run-error"><AlertTriangle size={17} /><span><strong>{execution.error.code}</strong>{execution.error.message ?? "Execution failed."} {execution.error.retryable ? "A manual retry may succeed." : "Fix the workflow or credential before retrying."}</span></Status> : null}
         {execution.nodeExecutions.length === 0 ? <EmptyState icon={<Clock3 size={22} />} title="No node activity yet" description="The run is queued or has not persisted its first node state." /> : <ol className="execution-timeline" aria-label="Node execution timeline">
           {execution.nodeExecutions.map((node) => {

@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildExpressionSuggestions, buildItemExpressionSuggestions, buildPossibleExpressionSuggestions, upstreamNodeIds } from "./expression-suggestions";
+import { buildExpressionPreviews, buildExpressionSuggestions, buildItemExpressionSuggestions, buildPossibleExpressionSuggestions, upstreamNodeIds } from "./expression-suggestions";
+
+test("previews selected output values without expanding objects or unbounded text", () => {
+  const previews = buildExpressionPreviews([{ nodeId: "steam", output: { title: "A game update", long: "x".repeat(120), items: [{ count: 2 }], private: "[REDACTED]" } }]);
+  assert.equal(previews["{{ steps.steam.output.title }}"], "A game update");
+  assert.equal(previews["{{ steps.steam.output.items }}"], "List · 1 items");
+  assert.equal(previews["{{ steps.steam.output.items[0].count }}"], "2");
+  assert.ok(previews["{{ steps.steam.output.long }}"]!.length <= 80);
+  assert.equal(previews["{{ steps.steam.output.private }}"], "[REDACTED]");
+});
 
 test("suggests current item fields for a supported list", () => {
   const node = { id: "read", data: { nodeType: "action.mongodb", config: {} } };

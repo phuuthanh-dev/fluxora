@@ -11,7 +11,7 @@ import "./credentials.css";
 import { CredentialSecretFields } from "./credential-secret-fields";
 import { NodeIcon, type NodeIconName } from "../workflow/node-icon";
 
-const providerIcons: Record<CredentialProvider, NodeIconName> = { GOOGLE: "google", STEAM: "steam", RIOT: "riot-games", GOOGLE_CHAT_WEBHOOK: "google-chat", GOOGLE_CHAT_OAUTH: "google-chat", GMAIL: "gmail", GOOGLE_CALENDAR: "google-calendar", MONGODB: "mongodb", NOTION: "notion", TRELLO: "trello", SENTRY: "sentry", VERCEL: "vercel", SUPABASE: "supabase", REDDIT: "reddit", POSTGRES: "postgres", HTTP: "http", DISCORD_WEBHOOK: "discord", SLACK_WEBHOOK: "slack", TELEGRAM_BOT: "telegram", GITHUB: "github", SMTP: "email", GEMINI: "gemini", OPENAI: "openai" };
+const providerIcons: Record<CredentialProvider, NodeIconName> = { GOOGLE: "google", STEAM: "steam", RIOT: "riot-games", GOOGLE_CHAT_WEBHOOK: "google-chat", GOOGLE_CHAT_OAUTH: "google-chat", GMAIL: "gmail", GOOGLE_CALENDAR: "google-calendar", MONGODB: "mongodb", NOTION: "notion", TRELLO: "trello", SENTRY: "sentry", VERCEL: "vercel", SUPABASE: "supabase", REDDIT: "reddit", POSTGRES: "postgres", HTTP: "http", DISCORD_WEBHOOK: "discord", SLACK_WEBHOOK: "slack", SLACK_OAUTH: "slack", TELEGRAM_BOT: "telegram", GITHUB: "github", SMTP: "email", GEMINI: "gemini", OPENAI: "openai" };
 
 type CredentialPreset = {
   label: string;
@@ -63,6 +63,7 @@ const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
     hint: "Use bearer, basic, or custom-header JSON authentication for HTTP and approval-webhook nodes.",
   },
   SLACK_WEBHOOK: { label: "Slack incoming webhook", data: '{\n  "webhookUrl": ""\n}', hint: "Paste a Slack incoming webhook URL. The webhook posts to the channel selected in Slack." },
+  SLACK_OAUTH: { label: "Slack workspace", data: "{}", hint: "Connect your Slack workspace to choose a channel when sending a message." },
   DISCORD_WEBHOOK: {
     label: "Discord incoming webhook",
     data: '{\n  "webhookUrl": ""\n}',
@@ -87,7 +88,7 @@ const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
 
 type ProviderOption = { value: CredentialProvider | "EMAIL"; label: string; keywords?: string };
 const providerGroups: { label: string; options: ProviderOption[] }[] = [
-  { label: "Communication", options: [{ value: "EMAIL", label: "Email", keywords: "gmail smtp" }, { value: "GOOGLE_CHAT_OAUTH", label: "Google Chat OAuth" }, { value: "GOOGLE_CHAT_WEBHOOK", label: "Google Chat webhook" }, { value: "DISCORD_WEBHOOK", label: "Discord webhook" }, { value: "SLACK_WEBHOOK", label: "Slack webhook" }, { value: "TELEGRAM_BOT", label: "Telegram bot" }] },
+  { label: "Communication", options: [{ value: "EMAIL", label: "Email", keywords: "gmail smtp" }, { value: "GOOGLE_CHAT_OAUTH", label: "Google Chat OAuth" }, { value: "GOOGLE_CHAT_WEBHOOK", label: "Google Chat webhook" }, { value: "DISCORD_WEBHOOK", label: "Discord webhook" }, { value: "SLACK_OAUTH", label: "Slack workspace" }, { value: "SLACK_WEBHOOK", label: "Slack webhook" }, { value: "TELEGRAM_BOT", label: "Telegram bot" }] },
   { label: "Productivity", options: [{ value: "GOOGLE", label: "Google Drive / Sheets" }, { value: "GOOGLE_CALENDAR", label: "Google Calendar" }, { value: "NOTION", label: "Notion" }, { value: "TRELLO", label: "Trello" }] },
   { label: "Developer & data", options: [{ value: "GITHUB", label: "GitHub connector" }, { value: "SENTRY", label: "Sentry" }, { value: "VERCEL", label: "Vercel" }, { value: "SUPABASE", label: "Supabase" }, { value: "MONGODB", label: "MongoDB" }, { value: "POSTGRES", label: "PostgreSQL" }, { value: "HTTP", label: "HTTP" }] },
   { label: "AI", options: [{ value: "GEMINI", label: "Gemini API" }, { value: "OPENAI", label: "OpenAI API" }] },
@@ -112,6 +113,7 @@ function credentialProviderLabel(provider: CredentialProvider) {
     HTTP: "HTTP authentication",
     DISCORD_WEBHOOK: "Discord webhook",
     SLACK_WEBHOOK: "Slack webhook",
+    SLACK_OAUTH: "Slack workspace",
     TELEGRAM_BOT: "Telegram bot",
     GITHUB: "GitHub",
     SMTP: "SMTP email",
@@ -228,6 +230,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
       HTTP: "HTTP",
       DISCORD_WEBHOOK: "Discord",
       SLACK_WEBHOOK: "Slack",
+      SLACK_OAUTH: "Slack workspace",
       TELEGRAM_BOT: "Telegram",
       GITHUB: "GitHub",
       SMTP: "SMTP email",
@@ -397,7 +400,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
   };
 
   const isGoogleOAuth = (cred: CredentialSummary) =>
-    cred.isManaged ?? (cred.provider === "GOOGLE" && cred.label === "Google OAuth");
+    ["GOOGLE", "GOOGLE_CHAT_OAUTH", "GMAIL", "GOOGLE_CALENDAR"].includes(cred.provider) && (cred.isManaged ?? (cred.provider === "GOOGLE" && cred.label === "Google OAuth"));
 
   const currentProvider = provider === "SMTP" || provider === "GMAIL" ? "EMAIL" : provider;
   const matchingProviderGroups = providerGroups.map((group) => ({ ...group, options: group.options.filter((option) => `${option.label} ${option.keywords ?? ""}`.toLowerCase().includes(providerQuery.trim().toLowerCase())) })).filter((group) => group.options.length);
@@ -456,9 +459,9 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
             <option value="SMTP">SMTP (send email)</option>
           </Select>
         </Field> : null}
-        <Field label="Connection name" className="credential-form__field">
+        {provider !== "SLACK_OAUTH" && <Field label="Connection name" className="credential-form__field">
           <input aria-label="Connection name" value={label} onChange={(event) => { setLabel(event.target.value); setCreateError(null); }} />
-        </Field>
+        </Field>}
         {provider === "GOOGLE" ? (
           <div className="credential-form__oauth-helper">
             <span>Google requests access to view, create, edit and delete files in your Drive, including spreadsheets. This connection is separate from Google sign-in.</span>
@@ -476,10 +479,10 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
         {provider === "REDDIT" ? <div className="credential-form__oauth-helper"><span>Reddit has stopped accepting new public Data API access requests and plans to retire remaining access in March 2027. Existing approved apps may still work during the transition.</span><a className="credential-form__oauth-link" href="https://support.reddithelp.com/hc/en-us/articles/54353370049684-Changelog-October-8-2026" target="_blank" rel="noopener noreferrer">Reddit access timeline <ArrowUpRight size={13} aria-hidden="true" /></a></div> : null}
         {provider === "SUPABASE" ? <div className="credential-form__oauth-helper"><span>Find your project reference and API key in the Supabase dashboard. A secret key grants elevated access and bypasses Row Level Security.</span><a className="credential-form__oauth-link" href="https://supabase.com/docs/guides/getting-started/api-keys" target="_blank" rel="noopener noreferrer">Supabase key guide <ArrowUpRight size={13} aria-hidden="true" /></a><a className="credential-form__oauth-link" href="https://supabase.com/docs/guides/platform/personal-access-tokens" target="_blank" rel="noopener noreferrer">Scoped management token guide <ArrowUpRight size={13} aria-hidden="true" /></a></div> : null}
         <p className="credential-form__hint" aria-live="polite">{credentialPresets[provider].hint}</p>
-        <CredentialSecretFields provider={provider} value={data} onChange={(value) => { setData(value); setJsonError(null); setCreateError(null); }} />
+        {provider === "SLACK_OAUTH" ? <div className="credential-form__oauth-helper"><span>Slack lets Fluxora list public channels and send messages as its bot.</span><button type="button" className="credential-form__oauth-link" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/slack/connect`)}>Connect Slack <ArrowUpRight size={13} aria-hidden="true" /></button></div> : <CredentialSecretFields provider={provider} value={data} onChange={(value) => { setData(value); setJsonError(null); setCreateError(null); }} />}
         {jsonError && <p className="credential-form__error" role="alert">{jsonError}</p>}
         {createError && <p className="credential-form__error" role="alert">{createError}</p>}
-        <Button variant="primary" className="run-button" type="submit" disabled={isSaving}>{isSaving ? "Encrypting…" : "Encrypt & save"}</Button>
+        {provider !== "SLACK_OAUTH" && <Button variant="primary" className="run-button" type="submit" disabled={isSaving}>{isSaving ? "Encrypting…" : "Encrypt & save"}</Button>}
       </form>
       </Collapse>
       {loading ? <div className="credential-list-loading" aria-busy="true" aria-label="Loading connections"><Skeleton /><Skeleton /></div> : loadError ? <Status tone="error" role="alert">{loadError}<Button variant="ghost" onClick={() => void load()}>Retry connections</Button></Status> : visibleCredentials.length === 0 ? <EmptyState icon={<KeyRound size={22} />} title={query ? "No matching connections" : "Your connections will appear here"} description={query ? "Try another app or connection name." : "Add an app once, then select it in any compatible workflow node."} action={query ? <Button variant="ghost" onClick={() => setQuery("")}>Clear search</Button> : undefined} /> : (
@@ -498,7 +501,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
                   <span className="credential-card__provider">{credentialProviderLabel(credential.provider)}</span>
                   {credential.hints && credential.hints.length > 0 && <span className="credential-card__hints" aria-label="Saved credential identification">{credential.hints.map((hint) => <span key={hint.field}>{hint.label} <code>{hint.masked}</code></span>)}</span>}
                 </div>
-                {isGoogleOAuth(credential) ? <span className="credential-card__managed-badge">Managed OAuth</span> : null}
+                {isGoogleOAuth(credential) || credential.provider === "SLACK_OAUTH" ? <span className="credential-card__managed-badge">Managed OAuth</span> : null}
                   <Menu
                     label={`Actions for ${credential.label}`}
                     trigger={<MoreVertical size={17} aria-hidden="true" />}
@@ -506,7 +509,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
                     contentClassName="credential-card__menu-content"
                   >
                     {!isGoogleOAuth(credential) ? <button type="button" aria-label={`Rename ${credential.label}`} onClick={() => startRename(credential)}>Rename</button> : null}
-                    {!isGoogleOAuth(credential) ? <button type="button" aria-label={`Rotate secret for ${credential.label}`} onClick={() => startRotate(credential)}>Rotate secret</button> : null}
+                    {!isGoogleOAuth(credential) && credential.provider !== "SLACK_OAUTH" ? <button type="button" aria-label={`Rotate secret for ${credential.label}`} onClick={() => startRotate(credential)}>Rotate secret</button> : null}
                     <button type="button" className="credential-card__menu-delete" aria-label={`Delete ${credential.label}`} onClick={() => startDelete(credential)}>Delete</button>
                   </Menu>
               </div>
@@ -526,6 +529,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
                   </Button>}
                 </div>
               ) : null}
+              {credential.provider === "SLACK_OAUTH" && <div className="credential-card__oauth-managed"><p className="credential-card__oauth-text">Reconnect the same Slack workspace if access expires or is revoked.</p><Button variant="ghost" type="button" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/slack/connect?credentialId=${encodeURIComponent(credential.id)}`)}>Reconnect Slack</Button></div>}
 
               {isRenaming && (
                 <form className="credential-card__form" onSubmit={(event) => void submitRename(event, credential)}>
