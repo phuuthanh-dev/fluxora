@@ -554,3 +554,11 @@ existing notification adapter. A claim does not prove provider delivery: a
 process crash can lose an alert, and ambiguous writes must not be retried.
 Credential reference checks include these settings. Slack uses its own vault
 provider and incoming webhook adapter; the URL is never returned in a receipt.
+
+
+Slack event ingestion reuses WebhookEndpoint, encrypted signing secrets,
+transactional provider delivery identities, ExecutionQueue and queued-delivery
+recovery. No new database table or runtime version is introduced. A challenge
+is signed and accepted before workflow activation; event execution additionally
+requires the current published version and a matching Slack workspace/channel.
+Optional OAuth event permissions are explicit, not added to ordinary reconnect.

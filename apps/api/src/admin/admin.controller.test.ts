@@ -47,3 +47,14 @@ test("administrative execution and audit queries select metadata without payload
   for (const forbidden of ["triggerData", "errorMessage", "metadata", "encryptedData", "tokenHash"]) assert.equal(requested.includes(forbidden), false);
   await assert.rejects(controller.users("x".repeat(81)));
 });
+
+test("admin execution filters are validated and combined without exposing run payloads", async () => {
+  let query: { where: Record<string, unknown> } | undefined;
+  const controller = new AdminController({ execution: { findMany: async (input: { where: Record<string, unknown> }) => { query = input; return []; } } } as never, {} as never);
+  await controller.executions("Steam", "2", "FAILED", "24h");
+  assert.equal(query?.where.status, "FAILED");
+  assert.ok(query?.where.createdAt);
+  assert.ok(query?.where.workflowVersion);
+  await assert.rejects(controller.executions(undefined, undefined, "BROKEN", "24h"));
+  await assert.rejects(controller.executions(undefined, undefined, "FAILED", "forever"));
+});

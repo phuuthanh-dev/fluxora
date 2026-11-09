@@ -2,9 +2,10 @@ import { expect, test } from "@playwright/test";
 
 for (const theme of ["light", "dark"] as const) test(`Slack mapping and failure settings in ${theme} mode`, async ({ page }) => {
   const graph = { nodes: [
+    { id: "ai", type: "action.gemini", position: { x: 250, y: 300 }, config: { prompt: "Synthetic", structuredOutput: true, outputSchema: { type: "object", properties: Object.fromEntries(Array.from({ length: 25 }, (_, i) => [`field${i}`, { type: "string" }])), required: Array.from({ length: 25 }, (_, i) => `field${i}`), additionalProperties: false } } },
     { id: "manual", type: "trigger.manual", position: { x: 100, y: 100 }, config: {} },
     { id: "slack", type: "action.slack.webhook", position: { x: 450, y: 100 }, config: { credentialId: "slack-1", message: "Before after" } },
-  ], edges: [{ id: "edge-1", source: "manual", target: "slack", kind: "success" }] };
+  ], edges: [{ id: "edge-1", source: "manual", target: "ai", kind: "success" }, { id: "edge-2", source: "ai", target: "slack", kind: "success" }] };
   const workflow = { id: "test-wf", workspaceId: "workspace-1", name: "Test workflow", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
   let alert: unknown;
   await page.route("**/api/v1/**", async (route) => {
@@ -23,6 +24,8 @@ for (const theme of ["light", "dark"] as const) test(`Slack mapping and failure 
   const message = page.getByLabel("Message", { exact: true });
   await message.focus();
   await message.evaluate((element: HTMLTextAreaElement) => element.setSelectionRange(7, 7));
+  await expect(page.getByRole("button", { name: "{{ steps.manual.output.received }}", exact: true })).toHaveCount(0);
+  await page.getByLabel("Mapping source step").selectOption("manual");
   await page.getByRole("button", { name: "{{ steps.manual.output.received }}", exact: true }).click();
   await expect(message).toHaveValue("Before {{ steps.manual.output.received }}after");
   await page.getByLabel("Manage actions").click();

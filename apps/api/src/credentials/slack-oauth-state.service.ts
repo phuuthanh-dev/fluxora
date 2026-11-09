@@ -3,7 +3,7 @@ import IORedis from "ioredis";
 import type { Request, Response } from "express";
 import { consumeOAuthState, issueOAuthState } from "./oauth-state-store";
 
-type SlackState = { workspaceId: string; userId: string; credentialId?: string; kind: "slack"; nonce: string; issuedAt: number };
+type SlackState = { workspaceId: string; userId: string; credentialId?: string; eventAccess?: boolean; kind: "slack"; nonce: string; issuedAt: number };
 
 @Injectable()
 export class SlackOAuthStateService implements OnApplicationShutdown {
@@ -16,6 +16,6 @@ export class SlackOAuthStateService implements OnApplicationShutdown {
   }
 
   consume(value: string, request: Request, response: Response) {
-    return consumeOAuthState<SlackState>(value, request, response, this.redis, "slack", (s) => s.kind === "slack" && typeof s.workspaceId === "string" && typeof s.userId === "string" && (s.credentialId === undefined || typeof s.credentialId === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(s.credentialId)));
+    return consumeOAuthState<SlackState>(value, request, response, this.redis, "slack", (s) => s.kind === "slack" && (s.eventAccess === undefined || typeof s.eventAccess === "boolean") && typeof s.workspaceId === "string" && typeof s.userId === "string" && (s.credentialId === undefined || typeof s.credentialId === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(s.credentialId)));
   }
 }

@@ -293,7 +293,7 @@ export class CredentialService {
     return existing;
   }
 
-  async saveSlackOAuth(workspaceId: string, userId: string, data: { accessToken: string; teamId: string; teamName: string }, credentialId?: string) {
+  async saveSlackOAuth(workspaceId: string, userId: string, data: { accessToken: string; teamId: string; teamName: string; grantedScopes?: string[] }, credentialId?: string) {
     await this.workspaces.requireOwner(workspaceId, userId);
     if (!/^xoxb-[A-Za-z0-9-]{10,512}$/.test(data.accessToken) || !/^[A-Z0-9]{2,64}$/.test(data.teamId) || !data.teamName || data.teamName.length > 200) throw new BadRequestException({ code: "SLACK_OAUTH_INVALID", message: "Slack returned an invalid authorization." });
     const encryptedData = this.vault.encrypt(data);

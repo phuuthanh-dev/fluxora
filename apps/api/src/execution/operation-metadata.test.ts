@@ -86,6 +86,7 @@ test("trigger metadata describes the common output wrapper without assuming a pr
   const credentials = new Proxy({}, { get() { throw new Error("Trigger dispatch must not read credentials"); } }) as never;
   const payload = { source: "synthetic", data: { id: 1 } };
   const configurations: Record<string, Record<string, unknown>> = {
+    "trigger.slack.event": { credentialId: "cred", channel: "CEXAMPLE", event: "app_mention" },
     "trigger.cron": { expression: "0 9 * * *", timezone: "UTC" },
     "trigger.google-calendar.event": { credentialId: "cred", calendarId: "primary", event: "created", pollMinutes: "5" },
     "trigger.rss.new-item": { url: "https://example.test/feed.xml" },

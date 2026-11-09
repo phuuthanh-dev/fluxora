@@ -89,6 +89,7 @@ const definitions = {
   "trigger.rss.new-item": trigger(none, "read", triggerOutput),
   "trigger.steam.game-news": trigger(none, "read", triggerOutput),
   "trigger.telegram.update": trigger(conditional, "read", triggerOutput),
+  "trigger.slack.event": trigger(credential("SLACK_OAUTH"), "read", triggerOutput),
   "trigger.vercel.deployment": trigger(conditional, "read", triggerOutput),
   "trigger.trello.board-action": trigger(conditional, "read", triggerOutput),
   "trigger.sentry.issue-created": trigger(conditional, "read", triggerOutput),

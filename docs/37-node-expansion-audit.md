@@ -959,3 +959,38 @@ sách riêng trước khi cam kết. Không có provider thật được gọi t
 ### Steam community-node parity — implementation scope
 
 The source of [n8n-nodes-steam](https://github.com/dhayab/n8n-nodes-steam) registers seven operations: profile, friends, badges, vanity resolution, owned games, recent games and achievements; its README lists only five. Fluxora exposes these through the new `action.steam` operation selector and retains `action.steam.account-snapshot` unchanged for existing graphs. The new node returns `{ operation, result }`, not the n8n output contract. It uses the selected workspace Steam API key; the node Steam ID overrides the connection ID when provided. The achievement game picker uses visible owned games (up to 100 shown) with a manual App ID/expression fallback; this does not establish ownership or bypass privacy. Operation inputs and errors are validated server-side; responses over 1 MB fail instead of being silently truncated. No automatic live-provider qualification, Steam webhook, publisher-only write, private data access or whole-Steam-API coverage is implied by parity with these seven operations.
+
+
+## Approved roadmap follow-up — 2026-11-09
+
+Source comparison:
+- [n8n Slack Trigger](https://docs.n8n.io/integrations/builtin/trigger-nodes/n8n-nodes-base.slacktrigger/): event selection, channel discovery and signing verification.
+- [Slack Events API](https://docs.slack.dev/apis/events-api/): signed URL challenge, fast acknowledgement and retries identified by event ID.
+- [Slack request verification](https://docs.slack.dev/authentication/verifying-requests-from-slack/): HMAC over raw request bytes and a bounded timestamp window.
+- [n8n Merge](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.merge/): waits for connected input streams; Append and Combine are distinct operations.
+
+Implemented scope awaiting final batch verification: Slack human messages in
+one public channel or app mentions; OAuth-backed channel picker; separate
+published endpoint registration with imported encrypted Signing Secret;
+mandatory HMAC and five-minute replay checks; event-ID deduplication using the
+existing transaction/queue/recovery path. Bot/system/edit/delete events are
+ignored to prevent feedback loops. Durable acceptance precedes acknowledgement;
+queue interruptions are recovered by the existing recovery model. Slack's
+three-second response requirement is a live performance qualification item,
+not a guarantee from unit tests. The current endpoint shape supports one
+workflow destination per Slack app (Slack accepts one Events Request URL),
+not app-wide fanout. Extra events/files/reactions/private-channel subscriptions
+and cross-workspace distribution are not claimed as implemented. The owner
+explicitly deferred real Slack Trigger tests and additional permission grants.
+
+Mapping improvement fixes an actual 18-field cap hiding later upstream nodes:
+choose a source step to scope sample/possible fields before the cap. Runtime
+expressions and `$json` meaning are unchanged. Failed-run details link directly
+to the first unhandled failed node; existing per-node diagnostics are reused.
+
+Merge decision: do not disguise an ordinary node with two incoming edges as
+Merge. The runner selects the first available incoming item stream and visits
+a node once; a real join needs explicit input identities, arrival/skip/error
+rules and durable resumption. A later narrow proposal should begin with two
+inputs and Append only, with conditional-branch and approval-resume tests.
+This batch is an investigation, not an engine overhaul or n8n-parity claim.

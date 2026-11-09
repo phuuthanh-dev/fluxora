@@ -52,6 +52,10 @@ export function validatePublishableGraph(graph: WorkflowGraph) {
   try { rssTargets("", "", graph); }
   catch (error) { if (error instanceof NodeFailure) throw new BadRequestException({ code: error.code, message: error.message }); throw error; }
   for (const node of graph.nodes) {
+    if (node.type === "trigger.slack.event") {
+      const issue = nodeConfigIssues(node.type, node.config, "resolved")[0];
+      if (issue || typeof node.config.credentialId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(node.config.credentialId)) invalid(issue?.message ?? "Select a Slack connection before publishing.");
+    }
     if (node.type === "trigger.cron") validateCronConfig(node.config);
     if (node.type === "condition.if") validateStaticChoice(node.config.operator, ["equals", "not_equals", "contains", "exists"], "Choose a supported If operator before publishing.");
     if (node.type === "approval.request") validateStaticChoice(node.config.notificationProvider, ["google_chat", "http_webhook"], "Choose a supported approval notification provider before publishing.", false);

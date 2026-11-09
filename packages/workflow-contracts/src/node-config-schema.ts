@@ -19,7 +19,7 @@ import { gmailGet, gmailLabel, gmailRead, gmailReply, gmailSend, gmailUpdateDraf
 import { calendarAvailability, calendarCreate, calendarEvent, calendarList, calendarUpdate } from "./node-config-schemas/google-calendar";
 import { postgresSelect, supabaseInsert, supabaseSelect } from "./node-config-schemas/relational";
 import { riotLol, riotTft } from "./node-config-schemas/riot";
-import { slackMessage, slackWebhook } from "./node-config-schemas/slack";
+import { slackMessage, slackWebhook, slackTrigger } from "./node-config-schemas/slack";
 import { discordWebhook } from "./node-config-schemas/discord";
 import { calendarTrigger, cron, githubTrigger, gmailTrigger, manual, rssTrigger, steamNewsTrigger, sentryTrigger, telegramTrigger, trelloTrigger, uptimeTrigger, vercelTrigger, webhookTrigger } from "./node-config-schemas/triggers";
 import { approval, editFields, ifCondition, switchCondition } from "./node-config-schemas/flow";
@@ -103,6 +103,7 @@ const rules: Readonly<Record<string, ConfigRules>> = {
   "action.discord.webhook": discordWebhook,
   "action.slack.webhook": slackWebhook,
   "action.slack.message": slackMessage,
+  "trigger.slack.event": slackTrigger,
   "trigger.manual": manual,
   "trigger.cron": cron,
   "trigger.webhook": webhookTrigger,

@@ -268,3 +268,17 @@ For future additions to the purchased Relay adoption:
    template values through feature CSS;
 5. visually review the landing before app surfaces at desktop widths;
 6. run `npm run verify` and record any intentional deviations here.
+
+
+### Platform administration (2026-11-09)
+
+`/admin` and `/admin/{users,workspaces,workflows,executions,audit,support}`
+form a separate global area. Do not place a workspace selector above global
+metrics. Reuse landing-derived brand tokens, product Gilroy typography,
+BrandLockup, ThemeToggle and shared Button/Menu/Dialog/Status/PageHeader.
+Admin composition belongs in `features/admin/admin.css`; no parallel palette,
+component library, marketing display font or decorative canvas. Tables use
+12–14px labels/body, 17px card headings and tabular metrics. Both themes use
+semantic text/status tokens; colors are never the sole status indicator.
+Keep row actions in a labelled menu and require an explicit confirmation for
+account mutations. The current administrator cannot disable their own access.

@@ -6,19 +6,35 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-09
 
-- Owner-approved admin and connector batch is recorded in `.agent/tasks/2026-11-09-admin-calendar-slack.md`. Production Slack OAuth was unavailable because the three Slack environment variables were absent; the owner-authorized existing values were configured, OAuth completed, and one test message to the authorized channel succeeded. The test workflow was deactivated. Cross-workspace distribution remains unavailable pending Slack prerequisites.
-- A targeted Calendar poll originally treated three old events as newly created; their provider creation times predated activation. The trigger now uses the creation time and a baseline timestamp; the regression passed against an isolated database and a second local live test produced one successful execution for its new event. The test workflow was deactivated and event deleted. Production polling and updated events remain unqualified.
-- Platform administrator access is separately enforced by the API using an operator-configured user ID, never a workspace role. The local admin center supports metadata-only operations, sign-in suspension and session revocation; support/deletion requests remain manual. Final isolated `npm run verify` passed 1,097 API, 75 web and 220 browser tests. Local scheduler remains disabled. Release and deployment are not implied by this local result.
-- PR #109 merged as `1870b34` and production deployment succeeded. Steam news
-  trigger, editor click-to-insert, opt-in workflow failure alerts and Slack
-  incoming webhooks passed isolated verify (1,080 API, 74 web and 218
-  Playwright tests). These newer features have not been qualified with real
-  providers by that release check.
-- Failure alerts are intentionally at-most-once and best-effort, not a durable
-  notification guarantee; Steam checks are bounded to ten news entries.
-- The owner has approved a new batch covering mapping, Edit Fields, a Calendar
-  trigger and Slack OAuth; see `.agent/tasks/2026-11-09-mapping-calendar-slack.md`.
-  Real provider sends require an identified authorized destination.
+- Released baseline: PR #111 merged as `a9e74f9`; main Quality gate
+  `42582378612` and deploy `42584017265` succeeded. Admin authorization,
+  Slack OAuth/send and Calendar created/updated polling already exist.
+- Current batch: `.agent/tasks/2026-11-09-admin-slack-trigger.md`. Local edits
+  add signed Slack message/mention events through existing durable webhook
+  acceptance, separate `/admin/*` navigation and landing-core themed tables,
+  execution filters and account menus, source selection for mapping and a
+  shortcut to inspect an unhandled failed node. No schema migration, new UI
+  dependency, unrelated app, secret rotation or workflow deletion.
+- Local final-batch verification passed harness/security, typecheck/build,
+  1,102 API tests (one optional test skipped) and 75 web tests. The full E2E
+  run passed 219/221; the two new tests failed due to fixtures/selectors,
+  were corrected, and each passed a targeted rerun. The full local command
+  therefore exited nonzero; full CI must pass on the final PR before merge.
+  This snapshot is pre-release: check the develop-to-main PR and its deploy
+  before proposing repeat work. The owner deferred real Slack Trigger testing: do not
+  change Slack permissions or Events URL in this batch. Existing Slack
+  production OAuth and one channel send were previously qualified; public
+  distribution to other Slack workspaces remains disabled.
+- Calendar updated-event qualification passed locally on November 9: one
+  controlled event update produced execution `9080fed1-e61a-4981-b6b9-1623b04ad7f9`
+  with `SUCCEEDED`; a second poll produced no duplicate. Test workflow
+  `881cc871-b7ea-4fd6-a7fb-8a6a3ebbb1eb` is inactive and the temporary event was
+  deleted. Dispatch used the actual runner in controlled inline mode; global
+  scheduling stayed disabled. This complements the created-event check from
+  PR #111, not production polling or sustained-reliability evidence.
+- Merge investigation: n8n waits for multiple input streams. Fluxora's
+  current first incoming item stream is not Merge. No Merge node is claimed
+  or added through an unrelated engine redesign; see docs/37.
 
 ## Previous snapshot — 2026-11-08
 
@@ -733,17 +749,17 @@ one of these IDs or explicitly reopen a completed ledger slice.
 
 | ID | Outcome | Status | Owner/evidence boundary |
 |---|---|---|---|
-| `ADMIN-1` | Minimal platform administration and user operations | pending | Owner approved platform admin, read-only operational views and measured account management on 2026-11-09. Reuse existing workspace access boundaries; no secret disclosure or unrequested features. |
-| `APP-EXPANSION-1` | Deepen existing app operations and remaining qualification; initial seven-app implementation and app discovery already exist | pending | Do not rebuild initial nodes. See docs/35 for latest live evidence and docs/37 for operation/trigger/auth/UX gaps and priorities. Reddit access remains blocked; future live calls require owner-authorized resources. |
+| `ADMIN-1` | Platform administration UI qualification | pending | Backend and initial UI released in PR #111. Current approved follow-up separates global navigation and improves tables, filters and actions using the landing design core; both themes and menus visually checked and corrected E2E passed locally. Release requires final PR CI. |
+| `APP-EXPANSION-1` | Deepen existing app operations and remaining qualification; initial seven-app implementation and app discovery already exist | pending | Do not rebuild initial nodes. See docs/35 for latest live evidence and docs/37 for operation/trigger/auth/UX gaps and priorities. Slack message/mention Trigger is implemented and covered in the November 9 batch; the owner deferred live qualification. Reddit access remains blocked; future live calls require owner-authorized resources. |
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
 | `CONNECTOR-LIVE-2` | Remaining Google, GitHub and SMTP live qualification | pending | Drive upload/read, Sheets append/read/update, GitHub create issue/comment/label and one Gmail SMTP delivery to the intended inbox succeeded on owner-approved test resources. Local Google refresh is inferred from a credential update during a successful demo run; production refresh, GitHub PR merge and sustained delivery remain unverified. See the 2026-10-31 connector reports and 2026-11-01 recovery report. |
 | `AI-GEMINI-1` | Qualify the existing Gemini connector across models and production | pending | Local live generation with Gemini 3.1 Flash Lite succeeded again on 2026-11-07; earlier 2.5 Flash and 3.8 Flash requests failed. Causes, other models and sustained or production behavior remain unverified. See `.agent/reports/2026-10-31-gemini-live.md`. |
 | `AI-OPENAI-1` | Qualify the existing OpenAI connector with an authorized live test | pending | Implemented and verified locally; owner deferred real-provider testing. Migration applied only to local database. |
-| `EDITOR-QUALIFICATION-1` | Audit credential status, picker, validation and mock/live node-debug UX | pending | PR #103 improved result-format controls and debug wording; reuse its verified work and inspect only remaining evidenced gaps. |
+| `EDITOR-QUALIFICATION-1` | Audit credential status, picker, validation and mock/live node-debug UX | pending | PR #103 improved result-format controls and debug wording. November 9 adds mapping source selection and failed-node inspection, covered by E2E; reuse this work and inspect only remaining evidenced gaps. |
 | `NOTION-1` | Qualify and selectively extend the existing Notion connector | pending | Search pages implemented in PR #56; live search qualified once locally. More operations and production qualification remain. |
 | `POSTGRES-1` | Qualify and selectively extend the existing PostgreSQL connector | pending | Select rows implemented in PR #56; one local Supabase PostgreSQL LIVE workflow read succeeded with verified TLS and a one-row limit. Production qualification, sustained behavior and further operations remain. |
 | `GMAIL-1` | Qualify existing Gmail operations and trigger; evaluate push separately | pending | Released in PR #57. Gmail Read and one targeted local trigger poll succeeded against a test email; sustained polling and restricted-scope approval remain. Pub/Sub push is not implemented. See `.agent/reports/2026-11-01-gmail-trigger-calendar-expansion.md`. |
-| `CALENDAR-1` | Qualify existing Calendar actions and trigger | pending | Calendar polling trigger released in PR #110. One controlled local event-created execution succeeded; three additional changes were observed in that poll and require investigation. Production polling and updated events remain unqualified. |
+| `CALENDAR-1` | Qualify existing Calendar actions and trigger | pending | Calendar polling trigger released in PR #110. PR #111 fixed the old-event baseline classification; one new-event local execution succeeded after that fix. One local updated-event execution and duplicate suppression passed on November 9 using controlled inline dispatch. Production polling and sustained behavior remain unqualified. |
 | `EMAIL-UX-1` | Qualify existing Gmail and SMTP connection UX | pending | Released in PR #57; Gmail and SMTP keep separate providers and nodes. Further UX qualification remains separate. |
 
 ## Closed boundary

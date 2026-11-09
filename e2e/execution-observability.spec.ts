@@ -24,7 +24,7 @@ test("canvas distinguishes successful, failed and skipped nodes without changing
   const response = page.waitForResponse((result) => result.request().method() === "POST" && /\/workflows\/[^/]+\/executions$/.test(new URL(result.url()).pathname));
   await page.getByRole("button", { name: "Run test", exact: true }).click();
   const { execution } = await (await response).json();
-  const snapshot = { ...execution, status: "FAILED", nodeExecutions: execution.graph.nodes.map((node: { id: string; type: string }, index: number) => ({ nodeId: node.id, nodeType: node.type, status: ["SUCCEEDED", "SKIPPED", "FAILED"][index], attempt: 1, input: null, output: null, error: index === 2 ? { code: "HTTP_ERROR", message: "Google Chat returned 403.", retryable: false } : null, startedAt: null, completedAt: null, durationMs: null, failureHandling: null, skipReason: null, items: [] })) };
+  const snapshot = { ...execution, status: "FAILED", error: { code: "HTTP_ERROR", message: "Google Chat returned 403.", retryable: false }, nodeExecutions: execution.graph.nodes.map((node: { id: string; type: string }, index: number) => ({ nodeId: node.id, nodeType: node.type, status: ["SUCCEEDED", "SKIPPED", "FAILED"][index], attempt: 1, input: null, output: null, error: index === 2 ? { code: "HTTP_ERROR", message: "Google Chat returned 403.", retryable: false } : null, startedAt: null, completedAt: null, durationMs: null, failureHandling: null, skipReason: null, items: [] })) };
   await page.route(`**/executions/${execution.id}*`, (route) => route.fulfill({ json: { execution: snapshot } }));
   await page.goto(`/editor?workflow=${encodeURIComponent(execution.workflowId)}&execution=${encodeURIComponent(execution.id)}`);
   await expect(page.getByRole("img", { name: "Last run: Succeeded" })).toHaveCount(1);
@@ -38,6 +38,9 @@ test("canvas distinguishes successful, failed and skipped nodes without changing
   }
   await page.getByRole("button", { name: "Run details", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Execution details" }).getByText(/Check that the incoming webhook exists in the intended Google Chat space/)).toBeVisible();
+  await page.getByRole("button", { name: "Inspect failed node", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Execution details" })).toHaveCount(0);
+  await expect(page.locator("#node-inspector").getByText("Google Chat returned 403.", { exact: false }).first()).toBeVisible();
 });
 
 test("handled and unhandled item failures appear on the canvas after mock runs", async ({ page }) => {

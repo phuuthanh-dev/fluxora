@@ -1,3 +1,4 @@
+import { SlackDeliveryRecoveryService } from "./slack-delivery-recovery.service";
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
 import { CredentialModule } from "../credentials/credential.module";
@@ -23,6 +24,7 @@ import { LegacyDeliveryRecoveryService } from "./legacy-delivery-recovery.servic
     KumaDeliveryRecoveryService,
     TelegramDeliveryRecoveryService,
     VercelDeliveryRecoveryService,
+    SlackDeliveryRecoveryService,
     TrelloDeliveryRecoveryService,
     SentryDeliveryRecoveryService,
     LegacyDeliveryRecoveryService,
