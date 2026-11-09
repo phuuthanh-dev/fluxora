@@ -307,6 +307,47 @@
 .ui-menu__trigger { align-items: center; cursor: pointer; display: inline-flex; gap: 7px; list-style: none; }
 .ui-menu__trigger::-webkit-details-marker { display: none; }
 .ui-menu__trigger:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+/* A Menu owns its popup surface. Feature classes may adjust its placement. */
+:where(.ui-menu__content) {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  display: grid;
+  gap: 4px;
+  min-width: 200px;
+  max-width: calc(100vw - 32px);
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-soft);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: left;
+}
+.ui-menu__content > [role="menuitem"] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.ui-menu__content > [role="menuitem"] > svg { flex-shrink: 0; }
+.ui-menu__content > [role="menuitem"]:hover:not(:disabled) { background: var(--surface-inset); }
+.ui-menu__content > [role="menuitem"]:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; background: var(--surface-inset); }
+.ui-menu__content > [role="menuitem"][data-tone="danger"] { color: var(--semantic-danger); }
+.ui-menu__content > [role="menuitem"]:disabled { cursor: not-allowed; opacity: .5; }
 .ui-dialog { color: var(--text-on-dark); font-size: var(--text-md); line-height: 1.55; overscroll-behavior: contain; }
 .ui-dialog :is(h2, h3) { text-wrap: balance; }
 .ui-dialog button { flex-shrink: 0; }

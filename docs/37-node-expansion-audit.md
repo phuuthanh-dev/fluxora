@@ -969,7 +969,7 @@ Source comparison:
 - [Slack request verification](https://docs.slack.dev/authentication/verifying-requests-from-slack/): HMAC over raw request bytes and a bounded timestamp window.
 - [n8n Merge](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.merge/): waits for connected input streams; Append and Combine are distinct operations.
 
-Implemented scope awaiting final batch verification: Slack human messages in
+Released in PR #112 (`07ec915`), with passing CI and deployment: Slack human messages in
 one public channel or app mentions; OAuth-backed channel picker; separate
 published endpoint registration with imported encrypted Signing Secret;
 mandatory HMAC and five-minute replay checks; event-ID deduplication using the

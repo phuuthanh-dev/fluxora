@@ -6,25 +6,28 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-09
 
-- Released baseline: PR #111 merged as `a9e74f9`; main Quality gate
-  `42582378612` and deploy `42584017265` succeeded. Admin authorization,
-  Slack OAuth/send and Calendar created/updated polling already exist.
-- Current batch: `.agent/tasks/2026-11-09-admin-slack-trigger.md`. Local edits
-  add signed Slack message/mention events through existing durable webhook
-  acceptance, separate `/admin/*` navigation and landing-core themed tables,
-  execution filters and account menus, source selection for mapping and a
-  shortcut to inspect an unhandled failed node. No schema migration, new UI
-  dependency, unrelated app, secret rotation or workflow deletion.
-- Local final-batch verification passed harness/security, typecheck/build,
-  1,102 API tests (one optional test skipped) and 75 web tests. The full E2E
-  run passed 219/221; the two new tests failed due to fixtures/selectors,
-  were corrected, and each passed a targeted rerun. The full local command
-  therefore exited nonzero; full CI must pass on the final PR before merge.
-  This snapshot is pre-release: check the develop-to-main PR and its deploy
-  before proposing repeat work. The owner deferred real Slack Trigger testing: do not
-  change Slack permissions or Events URL in this batch. Existing Slack
-  production OAuth and one channel send were previously qualified; public
-  distribution to other Slack workspaces remains disabled.
+- Released baseline: PR #112 merged as `07ec915`. PR Quality gate
+  `42593602113`, main Quality gate `42595607603` (221 E2E) and production
+  deploy `42597185351` succeeded. Separate Admin navigation, Slack signed
+  message/mention triggers, mapping source selection and failed-node inspection
+  are released; do not implement them again from older pre-release notes.
+- Current owner-requested reopen of `ADMIN-1`: the Users screenshot and local
+  browser show unstyled inline menu actions. Shared Menu had interaction logic
+  but no default popup/item styles; the existing E2E checked actions but not
+  their visual layout. This batch adds the shared surface, compact Admin row
+  actions, separate date/time, shared execution-filter controls, semantic danger styling and layout/focus/paint
+  assertions. Dashboard workflow menus reuse the same surface without a nested
+  popup. No API, schema, permissions, provider or runtime behavior changes.
+  Final targeted Admin E2E passed (one scenario covers both themes, cold route load,
+  stable row geometry, first/last-row menu visibility, keyboard focus, cancel-without-
+  mutation and filters). Root typecheck passed; after the final Select fix, web
+  typecheck/lint passed again. Code-graph freshness and diff checks passed. Manual
+  browser review covered all seven Admin routes and existing workflow/account/credential
+  menus. No new test account, workspace or provider data was created. This local UI fix
+  has not been pushed or deployed; the full release gate has not been rerun for it.
+- Real Slack Trigger testing remains deferred by the owner: do not change
+  scopes or Events URL. Slack production OAuth and one channel send were
+  previously qualified; distribution to other Slack workspaces is disabled.
 - Calendar updated-event qualification passed locally on November 9: one
   controlled event update produced execution `9080fed1-e61a-4981-b6b9-1623b04ad7f9`
   with `SUCCEEDED`; a second poll produced no duplicate. Test workflow
@@ -749,7 +752,7 @@ one of these IDs or explicitly reopen a completed ledger slice.
 
 | ID | Outcome | Status | Owner/evidence boundary |
 |---|---|---|---|
-| `ADMIN-1` | Platform administration UI qualification | pending | Backend and initial UI released in PR #111. Current approved follow-up separates global navigation and improves tables, filters and actions using the landing design core; both themes and menus visually checked and corrected E2E passed locally. Release requires final PR CI. |
+| `ADMIN-1` | Platform administration UI qualification | pending | Independent Admin area released in PR #112. Reopened by the owner screenshot: shared Menu lacked default popup/item styling. Current local fix covers menus, dates and filter controls; see latest snapshot for checks and release status. |
 | `APP-EXPANSION-1` | Deepen existing app operations and remaining qualification; initial seven-app implementation and app discovery already exist | pending | Do not rebuild initial nodes. See docs/35 for latest live evidence and docs/37 for operation/trigger/auth/UX gaps and priorities. Slack message/mention Trigger is implemented and covered in the November 9 batch; the owner deferred live qualification. Reddit access remains blocked; future live calls require owner-authorized resources. |
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
 | `CONNECTOR-LIVE-2` | Remaining Google, GitHub and SMTP live qualification | pending | Drive upload/read, Sheets append/read/update, GitHub create issue/comment/label and one Gmail SMTP delivery to the intended inbox succeeded on owner-approved test resources. Local Google refresh is inferred from a credential update during a successful demo run; production refresh, GitHub PR merge and sustained delivery remain unverified. See the 2026-10-31 connector reports and 2026-11-01 recovery report. |
