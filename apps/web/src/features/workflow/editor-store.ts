@@ -92,6 +92,8 @@ export const useWorkflowEditorStore = create<WorkflowEditorState>((set, get) => 
       const state = get();
       const kind = edgeKindFromHandle(connection.sourceHandle);
       if (!kind || !connection.source || !connection.target) return;
+      const target = state.nodes.find((node) => node.id === connection.target);
+      if (target?.data.nodeType === "action.merge" && (!["input1", "input2"].includes(connection.targetHandle ?? "") || state.edges.some((edge) => edge.target === target.id && edge.targetHandle === connection.targetHandle))) return;
       const source = state.nodes.find((node) => node.id === connection.source);
       const caseValue = kind === "case" && source?.data.nodeType === "condition.switch"
         ? nextUnmappedSwitchCase(source.data.config, state.edges.filter((edge) => edge.source === connection.source && edge.kind === "case"))

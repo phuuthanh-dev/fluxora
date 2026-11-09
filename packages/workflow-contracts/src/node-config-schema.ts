@@ -123,6 +123,7 @@ const rules: Readonly<Record<string, ConfigRules>> = {
   "condition.if": ifCondition,
   "condition.switch": switchCondition,
   "action.edit-fields": editFields,
+  "action.merge": {},
   "approval.request": approval,
 };
 
@@ -148,6 +149,7 @@ function containsExpression(value: unknown): boolean {
 export function nodeConfigIssues(type: string, config: Record<string, unknown>, phase: "static" | "resolved"): NodeConfigIssue[] {
   const nodeRules = Object.hasOwn(rules, type) ? rules[type] : undefined;
   const issues: NodeConfigIssue[] = [];
+  if (type === "action.merge" && Object.keys(config).length) return [{ field: "config", message: "Merge appends both inputs; it has no configurable settings." }];
   if (type.startsWith("action.") && Object.hasOwn(config, "executeOnce") && typeof config.executeOnce !== "boolean") {
     issues.push({ field: "executeOnce", message: "Run once must be on or off." });
   }

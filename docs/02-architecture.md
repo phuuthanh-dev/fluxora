@@ -56,11 +56,39 @@ The implementation stores bounded per-item state in `NodeExecutionItem`, with
 links to the immediate parent item and redacted inputs and outputs. It processes
 items sequentially; without a connected Error output, it stops on an error and marks unstarted items skipped. Lease
 loss or cancellation does not replay an in-flight write. Before any node runs,
-the runner rejects unsupported joins, approval and action error paths after a
-list. This subset has a maximum of 100 items and 1 MB of item data per
+the runner rejects implicit item joins and approval nodes after a list. Explicit
+Merge Append joins and handled action errors are supported. This subset has a maximum of 100 items and 1 MB of item data per
 node; no exactly-once guarantee or automatic replay of successful writes is
 implied. PR #94 passed verification and deployment checks; provider delivery
 was not exercised by those checks.
+
+### Two-input Append Merge (owner-approved 2026-11-09)
+
+`action.merge` uses two named edge target handles (`input1`, `input2`), validated
+in the shared graph contract, editor and API. Drafts may be incomplete; publish
+and execution require exactly one connection on each port. No configuration
+panel modes, extra queue, migration or version compatibility layer is introduced.
+
+The existing longest-path ordering schedules both upstream branches before the
+join. Only selected edges carry data; skipped branches contribute zero items.
+Empty lists skip ordinary downstream actions and settle the next reachable
+Merge. Append concatenates Input 1 then Input 2, with the existing combined
+100-item/1 MB limit, sequential item history and immediate-parent provenance.
+Unhandled errors stop the execution; handled Error items can enter Merge on a
+separate port. An empty Merge succeeds with count zero and does not run actions
+after it. Cancellation and lease fencing continue to govern every persisted item.
+
+On approval continuation, completed source/item receipts reconstruct the selected
+edge streams; providers are never replayed to reconstruct input. Restored items
+carry the existing persisted-input redaction guard through Merge/conditions.
+Expressions cannot consume redacted values as real input. Malformed stored input
+fails closed. Approval *inside* an item stream remains unsupported; an approval
+on a separate scalar branch can delay a join. A Merge is tested with the whole
+workflow, because standalone node debugging has no two branch inputs.
+
+Reference: [n8n Merge Append](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.merge/)
+for ordered concatenation and waiting for inputs. This is a bounded two-input
+subset; it does not claim n8n's other merge modes or complete execution parity.
 
 ### Delivery safety (NX-01)
 

@@ -3,19 +3,19 @@ import { NodeFailure } from "./node-failure";
 
 export const maximumOutputItems = 100;
 export const maximumItemBytes = 1_000_000;
-export type WorkflowItem = { json: Record<string, unknown>; pairedItem?: { nodeId: string; itemIndex: number } };
+export type WorkflowItem = { json: Record<string, unknown>; pairedItem?: { nodeId: string; itemIndex: number }; persisted?: boolean };
 
 export function isCollectionProducer(node: WorkflowNode, config: Record<string, unknown>): boolean {
   return getItemCollectionField(node.type, config) !== undefined;
 }
 
-/** Validate item paths before any node runs. Joins and pauses are not supported. */
+/** Validate item paths before any node runs. Only explicit Append Merge joins are supported; item approvals are not. */
 export function assertSupportedItemPath(graph: WorkflowGraph, sourceId: string, allowSourceError = false): void {
   const pending = [sourceId];
   const visited = new Set<string>();
   while (pending.length) {
     const current = pending.pop()!;
-    if (visited.has(current)) throw new NodeFailure("ITEM_FLOW_UNSUPPORTED", "Item paths cannot contain joins or cycles.", false);
+    if (visited.has(current)) continue; // Graph parsing has already rejected cycles.
     visited.add(current);
     const node = graph.nodes.find((entry) => entry.id === current);
     // A source failure happens before an item stream exists; its error branch
@@ -26,7 +26,7 @@ export function assertSupportedItemPath(graph: WorkflowGraph, sourceId: string, 
     if (!conditional && outgoing.some((edge) => edge.kind !== "success" && edge.kind !== "error")) throw new NodeFailure("ITEM_FLOW_UNSUPPORTED", "Item actions support success and error paths only.", false);
     for (const edge of outgoing) {
       const target = graph.nodes.find((entry) => entry.id === edge.target);
-      if (!target || !(target.type.startsWith("action.") || target.type === "condition.if" || target.type === "condition.switch") || graph.edges.filter((entry) => entry.target === target.id).length !== 1) throw new NodeFailure("ITEM_FLOW_UNSUPPORTED", "Item paths cannot contain joins or approvals.", false);
+      if (!target || !(target.type.startsWith("action.") || target.type === "condition.if" || target.type === "condition.switch") || target.type !== "action.merge" && graph.edges.filter((entry) => entry.target === target.id).length !== 1) throw new NodeFailure("ITEM_FLOW_UNSUPPORTED", "Use Merge for item joins. Approvals cannot process item lists.", false);
       pending.push(target.id);
     }
   }

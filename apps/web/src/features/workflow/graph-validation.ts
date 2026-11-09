@@ -1,3 +1,4 @@
+import { mergeInputIssues } from "@workflow/contracts";
 import { outputKindsForNodeType, type WorkflowCanvasEdge, type WorkflowCanvasNode } from "./node-catalog";
 
 export type GraphIssue = {
@@ -68,6 +69,7 @@ export function validateWorkflowGraph(nodes: WorkflowCanvasNode[], edges: Workfl
     }
   }
 
+  for (const message of mergeInputIssues({ nodes: nodes.map((node) => ({ id: node.id, type: node.data.nodeType, position: node.position, config: node.data.config })), edges: edges.map((edge) => ({ ...edge, targetHandle: edge.targetHandle as "input1" | "input2" | undefined })) }, true)) issues.push({ severity: "error", message });
   return issues;
 }
 

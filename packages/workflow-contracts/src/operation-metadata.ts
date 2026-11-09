@@ -42,7 +42,7 @@ export type OperationMetadata = {
 type CheckedRegistry = { [K in WorkflowNodeType]: OperationMetadata & {
   availability: K extends ExecutableWorkflowNodeType ? "executable" : "planned";
   mockBehavior: K extends ExecutableWorkflowNodeType
-    ? K extends "action.edit-fields" ? "transform" : K extends `action.${string}` ? "provider-sample"
+    ? K extends "action.edit-fields" | "action.merge" ? "transform" : K extends `action.${string}` ? "provider-sample"
       : K extends `trigger.${string}` ? "trigger-data"
         : K extends `condition.${string}` ? "condition" : "approval"
     : "unavailable";
@@ -102,6 +102,7 @@ const definitions = {
   "trigger.github.workflow-run-completed": trigger(conditional, "unspecified", triggerOutput),
   "condition.if": condition(none, "unspecified", fields("matches")),
   "condition.switch": condition(none, "unspecified", fields("value", "matched")),
+  "action.merge": { ...executable(none, "unspecified", { knownFields: ["items", "count"] }), mockBehavior: "transform" },
   "action.edit-fields": { ...executable(none, "unspecified"), mockBehavior: "transform" },
   "approval.request": approval(conditional, "unspecified", fields("message", "expiresInHours", "notificationProvider", "notificationCredentialId")),
   "action.steam.account-snapshot": executable(credential("STEAM"), "read", fields("profile", "currentGame", "ownedGames", "recentGames", "achievements", "summary")),

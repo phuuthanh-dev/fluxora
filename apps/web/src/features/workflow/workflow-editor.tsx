@@ -1037,7 +1037,9 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
   const effectiveNodeType = node.data.nodeType;
   const definition = getNodeDefinition(effectiveNodeType);
   const operationMetadata = getOperationMetadata(effectiveNodeType);
-  const debugGuidance = operationMetadata?.mockBehavior === "provider-sample" && operationMetadata.effect === "write"
+  const debugGuidance = effectiveNodeType === "action.merge"
+    ? "Run the full workflow to inspect Merge with both inputs. This node cannot run on its own."
+    : operationMetadata?.mockBehavior === "provider-sample" && operationMetadata.effect === "write"
     ? "Simulates this action; no message or change is sent to the provider. Only this node runs; live connections and inputs are not verified."
     : mockGuidance[operationMetadata?.mockBehavior ?? "unavailable"];
   const configIssues = nodeConfigIssues(effectiveNodeType, node.data.config, "static");
@@ -1166,6 +1168,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       }}>
       {(effectiveNodeType === "action.riot-lol" || effectiveNodeType === "action.riot-tft") && <Status tone="warning" className="inspector-note"><strong>Riot API prototype</strong><span>Live execution on production is unavailable while Riot approval is pending. Use a key authorized for this game and product on a private prototype. Player data can appear in execution history.{effectiveNodeType === "action.riot-tft" ? " TFT is for post-game analysis; do not use it for live scouting or gameplay advice." : ""}</span></Status>}
       {effectiveNodeType === "trigger.uptime-kuma.alert" && <Status tone="info" className="inspector-note">Leave Monitor ID empty for all monitors. Repeated notifications may start multiple runs unless the sender supplies an Idempotency-Key. Matching keys are remembered while execution history is retained for this published version.</Status>}
+      {effectiveNodeType === "action.merge" && <p className="inspector-note">Connect one branch to each numbered input. Merge waits for both branches and passes Input 1 items before Input 2 items. A skipped or empty branch contributes no items. Test it by running the full workflow.</p>}
       {effectiveNodeType === "action.edit-fields" && <EditFieldsEditor key={node.id} value={node.data.config.fields} onChange={(fields) => updateConfig("fields", fields)} error={configIssues.find((issue) => issue.field === "fields")?.message} />}
       {definition?.configurationFields && <NodeConfigurationFields key={`configuration-${node.id}`} fields={definition.configurationFields} config={node.data.config} credentials={credentials} workspaceId={workspaceId} workflowId={workflowId} nodeId={node.id} owner={owner} allowExpressions={!effectiveNodeType.startsWith("trigger.")} onChange={updateConfig} draft={draft} onDraftChange={onDraftChange} issues={configIssues} />}
       {effectiveNodeType === "trigger.steam.game-news" && <Status tone="info" className="inspector-note">No connection is needed. Enter the App ID from the game's Steam store URL. The first check records the latest 10 posts without starting runs; posts outside that window can be missed.</Status>}
@@ -1288,7 +1291,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       <InspectorSection title="Test & debug">
         <section className="node-debug-panel">
           <div><p className="section-label">NODE DEBUG</p><p>{debugGuidance}</p></div>
-          <Button variant="secondary" className="node-debug-panel__button" disabled={!definition?.available || effectiveNodeType === "approval.request" || isDebugging || hasPending} title={hasPending ? "Apply or discard pending edits first." : effectiveNodeType === "approval.request" ? "Approval nodes are tested in a full workflow run." : undefined} onClick={() => onDebugNode(node)}><Play size={14} />{isDebugging ? "Running node…" : "Run node"}</Button>
+          <Button variant="secondary" className="node-debug-panel__button" disabled={!definition?.available || (effectiveNodeType === "approval.request" || effectiveNodeType === "action.merge") || isDebugging || hasPending} title={hasPending ? "Apply or discard pending edits first." : (effectiveNodeType === "approval.request" || effectiveNodeType === "action.merge") ? "Test this node in a full workflow run." : undefined} onClick={() => onDebugNode(node)}><Play size={14} />{isDebugging ? "Running node…" : "Run node"}</Button>
         </section>
         <section className="input-preview">
           <div className="section-label">INPUT PREVIEW</div>
@@ -1296,7 +1299,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
         </section>
       </InspectorSection>
       <InspectorSection title="Advanced">
-        {node.data.category === "action" && <div className="config-field"><label className="checkbox-field"><input type="checkbox" checked={node.data.config.executeOnce === true} onChange={(event) => updateConfig("executeOnce", event.target.checked ? true : undefined)} /> Run once for the first item</label><small>When the previous step returns multiple items, run this action only for the first. No items means this action does not run.</small>{configIssues.find((issue) => issue.field === "executeOnce") && <p className="ui-field__error" role="alert">{configIssues.find((issue) => issue.field === "executeOnce")?.message}</p>}</div>}
+        {node.data.category === "action" && effectiveNodeType !== "action.merge" && <div className="config-field"><label className="checkbox-field"><input type="checkbox" checked={node.data.config.executeOnce === true} onChange={(event) => updateConfig("executeOnce", event.target.checked ? true : undefined)} /> Run once for the first item</label><small>When the previous step returns multiple items, run this action only for the first. No items means this action does not run.</small>{configIssues.find((issue) => issue.field === "executeOnce") && <p className="ui-field__error" role="alert">{configIssues.find((issue) => issue.field === "executeOnce")?.message}</p>}</div>}
         <JsonConfigEditor key={node.id} config={node.data.config} onApply={(config) => updateNodeData(node.id, { config })} draft={draft.json} onDraftChange={(next) => onDraftChange("json", next)} otherPending={draft.filter !== undefined || draft.filterRaw !== undefined || draft.testData !== undefined || draft.structuredOutput !== undefined || draft.relational !== undefined || draft.sheetsMapping !== undefined} />
         <ExpressionSuggestions sources={graphNodes.filter((item) => upstream.has(item.id)).map((item) => ({ id: item.id, label: item.data.label }))} sourceId={sourceId} onSourceChange={(source) => setMappingSource({ target: node.id, source })} suggestions={suggestions} possible={possible} previews={previews} hasUpstream={upstream.size > 0} onInsert={insertExpression} />
       </InspectorSection>

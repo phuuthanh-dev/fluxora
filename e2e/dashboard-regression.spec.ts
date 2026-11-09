@@ -488,7 +488,7 @@ test("workflow dashboard can search, filter, sort, and clear workflow controls",
   await expect(page.getByText("Showing 2 of 2 workflows", { exact: true })).toBeVisible();
 });
 
-test("workflow cards expose rename, duplicate, archive, and guarded delete actions", async ({ page }) => {
+test("workflow cards expose rename, duplicate, archive, and guarded delete actions", async ({ page }, testInfo) => {
   // This full lifecycle includes several navigations and a mock execution.
   // Keep individual UI assertion deadlines; allow the whole sequence 60s.
   test.setTimeout(60_000);
@@ -538,6 +538,17 @@ test("workflow cards expose rename, duplicate, archive, and guarded delete actio
   await executionCenterToggle.click();
   await expect(page.getByText("Recent runs", { exact: true })).toBeVisible();
   await expect(page.locator("#dashboard-execution-content").getByText("Succeeded", { exact: true })).toBeVisible();
+  for (const theme of ["light", "dark"]) {
+    const toggle = page.getByRole("button", { name: `Switch to ${theme} mode`, exact: true });
+    if (await toggle.isVisible()) await toggle.click();
+    const heading = await page.locator(".dashboard-execution-toolbar").boundingBox();
+    const list = await page.locator(".dashboard-execution-panel").boundingBox();
+    expect(list!.y - heading!.y - heading!.height).toBeGreaterThanOrEqual(16);
+    await expect(page.getByRole("figure", { name: "Run status distribution over the last 24 hours" })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.locator(".dashboard-execution-toolbar").scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath(`dashboard-executions-${theme}.png`) });
+  }
   const succeededFilter = page.getByRole("button", { name: "Succeeded (1)" });
   await succeededFilter.click();
   await expect(succeededFilter).toHaveAttribute("aria-pressed", "true");
@@ -566,7 +577,7 @@ test("workflow cards expose rename, duplicate, archive, and guarded delete actio
   await page.goto("/dashboard");
   await page.getByRole("button", { name: "Expand execution center" }).click();
   const executionRow = page.locator(".dashboard-execution", { hasText: "Renamed target copy" });
-  await executionRow.getByRole("button", { name: "Open workflow" }).click();
+  await executionRow.getByRole("button", { name: "Inspect run" }).click();
   await expect(page).toHaveURL(/execution=/);
   await expect(page.getByText("Execution detail", { exact: true })).toBeVisible();
 });

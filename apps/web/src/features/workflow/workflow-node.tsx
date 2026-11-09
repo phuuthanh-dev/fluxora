@@ -20,13 +20,13 @@ export function WorkflowNode({ data, selected }: NodeProps<WorkflowCanvasNode>) 
 
   return (
     <article className={`workflow-node workflow-node--${data.category} ${selected ? "workflow-node--selected" : ""} ${status ? `workflow-node--execution-${status.toLowerCase()}` : ""}`}>
-      <Handle
+      {data.nodeType === "action.merge" ? ["input1", "input2"].map((port, index) => <span key={port} className="workflow-node__input" style={{ top: `${(index + 1) * 33.33}%` }}><Handle id={port} type="target" position={Position.Left} className="workflow-node__handle workflow-node__handle--target" aria-label={`Connect Input ${index + 1} to Merge`} title={`Input ${index + 1}`} /><span>{index + 1}</span></span>) : <Handle
         type="target"
         position={Position.Left}
         className="workflow-node__handle workflow-node__handle--target"
         aria-label={`Connect input to ${data.label}`}
         title="Drag to connect"
-      />
+      />}
       <p className="workflow-node__category">{app ? `${app.label} · ${categoryName[data.category]}` : categoryName[data.category]}</p>
       {statusLabel && <span className="workflow-node__execution" title={`Last run: ${statusLabel}`} aria-label={`Last run: ${statusLabel}`} role="img">{status === "SUCCEEDED" ? <CheckCircle2 size={16} /> : status === "FAILED" ? <CircleX size={16} /> : status === "RUNNING" ? <LoaderCircle size={16} className="ui-spinner" /> : status === "WAITING" ? <PauseCircle size={16} /> : <SkipForward size={16} />}</span>}
       <div className="workflow-node__heading">

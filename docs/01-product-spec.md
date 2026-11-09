@@ -112,7 +112,8 @@ See `docs/35-connector-coverage-and-discovery.md` for the exact operations, poin
 ### Explicitly out of scope
 
 - User-provided JavaScript/Python execution.
-- Arbitrary graph loops, unrestricted batch-loop nodes, merge nodes, and sub-workflows.
+- Arbitrary graph loops, unrestricted batch-loop nodes, advanced Merge modes, and sub-workflows.
+- Owner-approved exception (2026-11-09): Merge Append accepts exactly two numbered inputs, waits for the reachable branches, and concatenates Input 1 then Input 2; skipped branches contribute no items. Empty inputs remain empty. Limits, failure/cancellation and approval-continuation safeguards remain in force. No field matching, Cartesian product, loops or arbitrary number of inputs.
 - Connector marketplace/SDK.
 - Production RBAC and multi-stage approvals.
 - Mobile-first editor.

@@ -20,9 +20,18 @@
   ],
   "nodes": [
     {
+      "id": "apps/api/src/admin/admin-query.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
       "id": "apps/api/src/admin/admin.controller.ts",
       "boundary": "api",
       "internalImports": [
+        "apps/api/src/admin/admin-query.ts",
         "apps/api/src/admin/admin.guard.ts",
         "apps/api/src/auth/account-request.guard.ts",
         "apps/api/src/auth/account.controller.ts",
@@ -800,6 +809,7 @@
         "apps/api/src/execution/google-workspace-adapter.ts",
         "apps/api/src/execution/item-stream.ts",
         "apps/api/src/execution/live-readiness.ts",
+        "apps/api/src/execution/merge-streams.ts",
         "apps/api/src/execution/node-executor-contract.ts",
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/notification-adapters.ts",
@@ -1071,6 +1081,17 @@
       "internalImports": [],
       "externalImports": [
         "@prisma/client",
+        "@workflow/contracts"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/merge-streams.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/item-stream.ts",
+        "apps/api/src/execution/node-failure.ts"
+      ],
+      "externalImports": [
         "@workflow/contracts"
       ]
     },
@@ -3365,7 +3386,9 @@
       "internalImports": [
         "apps/web/src/features/workflow/node-catalog.ts"
       ],
-      "externalImports": []
+      "externalImports": [
+        "@workflow/contracts"
+      ]
     },
     {
       "id": "apps/web/src/features/workflow/inspector-drafts.ts",
@@ -3695,6 +3718,7 @@
         "packages/workflow-contracts/src/configuration-fields-registry.ts",
         "packages/workflow-contracts/src/gmail-write-fields.ts",
         "packages/workflow-contracts/src/item-metadata.ts",
+        "packages/workflow-contracts/src/merge-inputs.ts",
         "packages/workflow-contracts/src/node-config-schema.ts",
         "packages/workflow-contracts/src/node-configuration-fields.ts",
         "packages/workflow-contracts/src/notion-read-fields.ts",
@@ -3708,6 +3732,14 @@
       "id": "packages/workflow-contracts/src/item-metadata.ts",
       "boundary": "contracts",
       "internalImports": [],
+      "externalImports": []
+    },
+    {
+      "id": "packages/workflow-contracts/src/merge-inputs.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/index.ts"
+      ],
       "externalImports": []
     },
     {
@@ -4064,6 +4096,10 @@
     }
   ],
   "edges": [
+    {
+      "from": "apps/api/src/admin/admin.controller.ts",
+      "to": "apps/api/src/admin/admin-query.ts"
+    },
     {
       "from": "apps/api/src/admin/admin.controller.ts",
       "to": "apps/api/src/admin/admin.guard.ts"
@@ -5058,6 +5094,10 @@
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/merge-streams.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/execution/node-executor-contract.ts"
     },
     {
@@ -5374,6 +5414,14 @@
     },
     {
       "from": "apps/api/src/execution/item-stream.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/merge-streams.ts",
+      "to": "apps/api/src/execution/item-stream.ts"
+    },
+    {
+      "from": "apps/api/src/execution/merge-streams.ts",
       "to": "apps/api/src/execution/node-failure.ts"
     },
     {
@@ -7858,6 +7906,10 @@
     },
     {
       "from": "packages/workflow-contracts/src/index.ts",
+      "to": "packages/workflow-contracts/src/merge-inputs.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/index.ts",
       "to": "packages/workflow-contracts/src/node-config-schema.ts"
     },
     {
@@ -7879,6 +7931,10 @@
     {
       "from": "packages/workflow-contracts/src/index.ts",
       "to": "packages/workflow-contracts/src/trello-card-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/merge-inputs.ts",
+      "to": "packages/workflow-contracts/src/index.ts"
     },
     {
       "from": "packages/workflow-contracts/src/node-config-schema.ts",

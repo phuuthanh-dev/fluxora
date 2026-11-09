@@ -140,7 +140,7 @@ const executors = {
   "action.github.update-issue": ({ config, mode, workspaceId, credentials }) => executeGitHubUpdateIssue(config, mode, workspaceId, credentials),
   "action.github.list-pull-requests": ({ config, mode, workspaceId, credentials }) => executeGitHubListPullRequests(config, mode, workspaceId, credentials),
   "action.github.get-pull-request": ({ config, mode, workspaceId, credentials }) => executeGitHubGetPullRequest(config, mode, workspaceId, credentials),
-} satisfies Record<Exclude<Extract<ExecutableWorkflowNodeType, `action.${string}`>, "action.edit-fields">, ConnectorExecutor>;
+} satisfies Record<Exclude<Extract<ExecutableWorkflowNodeType, `action.${string}`>, "action.edit-fields" | "action.merge">, ConnectorExecutor>;
 
 async function executeDriveNode(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService) {
   const issue = nodeConfigIssues("action.google-drive", config, "resolved")[0];

@@ -1,4 +1,4 @@
-import { workflowEdgeKinds, workflowNodeCategories, workflowNodeTypes } from "@workflow/contracts";
+import { mergeInputIssues, workflowEdgeKinds, workflowNodeCategories, workflowNodeTypes } from "@workflow/contracts";
 import { z } from "zod";
 import { edgeKindFromHandle, getNodeDefinition, outputKindsForNodeType, type WorkflowCanvasEdge, type WorkflowCanvasNode } from "./node-catalog";
 
@@ -24,7 +24,7 @@ const canvasEdgeSchema = z.object({
   source: z.string().min(1),
   target: z.string().min(1),
   sourceHandle: z.string().nullable().optional(),
-  targetHandle: z.string().nullable().optional(),
+  targetHandle: z.enum(["input1", "input2"]).nullable().optional(),
   type: z.string().optional(),
   animated: z.boolean().optional(),
   kind: z.enum(workflowEdgeKinds),
@@ -68,5 +68,7 @@ export function parseWorkflowCanvasGraph(value: unknown): WorkflowCanvasGraph {
     }
   }
 
+  const inputIssue = mergeInputIssues({ nodes: nodes.map((node) => ({ id: node.id, type: node.data.nodeType, position: node.position, config: node.data.config })), edges: graph.edges.map((edge) => ({ ...edge, targetHandle: edge.targetHandle ?? undefined })) }, false)[0];
+  if (inputIssue) throw new Error(inputIssue);
   return { nodes, edges };
 }

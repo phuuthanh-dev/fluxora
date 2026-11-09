@@ -282,3 +282,23 @@ component library, marketing display font or decorative canvas. Tables use
 semantic text/status tokens; colors are never the sole status indicator.
 Keep row actions in a labelled menu and require an explicit confirmation for
 account mutations. The current administrator cannot disable their own access.
+
+Menu surfaces are owned by `design-system.css`: anchored popup, opaque themed
+surface, border, shadow, and vertically stacked 36px-minimum menu items with
+keyboard focus. Feature classes may adjust placement, but must not wrap a
+second positioned popup inside the shared one. Admin actions use an icon
+trigger in a fixed-width column, and the disable action uses semantic danger
+styling in both the menu and its confirmation. Opening a menu must not change
+the table's row height or column widths; check actual click visibility inside
+the table scroller, not just whether the element exists in the DOM.
+
+### Dashboard operational hierarchy (2026-11-09)
+
+Use shared SectionHeader for workspace activity and execution center. Leave 20px
+between the execution heading/actions and the list; wrap action groups with a
+12px gap. Status badges use semantic success/danger/info/warning tokens in both
+themes; lime remains the brand/action accent. The 24h distribution is derived
+from the existing API counts, labelled for test and live runs, and independent
+of paginated recent runs. Do not add fake trend lines or imply measured uptime.
+Admin contextual links remain under `/admin`; audit date filters explicitly use
+UTC. Execution details contain identifiers, timing, version and error code only.

@@ -1,5 +1,6 @@
 /** Explicit list output fields. Other arrays remain inside a single item. */
 const collectionFields: Readonly<Record<string, string>> = {
+  "action.merge": "items",
   "action.mongodb": "documents",
   "action.postgres.select": "rows",
   "action.supabase.select": "rows",
