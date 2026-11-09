@@ -6,6 +6,9 @@ complete in the delivery ledger.
 
 ## Latest snapshot — 2026-11-09
 
+- Owner-approved admin and connector batch is recorded in `.agent/tasks/2026-11-09-admin-calendar-slack.md`. Production Slack OAuth was unavailable because the three Slack environment variables were absent; the owner-authorized existing values were configured, OAuth completed, and one test message to the authorized channel succeeded. The test workflow was deactivated. Cross-workspace distribution remains unavailable pending Slack prerequisites.
+- A targeted Calendar poll originally treated three old events as newly created; their provider creation times predated activation. The trigger now uses the creation time and a baseline timestamp; the regression passed against an isolated database and a second local live test produced one successful execution for its new event. The test workflow was deactivated and event deleted. Production polling and updated events remain unqualified.
+- Platform administrator access is separately enforced by the API using an operator-configured user ID, never a workspace role. The local admin center supports metadata-only operations, sign-in suspension and session revocation; support/deletion requests remain manual. Final isolated `npm run verify` passed 1,097 API, 75 web and 220 browser tests. Local scheduler remains disabled. Release and deployment are not implied by this local result.
 - PR #109 merged as `1870b34` and production deployment succeeded. Steam news
   trigger, editor click-to-insert, opt-in workflow failure alerts and Slack
   incoming webhooks passed isolated verify (1,080 API, 74 web and 218
@@ -730,6 +733,7 @@ one of these IDs or explicitly reopen a completed ledger slice.
 
 | ID | Outcome | Status | Owner/evidence boundary |
 |---|---|---|---|
+| `ADMIN-1` | Minimal platform administration and user operations | pending | Owner approved platform admin, read-only operational views and measured account management on 2026-11-09. Reuse existing workspace access boundaries; no secret disclosure or unrequested features. |
 | `APP-EXPANSION-1` | Deepen existing app operations and remaining qualification; initial seven-app implementation and app discovery already exist | pending | Do not rebuild initial nodes. See docs/35 for latest live evidence and docs/37 for operation/trigger/auth/UX gaps and priorities. Reddit access remains blocked; future live calls require owner-authorized resources. |
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
 | `CONNECTOR-LIVE-2` | Remaining Google, GitHub and SMTP live qualification | pending | Drive upload/read, Sheets append/read/update, GitHub create issue/comment/label and one Gmail SMTP delivery to the intended inbox succeeded on owner-approved test resources. Local Google refresh is inferred from a credential update during a successful demo run; production refresh, GitHub PR merge and sustained delivery remain unverified. See the 2026-10-31 connector reports and 2026-11-01 recovery report. |
@@ -739,7 +743,7 @@ one of these IDs or explicitly reopen a completed ledger slice.
 | `NOTION-1` | Qualify and selectively extend the existing Notion connector | pending | Search pages implemented in PR #56; live search qualified once locally. More operations and production qualification remain. |
 | `POSTGRES-1` | Qualify and selectively extend the existing PostgreSQL connector | pending | Select rows implemented in PR #56; one local Supabase PostgreSQL LIVE workflow read succeeded with verified TLS and a one-row limit. Production qualification, sustained behavior and further operations remain. |
 | `GMAIL-1` | Qualify existing Gmail operations and trigger; evaluate push separately | pending | Released in PR #57. Gmail Read and one targeted local trigger poll succeeded against a test email; sustained polling and restricted-scope approval remain. Pub/Sub push is not implemented. See `.agent/reports/2026-11-01-gmail-trigger-calendar-expansion.md`. |
-| `CALENDAR-1` | Qualify existing Calendar actions; evaluate trigger separately | pending | Released in PR #57. Local test evidence includes create/get/update/delete, free/busy intervals and a populated 2030 list page through a direct adapter diagnostic; a far-future list anomaly, production qualification and public scope approval remain. A Calendar trigger is not implemented. |
+| `CALENDAR-1` | Qualify existing Calendar actions and trigger | pending | Calendar polling trigger released in PR #110. One controlled local event-created execution succeeded; three additional changes were observed in that poll and require investigation. Production polling and updated events remain unqualified. |
 | `EMAIL-UX-1` | Qualify existing Gmail and SMTP connection UX | pending | Released in PR #57; Gmail and SMTP keep separate providers and nodes. Further UX qualification remains separate. |
 
 ## Closed boundary

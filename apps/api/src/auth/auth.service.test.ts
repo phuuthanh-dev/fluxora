@@ -58,13 +58,14 @@ test("Google identity registration creates an owner workspace without a password
   const identities: Array<{ userId: string; provider: AuthIdentityProvider; providerAccountId: string; email: string }> = [];
   const auditActions: string[] = [];
   const transaction = {
+    $queryRaw: async () => [],
     authIdentity: {
       findUnique: async () => null,
       create: async ({ data }: { data: { userId: string; provider: AuthIdentityProvider; providerAccountId: string; email: string } }) => identities.push(data),
       update: async () => undefined,
     },
     user: {
-      findUnique: async () => null,
+      findUnique: async (query: { where: { id?: string } }) => query.where.id ? { disabledAt: null } : null,
       create: async () => ({ id: "google-user-1", email: "owner@example.com", passwordHash: null, displayName: "Google Owner", avatarColor: "violet" }),
     },
     workspace: { create: async () => ({ id: "workspace-1" }) },

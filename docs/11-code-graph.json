@@ -20,10 +20,39 @@
   ],
   "nodes": [
     {
+      "id": "apps/api/src/admin/admin.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/admin/admin.guard.ts",
+        "apps/api/src/auth/account-request.guard.ts",
+        "apps/api/src/auth/account.controller.ts",
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/platform/runtime-health.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/admin/admin.guard.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/authenticated-request.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
       "id": "apps/api/src/app.module.ts",
       "boundary": "api",
       "internalImports": [
+        "apps/api/src/admin/admin.controller.ts",
+        "apps/api/src/admin/admin.guard.ts",
         "apps/api/src/approvals/approval.module.ts",
+        "apps/api/src/auth/account-request.guard.ts",
         "apps/api/src/auth/auth.module.ts",
         "apps/api/src/credentials/credential.module.ts",
         "apps/api/src/database/prisma.module.ts",
@@ -2299,6 +2328,15 @@
       ]
     },
     {
+      "id": "apps/web/src/app/admin/page.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/admin/admin-dashboard.tsx",
+        "apps/web/src/features/public-site/site.ts"
+      ],
+      "externalImports": []
+    },
+    {
       "id": "apps/web/src/app/contact/page.tsx",
       "boundary": "web",
       "internalImports": [],
@@ -2667,6 +2705,19 @@
       "boundary": "web",
       "internalImports": [],
       "externalImports": [
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/admin/admin-dashboard.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/ui/index.ts",
+        "apps/web/src/features/api/api-client.ts",
+        "apps/web/src/features/app-shell/app-shell-header.tsx"
+      ],
+      "externalImports": [
+        "next/navigation",
         "react"
       ]
     },
@@ -3955,8 +4006,52 @@
   ],
   "edges": [
     {
+      "from": "apps/api/src/admin/admin.controller.ts",
+      "to": "apps/api/src/admin/admin.guard.ts"
+    },
+    {
+      "from": "apps/api/src/admin/admin.controller.ts",
+      "to": "apps/api/src/auth/account-request.guard.ts"
+    },
+    {
+      "from": "apps/api/src/admin/admin.controller.ts",
+      "to": "apps/api/src/auth/account.controller.ts"
+    },
+    {
+      "from": "apps/api/src/admin/admin.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/admin/admin.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/admin/admin.controller.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/admin/admin.controller.ts",
+      "to": "apps/api/src/platform/runtime-health.service.ts"
+    },
+    {
+      "from": "apps/api/src/admin/admin.guard.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/app.module.ts",
+      "to": "apps/api/src/admin/admin.controller.ts"
+    },
+    {
+      "from": "apps/api/src/app.module.ts",
+      "to": "apps/api/src/admin/admin.guard.ts"
+    },
+    {
       "from": "apps/api/src/app.module.ts",
       "to": "apps/api/src/approvals/approval.module.ts"
+    },
+    {
+      "from": "apps/api/src/app.module.ts",
+      "to": "apps/api/src/auth/account-request.guard.ts"
     },
     {
       "from": "apps/api/src/app.module.ts",
@@ -6631,6 +6726,14 @@
       "to": "apps/api/src/database/prisma.service.ts"
     },
     {
+      "from": "apps/web/src/app/admin/page.tsx",
+      "to": "apps/web/src/features/admin/admin-dashboard.tsx"
+    },
+    {
+      "from": "apps/web/src/app/admin/page.tsx",
+      "to": "apps/web/src/features/public-site/site.ts"
+    },
+    {
       "from": "apps/web/src/app/dashboard/connections/page.tsx",
       "to": "apps/web/src/features/public-site/site.ts"
     },
@@ -6805,6 +6908,18 @@
     {
       "from": "apps/web/src/components/ui/progress.tsx",
       "to": "apps/web/src/components/ui/ui-motion.ts"
+    },
+    {
+      "from": "apps/web/src/features/admin/admin-dashboard.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
+    },
+    {
+      "from": "apps/web/src/features/admin/admin-dashboard.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/admin/admin-dashboard.tsx",
+      "to": "apps/web/src/features/app-shell/app-shell-header.tsx"
     },
     {
       "from": "apps/web/src/features/app-shell/app-shell-header.tsx",

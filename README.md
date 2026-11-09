@@ -273,3 +273,6 @@ Read the complete operator checklist in [`docs/15-deployment.md`](./docs/15-depl
 ## License
 
 MIT. See [`LICENSE`](./LICENSE).
+# Platform administrator
+
+Administration is disabled until the operator sets `PLATFORM_ADMIN_USER_ID` to the exact existing Fluxora user ID in the server environment and restarts the API. This is separate from workspace ownership. Visit `/admin` while signed in as that user, or open Platform administration from the account menu. The API denies all other accounts and never returns stored credential values or execution payloads in administrative lists. Disabling sign-in revokes active sessions but does not deactivate that user's workflows. User deletion, team roles and impersonation are not provided by this screen.

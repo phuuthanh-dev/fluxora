@@ -16,7 +16,7 @@ const destinations = [
 ] as const;
 
 type Props = {
-  active: typeof destinations[number]["id"];
+  active: typeof destinations[number]["id"] | "admin";
   workspaceId: string;
   workspacePicker: ReactNode;
   accountMenu: ReactNode;
@@ -101,7 +101,7 @@ export function WorkspaceSidebar({ active, workspaceId, workspacePicker, account
   return <header ref={headerRef} className="app-shell-header app-shell-header--sidebar" data-collapsed={collapsed}>
     <div className="workspace-topbar">
       <IconButton className="workspace-topbar__menu" label="Open navigation" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)}><MenuIcon size={20} /></IconButton>
-      <span className="workspace-topbar__title">{destinations.find((item) => item.id === active)?.label}</span>
+      <span className="workspace-topbar__title">{active === "admin" ? "Platform administration" : destinations.find((item) => item.id === active)?.label}</span>
       <div className="workspace-topbar__workspace">{workspacePicker}</div>
     </div>
     {!mobileOpen && <aside className="workspace-sidebar" aria-label="Workspace sidebar" data-collapsed={collapsed}>{content(false)}</aside>}

@@ -18,7 +18,7 @@ type AppShellHeaderProps = {
   workspaces: AppShellWorkspace[];
   workspaceId: string;
   onWorkspaceChange: (workspaceId: string) => void;
-  active: "dashboard" | "connections" | "executions" | "editor" | "account";
+  active: "dashboard" | "connections" | "executions" | "editor" | "account" | "admin";
   onBeforeNavigate?: () => boolean;
 };
 
@@ -39,6 +39,7 @@ export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, act
   const [providers, setProviders] = useState<ProviderStatus>({ google: false, github: false, steam: false });
   const [unlinking, setUnlinking] = useState<Identity["provider"] | null>(null);
   const [identityError, setIdentityError] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     let activeRequest = true;
@@ -53,6 +54,12 @@ export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, act
       setProviders(providerResponse);
     }).catch(() => undefined);
     return () => { activeRequest = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void apiRequest("/admin/access").then(() => { if (active) setIsAdmin(true); }).catch(() => undefined);
+    return () => { active = false; };
   }, []);
 
   const logout = async () => {
@@ -79,6 +86,7 @@ export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, act
   const accountMenu = <Menu label="Account" trigger={<><span className={`app-shell-avatar app-shell-avatar--${user?.avatarColor ?? "lime"}`} aria-hidden="true">{avatarInitials(user)}</span><span className="sidebar-account-copy"><strong>{user?.displayName ?? "Your account"}</strong><span>Account & preferences</span></span></>} className="app-shell-account-menu">
           <p className="app-shell-account-menu__user">{user?.displayName ?? user?.email ?? "Your account"}</p>
           <Button variant="ghost" onClick={() => navigate(`/settings/account?workspace=${encodeURIComponent(workspaceId)}`)}><Settings size={14} /> Account settings</Button>
+          {isAdmin && <Button variant="ghost" onClick={() => navigate("/admin")}>Platform administration</Button>}
           {identityError && <p role="alert">{identityError}</p>}
           {identities.length ? identities.map((identity) => <div key={identity.provider}><span>{providerLabel(identity.provider)}{identity.provider === "STEAM" ? " linked" : ""}</span><Button variant="ghost" disabled={unlinking === identity.provider} onClick={() => void unlink(identity.provider)}>{unlinking === identity.provider ? "Unlinking…" : "Unlink"}</Button></div>) : <p>No external identities linked.</p>}
           {!identities.some((identity) => identity.provider === "STEAM") && <Button variant="ghost" disabled={!providers.steam} onClick={() => { if (onBeforeNavigate?.() !== false) window.location.assign(`${apiUrl}/auth/steam/connect`); }}>{providers.steam ? "Link Steam" : "Steam setup"}</Button>}

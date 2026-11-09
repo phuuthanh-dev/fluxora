@@ -14,7 +14,7 @@ test("Calendar checkpoint commits pages, delivers each new event once and requir
   const suffix = randomUUID();
   const userId = `calendar-owner-${suffix}`, workspaceId = `calendar-space-${suffix}`, workflowId = `calendar-flow-${suffix}`, versionId = `calendar-version-${suffix}`, credentialId = `calendar-credential-${suffix}`;
   const graph = { nodes: [{ id: "calendar", type: "trigger.google-calendar.event" as const, position: { x: 0, y: 0 }, config: { credentialId, calendarId: "primary", event: "created", pollMinutes: "5" } }], edges: [] };
-  const event = (id: string, etag: string) => ({ id, etag, status: "confirmed", summary: "Synthetic event", start: "", end: "", updated: "" });
+  const event = (id: string, etag: string, created = new Date().toISOString()) => ({ id, etag, status: "confirmed", created, summary: "Synthetic event", start: "", end: "", updated: "" });
   let page = { events: [event("baseline", "r1")], nextPage: null as string | null, nextSync: "sync1" as string | null };
   let expired = false;
   const dispatched: string[] = [];
@@ -33,7 +33,7 @@ test("Calendar checkpoint commits pages, delivers each new event once and requir
     const workflow = new WorkflowService(prisma as never, {} as never, undefined, undefined, calendar);
     await workflow.activate(workflowId, userId);
     const target = calendarTargets(workflowId, versionId, workspaceId, graph)[0]!;
-    page = { events: [event("new", "r1")], nextPage: "next", nextSync: null };
+    page = { events: [event("old-not-in-baseline", "r1", "2020-01-01T00:00:00Z"), event("new", "r1")], nextPage: "next", nextSync: null };
     await calendar.poll(target);
     let checkpoint = await prisma.calendarTriggerCheckpoint.findUniqueOrThrow({ where: { workflowId_nodeId: { workflowId, nodeId: "calendar" } } });
     assert.equal(checkpoint.syncToken, "sync1"); assert.equal(checkpoint.pageToken, "next"); assert.equal(dispatched.length, 1);
