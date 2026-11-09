@@ -31,6 +31,7 @@ const fields: Partial<Record<CredentialProvider, SecretField[]>> = {
   STEAM: [{ key: "apiKey", label: "Steam Web API key", secret: true }, { key: "steamId", label: "Steam ID", hint: "Your 17-digit Steam ID. Keep it as text to preserve every digit." }],
   RIOT: [{ key: "apiKey", label: "Riot API key", secret: true, hint: "Use a key authorized for this product. Development keys expire after 24 hours." }],
   GOOGLE_CHAT_WEBHOOK: [{ key: "webhookUrl", label: "Webhook URL", secret: true }],
+  SLACK_WEBHOOK: [{ key: "webhookUrl", label: "Slack incoming webhook URL", secret: true }],
   DISCORD_WEBHOOK: [{ key: "webhookUrl", label: "Webhook URL", secret: true }],
   TELEGRAM_BOT: [{ key: "botToken", label: "Bot token", secret: true }],
   GITHUB: [{ key: "token", label: "GitHub token", secret: true }],

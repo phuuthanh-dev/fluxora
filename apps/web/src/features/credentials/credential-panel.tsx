@@ -11,7 +11,7 @@ import "./credentials.css";
 import { CredentialSecretFields } from "./credential-secret-fields";
 import { NodeIcon, type NodeIconName } from "../workflow/node-icon";
 
-const providerIcons: Record<CredentialProvider, NodeIconName> = { GOOGLE: "google", STEAM: "steam", RIOT: "riot-games", GOOGLE_CHAT_WEBHOOK: "google-chat", GOOGLE_CHAT_OAUTH: "google-chat", GMAIL: "gmail", GOOGLE_CALENDAR: "google-calendar", MONGODB: "mongodb", NOTION: "notion", TRELLO: "trello", SENTRY: "sentry", VERCEL: "vercel", SUPABASE: "supabase", REDDIT: "reddit", POSTGRES: "postgres", HTTP: "http", DISCORD_WEBHOOK: "discord", TELEGRAM_BOT: "telegram", GITHUB: "github", SMTP: "email", GEMINI: "gemini", OPENAI: "openai" };
+const providerIcons: Record<CredentialProvider, NodeIconName> = { GOOGLE: "google", STEAM: "steam", RIOT: "riot-games", GOOGLE_CHAT_WEBHOOK: "google-chat", GOOGLE_CHAT_OAUTH: "google-chat", GMAIL: "gmail", GOOGLE_CALENDAR: "google-calendar", MONGODB: "mongodb", NOTION: "notion", TRELLO: "trello", SENTRY: "sentry", VERCEL: "vercel", SUPABASE: "supabase", REDDIT: "reddit", POSTGRES: "postgres", HTTP: "http", DISCORD_WEBHOOK: "discord", SLACK_WEBHOOK: "slack", TELEGRAM_BOT: "telegram", GITHUB: "github", SMTP: "email", GEMINI: "gemini", OPENAI: "openai" };
 
 type CredentialPreset = {
   label: string;
@@ -62,6 +62,7 @@ const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
     data: '{\n  "authType": "bearer",\n  "token": ""\n}',
     hint: "Use bearer, basic, or custom-header JSON authentication for HTTP and approval-webhook nodes.",
   },
+  SLACK_WEBHOOK: { label: "Slack incoming webhook", data: '{\n  "webhookUrl": ""\n}', hint: "Paste a Slack incoming webhook URL. The webhook posts to the channel selected in Slack." },
   DISCORD_WEBHOOK: {
     label: "Discord incoming webhook",
     data: '{\n  "webhookUrl": ""\n}',
@@ -86,7 +87,7 @@ const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
 
 type ProviderOption = { value: CredentialProvider | "EMAIL"; label: string; keywords?: string };
 const providerGroups: { label: string; options: ProviderOption[] }[] = [
-  { label: "Communication", options: [{ value: "EMAIL", label: "Email", keywords: "gmail smtp" }, { value: "GOOGLE_CHAT_OAUTH", label: "Google Chat OAuth" }, { value: "GOOGLE_CHAT_WEBHOOK", label: "Google Chat webhook" }, { value: "DISCORD_WEBHOOK", label: "Discord webhook" }, { value: "TELEGRAM_BOT", label: "Telegram bot" }] },
+  { label: "Communication", options: [{ value: "EMAIL", label: "Email", keywords: "gmail smtp" }, { value: "GOOGLE_CHAT_OAUTH", label: "Google Chat OAuth" }, { value: "GOOGLE_CHAT_WEBHOOK", label: "Google Chat webhook" }, { value: "DISCORD_WEBHOOK", label: "Discord webhook" }, { value: "SLACK_WEBHOOK", label: "Slack webhook" }, { value: "TELEGRAM_BOT", label: "Telegram bot" }] },
   { label: "Productivity", options: [{ value: "GOOGLE", label: "Google Drive / Sheets" }, { value: "GOOGLE_CALENDAR", label: "Google Calendar" }, { value: "NOTION", label: "Notion" }, { value: "TRELLO", label: "Trello" }] },
   { label: "Developer & data", options: [{ value: "GITHUB", label: "GitHub connector" }, { value: "SENTRY", label: "Sentry" }, { value: "VERCEL", label: "Vercel" }, { value: "SUPABASE", label: "Supabase" }, { value: "MONGODB", label: "MongoDB" }, { value: "POSTGRES", label: "PostgreSQL" }, { value: "HTTP", label: "HTTP" }] },
   { label: "AI", options: [{ value: "GEMINI", label: "Gemini API" }, { value: "OPENAI", label: "OpenAI API" }] },
@@ -110,6 +111,7 @@ function credentialProviderLabel(provider: CredentialProvider) {
     GOOGLE_CHAT_WEBHOOK: "Google Chat webhook",
     HTTP: "HTTP authentication",
     DISCORD_WEBHOOK: "Discord webhook",
+    SLACK_WEBHOOK: "Slack webhook",
     TELEGRAM_BOT: "Telegram bot",
     GITHUB: "GitHub",
     SMTP: "SMTP email",
@@ -225,6 +227,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
       GOOGLE_CHAT_WEBHOOK: "Google Chat",
       HTTP: "HTTP",
       DISCORD_WEBHOOK: "Discord",
+      SLACK_WEBHOOK: "Slack",
       TELEGRAM_BOT: "Telegram",
       GITHUB: "GitHub",
       SMTP: "SMTP email",

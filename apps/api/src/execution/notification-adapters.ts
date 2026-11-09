@@ -20,6 +20,14 @@ export async function executeGoogleChatWebhook(config: Record<string, unknown>, 
   return { status: "succeeded", output, route: "success" };
 }
 
+export async function executeSlackWebhook(config: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService): Promise<NodeResult> {
+  const issue = nodeConfigIssues("action.slack.webhook", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_CONFIGURATION", issue.message, false);
+  const credential = mode === "live" ? await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.SLACK_WEBHOOK) : undefined;
+  const output = await defaultNotificationDispatcher.dispatch({ provider: "slack", message: String(config.message ?? "") }, credential, mode);
+  return { status: "succeeded", output, route: "success" };
+}
+
 export async function executeDiscordWebhook(config: Record<string, unknown>, mode: RunMode, workspaceId: string, credentials: CredentialService): Promise<NodeResult> {
   const content = typeof config.content === "string" ? config.content : (typeof config.message === "string" ? config.message : "");
   const username = typeof config.username === "string" && config.username.trim() ? config.username.trim() : undefined;

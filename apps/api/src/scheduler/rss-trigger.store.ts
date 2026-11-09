@@ -59,10 +59,10 @@ export class PrismaRssTriggerStore implements RssTriggerStore {
       if (!count[0] || count[0].count + BigInt(fresh.length) > BigInt(RSS_RECEIPT_LIMIT)) throw new NodeFailure("RSS_RECEIPT_LIMIT", "RSS history is full; review the trigger before continuing.", false);
       const accepted = fresh.map((observation) => ({ observation, executionId: randomUUID() }));
       if (accepted.length) {
-        await tx.execution.createMany({ data: accepted.map(({ observation, executionId }) => ({ id: executionId, workflowVersionId: target.versionId, mode: "LIVE", idempotencyKey: `rss-v2:${randomUUID()}`, triggerData: redactValue({ source: "rss", item: observation.item }) as Prisma.InputJsonValue })) });
+        await tx.execution.createMany({ data: accepted.map(({ observation, executionId }) => ({ id: executionId, workflowVersionId: target.versionId, mode: "LIVE", idempotencyKey: `rss-v2:${randomUUID()}`, triggerData: redactValue({ source: target.source ?? "rss", item: observation.item }) as Prisma.InputJsonValue })) });
         await tx.$executeRaw`INSERT INTO "RssTriggerDelivery" ("workflowId", "nodeId", "itemKey", "lastSeenAt", "executionId") VALUES ${Prisma.join(accepted.map(({ observation, executionId }) => Prisma.sql`(${target.workflowId}, ${target.nodeId}, ${observation.key}, ${now}, ${executionId})`))}`;
       }
-      const updated = await tx.$executeRaw`UPDATE "RssTriggerCheckpoint" SET "snapshot" = ${JSON.stringify(snapshot.keys)}::jsonb, "etag" = ${snapshot.etag}, "lastModified" = ${snapshot.lastModified}, "nextPollAt" = ${new Date(now.getTime() + target.pollMinutes * 60_000)}, "lastErrorCode" = NULL, "updatedAt" = ${now} WHERE "workflowId" = ${target.workflowId} AND "nodeId" = ${target.nodeId} AND "workflowVersionId" = ${target.versionId} AND "leaseToken" = ${token} AND "leaseExpiresAt" > (clock_timestamp() AT TIME ZONE 'UTC')`;
+      const updated = await tx.$executeRaw`UPDATE "RssTriggerCheckpoint" SET "snapshot" = ${JSON.stringify(snapshot.keys)}::jsonb, "etag" = ${snapshot.etag}, "lastModified" = ${snapshot.lastModified}, "nextPollAt" = ${new Date(now.getTime() + target.pollMinutes * 60_000)}, "lastErrorCode" = NULL, "lastCheckedAt" = ${now}, "updatedAt" = ${now} WHERE "workflowId" = ${target.workflowId} AND "nodeId" = ${target.nodeId} AND "workflowVersionId" = ${target.versionId} AND "leaseToken" = ${token} AND "leaseExpiresAt" > (clock_timestamp() AT TIME ZONE 'UTC')`;
       if (updated !== 1) throw new NodeFailure("RSS_LEASE_EXPIRED", "RSS poll could not be committed before its lease expired.", true);
       return accepted.map((item) => item.executionId);
     }, { maxWait: 2000, timeout: 15_000 });
@@ -78,7 +78,7 @@ export class PrismaRssTriggerStore implements RssTriggerStore {
       const workflows = await tx.$queryRaw<Array<{ isActive: boolean; archivedAt: Date | null; publishedVersionId: string | null }>>`SELECT "isActive", "archivedAt", "publishedVersionId" FROM "Workflow" WHERE id = ${target.workflowId} FOR UPDATE`;
       const workflow = workflows[0];
       if (!workflow?.isActive || workflow.archivedAt || workflow.publishedVersionId !== target.versionId) return;
-      await tx.$executeRaw`UPDATE "RssTriggerCheckpoint" SET "state" = ${failure.retryable ? "READY" : "ERROR"}, "lastErrorCode" = ${code}, "nextPollAt" = ${new Date(now.getTime() + delay)}, "updatedAt" = ${now} WHERE "workflowId" = ${target.workflowId} AND "nodeId" = ${target.nodeId} AND "workflowVersionId" = ${target.versionId} AND "leaseToken" = ${token} AND "leaseExpiresAt" > (clock_timestamp() AT TIME ZONE 'UTC')`;
+      await tx.$executeRaw`UPDATE "RssTriggerCheckpoint" SET "state" = ${failure.retryable ? "READY" : "ERROR"}, "lastErrorCode" = ${code}, "lastCheckedAt" = ${now}, "nextPollAt" = ${new Date(now.getTime() + delay)}, "updatedAt" = ${now} WHERE "workflowId" = ${target.workflowId} AND "nodeId" = ${target.nodeId} AND "workflowVersionId" = ${target.versionId} AND "leaseToken" = ${token} AND "leaseExpiresAt" > (clock_timestamp() AT TIME ZONE 'UTC')`;
     }, { maxWait: 2000, timeout: 15_000 });
   }
 

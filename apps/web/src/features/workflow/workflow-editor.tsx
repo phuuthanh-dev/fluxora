@@ -118,6 +118,7 @@ function providerLabel(provider: CredentialProvider) {
   const labels: Record<CredentialProvider, string> = {
     GOOGLE_CHAT_WEBHOOK: "Google Chat",
     DISCORD_WEBHOOK: "Discord",
+    SLACK_WEBHOOK: "Slack",
     TELEGRAM_BOT: "Telegram",
     GOOGLE: "Google",
     GITHUB: "GitHub",
@@ -174,9 +175,9 @@ function ConfigField({ label, value, onChange, multiline = false, error }: {
   return (
     <Field label={label} className="config-field" error={error}>
       {multiline ? (
-        <textarea aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} rows={5} />
+        <textarea data-expression-target aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} rows={5} />
       ) : (
-        <input aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} />
+        <input data-expression-target aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} />
       )}
     </Field>
   );
@@ -511,19 +512,11 @@ function TestDataEditor({ value, onApply, draft, onDraftChange }: { value: unkno
   return <section className="json-config-editor"><div className="section-label">TEST DATA FOR MOCK RUN</div><textarea value={text} onChange={(event) => onDraftChange(event.target.value === baseline ? undefined : { text: event.target.value, baseline: draft?.baseline ?? baseline })} rows={6} aria-label="Manual trigger test data" /><button className="ghost-button" type="button" onClick={apply}>Apply test data</button>{draft && <button className="ghost-button" type="button" onClick={() => { onDraftChange(undefined); setError(null); }}>Discard test data changes</button>}{error && <p role="alert">{error}</p>}</section>;
 }
 
-function ExpressionSuggestions({ suggestions, possible }: { suggestions: string[]; possible: string[] }) {
+function ExpressionSuggestions({ suggestions, possible, onInsert }: { suggestions: string[]; possible: string[]; onInsert: (value: string) => boolean }) {
   const [notice, setNotice] = useState("");
   if (!suggestions.length && !possible.length) return null;
-  const copy = async (suggestion: string) => {
-    try {
-      if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
-      await navigator.clipboard.writeText(suggestion);
-      setNotice("Path copied.");
-    } catch {
-      setNotice("Could not copy. Allow clipboard access and try again.");
-    }
-  };
-  return <section className="expression-suggestions"><div className="section-label">EXPRESSION SUGGESTIONS</div><p>Click a path to copy it. Fields depend on the selected operation and on which branches run.</p>{suggestions.length > 0 && <><strong>From the last run</strong><div>{suggestions.map((suggestion) => <button key={suggestion} type="button" onClick={() => { void copy(suggestion); }}>{suggestion}</button>)}</div></>}{possible.length > 0 && <><strong>Possible fields</strong><div>{possible.map((suggestion) => <button key={suggestion} type="button" onClick={() => { void copy(suggestion); }}>{suggestion}</button>)}</div></>}{notice && <small>{notice}</small>}</section>;
+  const select = (suggestion: string) => setNotice(onInsert(suggestion) ? "Inserted into the selected field." : "First select a text field in Configuration, then choose a value.");
+  return <section className="expression-suggestions"><div className="section-label">USE DATA FROM AN EARLIER STEP</div><p>Select a text field in Configuration, then choose a value to insert at the cursor. Available fields depend on the steps that run.</p>{suggestions.length > 0 && <><strong>From the last run</strong><div>{suggestions.map((suggestion) => <button key={suggestion} type="button" onClick={() => select(suggestion)}>{suggestion}</button>)}</div></>}{possible.length > 0 && <><strong>Possible fields</strong><div>{possible.map((suggestion) => <button key={suggestion} type="button" onClick={() => select(suggestion)}>{suggestion}</button>)}</div></>}{notice && <small role="status">{notice}</small>}</section>;
 }
 
 function SwitchCaseEditor({ cases, onChange }: { cases: unknown; onChange: (cases: Array<{ value: string }>) => void }) {
@@ -532,6 +525,39 @@ function SwitchCaseEditor({ cases, onChange }: { cases: unknown; onChange: (case
     : [];
   const update = (index: number, value: string) => onChange(normalized.map((candidate, candidateIndex) => candidateIndex === index ? { value } : candidate));
   return <section className="switch-case-editor"><div className="section-label">SWITCH CASES</div><p>Each case branch is assigned to the next unused value when you connect it.</p>{normalized.map((candidate, index) => <div key={`${candidate.value}-${index}`}><input aria-label={`Switch case ${index + 1}`} value={candidate.value} onChange={(event) => update(index, event.target.value)} /><button type="button" onClick={() => onChange(normalized.filter((_, candidateIndex) => candidateIndex !== index))}>Remove</button></div>)}<button className="ghost-button" type="button" onClick={() => onChange([...normalized, { value: `case-${normalized.length + 1}` }])}>Add case</button></section>;
+}
+
+function FailureAlertPanel({ workflowId, credentials, onClose }: { workflowId: string; credentials: CredentialSummary[]; onClose: () => void }) {
+  const [provider, setProvider] = useState<"off" | "google_chat" | "telegram">("off");
+  const [credentialId, setCredentialId] = useState("");
+  const [chatId, setChatId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    let current = true;
+    void apiRequest<{ provider: "google_chat" | "telegram" | null; credentialId: string | null; chatId: string | null }>(`/workflows/${encodeURIComponent(workflowId)}/failure-alert`).then((data) => { if (current) { setProvider(data.provider ?? "off"); setCredentialId(data.credentialId ?? ""); setChatId(data.chatId ?? ""); } }).catch(() => { if (current) { setLoadFailed(true); setError("Could not load notification settings. Close and try again."); } }).finally(() => { if (current) setLoading(false); });
+    return () => { current = false; };
+  }, [workflowId]);
+  const candidates = credentials.filter((item) => item.provider === (provider === "telegram" ? "TELEGRAM_BOT" : "GOOGLE_CHAT_WEBHOOK"));
+  const save = async () => {
+    setSaving(true); setError(""); setSaved(false);
+    try {
+      await apiRequest(`/workflows/${encodeURIComponent(workflowId)}/failure-alert`, { method: "PATCH", body: JSON.stringify({ provider: provider === "off" ? null : provider, credentialId, chatId }) });
+      setSaved(true);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not save notification settings."); }
+    finally { setSaving(false); }
+  };
+  return <Dialog label="Failure notifications" className="go-live-panel" onClose={onClose}><DialogHeader title="Failure notifications" onClose={onClose} closeLabel="Close failure notifications" /><p>Optionally send a short alert when a live run fails. Handled errors and test runs do not send alerts.</p>{loading ? <Status tone="info">Loading settings…</Status> : <>
+    <Field label="Send alerts to"><Select aria-label="Send alerts to" value={provider} onChange={(event) => { setProvider(event.target.value as typeof provider); setCredentialId(""); setSaved(false); }}><option value="off">Off</option><option value="google_chat">Google Chat webhook</option><option value="telegram">Telegram bot</option></Select></Field>
+    {provider !== "off" && <Field label="Connection"><Select aria-label="Failure alert connection" value={credentialId} onChange={(event) => { setCredentialId(event.target.value); setSaved(false); }}><option value="">Select connection</option>{credentialId && !candidates.some((item) => item.id === credentialId) && <option value={credentialId} disabled>Connection no longer available</option>}{candidates.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</Select></Field>}
+    {provider === "telegram" && <Field label="Telegram chat ID"><input aria-label="Failure alert Telegram chat ID" value={chatId} onChange={(event) => { setChatId(event.target.value); setSaved(false); }} /></Field>}
+    <p>Each alert is attempted once. A network interruption can prevent delivery; check execution history for the authoritative result.</p>
+    {error && <Status tone="error" role="alert">{error}</Status>}{saved && <Status tone="success" role="status">Notification settings saved.</Status>}
+    <div className="dialog-actions"><Button type="button" variant="secondary" onClick={onClose}>Close</Button><Button type="button" variant="primary" disabled={loadFailed || saving || (provider !== "off" && !candidates.some((item) => item.id === credentialId))} onClick={() => void save()}>{saving ? "Saving…" : "Save settings"}</Button></div>
+  </>}</Dialog>;
 }
 
 function WorkflowHistoryPanel({ versions, loading, onClose }: { versions: WorkflowVersionSummary[]; loading: boolean; onClose: () => void }) {
@@ -582,11 +608,12 @@ function WorkflowActivationPanel({ workflow, isSaving, readiness, loading, error
   const canConfirm = isDeactivation || Boolean(workflow.published && readiness?.ready && !loading && !error && !isSaving);
   const hasGmailTrigger = workflow.published?.graph.nodes.some((node) => node.type === "trigger.gmail");
   const hasRssTrigger = workflow.published?.graph.nodes.some((node) => node.type === "trigger.rss.new-item");
+  const hasSteamNewsTrigger = workflow.published?.graph.nodes.some((node) => node.type === "trigger.steam.game-news");
   const hasVercelTrigger = workflow.published?.graph.nodes.some((node) => node.type === "trigger.vercel.deployment");
   const hasTrelloTrigger = workflow.published?.graph.nodes.some((node) => node.type === "trigger.trello.board-action");
   const hasSentryTrigger = workflow.published?.graph.nodes.some((node) => node.type === "trigger.sentry.issue-created");
   const hasTelegramTrigger = workflow.published?.graph.nodes.some((node) => node.type === "trigger.telegram.update");
-  return <Dialog label={isDeactivation ? "Deactivate workflow" : "Activate workflow"} className="go-live-panel" onClose={onClose}><DialogHeader eyebrow="WORKFLOW ACTIVATION" title={isDeactivation ? "Deactivate this workflow?" : "Activate this workflow?"} onClose={onClose} closeLabel="Close workflow activation" />{isDeactivation ? <p>Scheduled checks and incoming webhook triggers stop accepting new work. Already accepted executions may still start or finish.</p> : <p>Activation enables the published trigger, including schedules, polling, or webhooks where configured. It does not start a manual run now; use <strong>Run live</strong> for an immediate provider call.</p>}{hasGmailTrigger && <p>{isDeactivation ? "When reactivated, Gmail may process messages received while inactive if its saved history is available." : "The first activation starts from the current Gmail checkpoint. Reactivation resumes the saved checkpoint when available."}</p>}{hasRssTrigger && <p>{isDeactivation ? "RSS items that disappear from the feed while inactive may be missed." : "The first activation records the current RSS feed; existing items do not start a run. Reactivation resumes the saved checkpoint when available."}</p>}{!isDeactivation && !workflow.published && <p className="go-live-panel__warning">Publish this workflow first.</p>}{!isDeactivation && loading && <Status tone="info" className="go-live-panel__readiness" aria-busy="true"><LoaderCircle className="ui-spinner" size={15} /> Checking live credentials…</Status>}{!isDeactivation && error && <Status tone="error" className="go-live-panel__readiness">{error} <Button variant="ghost" onClick={onRefresh}>Retry check</Button></Status>}{!isDeactivation && !loading && !error && readiness?.ready && <Status tone="success" className="go-live-panel__readiness">Required live credentials are configured.</Status>}{!isDeactivation && hasTelegramTrigger && <Status tone="info" className="go-live-panel__readiness">Telegram delivery requires a Fluxora endpoint and a webhook configured on the bot. Fluxora does not register or verify that webhook. Telegram allows one webhook per bot; configuring a new one replaces the existing webhook.</Status>}{!isDeactivation && hasVercelTrigger && <Status tone="info" className="go-live-panel__readiness">Vercel delivery also requires a matching account webhook and signing secret. Fluxora cannot verify the remote webhook; check its setup and delivery status in Vercel.</Status>}{!isDeactivation && hasTrelloTrigger && <Status tone="info" className="go-live-panel__readiness">Trello delivery requires the app secret and an externally registered webhook for the selected board. Fluxora cannot verify the remote webhook; check its setup in Trello.</Status>}{!isDeactivation && hasSentryTrigger && <Status tone="info" className="go-live-panel__readiness">Sentry delivery requires a custom integration with a matching installation and client secret. Fluxora cannot verify the remote integration.</Status>}{!isDeactivation && !loading && !error && readiness && !readiness.ready && <LiveReadinessBlockers readiness={readiness} onOpenCredentials={onOpenCredentials} activation />}<div className="go-live-panel__actions"><Button variant="ghost" className="ghost-button" onClick={onClose} disabled={isSaving}>Cancel</Button><Button variant={isDeactivation ? "danger" : "primary"} disabled={!canConfirm} onClick={onConfirm}>{isSaving ? "Working…" : isDeactivation ? "Deactivate workflow" : "Activate workflow"}</Button></div></Dialog>;
+  return <Dialog label={isDeactivation ? "Deactivate workflow" : "Activate workflow"} className="go-live-panel" onClose={onClose}><DialogHeader eyebrow="WORKFLOW ACTIVATION" title={isDeactivation ? "Deactivate this workflow?" : "Activate this workflow?"} onClose={onClose} closeLabel="Close workflow activation" />{isDeactivation ? <p>Scheduled checks and incoming webhook triggers stop accepting new work. Already accepted executions may still start or finish.</p> : <p>Activation enables the published trigger, including schedules, polling, or webhooks where configured. It does not start a manual run now; use <strong>Run live</strong> for an immediate provider call.</p>}{hasGmailTrigger && <p>{isDeactivation ? "When reactivated, Gmail may process messages received while inactive if its saved history is available." : "The first activation starts from the current Gmail checkpoint. Reactivation resumes the saved checkpoint when available."}</p>}{hasRssTrigger && <p>{isDeactivation ? "RSS items that disappear from the feed while inactive may be missed." : "The first activation records the current RSS feed; existing items do not start a run. Reactivation resumes the saved checkpoint when available."}</p>}{hasSteamNewsTrigger && <p>{isDeactivation ? "News outside the latest 10 posts while inactive may be missed." : "The first activation records the latest 10 Steam news posts without running them. Later checks resume the saved checkpoint."}</p>}{!isDeactivation && !workflow.published && <p className="go-live-panel__warning">Publish this workflow first.</p>}{!isDeactivation && loading && <Status tone="info" className="go-live-panel__readiness" aria-busy="true"><LoaderCircle className="ui-spinner" size={15} /> Checking live credentials…</Status>}{!isDeactivation && error && <Status tone="error" className="go-live-panel__readiness">{error} <Button variant="ghost" onClick={onRefresh}>Retry check</Button></Status>}{!isDeactivation && !loading && !error && readiness?.ready && <Status tone="success" className="go-live-panel__readiness">Required live credentials are configured.</Status>}{!isDeactivation && hasTelegramTrigger && <Status tone="info" className="go-live-panel__readiness">Telegram delivery requires a Fluxora endpoint and a webhook configured on the bot. Fluxora does not register or verify that webhook. Telegram allows one webhook per bot; configuring a new one replaces the existing webhook.</Status>}{!isDeactivation && hasVercelTrigger && <Status tone="info" className="go-live-panel__readiness">Vercel delivery also requires a matching account webhook and signing secret. Fluxora cannot verify the remote webhook; check its setup and delivery status in Vercel.</Status>}{!isDeactivation && hasTrelloTrigger && <Status tone="info" className="go-live-panel__readiness">Trello delivery requires the app secret and an externally registered webhook for the selected board. Fluxora cannot verify the remote webhook; check its setup in Trello.</Status>}{!isDeactivation && hasSentryTrigger && <Status tone="info" className="go-live-panel__readiness">Sentry delivery requires a custom integration with a matching installation and client secret. Fluxora cannot verify the remote integration.</Status>}{!isDeactivation && !loading && !error && readiness && !readiness.ready && <LiveReadinessBlockers readiness={readiness} onOpenCredentials={onOpenCredentials} activation />}<div className="go-live-panel__actions"><Button variant="ghost" className="ghost-button" onClick={onClose} disabled={isSaving}>Cancel</Button><Button variant={isDeactivation ? "danger" : "primary"} disabled={!canConfirm} onClick={onConfirm}>{isSaving ? "Working…" : isDeactivation ? "Deactivate workflow" : "Activate workflow"}</Button></div></Dialog>;
 }
 
 function WebhookEndpointPanel({ workflow, config, isGitHub, isUptimeKuma, isTelegram, isVercel, isTrello, isSentry, canRegister, onClose }: { workflow: ApiWorkflow; config: Record<string, unknown>; isGitHub: boolean; isUptimeKuma: boolean; isTelegram: boolean; isVercel: boolean; isTrello: boolean; isSentry: boolean; canRegister: boolean; onClose: () => void }) {
@@ -851,8 +878,8 @@ function GmailTriggerStatus({ workflowId, nodeId }: { workflowId: string; nodeId
   </Status>;
 }
 
-function RssTriggerStatus({ workflowId, nodeId }: { workflowId: string; nodeId: string }) {
-  const [status, setStatus] = useState<{ active: boolean; checkpoints: Array<{ nodeId: string; state: string; lastErrorCode: string | null }> } | null>(null);
+function RssTriggerStatus({ workflowId, nodeId, steam = false }: { workflowId: string; nodeId: string; steam?: boolean }) {
+  const [status, setStatus] = useState<{ active: boolean; checkpoints: Array<{ nodeId: string; state: string; lastErrorCode: string | null; lastCheckedAt: string | null }> } | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [resetOpen, setResetOpen] = useState(false);
@@ -861,7 +888,7 @@ function RssTriggerStatus({ workflowId, nodeId }: { workflowId: string; nodeId: 
   useEffect(() => {
     if (!workflowId) return;
     let current = true;
-    const load = () => { void apiRequest<{ active: boolean; checkpoints: Array<{ nodeId: string; state: string; lastErrorCode: string | null }> }>(`/workflows/${encodeURIComponent(workflowId)}/rss-trigger-status`).then((data) => { if (current) { setStatus(data); setUnavailable(false); } }).catch(() => { if (current) setUnavailable(true); }); };
+    const load = () => { void apiRequest<{ active: boolean; checkpoints: Array<{ nodeId: string; state: string; lastErrorCode: string | null; lastCheckedAt: string | null }> }>(`/workflows/${encodeURIComponent(workflowId)}/rss-trigger-status`).then((data) => { if (current) { setStatus(data); setUnavailable(false); } }).catch(() => { if (current) setUnavailable(true); }); };
     load();
     const timer = window.setInterval(load, 30_000);
     return () => { current = false; window.clearInterval(timer); };
@@ -869,8 +896,9 @@ function RssTriggerStatus({ workflowId, nodeId }: { workflowId: string; nodeId: 
   const checkpoint = status?.checkpoints.find((item) => item.nodeId === nodeId);
   const error = checkpoint?.lastErrorCode;
   return <Status tone={checkpoint?.state === "ERROR" || unavailable ? "warning" : "info"} className="inspector-note">
-    <strong>RSS polling</strong>
-    <span>Use a public feed URL. Do not put passwords, API keys or tokens in the URL.</span>
+    <strong>{steam ? "Steam news polling" : "RSS polling"}</strong>
+    {!steam && <span>Use a public feed URL. Do not put passwords, API keys or tokens in the URL.</span>}
+    {checkpoint?.lastCheckedAt && <span>Last checked: {new Date(checkpoint.lastCheckedAt).toLocaleString()}</span>}
     <span>Status and reset refer to the published workflow, not unsaved draft changes.</span>
     <span>{unavailable ? "Trigger status is unavailable. Try refreshing." : checkpoint?.state === "ERROR" ? error === "RSS_SNAPSHOT_GAP" ? "The feed no longer overlaps the previous snapshot, so some items may have been missed. Deactivate and review the reset option." : error === "RSS_NOT_READY" ? "A required connection is unavailable. Deactivate, fix the connection and publish changes if needed, then activate again. The saved checkpoint will be retained." : "The trigger needs attention. Deactivate and review the reset option." : error ? "The last check failed. Fluxora will retry without advancing the checkpoint." : status?.active && checkpoint ? "Active. New items are checked on the selected schedule." : checkpoint ? "Inactive. Reactivating resumes the saved checkpoint." : "Publish and activate to start checking. Existing items are not processed."}</span>
     <span>Items that appear and disappear between checks can be missed. History is bounded; an older item may be delivered again after its receipt expires.</span>
@@ -926,6 +954,21 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
   const graphNodes = useWorkflowEditorStore((state) => state.nodes);
   const graphEdges = useWorkflowEditorStore((state) => state.edges);
   const inspectorRef = useDialogFocus<HTMLElement>({ active: isDrawerOpen, trapFocus: true, onClose: onCloseDrawer, restoreFocus: false });
+  const expressionTarget = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  useEffect(() => { expressionTarget.current = null; }, [node?.id]);
+  const insertExpression = (value: string) => {
+    const target = expressionTarget.current;
+    if (!target?.isConnected || target.disabled || target.readOnly) return false;
+    const start = target.selectionStart ?? target.value.length;
+    const end = target.selectionEnd ?? start;
+    const next = target.value.slice(0, start) + value + target.value.slice(end);
+    const prototype = target instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(prototype, "value")?.set?.call(target, next);
+    target.dispatchEvent(new Event("input", { bubbles: true }));
+    target.focus();
+    target.setSelectionRange(start + value.length, start + value.length);
+    return true;
+  };
 
   useSurfaceMotion(inspectorRef, isDrawerOpen);
 
@@ -1064,9 +1107,14 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
         />
       </InspectorSection>
       <InspectorSection title="Configuration">
+      <div onFocusCapture={(event) => {
+        const target = event.target;
+        if (!node.data.nodeType.startsWith("trigger.") && (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) && target.hasAttribute("data-expression-target")) expressionTarget.current = target;
+      }}>
       {(effectiveNodeType === "action.riot-lol" || effectiveNodeType === "action.riot-tft") && <Status tone="warning" className="inspector-note"><strong>Riot API prototype</strong><span>Live execution on production is unavailable while Riot approval is pending. Use a key authorized for this game and product on a private prototype. Player data can appear in execution history.{effectiveNodeType === "action.riot-tft" ? " TFT is for post-game analysis; do not use it for live scouting or gameplay advice." : ""}</span></Status>}
       {effectiveNodeType === "trigger.uptime-kuma.alert" && <Status tone="info" className="inspector-note">Leave Monitor ID empty for all monitors. Repeated notifications may start multiple runs unless the sender supplies an Idempotency-Key. Matching keys are remembered while execution history is retained for this published version.</Status>}
       {definition?.configurationFields && <NodeConfigurationFields key={`configuration-${node.id}`} fields={definition.configurationFields} config={node.data.config} credentials={credentials} workspaceId={workspaceId} workflowId={workflowId} nodeId={node.id} owner={owner} allowExpressions={!effectiveNodeType.startsWith("trigger.")} onChange={updateConfig} draft={draft} onDraftChange={onDraftChange} issues={configIssues} />}
+      {effectiveNodeType === "trigger.steam.game-news" && <Status tone="info" className="inspector-note">No connection is needed. Enter the App ID from the game's Steam store URL. The first check records the latest 10 posts without starting runs; posts outside that window can be missed.</Status>}
       {effectiveNodeType === "action.steam" && node.data.config.operation === "gameNews" && <Status tone="info" className="inspector-note">No Steam connection is needed. Find the App ID in the game's Steam store URL; for example, Portal 2 uses 620. Returns up to 10 recent items with shortened content.</Status>}
       {effectiveNodeType === "action.reddit.list-posts" && <Status tone="warning" className="inspector-note"><strong>Reddit access is changing</strong><span>New public Data API access requests stopped on October 31, 2026. Existing approved access is being phased out; availability depends on Reddit. <a href="https://support.reddithelp.com/hc/en-us/articles/54353370049684-Changelog-October-8-2026" target="_blank" rel="noopener noreferrer">Read Reddit's migration timeline</a>.</span></Status>}
       {["action.rss.read", "trigger.rss.new-item"].includes(effectiveNodeType) && isRedditFeed(node.data.config.url) && <Status tone="warning" className="inspector-note"><strong>Reddit RSS support is ending</strong><span>Reddit announced RSS support ends November 13, 2026. This feed may stop working. <a href="https://support.reddithelp.com/hc/en-us/articles/54353370049684-Changelog-October-8-2026" target="_blank" rel="noopener noreferrer">See Reddit's announcement</a>.</span></Status>}
@@ -1104,7 +1152,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       {["action.github.list-issues", "action.github.get-issue", "action.github.list-pull-requests", "action.github.get-pull-request"].includes(effectiveNodeType) && <Status tone="info" className="inspector-note">Issue and pull request content can be stored in execution history and passed to later steps. Check bodyTruncated before using a description as complete.</Status>}
       {effectiveNodeType === "action.github.update-issue" && <Status tone="warning" className="inspector-note">Updates can overwrite someone else's concurrent change. If the result is uncertain, check GitHub before retrying.</Status>}
       {effectiveNodeType === "trigger.gmail" && <GmailTriggerStatus workflowId={workflowId} nodeId={node.id} />}
-      {effectiveNodeType === "trigger.rss.new-item" && <RssTriggerStatus workflowId={workflowId} nodeId={node.id} />}
+      {["trigger.rss.new-item", "trigger.steam.game-news"].includes(effectiveNodeType) && <RssTriggerStatus workflowId={workflowId} nodeId={node.id} steam={effectiveNodeType === "trigger.steam.game-news"} />}
       {effectiveNodeType === "trigger.manual" && <TestDataEditor key={`test-data-${node.id}`} value={node.data.config.testData} onApply={(testData) => updateConfig("testData", testData)} draft={draft.testData} onDraftChange={(next) => onDraftChange("testData", next)} />}
       {effectiveNodeType === "trigger.cron" && (
         <>
@@ -1179,6 +1227,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
         <CredentialField label="Notification credential (optional)" value={readConfigText(node.data.config, "notificationCredentialId")} providers={readConfigText(node.data.config, "notificationProvider") === "http_webhook" ? ["HTTP"] : ["GOOGLE_CHAT_WEBHOOK"]} credentials={credentials} onChange={(value) => updateConfig("notificationCredentialId", value)} optional />
       </>}
       {definition && !definition.available && <p className="planned-note">This node is visible for roadmap clarity, but cannot run in the MVP.</p>}
+      </div>
       </InspectorSection>
       <InspectorSection title="Test & debug">
         <section className="node-debug-panel">
@@ -1193,7 +1242,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       <InspectorSection title="Advanced">
         {node.data.category === "action" && <div className="config-field"><label className="checkbox-field"><input type="checkbox" checked={node.data.config.executeOnce === true} onChange={(event) => updateConfig("executeOnce", event.target.checked ? true : undefined)} /> Run once for the first item</label><small>When the previous step returns multiple items, run this action only for the first. No items means this action does not run.</small>{configIssues.find((issue) => issue.field === "executeOnce") && <p className="ui-field__error" role="alert">{configIssues.find((issue) => issue.field === "executeOnce")?.message}</p>}</div>}
         <JsonConfigEditor key={node.id} config={node.data.config} onApply={(config) => updateNodeData(node.id, { config })} draft={draft.json} onDraftChange={(next) => onDraftChange("json", next)} otherPending={draft.filter !== undefined || draft.filterRaw !== undefined || draft.testData !== undefined || draft.structuredOutput !== undefined || draft.relational !== undefined || draft.sheetsMapping !== undefined} />
-        <ExpressionSuggestions suggestions={suggestions} possible={possible} />
+        <ExpressionSuggestions suggestions={suggestions} possible={possible} onInsert={insertExpression} />
       </InspectorSection>
       {nodeExecution && (
         <InspectorSection title="Last execution">
@@ -1245,6 +1294,7 @@ export function WorkflowEditor() {
   const [credentialsOpen, setCredentialsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [failureAlertOpen, setFailureAlertOpen] = useState(false);
   const [webhookOpen, setWebhookOpen] = useState(false);
   const [liveConfirmOpen, setLiveConfirmOpen] = useState(false);
   const [retryConfirmOpen, setRetryConfirmOpen] = useState(false);
@@ -1905,6 +1955,7 @@ export function WorkflowEditor() {
             <button type="button" onClick={() => setLibraryOpen(true)} disabled={!workflow || hasPending}>Workflows</button>
             <button type="button" onClick={() => void openHistory()} disabled={!workflow}><History size={15} /> Version history</button>
             <button type="button" onClick={() => setCredentialsOpen(true)} disabled={!workflow}><KeyRound size={15} /> Credentials</button>
+            <button type="button" onClick={() => setFailureAlertOpen(true)} disabled={!workflow}>Failure notifications</button>
             {webhookTrigger && <button type="button" onClick={() => setWebhookOpen(true)} disabled={!workflow}>Webhook endpoint</button>}
             {workflow?.isActive && <button type="button" onClick={() => setActivationOpen(true)} disabled={isSaving}>Deactivate workflow</button>}
             <span className="action-menu__divider" />
@@ -1988,6 +2039,7 @@ export function WorkflowEditor() {
         <button type="button" disabled={hasPending} onClick={() => { duplicateNode(contextMenu.nodeId); setContextMenu(null); setNotice("Node duplicated."); }}>Duplicate</button>
         <button className="node-context-menu__danger" type="button" disabled={hasPending} onClick={() => { deleteNode(contextMenu.nodeId); setContextMenu(null); setNotice("Node and its connections removed."); }}>Delete</button>
       </div>}
+      {failureAlertOpen && workflow && <FailureAlertPanel workflowId={workflow.id} credentials={credentials} onClose={() => setFailureAlertOpen(false)} />}
       {historyOpen && <WorkflowHistoryPanel versions={versions} loading={versionsLoading} onClose={() => setHistoryOpen(false)} />}
       {validationOpen && <GraphValidationPanel issues={issues} onClose={() => setValidationOpen(false)} />}
       {webhookOpen && workflow && webhookTrigger && <WebhookEndpointPanel workflow={workflow} config={webhookTrigger.config} isGitHub={isGitHubWebhookTrigger(webhookTrigger.type)} isUptimeKuma={isUptimeKumaTrigger(webhookTrigger.type)} isTelegram={webhookTrigger.type === "trigger.telegram.update"} isVercel={webhookTrigger.type === "trigger.vercel.deployment"} isTrello={webhookTrigger.type === "trigger.trello.board-action"} isSentry={webhookTrigger.type === "trigger.sentry.issue-created"} canRegister={Boolean(publishedWebhook)} onClose={() => setWebhookOpen(false)} />}

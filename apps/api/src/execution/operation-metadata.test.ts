@@ -88,6 +88,7 @@ test("trigger metadata describes the common output wrapper without assuming a pr
   const configurations: Record<string, Record<string, unknown>> = {
     "trigger.cron": { expression: "0 9 * * *", timezone: "UTC" },
     "trigger.rss.new-item": { url: "https://example.test/feed.xml" },
+    "trigger.steam.game-news": { appId: "620" },
     "trigger.telegram.update": { event: "message", chatMode: "all" },
     "trigger.vercel.deployment": { team: "personal", project: "prj_example", event: "deployment.created" },
     "trigger.trello.board-action": { boardId: "a".repeat(24), action: "all" },
@@ -142,6 +143,7 @@ test("configured mock outputs contain the fields advertised by operation metadat
   const cases = [
     ["action.google-chat.webhook", { message: "Example message" }],
     ["action.discord.webhook", { content: "Example message" }],
+    ["action.slack.webhook", { message: "Example message" }],
     ["action.telegram.message", { chatId: "12345", text: "Example message" }],
     ["action.telegram.reply", { chatId: "12345", messageId: 1, text: "Example reply" }],
     ["action.telegram.edit-message", { chatId: "12345", messageId: 1, text: "Example edit" }],

@@ -2,12 +2,15 @@ import { createHash, randomUUID } from "node:crypto";
 import { NodeFailure, nodeFailureFromOutboundPolicy } from "../execution/node-failure";
 import { fetchPublicRss, parsePublicRssUrl } from "../execution/rss-public-transport";
 import { readBoundedRss } from "../execution/rss-read";
-import { parseRssTriggerSnapshot } from "../execution/rss-trigger-snapshot";
+import { parseRssTriggerSnapshot, safeRssItemLink } from "../execution/rss-trigger-snapshot";
+import { readProviderJson } from "../execution/provider-request-policy";
+import { parseSteamResult } from "../execution/steam-operations";
+import { isSteamAppId } from "@workflow/contracts";
 import { parseRetryAfter } from "../execution/retry-policy";
 import type { WorkflowGraph } from "@workflow/contracts";
 
 const leaseMs = 5 * 60_000;
-export type RssTarget = { workflowId: string; versionId: string; nodeId: string; url: string; pollMinutes: number };
+export type RssTarget = { workflowId: string; versionId: string; nodeId: string; url: string; pollMinutes: number; source?: "steam" };
 export type RssSnapshot = { keys: string[]; etag: string | null; lastModified: string | null };
 export type RssCheckpoint = RssSnapshot & { feedUrlHash: string };
 export type RssObservation = ReturnType<typeof parseRssTriggerSnapshot>["observations"][number];
@@ -28,12 +31,15 @@ type Transport = (url: string, init: RequestInit) => Promise<Response>;
 
 /** Derive polling targets only from the persisted graph, not from request data. */
 export function rssTargets(workflowId: string, versionId: string, graph: WorkflowGraph): RssTarget[] {
-  return graph.nodes.filter((node) => node.type === "trigger.rss.new-item").map((node) => {
-    const url = typeof node.config.url === "string" ? node.config.url.trim() : "";
+  return graph.nodes.filter((node) => ["trigger.rss.new-item", "trigger.steam.game-news"].includes(node.type)).map((node) => {
+    const steam = node.type === "trigger.steam.game-news";
+    const appId = typeof node.config.appId === "string" ? node.config.appId.trim() : "";
+    if (steam && !isSteamAppId(appId)) throw new NodeFailure("INVALID_INPUT", "Enter a valid Steam game App ID.", false);
+    const url = steam ? `https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?${new URLSearchParams({ appid: appId, count: "10", maxlength: "1000" })}` : typeof node.config.url === "string" ? node.config.url.trim() : "";
     const rawInterval = node.config.pollMinutes ?? 5;
     const pollMinutes = typeof rawInterval === "string" && /^\d+$/.test(rawInterval) ? Number(rawInterval) : rawInterval;
     if (typeof pollMinutes !== "number") throw new NodeFailure("INVALID_INPUT", "Choose a supported RSS polling interval.", false);
-    const target = { workflowId, versionId, nodeId: node.id, url, pollMinutes };
+    const target: RssTarget = { workflowId, versionId, nodeId: node.id, url, pollMinutes, ...(steam ? { source: "steam" as const } : {}) };
     targetUrl(target);
     return target;
   });
@@ -88,7 +94,7 @@ export class RssTriggerPoller {
 
   private async fetch(target: RssTarget, checkpoint: RssCheckpoint | null) {
     const url = targetUrl(target);
-    const headers: Record<string, string> = { accept: "application/rss+xml, application/atom+xml, application/xml, text/xml" };
+    const headers: Record<string, string> = { accept: target.source === "steam" ? "application/json" : "application/rss+xml, application/atom+xml, application/xml, text/xml" };
     if (checkpoint?.etag) headers["if-none-match"] = checkpoint.etag;
     if (checkpoint?.lastModified) headers["if-modified-since"] = checkpoint.lastModified;
     let response: Response;
@@ -100,6 +106,18 @@ export class RssTriggerPoller {
       await response.body?.cancel().catch(() => undefined);
       if (retryAfter !== undefined && (!Number.isFinite(retryAfter) || retryAfter > 30 * 24 * 60 * 60_000)) throw new NodeFailure("RSS_RETRY_AFTER_UNSUPPORTED", "Feed requested a retry delay over 30 days; review the trigger.", false);
       throw new NodeFailure("RSS_HTTP_ERROR", `Feed returned ${response.status}.`, response.status === 429 || response.status >= 500, response.status, retryAfter);
+    }
+    if (target.source === "steam") {
+      const appId = new URL(url).searchParams.get("appid") ?? "";
+      const news = parseSteamResult("gameNews", await readProviderJson(response, "Steam"), "", appId);
+      const observations = (news.newsitems as Record<string, unknown>[]).map((item) => {
+        if (typeof item.gid !== "string" || !/^\d{1,30}$/.test(item.gid)) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Steam news is missing a valid identifier.", false);
+        const text = (value: unknown, max: number) => typeof value === "string" ? value.slice(0, max).replace(/https?:\/\/[^\s<>"']+/gi, (link) => safeRssItemLink(link)) : "";
+        const publishedAt = typeof item.date === "number" && Number.isSafeInteger(item.date) && item.date >= 0 && item.date <= 253402300799 ? new Date(item.date * 1000).toISOString() : "";
+        return { key: createHash("sha256").update(`steam-news:${appId}:${item.gid}`).digest("hex"), item: { id: item.gid, title: text(item.title, 500), link: safeRssItemLink(text(item.url, 2048)), publishedAt, summary: text(item.contents, 1000) } };
+      });
+      if (new Set(observations.map((item) => item.key)).size !== observations.length) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Steam returned duplicate news identifiers.", false);
+      return { observations, snapshot: { keys: observations.map((item) => item.key), etag: null, lastModified: null } };
     }
     const xml = await readBoundedRss(response);
     const parsed = parseRssTriggerSnapshot(xml);

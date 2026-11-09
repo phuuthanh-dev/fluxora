@@ -19,8 +19,9 @@ import { gmailGet, gmailLabel, gmailRead, gmailReply, gmailSend, gmailUpdateDraf
 import { calendarAvailability, calendarCreate, calendarEvent, calendarList, calendarUpdate } from "./node-config-schemas/google-calendar";
 import { postgresSelect, supabaseInsert, supabaseSelect } from "./node-config-schemas/relational";
 import { riotLol, riotTft } from "./node-config-schemas/riot";
+import { slackWebhook } from "./node-config-schemas/slack";
 import { discordWebhook } from "./node-config-schemas/discord";
-import { cron, githubTrigger, gmailTrigger, manual, rssTrigger, sentryTrigger, telegramTrigger, trelloTrigger, uptimeTrigger, vercelTrigger, webhookTrigger } from "./node-config-schemas/triggers";
+import { cron, githubTrigger, gmailTrigger, manual, rssTrigger, steamNewsTrigger, sentryTrigger, telegramTrigger, trelloTrigger, uptimeTrigger, vercelTrigger, webhookTrigger } from "./node-config-schemas/triggers";
 import { approval, ifCondition, switchCondition } from "./node-config-schemas/flow";
 import type { ConfigRules, NodeConfigIssue } from "./node-config-schemas/types";
 
@@ -100,11 +101,13 @@ const rules: Readonly<Record<string, ConfigRules>> = {
   "action.riot-lol": riotLol,
   "action.riot-tft": riotTft,
   "action.discord.webhook": discordWebhook,
+  "action.slack.webhook": slackWebhook,
   "trigger.manual": manual,
   "trigger.cron": cron,
   "trigger.webhook": webhookTrigger,
   "trigger.gmail": gmailTrigger,
   "trigger.rss.new-item": rssTrigger,
+  "trigger.steam.game-news": steamNewsTrigger,
   "trigger.telegram.update": telegramTrigger,
   "trigger.vercel.deployment": vercelTrigger,
   "trigger.trello.board-action": trelloTrigger,

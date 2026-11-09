@@ -39,6 +39,16 @@ export class WorkflowController {
     return { workflow: await this.workflows.get(workflowId, requireUserId(request)) };
   }
 
+  @Get("workflows/:workflowId/failure-alert")
+  async getFailureAlert(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return this.workflows.getFailureAlert(workflowId, requireUserId(request));
+  }
+
+  @Patch("workflows/:workflowId/failure-alert")
+  async updateFailureAlert(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return this.workflows.updateFailureAlert(workflowId, requireUserId(request), readRecord(request.body));
+  }
+
   @Get("workflows/:workflowId/versions")
   async listVersions(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
     return { versions: await this.workflows.listVersions(workflowId, requireUserId(request)) };

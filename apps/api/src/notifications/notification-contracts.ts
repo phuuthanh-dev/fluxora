@@ -1,4 +1,4 @@
-export type NotificationProvider = "google_chat" | "discord" | "telegram" | "http_webhook";
+export type NotificationProvider = "google_chat" | "slack" | "discord" | "telegram" | "http_webhook";
 
 export type DiscordAllowedMentions = {
   parse?: ("roles" | "users" | "everyone")[];

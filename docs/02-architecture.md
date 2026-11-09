@@ -536,3 +536,18 @@ Gmail and Calendar list adapters likewise mark their validated top-level
 continuation output for persistence; arbitrary or nested token fields remain
 redacted. Tokens matching the current provider access token are rejected.
 These changes have not been tested or qualified against a live provider.
+
+### Steam news, notification settings and data mapping (local draft)
+
+Steam news polling shares the existing feed checkpoint, delivery receipt,
+lease and recovery paths. It derives a fixed public Steam API URL from a valid
+App ID and requests at most ten items. No credential or new scheduler is used.
+A non-overlapping snapshot stops polling for review; bounded retention means
+old reappearing posts can be delivered again. This is polling, not a webhook.
+
+Failure alert settings belong to the workflow rather than its immutable graph
+version. A terminal live failure claims an alert once before sending through an
+existing notification adapter. A claim does not prove provider delivery: a
+process crash can lose an alert, and ambiguous writes must not be retried.
+Credential reference checks include these settings. Slack uses its own vault
+provider and incoming webhook adapter; the URL is never returned in a receipt.

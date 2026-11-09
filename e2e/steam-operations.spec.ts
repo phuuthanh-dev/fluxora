@@ -51,6 +51,10 @@ test("Steam offers the community operations and an owned-game picker with manual
   await expect(page.getByText(/No Steam connection is needed/)).toBeVisible();
 
   const library = page.getByRole("complementary", { name: "Node Library" });
+  await library.getByLabel("Search apps and operations").fill("new game news");
+  await library.getByRole("button", { name: /Steam: New game news/ }).click();
+  await expect(page.getByLabel("Steam game App ID")).toBeVisible();
+  await expect(page.getByText(/The first check records the latest 10 posts/)).toBeVisible();
   await library.getByLabel("Search apps and operations").fill("owned games");
   const owned = library.getByRole("button", { name: /Steam: Get owned games/ });
   await expect(owned).toBeVisible();

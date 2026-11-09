@@ -17,6 +17,7 @@ import {
   Webhook,
 } from "lucide-react";
 import { useId } from "react";
+import slackIcon from "@iconify-icons/logos/slack-icon";
 import discordIcon from "@iconify-icons/logos/discord-icon";
 import googleDriveIcon from "@iconify-icons/logos/google-drive-2020";
 import googleGeminiIcon from "@iconify-icons/logos/google-gemini-icon";
@@ -61,6 +62,7 @@ export type NodeIconName =
   | "google-chat"
   | "google-calendar"
   | "gmail"
+  | "slack"
   | "discord"
   | "telegram"
   | "google-drive"
@@ -125,6 +127,7 @@ export function NodeIcon({ name, size = 18, className = "" }: { name: NodeIconNa
       case "google-chat": return <SiGooglechat {...props} />;
       case "google-calendar": return <BrandIcon icon={calendarIcon} size={size} />;
       case "gmail": return <BrandIcon icon={gmailIcon} size={size} />;
+      case "slack": return <BrandIcon icon={slackIcon} size={size} />;
       case "discord": return <BrandIcon icon={discordIcon} size={size} />;
       case "telegram": return <BrandIcon icon={telegramIcon} size={size} />;
       case "google-drive": return <BrandIcon icon={googleDriveIcon} size={size} />;
