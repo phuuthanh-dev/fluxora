@@ -3,7 +3,7 @@ import { workflowNodeTypes, type ExecutableWorkflowNodeType, type WorkflowNodeTy
 /** Descriptive metadata only: it must not authorize execution or determine retry policy. */
 export type OperationCredentialProvider =
   | "GOOGLE" | "STEAM" | "GOOGLE_CHAT_WEBHOOK" | "GOOGLE_CHAT_OAUTH" | "GMAIL" | "GOOGLE_CALENDAR"
-  | "MONGODB" | "NOTION" | "POSTGRES" | "HTTP" | "DISCORD_WEBHOOK" | "TELEGRAM_BOT" | "GITHUB"
+  | "MONGODB" | "NOTION" | "POSTGRES" | "HTTP" | "DISCORD_WEBHOOK" | "SLACK_WEBHOOK" | "TELEGRAM_BOT" | "GITHUB"
   | "SMTP" | "GEMINI" | "OPENAI" | "TRELLO" | "SENTRY" | "VERCEL" | "SUPABASE" | "REDDIT" | "RIOT";
 
 export type OperationAuth =
@@ -86,6 +86,7 @@ const definitions = {
   "trigger.manual": trigger(none, "unspecified", triggerOutput),
   "trigger.gmail": trigger(credential("GMAIL", "required", "trigger-setup"), "unspecified", triggerOutput),
   "trigger.rss.new-item": trigger(none, "read", triggerOutput),
+  "trigger.steam.game-news": trigger(none, "read", triggerOutput),
   "trigger.telegram.update": trigger(conditional, "read", triggerOutput),
   "trigger.vercel.deployment": trigger(conditional, "read", triggerOutput),
   "trigger.trello.board-action": trigger(conditional, "read", triggerOutput),
@@ -112,6 +113,7 @@ const definitions = {
   "action.google-chat.reply": executable(credential("GOOGLE_CHAT_OAUTH"), "write", fields("delivered", "provider", "destination", "messageId", "sentAt", "threadName")),
   "action.google-chat.edit-message": executable(credential("GOOGLE_CHAT_OAUTH"), "write", fields("updated", "messageId")),
   "action.discord.webhook": executable(credential("DISCORD_WEBHOOK"), "write", notificationReceipt),
+  "action.slack.webhook": executable(credential("SLACK_WEBHOOK"), "write", fields("delivered", "provider", "destination", "sentAt", "mode")),
   "action.telegram.message": executable(credential("TELEGRAM_BOT"), "write", notificationReceipt),
   "action.telegram.reply": executable(credential("TELEGRAM_BOT"), "write", fields(...notificationReceipt.knownFields, "operation")),
   "action.telegram.edit-message": executable(credential("TELEGRAM_BOT"), "write", fields(...notificationReceipt.knownFields, "operation")),

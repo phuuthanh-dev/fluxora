@@ -1,6 +1,6 @@
 import type { WorkflowGraph } from "@workflow/contracts";
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
-import { ExecutionStatus, Prisma, WorkflowVersionStatus } from "@prisma/client";
+import { CredentialProvider, ExecutionStatus, Prisma, WorkflowVersionStatus } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
 import { WorkspaceService } from "../workspaces/workspace.service";
 import { assertExecutableGraph, parseStoredWorkflowGraph, parseWorkflowGraph, validatePublishableGraph } from "./workflow-graph";
@@ -84,6 +84,31 @@ export class WorkflowService {
     return this.serialize(workflow);
   }
 
+  async getFailureAlert(workflowId: string, userId: string) {
+    const workflow = await this.findOwned(workflowId, userId);
+    return { provider: workflow.failureAlertProvider, credentialId: workflow.failureAlertCredentialId, chatId: workflow.failureAlertChatId };
+  }
+
+  async updateFailureAlert(workflowId: string, userId: string, input: Record<string, unknown>) {
+    const workflow = await this.findOwned(workflowId, userId);
+    const provider = input.provider;
+    if (provider !== null && provider !== "google_chat" && provider !== "telegram") throw new BadRequestException({ code: "INVALID_INPUT", message: "Choose Google Chat, Telegram, or turn alerts off." });
+    const credentialId = provider === null ? null : input.credentialId;
+    if (provider !== null && (typeof credentialId !== "string" || !credentialId.trim())) throw new BadRequestException({ code: "INVALID_INPUT", message: "Select a connection." });
+    const chatId = provider === "telegram" ? input.chatId : null;
+    if (provider === "telegram" && (typeof chatId !== "string" || !/^-?[1-9]\d{0,15}$/.test(chatId.trim()) || !Number.isSafeInteger(Number(chatId.trim())))) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid Telegram chat ID." });
+    await this.prisma.$transaction(async (tx) => {
+      if (typeof credentialId === "string") {
+        const rows = await tx.$queryRaw<Array<{ provider: string }>>`SELECT provider::text AS provider FROM "Credential" WHERE id = ${credentialId} AND "workspaceId" = ${workflow.workspaceId} FOR SHARE`;
+        const expected = provider === "google_chat" ? CredentialProvider.GOOGLE_CHAT_WEBHOOK : CredentialProvider.TELEGRAM_BOT;
+        if (rows[0]?.provider !== expected) throw new BadRequestException({ code: "CREDENTIAL_NOT_FOUND", message: "Choose a matching connection in this workspace." });
+      }
+      await tx.workflow.update({ where: { id: workflowId }, data: { failureAlertProvider: provider as string | null, failureAlertCredentialId: credentialId as string | null, failureAlertChatId: typeof chatId === "string" ? chatId.trim() : null } });
+      await tx.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "workflow.failure_alert_updated", targetType: "workflow", targetId: workflowId, metadata: { provider } } });
+    });
+    return this.getFailureAlert(workflowId, userId);
+  }
+
   async gmailTriggerStatus(workflowId: string, userId: string) {
     const workflow = await this.findOwned(workflowId, userId);
     if (!workflow.publishedVersion) return { active: false, checkpoints: [] };
@@ -97,9 +122,9 @@ export class WorkflowService {
   async rssTriggerStatus(workflowId: string, userId: string) {
     const workflow = await this.findOwned(workflowId, userId);
     if (!workflow.publishedVersion) return { active: false, checkpoints: [] };
-    const checkpoints = await this.prisma.$queryRaw<Array<{ nodeId: string; state: string; lastErrorCode: string | null; nextPollAt: Date | null; updatedAt: Date }>>`SELECT "nodeId", "state", "lastErrorCode", "nextPollAt", "updatedAt" FROM "RssTriggerCheckpoint" WHERE "workflowId" = ${workflowId} AND "workflowVersionId" = ${workflow.publishedVersion.id}`;
-    if (workflow.isActive) for (const node of parseStoredWorkflowGraph(workflow.publishedVersion.graph).nodes.filter((item) => item.type === "trigger.rss.new-item")) {
-      if (!checkpoints.some((checkpoint) => checkpoint.nodeId === node.id)) checkpoints.push({ nodeId: node.id, state: "ERROR", lastErrorCode: "RSS_CHECKPOINT_MISSING", nextPollAt: null, updatedAt: new Date() });
+    const checkpoints = await this.prisma.$queryRaw<Array<{ nodeId: string; state: string; lastErrorCode: string | null; nextPollAt: Date | null; lastCheckedAt: Date | null; updatedAt: Date }>>`SELECT "nodeId", "state", "lastErrorCode", "nextPollAt", "lastCheckedAt", "updatedAt" FROM "RssTriggerCheckpoint" WHERE "workflowId" = ${workflowId} AND "workflowVersionId" = ${workflow.publishedVersion.id}`;
+    if (workflow.isActive) for (const node of parseStoredWorkflowGraph(workflow.publishedVersion.graph).nodes.filter((item) => ["trigger.rss.new-item", "trigger.steam.game-news"].includes(item.type))) {
+      if (!checkpoints.some((checkpoint) => checkpoint.nodeId === node.id)) checkpoints.push({ nodeId: node.id, state: "ERROR", lastErrorCode: "RSS_CHECKPOINT_MISSING", nextPollAt: null, lastCheckedAt: null, updatedAt: new Date() });
     }
     return { active: workflow.isActive, checkpoints };
   }
@@ -271,7 +296,7 @@ export class WorkflowService {
     const graph = parseStoredWorkflowGraph(workflow.publishedVersion.graph);
     assertExecutableGraph(graph);
     const gmailNodes = graph.nodes.filter((node) => node.type === "trigger.gmail");
-    const rssNodes = graph.nodes.filter((node) => node.type === "trigger.rss.new-item");
+    const rssNodes = graph.nodes.filter((node) => ["trigger.rss.new-item", "trigger.steam.game-news"].includes(node.type));
     if (gmailNodes.length && !this.gmailTriggers) throw new BadRequestException({ code: "GMAIL_TRIGGER_UNAVAILABLE", message: "Gmail trigger is unavailable." });
     if (rssNodes.length && !this.rssTriggers) throw new BadRequestException({ code: "RSS_TRIGGER_UNAVAILABLE", message: "RSS trigger is unavailable." });
     const baselines = gmailNodes.length ? await this.gmailTriggers!.baseline(workflow.workspaceId, graph) : [];

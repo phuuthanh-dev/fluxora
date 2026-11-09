@@ -86,6 +86,7 @@ export const nodeLibraryFilters: Array<{ id: NodeLibraryFilter; label: string }>
 ];
 
 export const appCatalog: AppDefinition[] = [
+  { id: "slack", label: "Slack", description: "Send messages to a Slack channel.", icon: "slack", category: "communication", aliases: ["chat", "notification"] },
   { id: "steam", label: "Steam", description: "Read public gaming profile and library data.", icon: "steam", category: "data", aliases: ["gaming", "games"] },
   { id: "riot-lol", label: "League of Legends", description: "Read League account and match data with your Riot API key.", icon: "riot-lol", category: "data", aliases: ["riot", "lol", "gaming"] },
   { id: "riot-tft", label: "Teamfight Tactics", description: "Read TFT post-game data using an eligible Riot API key.", icon: "riot-tft", category: "data", aliases: ["riot", "tft", "gaming"] },
@@ -357,6 +358,11 @@ export const nodeCatalog: NodeDefinition[] = [
     configurationFields: getSharedNodeConfigurationFields("action.google-chat.webhook"),
   },
   {
+    type: "action.slack.webhook", label: "Slack webhook message", description: "Send a message to the channel selected in Slack.", category: "action",
+    libraryGroup: "communication", appId: "slack", operationId: "send-webhook-message", operationLabel: "Send webhook message", operationKind: "action",
+    icon: "slack", available: true, defaultConfig: { credentialId: "", message: "" }, configurationFields: getSharedNodeConfigurationFields("action.slack.webhook"),
+  },
+  {
     type: "action.discord.webhook",
     label: "Discord webhook",
     description: "Post a message to a Discord channel via incoming webhook.",
@@ -536,6 +542,12 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "gmail", available: true,
     defaultConfig: { credentialId: "", mailbox: "inbox", labelId: "", sender: "", subject: "", pollMinutes: "1", maxMessages: "10" },
     configurationFields: getSharedNodeConfigurationFields("trigger.gmail"),
+  },
+  {
+    type: "trigger.steam.game-news", label: "Steam game news", description: "Start when a game has a new Steam news post.",
+    category: "trigger", libraryGroup: "start", appId: "steam", operationId: "game-news", operationLabel: "New game news", operationKind: "trigger",
+    icon: "steam", available: true, defaultConfig: { appId: "", pollMinutes: "5" },
+    configurationFields: getSharedNodeConfigurationFields("trigger.steam.game-news"),
   },
   {
     type: "trigger.rss.new-item",

@@ -12,6 +12,10 @@ export const communicationNodeFields = {
       { kind: "credential", key: "credentialId", label: "Google Chat credential", providers: ["GOOGLE_CHAT_WEBHOOK"] },
       { kind: "textarea", key: "message", label: "Message template" },
     ],
+  "action.slack.webhook": (): NodeConfigurationField[] => [
+      { kind: "credential", key: "credentialId", label: "Slack connection", providers: ["SLACK_WEBHOOK"] },
+      { kind: "textarea", key: "message", label: "Message" },
+    ],
   "action.discord.webhook": (): NodeConfigurationField[] => [
       { kind: "credential", key: "credentialId", label: "Discord credential", providers: ["DISCORD_WEBHOOK"] },
       { kind: "textarea", key: "content", label: "Message content" },

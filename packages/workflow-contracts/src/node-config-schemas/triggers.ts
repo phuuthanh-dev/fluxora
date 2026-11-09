@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ConfigRules } from "./types";
+import { isSteamAppId } from "./steam";
 
 const interval = z.union([z.literal("1"), z.literal("5"), z.literal("15"), z.literal("60"), z.literal(1), z.literal(5), z.literal(15), z.literal(60)]);
 const publicFeed = z.string().refine((value) => {
@@ -14,6 +15,7 @@ export const cron: ConfigRules = {
 };
 export const webhookTrigger: ConfigRules = webhook;
 export const rssTrigger: ConfigRules = { url: { schema: publicFeed, required: true, message: "Enter a public feed URL." }, pollMinutes: { schema: interval, message: "Choose a supported polling interval." } };
+export const steamNewsTrigger: ConfigRules = { appId: { schema: z.string().refine(isSteamAppId), required: true, message: "Enter a valid Steam game App ID." }, pollMinutes: { schema: interval, message: "Choose a supported polling interval." } };
 export const gmailTrigger: ConfigRules = {
   mailbox: { schema: z.enum(["all", "inbox"]), message: "Choose a Gmail mailbox." },
   labelId: { schema: z.string().refine((value) => !value || /^[A-Za-z0-9_-]{1,128}$/.test(value)), message: "Choose a valid Gmail label." },

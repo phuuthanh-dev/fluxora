@@ -1,5 +1,6 @@
 import { NodeFailure } from "../execution/node-failure";
 import { GoogleChatNotificationAdapter } from "./google-chat.adapter";
+import { SlackNotificationAdapter } from "./slack.adapter";
 import { DiscordNotificationAdapter } from "./discord.adapter";
 import { TelegramNotificationAdapter } from "./telegram.adapter";
 import { HttpWebhookNotificationAdapter } from "./http-webhook.adapter";
@@ -40,6 +41,7 @@ export function createDefaultNotificationDispatcher(): NotificationDispatcher {
   return new NotificationDispatcher([
     new GoogleChatNotificationAdapter(),
     new DiscordNotificationAdapter(),
+    new SlackNotificationAdapter(),
     new TelegramNotificationAdapter(),
     new HttpWebhookNotificationAdapter(),
   ]);

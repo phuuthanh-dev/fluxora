@@ -32,6 +32,7 @@ enum CredentialProvider {
   GOOGLE_CHAT_WEBHOOK
   HTTP
   DISCORD_WEBHOOK
+  SLACK_WEBHOOK
   TELEGRAM_BOT
   GITHUB
   SMTP
@@ -215,6 +216,9 @@ model Workflow {
   archivedAt         DateTime?
   isActive           Boolean           @default(false)
   activatedAt        DateTime?
+  failureAlertProvider String?
+  failureAlertCredentialId String?
+  failureAlertChatId String?
   draftVersionId     String?           @unique
   publishedVersionId String?           @unique
   createdAt          DateTime          @default(now())
@@ -300,6 +304,7 @@ model RssTriggerCheckpoint {
   leaseExpiresAt    DateTime?
   nextPollAt        DateTime?
   lastErrorCode     String?
+  lastCheckedAt     DateTime?
   updatedAt         DateTime @updatedAt
   workflow          Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   deliveries        RssTriggerDelivery[]
@@ -350,6 +355,7 @@ model Execution {
   errorCode         String?
   errorMessage      String?
   errorRetryable    Boolean?
+  failureAlertClaimedAt DateTime?
   startedAt         DateTime?
   completedAt       DateTime?
   leaseExpiresAt    DateTime?

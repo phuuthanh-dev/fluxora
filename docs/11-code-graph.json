@@ -1600,6 +1600,7 @@
         "apps/api/src/notifications/google-chat.adapter.ts",
         "apps/api/src/notifications/http-webhook.adapter.ts",
         "apps/api/src/notifications/notification-contracts.ts",
+        "apps/api/src/notifications/slack.adapter.ts",
         "apps/api/src/notifications/telegram.adapter.ts"
       ],
       "externalImports": []
@@ -1609,6 +1610,18 @@
       "boundary": "api",
       "internalImports": [
         "apps/api/src/execution/node-failure.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/notifications/slack.adapter.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-json.ts",
+        "apps/api/src/notifications/notification-contracts.ts",
+        "apps/api/src/notifications/notification-write-failure.ts"
       ],
       "externalImports": []
     },
@@ -1722,10 +1735,12 @@
       "boundary": "api",
       "internalImports": [
         "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/provider-request-policy.ts",
         "apps/api/src/execution/retry-policy.ts",
         "apps/api/src/execution/rss-public-transport.ts",
         "apps/api/src/execution/rss-read.ts",
-        "apps/api/src/execution/rss-trigger-snapshot.ts"
+        "apps/api/src/execution/rss-trigger-snapshot.ts",
+        "apps/api/src/execution/steam-operations.ts"
       ],
       "externalImports": [
         "@workflow/contracts",
@@ -3187,6 +3202,7 @@
         "@iconify-icons/logos/google-icon",
         "@iconify-icons/logos/instagram-icon",
         "@iconify-icons/logos/reddit-icon",
+        "@iconify-icons/logos/slack-icon",
         "@iconify-icons/logos/supabase-icon",
         "@iconify-icons/logos/telegram",
         "@iconify-icons/logos/trello",
@@ -3498,6 +3514,7 @@
         "packages/workflow-contracts/src/node-config-schemas/riot.ts",
         "packages/workflow-contracts/src/node-config-schemas/rss.ts",
         "packages/workflow-contracts/src/node-config-schemas/sentry.ts",
+        "packages/workflow-contracts/src/node-config-schemas/slack.ts",
         "packages/workflow-contracts/src/node-config-schemas/smtp.ts",
         "packages/workflow-contracts/src/node-config-schemas/steam.ts",
         "packages/workflow-contracts/src/node-config-schemas/telegram.ts",
@@ -3701,6 +3718,16 @@
       ]
     },
     {
+      "id": "packages/workflow-contracts/src/node-config-schemas/slack.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
       "id": "packages/workflow-contracts/src/node-config-schemas/smtp.ts",
       "boundary": "contracts",
       "internalImports": [
@@ -3744,6 +3771,7 @@
       "id": "packages/workflow-contracts/src/node-config-schemas/triggers.ts",
       "boundary": "contracts",
       "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/steam.ts",
         "packages/workflow-contracts/src/node-config-schemas/types.ts"
       ],
       "externalImports": [
@@ -5695,11 +5723,35 @@
     },
     {
       "from": "apps/api/src/notifications/notification-dispatcher.ts",
+      "to": "apps/api/src/notifications/slack.adapter.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/notification-dispatcher.ts",
       "to": "apps/api/src/notifications/telegram.adapter.ts"
     },
     {
       "from": "apps/api/src/notifications/notification-write-failure.ts",
       "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/slack.adapter.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/slack.adapter.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/slack.adapter.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/slack.adapter.ts",
+      "to": "apps/api/src/notifications/notification-contracts.ts"
+    },
+    {
+      "from": "apps/api/src/notifications/slack.adapter.ts",
+      "to": "apps/api/src/notifications/notification-write-failure.ts"
     },
     {
       "from": "apps/api/src/notifications/telegram-destination.ts",
@@ -5803,6 +5855,10 @@
     },
     {
       "from": "apps/api/src/scheduler/rss-trigger-poller.ts",
+      "to": "apps/api/src/execution/provider-request-policy.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/rss-trigger-poller.ts",
       "to": "apps/api/src/execution/retry-policy.ts"
     },
     {
@@ -5816,6 +5872,10 @@
     {
       "from": "apps/api/src/scheduler/rss-trigger-poller.ts",
       "to": "apps/api/src/execution/rss-trigger-snapshot.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/rss-trigger-poller.ts",
+      "to": "apps/api/src/execution/steam-operations.ts"
     },
     {
       "from": "apps/api/src/scheduler/rss-trigger.service.ts",
@@ -7411,6 +7471,10 @@
     },
     {
       "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/slack.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
       "to": "packages/workflow-contracts/src/node-config-schemas/smtp.ts"
     },
     {
@@ -7522,6 +7586,10 @@
       "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
     },
     {
+      "from": "packages/workflow-contracts/src/node-config-schemas/slack.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
       "from": "packages/workflow-contracts/src/node-config-schemas/smtp.ts",
       "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
     },
@@ -7536,6 +7604,10 @@
     {
       "from": "packages/workflow-contracts/src/node-config-schemas/trello.ts",
       "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/triggers.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/steam.ts"
     },
     {
       "from": "packages/workflow-contracts/src/node-config-schemas/triggers.ts",

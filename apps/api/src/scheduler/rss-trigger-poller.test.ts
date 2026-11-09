@@ -72,3 +72,23 @@ test("429 records Retry-After for the scheduler without retaining response conte
   assert.deepEqual(f.failures, [{ code: "RSS_HTTP_ERROR", retryable: true, retryAfterMs: 120_000 }]);
   assert.equal(f.commits.length, 0);
 });
+
+test("Steam news shares durable polling semantics: baseline, new item and gap", async () => {
+  const { rssTargets } = await import("./rss-trigger-poller");
+  const graph = { nodes: [{ id: "steam", type: "trigger.steam.game-news" as const, position: { x: 0, y: 0 }, config: { appId: "620", pollMinutes: "5" } }], edges: [] };
+  const steam = rssTargets("workflow", "version", graph)[0]!;
+  assert.equal(steam.source, "steam");
+  const news = (...ids: string[]) => Response.json({ appnews: { appid: 620, newsitems: ids.map((gid) => ({ gid, title: `Update ${gid}`, url: "https://store.steampowered.com/news/", contents: "Sample", date: 1700000000 })) } });
+  const empty = fixture();
+  const baseline = await new RssTriggerPoller(empty.store, async () => news("1")).baseline(steam);
+  assert.equal(baseline.keys.length, 1);
+  assert.equal(empty.commits.length, 0);
+  const added = fixture(baseline);
+  await new RssTriggerPoller(added.store, async () => news("2", "1")).poll(steam);
+  assert.equal(added.commits[0]?.observations.length, 1);
+  const gap = fixture(baseline);
+  await new RssTriggerPoller(gap.store, async () => news("2")).poll(steam);
+  assert.equal(gap.commits.length, 0);
+  assert.equal(gap.failures[0]?.code, "RSS_SNAPSHOT_GAP");
+  assert.throws(() => rssTargets("w", "v", { ...graph, nodes: [{ ...graph.nodes[0]!, config: { appId: "0" } }] }));
+});

@@ -4,7 +4,19 @@ This file is the compact, machine-checked handoff point for the next coding
 loop. It prevents an agent from proposing implementation work that is already
 complete in the delivery ledger.
 
-## Latest snapshot — 2026-11-08
+## Latest snapshot — 2026-11-09 (local draft)
+
+- PR #108 merged and deployed before this task. The owner approved one batch:
+  Steam news trigger, editor click-to-insert, opt-in workflow failure alerts,
+  and Slack incoming webhooks. The changes on local develop passed isolated verify (1,080 API, 74 web,
+  218 Playwright); they have not yet been merged, deployed or qualified with
+  real providers.
+- Failure alerts are intentionally at-most-once and best-effort, not a durable
+  notification guarantee; Steam checks are bounded to ten news entries.
+- No real provider write is authorized by this batch. The owner requires one
+  final verify and a single develop-to-main PR after implementation.
+
+## Previous snapshot — 2026-11-08
 
 - PR [#107](https://github.com/phuuthanh-dev/fluxora/pull/107) merged as
   `7e2efd4`; its PR/main checks passed and its production deploy succeeded on

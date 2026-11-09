@@ -58,6 +58,10 @@ export const dataNodeFields = {
       { kind: "boolean", key: "includeRecentGames", label: "Include recently played games" },
       { kind: "text", key: "achievementAppId", label: "Achievement app ID (optional)" },
     ],
+  "trigger.steam.game-news": (): NodeConfigurationField[] => [
+      { kind: "text", key: "appId", label: "Steam game App ID" },
+      { kind: "select", key: "pollMinutes", label: "Check for new posts", options: [{ value: "1", label: "Every minute" }, { value: "5", label: "Every 5 minutes" }, { value: "15", label: "Every 15 minutes" }, { value: "60", label: "Every hour" }] },
+    ],
   "trigger.rss.new-item": (): NodeConfigurationField[] => [
       { kind: "text", key: "url", label: "Public feed URL" },
       { kind: "select", key: "pollMinutes", label: "Check for new items", options: [{ value: "1", label: "Every minute" }, { value: "5", label: "Every 5 minutes" }, { value: "15", label: "Every 15 minutes" }, { value: "60", label: "Every hour" }] },

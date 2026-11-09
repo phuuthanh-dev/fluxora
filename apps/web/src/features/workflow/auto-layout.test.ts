@@ -66,7 +66,8 @@ test("TFT operations are discoverable and restricted Riot games remain unavailab
 
 test("Steam actions preserve distinct library identities and share the persisted executor", () => {
   const operations = operationsForApp("steam");
-  assert.equal(operations.length, 9);
+  assert.equal(operations.length, 10);
+  assert.ok(operations.some((node) => node.type === "trigger.steam.game-news"));
   const actions = operations.filter((node) => node.type === "action.steam");
   assert.deepEqual(actions.map((node) => node.defaultConfig.operation), ["profile", "friends", "badges", "resolveVanity", "ownedGames", "recentGames", "achievements", "gameNews"]);
   assert.equal(new Set(actions.map(libraryDefinitionId)).size, 8);

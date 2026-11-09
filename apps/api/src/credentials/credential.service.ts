@@ -250,9 +250,10 @@ export class CredentialService {
     });
 
     const workflowReferences = workflows.flatMap((workflow) => {
-      const locations: Array<"draft" | "published"> = [];
+      const locations: Array<"draft" | "published" | "settings"> = [];
+      if (workflow.failureAlertCredentialId === credentialId) locations.push("settings");
       if (workflow.draftVersion && graphCredentialIds(workflow.draftVersion.graph).includes(credentialId)) locations.push("draft");
-      if (workflow.publishedVersion && graphCredentialIds(workflow.publishedVersion.graph).includes(credentialId)) locations.push("published");
+      if (workflow.publishedVersion && graphCredentialIds(workflow.publishedVersion.graph).includes(credentialId) && !locations.includes("published")) locations.push("published");
       return locations.length > 0 ? [{ id: workflow.id, name: workflow.name, locations }] : [];
     });
 

@@ -622,8 +622,34 @@ export class ExecutionService {
     // A cancellation or lease expiry can win while a provider request is in
     // flight. Never replace that terminal state or publish a false completion.
     const updated = await this.prisma.execution.updateMany({ where: { id: executionId, status: ExecutionStatus.RUNNING, runToken }, data: { ...data, runToken: null } });
-    if (updated.count) this.events.publish(executionId, event);
+    if (updated.count) {
+      this.events.publish(executionId, event);
+      if (event === "execution.failed") await this.sendFailureAlert(executionId);
+    }
     return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
+  }
+
+  /** Best-effort and at-most-once: claim before sending so an uncertain write
+   * is never automatically repeated. A crash after claiming may lose an alert. */
+  private async sendFailureAlert(executionId: string) {
+    try {
+      const execution = await this.prisma.execution.findUnique({ where: { id: executionId }, include: { workflowVersion: { include: { workflow: true } }, nodeExecutions: { where: { status: NodeExecutionStatus.FAILED }, orderBy: { completedAt: "desc" }, take: 1 } } });
+      const workflow = execution?.workflowVersion?.workflow;
+      if (!execution || execution.mode !== "LIVE" || !workflow?.failureAlertCredentialId || !["google_chat", "telegram"].includes(workflow.failureAlertProvider ?? "")) return;
+      const claimed = await this.prisma.execution.updateMany({ where: { id: executionId, status: ExecutionStatus.FAILED, mode: "LIVE", failureAlertClaimedAt: null, workflowVersion: { workflow: { failureAlertProvider: workflow.failureAlertProvider, failureAlertCredentialId: workflow.failureAlertCredentialId, failureAlertChatId: workflow.failureAlertChatId } } }, data: { failureAlertClaimedAt: new Date() } });
+      if (!claimed.count) return;
+      const provider = workflow.failureAlertProvider === "google_chat" ? CredentialProvider.GOOGLE_CHAT_WEBHOOK : CredentialProvider.TELEGRAM_BOT;
+      const credential = await this.credentials.readForExecution(workflow.failureAlertCredentialId, workflow.workspaceId, provider);
+      const code = execution.errorCode && /^[A-Z0-9_]{1,80}$/.test(execution.errorCode) ? execution.errorCode : "WORKFLOW_FAILED";
+      const nodeId = execution.nodeExecutions[0]?.nodeId;
+      const node = nodeId && /^[A-Za-z0-9_-]{1,100}$/.test(nodeId) ? `\nNode: ${nodeId}` : "";
+      const link = new URL(`/editor?workflow=${encodeURIComponent(workflow.id)}&execution=${encodeURIComponent(execution.id)}`, process.env.WEB_ORIGIN ?? "http://localhost:3000").href;
+      const message = `Workflow failed: ${workflow.name.slice(0, 120)}\nTime: ${(execution.completedAt ?? new Date()).toISOString()}${node}\nError: ${code}\nInspect: ${link}`;
+      await defaultNotificationDispatcher.dispatch(workflow.failureAlertProvider === "google_chat" ? { provider: "google_chat", message } : { provider: "telegram", text: message, chatId: workflow.failureAlertChatId ?? undefined }, credential, "live");
+    } catch {
+      // Never log raw provider or credential data, and never fail the execution again.
+      console.warn("Workflow failure alert could not be delivered.");
+    }
   }
 
   async resolveApproval(approvalId: string, userId: string, decision: "approved" | "rejected") {
@@ -674,9 +700,11 @@ export class ExecutionService {
     });
     if (expired) {
       this.events.publish(approval.executionId, "execution.failed");
+      await this.sendFailureAlert(approval.executionId);
       throw new NotFoundException({ code: "APPROVAL_EXPIRED", message: "Approval request has expired." });
     }
     this.events.publish(approval.executionId, finalStatus === ExecutionStatus.FAILED ? "execution.failed" : finalStatus === ExecutionStatus.SUCCEEDED ? "execution.succeeded" : "execution.queued");
+    if (finalStatus === ExecutionStatus.FAILED) await this.sendFailureAlert(approval.executionId);
     return { executionId: approval.executionId, resumed: nextNodeIds.length > 0, startNodeIds: nextNodeIds, mode: approval.execution.mode === "MOCK" ? "mock" as const : "live" as const, ...(resumeToken ? { resumeToken } : {}) };
   }
 
@@ -698,6 +726,7 @@ export class ExecutionService {
     });
     if (!failed) return false;
     this.events.publish(executionId, "execution.failed");
+    await this.sendFailureAlert(executionId);
     return true;
   }
 
@@ -722,7 +751,7 @@ export class ExecutionService {
       await markApprovalExpired(transaction, executionId, waiting[0]!.id, approvalId, resolvedAt);
       return true;
     });
-    if (expired) this.events.publish(executionId, "execution.failed");
+    if (expired) { this.events.publish(executionId, "execution.failed"); await this.sendFailureAlert(executionId); }
     return expired;
   }
 
@@ -733,7 +762,7 @@ export class ExecutionService {
       where: { id: executionId, status: ExecutionStatus.QUEUED, startedAt: null },
       data: { status: ExecutionStatus.FAILED, completedAt, leaseExpiresAt: null, errorCode: "WORKER_EXECUTION_ERROR", errorMessage: "Execution worker stopped before starting.", errorRetryable: false },
     });
-    if (failed.count) this.events.publish(executionId, "execution.failed");
+    if (failed.count) { this.events.publish(executionId, "execution.failed"); await this.sendFailureAlert(executionId); }
     // If the execution had already started, lease maintenance owns failure
     // handling; this job cannot prove it owns the current execution phase.
   }
@@ -742,7 +771,7 @@ export class ExecutionService {
   async failUnstartedResumeFromWorker(executionId: string, resumeToken: string) {
     const completedAt = new Date();
     const failed = await this.prisma.execution.updateMany({ where: { id: executionId, status: ExecutionStatus.QUEUED, resumeToken }, data: { status: ExecutionStatus.FAILED, completedAt, errorCode: "APPROVAL_CONTINUATION_INVALID", errorMessage: "The approval continuation could not start.", errorRetryable: false, resumeToken: null, resumeNodeIds: Prisma.DbNull, resumeQueuedAt: null } });
-    if (failed.count) this.events.publish(executionId, "execution.failed");
+    if (failed.count) { this.events.publish(executionId, "execution.failed"); await this.sendFailureAlert(executionId); }
   }
 
   private async runItemNode(executionId: string, workspaceId: string, node: WorkflowNode, context: Record<string, unknown>, inputs: WorkflowItem[], mode: RunMode, idempotencyRootId: string, runToken: string, restoredSteps: ReadonlySet<string>, routeItemErrors = false): Promise<{ result: NodeResult; items: WorkflowItem[]; routedItems?: Array<{ item: WorkflowItem; result: NodeResult }> }> {
@@ -1057,6 +1086,7 @@ export async function executeNode(node: WorkflowNode, config: Record<string, unk
   const issue = nodeConfigIssues(node.type, config, "resolved")[0];
   if (issue) throw new NodeFailure("INVALID_CONFIGURATION", issue.message, false);
   if (node.type === "trigger.gmail" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "gmail", message: { id: "example-message", from: "sender@example.test", to: "owner@example.test", subject: "Example message", text: "Synthetic test message", labels: ["INBOX"] } } }, route: "success" };
+  if (node.type === "trigger.steam.game-news" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "steam", item: { id: "example-news", title: "Example game update", link: "https://store.steampowered.com/news/", publishedAt: "", summary: "Synthetic game news" } } }, route: "success" };
   if (node.type === "trigger.rss.new-item" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "rss", item: { id: "example-item", title: "Example item", link: "https://example.test/item", publishedAt: "", summary: "Synthetic feed item" } } }, route: "success" };
   if (node.type === "trigger.telegram.update" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "telegram", event: "message", updateId: 1, message: { chatId: "123456", messageId: 1, senderId: "123456", threadId: null, text: "Example message" } } }, route: "success" };
   if (node.type === "trigger.vercel.deployment" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "vercel", event: config.event || "deployment.created", eventId: "evt_example", projectId: "prj_example", deploymentId: "dpl_example", teamId: null } }, route: "success" };

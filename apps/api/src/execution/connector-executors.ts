@@ -10,7 +10,7 @@ import { executeRiotLol, executeRiotTft } from "./riot-lol";
 import { mockDrive, executeGoogleDrive, mockSheets, executeGoogleSheets, readOperation, readSheetsInputOption } from "./google-workspace-adapter";
 import { readDriveCollectPages, readDrivePageToken } from "./google-drive-pagination";
 import { executeDriveCreateFolder, executeDriveGetFile } from "./google-drive-file-operations";
-import { executeGoogleChatWebhook, executeDiscordWebhook, executeTelegramMessage } from "./notification-adapters";
+import { executeGoogleChatWebhook, executeSlackWebhook, executeDiscordWebhook, executeTelegramMessage } from "./notification-adapters";
 import { executeGitHubCreateIssue, executeGitHubAddLabel, executeGitHubAddComment, executeGitHubMergePullRequest } from "./github-write-adapter";
 import { executeHttpRequest, readHttpRequestConfig } from "./http-request-adapter";
 import { executeSmtpEmail } from "./smtp-email";
@@ -58,6 +58,7 @@ const executors = {
   },
   "action.google-chat.webhook": ({ config, mode, workspaceId, credentials }) => executeGoogleChatWebhook(config, mode, workspaceId, credentials),
   "action.discord.webhook": ({ config, mode, workspaceId, credentials }) => executeDiscordWebhook(config, mode, workspaceId, credentials),
+  "action.slack.webhook": ({ config, mode, workspaceId, credentials }) => executeSlackWebhook(config, mode, workspaceId, credentials),
   "action.telegram.message": ({ config, mode, workspaceId, credentials }) => executeTelegramMessage(config, mode, workspaceId, credentials),
   "action.github": ({ config, mode, workspaceId, credentials }) => executeGitHubCreateIssue(config, mode, workspaceId, credentials),
   "action.github.add-label": ({ config, mode, workspaceId, credentials }) => executeGitHubAddLabel(config, mode, workspaceId, credentials),
