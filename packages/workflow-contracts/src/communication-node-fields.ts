@@ -3,6 +3,11 @@ import type { NodeConfigurationField } from "./node-configuration-fields";
 
 /** Inspector descriptors only; backend validation remains authoritative. */
 export const communicationNodeFields = {
+  "action.slack.message": (): NodeConfigurationField[] => [
+    { kind: "credential", key: "credentialId", label: "Slack connection", providers: ["SLACK_OAUTH"] },
+    { kind: "resource", key: "channel", label: "Channel", resource: "slack-channel", credentialKey: "credentialId", placeholder: "Search joined channels" },
+    { kind: "textarea", key: "message", label: "Message" },
+  ],
   "trigger.telegram.update": (): NodeConfigurationField[] => [
       { kind: "select", key: "event", label: "Event", options: [{ value: "message", label: "Message" }, { value: "channel_post", label: "Channel post" }, { value: "callback_query", label: "Button callback" }, { value: "all", label: "All supported updates" }] },
       { kind: "select", key: "chatMode", label: "Allowed chats", options: [{ value: "allowlist", label: "Only listed chat IDs" }, { value: "all", label: "All chats that reach this bot" }] },

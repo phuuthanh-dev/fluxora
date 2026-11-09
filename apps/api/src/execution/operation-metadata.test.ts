@@ -16,7 +16,7 @@ test("metadata distinguishes node test behavior and describes only the history f
   for (const type of workflowNodeTypes) {
     const metadata = getOperationMetadata(type)!;
     const executable = executableWorkflowNodeTypes.includes(type as typeof executableWorkflowNodeTypes[number]);
-    const expected = !executable ? "unavailable" : type.startsWith("action.") ? "provider-sample" : type.startsWith("trigger.") ? "trigger-data" : type.startsWith("condition.") ? "condition" : "approval";
+    const expected = !executable ? "unavailable" : type === "action.edit-fields" ? "transform" : type.startsWith("action.") ? "provider-sample" : type.startsWith("trigger.") ? "trigger-data" : type.startsWith("condition.") ? "condition" : "approval";
     assert.equal(metadata.mockBehavior, expected, type);
     assert.equal(metadata.historyRedaction, executable ? "key-based" : "not-applicable", type);
   }
@@ -61,7 +61,7 @@ test("each executable node has a registry executor, dispatcher branch or shared 
     assert.equal(branches.has(type), false, `${type} has duplicate handlers`);
     assert.equal(getOperationMetadata(type)?.availability, "executable", type);
   }
-  for (const type of executableWorkflowNodeTypes.filter((candidate) => candidate.startsWith("action."))) assert.ok(getConnectorExecutor(type), `${type} is missing from the action registry`);
+  for (const type of executableWorkflowNodeTypes.filter((candidate) => candidate.startsWith("action.") && candidate !== "action.edit-fields")) assert.ok(getConnectorExecutor(type), `${type} is missing from the action registry`);
   for (const type of executableWorkflowNodeTypes) assert.ok(type.startsWith("trigger.") ? sharedTriggers : branches.has(type) || getConnectorExecutor(type), `missing executor: ${type}`);
   for (const type of ["__proto__", "toString", "action.facebook-meta", "action.imaginary"]) assert.equal(getConnectorExecutor(type), undefined);
 });
@@ -87,6 +87,7 @@ test("trigger metadata describes the common output wrapper without assuming a pr
   const payload = { source: "synthetic", data: { id: 1 } };
   const configurations: Record<string, Record<string, unknown>> = {
     "trigger.cron": { expression: "0 9 * * *", timezone: "UTC" },
+    "trigger.google-calendar.event": { credentialId: "cred", calendarId: "primary", event: "created", pollMinutes: "5" },
     "trigger.rss.new-item": { url: "https://example.test/feed.xml" },
     "trigger.steam.game-news": { appId: "620" },
     "trigger.telegram.update": { event: "message", chatMode: "all" },
@@ -144,6 +145,7 @@ test("configured mock outputs contain the fields advertised by operation metadat
     ["action.google-chat.webhook", { message: "Example message" }],
     ["action.discord.webhook", { content: "Example message" }],
     ["action.slack.webhook", { message: "Example message" }],
+    ["action.slack.message", { channel: "CEXAMPLE123", message: "Example message" }],
     ["action.telegram.message", { chatId: "12345", text: "Example message" }],
     ["action.telegram.reply", { chatId: "12345", messageId: 1, text: "Example reply" }],
     ["action.telegram.edit-message", { chatId: "12345", messageId: 1, text: "Example edit" }],

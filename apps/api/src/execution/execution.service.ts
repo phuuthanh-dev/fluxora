@@ -53,6 +53,7 @@ export class ExecutionService {
     const version = mock ? workflow.draftVersion ?? workflow.publishedVersion : workflow.publishedVersion;
     if (!version) throw new NotFoundException({ code: "PUBLISHED_VERSION_REQUIRED", message: "Publish the workflow before starting a live execution." });
     if (!mock && !debugNodeId && parseStoredWorkflowGraph(version.graph).nodes.some((node) => node.type === "trigger.gmail")) throw new BadRequestException({ code: "GMAIL_TRIGGER_LIVE_ONLY", message: "Activate this workflow and wait for a new Gmail message. Use a test run for sample data." });
+    if (!mock && !debugNodeId && parseStoredWorkflowGraph(version.graph).nodes.some((node) => node.type === "trigger.google-calendar.event")) throw new BadRequestException({ code: "CALENDAR_TRIGGER_LIVE_ONLY", message: "Activate this workflow and wait for a Calendar change. Use a test run for sample data." });
     if (debugNodeId) {
       const debugNode = parseStoredWorkflowGraph(version.graph).nodes.find((node) => node.id === debugNodeId);
       if (!debugNode) throw new BadRequestException({ code: "NODE_NOT_FOUND", message: "The selected node does not exist in this workflow." });
@@ -225,6 +226,7 @@ export class ExecutionService {
       completedAt: execution.completedAt,
       durationMs: execution.startedAt && execution.completedAt ? execution.completedAt.getTime() - execution.startedAt.getTime() : null,
       recoveryCount: execution.recoveryCount,
+      failureAlertOutcome: execution.failureAlertOutcome,
       nodeExecutions: orderedNodes.map((node) => ({
         nodeId: node.nodeId,
         nodeType: nodeType.get(node.nodeId) ?? "unknown",
@@ -636,7 +638,7 @@ export class ExecutionService {
       const execution = await this.prisma.execution.findUnique({ where: { id: executionId }, include: { workflowVersion: { include: { workflow: true } }, nodeExecutions: { where: { status: NodeExecutionStatus.FAILED }, orderBy: { completedAt: "desc" }, take: 1 } } });
       const workflow = execution?.workflowVersion?.workflow;
       if (!execution || execution.mode !== "LIVE" || !workflow?.failureAlertCredentialId || !["google_chat", "telegram"].includes(workflow.failureAlertProvider ?? "")) return;
-      const claimed = await this.prisma.execution.updateMany({ where: { id: executionId, status: ExecutionStatus.FAILED, mode: "LIVE", failureAlertClaimedAt: null, workflowVersion: { workflow: { failureAlertProvider: workflow.failureAlertProvider, failureAlertCredentialId: workflow.failureAlertCredentialId, failureAlertChatId: workflow.failureAlertChatId } } }, data: { failureAlertClaimedAt: new Date() } });
+      const claimed = await this.prisma.execution.updateMany({ where: { id: executionId, status: ExecutionStatus.FAILED, mode: "LIVE", failureAlertClaimedAt: null, workflowVersion: { workflow: { failureAlertProvider: workflow.failureAlertProvider, failureAlertCredentialId: workflow.failureAlertCredentialId, failureAlertChatId: workflow.failureAlertChatId } } }, data: { failureAlertClaimedAt: new Date(), failureAlertOutcome: "UNCONFIRMED" } });
       if (!claimed.count) return;
       const provider = workflow.failureAlertProvider === "google_chat" ? CredentialProvider.GOOGLE_CHAT_WEBHOOK : CredentialProvider.TELEGRAM_BOT;
       const credential = await this.credentials.readForExecution(workflow.failureAlertCredentialId, workflow.workspaceId, provider);
@@ -645,7 +647,8 @@ export class ExecutionService {
       const node = nodeId && /^[A-Za-z0-9_-]{1,100}$/.test(nodeId) ? `\nNode: ${nodeId}` : "";
       const link = new URL(`/editor?workflow=${encodeURIComponent(workflow.id)}&execution=${encodeURIComponent(execution.id)}`, process.env.WEB_ORIGIN ?? "http://localhost:3000").href;
       const message = `Workflow failed: ${workflow.name.slice(0, 120)}\nTime: ${(execution.completedAt ?? new Date()).toISOString()}${node}\nError: ${code}\nInspect: ${link}`;
-      await defaultNotificationDispatcher.dispatch(workflow.failureAlertProvider === "google_chat" ? { provider: "google_chat", message } : { provider: "telegram", text: message, chatId: workflow.failureAlertChatId ?? undefined }, credential, "live");
+      const receipt = await defaultNotificationDispatcher.dispatch(workflow.failureAlertProvider === "google_chat" ? { provider: "google_chat", message } : { provider: "telegram", text: message, chatId: workflow.failureAlertChatId ?? undefined }, credential, "live");
+      if (receipt.delivered) await this.prisma.execution.updateMany({ where: { id: executionId, failureAlertOutcome: "UNCONFIRMED" }, data: { failureAlertOutcome: "SENT" } });
     } catch {
       // Never log raw provider or credential data, and never fail the execution again.
       console.warn("Workflow failure alert could not be delivered.");
@@ -1086,6 +1089,7 @@ export async function executeNode(node: WorkflowNode, config: Record<string, unk
   const issue = nodeConfigIssues(node.type, config, "resolved")[0];
   if (issue) throw new NodeFailure("INVALID_CONFIGURATION", issue.message, false);
   if (node.type === "trigger.gmail" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "gmail", message: { id: "example-message", from: "sender@example.test", to: "owner@example.test", subject: "Example message", text: "Synthetic test message", labels: ["INBOX"] } } }, route: "success" };
+  if (node.type === "trigger.google-calendar.event" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "google-calendar", event: config.event, item: { id: "example-event", summary: "Example meeting", start: "2026-11-10T10:00:00Z", end: "2026-11-10T11:00:00Z", status: "confirmed" } } }, route: "success" };
   if (node.type === "trigger.steam.game-news" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "steam", item: { id: "example-news", title: "Example game update", link: "https://store.steampowered.com/news/", publishedAt: "", summary: "Synthetic game news" } } }, route: "success" };
   if (node.type === "trigger.rss.new-item" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "rss", item: { id: "example-item", title: "Example item", link: "https://example.test/item", publishedAt: "", summary: "Synthetic feed item" } } }, route: "success" };
   if (node.type === "trigger.telegram.update" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "telegram", event: "message", updateId: 1, message: { chatId: "123456", messageId: 1, senderId: "123456", threadId: null, text: "Example message" } } }, route: "success" };
@@ -1093,6 +1097,11 @@ export async function executeNode(node: WorkflowNode, config: Record<string, unk
   if (node.type === "trigger.trello.board-action" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "trello", event: config.action === "all" ? "createCard" : config.action, actionId: "5d5ea62fd76aa1136000000c", boardId: config.boardId || "4d5ea62fd76aa1136000000c", cardId: "6d5ea62fd76aa1136000000c", listId: null, cardName: "Sample card", text: null } }, route: "success" };
   if (node.type === "trigger.sentry.issue-created" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "sentry", event: "issue.created", installationId: config.installationId, project: config.project, issueId: "12345", title: "Example issue", level: "error" } }, route: "success" };
   if (node.type.startsWith("trigger.")) return { status: "succeeded", output: { received: context.trigger ?? {} }, route: "success" };
+  if (node.type === "action.edit-fields") {
+    const fields = config.fields as Array<{ name: string; type: "text" | "number" | "boolean"; value: string | number | boolean }>;
+    const output = Object.fromEntries(fields.map((field) => [field.name, field.type === "number" ? Number(field.value) : field.type === "boolean" ? field.value === true || field.value === "true" : field.value]));
+    return { status: "succeeded", output, route: "success" };
+  }
   if (node.type === "condition.if") {
     const operator = readChoice(node, config, context, "operator", ["equals", "not_equals", "contains", "exists"], "equals");
     const matches = compare(config.left, operator, config.right);

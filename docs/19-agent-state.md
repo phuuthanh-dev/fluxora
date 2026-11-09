@@ -4,17 +4,18 @@ This file is the compact, machine-checked handoff point for the next coding
 loop. It prevents an agent from proposing implementation work that is already
 complete in the delivery ledger.
 
-## Latest snapshot — 2026-11-09 (local draft)
+## Latest snapshot — 2026-11-09
 
-- PR #108 merged and deployed before this task. The owner approved one batch:
-  Steam news trigger, editor click-to-insert, opt-in workflow failure alerts,
-  and Slack incoming webhooks. The changes on local develop passed isolated verify (1,080 API, 74 web,
-  218 Playwright); they have not yet been merged, deployed or qualified with
-  real providers.
+- PR #109 merged as `1870b34` and production deployment succeeded. Steam news
+  trigger, editor click-to-insert, opt-in workflow failure alerts and Slack
+  incoming webhooks passed isolated verify (1,080 API, 74 web and 218
+  Playwright tests). These newer features have not been qualified with real
+  providers by that release check.
 - Failure alerts are intentionally at-most-once and best-effort, not a durable
   notification guarantee; Steam checks are bounded to ten news entries.
-- No real provider write is authorized by this batch. The owner requires one
-  final verify and a single develop-to-main PR after implementation.
+- The owner has approved a new batch covering mapping, Edit Fields, a Calendar
+  trigger and Slack OAuth; see `.agent/tasks/2026-11-09-mapping-calendar-slack.md`.
+  Real provider sends require an identified authorized destination.
 
 ## Previous snapshot — 2026-11-08
 

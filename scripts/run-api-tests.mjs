@@ -23,7 +23,9 @@ const testFiles = await findTests(join(apiRoot, "src"));
 const tsxCli = join(repositoryRoot, "node_modules/tsx/dist/cli.mjs");
 
 try {
-  const exitCode = await run(process.execPath, [tsxCli, "--test", ...testFiles], apiRoot);
+  // Bound process-level parallelism so database integration tests do not
+  // starve worker startup or expire transactions on a busy developer machine.
+  const exitCode = await run(process.execPath, [tsxCli, "--test", "--test-concurrency=2", ...testFiles], apiRoot);
   process.exitCode = exitCode;
 } finally {
   await ephemeralRedis?.stop();

@@ -35,6 +35,7 @@ import { executeGmailGetMessage } from "./gmail-get-message";
 import { executeGmailWrite } from "./gmail-write";
 import { executeGoogleCalendar, executeGoogleCalendarAvailability, executeGoogleCalendarCreate, executeGoogleCalendarEvent } from "./google-calendar";
 import { executeGoogleChatEdit, executeGoogleChatOAuth } from "./google-chat-oauth";
+import { executeSlackOAuth } from "./slack-oauth";
 import { executeTelegramMessageOperation } from "./telegram-message-operations";
 import { executeGitHubGetIssue, executeGitHubGetPullRequest, executeGitHubListIssues, executeGitHubListPullRequests } from "./github-read";
 import { executeGitHubUpdateIssue } from "./github-update-issue";
@@ -59,6 +60,7 @@ const executors = {
   "action.google-chat.webhook": ({ config, mode, workspaceId, credentials }) => executeGoogleChatWebhook(config, mode, workspaceId, credentials),
   "action.discord.webhook": ({ config, mode, workspaceId, credentials }) => executeDiscordWebhook(config, mode, workspaceId, credentials),
   "action.slack.webhook": ({ config, mode, workspaceId, credentials }) => executeSlackWebhook(config, mode, workspaceId, credentials),
+  "action.slack.message": ({ config, mode, workspaceId, credentials }) => executeSlackOAuth(config, mode, workspaceId, credentials),
   "action.telegram.message": ({ config, mode, workspaceId, credentials }) => executeTelegramMessage(config, mode, workspaceId, credentials),
   "action.github": ({ config, mode, workspaceId, credentials }) => executeGitHubCreateIssue(config, mode, workspaceId, credentials),
   "action.github.add-label": ({ config, mode, workspaceId, credentials }) => executeGitHubAddLabel(config, mode, workspaceId, credentials),
@@ -138,7 +140,7 @@ const executors = {
   "action.github.update-issue": ({ config, mode, workspaceId, credentials }) => executeGitHubUpdateIssue(config, mode, workspaceId, credentials),
   "action.github.list-pull-requests": ({ config, mode, workspaceId, credentials }) => executeGitHubListPullRequests(config, mode, workspaceId, credentials),
   "action.github.get-pull-request": ({ config, mode, workspaceId, credentials }) => executeGitHubGetPullRequest(config, mode, workspaceId, credentials),
-} satisfies Record<Extract<ExecutableWorkflowNodeType, `action.${string}`>, ConnectorExecutor>;
+} satisfies Record<Exclude<Extract<ExecutableWorkflowNodeType, `action.${string}`>, "action.edit-fields">, ConnectorExecutor>;
 
 async function executeDriveNode(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService) {
   const issue = nodeConfigIssues("action.google-drive", config, "resolved")[0];

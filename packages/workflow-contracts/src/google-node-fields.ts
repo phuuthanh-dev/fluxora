@@ -18,6 +18,12 @@ function sheetsFields(): NodeConfigurationField[] {
 
 /** Inspector descriptors only; backend validation remains authoritative. */
 export const googleNodeFields = {
+  "trigger.google-calendar.event": (): NodeConfigurationField[] => [
+    { kind: "credential", key: "credentialId", label: "Google Calendar connection", providers: ["GOOGLE_CALENDAR"] },
+    { kind: "resource", key: "calendarId", label: "Calendar", resource: "google-calendar", credentialKey: "credentialId", placeholder: "Search calendars" },
+    { kind: "select", key: "event", label: "Event", options: [{ value: "created", label: "Event created" }, { value: "updated", label: "Event updated" }] },
+    { kind: "select", key: "pollMinutes", label: "Check for changes", options: [{ value: "1", label: "Every minute" }, { value: "5", label: "Every 5 minutes" }, { value: "15", label: "Every 15 minutes" }, { value: "60", label: "Every hour" }] },
+  ],
   "action.google-drive.get-file": (): NodeConfigurationField[] => [
     { kind: "credential", key: "credentialId", label: "Google connection", providers: ["GOOGLE"] },
     { kind: "resource", key: "fileId", label: "File", resource: "google-drive-item", credentialKey: "credentialId", placeholder: "Search files and folders" },

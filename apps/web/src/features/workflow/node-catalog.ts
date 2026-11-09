@@ -194,6 +194,11 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { testData: {} },
   },
   {
+    type: "trigger.google-calendar.event", label: "Google Calendar event", description: "Start when an event is created or updated.", category: "trigger",
+    libraryGroup: "google-workspace", appId: "google-calendar", operationId: "event-change", operationLabel: "Event created or updated", operationKind: "trigger",
+    icon: "google-calendar", available: true, defaultConfig: { credentialId: "", calendarId: "", event: "created", pollMinutes: "5" }, configurationFields: getSharedNodeConfigurationFields("trigger.google-calendar.event"),
+  },
+  {
     type: "trigger.cron",
     label: "Schedule",
     description: "Start on a cron schedule.",
@@ -286,6 +291,19 @@ export const nodeCatalog: NodeDefinition[] = [
     configurationFields: getSharedNodeConfigurationFields("trigger.github.workflow-run-completed"),
   },
   {
+    type: "action.edit-fields",
+    label: "Edit fields",
+    description: "Choose and rename values for the next step.",
+    category: "action",
+    libraryGroup: "logic",
+    operationId: "edit-fields",
+    operationLabel: "Edit fields",
+    operationKind: "utility",
+    icon: "switch",
+    available: true,
+    defaultConfig: { fields: [{ name: "field1", type: "text", value: "" }] },
+  },
+  {
     type: "condition.if",
     label: "If / else",
     description: "Route using a condition.",
@@ -356,6 +374,11 @@ export const nodeCatalog: NodeDefinition[] = [
     available: true,
     defaultConfig: { credentialId: "", message: "" },
     configurationFields: getSharedNodeConfigurationFields("action.google-chat.webhook"),
+  },
+  {
+    type: "action.slack.message", label: "Slack message", description: "Send a message to a channel the Slack bot has joined.", category: "action",
+    libraryGroup: "communication", appId: "slack", operationId: "send-message", operationLabel: "Send message", operationKind: "action",
+    icon: "slack", available: true, defaultConfig: { credentialId: "", channel: "", message: "" }, configurationFields: getSharedNodeConfigurationFields("action.slack.message"),
   },
   {
     type: "action.slack.webhook", label: "Slack webhook message", description: "Send a message to the channel selected in Slack.", category: "action",
