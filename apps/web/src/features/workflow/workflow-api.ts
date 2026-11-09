@@ -29,6 +29,7 @@ export function graphForApi(graph: WorkflowCanvasGraph): WorkflowGraph {
       source: edge.source,
       target: edge.target,
       kind: edge.kind,
+      ...(edge.targetHandle ? { targetHandle: edge.targetHandle as "input1" | "input2" } : {}),
       ...(edge.caseValue === undefined ? {} : { caseValue: edge.caseValue }),
     })),
   };
@@ -51,6 +52,7 @@ export function graphFromApi(graph: WorkflowGraph): WorkflowCanvasGraph {
     source: edge.source,
     target: edge.target,
     sourceHandle: edge.kind,
+    ...(edge.targetHandle ? { targetHandle: edge.targetHandle } : {}),
     kind: edge.kind,
     ...(edge.caseValue === undefined ? {} : { caseValue: edge.caseValue }),
     animated: true,

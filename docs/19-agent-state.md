@@ -11,33 +11,26 @@ complete in the delivery ledger.
   deploy `42597185351` succeeded. Separate Admin navigation, Slack signed
   message/mention triggers, mapping source selection and failed-node inspection
   are released; do not implement them again from older pre-release notes.
-- Current owner-requested reopen of `ADMIN-1`: the Users screenshot and local
-  browser show unstyled inline menu actions. Shared Menu had interaction logic
-  but no default popup/item styles; the existing E2E checked actions but not
-  their visual layout. This batch adds the shared surface, compact Admin row
-  actions, separate date/time, shared execution-filter controls, semantic danger styling and layout/focus/paint
-  assertions. Dashboard workflow menus reuse the same surface without a nested
-  popup. No API, schema, permissions, provider or runtime behavior changes.
-  Final targeted Admin E2E passed (one scenario covers both themes, cold route load,
-  stable row geometry, first/last-row menu visibility, keyboard focus, cancel-without-
-  mutation and filters). Root typecheck passed; after the final Select fix, web
-  typecheck/lint passed again. Code-graph freshness and diff checks passed. Manual
-  browser review covered all seven Admin routes and existing workflow/account/credential
-  menus. No new test account, workspace or provider data was created. This local UI fix
-  has not been pushed or deployed; the full release gate has not been rerun for it.
-- Real Slack Trigger testing remains deferred by the owner: do not change
-  scopes or Events URL. Slack production OAuth and one channel send were
-  previously qualified; distribution to other Slack workspaces is disabled.
+- Current owner-approved batch is implemented and locally checked: dashboard
+  spacing, shared section headers, semantic status colors and factual 24h
+  distribution; Admin contextual links and actor/date/target audit filters;
+  two-input ordered Append Merge with empty/conditional/error/approval-resume
+  handling. Includes prior Admin menu fix `2de44e5`. API 1,114 and web 75 tests
+  passed. Full E2E had 221 passes and two new fixture/locator failures; both
+  corrected cases passed the focused rerun. A clean full CI gate is required
+  before merge. Check the PR associated with this commit for release/deploy
+  status; do not propose reimplementing these completed features.
+- Real Slack Trigger testing remains deferred by the owner: do not change scopes
+  or Events URL. Read-only production Connections inspection on November 9 still
+  shows “Enable Slack triggers”; sending/OAuth evidence does not qualify events.
 - Calendar updated-event qualification passed locally on November 9: one
-  controlled event update produced execution `9080fed1-e61a-4981-b6b9-1623b04ad7f9`
-  with `SUCCEEDED`; a second poll produced no duplicate. Test workflow
-  `881cc871-b7ea-4fd6-a7fb-8a6a3ebbb1eb` is inactive and the temporary event was
-  deleted. Dispatch used the actual runner in controlled inline mode; global
-  scheduling stayed disabled. This complements the created-event check from
-  PR #111, not production polling or sustained-reliability evidence.
-- Merge investigation: n8n waits for multiple input streams. Fluxora's
-  current first incoming item stream is not Merge. No Merge node is claimed
-  or added through an unrelated engine redesign; see docs/37.
+  controlled update produced a successful execution and a second poll no
+  duplicate. The temporary workflow was made inactive and event deleted. Current
+  read-only production inspection found no Google Calendar connection or Calendar
+  test workflow. Production polling requires that connection; do not claim it has
+  passed or repeatedly run the already-completed local qualification.
+- See task `.agent/tasks/2026-11-09-dashboard-admin-merge.md` and architecture
+  section “Two-input Append Merge” for the exact current batch boundaries.
 
 ## Previous snapshot — 2026-11-08
 
@@ -711,6 +704,8 @@ evidence only; it does not substitute for future provider-specific smoke tests.
 
 ## Closed follow-up slices
 
+- `DASHBOARD-UX-2`, `ADMIN-1`, `MERGE-1` — implementation complete in the November 9 batch: shared dashboard spacing/status presentation, corrected Admin menus and scoped metadata/audit navigation, and exactly two-input Append Merge. Local evidence and precise limitations are in `.agent/reports/2026-11-09-dashboard-admin-merge.md`. Release remains gated on full CI; consult the associated develop→main PR for its outcome. Do not reopen without a specific regression or new owner request.
+
 - `ACCOUNT-1` / `L14.1` (2026-10-30) — Account settings, name/password changes,
   owner-scoped session revocation and one-use email recovery implemented locally.
   Full verify: 226 API, 23 web, 86 E2E. Additive migration applied locally;
@@ -752,7 +747,6 @@ one of these IDs or explicitly reopen a completed ledger slice.
 
 | ID | Outcome | Status | Owner/evidence boundary |
 |---|---|---|---|
-| `ADMIN-1` | Platform administration UI qualification | pending | Independent Admin area released in PR #112. Reopened by the owner screenshot: shared Menu lacked default popup/item styling. Current local fix covers menus, dates and filter controls; see latest snapshot for checks and release status. |
 | `APP-EXPANSION-1` | Deepen existing app operations and remaining qualification; initial seven-app implementation and app discovery already exist | pending | Do not rebuild initial nodes. See docs/35 for latest live evidence and docs/37 for operation/trigger/auth/UX gaps and priorities. Slack message/mention Trigger is implemented and covered in the November 9 batch; the owner deferred live qualification. Reddit access remains blocked; future live calls require owner-authorized resources. |
 | `OPS-1` | Complete the VPS production qualification evidence: DNS/TLS, env shape, backup/isolated restore, rollback, and fixed-target smoke | operator-gated | Requires operator access and must not print secrets |
 | `CONNECTOR-LIVE-2` | Remaining Google, GitHub and SMTP live qualification | pending | Drive upload/read, Sheets append/read/update, GitHub create issue/comment/label and one Gmail SMTP delivery to the intended inbox succeeded on owner-approved test resources. Local Google refresh is inferred from a credential update during a successful demo run; production refresh, GitHub PR merge and sustained delivery remain unverified. See the 2026-10-31 connector reports and 2026-11-01 recovery report. |

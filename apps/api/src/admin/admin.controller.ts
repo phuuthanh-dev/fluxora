@@ -6,6 +6,7 @@ import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { PrismaService } from "../database/prisma.service";
 import { RuntimeHealthService } from "../platform/runtime-health.service";
 import { AdminGuard } from "./admin.guard";
+import { adminId, auditFilters, type AdminScope, type AuditFilters } from "./admin-query";
 
 @Controller("admin")
 @UseGuards(AccountRequestGuard, AuthenticationGuard, AdminGuard)
@@ -30,45 +31,46 @@ export class AdminController {
 
   @Get("users")
   @Header("Cache-Control", "no-store")
-  async users(@Query("q") query?: string, @Query("page") page?: string) {
+  async users(@Query("q") query?: string, @Query("page") page?: string, @Query("userId") userId?: string) {
     const { q, skip } = listOptions(query, page);
-    const users = await this.prisma.user.findMany({ take: 51, skip, orderBy: [{ createdAt: "desc" }, { id: "desc" }], where: q ? { OR: [{ email: { contains: q, mode: "insensitive" } }, { displayName: { contains: q, mode: "insensitive" } }] } : undefined, select: { id: true, email: true, displayName: true, createdAt: true, disabledAt: true, _count: { select: { ownedWorkspaces: true } } } });
+    const users = await this.prisma.user.findMany({ take: 51, skip, orderBy: [{ createdAt: "desc" }, { id: "desc" }], where: { ...(adminId(userId) ? { id: userId } : {}), ...(q ? { OR: [{ email: { contains: q, mode: "insensitive" as const } }, { displayName: { contains: q, mode: "insensitive" as const } }] } : {}) }, select: { id: true, email: true, displayName: true, createdAt: true, disabledAt: true, _count: { select: { ownedWorkspaces: true } } } });
     return { users: users.slice(0, 50), hasMore: users.length > 50 };
   }
 
   @Get("workspaces")
   @Header("Cache-Control", "no-store")
-  async workspaces(@Query("q") query?: string, @Query("page") page?: string) {
+  async workspaces(@Query("q") query?: string, @Query("page") page?: string, @Query() scope: AdminScope = {}) {
     const { q, skip } = listOptions(query, page);
-    const workspaces = await this.prisma.workspace.findMany({ take: 51, skip, orderBy: [{ updatedAt: "desc" }, { id: "desc" }], where: q ? { name: { contains: q, mode: "insensitive" } } : undefined, select: { id: true, name: true, updatedAt: true, owner: { select: { email: true } }, _count: { select: { workflows: true } } } });
+    const workspaces = await this.prisma.workspace.findMany({ take: 51, skip, orderBy: [{ updatedAt: "desc" }, { id: "desc" }], where: { ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}), ...(adminId(scope.userId) ? { ownerId: scope.userId } : {}), ...(adminId(scope.workspaceId) ? { id: scope.workspaceId } : {}) }, select: { id: true, name: true, updatedAt: true, owner: { select: { id: true, email: true } }, _count: { select: { workflows: true } } } });
     return { workspaces: workspaces.slice(0, 50), hasMore: workspaces.length > 50 };
   }
 
   @Get("workflows")
   @Header("Cache-Control", "no-store")
-  async workflows(@Query("q") query?: string, @Query("page") page?: string) {
+  async workflows(@Query("q") query?: string, @Query("page") page?: string, @Query() scope: AdminScope = {}) {
     const { q, skip } = listOptions(query, page);
-    const workflows = await this.prisma.workflow.findMany({ take: 51, skip, orderBy: [{ updatedAt: "desc" }, { id: "desc" }], where: q ? { name: { contains: q, mode: "insensitive" } } : undefined, select: { id: true, name: true, isActive: true, archivedAt: true, updatedAt: true, workspace: { select: { name: true } } } });
+    const workflows = await this.prisma.workflow.findMany({ take: 51, skip, orderBy: [{ updatedAt: "desc" }, { id: "desc" }], where: { ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}), ...(adminId(scope.workspaceId) ? { workspaceId: scope.workspaceId } : {}), ...(adminId(scope.workflowId) ? { id: scope.workflowId } : {}) }, select: { id: true, name: true, isActive: true, archivedAt: true, updatedAt: true, workspace: { select: { id: true, name: true } } } });
     return { workflows: workflows.slice(0, 50), hasMore: workflows.length > 50 };
   }
 
   @Get("executions")
   @Header("Cache-Control", "no-store")
-  async executions(@Query("q") query?: string, @Query("page") page?: string, @Query("status") status?: string, @Query("period") period?: string) {
+  async executions(@Query("q") query?: string, @Query("page") page?: string, @Query("status") status?: string, @Query("period") period?: string, @Query() scope: AdminScope = {}) {
     const { q, skip } = listOptions(query, page);
     const statuses = ["QUEUED", "RUNNING", "WAITING_APPROVAL", "SUCCEEDED", "FAILED", "CANCELLED"] as const;
     const selectedStatus = statuses.find((value) => value === status);
     if (status && !selectedStatus || period && !["24h", "7d", "30d", "all"].includes(period)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Select a valid execution status and period." });
+    const workflowId = adminId(scope.workflowId);
     const days = period === "24h" ? 1 : period === "7d" ? 7 : period === "30d" ? 30 : null;
-    const executions = await this.prisma.execution.findMany({ take: 51, skip, orderBy: [{ createdAt: "desc" }, { id: "desc" }], where: { ...(q ? { workflowVersion: { workflow: { name: { contains: q, mode: "insensitive" as const } } } } : {}), ...(selectedStatus ? { status: selectedStatus } : {}), ...(days ? { createdAt: { gte: new Date(Date.now() - days * 86400000) } } : {}) }, select: { id: true, status: true, mode: true, createdAt: true, workflowVersion: { select: { workflow: { select: { name: true } } } } } });
+    const executions = await this.prisma.execution.findMany({ take: 51, skip, orderBy: [{ createdAt: "desc" }, { id: "desc" }], where: { ...(adminId(scope.executionId) ? { id: scope.executionId } : {}), ...((q || workflowId) ? { workflowVersion: { workflow: { ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}), ...(workflowId ? { id: workflowId } : {}) } } } : {}), ...(selectedStatus ? { status: selectedStatus } : {}), ...(days ? { createdAt: { gte: new Date(Date.now() - days * 86400000) } } : {}) }, select: { id: true, status: true, mode: true, createdAt: true, startedAt: true, completedAt: true, errorCode: true, workflowVersion: { select: { version: true, workflow: { select: { id: true, name: true, workspace: { select: { id: true, name: true } } } } } } } });
     return { executions: executions.slice(0, 50), hasMore: executions.length > 50 };
   }
 
   @Get("audit")
   @Header("Cache-Control", "no-store")
-  async audit(@Query("q") query?: string, @Query("page") page?: string) {
+  async audit(@Query("q") query?: string, @Query("page") page?: string, @Query() filters: AuditFilters = {}) {
     const { q, skip } = listOptions(query, page);
-    const events = await this.prisma.auditLog.findMany({ take: 51, skip, orderBy: [{ createdAt: "desc" }, { id: "desc" }], where: q ? { action: { contains: q, mode: "insensitive" } } : undefined, select: { id: true, action: true, targetType: true, createdAt: true, actor: { select: { email: true } } } });
+    const events = await this.prisma.auditLog.findMany({ take: 51, skip, orderBy: [{ createdAt: "desc" }, { id: "desc" }], where: { ...auditFilters(filters), ...(q ? { action: { contains: q, mode: "insensitive" as const } } : {}) }, select: { id: true, action: true, targetType: true, targetId: true, workspaceId: true, createdAt: true, actor: { select: { id: true, email: true } } } });
     return { events: events.slice(0, 50), hasMore: events.length > 50 };
   }
 

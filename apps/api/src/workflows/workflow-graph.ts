@@ -1,4 +1,4 @@
-import { isExecutableWorkflowNodeType, nodeConfigIssues, workflowEdgeKinds, workflowNodeOutputKinds, workflowNodeTypes, type WorkflowEdgeKind, type WorkflowGraph, type WorkflowNodeType } from "@workflow/contracts";
+import { mergeInputIssues, isExecutableWorkflowNodeType, nodeConfigIssues, workflowEdgeKinds, workflowNodeOutputKinds, workflowNodeTypes, type WorkflowEdgeKind, type WorkflowGraph, type WorkflowNodeType } from "@workflow/contracts";
 import { BadRequestException } from "@nestjs/common";
 import { parseExpression } from "cron-parser";
 import { readUptimeKumaFilter } from "../webhooks/uptime-kuma-filter";
@@ -40,6 +40,8 @@ function parseGraph(value: unknown): WorkflowGraph {
     if (!source || !workflowNodeOutputKinds(source.type).includes(edge.kind)) invalid(`Connection ${edge.id} uses an invalid ${edge.kind} branch.`);
   }
 
+  const inputIssue = mergeInputIssues({ nodes, edges }, false)[0];
+  if (inputIssue) invalid(inputIssue);
   if (containsCycle(nodes, edges)) invalid("Loops are not supported in the MVP workflow graph.");
   return { nodes, edges };
 }
@@ -49,6 +51,8 @@ export function validatePublishableGraph(graph: WorkflowGraph) {
   if (triggers.length !== 1) invalid("A published workflow must have exactly one trigger.");
   if (!graph.nodes.length) invalid("A published workflow must contain at least one node.");
   assertExecutableGraph(graph);
+  const inputIssue = mergeInputIssues(graph, true)[0];
+  if (inputIssue) invalid(inputIssue);
   try { rssTargets("", "", graph); }
   catch (error) { if (error instanceof NodeFailure) throw new BadRequestException({ code: error.code, message: error.message }); throw error; }
   for (const node of graph.nodes) {
@@ -128,6 +132,7 @@ function parseEdge(value: unknown): StoredWorkflowEdge {
   const record = readRecord(value, "Each workflow connection must be an object.");
   const kind = readString(record.kind, "Connection kind is required.");
   if (!edgeKindSet.has(kind)) invalid("Connection kind is not supported.");
+  if (record.targetHandle != null && record.targetHandle !== "input1" && record.targetHandle !== "input2") invalid("Choose a supported input port.");
   const caseValue = record.caseValue === undefined ? undefined : readString(record.caseValue, "Case value must be a string.");
   return {
     id: readString(record.id, "Connection ID is required."),
@@ -135,6 +140,7 @@ function parseEdge(value: unknown): StoredWorkflowEdge {
     target: readString(record.target, "Connection target is required."),
     kind: kind as WorkflowEdgeKind,
     ...(caseValue === undefined ? {} : { caseValue }),
+    ...(record.targetHandle ? { targetHandle: record.targetHandle as "input1" | "input2" } : {}),
   };
 }
 

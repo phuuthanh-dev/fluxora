@@ -988,9 +988,10 @@ choose a source step to scope sample/possible fields before the cap. Runtime
 expressions and `$json` meaning are unchanged. Failed-run details link directly
 to the first unhandled failed node; existing per-node diagnostics are reused.
 
-Merge decision: do not disguise an ordinary node with two incoming edges as
-Merge. The runner selects the first available incoming item stream and visits
-a node once; a real join needs explicit input identities, arrival/skip/error
-rules and durable resumption. A later narrow proposal should begin with two
-inputs and Append only, with conditional-branch and approval-resume tests.
-This batch is an investigation, not an engine overhaul or n8n-parity claim.
+Merge follow-up approved after PR #112: the current batch implements explicit
+Input 1 and Input 2, ordered Append, empty/skipped branch settlement, error and
+approval-resume behavior. The existing topological runner and persisted node/item
+receipts are reused; no new queue or migration is introduced. Ordinary nodes
+remain single-stream consumers. Combine, matching, SQL joins and arbitrary input
+counts remain outside scope. This follows n8n’s Append concept, not full Merge
+parity. Final validation and release evidence are recorded in docs/19-agent-state.md.

@@ -37,6 +37,7 @@ export const workflowNodeTypes = [
   "condition.if",
   "condition.switch",
   "action.edit-fields",
+  "action.merge",
   "action.steam.account-snapshot",
   "action.steam",
   "action.riot-lol",
@@ -145,6 +146,7 @@ export const executableWorkflowNodeTypes = [
   "condition.if",
   "condition.switch",
   "action.edit-fields",
+  "action.merge",
   "action.steam.account-snapshot",
   "action.steam",
   "action.riot-lol",
@@ -238,10 +240,13 @@ export type WorkflowEdgeKind = (typeof workflowEdgeKinds)[number];
 
 /** Shared branch contract for graph validation, editor handles, and runtime. */
 export function workflowNodeOutputKinds(type: WorkflowNodeType): WorkflowEdgeKind[] {
+  if (type === "action.merge") return ["success"];
   if (type === "condition.if") return ["true", "false"];
   if (type === "condition.switch") return ["case", "default"];
   return type.startsWith("trigger.") ? ["success"] : ["success", "error"];
 }
+
+export { mergeInputs, mergeInputIssues } from "./merge-inputs";
 
 export type WorkflowEdge = {
   id: string;
@@ -249,6 +254,7 @@ export type WorkflowEdge = {
   target: string;
   kind: WorkflowEdgeKind;
   caseValue?: string;
+  targetHandle?: "input1" | "input2";
 };
 
 export type WorkflowGraph = {

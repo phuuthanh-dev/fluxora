@@ -16,7 +16,7 @@ test("metadata distinguishes node test behavior and describes only the history f
   for (const type of workflowNodeTypes) {
     const metadata = getOperationMetadata(type)!;
     const executable = executableWorkflowNodeTypes.includes(type as typeof executableWorkflowNodeTypes[number]);
-    const expected = !executable ? "unavailable" : type === "action.edit-fields" ? "transform" : type.startsWith("action.") ? "provider-sample" : type.startsWith("trigger.") ? "trigger-data" : type.startsWith("condition.") ? "condition" : "approval";
+    const expected = !executable ? "unavailable" : (type === "action.edit-fields" || type === "action.merge") ? "transform" : type.startsWith("action.") ? "provider-sample" : type.startsWith("trigger.") ? "trigger-data" : type.startsWith("condition.") ? "condition" : "approval";
     assert.equal(metadata.mockBehavior, expected, type);
     assert.equal(metadata.historyRedaction, executable ? "key-based" : "not-applicable", type);
   }
@@ -61,7 +61,7 @@ test("each executable node has a registry executor, dispatcher branch or shared 
     assert.equal(branches.has(type), false, `${type} has duplicate handlers`);
     assert.equal(getOperationMetadata(type)?.availability, "executable", type);
   }
-  for (const type of executableWorkflowNodeTypes.filter((candidate) => candidate.startsWith("action.") && candidate !== "action.edit-fields")) assert.ok(getConnectorExecutor(type), `${type} is missing from the action registry`);
+  for (const type of executableWorkflowNodeTypes.filter((candidate) => candidate.startsWith("action.") && candidate !== "action.edit-fields" && candidate !== "action.merge")) assert.ok(getConnectorExecutor(type), `${type} is missing from the action registry`);
   for (const type of executableWorkflowNodeTypes) assert.ok(type.startsWith("trigger.") ? sharedTriggers : branches.has(type) || getConnectorExecutor(type), `missing executor: ${type}`);
   for (const type of ["__proto__", "toString", "action.facebook-meta", "action.imaginary"]) assert.equal(getConnectorExecutor(type), undefined);
 });

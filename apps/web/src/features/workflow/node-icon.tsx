@@ -5,6 +5,7 @@ import {
   Crosshair,
   Crown,
   GitBranch,
+  GitMerge,
   Globe2,
   Gamepad2,
   HandFist,
@@ -48,6 +49,7 @@ export type NodeIconName =
   | "manual"
   | "schedule"
   | "webhook"
+  | "merge"
   | "if"
   | "switch"
   | "steam"
@@ -113,6 +115,7 @@ export function NodeIcon({ name, size = 18, className = "" }: { name: NodeIconNa
       case "schedule": return <Clock3 {...props} />;
       case "webhook": return <Webhook {...props} />;
       case "if": return <GitBranch {...props} />;
+      case "merge": return <GitMerge {...props} />;
       case "switch": return <Shuffle {...props} />;
       case "steam": return <SiSteam {...props} />;
       case "game": return <Gamepad2 {...props} />;

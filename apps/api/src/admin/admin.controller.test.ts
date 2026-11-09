@@ -58,3 +58,25 @@ test("admin execution filters are validated and combined without exposing run pa
   await assert.rejects(controller.executions(undefined, undefined, "BROKEN", "24h"));
   await assert.rejects(controller.executions(undefined, undefined, "FAILED", "forever"));
 });
+
+test("admin contextual filters validate IDs and bound combined audit dates to UTC days", async () => {
+  const queries: Record<string, { where: Record<string, unknown>; skip: number; take: number }> = {};
+  const model = (name: string) => ({ findMany: async (query: typeof queries[string]) => { queries[name] = query; return []; } });
+  const controller = new AdminController({ user: model("user"), workspace: model("workspace"), workflow: model("workflow"), execution: model("execution"), auditLog: model("audit") } as never, {} as never);
+  await controller.users(undefined, undefined, "user-1");
+  await controller.workspaces("Test", "1", { userId: "user-1", workspaceId: "space-1" });
+  await controller.workflows(undefined, "2", { workspaceId: "space-1", workflowId: "flow-1" });
+  await controller.executions("Test", "1", "FAILED", "all", { workflowId: "flow-1", executionId: "run-1" });
+  await controller.audit("published", "2", { actor: "owner@example.test", actorId: "user-1", targetType: "workflow", targetId: "flow-1", workspaceId: "space-1", from: "2026-11-01", to: "2026-11-09" });
+  assert.equal(queries.user!.where.id, "user-1");
+  assert.equal(queries.workspace!.where.ownerId, "user-1");
+  assert.equal(queries.workflow!.where.workspaceId, "space-1");
+  assert.equal(queries.execution!.where.id, "run-1");
+  assert.equal(queries.audit!.skip, 50); assert.equal(queries.audit!.take, 51);
+  assert.deepEqual(queries.audit!.where.createdAt, { gte: new Date("2026-11-01T00:00:00Z"), lt: new Date("2026-11-10T00:00:00Z") });
+  assert.equal(queries.audit!.where.actorId, "user-1");
+  assert.equal(queries.audit!.where.targetId, "flow-1");
+  assert.deepEqual(queries.audit!.where.actor, { email: { contains: "owner@example.test", mode: "insensitive" } });
+  await assert.rejects(controller.executions("Test", "1", "", "all", { workflowId: ["bad"] as never }));
+  for (const filters of [{ from: "2026-02-30" }, { from: "2026-11-10", to: "2026-11-01" }, { actor: ["one", "two"] }, { targetId: "x".repeat(129) }]) await assert.rejects(controller.audit(undefined, undefined, filters as never));
+});

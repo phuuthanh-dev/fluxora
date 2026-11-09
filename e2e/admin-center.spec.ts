@@ -89,3 +89,40 @@ test("admin has separate navigation, safe account menus, states and execution fi
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   }
 });
+
+test("admin follows user context to run metadata and filters audit without workspace payload access", async ({ page }) => {
+  const requests: URL[] = [];
+  await page.route("**/api/v1/**", async (route) => {
+    const url = new URL(route.request().url()); requests.push(url);
+    const data: Record<string, unknown> = {
+      "/api/v1/admin/access": { allowed: true, userId: "admin" },
+      "/api/v1/admin/users": { users: [{ id: "u1", email: "owner@example.test", displayName: "Owner", createdAt: "2026-11-01T00:00:00Z", disabledAt: null, _count: { ownedWorkspaces: 1 } }] },
+      "/api/v1/admin/workspaces": { workspaces: [{ id: "s1", name: "Sample workspace", owner: { id: "u1", email: "owner@example.test" }, updatedAt: "2026-11-01T00:00:00Z", _count: { workflows: 1 } }] },
+      "/api/v1/admin/workflows": { workflows: [{ id: "w1", name: "Sample workflow", workspace: { id: "s1", name: "Sample workspace" }, updatedAt: "2026-11-01T00:00:00Z", archivedAt: null, isActive: false }] },
+      "/api/v1/admin/executions": { executions: [{ id: "e1", status: "FAILED", mode: "MOCK", createdAt: "2026-11-01T00:00:00Z", startedAt: "2026-11-01T00:00:00Z", completedAt: "2026-11-01T00:00:01Z", errorCode: "INVALID_CONFIGURATION", workflowVersion: { version: 2, workflow: { id: "w1", name: "Sample workflow", workspace: { id: "s1", name: "Sample workspace" } } } }] },
+      "/api/v1/admin/audit": { events: [{ id: "a1", action: "workflow.published", actor: { id: "u1", email: "owner@example.test" }, targetType: "workflow", targetId: "w1", workspaceId: "s1", createdAt: "2026-11-01T00:00:00Z" }] },
+    };
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(data[url.pathname] ?? {}) });
+  });
+  await page.goto("/admin/users");
+  await page.getByRole("link", { name: "1 workspaces", exact: true }).click();
+  await expect(page).toHaveURL(/workspaces\?userId=u1/);
+  await page.getByRole("link", { name: "Sample workspace", exact: true }).click();
+  await expect(page).toHaveURL(/workflows\?workspaceId=s1/);
+  await page.getByRole("link", { name: "Sample workflow", exact: true }).click();
+  await expect(page).toHaveURL(/executions\?workflowId=w1/);
+  await expect(page.getByRole("combobox", { name: "Period", exact: true })).toHaveValue("all");
+  await page.getByText("Run details", { exact: true }).click();
+  await expect(page.getByText("INVALID_CONFIGURATION", { exact: true })).toBeVisible();
+  await expect(page.getByText("Inputs and outputs remain in the workspace.")).toBeVisible();
+  await page.getByRole("navigation", { name: "Platform administration" }).getByRole("link", { name: "Audit", exact: true }).click();
+  await page.getByLabel("Actor email").fill("owner@example.test");
+  await page.getByLabel("From (UTC)").fill("2026-11-01");
+  await page.getByLabel("Through (UTC)").fill("2026-11-09");
+  await page.getByRole("combobox", { name: "Target type", exact: true }).selectOption("workflow");
+  await page.getByLabel("Target ID").fill("w1");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect.poll(() => requests.some((url) => url.pathname.endsWith("/audit") && url.searchParams.get("actor") === "owner@example.test" && url.searchParams.get("from") === "2026-11-01" && url.searchParams.get("to") === "2026-11-09" && url.searchParams.get("targetId") === "w1")).toBe(true);
+  await expect(page.getByText("w1", { exact: true })).toBeVisible();
+  expect(requests.every((url) => url.pathname.startsWith("/api/v1/admin/"))).toBe(true);
+});

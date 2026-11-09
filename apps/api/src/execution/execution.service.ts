@@ -4,7 +4,7 @@ export { mockDrive, executeGoogleDrive } from "./google-workspace-adapter";
 export { executeGoogleChatWebhook, executeDiscordWebhook, executeTelegramMessage } from "./notification-adapters";
 export { executeGitHubCreateIssue, executeGitHubAddLabel, executeGitHubAddComment, executeGitHubMergePullRequest } from "./github-write-adapter";
 import { getConnectorExecutor } from "./connector-executors";
-import { isExecutableWorkflowNodeType, nodeConfigIssues, type WorkflowEdge, type WorkflowGraph, type WorkflowNode } from "@workflow/contracts";
+import { mergeInputIssues, isExecutableWorkflowNodeType, nodeConfigIssues, type WorkflowEdge, type WorkflowGraph, type WorkflowNode } from "@workflow/contracts";
 import { BadRequestException, ConflictException, HttpException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { ApprovalRequestStatus, CredentialProvider, ExecutionStatus, NodeExecutionStatus, Prisma } from "@prisma/client";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
@@ -14,6 +14,7 @@ import { PrismaService } from "../database/prisma.service";
 import { ExecutionEventsService } from "./execution-events.service";
 import { resolveExpressions } from "./expression";
 import { assertSupportedItemPath, isCollectionProducer, maximumOutputItems, outputItems, type WorkflowItem } from "./item-stream";
+import { appendInputs, failedItem, mergesAfterEmpty, restoreMergeStreams } from "./merge-streams";
 import { redactValue } from "./redaction";
 import { isRetryableFailure, retryDelayMs } from "./retry-policy";
 import { parseStoredWorkflowGraph, unavailableWorkflowNodes, workflowNodeDepths } from "../workflows/workflow-graph";
@@ -57,7 +58,7 @@ export class ExecutionService {
     if (debugNodeId) {
       const debugNode = parseStoredWorkflowGraph(version.graph).nodes.find((node) => node.id === debugNodeId);
       if (!debugNode) throw new BadRequestException({ code: "NODE_NOT_FOUND", message: "The selected node does not exist in this workflow." });
-      if (debugNode.type === "approval.request") throw new BadRequestException({ code: "NODE_DEBUG_UNSUPPORTED", message: "Approval nodes must be tested as part of the full workflow." });
+      if (debugNode.type === "approval.request" || debugNode.type === "action.merge") throw new BadRequestException({ code: "NODE_DEBUG_UNSUPPORTED", message: "Approval and Merge nodes must be tested as part of the full workflow." });
     }
     if (!mock) await this.assertLiveReady(workflow.workspaceId, parseStoredWorkflowGraph(version.graph));
     const data = { workflowVersionId: version.id, mode: mock ? "MOCK" : "LIVE", triggerData: redactValue(triggerData) as Prisma.InputJsonValue };
@@ -487,8 +488,11 @@ export class ExecutionService {
     // Item joins and approvals need their own execution semantics.
     {
       try {
+        const mergeIssue = mergeInputIssues(graph, true)[0];
+        if (mergeIssue) throw new NodeFailure("INVALID_CONFIGURATION", mergeIssue, false);
         for (const candidate of graph.nodes) {
           const config = candidate.config as Record<string, unknown>;
+          if (candidate.type === "action.merge" && nodeConfigIssues(candidate.type, config, "resolved").length) throw new NodeFailure("INVALID_CONFIGURATION", "Merge has no configurable settings.", false);
           if ((!debugNodeId || candidate.id === debugNodeId) && candidate.type.startsWith("action.") && Object.hasOwn(config, "executeOnce") && typeof config.executeOnce !== "boolean") throw new NodeFailure("INVALID_CONFIGURATION", "Run once must be on or off.", false);
           if (!debugNodeId && isCollectionProducer(candidate, config)) assertSupportedItemPath(graph, candidate.id, true);
         }
@@ -513,7 +517,14 @@ export class ExecutionService {
       : (startNodeIds ? graph.nodes.filter((node) => startNodeIds.includes(node.id)) : graph.nodes.filter((node) => node.type.startsWith("trigger.")));
     const visited = new Set(execution.nodeExecutions.filter((node) => node.status !== NodeExecutionStatus.PENDING && node.status !== NodeExecutionStatus.SKIPPED).map((node) => node.nodeId));
     const depths = workflowNodeDepths(graph);
-    const itemStreams = new Map<WorkflowEdge, WorkflowItem[]>();
+    let itemStreams = new Map<WorkflowEdge, WorkflowItem[]>();
+    if (resumeToken && graph.nodes.some((node) => node.type === "action.merge")) {
+      try { itemStreams = restoreMergeStreams(graph, await this.prisma.nodeExecution.findMany({ where: { executionId }, include: { items: { orderBy: { itemIndex: "asc" } } } })); }
+      catch {
+        await this.markUnvisitedSkipped(executionId, runToken, graph, visited);
+        return this.finishRunning(executionId, runToken, { status: ExecutionStatus.FAILED, completedAt: new Date(), leaseExpiresAt: null, errorCode: "MERGE_INPUT_UNAVAILABLE", errorMessage: "Completed input data could not be restored. Review this workflow before retrying.", errorRetryable: false }, "execution.failed");
+      }
+    }
 
     while (pending.length) {
       if (await this.isCancelled(executionId)) return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
@@ -525,10 +536,19 @@ export class ExecutionService {
       if (!node || visited.has(node.id)) continue;
       visited.add(node.id);
       const incoming = graph.edges.find((edge) => edge.target === node.id && itemStreams.has(edge));
-      const inputItems = incoming ? itemStreams.get(incoming) : undefined;
+      let inputItems = incoming ? itemStreams.get(incoming) : undefined;
+      let mergeFailure: NodeFailure | undefined;
+      if (node.type === "action.merge") {
+        try { inputItems = appendInputs(graph, node.id, itemStreams); }
+        catch (reason) { mergeFailure = nodeFailureFromExecutionError(reason); }
+        if (mergeFailure) {
+          if (!await this.updateNodeWhileRunning(executionId, runToken, node.id, { status: NodeExecutionStatus.FAILED, attempt: 1, errorCode: mergeFailure.code, errorMessage: mergeFailure.message, errorRetryable: false, completedAt: new Date() })) return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
+          this.events.publish(executionId, "node.updated");
+        }
+      }
       const routeItemErrors = node.type.startsWith("action.") && graph.edges.some((edge) => edge.source === node.id && edge.kind === "error");
-      const itemRun = inputItems ? await this.runItemNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, inputItems, mode, execution.idempotencyRootId ?? execution.id, runToken, restoredSteps, routeItemErrors) : undefined;
-      const result = itemRun?.result ?? await this.runNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, mode, execution.idempotencyRootId ?? execution.id, runToken, restoredSteps);
+      const itemRun = inputItems && !mergeFailure ? await this.runItemNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, inputItems, mode, execution.idempotencyRootId ?? execution.id, runToken, restoredSteps, routeItemErrors) : undefined;
+      const result: NodeResult = mergeFailure ? { status: "failed", output: {}, error: mergeFailure } : itemRun?.result ?? await this.runNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, mode, execution.idempotencyRootId ?? execution.id, runToken, restoredSteps);
       if (result.status === "interrupted") return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
       if (debugNodeId) {
         await this.markUnvisitedSkipped(executionId, runToken, graph, visited);
@@ -578,6 +598,7 @@ export class ExecutionService {
           await this.markUnvisitedSkipped(executionId, runToken, graph, visited);
           return this.finishRunning(executionId, runToken, { status: ExecutionStatus.FAILED, completedAt: new Date(), leaseExpiresAt: null, errorCode: result.error?.code ?? "NODE_FAILED", errorMessage: result.error?.message ?? "Workflow node failed.", errorRetryable: result.error?.retryable ?? false }, "execution.failed");
         }
+        for (const edge of errorTargets) if (graph.nodes.some((target) => target.id === edge.target && target.type === "action.merge")) itemStreams.set(edge, [failedItem(node.id)]);
         pending.push(...this.targets(graph, errorTargets));
         continue;
       }
@@ -592,7 +613,10 @@ export class ExecutionService {
         try {
           assertSupportedItemPath(graph, node.id, !itemRun);
           const items = itemRun?.items ?? outputItems(node, outputConfig, result.output).map((item, itemIndex) => ({ ...item, pairedItem: { nodeId: node.id, itemIndex } }));
-          if (!items.length) continue;
+          if (!items.length) {
+            pending.push(...mergesAfterEmpty(graph, nextEdges.map((edge) => edge.target)));
+            continue;
+          }
           if (itemRun?.routedItems) {
             nextEdges = graph.edges.filter((edge) => edge.source === node.id && itemRun.routedItems!.some((entry) => edgeMatchesResult(edge, entry.result)));
             for (const edge of nextEdges) itemStreams.set(edge, itemRun.routedItems.filter((entry) => edgeMatchesResult(edge, entry.result)).map((entry) => entry.item));
@@ -610,12 +634,16 @@ export class ExecutionService {
           const errorTargets = sourceOutputFailure ? graph.edges.filter((edge) => edge.source === node.id && edge.kind === "error") : [];
           if (errorTargets.length) {
             delete outputs[node.id];
+            for (const edge of errorTargets) if (graph.nodes.some((target) => target.id === edge.target && target.type === "action.merge")) itemStreams.set(edge, [failedItem(node.id)]);
             pending.push(...this.targets(graph, errorTargets));
             continue;
           }
           await this.markUnvisitedSkipped(executionId, runToken, graph, visited);
           return this.finishRunning(executionId, runToken, { status: ExecutionStatus.FAILED, completedAt: new Date(), leaseExpiresAt: null, errorCode: failure.code, errorMessage: failure.message, errorRetryable: false }, "execution.failed");
         }
+      }
+      for (const edge of nextEdges) {
+        if (!itemStreams.has(edge) && graph.nodes.some((target) => target.id === edge.target && target.type === "action.merge")) itemStreams.set(edge, [{ json: result.output, pairedItem: { nodeId: node.id, itemIndex: 0 }, ...(node.type.startsWith("trigger.") ? { persisted: true } : {}) }]);
       }
       pending.push(...this.targets(graph, nextEdges));
     }
@@ -814,7 +842,7 @@ export class ExecutionService {
         try {
           const schemaValue = rawConfig.outputSchema;
           const literalSchema = (node.type === "action.openai" || node.type === "action.gemini") && schemaValue !== null && typeof schemaValue === "object" && !Array.isArray(schemaValue);
-          const config = resolveExpressions(literalSchema ? { ...rawConfig, outputSchema: undefined } : rawConfig, itemContext, { restoredSteps, persistedTrigger: true }) as Record<string, unknown>;
+          const config = resolveExpressions(literalSchema ? { ...rawConfig, outputSchema: undefined } : rawConfig, itemContext, { restoredSteps, persistedTrigger: true, persistedItem: current.persisted }) as Record<string, unknown>;
           if (literalSchema) config.outputSchema = schemaValue;
           if (!await this.updateItemWhileRunning(executionId, runToken, nodeExecutionId, itemIndex, { input: redactValue({ item: current.json, config }) as Prisma.InputJsonValue })) return interrupted();
           // A retried workflow can read a changed list. Include both the item
@@ -823,7 +851,7 @@ export class ExecutionService {
           const itemRootId = createHash("sha256").update(idempotencyRootId).update("\0").update(node.id).update("\0").update(String(itemIndex)).update("\0").update(JSON.stringify({ item: current.json, config })).digest("hex");
           const result = await executeNode(node, config, itemContext, mode, workspaceId, this.credentials, itemRootId);
           if (result.status !== "succeeded") throw new NodeFailure("ITEM_FLOW_UNSUPPORTED", "This node cannot wait or change execution state while processing items.", false);
-          const next = conditional ? [{ json: current.json, pairedItem: { nodeId: node.id, itemIndex } }] : outputItems(node, config, result.output, { nodeId: node.id, itemIndex });
+          const next = conditional || node.type === "action.merge" ? [{ json: current.json, pairedItem: { nodeId: node.id, itemIndex }, ...(current.persisted ? { persisted: true } : {}) }] : outputItems(node, config, result.output, { nodeId: node.id, itemIndex });
           if (items.length + errors.length + next.length > maximumOutputItems) throw new NodeFailure("ITEM_LIMIT_EXCEEDED", `A node can return at most ${maximumOutputItems} items.`, false);
           if (Buffer.byteLength(JSON.stringify([...items, ...errors, ...next]), "utf8") > 1_000_000) throw new NodeFailure("ITEM_SIZE_EXCEEDED", "Item output exceeds the 1 MB limit. An action may have completed; inspect the provider before retrying.", false);
           if (!await this.updateItemWhileRunning(executionId, runToken, nodeExecutionId, itemIndex, { status: NodeExecutionStatus.SUCCEEDED, output: redactValue(result.output) as Prisma.InputJsonValue, completedAt: new Date() })) return interrupted();
@@ -843,7 +871,7 @@ export class ExecutionService {
             const routable = routeItemErrors && !conditional && (reason instanceof NodeFailure || clientError) && !["ITEM_LIMIT_EXCEEDED", "ITEM_SIZE_EXCEEDED", "ITEM_FLOW_UNSUPPORTED"].includes(failure.code);
             if (routable) {
               const uncertain = ["DELIVERY_UNCERTAIN", "WRITE_UNCERTAIN", "GMAIL_WRITE_UNCERTAIN", "SMTP_PARTIAL_REJECTION", "CALENDAR_UPDATE_OUTCOME_UNKNOWN", "CALENDAR_DELETE_OUTCOME_UNKNOWN"].includes(failure.code);
-              const item: WorkflowItem = { json: { ...current.json, error: { code: uncertain ? "OUTCOME_UNKNOWN" : "ITEM_FAILED", message: uncertain ? "The provider may have applied this request. Check it before retrying." : "This item failed. See execution details.", retryable } }, pairedItem: { nodeId: node.id, itemIndex } };
+              const item: WorkflowItem = { json: { ...current.json, error: { code: uncertain ? "OUTCOME_UNKNOWN" : "ITEM_FAILED", message: uncertain ? "The provider may have applied this request. Check it before retrying." : "This item failed. See execution details.", retryable } }, pairedItem: { nodeId: node.id, itemIndex }, ...(current.persisted ? { persisted: true } : {}) };
               const tooMany = items.length + errors.length + 1 > maximumOutputItems;
               const withinLimit = !tooMany && Buffer.byteLength(JSON.stringify([...items, ...errors, item]), "utf8") <= 1_000_000;
               if (withinLimit) {
@@ -868,7 +896,7 @@ export class ExecutionService {
     }
     const output = { items: items.map((item) => item.json), count: items.length, ...(routeItemErrors ? { errorItems: errors.map((item) => item.json), errorCount: errors.length } : {}) };
     const nodeStatus = firstHandledFailure ? NodeExecutionStatus.FAILED : NodeExecutionStatus.SUCCEEDED;
-    if (!await this.updateNodeWhileRunning(executionId, runToken, node.id, { status: nodeStatus, attempt: highestAttempt, output: redactValue(output) as Prisma.InputJsonValue, ...(firstHandledFailure ? { errorCode: firstHandledFailure.code, errorMessage: firstHandledFailure.message, errorRetryable: isRetryableFailure(firstHandledFailure) } : {}), completedAt: new Date() })) return interrupted();
+    if (!await this.updateNodeWhileRunning(executionId, runToken, node.id, { status: nodeStatus, attempt: Math.max(1, highestAttempt), output: redactValue(output) as Prisma.InputJsonValue, ...(firstHandledFailure ? { errorCode: firstHandledFailure.code, errorMessage: firstHandledFailure.message, errorRetryable: isRetryableFailure(firstHandledFailure) } : {}), completedAt: new Date() })) return interrupted();
     this.events.publish(executionId, "node.updated");
     return { result: { status: "succeeded", output, route: "success" }, items: [...items, ...errors], ...(conditional || routeItemErrors ? { routedItems } : {}) };
   }
@@ -1103,6 +1131,7 @@ export async function executeNode(node: WorkflowNode, config: Record<string, unk
   if (node.type === "trigger.trello.board-action" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "trello", event: config.action === "all" ? "createCard" : config.action, actionId: "5d5ea62fd76aa1136000000c", boardId: config.boardId || "4d5ea62fd76aa1136000000c", cardId: "6d5ea62fd76aa1136000000c", listId: null, cardName: "Sample card", text: null } }, route: "success" };
   if (node.type === "trigger.sentry.issue-created" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "sentry", event: "issue.created", installationId: config.installationId, project: config.project, issueId: "12345", title: "Example issue", level: "error" } }, route: "success" };
   if (node.type.startsWith("trigger.")) return { status: "succeeded", output: { received: context.trigger ?? {} }, route: "success" };
+  if (node.type === "action.merge") return { status: "succeeded", output: context.$json as Record<string, unknown> ?? {}, route: "success" };
   if (node.type === "action.edit-fields") {
     const fields = config.fields as Array<{ name: string; type: "text" | "number" | "boolean"; value: string | number | boolean }>;
     const output = Object.fromEntries(fields.map((field) => [field.name, field.type === "number" ? Number(field.value) : field.type === "boolean" ? field.value === true || field.value === "true" : field.value]));
