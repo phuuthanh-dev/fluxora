@@ -3,7 +3,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import ts from "typescript";
-import { executableWorkflowNodeTypes, getSharedNodeConfigurationFields, workflowNodeTypes } from "@workflow/contracts";
+import { executableWorkflowNodeTypes, getSharedNodeConfigurationFields, isDataTransformNode, workflowNodeTypes } from "@workflow/contracts";
 import { getOperationMetadata } from "@workflow/contracts/dist/operation-metadata";
 import { executeGoogleCalendar, listCalendarEvents } from "./google-calendar";
 import { executeNotionSearch } from "./notion-search";
@@ -16,7 +16,7 @@ test("metadata distinguishes node test behavior and describes only the history f
   for (const type of workflowNodeTypes) {
     const metadata = getOperationMetadata(type)!;
     const executable = executableWorkflowNodeTypes.includes(type as typeof executableWorkflowNodeTypes[number]);
-    const expected = !executable ? "unavailable" : (type === "action.edit-fields" || type === "action.merge") ? "transform" : type.startsWith("action.") ? "provider-sample" : type.startsWith("trigger.") ? "trigger-data" : type.startsWith("condition.") ? "condition" : "approval";
+    const expected = !executable ? "unavailable" : (type === "action.edit-fields" || type === "action.merge" || isDataTransformNode(type)) ? "transform" : type.startsWith("action.") ? "provider-sample" : type.startsWith("trigger.") ? "trigger-data" : type.startsWith("condition.") ? "condition" : "approval";
     assert.equal(metadata.mockBehavior, expected, type);
     assert.equal(metadata.historyRedaction, executable ? "key-based" : "not-applicable", type);
   }
@@ -42,6 +42,7 @@ test("each executable node has a registry executor, dispatcher branch or shared 
   assert.ok(dispatch?.body);
   const branches = new Set<string>();
   let sharedTriggers = false;
+  let sharedDataTransforms = false;
   const isNodeType = (node: ts.Node) => ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "node" && node.name.text === "type";
   const visit = (node: ts.Node) => {
     if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsEqualsEqualsToken) {
@@ -52,17 +53,19 @@ test("each executable node has a registry executor, dispatcher branch or shared 
       const argument = node.arguments[0];
       if (argument && ts.isStringLiteral(argument) && argument.text === "trigger.") sharedTriggers = true;
     }
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "isDataTransformNode" && node.arguments[0] && isNodeType(node.arguments[0])) sharedDataTransforms = true;
     ts.forEachChild(node, visit);
   };
   visit(dispatch.body);
   assert.equal(sharedTriggers, true);
+  assert.equal(sharedDataTransforms, true);
   for (const type of registeredConnectorNodeTypes) {
     assert.ok(executableWorkflowNodeTypes.includes(type), type);
     assert.equal(branches.has(type), false, `${type} has duplicate handlers`);
     assert.equal(getOperationMetadata(type)?.availability, "executable", type);
   }
-  for (const type of executableWorkflowNodeTypes.filter((candidate) => candidate.startsWith("action.") && candidate !== "action.edit-fields" && candidate !== "action.merge")) assert.ok(getConnectorExecutor(type), `${type} is missing from the action registry`);
-  for (const type of executableWorkflowNodeTypes) assert.ok(type.startsWith("trigger.") ? sharedTriggers : branches.has(type) || getConnectorExecutor(type), `missing executor: ${type}`);
+  for (const type of executableWorkflowNodeTypes.filter((candidate) => candidate.startsWith("action.") && candidate !== "action.edit-fields" && candidate !== "action.merge" && !isDataTransformNode(candidate))) assert.ok(getConnectorExecutor(type), `${type} is missing from the action registry`);
+  for (const type of executableWorkflowNodeTypes) assert.ok(type.startsWith("trigger.") ? sharedTriggers : branches.has(type) || isDataTransformNode(type) && sharedDataTransforms || getConnectorExecutor(type), `missing executor: ${type}`);
   for (const type of ["__proto__", "toString", "action.facebook-meta", "action.imaginary"]) assert.equal(getConnectorExecutor(type), undefined);
 });
 
@@ -86,6 +89,8 @@ test("trigger metadata describes the common output wrapper without assuming a pr
   const credentials = new Proxy({}, { get() { throw new Error("Trigger dispatch must not read credentials"); } }) as never;
   const payload = { source: "synthetic", data: { id: 1 } };
   const configurations: Record<string, Record<string, unknown>> = {
+    "trigger.gitlab.pipeline": { project: "42", status: "all" },
+    "trigger.gitlab.merge-request": { project: "42", action: "all" },
     "trigger.slack.event": { credentialId: "cred", channel: "CEXAMPLE", event: "app_mention" },
     "trigger.cron": { expression: "0 9 * * *", timezone: "UTC" },
     "trigger.google-calendar.event": { credentialId: "cred", calendarId: "primary", event: "created", pollMinutes: "5" },
@@ -143,6 +148,13 @@ test("notification receipt metadata matches successful mock output", async () =>
 test("configured mock outputs contain the fields advertised by operation metadata", async () => {
   const credentials = new Proxy({}, { get() { throw new Error("Mock must not read credentials"); } }) as never;
   const cases = [
+    ["action.notion.create-entry", { dataSourceId: "01234567-89ab-cdef-0123-456789abcdef", properties: [{ id: "title", type: "title", value: "Example" }] }],
+    ["action.notion.update-entry", { dataSourceId: "01234567-89ab-cdef-0123-456789abcdef", pageId: "01234567-89ab-cdef-0123-456789abcdef", properties: [{ id: "title", type: "title", value: "Example" }] }],
+    ["action.gitlab.get-project", { project: "42" }],
+    ["action.gitlab.list-issues", { project: "42" }],
+    ["action.gitlab.get-issue", { project: "42", issue: "3" }],
+    ["action.gitlab.create-issue", { project: "42", title: "Example" }],
+    ["action.gitlab.add-comment", { project: "42", issue: "3", body: "Example" }],
     ["action.google-chat.webhook", { message: "Example message" }],
     ["action.discord.webhook", { content: "Example message" }],
     ["action.slack.webhook", { message: "Example message" }],

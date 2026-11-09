@@ -86,6 +86,7 @@ export const nodeLibraryFilters: Array<{ id: NodeLibraryFilter; label: string }>
 ];
 
 export const appCatalog: AppDefinition[] = [
+  { id: "gitlab", label: "GitLab", description: "Manage issues and react to pipelines and merge requests on gitlab.com.", icon: "gitlab", category: "developer-devops" },
   { id: "slack", label: "Slack", description: "Receive channel events and send Slack messages.", icon: "slack", category: "communication", aliases: ["chat", "notification"] },
   { id: "steam", label: "Steam", description: "Read public gaming profile and library data.", icon: "steam", category: "data", aliases: ["gaming", "games"] },
   { id: "riot-lol", label: "League of Legends", description: "Read League account and match data with your Riot API key.", icon: "riot-lol", category: "data", aliases: ["riot", "lol", "gaming"] },
@@ -296,9 +297,29 @@ export const nodeCatalog: NodeDefinition[] = [
     configurationFields: getSharedNodeConfigurationFields("trigger.github.workflow-run-completed"),
   },
   {
+    type: "action.aggregate", label: "Aggregate", description: "Group all incoming items into one array.",
+    category: "action", libraryGroup: "logic", operationId: "aggregate", operationLabel: "Aggregate", operationKind: "utility", icon: "switch", available: true,
+    defaultConfig: { outputField: "data" }, configurationFields: getSharedNodeConfigurationFields("action.aggregate"),
+  },
+  {
+    type: "action.split-out", label: "Split Out", description: "Turn an array field into individual items.",
+    category: "action", libraryGroup: "logic", operationId: "split-out", operationLabel: "Split Out", operationKind: "utility", icon: "switch", available: true,
+    defaultConfig: { field: "items", destination: "", include: "none" }, configurationFields: getSharedNodeConfigurationFields("action.split-out"),
+  },
+  {
+    type: "action.sort", label: "Sort", description: "Order incoming items by a text, number or date field.",
+    category: "action", libraryGroup: "logic", operationId: "sort", operationLabel: "Sort", operationKind: "utility", icon: "switch", available: true,
+    defaultConfig: { field: "name", valueType: "text", direction: "asc" }, configurationFields: getSharedNodeConfigurationFields("action.sort"),
+  },
+  {
+    type: "action.limit", label: "Limit", description: "Keep the first or last items from a list.",
+    category: "action", libraryGroup: "logic", operationId: "limit", operationLabel: "Limit", operationKind: "utility", icon: "switch", available: true,
+    defaultConfig: { maxItems: 10, keep: "first" }, configurationFields: getSharedNodeConfigurationFields("action.limit"),
+  },
+  {
     type: "action.merge",
     label: "Merge",
-    description: "Append Input 1, then Input 2.",
+    description: "Append two inputs or combine matching fields.",
     category: "action",
     libraryGroup: "logic",
     operationId: "merge",
@@ -307,6 +328,7 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "merge",
     available: true,
     defaultConfig: {},
+    configurationFields: getSharedNodeConfigurationFields("action.merge"),
   },
   {
     type: "action.edit-fields",
@@ -796,6 +818,18 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { credentialId: "", dataSourceId: "", pageSize: 20, sort: "provider", editedAfter: "", filterMode: "none", filterProperty: "", filterValue: "" },
     configurationFields: getSharedNodeConfigurationFields("action.notion.query-data-source"),
   },
+  ...(["create-entry", "update-entry"] as const).map((operation): NodeDefinition => ({
+    type: `action.notion.${operation}`, label: `Notion · ${operation === "create-entry" ? "Create" : "Update"} database page`, description: "Set typed properties in a shared Notion data source.",
+    category: "action", libraryGroup: "productivity", appId: "notion", operationId: operation, operationLabel: `${operation === "create-entry" ? "Create" : "Update"} database page`, operationKind: "action", icon: "notion", available: true,
+    defaultConfig: { credentialId: "", dataSourceId: "", ...(operation === "update-entry" ? { pageId: "" } : {}), properties: [] }, configurationFields: getSharedNodeConfigurationFields(`action.notion.${operation}`),
+  })),
+  { type: "action.gitlab.get-project", label: "GitLab · Get project", description: "Read a project accessible to your token.", category: "action", libraryGroup: "developer-data", appId: "gitlab", operationId: "get-project", operationLabel: "Get project", operationKind: "search", icon: "gitlab", available: true, defaultConfig: { credentialId: "", project: "" }, configurationFields: getSharedNodeConfigurationFields("action.gitlab.get-project") },
+  { type: "action.gitlab.list-issues", label: "GitLab · List issues", description: "Read a bounded page of project issues.", category: "action", libraryGroup: "developer-data", appId: "gitlab", operationId: "list-issues", operationLabel: "List issues", operationKind: "search", icon: "gitlab", available: true, defaultConfig: { credentialId: "", project: "", state: "opened", page: 1, pageSize: 20 }, configurationFields: getSharedNodeConfigurationFields("action.gitlab.list-issues") },
+  { type: "action.gitlab.get-issue", label: "GitLab · Get issue", description: "Read one issue by its project issue number.", category: "action", libraryGroup: "developer-data", appId: "gitlab", operationId: "get-issue", operationLabel: "Get issue", operationKind: "search", icon: "gitlab", available: true, defaultConfig: { credentialId: "", project: "", issue: "" }, configurationFields: getSharedNodeConfigurationFields("action.gitlab.get-issue") },
+  { type: "action.gitlab.create-issue", label: "GitLab · Create issue", description: "Create an issue in the selected project.", category: "action", libraryGroup: "developer-data", appId: "gitlab", operationId: "create-issue", operationLabel: "Create issue", operationKind: "action", icon: "gitlab", available: true, defaultConfig: { credentialId: "", project: "", title: "", description: "" }, configurationFields: getSharedNodeConfigurationFields("action.gitlab.create-issue") },
+  { type: "action.gitlab.add-comment", label: "GitLab · Add issue comment", description: "Add a comment to the selected issue.", category: "action", libraryGroup: "developer-data", appId: "gitlab", operationId: "add-comment", operationLabel: "Add issue comment", operationKind: "action", icon: "gitlab", available: true, defaultConfig: { credentialId: "", project: "", issue: "", body: "" }, configurationFields: getSharedNodeConfigurationFields("action.gitlab.add-comment") },
+  { type: "trigger.gitlab.pipeline", label: "GitLab · On pipeline event", description: "Receive authenticated events for the selected project.", category: "trigger", libraryGroup: "start", appId: "gitlab", operationId: "pipeline", operationLabel: "On pipeline event", operationKind: "trigger", icon: "gitlab", available: true, defaultConfig: { credentialId: "", project: "", status: "all" }, configurationFields: getSharedNodeConfigurationFields("trigger.gitlab.pipeline") },
+  { type: "trigger.gitlab.merge-request", label: "GitLab · On merge request event", description: "Receive authenticated events for the selected project.", category: "trigger", libraryGroup: "start", appId: "gitlab", operationId: "merge-request", operationLabel: "On merge request event", operationKind: "trigger", icon: "gitlab", available: true, defaultConfig: { credentialId: "", project: "", action: "open" }, configurationFields: getSharedNodeConfigurationFields("trigger.gitlab.merge-request") },
   {
     type: "action.notion.create-page", label: "Notion · Create page", description: "Create a child page in a shared Notion page.",
     category: "action", libraryGroup: "productivity", appId: "notion", operationId: "create-page", operationLabel: "Create page", operationKind: "action", icon: "notion", available: true,

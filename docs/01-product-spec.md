@@ -370,3 +370,25 @@ In the editor, select a compatible configuration text field and then an
 upstream path to insert it at the cursor. Suggestions come from known output
 metadata or a selected execution and do not guarantee that a branch ran.
 This is a bounded click-to-insert interaction, not full n8n mapping parity.
+
+## Approved data and connector batch — 2026-11-09
+
+Owner-approved expansion after PR113: Aggregate (all input items into one named
+array), Split Out (a selected array path into items), stable typed Sort, Limit
+(first/last N), and two-input Merge by matching scalar fields. Merge defaults to
+Append; matching keeps matches or enriches Input1, uses the first Input2 match,
+and gives Input2 precedence for shallow field collisions. Missing/null keys do
+not match; strings and numbers do not coerce. Existing100-item/1MB bounds apply.
+Aggregate processes a reached empty list into one empty array; skipped branches
+remain skipped. Pure data nodes have no provider effects. Source field controls
+reuse editor samples and explain fixed paths rather than requiring JSON.
+
+Notion adds create/update database entries using discovered text/title, number,
+status, select, date and checkbox properties. GitLab starts with gitlab.com PAT,
+project discovery, issue read/create/comment and pipeline/merge-request events.
+This does not authorize all provider operations or live test writes. Existing
+Notion page actions and Merge Append remain within the same current catalog.
+Comparison: [Aggregate](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.aggregate/),
+[Split Out](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.splitout/),
+[Merge](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.merge/).
+Implementation/qualification is pending the final batch gate.

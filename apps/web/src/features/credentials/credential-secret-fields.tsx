@@ -34,6 +34,7 @@ const fields: Partial<Record<CredentialProvider, SecretField[]>> = {
   SLACK_WEBHOOK: [{ key: "webhookUrl", label: "Slack incoming webhook URL", secret: true }],
   DISCORD_WEBHOOK: [{ key: "webhookUrl", label: "Webhook URL", secret: true }],
   TELEGRAM_BOT: [{ key: "botToken", label: "Bot token", secret: true }],
+  GITLAB: [{ key: "token", label: "GitLab personal access token", secret: true, hint: "gitlab.com: read_api for reads; api for creating issues and comments." }],
   GITHUB: [{ key: "token", label: "GitHub token", secret: true }],
   NOTION: [{ key: "token", label: "Notion integration token", secret: true, hint: "Share the pages you want to access with this integration in Notion." }],
   TRELLO: [{ key: "apiKey", label: "Trello API key", secret: true }, { key: "token", label: "Trello token", secret: true, hint: "Grant your token access to the boards you want to use." }],

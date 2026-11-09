@@ -3,13 +3,13 @@ import { NodeFailure } from "./node-failure";
 
 export const maximumOutputItems = 100;
 export const maximumItemBytes = 1_000_000;
-export type WorkflowItem = { json: Record<string, unknown>; pairedItem?: { nodeId: string; itemIndex: number }; persisted?: boolean };
+export type WorkflowItem = { json: Record<string, unknown>; pairedItem?: { nodeId: string; itemIndex: number }; persisted?: boolean; sources?: Array<{ nodeId: string; itemIndex: number }> };
 
 export function isCollectionProducer(node: WorkflowNode, config: Record<string, unknown>): boolean {
   return getItemCollectionField(node.type, config) !== undefined;
 }
 
-/** Validate item paths before any node runs. Only explicit Append Merge joins are supported; item approvals are not. */
+/** Validate item paths before any node runs. Only explicit Merge joins are supported; item approvals are not. */
 export function assertSupportedItemPath(graph: WorkflowGraph, sourceId: string, allowSourceError = false): void {
   const pending = [sourceId];
   const visited = new Set<string>();

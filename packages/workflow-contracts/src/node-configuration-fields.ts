@@ -6,12 +6,14 @@ export type NodeSelectOption = { value: string; label: string };
 type NodeFieldVisibilityValue = string | number | boolean;
 export type NodeFieldVisibility = { visibleWhen?: { key: string; equals: NodeFieldVisibilityValue | readonly NodeFieldVisibilityValue[]; fallback?: NodeFieldVisibilityValue } };
 
-export type NodeResource = "steam-game" | "github-issue" | "github-pull-request" | "github-repository" | "google-file" | "google-drive-item" | "google-folder" | "google-spreadsheet" | "google-calendar" | "google-calendar-event" | "gmail-label" | "gmail-draft" | "gemini-model" | "openai-model" | "google-chat-space" | "slack-channel" | "mongodb-database" | "mongodb-collection" | "postgres-schema" | "postgres-table" | "trello-board" | "trello-list" | "trello-card" | "notion-page" | "notion-property" | "notion-data-source" | "notion-source-property" | "notion-source-option" | "sentry-organization" | "sentry-project" | "sentry-installation" | "vercel-team" | "vercel-project" | "supabase-table";
+export type NodeResource = "gitlab-project" | "gitlab-issue" | "steam-game" | "github-issue" | "github-pull-request" | "github-repository" | "google-file" | "google-drive-item" | "google-folder" | "google-spreadsheet" | "google-calendar" | "google-calendar-event" | "gmail-label" | "gmail-draft" | "gemini-model" | "openai-model" | "google-chat-space" | "slack-channel" | "mongodb-database" | "mongodb-collection" | "postgres-schema" | "postgres-table" | "trello-board" | "trello-list" | "trello-card" | "notion-page" | "notion-property" | "notion-data-source" | "notion-source-property" | "notion-source-option" | "sentry-organization" | "sentry-project" | "sentry-installation" | "vercel-team" | "vercel-project" | "supabase-table";
 
 export type NodeConfigurationField =
   | ({ kind: "credential"; key: string; label: string; providers: OperationCredentialProvider[]; optional?: boolean } & NodeFieldVisibility)
   | ({ kind: "boolean"; key: string; label: string; defaultChecked?: boolean } & NodeFieldVisibility)
   | ({ kind: "text" | "textarea"; key: string; label: string; advanced?: { summary: string; help: string } } & NodeFieldVisibility)
+  | ({ kind: "data-path"; key: string; label: string; input?: "input1" | "input2" } & NodeFieldVisibility)
+  | ({ kind: "notion-properties"; key: string; label: string } & NodeFieldVisibility)
   | ({ kind: "datetime"; key: string; label: string } & NodeFieldVisibility)
   | ({ kind: "number"; key: string; label: string; fallbackValue?: number; advanced?: { summary: string; help: string } } & NodeFieldVisibility)
   | ({ kind: "select"; key: string; label: string; options: NodeSelectOption[]; fallbackValue?: string } & NodeFieldVisibility)

@@ -9,10 +9,10 @@ type Transport = (url: string, init: RequestInit) => Promise<Response>;
 const notionId = /^(?:[a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/i;
 const sameId = (a: string, b: string) => a.replace(/-/g, "").toLowerCase() === b.replace(/-/g, "").toLowerCase();
 
-async function writePage(url: string, method: "POST" | "PATCH", body: object, token: string, write: Transport): Promise<string> {
+export async function writePage(url: string, method: "POST" | "PATCH", body: object, token: string, write: Transport, version = "2022-06-28"): Promise<string> {
   let response: Response;
   try {
-    response = await write(url, { method, headers: { authorization: `Bearer ${token}`, "notion-version": "2022-06-28", "content-type": "application/json", accept: "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(10_000) });
+    response = await write(url, { method, headers: { authorization: `Bearer ${token}`, "notion-version": version, "content-type": "application/json", accept: "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(10_000) });
   } catch { throw uncertainDelivery("Notion"); }
   if (wasOutboundRedirected(response) || (response.status >= 300 && response.status < 400) || response.status === 408 || response.status === 429 || response.status >= 500) {
     await response.body?.cancel().catch(() => undefined);
@@ -28,7 +28,7 @@ async function writePage(url: string, method: "POST" | "PATCH", body: object, to
   return page.id;
 }
 
-async function notionToken(config: Record<string, unknown>, workspaceId: string, credentials: CredentialService, resourceId: string) {
+export async function notionToken(config: Record<string, unknown>, workspaceId: string, credentials: CredentialService, resourceId: string) {
   const credentialId = typeof config.credentialId === "string" ? config.credentialId.trim() : "";
   if (!credentialId) throw new NodeFailure("CREDENTIAL_REQUIRED", "Select a Notion connection.", false);
   const credential = await credentials.readForExecution(credentialId, workspaceId, CredentialProvider.NOTION);

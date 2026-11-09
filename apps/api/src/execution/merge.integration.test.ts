@@ -16,6 +16,10 @@ function graphFor(scenario: string): WorkflowGraph {
   const pause = scenario.startsWith("resume");
   const condition = scenario === "skipped";
   const nodes = [node("start", "trigger.manual"), node("first", "action.postgres.select", { schema: "public", table: scenario === "unhandled" ? "bad!" : "items" }), node("second", "action.edit-fields", { fields: [{ name: "value", type: "text", value: "second" }] }), node("merge", "action.merge"), node("after", "action.edit-fields", { fields: [{ name: "copied", type: "text", value: "{{ $json.value }}" }] })];
+  if (scenario.endsWith("matching")) {
+    nodes.find((n) => n.id === "merge")!.config = { mode: "matching", field1: "value", field2: "value", outputType: "matches" };
+    nodes.find((n) => n.id === "second")!.config = { fields: [{ name: "value", type: "text", value: "first" }] };
+  }
   if (pause) nodes.push(node("pause", "approval.request", { notificationProvider: "google_chat" }));
   if (condition) nodes.push(node("if", "condition.if", { left: "yes", right: "yes" }));
   // Intentionally put Merge first in graph order: topology, not array order, must wait.
@@ -60,7 +64,7 @@ test("Merge requires distinct numbered ports and bounded Append data", () => {
   assert.throws(() => appendInputs(graph, "merge", streams), { code: "ITEM_SIZE_EXCEEDED" });
 });
 
-for (const scenario of ["ordered", "empty", "all-empty", "skipped", "item-branches", "handled-error", "unhandled", "cancelled", "resume", "resume-redacted"] as const) test(`Merge ${scenario}: real runner persists ordered items without repeating providers`, { skip: !disposable() }, async () => {
+for (const scenario of ["ordered", "empty", "all-empty", "skipped", "item-branches", "handled-error", "unhandled", "cancelled", "resume", "resume-redacted", "matching", "resume-matching"] as const) test(`Merge ${scenario}: real runner persists ordered items without repeating providers`, { skip: !disposable() }, async () => {
   const prisma = new PrismaClient();
   const suffix = randomUUID();
   const userId = `merge-user-${suffix}`, workspaceId = `merge-workspace-${suffix}`, workflowId = `merge-workflow-${suffix}`, versionId = `merge-version-${suffix}`, executionId = `merge-execution-${suffix}`;
@@ -106,7 +110,7 @@ for (const scenario of ["ordered", "empty", "all-empty", "skipped", "item-branch
       assert.equal(merge.items.length, 3);
       assert.deepEqual(after.items.map((item) => (item.output as { copied: string }).copied), ["ok", "ok", "ITEM_FAILED"]);
     } else {
-      const values = scenario === "item-branches" ? ["other", "first", "last"] : scenario === "all-empty" ? [] : scenario === "empty" ? ["second"] : scenario === "skipped" ? ["first", "first-again"] : ["first", "first-again", "second"];
+      const values = scenario.endsWith("matching") ? ["first"] : scenario === "item-branches" ? ["other", "first", "last"] : scenario === "all-empty" ? [] : scenario === "empty" ? ["second"] : scenario === "skipped" ? ["first", "first-again"] : ["first", "first-again", "second"];
       assert.deepEqual((merge.output as { items: Array<{ value: string }> }).items.map((item) => item.value), values);
       assert.deepEqual(after.items.map((item) => (item.output as { copied: string }).copied), values);
       assert.ok(after.items.every((item, index) => item.parentNodeId === "merge" && item.parentItemIndex === index));

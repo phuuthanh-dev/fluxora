@@ -1,18 +1,21 @@
-import { mergeInputs, type WorkflowEdge, type WorkflowGraph, type WorkflowNode } from "@workflow/contracts";
+import { matchItems } from "./data-transform";
+import { isDataTransformNode, mergeInputs, type WorkflowEdge, type WorkflowGraph, type WorkflowNode } from "@workflow/contracts";
 import { maximumItemBytes, maximumOutputItems, outputItems, isCollectionProducer, type WorkflowItem } from "./item-stream";
 import { NodeFailure } from "./node-failure";
 
 export function appendInputs(graph: WorkflowGraph, nodeId: string, streams: Map<WorkflowEdge, WorkflowItem[]>): WorkflowItem[] {
-  const items = mergeInputs.flatMap((port) => {
+  const inputs = mergeInputs.map((port) => {
     const edge = graph.edges.find((candidate) => candidate.target === nodeId && candidate.targetHandle === port);
     return edge ? streams.get(edge) ?? [] : [];
   });
+  const config = graph.nodes.find((node) => node.id === nodeId)!.config;
+  const items = config.mode === "matching" ? matchItems(config, inputs[0]!, inputs[1]!) : inputs.flat();
   if (items.length > maximumOutputItems) throw new NodeFailure("ITEM_LIMIT_EXCEEDED", "Merge can append at most 100 items in total.", false);
   if (Buffer.byteLength(JSON.stringify(items), "utf8") > maximumItemBytes) throw new NodeFailure("ITEM_SIZE_EXCEEDED", "Merged items exceed the 1 MB limit.", false);
   return items;
 }
 
-/** Empty lists skip actions, but still settle the next reachable Merge. */
+/** Empty lists skip ordinary actions, but still reach Merge and Aggregate. */
 export function mergesAfterEmpty(graph: WorkflowGraph, targets: string[]): WorkflowNode[] {
   const pending = [...targets];
   const visited = new Set<string>();
@@ -22,7 +25,7 @@ export function mergesAfterEmpty(graph: WorkflowGraph, targets: string[]): Workf
     if (visited.has(id)) continue;
     visited.add(id);
     const node = graph.nodes.find((candidate) => candidate.id === id);
-    if (node?.type === "action.merge") merges.push(node);
+    if (node?.type === "action.merge" || node?.type === "action.aggregate") merges.push(node);
     else pending.push(...graph.edges.filter((edge) => edge.source === id).map((edge) => edge.target));
   }
   return merges;
@@ -59,7 +62,7 @@ export function restoreMergeStreams(graph: WorkflowGraph, receipts: Receipt[]): 
         const input = object(record.input);
         const recordOutput = object(record.output);
         const pairedItem = { nodeId: node.id, itemIndex: record.itemIndex };
-        const passthrough = node.type === "action.merge" || node.type.startsWith("condition.");
+        const passthrough = node.type === "action.merge" || isDataTransformNode(node.type) || node.type.startsWith("condition.");
         const items = failed ? [{ json: recordOutput, pairedItem }] : passthrough ? [{ json: object(input.item), pairedItem }] : outputItems(node, object(input.config), recordOutput, pairedItem);
         for (const edge of outgoing.filter((edge) => matches(edge, node, recordOutput, failed))) {
           streams.set(edge, [...streams.get(edge) ?? [], ...items.map((item) => ({ ...item, persisted: true }))]);
@@ -69,7 +72,7 @@ export function restoreMergeStreams(graph: WorkflowGraph, receipts: Receipt[]): 
       const failed = receipt.status === "FAILED";
       const items = failed ? [failedItem(node.id)] : outputItems(node, { ...node.config, ...(typeof output.operation === "string" ? { operation: output.operation } : {}) }, output).map((item, itemIndex) => ({ ...item, pairedItem: { nodeId: node.id, itemIndex } }));
       for (const edge of outgoing.filter((edge) => matches(edge, node, output, failed))) {
-        if (isCollectionProducer(node, node.config) || graph.nodes.some((target) => target.id === edge.target && target.type === "action.merge")) streams.set(edge, items.map((item) => ({ ...item, persisted: true })));
+        if (isCollectionProducer(node, node.config) || graph.nodes.some((target) => target.id === edge.target && (target.type === "action.merge" || isDataTransformNode(target.type)))) streams.set(edge, items.map((item) => ({ ...item, persisted: true })));
       }
     }
   }

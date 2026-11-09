@@ -43,7 +43,8 @@ test("admin has separate navigation, safe account menus, states and execution fi
     expect((await row.boundingBox())!.height).toBe(closedRow!.height);
     expect((await row.boundingBox())!.width).toBe(closedRow!.width);
     const firstItem = (await signOut.boundingBox())!, secondItem = (await disable.boundingBox())!;
-    expect(firstItem.height).toBeGreaterThanOrEqual(36);
+    // Chromium can round a 36px transformed DOMRect to 35.99997px.
+    expect(firstItem.height).toBeGreaterThanOrEqual(36 - 0.01);
     expect(secondItem.y).toBeGreaterThanOrEqual(firstItem.y + firstItem.height);
     expect(Math.abs(firstItem.x - secondItem.x)).toBeLessThan(1);
     await expect(disable).toHaveAttribute("data-tone", "danger");
@@ -63,10 +64,15 @@ test("admin has separate navigation, safe account menus, states and execution fi
     await disable.click();
     await expect(page.getByRole("button", { name: "Confirm", exact: true })).toHaveClass(/ui-button--danger/);
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Confirm account action" })).toHaveCount(0);
+    await expect(page.getByLabel("other@example.test actions")).toBeFocused();
     await page.getByLabel("other@example.test actions").click();
     await page.getByRole("menuitem", { name: "Sign out sessions" }).click();
     await expect(page.getByRole("dialog", { name: "Confirm account action" })).toBeVisible();
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    // Wait for the modal exit/focus restoration before opening another row's menu.
+    await expect(page.getByRole("dialog", { name: "Confirm account action" })).toHaveCount(0);
+    await expect(page.getByLabel("other@example.test actions")).toBeFocused();
     await page.getByLabel("disabled@example.test actions").press("ArrowUp");
     const enable = page.getByRole("menuitem", { name: "Enable sign-in" });
     await expect(enable).toBeFocused();

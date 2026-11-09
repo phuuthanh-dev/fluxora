@@ -56,6 +56,7 @@ export function validatePublishableGraph(graph: WorkflowGraph) {
   try { rssTargets("", "", graph); }
   catch (error) { if (error instanceof NodeFailure) throw new BadRequestException({ code: error.code, message: error.message }); throw error; }
   for (const node of graph.nodes) {
+    if (node.type.startsWith("trigger.gitlab.")) { const issue = nodeConfigIssues(node.type, node.config, "resolved")[0]; if (issue) invalid(issue.message); }
     if (node.type === "trigger.slack.event") {
       const issue = nodeConfigIssues(node.type, node.config, "resolved")[0];
       if (issue || typeof node.config.credentialId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(node.config.credentialId)) invalid(issue?.message ?? "Select a Slack connection before publishing.");

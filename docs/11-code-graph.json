@@ -293,9 +293,11 @@
         "apps/api/src/credentials/connector-resource-discovery.ts",
         "apps/api/src/credentials/credential.service.ts",
         "apps/api/src/execution/github-read.ts",
+        "apps/api/src/execution/gitlab.ts",
         "apps/api/src/execution/google-chat-oauth.ts",
         "apps/api/src/execution/mongodb-find.ts",
         "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/notion-entry.ts",
         "apps/api/src/execution/notion-operations.ts",
         "apps/api/src/execution/postgres-read.ts",
         "apps/api/src/execution/sentry.ts",
@@ -385,6 +387,7 @@
         "apps/api/src/credentials/credential-vault.service.ts",
         "apps/api/src/credentials/google-oauth-policy.ts",
         "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/gitlab.ts",
         "apps/api/src/execution/mongodb-find.ts",
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/postgres-read.ts",
@@ -678,6 +681,7 @@
         "apps/api/src/execution/github-read.ts",
         "apps/api/src/execution/github-update-issue.ts",
         "apps/api/src/execution/github-write-adapter.ts",
+        "apps/api/src/execution/gitlab.ts",
         "apps/api/src/execution/gmail-get-message.ts",
         "apps/api/src/execution/gmail-read.ts",
         "apps/api/src/execution/gmail-write.ts",
@@ -692,6 +696,7 @@
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/notification-adapters.ts",
         "apps/api/src/execution/notion-create-page.ts",
+        "apps/api/src/execution/notion-entry.ts",
         "apps/api/src/execution/notion-operations.ts",
         "apps/api/src/execution/notion-search.ts",
         "apps/api/src/execution/openai-text.ts",
@@ -714,6 +719,18 @@
       ],
       "externalImports": [
         "@prisma/client",
+        "@workflow/contracts"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/data-transform.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/expression.ts",
+        "apps/api/src/execution/item-stream.ts",
+        "apps/api/src/execution/node-failure.ts"
+      ],
+      "externalImports": [
         "@workflow/contracts"
       ]
     },
@@ -803,6 +820,7 @@
         "apps/api/src/credentials/credential.service.ts",
         "apps/api/src/database/prisma.service.ts",
         "apps/api/src/execution/connector-executors.ts",
+        "apps/api/src/execution/data-transform.ts",
         "apps/api/src/execution/execution-events.service.ts",
         "apps/api/src/execution/expression.ts",
         "apps/api/src/execution/github-write-adapter.ts",
@@ -894,6 +912,22 @@
         "@prisma/client",
         "@workflow/contracts",
         "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/gitlab.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-request-policy.ts",
+        "apps/api/src/execution/redaction.ts",
+        "apps/api/src/execution/retry-policy.ts"
+      ],
+      "externalImports": [
+        "@prisma/client",
+        "@workflow/contracts"
       ]
     },
     {
@@ -1088,6 +1122,7 @@
       "id": "apps/api/src/execution/merge-streams.ts",
       "boundary": "api",
       "internalImports": [
+        "apps/api/src/execution/data-transform.ts",
         "apps/api/src/execution/item-stream.ts",
         "apps/api/src/execution/node-failure.ts"
       ],
@@ -1159,6 +1194,21 @@
       ],
       "externalImports": [
         "@prisma/client",
+        "@workflow/contracts"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/notion-entry.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/notion-create-page.ts",
+        "apps/api/src/execution/notion-operations.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-request-policy.ts"
+      ],
+      "externalImports": [
         "@workflow/contracts"
       ]
     },
@@ -2038,6 +2088,15 @@
       ]
     },
     {
+      "id": "apps/api/src/webhooks/gitlab-trigger-protocol.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@nestjs/common",
+        "node:crypto"
+      ]
+    },
+    {
       "id": "apps/api/src/webhooks/kuma-delivery-recovery.service.ts",
       "boundary": "api",
       "internalImports": [
@@ -2249,6 +2308,7 @@
         "apps/api/src/execution/execution-queue.service.ts",
         "apps/api/src/execution/execution.service.ts",
         "apps/api/src/platform/background-work.ts",
+        "apps/api/src/webhooks/gitlab-trigger-protocol.ts",
         "apps/api/src/webhooks/sentry-trigger-protocol.ts",
         "apps/api/src/webhooks/slack-trigger-protocol.ts",
         "apps/api/src/webhooks/telegram-trigger-protocol.ts",
@@ -3297,6 +3357,16 @@
       "externalImports": []
     },
     {
+      "id": "apps/web/src/features/workflow/data-path-field.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/ui/index.ts"
+      ],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
       "id": "apps/web/src/features/workflow/drive-pagination.ts",
       "boundary": "web",
       "internalImports": [],
@@ -3436,6 +3506,7 @@
       "internalImports": [],
       "externalImports": [
         "@iconify-icons/logos/discord-icon",
+        "@iconify-icons/logos/gitlab-icon",
         "@iconify-icons/logos/google-calendar-2020",
         "@iconify-icons/logos/google-drive-2020",
         "@iconify-icons/logos/google-gemini-icon",
@@ -3473,6 +3544,17 @@
         "apps/web/src/features/workflow/node-catalog.ts"
       ],
       "externalImports": []
+    },
+    {
+      "id": "apps/web/src/features/workflow/notion-properties-field.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/ui/index.ts",
+        "apps/web/src/features/api/api-client.ts"
+      ],
+      "externalImports": [
+        "react"
+      ]
     },
     {
       "id": "apps/web/src/features/workflow/relational-selection-field.tsx",
@@ -3565,6 +3647,7 @@
         "apps/web/src/features/app-shell/app-shell-header.tsx",
         "apps/web/src/features/credentials/credential-panel.tsx",
         "apps/web/src/features/credentials/credential-types.ts",
+        "apps/web/src/features/workflow/data-path-field.tsx",
         "apps/web/src/features/workflow/drive-pagination.ts",
         "apps/web/src/features/workflow/drive-search-field.tsx",
         "apps/web/src/features/workflow/editor-store.ts",
@@ -3580,6 +3663,7 @@
         "apps/web/src/features/workflow/node-catalog.ts",
         "apps/web/src/features/workflow/node-icon.tsx",
         "apps/web/src/features/workflow/node-library.tsx",
+        "apps/web/src/features/workflow/notion-properties-field.tsx",
         "apps/web/src/features/workflow/relational-selection-field.tsx",
         "apps/web/src/features/workflow/relational-selection.ts",
         "apps/web/src/features/workflow/resource-picker.tsx",
@@ -3654,8 +3738,10 @@
         "packages/workflow-contracts/src/ai-node-fields.ts",
         "packages/workflow-contracts/src/communication-node-fields.ts",
         "packages/workflow-contracts/src/data-node-fields.ts",
+        "packages/workflow-contracts/src/data-transform-fields.ts",
         "packages/workflow-contracts/src/developer-node-fields.ts",
         "packages/workflow-contracts/src/github-read-fields.ts",
+        "packages/workflow-contracts/src/gitlab-fields.ts",
         "packages/workflow-contracts/src/gmail-write-fields.ts",
         "packages/workflow-contracts/src/google-node-fields.ts",
         "packages/workflow-contracts/src/index.ts",
@@ -3677,6 +3763,14 @@
       "externalImports": []
     },
     {
+      "id": "packages/workflow-contracts/src/data-transform-fields.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-configuration-fields.ts"
+      ],
+      "externalImports": []
+    },
+    {
       "id": "packages/workflow-contracts/src/developer-node-fields.ts",
       "boundary": "contracts",
       "internalImports": [
@@ -3687,6 +3781,14 @@
     },
     {
       "id": "packages/workflow-contracts/src/github-read-fields.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-configuration-fields.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "packages/workflow-contracts/src/gitlab-fields.ts",
       "boundary": "contracts",
       "internalImports": [
         "packages/workflow-contracts/src/node-configuration-fields.ts"
@@ -3746,10 +3848,12 @@
       "id": "packages/workflow-contracts/src/node-config-schema.ts",
       "boundary": "contracts",
       "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/data-transform.ts",
         "packages/workflow-contracts/src/node-config-schemas/discord.ts",
         "packages/workflow-contracts/src/node-config-schemas/flow.ts",
         "packages/workflow-contracts/src/node-config-schemas/gemini.ts",
         "packages/workflow-contracts/src/node-config-schemas/github.ts",
+        "packages/workflow-contracts/src/node-config-schemas/gitlab.ts",
         "packages/workflow-contracts/src/node-config-schemas/gmail.ts",
         "packages/workflow-contracts/src/node-config-schemas/google-calendar.ts",
         "packages/workflow-contracts/src/node-config-schemas/google-chat.ts",
@@ -3780,6 +3884,16 @@
       "boundary": "contracts",
       "internalImports": [
         "packages/workflow-contracts/src/ai-schema.ts",
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/data-transform.ts",
+      "boundary": "contracts",
+      "internalImports": [
         "packages/workflow-contracts/src/node-config-schemas/types.ts"
       ],
       "externalImports": [
@@ -3818,6 +3932,16 @@
     },
     {
       "id": "packages/workflow-contracts/src/node-config-schemas/github.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/gitlab.ts",
       "boundary": "contracts",
       "internalImports": [
         "packages/workflow-contracts/src/node-config-schemas/types.ts"
@@ -4390,6 +4514,10 @@
     },
     {
       "from": "apps/api/src/credentials/connector-resource.controller.ts",
+      "to": "apps/api/src/execution/gitlab.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/connector-resource.controller.ts",
       "to": "apps/api/src/execution/google-chat-oauth.ts"
     },
     {
@@ -4399,6 +4527,10 @@
     {
       "from": "apps/api/src/credentials/connector-resource.controller.ts",
       "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/connector-resource.controller.ts",
+      "to": "apps/api/src/execution/notion-entry.ts"
     },
     {
       "from": "apps/api/src/credentials/connector-resource.controller.ts",
@@ -4539,6 +4671,10 @@
     {
       "from": "apps/api/src/credentials/credential.service.ts",
       "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.service.ts",
+      "to": "apps/api/src/execution/gitlab.ts"
     },
     {
       "from": "apps/api/src/credentials/credential.service.ts",
@@ -4838,6 +4974,10 @@
     },
     {
       "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/gitlab.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
       "to": "apps/api/src/execution/gmail-get-message.ts"
     },
     {
@@ -4891,6 +5031,10 @@
     {
       "from": "apps/api/src/execution/connector-executors.ts",
       "to": "apps/api/src/execution/notion-create-page.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/notion-entry.ts"
     },
     {
       "from": "apps/api/src/execution/connector-executors.ts",
@@ -4967,6 +5111,18 @@
     {
       "from": "apps/api/src/execution/connector-executors.ts",
       "to": "apps/api/src/execution/vercel.ts"
+    },
+    {
+      "from": "apps/api/src/execution/data-transform.ts",
+      "to": "apps/api/src/execution/expression.ts"
+    },
+    {
+      "from": "apps/api/src/execution/data-transform.ts",
+      "to": "apps/api/src/execution/item-stream.ts"
+    },
+    {
+      "from": "apps/api/src/execution/data-transform.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
     },
     {
       "from": "apps/api/src/execution/execution-events.service.ts",
@@ -5067,6 +5223,10 @@
     {
       "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/execution/connector-executors.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/data-transform.ts"
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
@@ -5211,6 +5371,30 @@
     {
       "from": "apps/api/src/execution/github-write-adapter.ts",
       "to": "apps/api/src/execution/provider-request-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/gitlab.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/gitlab.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/gitlab.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/gitlab.ts",
+      "to": "apps/api/src/execution/provider-request-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/gitlab.ts",
+      "to": "apps/api/src/execution/redaction.ts"
+    },
+    {
+      "from": "apps/api/src/execution/gitlab.ts",
+      "to": "apps/api/src/execution/retry-policy.ts"
     },
     {
       "from": "apps/api/src/execution/gmail-get-message.ts",
@@ -5418,6 +5602,10 @@
     },
     {
       "from": "apps/api/src/execution/merge-streams.ts",
+      "to": "apps/api/src/execution/data-transform.ts"
+    },
+    {
+      "from": "apps/api/src/execution/merge-streams.ts",
       "to": "apps/api/src/execution/item-stream.ts"
     },
     {
@@ -5486,6 +5674,30 @@
     },
     {
       "from": "apps/api/src/execution/notion-create-page.ts",
+      "to": "apps/api/src/execution/provider-request-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notion-entry.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notion-entry.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notion-entry.ts",
+      "to": "apps/api/src/execution/notion-create-page.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notion-entry.ts",
+      "to": "apps/api/src/execution/notion-operations.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notion-entry.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/notion-entry.ts",
       "to": "apps/api/src/execution/provider-request-policy.ts"
     },
     {
@@ -6694,6 +6906,10 @@
     },
     {
       "from": "apps/api/src/webhooks/webhook.service.ts",
+      "to": "apps/api/src/webhooks/gitlab-trigger-protocol.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.service.ts",
       "to": "apps/api/src/webhooks/sentry-trigger-protocol.ts"
     },
     {
@@ -7505,6 +7721,10 @@
       "to": "apps/web/src/features/workflow/node-catalog.ts"
     },
     {
+      "from": "apps/web/src/features/workflow/data-path-field.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
+    },
+    {
       "from": "apps/web/src/features/workflow/drive-search-field.tsx",
       "to": "apps/web/src/components/ui/index.ts"
     },
@@ -7597,6 +7817,14 @@
       "to": "apps/web/src/features/workflow/node-catalog.ts"
     },
     {
+      "from": "apps/web/src/features/workflow/notion-properties-field.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/notion-properties-field.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
       "from": "apps/web/src/features/workflow/relational-selection-field.tsx",
       "to": "apps/web/src/components/ui/index.ts"
     },
@@ -7678,6 +7906,10 @@
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/data-path-field.tsx"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
       "to": "apps/web/src/features/workflow/drive-pagination.ts"
     },
     {
@@ -7735,6 +7967,10 @@
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",
       "to": "apps/web/src/features/workflow/node-library.tsx"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/notion-properties-field.tsx"
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",
@@ -7818,11 +8054,19 @@
     },
     {
       "from": "packages/workflow-contracts/src/configuration-fields-registry.ts",
+      "to": "packages/workflow-contracts/src/data-transform-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/configuration-fields-registry.ts",
       "to": "packages/workflow-contracts/src/developer-node-fields.ts"
     },
     {
       "from": "packages/workflow-contracts/src/configuration-fields-registry.ts",
       "to": "packages/workflow-contracts/src/github-read-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/configuration-fields-registry.ts",
+      "to": "packages/workflow-contracts/src/gitlab-fields.ts"
     },
     {
       "from": "packages/workflow-contracts/src/configuration-fields-registry.ts",
@@ -7865,6 +8109,10 @@
       "to": "packages/workflow-contracts/src/riot-lol.ts"
     },
     {
+      "from": "packages/workflow-contracts/src/data-transform-fields.ts",
+      "to": "packages/workflow-contracts/src/node-configuration-fields.ts"
+    },
+    {
       "from": "packages/workflow-contracts/src/developer-node-fields.ts",
       "to": "packages/workflow-contracts/src/index.ts"
     },
@@ -7874,6 +8122,10 @@
     },
     {
       "from": "packages/workflow-contracts/src/github-read-fields.ts",
+      "to": "packages/workflow-contracts/src/node-configuration-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/gitlab-fields.ts",
       "to": "packages/workflow-contracts/src/node-configuration-fields.ts"
     },
     {
@@ -7938,6 +8190,10 @@
     },
     {
       "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/data-transform.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
       "to": "packages/workflow-contracts/src/node-config-schemas/discord.ts"
     },
     {
@@ -7951,6 +8207,10 @@
     {
       "from": "packages/workflow-contracts/src/node-config-schema.ts",
       "to": "packages/workflow-contracts/src/node-config-schemas/github.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/gitlab.ts"
     },
     {
       "from": "packages/workflow-contracts/src/node-config-schema.ts",
@@ -8049,6 +8309,10 @@
       "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
     },
     {
+      "from": "packages/workflow-contracts/src/node-config-schemas/data-transform.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
       "from": "packages/workflow-contracts/src/node-config-schemas/discord.ts",
       "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
     },
@@ -8062,6 +8326,10 @@
     },
     {
       "from": "packages/workflow-contracts/src/node-config-schemas/github.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/gitlab.ts",
       "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
     },
     {

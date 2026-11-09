@@ -33,3 +33,19 @@ export const notionQuery: ConfigRules = {
   filterProperty: { schema: property, required: true, when: (config) => !!config.filterMode && config.filterMode !== "none", dependsOn: ["filterMode"], message: "Choose a valid filter property." },
   filterValue: { schema: z.string().min(1).max(200), required: true, when: (config) => !!config.filterMode && config.filterMode !== "none", dependsOn: ["filterMode"], matches: (value, config) => config.filterMode !== "checkbox" || value === "true" || value === "false", message: "Choose a valid filter value." },
 };
+
+const writeProperty = z.object({
+  id: property,
+  type: z.enum(["title", "rich_text", "number", "status", "select", "date", "checkbox"]),
+  value: z.union([z.string().max(2000), z.number().finite(), z.boolean(), z.null()]),
+}).strict().refine((row) => {
+  if (row.value === null) return row.type !== "title" && row.type !== "checkbox";
+  if (row.type === "checkbox") return typeof row.value === "boolean";
+  if (row.type === "number") return typeof row.value === "number";
+  if (typeof row.value !== "string") return false;
+  if (row.type === "date") return /^(?:\d{4}-\d\d-\d\d|\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d{1,3})?)?(?:Z|[+-]\d\d:\d\d))$/.test(row.value) && Number.isFinite(Date.parse(row.value));
+  return !["title", "status", "select"].includes(row.type) || !!row.value.trim();
+});
+const writeProperties: FieldRule = { schema: z.array(writeProperty).min(1).max(50).refine((rows) => { try { return new Set(rows.map((row) => decodeURIComponent(row.id))).size === rows.length; } catch { return false; } }), required: true, message: "Add distinct writable properties with values matching their types." };
+export const notionCreateEntry: ConfigRules = { dataSourceId: notionId("data source"), properties: writeProperties };
+export const notionUpdateEntry: ConfigRules = { ...notionCreateEntry, pageId: notionId("page") };

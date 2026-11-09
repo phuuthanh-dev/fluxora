@@ -95,7 +95,7 @@ function listQuery(pageSize: number, cursor?: string) {
   if (cursor !== undefined) query.set("start_cursor", cursor);
   return query.toString();
 }
-async function request(path: string, token: string, transport: Transport, options?: { version: string; body?: Record<string, unknown> }): Promise<unknown> {
+export async function notionRequest(path: string, token: string, transport: Transport, options?: { version: string; body?: Record<string, unknown> }): Promise<unknown> {
   if (typeof token !== "string" || !token || token.length > 4096 || /[\s\u0000-\u001f\u007f-\u009f]/.test(token)) throw new NodeFailure("CREDENTIAL_INVALID", "Notion connection requires a valid token.", false);
   let response: Response;
   try {
@@ -129,7 +129,7 @@ function pageEnvelope(payload: unknown, pageSize: number, itemObject: string, cr
 /** Retrieves redacted page metadata; some property values may be partial. */
 export async function retrieveNotionPage(input: PageInput, transport: Transport = fetchSafeOutbound) {
   if (!validId(input.pageId)) throw new NodeFailure("INVALID_INPUT", "Enter a valid Notion page ID.", false);
-  const page = object(await request(`pages/${input.pageId}`, input.token, transport));
+  const page = object(await notionRequest(`pages/${input.pageId}`, input.token, transport));
   if (!page || page.object !== "page" || !validId(page.id) || page.id.replace(/-/g, "").toLowerCase() !== input.pageId.replace(/-/g, "").toLowerCase()) return invalidResponse();
   return safeOutput({ page }, pageNotice, input.token);
 }
@@ -137,7 +137,7 @@ export async function retrieveNotionPage(input: PageInput, transport: Transport 
 /** Return bounded metadata only, scoped to the selected page; never return values. */
 export async function listNotionPageProperties(input: PageInput, transport: Transport = fetchSafeOutbound) {
   if (!validId(input.pageId)) throw new NodeFailure("INVALID_INPUT", "Enter a valid Notion page ID.", false);
-  const page = object(await request(`pages/${input.pageId}`, input.token, transport));
+  const page = object(await notionRequest(`pages/${input.pageId}`, input.token, transport));
   if (!page || page.object !== "page" || !validId(page.id) || page.id.replace(/-/g, "").toLowerCase() !== input.pageId.replace(/-/g, "").toLowerCase()) return invalidResponse();
   const properties = object(page.properties);
   if (!properties) return invalidResponse();
@@ -162,7 +162,7 @@ export async function listNotionPageProperties(input: PageInput, transport: Tran
 export async function searchNotionDataSources(input: ListInput & { query: string }, transport: Transport = fetchSafeOutbound) {
   validateList(input.pageSize, input.cursor);
   if (typeof input.query !== "string" || input.query.length > 200) throw new NodeFailure("INVALID_INPUT", "Enter a search term of at most 200 characters.", false);
-  const payload = await request("search", input.token, transport, { version: "2025-09-03", body: { query: input.query, page_size: input.pageSize, filter: { property: "object", value: "data_source" }, ...(input.cursor ? { start_cursor: input.cursor } : {}) } });
+  const payload = await notionRequest("search", input.token, transport, { version: "2025-09-03", body: { query: input.query, page_size: input.pageSize, filter: { property: "object", value: "data_source" }, ...(input.cursor ? { start_cursor: input.cursor } : {}) } });
   const { results, hasMore, nextCursor } = pageEnvelope(payload, input.pageSize, "data_source", input.token);
   const sources = results.map((source) => {
     if (!validId(source.id) || source.id.includes(input.token)) return invalidResponse();
@@ -175,7 +175,7 @@ export async function searchNotionDataSources(input: ListInput & { query: string
 /** Schema discovery exposes only properties the guided filter supports. */
 export async function listNotionDataSourceProperties(input: { token: string; dataSourceId: string }, transport: Transport = fetchSafeOutbound) {
   if (!validId(input.dataSourceId)) throw new NodeFailure("INVALID_INPUT", "Choose a valid Notion data source.", false);
-  const source = object(await request(`data_sources/${input.dataSourceId}`, input.token, transport, { version: "2025-09-03" }));
+  const source = object(await notionRequest(`data_sources/${input.dataSourceId}`, input.token, transport, { version: "2025-09-03" }));
   if (!source || source.object !== "data_source" || !validId(source.id) || source.id.replace(/-/g, "").toLowerCase() !== input.dataSourceId.replace(/-/g, "").toLowerCase()) return invalidResponse();
   const properties = object(source.properties);
   if (!properties) return invalidResponse();
@@ -200,7 +200,7 @@ export async function listNotionDataSourceProperties(input: { token: string; dat
 export async function listNotionDataSourceOptions(input: { token: string; dataSourceId: string; propertyId: string; mode: string }, transport: Transport = fetchSafeOutbound) {
   if (!validId(input.dataSourceId) || !["status", "select"].includes(input.mode)) throw new NodeFailure("INVALID_INPUT", "Choose a data source and a status or select property.", false);
   const target = propertyPath(input.propertyId);
-  const source = object(await request(`data_sources/${input.dataSourceId}`, input.token, transport, { version: "2025-09-03" }));
+  const source = object(await notionRequest(`data_sources/${input.dataSourceId}`, input.token, transport, { version: "2025-09-03" }));
   if (!source || source.object !== "data_source" || !validId(source.id) || source.id.replace(/-/g, "").toLowerCase() !== input.dataSourceId.replace(/-/g, "").toLowerCase()) return invalidResponse();
   const properties = object(source.properties);
   if (!properties) return invalidResponse();
@@ -251,7 +251,7 @@ export async function queryNotionDataSource(input: ListInput & { dataSourceId: s
   if (options.editedAfter) filters.push({ timestamp: "last_edited_time", last_edited_time: { after: options.editedAfter } });
   if (options.propertyFilter) filters.push({ property: options.propertyFilter.property, [options.propertyFilter.mode]: { equals: options.propertyFilter.mode === "checkbox" ? options.propertyFilter.value === "true" : options.propertyFilter.value } });
   const filter = filters.length > 1 ? { and: filters } : filters[0];
-  const payload = object(await request(`data_sources/${input.dataSourceId}/query`, input.token, transport, { version: "2025-09-03", body: { page_size: input.pageSize, ...(input.cursor ? { start_cursor: input.cursor } : {}), ...(sort ? { sorts: [sort] } : {}), ...(filter ? { filter } : {}) } }));
+  const payload = object(await notionRequest(`data_sources/${input.dataSourceId}/query`, input.token, transport, { version: "2025-09-03", body: { page_size: input.pageSize, ...(input.cursor ? { start_cursor: input.cursor } : {}), ...(sort ? { sorts: [sort] } : {}), ...(filter ? { filter } : {}) } }));
   if (!payload || payload.object !== "list" || !Array.isArray(payload.results) || payload.results.length > input.pageSize || typeof payload.has_more !== "boolean" || (payload.has_more ? !validCursor(payload.next_cursor) : payload.next_cursor !== null)) return invalidResponse();
   if (!payload.results.every((value: unknown) => ["page", "data_source"].includes(String(object(value)?.object)))) return invalidResponse();
   if (typeof payload.next_cursor === "string" && redactValue(removeUrlCapabilities(payload.next_cursor, 0, input.token)) !== payload.next_cursor) return invalidResponse();
@@ -285,7 +285,7 @@ export async function listNotionBlockChildren(input: ChildrenInput, transport: T
   if (!validId(input.blockId)) throw new NodeFailure("INVALID_INPUT", "Enter a valid Notion block ID.", false);
   const cursor = normalizeCursor(input.cursor);
   validateList(input.pageSize, cursor);
-  const { results, hasMore, nextCursor } = pageEnvelope(await request(`blocks/${input.blockId}/children?${listQuery(input.pageSize, cursor as string | undefined)}`, input.token, transport), input.pageSize, "block", input.token);
+  const { results, hasMore, nextCursor } = pageEnvelope(await notionRequest(`blocks/${input.blockId}/children?${listQuery(input.pageSize, cursor as string | undefined)}`, input.token, transport), input.pageSize, "block", input.token);
   return safeOutput({ blocks: results, hasMore, nextCursor }, childrenNotice, input.token);
 }
 
@@ -295,7 +295,7 @@ export async function retrieveNotionPageProperty(input: PropertyInput, transport
   const propertyId = propertyPath(input.propertyId);
   const cursor = normalizeCursor(input.cursor);
   validateList(input.pageSize, cursor);
-  const payload = object(await request(`pages/${input.pageId}/properties/${propertyId}?${listQuery(input.pageSize, cursor as string | undefined)}`, input.token, transport));
+  const payload = object(await notionRequest(`pages/${input.pageId}/properties/${propertyId}?${listQuery(input.pageSize, cursor as string | undefined)}`, input.token, transport));
   if (!payload) return invalidResponse();
   if (payload.object === "property_item") {
     if (typeof payload.id !== "string" || typeof payload.type !== "string" || !Object.hasOwn(payload, payload.type)) return invalidResponse();

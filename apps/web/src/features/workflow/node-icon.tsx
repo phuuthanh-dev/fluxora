@@ -18,6 +18,7 @@ import {
   Webhook,
 } from "lucide-react";
 import { useId } from "react";
+import gitlabIcon from "@iconify-icons/logos/gitlab-icon";
 import slackIcon from "@iconify-icons/logos/slack-icon";
 import discordIcon from "@iconify-icons/logos/discord-icon";
 import googleDriveIcon from "@iconify-icons/logos/google-drive-2020";
@@ -84,6 +85,7 @@ export type NodeIconName =
   | "uptime-kuma"
   | "reddit"
   | "postgres"
+  | "gitlab"
   | "github"
   | "facebook"
   | "instagram";
@@ -150,6 +152,7 @@ export function NodeIcon({ name, size = 18, className = "" }: { name: NodeIconNa
       case "reddit": return <BrandIcon icon={redditIcon} size={size} />;
       case "uptime-kuma": return <SiUptimekuma {...props} />;
       case "postgres": return <SiPostgresql {...props} />;
+      case "gitlab": return <BrandIcon icon={gitlabIcon} size={size} />;
       case "github": return <SiGithub {...props} />;
       case "facebook": return <SiFacebook {...props} />;
       case "instagram": return <BrandIcon icon={instagramIcon} size={size} instagramGradient />;
