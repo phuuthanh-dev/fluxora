@@ -4,7 +4,21 @@ This file is the compact, machine-checked handoff point for the next coding
 loop. It prevents an agent from proposing implementation work that is already
 complete in the delivery ledger.
 
-## Current snapshot — 2026-11-10
+## Current snapshot — 2026-11-10 (connector expansion, release pending)
+
+- Local batch adds Slack thread replies/message updates, Notion append paragraph, GitLab issue update/pipeline/merge-request reads and a bounded Jira Cloud OAuth connector, plus focused execution retry/item guidance. Existing operations were reused. See `docs/49-connector-expansion-2026-11.md` for scope and provider sources.
+- Full isolated `npm run verify` passed: 1,141 API tests passed with 19 optional skips; 76 web tests and 228 Playwright tests passed. Test database `fluxora_connector_test_d0033e797e` and the earlier interrupted `fluxora_batch_verify_4663070022` were retained; temporary Redis stopped. No production data was used. The existing `apps/web/next-env.d.ts` change remains outside the batch.
+- Jira has not been qualified against a live site: the test site was unavailable. Atlassian distribution is `Not sharing`; owner approved reporting implementation and review before enabling. A disabled ledger/reporter is implemented, but arbitrary personal data in issue content and propagated execution history cannot yet be attributed and erased reliably. Do not enable reporting/public distribution or claim compliance until that is reviewed and resolved. `closed`/`updated` requests are held for manual review. Client credentials remain unconfigured on production.
+- The second Slack and Notion workspaces were tested using the same Fluxora user; they do not establish independent-user isolation. Follow Google review status below. Local web/API remain up with scheduling disabled. PR/CI/deploy status for this batch must be checked, not assumed.
+
+## Earlier snapshot — 2026-11-10 (after PR #117)
+
+- PR [#117](https://github.com/phuuthanh-dev/fluxora/pull/117) merged as `a6efe1dfcd18f9b8a419e6023416f6b1f7f91145`; PR and main quality gates passed (228 E2E), and production deployment `42765153792` succeeded.
+- Slack shared signed Events URL was verified and saved in Slack; Public Distribution was enabled with owner approval. A second Slack workspace was connected to a separate Fluxora workspace and an owner-approved mention produced a successful production execution; its test workflow was deactivated. Both installations use the same Fluxora user, so independent-user isolation remains unqualified. Existing Slack connections need reconnect for shared triggers. Local Slack OAuth remains deferred.
+- Notion managed OAuth succeeded locally against the owner-approved test database; manual token support remains. A second Notion workspace was connected to a separate Fluxora workspace and returned the selected test page in a production live run; the test workflow was deactivated. Both installations use the same Fluxora user; independent-user isolation and real refresh after expiry remain unqualified. Google OAuth verification was rechecked on Nov 10: homepage and branding complete; privacy, functionality, appropriate/minimum scopes and additional requirements remain under review.
+- Owner approved the next batch: OAuth qualification, execution/debug UX, existing Slack/Notion/GitLab operation depth, and a bounded Jira Cloud connector. See `.agent/tasks/2026-11-10-connector-workflow-expansion.md`. Audit and verify once at the end; do not duplicate already released operations.
+
+## Earlier snapshot — 2026-11-10 (before PR #117; superseded)
 
 - PR [#115](https://github.com/phuuthanh-dev/fluxora/pull/115) merged as
   `0ae4129b02681e27f428d33b6502c2512f9856ab`. Main Quality gate `42749673882`

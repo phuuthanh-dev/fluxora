@@ -37,6 +37,7 @@ enum CredentialProvider {
   TELEGRAM_BOT
   GITHUB
   GITLAB
+  JIRA
   SMTP
   GEMINI
   OPENAI
@@ -387,6 +388,23 @@ model Credential {
 
   @@unique([workspaceId, provider, label])
   @@index([workspaceId, provider])
+}
+
+// Retained independently of a credential: execution history can outlive it.
+model JiraPrivacyAccount {
+  accountHash        String   @id
+  encryptedAccountId String
+  oldestDataAt       DateTime
+  nextReportAt       DateTime
+  lastReportedAt     DateTime?
+  state              String   @default("READY")
+  requiredAction     String?
+  claimedAt          DateTime?
+  claimToken         String?
+  lastErrorCode      String?
+  updatedAt          DateTime @updatedAt
+
+  @@index([state, nextReportAt])
 }
 
 model Execution {

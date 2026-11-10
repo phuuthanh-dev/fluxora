@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { CredentialProvider } from "@prisma/client";
-import { executeNotionCreatePage, executeNotionUpdateTitle } from "./notion-create-page";
+import { executeNotionAppendBlock, executeNotionCreatePage, executeNotionUpdateTitle } from "./notion-create-page";
 import { NodeFailure } from "./node-failure";
 
 const parentPageId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -9,6 +9,18 @@ const createdPageId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const config = { credentialId: "connection", parentPageId, title: "Daily report", content: "Prepared by Fluxora" };
 const reads: unknown[] = [];
 const credentials = { readForExecution: async (...args: unknown[]) => { reads.push(args); return { token: "synthetic-notion-token" }; } } as never;
+
+test("append paragraph sends one bounded write and rejects uncertain results", async () => {
+  const input = { credentialId: "connection", pageId: parentPageId, content: "Sample report" };
+  const result = await executeNotionAppendBlock(input, "live", "workspace", credentials, async (url, init) => {
+    assert.equal(url, `https://api.notion.com/v1/blocks/${parentPageId}/children`);
+    assert.equal(init.method, "PATCH");
+    assert.equal(JSON.parse(String(init.body)).children[0].paragraph.rich_text[0].text.content, "Sample report");
+    return Response.json({ results: [{ object: "block", id: createdPageId }] });
+  });
+  assert.deepEqual(result.output, { pageId: parentPageId, blockId: createdPageId });
+  await assert.rejects(() => executeNotionAppendBlock(input, "live", "workspace", credentials, async () => { throw Error("connection lost"); }), (e: unknown) => e instanceof NodeFailure && e.code === "DELIVERY_UNCERTAIN" && !e.retryable);
+});
 
 test("creates a child page with the workspace connection and only returns identifiers", async () => {
   reads.length = 0;

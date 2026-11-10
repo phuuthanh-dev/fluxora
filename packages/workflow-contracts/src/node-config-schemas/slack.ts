@@ -10,6 +10,13 @@ export const slackWebhook: ConfigRules = {
 export const slackMessage: ConfigRules = {
   ...slackWebhook,
   channel,
+  threadTs: { schema: z.union([z.string().regex(/^\d{1,20}\.\d{1,20}$/), z.literal(""), z.null()]), message: "Enter a valid Slack message timestamp." },
+};
+
+export const slackUpdateMessage: ConfigRules = {
+  ...slackWebhook,
+  channel,
+  messageId: { schema: z.string().regex(/^\d{1,20}\.\d{1,20}$/), required: true, message: "Enter the timestamp of the Slack message to update." },
 };
 
 export const slackTrigger: ConfigRules = {

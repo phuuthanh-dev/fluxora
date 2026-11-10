@@ -1,3 +1,4 @@
+import { requireJiraReconnect, runJiraAuthorized, saveJiraAuthorization, type JiraAuthorization } from "./jira-oauth";
 import { isNotionOAuth, requireNotionReconnect, runNotionAuthorized, saveNotionAuthorization, type NotionAuthorization } from "./notion-oauth";
 import { validGitLabToken } from "../execution/gitlab";
 import { CredentialProvider, ExecutionStatus, type Prisma } from "@prisma/client";
@@ -58,7 +59,7 @@ export class CredentialService {
   async create(workspaceId: string, userId: string, input: { provider: string; label: string; data: unknown }) {
     await this.workspaces.requireOwner(workspaceId, userId);
     if (!providers.has(input.provider as CredentialProvider)) throw new BadRequestException({ code: "CREDENTIAL_PROVIDER_NOT_FOUND", message: "Credential provider is not supported." });
-    if (input.provider === CredentialProvider.SLACK_OAUTH) throw new BadRequestException({ code: "CREDENTIAL_MANAGED_BY_OAUTH", message: "Connect Slack using OAuth." });
+    if (input.provider === CredentialProvider.JIRA || input.provider === CredentialProvider.SLACK_OAUTH) throw new BadRequestException({ code: "CREDENTIAL_MANAGED_BY_OAUTH", message: "Connect this provider using OAuth." });
     if (!input.data || typeof input.data !== "object" || Array.isArray(input.data)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Credential data must be a JSON object." });
     validateCredentialPayload(input.provider as CredentialProvider, input.data as Record<string, unknown>);
 
@@ -101,7 +102,7 @@ export class CredentialService {
     await this.workspaces.requireOwner(workspaceId, userId);
     const credential = await this.prisma.credential.findFirst({ where: { id: credentialId, workspaceId } });
     if (!credential) throw new NotFoundException({ code: "CREDENTIAL_NOT_FOUND", message: "A matching credential was not found in this workspace." });
-    if (credential.provider === CredentialProvider.SLACK_OAUTH && input.data !== undefined) throw new BadRequestException({ code: "CREDENTIAL_MANAGED_BY_OAUTH", message: "Reconnect Slack to change its authorization." });
+    if ((credential.provider === CredentialProvider.JIRA || credential.provider === CredentialProvider.SLACK_OAUTH) && input.data !== undefined) throw new BadRequestException({ code: "CREDENTIAL_MANAGED_BY_OAUTH", message: "Reconnect this provider to change its authorization." });
 
     if (credential.provider === CredentialProvider.NOTION && isNotionOAuth(this.vault.decrypt(credential.encryptedData)) && input.data !== undefined) throw new BadRequestException({ code: "CREDENTIAL_MANAGED_BY_OAUTH", message: "Reconnect Notion to change its authorization." });
 
@@ -288,6 +289,20 @@ export class CredentialService {
 
   async readForExecution(credentialId: string, workspaceId: string, provider: CredentialProvider) {
     return (await this.readForExecutionSnapshot(credentialId, workspaceId, provider)).data;
+  }
+
+  async requireJiraReconnectTarget(workspaceId: string, userId: string, credentialId: string) {
+    await this.workspaces.requireOwner(workspaceId, userId);
+    return requireJiraReconnect(this.prisma, workspaceId, credentialId);
+  }
+
+  async saveJiraOAuth(workspaceId: string, userId: string, data: JiraAuthorization, credentialId?: string) {
+    await this.workspaces.requireOwner(workspaceId, userId);
+    return saveJiraAuthorization(this.prisma, this.vault, workspaceId, userId, data, credentialId);
+  }
+
+  runJiraOperation<T>(credentialId: string, workspaceId: string, operation: () => Promise<T>) {
+    return runJiraAuthorized(this.prisma, this.vault, workspaceId, credentialId, operation);
   }
 
   async requireNotionReconnectTarget(workspaceId: string, userId: string, credentialId: string) {
@@ -562,7 +577,7 @@ export class CredentialService {
       label: credential.label,
       createdAt: credential.createdAt,
       updatedAt: credential.updatedAt,
-      isManaged: isCanonicalGoogleOAuth(credential) || credential.provider === CredentialProvider.SLACK_OAUTH || notionManaged,
+      isManaged: isCanonicalGoogleOAuth(credential) || credential.provider === CredentialProvider.SLACK_OAUTH || credential.provider === CredentialProvider.JIRA || notionManaged,
       ...(selectedGmailCapabilities ? { gmailCapabilities: selectedGmailCapabilities } : {}),
       ...(chatManageEnabled ? { chatManageEnabled: true } : {}),
       ...(googleReconnectRequired ? { googleReconnectRequired: true } : {}),

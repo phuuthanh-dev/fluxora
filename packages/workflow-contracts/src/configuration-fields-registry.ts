@@ -1,3 +1,4 @@
+import { jiraFields } from "./jira-fields";
 import { gitlabFields } from "./gitlab-fields";
 import { dataTransformFields } from "./data-transform-fields";
 import type { WorkflowNodeType } from "./index";
@@ -17,6 +18,7 @@ import { githubReadConfigurationFields } from "./github-read-fields";
  * moved yet; do not interpret them as an empty runtime validation schema. */
 const sharedFields = {
   ...dataTransformFields,
+  ...jiraFields,
   ...gitlabFields,
   ...aiNodeFields,
   ...communicationNodeFields,
@@ -76,6 +78,11 @@ const sharedFields = {
     { kind: "credential", key: "credentialId", label: "Notion connection", providers: ["NOTION"] },
     { kind: "resource", key: "pageId", label: "Page", resource: "notion-page", credentialKey: "credentialId", placeholder: "Search shared pages" },
     { kind: "text", key: "title", label: "New page title" },
+  ],
+  "action.notion.append-block": () => [
+    { kind: "credential", key: "credentialId", label: "Notion connection", providers: ["NOTION"] },
+    { kind: "resource", key: "pageId", label: "Page", resource: "notion-page", credentialKey: "credentialId", placeholder: "Search shared pages" },
+    { kind: "textarea", key: "content", label: "Paragraph text" },
   ],
   "action.trello.get-card": () => trelloCardConfigurationFields("get"),
   "action.trello.update-card": () => trelloCardConfigurationFields("update"),

@@ -21,6 +21,25 @@ test("Slack sends once and returns a bounded receipt without the token", async (
   assert.ok(!JSON.stringify(result).includes(token));
 });
 
+test("Slack reply uses the selected parent timestamp", async () => {
+  const config = { credentialId: "cred", channel: "C123456", message: "Reply", threadTs: "1794190000.123456" };
+  await executeSlackOAuth(config, "live", "workspace", credentials, async (_url, init) => {
+    assert.equal(JSON.parse(String(init?.body)).thread_ts, config.threadTs);
+    return json({ ok: true, channel: "C123456", ts: "1794190001.123456" });
+  });
+});
+
+test("Slack updates only the selected message and does not expose the token", async () => {
+  const config = { credentialId: "cred", channel: "C123456", message: "Updated", messageId: "1794190000.123456" };
+  const result = await executeSlackOAuth(config, "live", "workspace", credentials, async (url, init) => {
+    assert.match(String(url), /chat\.update$/);
+    assert.equal(JSON.parse(String(init?.body)).ts, config.messageId);
+    return json({ ok: true, channel: config.channel, ts: config.messageId });
+  }, "update");
+  assert.equal(result.output.messageId, config.messageId);
+  assert.ok(!JSON.stringify(result).includes(token));
+});
+
 test("uncertain Slack writes fail closed rather than allowing automatic retry", async () => {
   const config = { credentialId: "cred", channel: "C123456", message: "Hello" };
   await assert.rejects(executeSlackOAuth(config, "live", "workspace", credentials, async () => { throw new Error("network"); }), (error) => error instanceof NodeFailure && error.code === "DELIVERY_UNCERTAIN" && !error.retryable);

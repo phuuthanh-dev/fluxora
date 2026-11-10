@@ -1,3 +1,4 @@
+import { executeJira } from "./jira";
 import { executeGitLab } from "./gitlab";
 import { nodeConfigIssues, type ExecutableWorkflowNodeType } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
@@ -21,7 +22,7 @@ import { executeMongoFind, executeMongoInsert } from "./mongodb-find";
 import { executeNotionEntry } from "./notion-entry";
 import { executeNotionSearch } from "./notion-search";
 import { executeNotionDataSourceQuery, executeNotionOperation } from "./notion-operations";
-import { executeNotionCreatePage, executeNotionUpdateTitle } from "./notion-create-page";
+import { executeNotionAppendBlock, executeNotionCreatePage, executeNotionUpdateTitle } from "./notion-create-page";
 import { executeRssRead } from "./rss-read";
 import { executeTrelloCreateCard } from "./trello";
 import { executeTrelloOperation } from "./trello-operations";
@@ -64,6 +65,7 @@ const executors = {
   "action.discord.webhook": ({ config, mode, workspaceId, credentials }) => executeDiscordWebhook(config, mode, workspaceId, credentials),
   "action.slack.webhook": ({ config, mode, workspaceId, credentials }) => executeSlackWebhook(config, mode, workspaceId, credentials),
   "action.slack.message": ({ config, mode, workspaceId, credentials }) => executeSlackOAuth(config, mode, workspaceId, credentials),
+  "action.slack.update-message": ({ config, mode, workspaceId, credentials }) => executeSlackOAuth(config, mode, workspaceId, credentials, undefined, "update"),
   "action.telegram.message": ({ config, mode, workspaceId, credentials }) => executeTelegramMessage(config, mode, workspaceId, credentials),
   "action.github": ({ config, mode, workspaceId, credentials }) => executeGitHubCreateIssue(config, mode, workspaceId, credentials),
   "action.github.add-label": ({ config, mode, workspaceId, credentials }) => executeGitHubAddLabel(config, mode, workspaceId, credentials),
@@ -104,13 +106,21 @@ const executors = {
   "action.notion.query-data-source": ({ config, mode, workspaceId, credentials }) => executeNotionDataSourceQuery(config, mode, workspaceId, credentials),
   "action.notion.create-entry": ({ config, mode, workspaceId, credentials }) => executeNotionEntry(config, "create", mode, workspaceId, credentials),
   "action.notion.update-entry": ({ config, mode, workspaceId, credentials }) => executeNotionEntry(config, "update", mode, workspaceId, credentials),
+  "action.jira.create-issue": ({ config, mode, workspaceId, credentials }) => executeJira(config, "create-issue", mode, workspaceId, credentials),
+  "action.jira.get-issue": ({ config, mode, workspaceId, credentials }) => executeJira(config, "get-issue", mode, workspaceId, credentials),
+  "action.jira.update-issue": ({ config, mode, workspaceId, credentials }) => executeJira(config, "update-issue", mode, workspaceId, credentials),
+  "action.jira.add-comment": ({ config, mode, workspaceId, credentials }) => executeJira(config, "add-comment", mode, workspaceId, credentials),
   "action.gitlab.get-project": ({ config, mode, workspaceId, credentials }) => executeGitLab(config, "get-project", mode, workspaceId, credentials),
   "action.gitlab.list-issues": ({ config, mode, workspaceId, credentials }) => executeGitLab(config, "list-issues", mode, workspaceId, credentials),
   "action.gitlab.get-issue": ({ config, mode, workspaceId, credentials }) => executeGitLab(config, "get-issue", mode, workspaceId, credentials),
   "action.gitlab.create-issue": ({ config, mode, workspaceId, credentials }) => executeGitLab(config, "create-issue", mode, workspaceId, credentials),
   "action.gitlab.add-comment": ({ config, mode, workspaceId, credentials }) => executeGitLab(config, "add-comment", mode, workspaceId, credentials),
+  "action.gitlab.update-issue": ({ config, mode, workspaceId, credentials }) => executeGitLab(config, "update-issue", mode, workspaceId, credentials),
+  "action.gitlab.get-pipeline": ({ config, mode, workspaceId, credentials }) => executeGitLab(config, "get-pipeline", mode, workspaceId, credentials),
+  "action.gitlab.get-merge-request": ({ config, mode, workspaceId, credentials }) => executeGitLab(config, "get-merge-request", mode, workspaceId, credentials),
   "action.notion.create-page": ({ config, mode, workspaceId, credentials }) => executeNotionCreatePage(config, mode, workspaceId, credentials),
   "action.notion.update-title": ({ config, mode, workspaceId, credentials }) => executeNotionUpdateTitle(config, mode, workspaceId, credentials),
+  "action.notion.append-block": ({ config, mode, workspaceId, credentials }) => executeNotionAppendBlock(config, mode, workspaceId, credentials),
   "action.rss.read": ({ config, mode }) => executeRssRead(config, mode),
   "action.trello.create-card": ({ config, mode, workspaceId, credentials }) => executeTrelloCreateCard(config, mode, workspaceId, credentials),
   "action.trello.get-card": ({ config, mode, workspaceId, credentials }) => executeTrelloOperation("get", config, mode, workspaceId, credentials),

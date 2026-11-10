@@ -8,6 +8,20 @@ const config = { credentialId: "connection", project: "42", issue: "3" };
 const issue = { id: 19, iid: 3, project_id: 42, title: "Report", state: "opened", description: "Content" };
 const json = (data: unknown, headers: Record<string, string> = {}) => new Response(JSON.stringify(data), { headers });
 
+test("GitLab reads pipeline and merge request within the selected project", async () => {
+  const pipeline = await executeGitLab({ ...config, pipeline: "12" }, "get-pipeline", "live", "workspace", credentials as never, async (url) => { assert.match(url, /projects\/42\/pipelines\/12$/); return json({ id: 12, project_id: 42, status: "failed", ref: "main", sha: "abc" }); });
+  assert.equal((pipeline.output.pipeline as Record<string, unknown>).status, "failed");
+  const mr = await executeGitLab({ ...config, mergeRequest: "7" }, "get-merge-request", "live", "workspace", credentials as never, async () => json({ iid: 7, project_id: 42, title: "Example", state: "opened" }));
+  assert.equal((mr.output.mergeRequest as Record<string, unknown>).iid, 7);
+  await assert.rejects(executeGitLab({ ...config, pipeline: "12" }, "get-pipeline", "live", "workspace", credentials as never, async () => json({ id: 12, project_id: 99, status: "success" })), { code: "INVALID_RESPONSE" });
+});
+
+test("GitLab updates the selected issue without retrying an uncertain write", async () => {
+  const updated = await executeGitLab({ ...config, title: "Updated" }, "update-issue", "live", "workspace", credentials as never, async () => { throw Error("unexpected read"); }, async (url, init) => { assert.match(url, /projects\/42\/issues\/3$/); assert.equal(init.method, "PUT"); assert.deepEqual(JSON.parse(String(init.body)), { title: "Updated" }); return json({ ...issue, title: "Updated" }); });
+  assert.equal((updated.output.issue as Record<string, unknown>).title, "Updated");
+  await assert.rejects(executeGitLab({ ...config, title: "Updated" }, "update-issue", "live", "workspace", credentials as never, async () => { throw Error("unexpected read"); }, async () => { throw Error("lost response"); }), { code: "DELIVERY_UNCERTAIN", retryable: false });
+});
+
 test("GitLab discovery and reads use scoped credentials, numeric project/issue IDs and bounded pagination", async () => {
   const projects = await listGitLabProjects(token, 2, async (url, init) => { assert.match(url, /membership=true/); assert.match(url, /page=2$/); assert.equal((init.headers as Record<string, string>)["PRIVATE-TOKEN"], token); return json([{ id: 42, path_with_namespace: "team/project" }], { "x-next-page": "3" }); });
   assert.deepEqual(projects, { projects: [{ id: "42", name: "team/project" }], nextPage: 3 });

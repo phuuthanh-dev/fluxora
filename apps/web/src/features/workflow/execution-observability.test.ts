@@ -43,6 +43,10 @@ test("Google Chat webhook 403 suggests checking the space without claiming a cau
   assert.equal(executionRecoveryGuidance(node({ ...denied, status: "SUCCEEDED" })), null);
 });
 
+test("uncertain delivery directs the user to check the destination before retrying", () => {
+  assert.match(executionRecoveryGuidance(node({ error: { code: "DELIVERY_UNCERTAIN", message: "Unconfirmed", retryable: false } }))!, /Check the destination before retrying/);
+});
+
 test("diagnostic file name is stable for the same execution", () => {
   assert.equal(diagnosticFileName("execution-123"), "fluxora-execution-execution-123-diagnostic.json");
 });

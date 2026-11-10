@@ -12,6 +12,7 @@ test("data nodes, typed Notion properties and GitLab selectors remain editable a
     { id: "limit", type: "action.limit", config: { maxItems: 10, keep: "first" } },
     { id: "notion", type: "action.notion.create-entry", config: { credentialId: "notion", dataSourceId: sourceId, properties: [] } },
     { id: "gitlab", type: "action.gitlab.add-comment", config: { credentialId: "gitlab", project: "42", issue: "3", body: "Example" } },
+    { id: "jira", type: "action.jira.create-issue", config: { credentialId: "jira", project: "", issueType: "", summary: "" } },
   ].map((node, index) => ({ ...node, position: { x: index % 3 * 420, y: Math.floor(index / 3) * 220 } }));
   nodes.push({ id: "start", type: "trigger.manual", config: {}, position: { x: 0, y: -150 } });
   const graph = { nodes, edges: [
@@ -23,6 +24,7 @@ test("data nodes, typed Notion properties and GitLab selectors remain editable a
     { id: "start-merge", source: "start", target: "merge", targetHandle: "input2", kind: "success" },
     { id: "merge-notion", source: "merge", target: "notion", kind: "success" },
     { id: "notion-gitlab", source: "notion", target: "gitlab", kind: "success" },
+    { id: "gitlab-jira", source: "gitlab", target: "jira", kind: "success" },
   ] };
   const workflow = { id: "data-connectors", workspaceId: "workspace", name: "Data and connectors", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
   let saved: { nodes: Array<{ id: string; config: Record<string, unknown> }> } | undefined;
@@ -34,9 +36,11 @@ test("data nodes, typed Notion properties and GitLab selectors remain editable a
     if (url.pathname.endsWith("/auth/providers")) return send({ google: false, github: false, steam: false });
     if (url.pathname.endsWith("/admin/access")) return route.fulfill({ status: 403, contentType: "application/json", body: '{"message":"Forbidden"}' });
     if (url.pathname.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace", name: "Workspace", slug: "workspace", role: "OWNER" }] });
-    if (url.pathname.endsWith("/credentials")) return send({ credentials: [{ id: "notion", provider: "NOTION", label: "Notion" }, { id: "gitlab", provider: "GITLAB", label: "GitLab" }] });
+    if (url.pathname.endsWith("/credentials")) return send({ credentials: [{ id: "notion", provider: "NOTION", label: "Notion" }, { id: "gitlab", provider: "GITLAB", label: "GitLab" }, { id: "jira", provider: "JIRA", label: "Jira", isManaged: true }] });
     if (url.pathname.endsWith("/notion/data-sources")) return send({ sources: [{ id: sourceId, name: "Tasks" }, { id: "00000000-0000-4000-8000-000000000002", name: "Other tasks" }], hasMore: false });
     if (url.pathname.endsWith("/notion/writable-properties")) return send({ properties: [{ id: "title", name: "Name", type: "title" }, { id: "score", name: "Score", type: "number" }, { id: "state", name: "Stage", type: "status", options: [{ id: "done", name: "Done" }] }, { id: "check", name: "Completed", type: "checkbox" }], hasMore: false });
+    if (url.pathname.endsWith("/jira/projects")) return send({ projects: [{ id: "100", name: "Demo project" }], hasMore: false });
+    if (url.pathname.endsWith("/jira/issue-types")) return send({ issueTypes: [{ id: "101", name: "Task" }], hasMore: false });
     if (url.pathname.endsWith("/gitlab/projects")) return send({ projects: [{ id: "42", name: "team/project" }, { id: "43", name: "team/other" }], nextPage: null });
     if (url.pathname.endsWith("/gitlab/issues")) return send({ items: url.searchParams.get("project") === "42" ? [{ id: "3", name: "#3 · Example issue" }] : [{ id: "8", name: "#8 · Another issue" }], nextPage: null });
     if (route.request().method() === "PATCH" && url.pathname.endsWith("/draft")) { saved = route.request().postDataJSON().graph; return send({ workflow }); }
@@ -76,11 +80,23 @@ test("data nodes, typed Notion properties and GitLab selectors remain editable a
   await page.getByRole("group", { name: "Project", exact: true }).getByRole("combobox").selectOption("43");
   await expect(page.getByRole("group", { name: "Issue", exact: true }).getByRole("combobox")).toHaveValue("");
   await page.getByRole("group", { name: "Issue", exact: true }).getByRole("combobox").selectOption("8");
+  await selectNode("jira");
+  await page.getByRole("group", { name: "Project", exact: true }).getByRole("combobox").selectOption("100");
+  await page.getByRole("group", { name: "Issue type", exact: true }).getByRole("combobox").selectOption("101");
+  await page.getByLabel("Summary", { exact: true }).fill("Demo issue");
+  for (const theme of ["light", "dark"]) {
+    const toggle = page.getByRole("button", { name: `Switch to ${theme} mode`, exact: true });
+    if (await toggle.isVisible()) await toggle.click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+    await expect(page.getByRole("group", { name: "Issue type", exact: true })).toBeVisible();
+    await page.screenshot({ animations: "disabled", path: testInfo.outputPath(`jira-picker-${theme}.png`) });
+  }
   await page.getByRole("button", { name: "Save draft", exact: true }).click();
   await expect.poll(() => saved?.nodes.find((node) => node.id === "limit")?.config.maxItems).toBe(2);
   expect(saved?.nodes.find((node) => node.id === "merge")?.config).toMatchObject({ mode: "matching", field1: "customer.id", field2: "id", outputType: "enrich-input1" });
   expect(saved?.nodes.find((node) => node.id === "notion")?.config.properties).toEqual([{ id: "title", type: "title", value: "Daily report" }, { id: "score", type: "number", value: 7.5 }, { id: "state", type: "status", value: "done" }, { id: "check", type: "checkbox", value: true }]);
   expect(saved?.nodes.find((node) => node.id === "gitlab")?.config).toMatchObject({ project: "43", issue: "8" });
+  expect(saved?.nodes.find((node) => node.id === "jira")?.config).toMatchObject({ project: "100", issueType: "101", summary: "Demo issue" });
   await selectNode("notion");
   await page.getByRole("group", { name: "Data source", exact: true }).getByRole("combobox").selectOption("00000000-0000-4000-8000-000000000002");
   await expect(page.getByLabel("Name", { exact: true })).toHaveCount(0);

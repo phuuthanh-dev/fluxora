@@ -11,13 +11,14 @@ export function liveCredentialRequirements(graph: WorkflowGraph): LiveCredential
     if (node.type === "action.riot-lol" || node.type === "action.riot-tft") return [{ nodeId: node.id, provider: CredentialProvider.RIOT, credentialId }];
     if (node.type === "action.google-chat.webhook") return [{ nodeId: node.id, provider: CredentialProvider.GOOGLE_CHAT_WEBHOOK, credentialId }];
     if (node.type === "action.slack.webhook") return [{ nodeId: node.id, provider: CredentialProvider.SLACK_WEBHOOK, credentialId }];
-    if (node.type === "action.slack.message" || node.type === "trigger.slack.event") return [{ nodeId: node.id, provider: CredentialProvider.SLACK_OAUTH, credentialId }];
+    if (node.type === "action.slack.message" || node.type === "action.slack.update-message" || node.type === "trigger.slack.event") return [{ nodeId: node.id, provider: CredentialProvider.SLACK_OAUTH, credentialId }];
     if (node.type === "action.discord.webhook") return [{ nodeId: node.id, provider: CredentialProvider.DISCORD_WEBHOOK, credentialId }];
     if (node.type === "action.telegram.message" || node.type === "action.telegram.reply" || node.type === "action.telegram.edit-message") return [{ nodeId: node.id, provider: CredentialProvider.TELEGRAM_BOT, credentialId }];
     if (node.type === "action.email") return [{ nodeId: node.id, provider: CredentialProvider.SMTP, credentialId }];
     if (node.type === "action.gemini") return [{ nodeId: node.id, provider: CredentialProvider.GEMINI, credentialId }];
     if (node.type === "action.openai") return [{ nodeId: node.id, provider: CredentialProvider.OPENAI, credentialId }];
     if (node.type === "action.mongodb" || node.type === "action.mongodb.insert") return [{ nodeId: node.id, provider: CredentialProvider.MONGODB, credentialId }];
+    if (node.type.startsWith("action.jira.")) return [{ nodeId: node.id, provider: CredentialProvider.JIRA, credentialId }];
     if (node.type.startsWith("action.gitlab.") || node.type.startsWith("trigger.gitlab.")) return [{ nodeId: node.id, provider: CredentialProvider.GITLAB, credentialId }];
     if (node.type.startsWith("action.notion.")) return [{ nodeId: node.id, provider: CredentialProvider.NOTION, credentialId }];
     if (node.type.startsWith("action.trello.")) return [{ nodeId: node.id, provider: CredentialProvider.TRELLO, credentialId }];
