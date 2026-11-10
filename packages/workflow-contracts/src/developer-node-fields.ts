@@ -66,12 +66,13 @@ export const developerNodeFields = {
       { kind: "credential", key: "credentialId", label: "Sentry connection", providers: ["SENTRY"] },
       { kind: "resource", key: "organization", label: "Organization", resource: "sentry-organization", credentialKey: "credentialId", placeholder: "Search organizations" },
       { kind: "resource", key: "project", label: "Project", resource: "sentry-project", credentialKey: "credentialId", dependencyKey: "organization", placeholder: "Search projects" },
-      { kind: "text", key: "issueId", label: "Numeric issue ID" },
+      { kind: "resource", key: "issueId", label: "Issue", resource: "sentry-issue", credentialKey: "credentialId", dependencyKey: "project", secondaryDependencyKey: "organization", placeholder: "Search loaded issues" },
     ],
   "action.vercel.public-deployment-lookup": (): NodeConfigurationField[] => [
       { kind: "credential", key: "credentialId", label: "Vercel connection", providers: ["VERCEL"] },
       { kind: "resource", key: "team", label: "Account or team", resource: "vercel-team", credentialKey: "credentialId", placeholder: "Search teams" },
-      { kind: "text", key: "deploymentId", label: "Deployment ID" },
+      { kind: "resource", key: "project", label: "Project", resource: "vercel-project", credentialKey: "credentialId", dependencyKey: "team", placeholder: "Search projects" },
+      { kind: "resource", key: "deploymentId", label: "Deployment", resource: "vercel-deployment", credentialKey: "credentialId", dependencyKey: "project", secondaryDependencyKey: "team", placeholder: "Search loaded deployments" },
     ],
   "action.reddit.list-posts": (): NodeConfigurationField[] => [
       { kind: "credential", key: "credentialId", label: "Reddit connection", providers: ["REDDIT"] },
@@ -84,14 +85,14 @@ export const developerNodeFields = {
       { kind: "resource", key: "repository", label: "Repository", resource: "github-repository", credentialKey: "credentialId", placeholder: "Search repositories" },
       { kind: "text", key: "title", label: "Issue title" },
       { kind: "textarea", key: "body", label: "Issue body" },
-      { kind: "text", key: "labels", label: "Labels (comma-separated, optional)" },
+      { kind: "resource", key: "labels", label: "Labels (optional)", resource: "github-label", multiple: true, credentialKey: "credentialId", dependencyKey: "repository", placeholder: "Search repository labels" },
       { kind: "text", key: "idempotencyKey", label: "Idempotency key (optional)" },
     ],
   "action.github.add-label": (): NodeConfigurationField[] => [
       { kind: "credential", key: "credentialId", label: "GitHub credential", providers: ["GITHUB"] },
       { kind: "resource", key: "repository", label: "Repository", resource: "github-repository", credentialKey: "credentialId", placeholder: "Search repositories" },
       { kind: "resource", key: "issueNumber", label: "Issue number", resource: "github-issue", credentialKey: "credentialId", dependencyKey: "repository", placeholder: "Search issues" },
-      { kind: "text", key: "label", label: "Label" },
+      { kind: "resource", key: "label", label: "Label", resource: "github-label", credentialKey: "credentialId", dependencyKey: "repository", placeholder: "Search repository labels" },
     ],
   "action.github.add-comment": (): NodeConfigurationField[] => [
       { kind: "credential", key: "credentialId", label: "GitHub credential", providers: ["GITHUB"] },

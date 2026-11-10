@@ -106,6 +106,7 @@ const executors = {
   "action.notion.query-data-source": ({ config, mode, workspaceId, credentials }) => executeNotionDataSourceQuery(config, mode, workspaceId, credentials),
   "action.notion.create-entry": ({ config, mode, workspaceId, credentials }) => executeNotionEntry(config, "create", mode, workspaceId, credentials),
   "action.notion.update-entry": ({ config, mode, workspaceId, credentials }) => executeNotionEntry(config, "update", mode, workspaceId, credentials),
+  "action.jira.search-issues": ({ config, mode, workspaceId, credentials }) => executeJira(config, "search-issues", mode, workspaceId, credentials),
   "action.jira.create-issue": ({ config, mode, workspaceId, credentials }) => executeJira(config, "create-issue", mode, workspaceId, credentials),
   "action.jira.get-issue": ({ config, mode, workspaceId, credentials }) => executeJira(config, "get-issue", mode, workspaceId, credentials),
   "action.jira.update-issue": ({ config, mode, workspaceId, credentials }) => executeJira(config, "update-issue", mode, workspaceId, credentials),

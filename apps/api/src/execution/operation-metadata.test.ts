@@ -159,6 +159,7 @@ test("configured mock outputs contain the fields advertised by operation metadat
     ["action.gitlab.update-issue", { project: "42", issue: "3", title: "Updated" }],
     ["action.gitlab.get-pipeline", { project: "42", pipeline: "3" }],
     ["action.gitlab.get-merge-request", { project: "42", mergeRequest: "3" }],
+    ["action.jira.search-issues", { query: "", limit: 25 }],
     ["action.jira.create-issue", { project: "42", issueType: "3", summary: "Example" }],
     ["action.jira.get-issue", { issue: "TEST-1" }],
     ["action.jira.update-issue", { issue: "TEST-1", summary: "Updated" }],

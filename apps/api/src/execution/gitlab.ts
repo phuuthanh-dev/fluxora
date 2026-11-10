@@ -86,3 +86,18 @@ export async function executeGitLab(config: Record<string, unknown>, operation: 
   } catch { if (body) throw uncertainDelivery("GitLab"); throw new NodeFailure("INVALID_RESPONSE", "GitLab returned an invalid response.", false); }
   return { status: "succeeded" as const, route: "success" as const, output: redactValue(safe(output, token)) as Record<string, unknown> };
 }
+
+/** Provider resource discovery stores pipeline IDs and project-scoped MR IIDs. */
+export async function listGitLabResources(token: string, project: string, kind: "pipelines" | "merge_requests", page = 1, read: Transport = fetchSafeOutbound) {
+  if (!/^[1-9]\d{0,14}$/.test(project) || !Number.isSafeInteger(Number(project)) || !Number.isInteger(page) || page < 1 || page > 10000) throw new NodeFailure("INVALID_INPUT", "Choose a valid project and page.", false);
+  const { result, nextPage } = await request(token, `projects/${project}/${kind}?per_page=50&page=${page}${kind === "merge_requests" ? "&scope=all&state=all" : ""}`, read, fetchSafeOutboundWrite);
+  if (!Array.isArray(result) || result.length > 50) throw new NodeFailure("INVALID_RESPONSE", "GitLab returned invalid resources.", false);
+  const items = result.map((value) => {
+    const item = record(value), id = kind === "pipelines" ? item?.id : item?.iid;
+    if (!item || !numericId(id) || item.project_id !== Number(project)) throw new NodeFailure("INVALID_RESPONSE", "GitLab returned a resource outside the selected project.", false);
+    const label = kind === "pipelines" ? `${item.status ?? ""} · ${item.ref ?? ""}` : item.title;
+    if (typeof label !== "string") throw new NodeFailure("INVALID_RESPONSE", "GitLab returned an invalid resource name.", false);
+    return { id: String(id), name: `#${id} · ${label.split(token).join("[REDACTED]").slice(0, 250)}` };
+  });
+  return { items, nextPage: nextPage && nextPage > page ? nextPage : null };
+}

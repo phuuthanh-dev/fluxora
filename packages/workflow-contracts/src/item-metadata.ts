@@ -8,6 +8,7 @@ const collectionFields: Readonly<Record<string, string>> = {
   "action.mongodb": "documents",
   "action.postgres.select": "rows",
   "action.supabase.select": "rows",
+  "action.jira.search-issues": "items",
   "action.gitlab.list-issues": "items",
   "action.notion.search-pages": "pages",
   "action.notion.list-children": "blocks",

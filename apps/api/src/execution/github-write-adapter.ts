@@ -354,7 +354,8 @@ function readGitHubRepositoryParts(repository: string): [string, string] {
 
 function readGitHubLabels(value: unknown) {
   if (value === undefined || value === null || value === "") return [] as string[];
-  if (typeof value !== "string") throw new NodeFailure("INVALID_CONFIGURATION", "GitHub labels must be comma-separated text.", false);
+  if (Array.isArray(value) && value.length <= 20 && value.every((v) => typeof v === "string" && v.trim() && v.trim().length <= 50 && !/[\u0000-\u001f\u007f]/.test(v))) return [...new Set(value.map((v: string) => v.trim()))];
+  if (typeof value !== "string") throw new NodeFailure("INVALID_CONFIGURATION", "Choose up to 20 GitHub labels or enter comma-separated text.", false);
   return value.split(",").map((label) => label.trim()).filter(Boolean).slice(0, 20);
 }
 

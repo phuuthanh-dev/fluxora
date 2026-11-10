@@ -405,3 +405,6 @@ Output is `{ accepted, schema, table }`; no database row or credential is return
 A connection failure after sending the write reports `DELIVERY_UNCERTAIN` and
 is not automatically retried. Users should inspect the table before rerunning.
 These actions do not provide arbitrary SQL, deletion or multi-column conflict keys.
+
+## Owner-approved resource selection follow-up — 2026-11-10
+Jira get/update/comment select accessible issues using server-backed key/text search or a manual key/expression. GitLab pipeline/MR, GitHub label, Sentry issue and Vercel deployment controls reuse resource discovery. Jira Search issues is a bounded JQL read with cursor and minimal id/key/summary output; it is not a trigger. Existing array-item semantics apply. These additions do not establish public Jira distribution/privacy readiness; see docs/50.
