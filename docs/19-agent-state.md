@@ -1,6 +1,17 @@
 # Agent Current State Gate
 
-## Resource-selection implementation snapshot — 2026-11-10
+## Jira privacy response batch — 2026-11-10 (pre-release validation snapshot)
+
+- Released baseline PR #119: merge `3a92607a4bef480c82e85a77bdb69f045827ca15`, PR/main CI passed with 230 E2E; production deploy `42806006899` succeeded. Do not reimplement resource pickers/Search.
+- Independent local Fluxora/Atlassian account connected its own separate Jira site, read one synthetic issue and was denied the primary workflow. Production primary OAuth and a bounded Search of synthetic BTS-7 succeeded; qualification workflow inactive. No real privacy erasure or reporting activation.
+- Current batch implements durable Jira credential/workspace attribution, Admin-only bounded/signed preview and reviewed closed/updated payload erasure, explicit erased-run marker/retry fence and uncertain-attempt recovery. See docs/51 and task 2026-11-10-jira-privacy-response.
+- Owner-approved simplification: pending Jira reviews open from existing Admin Support; standalone Privacy route/navigation removed. Normal reporting records are not a user-facing management task. Backend reporting/OAuth and erasure review safeguards remain intact.
+- Arbitrary people in issue text, immutable configuration, exports, external destinations, logs and backups remain operator review obligations. Reporting stays off pending concrete owner review; do not claim universal attribution or compliance. Additive migrations preserve existing payloads; no automatic purge.
+- Final local validation: harness/schema/security/typechecks/builds passed; 1,175 API passes (one optional Riot integration skip) and 76 web passes. Full browser suite: 228/231 passed. The data-node selection fixture now confirms the intended inspector during canvas animation; focused corrections passed 8/9, including the new privacy dialog/contrast checks in both themes, node selection, integration signal and public pages. One unchanged ribbon GPU smoothness assertion still fails locally (largest normalized step0.476 vs0.45). Do not call local root verify successful or weaken the assertion. Require a clean full npm verify on the final PR head in CI before merging.
+- Manual light/dark screenshot review caught and fixed the new dialog skin/backdrop/field styling; frontend typecheck and production rebuild passed after the fix. Two new additive migrations are ordered after Jira table creation; a fresh-schema replay passed. Only corresponding unpublished local migration-name records were reconciled after checksum verification; no SQL/data erasure.
+- One-shot real reporting protocol with Atlassian vendor accounts: active204, closed200/closed, cycle7days. Automatic reporting remains off; actual owner erasure/backup/external-copy review is separate. Follow the develop→main PR containing this source for release/CI/deploy evidence; do not reimplement these features from this dated pre-release snapshot. Preserve unrelated next-env and keep local scheduler disabled.
+
+## Historical resource-selection implementation snapshot — 2026-11-10 (superseded above)
 
 - Scope: Jira issue picker/search action, GitLab pipeline/MR, GitHub labels, Sentry issue and Vercel deployment selectors; reuse existing contracts/runner and shared UI. See `docs/50-resource-selection-and-jira-readiness.md`.
 - Jira live evidence supersedes the earlier unavailable-site note: local OAuth, project/type selection, issue search and create/get/update/comment of synthetic BTS-7 succeeded. Test workflow inactive. Independent-user qualification still pending. Production OAuth configuration is staged; no public sharing/reporting enabled.

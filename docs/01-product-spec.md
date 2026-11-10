@@ -9,6 +9,16 @@ never returned. See `docs/35-connector-coverage-and-discovery.md`.
 
 ## 1. Product intent
 
+Owner-approved Jira privacy response (10 November 2026): the existing Admin Support
+area opens pending data requests on demand; there is no separate Privacy page or
+navigation item. Routine reporting records stay out of this review list. Admin may
+prepare a bounded affected-data preview and explicitly confirm erasure for a
+confirmed Jira closed/updated response. Execution status/timing remain; identified
+trigger/node/item payloads and error text are erased and retries disabled. Matching
+Jira connections and the resolved reporting record are removed. Immutable workflow
+graphs remain unchanged; configuration, legacy attribution, backups and external
+destinations require operator review. See `docs/51-jira-privacy-response.md`.
+
 Build Fluxora, an open-source workflow automation web application for personal use first. The MVP must be real, attractive enough for a portfolio, and structured to expand to small workspaces later.
 
 Target usage is approximately five users and 5–10 executions per day. The MVP implementation window is three days. Therefore every feature below is categorized as **runtime**, **UI/schema only**, or **later**.

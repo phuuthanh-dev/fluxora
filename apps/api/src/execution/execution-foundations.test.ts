@@ -611,6 +611,8 @@ test("retry creates a new execution from the failed pinned version and original 
       create: async ({ data }: { data: Record<string, unknown> }) => { created.push(data); return { id: "execution-retry", ...data }; },
     },
     auditLog: { create: async ({ data }: { data: Record<string, unknown> }) => { audits.push(data); return {}; } },
+    $queryRaw: async () => [{ privacyErasedAt: null }],
+    $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma),
   };
   const service = new ExecutionService(prisma as never, {} as never, {} as never);
 

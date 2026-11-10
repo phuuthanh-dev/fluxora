@@ -119,3 +119,24 @@ body:has(.admin-drawer-backdrop) { overflow: hidden; }
 .admin-run-details dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 16px; border: 1px solid var(--line); padding: 12px; border-radius: var(--radius-sm); background: var(--surface-inset); }
 .admin-run-details dd { margin: 0; overflow-wrap: anywhere; color: var(--ink); }
 .admin-run-details p { font-size: 12px; color: var(--muted); }
+/* Jira response review reuses the administration/landing token system. */
+.admin-privacy { display: grid; gap: var(--space-5); }
+.admin-privacy__records { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+.admin-privacy .admin-card__heading h2 { display: flex; align-items: center; gap: var(--space-2); }
+.admin-privacy__inventory { width: 100%; border-top: 1px solid var(--line); padding-top: var(--space-4); }
+.admin-privacy__inventory summary { cursor: pointer; color: var(--text-accent); font-size: 14px; font-weight: 600; }
+.admin-privacy__inventory p { margin-block: var(--space-4); }
+.admin-privacy__actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-4); }
+.admin-privacy__metadata { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--space-4); margin-block: var(--space-5); }
+.admin-privacy__metadata dt { color: var(--text-secondary); font-size: 12px; text-transform: capitalize; }
+.admin-privacy__metadata dd { margin: var(--space-1) 0 0; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.admin-dialog.admin-privacy-dialog { max-width: 720px; color: var(--ink); display: flex; flex-direction: column; gap: var(--space-5); width: min(720px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); overflow-y: auto; padding: var(--space-6); }
+.admin-privacy-dialog p, .admin-privacy-dialog li { font-size: 14px; line-height: 1.6; }
+.admin-privacy-dialog ul { padding-left: 20px; }
+.admin-privacy-dialog li + li { margin-top: var(--space-2); }
+.admin-privacy-dialog .admin-privacy__metadata { margin-block: 0; }
+.admin-privacy__check { display: flex; align-items: flex-start; gap: var(--space-3); font-size: 14px; line-height: 1.6; }
+.admin-privacy__check input[type="checkbox"] { flex: 0 0 16px; width: 16px; height: 16px; margin-top: 3px; accent-color: var(--text-accent); }
+
+body:has(.admin-privacy-dialog) { overflow: hidden; }
+.admin-privacy-dialog .ui-field input { min-width: 0; width: 100%; min-height: var(--control-height); border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-inset); color: var(--ink); padding: 10px 12px; font-size: 14px; }

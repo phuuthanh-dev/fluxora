@@ -7,6 +7,7 @@ import { Button, Dialog, DialogHeader, EmptyState, Menu, PageHeader, Progress, S
 import { apiRequest } from "../api/api-client";
 import { AdminShell } from "./admin-shell";
 import { adminLabel, type AdminSection } from "./admin-sections";
+import { JiraPrivacyPanel } from "./jira-privacy-panel";
 import "./admin.css";
 
 type Overview = { users: number; workspaces: number; workflows: number; activeWorkflows: number; failedRuns: number; health: { status: string; checks: { database: string; scheduler: string; queue: { status: string } } } };
@@ -59,6 +60,7 @@ export function AdminDashboard({ section = "overview", initialStatus = "", scope
   const [auditDraft, setAuditDraft] = useState({ actor: "", from: "", to: "", targetType: scope.targetType ?? "", targetId: scope.targetId ?? "" });
   const [auditSearch, setAuditSearch] = useState(auditDraft);
   const [refresh, setRefresh] = useState(0);
+  const [requestsOpen, setRequestsOpen] = useState(false);
   const [confirmation, setConfirmation] = useState<{ user: User; action: "sessions" | "disable" | "enable" } | null>(null);
 
   useEffect(() => {
@@ -115,7 +117,13 @@ export function AdminDashboard({ section = "overview", initialStatus = "", scope
       </div>
       <Status tone="info" className="admin-scope-note"><ShieldCheck size={16} aria-hidden="true" /><span>Platform administration shows operational metadata. Connections and execution payloads remain in the workspace.</span></Status>
     </>}
-    {section === "support" && !busy && !error && <div className="admin-overview-grid"><section className="admin-card"><CircleHelp size={22} aria-hidden="true" /><h2>Support requests</h2><p>Review incoming requests through the published support channel. Confirm which account and workspace need help.</p><Link className="admin-text-link" href="/support">Open support information<ArrowUpRight size={15} /></Link></section><section className="admin-card"><ShieldCheck size={22} aria-hidden="true" /><h2>Privacy and data requests</h2><p>Verify account ownership before taking action. Data deletion is a manual operator process; this area never deletes workspace data.</p><Link className="admin-text-link" href="/privacy">Read the privacy policy<ArrowUpRight size={15} /></Link></section></div>}
+    {section === "support" && !busy && !error && <>
+      <div className="admin-overview-grid">
+        <section className="admin-card"><CircleHelp size={22} aria-hidden="true" /><h2>Support requests</h2><p>Review incoming requests through the published support channel. Confirm which account and workspace need help.</p><Link className="admin-text-link" href="/support">Open support information<ArrowUpRight size={15} aria-hidden="true" /></Link></section>
+        <section className="admin-card"><ShieldCheck size={22} aria-hidden="true" /><h2>Privacy and data requests</h2><p>Verify ownership and review the affected data before taking action. Provider requests appear here when they need attention.</p><Button variant="secondary" aria-expanded={requestsOpen} aria-controls="admin-data-requests" onClick={() => setRequestsOpen((value) => !value)}>{requestsOpen ? "Hide data requests" : "Review data requests"}</Button><Link className="admin-text-link" href="/privacy">Read the privacy policy<ArrowUpRight size={15} aria-hidden="true" /></Link></section>
+      </div>
+      <section id="admin-data-requests" aria-label="Data requests" hidden={!requestsOpen}>{requestsOpen && <JiraPrivacyPanel key={refresh} />}</section>
+    </>}
     {section !== "overview" && section !== "support" && <section className="admin-list" aria-busy={busy}>
       <form className="admin-search" onSubmit={(event) => { event.preventDefault(); setPage(1); setSearch(searchDraft.trim()); setAuditSearch(auditDraft); }}>
         <label className="admin-search__query">Search {section}<span><Search size={16} aria-hidden="true" /><input maxLength={80} value={searchDraft} placeholder={section === "users" ? "Name or email" : section === "audit" ? "Action name" : section === "executions" ? "Workflow name" : "Name"} onChange={(event) => setSearchDraft(event.target.value)} /></span></label>

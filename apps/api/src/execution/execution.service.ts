@@ -227,6 +227,7 @@ export class ExecutionService {
       workflowVersion: execution.workflowVersion.version,
       graph: execution.workflowVersion.graph,
       triggerData: execution.triggerData,
+      privacyErasedAt: execution.privacyErasedAt,
       error: execution.errorCode ? { code: execution.errorCode, message: execution.errorMessage, retryable: execution.errorRetryable ?? isRetryableFailure({ code: execution.errorCode }) } : null,
       createdAt: execution.createdAt,
       startedAt: execution.startedAt,
@@ -299,6 +300,7 @@ export class ExecutionService {
       include: { workflowVersion: { include: { workflow: true } } },
     });
     if (!source) throw new NotFoundException({ code: "EXECUTION_NOT_FOUND", message: "Execution was not found." });
+    if (source.privacyErasedAt) throw new BadRequestException({ code: "EXECUTION_DATA_ERASED", message: "This execution's data was erased by a privacy request and cannot be retried." });
     if (source.status !== ExecutionStatus.FAILED) throw new BadRequestException({ code: "EXECUTION_NOT_RETRYABLE", message: "Only failed executions can be retried." });
     if (source.mode === "LIVE") await this.assertLiveReady(source.workflowVersion.workflow.workspaceId, parseStoredWorkflowGraph(source.workflowVersion.graph));
     const data = {
@@ -307,8 +309,10 @@ export class ExecutionService {
       triggerData: source.triggerData ?? Prisma.JsonNull,
       idempotencyRootId: source.idempotencyRootId ?? source.id,
     };
-    const execution = source.mode !== "LIVE" ? await this.prisma.execution.create({ data }) : await this.prisma.$transaction(async (tx) => {
-      await lockGraphCredentials(tx, source.workflowVersion.workflow.workspaceId, source.workflowVersion.graph);
+    const execution = await this.prisma.$transaction(async (tx) => {
+      if (source.mode === "LIVE") await lockGraphCredentials(tx, source.workflowVersion.workflow.workspaceId, source.workflowVersion.graph);
+      const locked = await tx.$queryRaw<Array<{ privacyErasedAt: Date | null }>>`SELECT "privacyErasedAt" FROM "Execution" WHERE id = ${source.id} FOR UPDATE`;
+      if (!locked[0] || locked[0].privacyErasedAt) throw new BadRequestException({ code: "EXECUTION_DATA_ERASED", message: "This execution's data was erased by a privacy request and cannot be retried." });
       return tx.execution.create({ data });
     });
     await this.prisma.auditLog.create({ data: { workspaceId: source.workflowVersion.workflow.workspaceId, actorId: userId, action: "execution.retried", targetType: "execution", targetId: execution.id, metadata: { sourceExecutionId: source.id, mode: source.mode.toLowerCase(), workflowVersion: source.workflowVersion.version } } });

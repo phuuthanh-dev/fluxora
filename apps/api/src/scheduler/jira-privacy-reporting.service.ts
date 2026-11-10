@@ -36,8 +36,11 @@ export class JiraPrivacyReportingService implements OnModuleInit, OnModuleDestro
   }
 
   private async report(accountHash: string) {
+    // Recheck before each claim: a held owner must not turn other accounts into
+    // uncertain attempts when no request has been dispatched for them.
+    await this.credentials.readForExecution(process.env.JIRA_REPORTING_CREDENTIAL_ID!, process.env.JIRA_REPORTING_WORKSPACE_ID!, CredentialProvider.JIRA);
     const claimToken = randomUUID(), now = new Date();
-    const claimed = await this.prisma.jiraPrivacyAccount.updateMany({ where: { accountHash, state: "READY", nextReportAt: { lte: now } }, data: { state: "PROCESSING", claimedAt: now, claimToken } });
+    const claimed = await this.prisma.jiraPrivacyAccount.updateMany({ where: { accountHash, state: "READY", nextReportAt: { lte: now } }, data: { state: "PROCESSING", claimedAt: now, lastAttemptAt: now, claimToken } });
     if (!claimed.count) return;
     try {
       const item = await this.prisma.jiraPrivacyAccount.findUniqueOrThrow({ where: { accountHash } });
@@ -50,7 +53,7 @@ export class JiraPrivacyReportingService implements OnModuleInit, OnModuleDestro
       });
       const data = "retrySeconds" in result
         ? { state: "READY", nextReportAt: new Date(Date.now() + result.retrySeconds * 1000), lastErrorCode: "RATE_LIMITED", claimedAt: null, claimToken: null }
-        : { state: result.action ? "ACTION_REQUIRED" : "READY", requiredAction: result.action, lastReportedAt: new Date(), nextReportAt: new Date(Date.now() + result.cycleDays * 86400_000), lastErrorCode: null, claimedAt: null, claimToken: null };
+        : { state: result.action ? "ACTION_REQUIRED" : "READY", requiredAction: result.action, cycleDays: result.cycleDays, lastReportedAt: new Date(), nextReportAt: new Date(Date.now() + result.cycleDays * 86400_000), lastErrorCode: null, claimedAt: null, claimToken: null };
       await this.prisma.jiraPrivacyAccount.updateMany({ where: { accountHash, state: "PROCESSING", claimToken }, data });
     } catch {
       await this.prisma.jiraPrivacyAccount.updateMany({ where: { accountHash, state: "PROCESSING", claimToken }, data: { state: "UNCERTAIN", lastErrorCode: "REPORT_NOT_CONFIRMED", claimedAt: null, claimToken: null } });

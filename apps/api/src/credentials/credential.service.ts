@@ -1,4 +1,5 @@
 import { requireJiraReconnect, runJiraAuthorized, saveJiraAuthorization, type JiraAuthorization } from "./jira-oauth";
+import { jiraAccountHash } from "./jira-privacy-attribution";
 import { isNotionOAuth, requireNotionReconnect, runNotionAuthorized, saveNotionAuthorization, type NotionAuthorization } from "./notion-oauth";
 import { validGitLabToken } from "../execution/gitlab";
 import { CredentialProvider, ExecutionStatus, type Prisma } from "@prisma/client";
@@ -350,7 +351,12 @@ export class CredentialService {
   async readForExecutionSnapshot(credentialId: string, workspaceId: string, provider: CredentialProvider) {
     const credential = await this.prisma.credential.findFirst({ where: { id: credentialId, workspaceId, provider } });
     if (!credential) throw new NotFoundException({ code: "CREDENTIAL_NOT_FOUND", message: "A matching credential was not found in this workspace." });
-    return { data: this.vault.decrypt(credential.encryptedData), encryptedData: credential.encryptedData };
+    const data = this.vault.decrypt(credential.encryptedData);
+    if (provider === CredentialProvider.JIRA && typeof data.accountId === "string") {
+      const privacy = await this.prisma.jiraPrivacyAccount.findUnique({ where: { accountHash: jiraAccountHash(data.accountId) }, select: { state: true } });
+      if (privacy?.state === "ACTION_REQUIRED") throw new BadRequestException({ code: "JIRA_PRIVACY_ACTION_REQUIRED", message: "Jira access is paused while an administrator handles a data request." });
+    }
+    return { data, encryptedData: credential.encryptedData };
   }
 
   async readGoogleForExecution(credentialId: string, workspaceId: string, provider: typeof CredentialProvider.GOOGLE | typeof CredentialProvider.GOOGLE_CHAT_OAUTH | typeof CredentialProvider.GMAIL | typeof CredentialProvider.GOOGLE_CALENDAR = CredentialProvider.GOOGLE) {

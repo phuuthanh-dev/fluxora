@@ -1,4 +1,4 @@
-import { Controller, Get, Header, Inject, Param, Post, Query, Req, UseFilters, UseGuards, BadRequestException, NotFoundException } from "@nestjs/common";
+import { Body, Controller, Get, Header, Inject, Param, Post, Query, Req, UseFilters, UseGuards, BadRequestException, NotFoundException } from "@nestjs/common";
 import { AuthenticationGuard } from "../auth/authentication.guard";
 import { AccountRequestGuard } from "../auth/account-request.guard";
 import { AccountExceptionFilter } from "../auth/account.controller";
@@ -7,12 +7,13 @@ import { PrismaService } from "../database/prisma.service";
 import { RuntimeHealthService } from "../platform/runtime-health.service";
 import { AdminGuard } from "./admin.guard";
 import { adminId, auditFilters, type AdminScope, type AuditFilters } from "./admin-query";
+import { JiraPrivacyService } from "./jira-privacy.service";
 
 @Controller("admin")
 @UseGuards(AccountRequestGuard, AuthenticationGuard, AdminGuard)
 @UseFilters(AccountExceptionFilter)
 export class AdminController {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService, @Inject(RuntimeHealthService) private readonly health: RuntimeHealthService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService, @Inject(RuntimeHealthService) private readonly health: RuntimeHealthService, @Inject(JiraPrivacyService) private readonly jiraPrivacy: JiraPrivacyService) {}
 
   @Get("access")
   @Header("Cache-Control", "no-store")
@@ -24,6 +25,26 @@ export class AdminController {
     const accounts = await this.prisma.jiraPrivacyAccount.groupBy({ by: ["state", "requiredAction"], _count: { _all: true } });
     return { enabled: process.env.JIRA_PRIVACY_REPORTING_ENABLED === "true", accounts: accounts.map((item) => ({ state: item.state, requiredAction: item.requiredAction, count: item._count._all })) };
   }
+
+  @Get("jira-privacy-reporting/records")
+  @Header("Cache-Control", "no-store")
+  jiraPrivacyRecords(@Query("cursor") cursor?: string) { return this.jiraPrivacy.list(cursor); }
+
+  @Post("jira-privacy-reporting/discover")
+  @Header("Cache-Control", "no-store")
+  jiraPrivacyDiscover(@Req() request: AuthenticatedRequest) { return this.jiraPrivacy.discover(request.currentUser!.id); }
+
+  @Get("jira-privacy-reporting/:id/preview")
+  @Header("Cache-Control", "no-store")
+  jiraPrivacyPreview(@Param("id") id: string, @Req() request: AuthenticatedRequest) { return this.jiraPrivacy.preview(id, request.currentUser!.id); }
+
+  @Post("jira-privacy-reporting/:id/resolve")
+  @Header("Cache-Control", "no-store")
+  jiraPrivacyResolve(@Param("id") id: string, @Req() request: AuthenticatedRequest, @Body() body: Record<string, unknown>) { return this.jiraPrivacy.resolve(id, request.currentUser!.id, body ?? {}); }
+
+  @Post("jira-privacy-reporting/:id/recover")
+  @Header("Cache-Control", "no-store")
+  jiraPrivacyRecover(@Param("id") id: string, @Req() request: AuthenticatedRequest, @Body() body: Record<string, unknown>) { return this.jiraPrivacy.recover(id, request.currentUser!.id, body ?? {}); }
 
   @Get("overview")
   @Header("Cache-Control", "no-store")

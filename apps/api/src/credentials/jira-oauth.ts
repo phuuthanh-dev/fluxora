@@ -4,7 +4,8 @@ import type { PrismaService } from "../database/prisma.service";
 import type { CredentialVaultService } from "./credential-vault.service";
 import { readBoundedProviderJson } from "../execution/provider-json";
 import { NodeFailure } from "../execution/node-failure";
-import { createHmac } from "node:crypto";
+import { trackJiraConnection } from "./jira-privacy-attribution";
+import { randomUUID } from "node:crypto";
 
 const opaque = (v: unknown): v is string => typeof v === "string" && v.length > 0 && v.length <= 4096 && !/[\s\u0000-\u001f\u007f]/.test(v);
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
@@ -44,12 +45,10 @@ export async function requireJiraReconnect(prisma: PrismaService, workspaceId: s
 }
 export async function saveJiraAuthorization(prisma: PrismaService, vault: CredentialVaultService, workspaceId: string, userId: string, data: JiraAuthorization, credentialId?: string) {
   if (!jiraAccountId(data.accountId)) throw new Error("Invalid Jira account");
-  const encryptionKey = process.env.APP_ENCRYPTION_KEY;
-  if (!encryptionKey || Buffer.from(encryptionKey, "base64").length !== 32) throw new Error("Encryption key required");
-  const accountHash = createHmac("sha256", Buffer.from(encryptionKey, "base64")).update("jira-privacy-account\0").update(data.accountId).digest("hex");
   const encryptedData = vault.encrypt(data);
   await prisma.$transaction(async (tx) => {
-  let id: string;
+  const id = credentialId ?? randomUUID();
+  await trackJiraConnection(tx, vault, data.accountId, id, workspaceId);
   if (credentialId) {
     const existing = await tx.credential.findFirst({ where: { id: credentialId, workspaceId, provider: CredentialProvider.JIRA } });
     if (!existing) throw new NotFoundException({ code: "CREDENTIAL_NOT_FOUND", message: "Jira connection not found." });
@@ -57,13 +56,10 @@ export async function saveJiraAuthorization(prisma: PrismaService, vault: Creden
     if (previous.cloudId !== data.cloudId || previous.accountId !== data.accountId) throw new ConflictException({ code: "JIRA_IDENTITY_MISMATCH", message: "Reconnect the same Jira site and account, or add a new connection." });
     const updated = await tx.credential.updateMany({ where: { id: credentialId, workspaceId, encryptedData: existing.encryptedData }, data: { encryptedData } });
     if (!updated.count) throw new ConflictException({ code: "CREDENTIAL_CHANGED", message: "The connection changed. Try again." });
-    id = credentialId;
   } else {
     const label = `Jira · ${data.siteName.slice(0, 40)} · ${data.cloudId.slice(0, 8)}`;
-    id = (await tx.credential.create({ data: { workspaceId, provider: CredentialProvider.JIRA, label, encryptedData } })).id;
+    await tx.credential.create({ data: { id, workspaceId, provider: CredentialProvider.JIRA, label, encryptedData } });
   }
-  const now = new Date();
-  await tx.jiraPrivacyAccount.upsert({ where: { accountHash }, create: { accountHash, encryptedAccountId: vault.encrypt({ accountId: data.accountId }), oldestDataAt: now, nextReportAt: now }, update: {} });
   await tx.auditLog.create({ data: { workspaceId, actorId: userId, action: "credential.jira_oauth_connected", targetType: "credential", targetId: id } });
   });
 }

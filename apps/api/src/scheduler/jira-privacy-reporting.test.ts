@@ -33,3 +33,17 @@ test("Jira privacy report claims once and holds a closed account for review", as
   await service.tick(); await service.tick();
   assert.equal(state, "ACTION_REQUIRED"); assert.equal(action, "closed"); assert.equal(requests, 1);
 });
+
+
+test("an unavailable reporting owner leaves other accounts unclaimed", async () => {
+  let claims = 0, requests = 0;
+  const prisma = { jiraPrivacyAccount: {
+    updateMany: async ({ where }: { where: { accountHash?: string } }) => { if (where.accountHash) claims++; return { count: 0 }; },
+    findMany: async () => [{ accountHash: "pending" }],
+  } };
+  const credentials = { readForExecution: async () => { requests++; throw new Error("Owner access held"); } };
+  const service = new JiraPrivacyReportingService(prisma as never, credentials as never, {} as never);
+  await assert.rejects(service.tick(), /Owner access held/);
+  await assert.rejects(service.tick(), /Owner access held/);
+  assert.equal(claims, 0); assert.equal(requests, 2);
+});
