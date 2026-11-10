@@ -6,7 +6,7 @@ import { fetchSafeOutbound, fetchSafeOutboundWrite, wasOutboundRedirected } from
 import { readProviderJson, uncertainDelivery } from "./provider-request-policy";
 import { redactValue } from "./redaction";
 type Transport = (url: string, init: RequestInit) => Promise<Response>;
-type Operation = "create-issue" | "get-issue" | "update-issue" | "add-comment";
+type Operation = "search-issues" | "create-issue" | "get-issue" | "update-issue" | "add-comment";
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const object = (v: unknown): Record<string, unknown> => v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : {};
 const safe = (value: string, token: unknown) => typeof token === "string" && token ? value.split(token).join("[REDACTED]") : value;
@@ -28,7 +28,7 @@ export async function listJiraProjects(credentialId: string, workspaceId: string
   return credentials.runJiraOperation(credentialId, workspaceId, async () => {
     const data = await connection(credentials, credentialId, workspaceId), raw = object(await request(data, "project/search?maxResults=50", read, fetchSafeOutboundWrite));
     if (!Array.isArray(raw.values)) throw new NodeFailure("INVALID_RESPONSE", "Jira returned invalid projects.", false);
-    return { projects: raw.values.slice(0, 50).map(object).filter((v) => typeof v.id === "string" && /^\d+$/.test(v.id) && typeof v.name === "string").map((v) => ({ id: v.id, name: safe(safe(String(v.name).slice(0, 200), data.accessToken), data.refreshToken) })), hasMore: raw.isLast === false };
+    return { projects: raw.values.slice(0, 50).map(object).filter((v) => typeof v.id === "string" && /^\d+$/.test(v.id) && typeof v.name === "string").map((v) => ({ id: v.id, name: safe(safe(String(v.name), data.accessToken), data.refreshToken).slice(0, 200) })), hasMore: raw.isLast === false };
   });
 }
 export async function listJiraIssueTypes(credentialId: string, workspaceId: string, projectId: string, credentials: CredentialService, read: Transport = fetchSafeOutbound) {
@@ -36,12 +36,44 @@ export async function listJiraIssueTypes(credentialId: string, workspaceId: stri
   return credentials.runJiraOperation(credentialId, workspaceId, async () => {
     const data = await connection(credentials, credentialId, workspaceId), raw = object(await request(data, `issue/createmeta/${projectId}/issuetypes?maxResults=50`, read, fetchSafeOutboundWrite));
     if (!Array.isArray(raw.issueTypes)) throw new NodeFailure("INVALID_RESPONSE", "Jira returned invalid issue types.", false);
-    return { issueTypes: raw.issueTypes.slice(0, 50).map(object).filter((v) => v.subtask !== true && typeof v.id === "string" && /^\d+$/.test(v.id) && typeof v.name === "string").map((v) => ({ id: v.id, name: safe(safe(String(v.name).slice(0, 200), data.accessToken), data.refreshToken) })), hasMore: typeof raw.total === "number" && raw.total > 50 };
+    return { issueTypes: raw.issueTypes.slice(0, 50).map(object).filter((v) => v.subtask !== true && typeof v.id === "string" && /^\d+$/.test(v.id) && typeof v.name === "string").map((v) => ({ id: v.id, name: safe(safe(String(v.name), data.accessToken), data.refreshToken).slice(0, 200) })), hasMore: typeof raw.total === "number" && raw.total > 50 };
   });
 }
+/** Bounded search; workflow JQL is explicit while picker text is escaped as a literal. */
+export async function searchJiraIssues(credentialId: string, workspaceId: string, credentials: CredentialService, query: string, cursor = "", limit = 25, read: Transport = fetchSafeOutbound) {
+  if (query.length > 2000 || /[\u0000-\u001f]/.test(query) || cursor.length > 2048 || /[\u0000-\u001f]/.test(cursor) || !Number.isInteger(limit) || limit < 1 || limit > 100) throw new NodeFailure("INVALID_INPUT", "Use a valid Jira query, continuation and limit (1–100).", false);
+  return credentials.runJiraOperation(credentialId, workspaceId, async () => {
+    const data = await connection(credentials, credentialId, workspaceId);
+    const params = new URLSearchParams({ jql: query || "updated >= -90d order by updated DESC", fields: "summary,status", maxResults: String(limit) });
+    if (cursor) params.set("nextPageToken", cursor);
+    const raw = object(await request(data, `search/jql?${params}`, read, fetchSafeOutboundWrite));
+    if (!Array.isArray(raw.issues) || raw.issues.length > limit) throw new NodeFailure("INVALID_RESPONSE", "Jira returned an invalid issue list.", false);
+    const items = raw.issues.map((value) => {
+      const item = object(value), fields = object(item.fields);
+      if (typeof item.id !== "string" || !/^\d+$/.test(item.id) || typeof item.key !== "string" || !/^[A-Z][A-Z0-9_]*-\d+$/.test(item.key) || typeof fields.summary !== "string") throw new NodeFailure("INVALID_RESPONSE", "Jira returned an invalid issue.", false);
+      return { id: item.id, key: item.key, summary: safe(safe(fields.summary, data.accessToken), data.refreshToken).slice(0, 255) };
+    });
+    const nextCursor = typeof raw.nextPageToken === "string" && raw.nextPageToken ? raw.nextPageToken : null;
+    if (nextCursor && (nextCursor.length > 2048 || /[\u0000-\u001f]/.test(nextCursor) || nextCursor === cursor || [data.accessToken, data.refreshToken].some((v) => typeof v === "string" && v && nextCursor.includes(v)))) throw new NodeFailure("INVALID_RESPONSE", "Jira returned an invalid continuation.", false);
+    return { items, nextCursor, hasMore: !!nextCursor };
+  });
+}
+
+export function jiraPickerJql(query: string) {
+  if (query.length > 200 || /[\u0000-\u001f]/.test(query)) throw new NodeFailure("INVALID_INPUT", "Search text is limited to 200 characters.", false);
+  const text = query.trim();
+  if (!text) return "updated >= -90d order by updated DESC";
+  if (/^[A-Z][A-Z0-9_]*-\d+$/i.test(text)) return `key = "${text.toUpperCase()}"`;
+  return `text ~ ${JSON.stringify('"' + text.replace(/[\\"]/g, " ") + '"')} order by updated DESC`;
+}
+
 export async function executeJira(config: Record<string, unknown>, operation: Operation, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, read: Transport = fetchSafeOutbound, write: Transport = fetchSafeOutboundWrite) {
   const issue = nodeConfigIssues(`action.jira.${operation}`, config, "resolved")[0];
   if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
+  if (operation === "search-issues") {
+    const result = mode === "mock" ? { items: [{ id: "10001", key: "DEMO-1", summary: "Sample issue" }], nextCursor: null, hasMore: false } : await searchJiraIssues(String(config.credentialId ?? ""), workspaceId, credentials, String(config.query ?? ""), String(config.cursor ?? ""), Number(config.limit ?? 25), read);
+    return { status: "succeeded" as const, route: "success" as const, output: result };
+  }
   if (mode === "mock") return { status: "succeeded" as const, route: "success" as const, output: operation === "add-comment" ? { issueKey: String(config.issue), commentId: "10001" } : { issue: { id: "10001", key: operation === "create-issue" ? "DEMO-1" : String(config.issue), summary: String(config.summary ?? "Sample issue") } } };
   const credentialId = String(config.credentialId ?? "");
   return credentials.runJiraOperation(credentialId, workspaceId, async () => {
@@ -54,7 +86,7 @@ export async function executeJira(config: Record<string, unknown>, operation: Op
     const item = object(result), fields = object(item.fields);
     if (operation === "add-comment") { if (typeof item.id !== "string" || !/^\d+$/.test(item.id)) throw uncertainDelivery("Jira"); return { status: "succeeded" as const, route: "success" as const, output: { issueKey: key, commentId: item.id } }; }
     if (typeof item.id !== "string" || !/^\d+$/.test(item.id) || typeof item.key !== "string" || !/^[A-Z][A-Z0-9_]*-\d+$/.test(item.key) || operation === "get-issue" && item.key !== key) { if (operation === "create-issue") throw uncertainDelivery("Jira"); throw new NodeFailure("INVALID_RESPONSE", "Jira returned an invalid issue.", false); }
-    const resultIssue = { id: item.id, key: item.key, ...(typeof fields.summary === "string" ? { summary: safe(safe(fields.summary.slice(0, 255), data.accessToken), data.refreshToken) } : {}) };
+    const resultIssue = { id: item.id, key: item.key, ...(typeof fields.summary === "string" ? { summary: safe(safe(fields.summary, data.accessToken), data.refreshToken).slice(0, 255) } : {}) };
     return { status: "succeeded" as const, route: "success" as const, output: { issue: redactValue(resultIssue) } };
   });
 }

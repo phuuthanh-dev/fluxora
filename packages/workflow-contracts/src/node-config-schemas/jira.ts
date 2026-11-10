@@ -7,3 +7,5 @@ export const jiraCreate: ConfigRules = { project: id, issueType: id, summary, de
 export const jiraGet: ConfigRules = { issue };
 export const jiraUpdate: ConfigRules = { issue, summary };
 export const jiraComment: ConfigRules = { issue, comment: { schema: z.string().trim().min(1).max(10000), required: true, message: "Enter a comment of at most 10,000 characters." } };
+
+export const jiraSearch: ConfigRules = { query: { schema: z.string().max(2000).refine((v) => !/[\u0000-\u001f]/.test(v)), message: "Use a JQL query up to 2,000 characters." }, limit: { schema: z.coerce.number().int().min(1).max(100), message: "Choose 1–100 issues." }, cursor: { schema: z.string().max(2048).refine((v) => !/[\u0000-\u001f]/.test(v)), message: "Use the previous nextCursor." } };

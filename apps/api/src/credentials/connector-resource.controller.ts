@@ -1,6 +1,7 @@
+import { discoverConnectorItems, type ItemResource } from "./connector-item-discovery";
 import { listJiraProjects, listJiraIssueTypes } from "../execution/jira";
 import { executeGitLab, listGitLabProjects } from "../execution/gitlab";
-import { BadRequestException, Controller, Get, Inject, Param, Query, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Controller, Get, Header, Inject, Param, Query, Req, UseGuards } from "@nestjs/common";
 import { CredentialProvider } from "@prisma/client";
 import { AuthenticationGuard } from "../auth/authentication.guard";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
@@ -67,6 +68,16 @@ export function supabaseDiscoveryError(error: unknown) {
 @UseGuards(AuthenticationGuard)
 export class ConnectorResourceController {
   constructor(@Inject(CredentialService) private readonly credentials: CredentialService) {}
+
+  @Get("items/:resource")
+  @Header("Cache-Control", "no-store")
+  async connectorItems(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Param("resource") resource: string, @Query("parent") parent: string | undefined, @Query("context") context: string | undefined, @Query("query") query: string | undefined, @Query("cursor") cursor: string | undefined, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    if (!["jira-issue", "gitlab-pipeline", "gitlab-merge-request", "github-label", "sentry-issue", "vercel-deployment"].includes(resource)) throw new BadRequestException({ code: "INVALID_RESOURCE", message: "Choose a supported resource." });
+    try { return await discoverConnectorItems(resource as ItemResource, credentialId, workspaceId, { parent, context, query, cursor }, this.credentials); }
+    catch { throw new BadRequestException({ code: "RESOURCE_ITEMS_UNAVAILABLE", message: "Resources could not be loaded. Check the connection, parent and permissions, or enter a value manually." }); }
+  }
 
   @Get("steam/games")
   async steamGames(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Query("steamId") steamId: string | undefined, @Req() request: AuthenticatedRequest) {

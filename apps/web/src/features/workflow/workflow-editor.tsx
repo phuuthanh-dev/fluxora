@@ -1,7 +1,7 @@
 "use client";
 import { DataPathField } from "./data-path-field";
 import { NotionPropertiesField } from "./notion-properties-field";
-import { isDataTransformNode } from "@workflow/contracts";
+import { getSharedNodeConfigurationFields, isDataTransformNode } from "@workflow/contracts";
 
 import "@xyflow/react/dist/style.css";
 import {
@@ -214,6 +214,7 @@ function NumericConfigField({ label, value, configured, fallbackValue, allowExpr
 
 function readConfigurationFieldValue(config: Record<string, unknown>, field: NodeConfigurationField) {
   const value = config[field.key];
+  if (field.kind === "resource" && field.multiple && Array.isArray(value)) return JSON.stringify(value);
   if (field.kind === "mongo-filter") return value === undefined ? "{}" : value && typeof value === "object" ? JSON.stringify(value, null, 2) : readConfigText(config, field.key);
   return field.key === "embeds" && value && typeof value === "object"
     ? JSON.stringify(value, null, 2)
@@ -373,7 +374,7 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, wor
         return field.advanced ? <details key={field.key} className="config-field"><summary>{field.advanced.summary}</summary>{input}<small>{field.advanced.help}</small></details> : <div key={field.key}>{input}</div>;
       }
       if (field.kind === "resource") {
-        return <Fragment key={field.key}><ResourcePicker workspaceId={workspaceId} resource={field.resource} credentialId={readConfigText(config, field.credentialKey)} dependencyValue={field.dependencyKey ? readConfigText(config, field.dependencyKey) : undefined} secondaryDependencyValue={field.secondaryDependencyKey ? readConfigText(config, field.secondaryDependencyKey) : undefined} resourceVariant={["notion-source-property", "notion-source-option"].includes(field.resource) ? readConfigText(config, "filterMode") : undefined} label={field.label} value={value} placeholder={field.placeholder} allowExpression={allowExpressions} onChange={(nextValue) => onChange(field.key, nextValue)} />{error && <p className="ui-field__error" role="alert">{error}</p>}</Fragment>;
+        return <Fragment key={field.key}><ResourcePicker workspaceId={workspaceId} resource={field.resource} multiple={field.multiple} credentialId={readConfigText(config, field.credentialKey)} dependencyValue={field.dependencyKey ? readConfigText(config, field.dependencyKey) : undefined} secondaryDependencyValue={field.secondaryDependencyKey ? readConfigText(config, field.secondaryDependencyKey) : undefined} resourceVariant={["notion-source-property", "notion-source-option"].includes(field.resource) ? readConfigText(config, "filterMode") : undefined} label={field.label} value={value} placeholder={field.placeholder} allowExpression={allowExpressions} onChange={(nextValue) => { if (field.multiple && nextValue.startsWith("[")) { try { onChange(field.key, JSON.parse(nextValue)); return; } catch { /* Allow editing an incomplete literal. */ } } onChange(field.key, nextValue); }} />{error && <p className="ui-field__error" role="alert">{error}</p>}</Fragment>;
       }
       if (field.kind === "select") {
         const selectValue = !Object.hasOwn(config, field.key) && field.fallbackValue !== undefined ? field.fallbackValue : value;
@@ -1094,6 +1095,14 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       if (effectiveNodeType === "action.trello.find-cards" && ["credentialId", "boardId", "query", "limit"].includes(key) && "page" in config) config.page = 0;
       if (effectiveNodeType === "action.trello.find-cards" && key === "searchPagination" && value === "pages") config.page = 0;
     }
+    if (node.data.config[key] !== value && (getSharedNodeConfigurationFields(effectiveNodeType) ?? []).some((field) => field.kind === "resource" && ["jira-issue", "gitlab-pipeline", "gitlab-merge-request", "github-label", "sentry-issue", "vercel-deployment"].includes(field.resource))) {
+      const changed = new Set([key]);
+      const fields = getSharedNodeConfigurationFields(effectiveNodeType) ?? [];
+      for (let pass = 0; pass < fields.length; pass++) for (const field of fields) {
+        if (field.kind === "resource" && field.key !== key && !changed.has(field.key) && [field.credentialKey, field.dependencyKey, field.secondaryDependencyKey].some((dependency) => dependency && changed.has(dependency))) { config[field.key] = field.multiple ? [] : ""; changed.add(field.key); }
+      }
+    }
+    if (effectiveNodeType === "action.jira.search-issues" && ["credentialId", "query", "limit"].includes(key) && node.data.config[key] !== value) config.cursor = "";
     if (effectiveNodeType === "action.jira.create-issue" && ["credentialId", "project"].includes(key) && node.data.config[key] !== value) { if (key === "credentialId") config.project = ""; config.issueType = ""; }
     if (effectiveNodeType.startsWith("action.notion.") && node.data.config[key] !== value) {
       if (key === "credentialId") {

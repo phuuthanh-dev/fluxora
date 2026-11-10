@@ -94,6 +94,7 @@ const definitions = {
   "trigger.telegram.update": trigger(conditional, "read", triggerOutput),
   "trigger.gitlab.pipeline": trigger(credential("GITLAB"), "read", triggerOutput),
   "trigger.gitlab.merge-request": trigger(credential("GITLAB"), "read", triggerOutput),
+  "action.jira.search-issues": executable(credential("JIRA"), "read", fields("items", "hasMore", "nextCursor"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "query", "limit"] }),
   "action.jira.create-issue": executable(credential("JIRA"), "write", fields("issue")),
   "action.jira.get-issue": executable(credential("JIRA"), "read", fields("issue")),
   "action.jira.update-issue": executable(credential("JIRA"), "write", fields("issue")),

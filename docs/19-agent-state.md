@@ -1,15 +1,22 @@
 # Agent Current State Gate
 
+## Resource-selection implementation snapshot — 2026-11-10
+
+- Scope: Jira issue picker/search action, GitLab pipeline/MR, GitHub labels, Sentry issue and Vercel deployment selectors; reuse existing contracts/runner and shared UI. See `docs/50-resource-selection-and-jira-readiness.md`.
+- Jira live evidence supersedes the earlier unavailable-site note: local OAuth, project/type selection, issue search and create/get/update/comment of synthetic BTS-7 succeeded. Test workflow inactive. Independent-user qualification still pending. Production OAuth configuration is staged; no public sharing/reporting enabled.
+- Jira privacy reporting/erasure is NOT production-ready: authorizing-account ledger does not establish reliable attribution of arbitrary issue text and propagated payloads. Owner review before enablement remains required. Do not claim compliance.
+- Local final audit: harness/schema/graph/security checks, 1,165 API passes (1 optional skip), 76 web passes, typechecks and builds passed. The full browser run had 228 passes and 2 failures caused by the new fixture expecting PUT instead of the real PATCH save endpoint; after correcting the fixture, both light/dark scenarios passed (2/2). A final GitHub invalid-path guard was checked with all 6 discovery tests and API typecheck. Do not call the earlier full npm verify exit successful; a clean full CI gate is required before merge. Both theme screenshots were visually reviewed. Release was pending at this snapshot: follow the develop→main PR associated with this batch; do not repeat its implementation. Preserve unrelated next-env diff; local scheduler remains disabled.
+
 This file is the compact, machine-checked handoff point for the next coding
 loop. It prevents an agent from proposing implementation work that is already
 complete in the delivery ledger.
 
-## Current snapshot — 2026-11-10 (connector expansion, release pending)
+## Earlier snapshot — 2026-11-10 (PR #118, now released)
 
-- Local batch adds Slack thread replies/message updates, Notion append paragraph, GitLab issue update/pipeline/merge-request reads and a bounded Jira Cloud OAuth connector, plus focused execution retry/item guidance. Existing operations were reused. See `docs/49-connector-expansion-2026-11.md` for scope and provider sources.
+- PR [#118](https://github.com/phuuthanh-dev/fluxora/pull/118) merged as `b49ba01fbfc305aeabe77f64cf3564c36847e71b`; PR/main quality gates and production deploy `42790453606` succeeded. It adds Slack thread replies/message updates, Notion append paragraph, GitLab issue update/pipeline/merge-request reads and a bounded Jira Cloud OAuth connector, plus focused execution retry/item guidance. Existing operations were reused. See `docs/49-connector-expansion-2026-11.md` for scope and provider sources.
 - Full isolated `npm run verify` passed: 1,141 API tests passed with 19 optional skips; 76 web tests and 228 Playwright tests passed. Test database `fluxora_connector_test_d0033e797e` and the earlier interrupted `fluxora_batch_verify_4663070022` were retained; temporary Redis stopped. No production data was used. The existing `apps/web/next-env.d.ts` change remains outside the batch.
-- Jira has not been qualified against a live site: the test site was unavailable. Atlassian distribution is `Not sharing`; owner approved reporting implementation and review before enabling. A disabled ledger/reporter is implemented, but arbitrary personal data in issue content and propagated execution history cannot yet be attributed and erased reliably. Do not enable reporting/public distribution or claim compliance until that is reviewed and resolved. `closed`/`updated` requests are held for manual review. Client credentials remain unconfigured on production.
-- The second Slack and Notion workspaces were tested using the same Fluxora user; they do not establish independent-user isolation. Follow Google review status below. Local web/API remain up with scheduling disabled. PR/CI/deploy status for this batch must be checked, not assumed.
+- Earlier snapshot (superseded above): Jira had not yet been qualified against a live site. Atlassian distribution is `Not sharing`; owner approved reporting implementation and review before enabling. A disabled ledger/reporter is implemented, but arbitrary personal data in issue content and propagated execution history cannot yet be attributed and erased reliably. Do not enable reporting/public distribution or claim compliance until that is reviewed and resolved. `closed`/`updated` requests are held for manual review. Production OAuth configuration is now staged as recorded in the current snapshot; this earlier qualification snapshot is historical.
+- The second Slack and Notion workspaces were tested using the same Fluxora user; they do not establish independent-user isolation. Follow Google review status below. Local web/API remain up with scheduling disabled. PR #118 is released; the resource-selection batch above still needs its own final gate and release.
 
 ## Earlier snapshot — 2026-11-10 (after PR #117)
 

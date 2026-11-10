@@ -30,7 +30,7 @@ export const githubCreateIssue: ConfigRules = {
   repository,
   title: { schema: z.string().refine((value) => value.trim().length > 0), required: true, message: "GitHub issue title is required." },
   body: { schema: z.string(), message: "GitHub issue body must be text." },
-  labels: { schema: optionalText, message: "GitHub labels must be comma-separated text." },
+  labels: { schema: z.union([optionalText, z.array(z.string().trim().min(1).max(50).refine((v) => !/[\u0000-\u001f\u007f]/.test(v))).max(20)]), message: "Choose up to 20 labels or enter comma-separated text." },
   idempotencyKey: { schema: optionalText.refine((value) => value === null || value === "" || /^[\x21-\x7e]{1,160}$/.test(value.trim())), message: "GitHub idempotency key must be visible ASCII text up to 160 characters." },
 };
 export const githubAddLabel: ConfigRules = {
