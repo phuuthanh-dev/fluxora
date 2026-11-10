@@ -30,6 +30,7 @@ test("live registry dispatch uses the selected workspace connection and paginati
   const cardId = "bbbbbbbbbbbbbbbbbbbbbbbb";
   process.env.OUTBOUND_ALLOWED_HOSTNAMES = "api.github.com,api.notion.com,api.trello.com,www.googleapis.com,generativelanguage.googleapis.com";
   const credentials = {
+    runNotionOperation: async <T>(_id: string, _workspace: string, operation: () => Promise<T>) => operation(),
     readForExecution: async (id: string, workspace: string, provider: CredentialProvider) => {
       reads.push({ id, workspace, provider });
       if (provider === CredentialProvider.GITHUB) return { token: "github-synthetic-secret" };

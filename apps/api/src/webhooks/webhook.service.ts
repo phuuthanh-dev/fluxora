@@ -52,6 +52,15 @@ export class WebhookService implements OnModuleDestroy {
     const gitlabTrigger = graph.nodes.some((node) => node.type.startsWith("trigger.gitlab."));
     const slackTrigger = graph.nodes.some((node) => node.type === "trigger.slack.event");
     const sentryTrigger = graph.nodes.some((node) => node.type === "trigger.sentry.issue-created");
+    if (slackTrigger && importedSigningSecret === undefined) {
+      importedSigningSecret = process.env.SLACK_SIGNING_SECRET;
+      const trigger = graph.nodes.find((node) => node.type === "trigger.slack.event")!;
+      const connection = await this.credentials.readForExecution(String(trigger.config.credentialId ?? ""), workflow.workspaceId, CredentialProvider.SLACK_OAUTH);
+      if (!process.env.SLACK_APP_ID || connection.appId !== process.env.SLACK_APP_ID || !Array.isArray(connection.grantedScopes) || !connection.grantedScopes.includes(trigger.config.event === "app_mention" ? "app_mentions:read" : "channels:history")) {
+        throw new BadRequestException({ code: "SLACK_EVENTS_UNAVAILABLE", message: "Reconnect Slack with trigger access before enabling events." });
+      }
+    }
+
     if (!graph.nodes.some((node) => node.type === "trigger.webhook") && !githubTrigger && !kumaTrigger && !telegramTrigger && !vercelTrigger && !trelloTrigger && !sentryTrigger && !slackTrigger && !gitlabTrigger) {
       throw new BadRequestException({ code: "WEBHOOK_TRIGGER_REQUIRED", message: "Publish a workflow version containing a supported webhook trigger before creating an endpoint." });
     }
@@ -89,6 +98,47 @@ export class WebhookService implements OnModuleDestroy {
       throw error;
     });
     return { id: endpoint.id, path: endpoint.path, secret: vercelTrigger || trelloTrigger || sentryTrigger || slackTrigger || gitlabTrigger ? null : secret, workflowVersionId: endpoint.workflowVersionId, createdAt: endpoint.createdAt, updatedAt: endpoint.updatedAt };
+  }
+
+  async receiveSlackEvent(raw: Buffer, headers: { signature?: string; timestamp?: string }) {
+    const signingSecret = process.env.SLACK_SIGNING_SECRET;
+    if (!verifySlackSignature(raw, headers.signature, headers.timestamp, signingSecret) || !signingSecret || !process.env.SLACK_APP_ID) throw new ForbiddenException({ code: "WEBHOOK_SECRET_INVALID", message: "Slack signature or app configuration is invalid." });
+    const envelope = readSlackEnvelope(raw);
+    if (envelope.kind === "challenge") return { challenge: envelope.challenge };
+    if (envelope.kind === "ignored" || envelope.appId !== process.env.SLACK_APP_ID) return { acknowledged: true };
+    // Scope to active published Slack subscriptions. Each connection is still read
+    // through its own Fluxora workspace boundary before any event is accepted.
+    let cursor: string | undefined;
+    do {
+      const endpoints = await this.prisma.webhookEndpoint.findMany({
+        where: { isActive: true, workflow: { isActive: true, archivedAt: null }, workflowVersion: { graph: { path: ["nodes"], array_contains: [{ type: "trigger.slack.event" }] } } },
+        include: { workflow: true, workflowVersion: true }, orderBy: { id: "asc" }, take: 50,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+      for (const endpoint of endpoints) {
+        if (endpoint.workflow.publishedVersionId !== endpoint.workflowVersionId || !endpoint.secretHash || !endpoint.encryptedSigningSecret) continue;
+        const node = parseStoredWorkflowGraph(endpoint.workflowVersion.graph).nodes.find((candidate) => candidate.type === "trigger.slack.event");
+        if (!node) continue;
+        let connection: Record<string, unknown>;
+        try { connection = await this.credentials.readForExecution(String(node.config.credentialId ?? ""), endpoint.workflow.workspaceId, CredentialProvider.SLACK_OAUTH); }
+        catch (error) { if (error instanceof NotFoundException) continue; throw error; }
+        // No inference from labels, channel names or user-supplied team IDs.
+        if (connection.appId !== envelope.appId || connection.teamId !== envelope.teamId) continue;
+        const secret = this.vault.decrypt(endpoint.encryptedSigningSecret).secret;
+        if (secret !== signingSecret) continue;
+        const data = normalizeSlackEvent(envelope, node.config, connection.teamId, signingSecret);
+        if (!data) continue;
+        try {
+          const execution = await this.executions.createSlackScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, path: endpoint.path, secretHash: endpoint.secretHash, payload: data, deliveryKey: envelope.eventId });
+          if (execution.status === "QUEUED" && execution.startedAt === null) this.webhookDispatches.start(() => this.queue.ensureDispatched({ executionId: execution.id, mode: "live", initialOnly: true }), () => this.logger.warn(`Slack execution ${execution.id} awaits delivery recovery.`));
+        } catch (error) {
+          // A concurrent pause/delete affects this subscription, not other owners.
+          if (!(error instanceof NotFoundException)) throw error;
+        }
+      }
+      cursor = endpoints.length === 50 ? endpoints.at(-1)!.id : undefined;
+    } while (cursor);
+    return { acknowledged: true };
   }
 
   async checkTrelloEndpoint(path: string) {

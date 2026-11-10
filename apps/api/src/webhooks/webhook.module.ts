@@ -1,3 +1,4 @@
+import { SlackEventsController } from "./slack-events.controller";
 import { SlackDeliveryRecoveryService } from "./slack-delivery-recovery.service";
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
@@ -17,7 +18,7 @@ import { LegacyDeliveryRecoveryService } from "./legacy-delivery-recovery.servic
 
 @Module({
   imports: [AuthModule, CredentialModule, ExecutionModule],
-  controllers: [WebhookController],
+  controllers: [WebhookController, SlackEventsController],
   providers: [
     WebhookService,
     ProviderWebhookRecoveryService,

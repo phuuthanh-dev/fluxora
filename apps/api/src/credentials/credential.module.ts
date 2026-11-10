@@ -1,3 +1,5 @@
+import { NotionOAuthController } from "./notion-oauth.controller";
+import { NotionOAuthStateService } from "./notion-oauth-state.service";
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
 import { AccountRequestGuard } from "../auth/account-request.guard";
@@ -22,8 +24,8 @@ import { SlackResourceController } from "./slack-resource.controller";
 
 @Module({
   imports: [AuthModule, WorkspaceModule],
-  controllers: [CredentialController, GoogleOAuthController, SlackOAuthController, SlackResourceController, GitHubResourceController, GoogleResourceController, GeminiResourceController, OpenAIResourceController, ConnectorResourceController, GoogleCalendarResourceController, GmailResourceController],
-  providers: [CredentialService, CredentialVaultService, GoogleOAuthStateService, SlackOAuthStateService, GitHubResourceService, GoogleResourceService, AccountRequestGuard],
+  controllers: [NotionOAuthController, CredentialController, GoogleOAuthController, SlackOAuthController, SlackResourceController, GitHubResourceController, GoogleResourceController, GeminiResourceController, OpenAIResourceController, ConnectorResourceController, GoogleCalendarResourceController, GmailResourceController],
+  providers: [NotionOAuthStateService, CredentialService, CredentialVaultService, GoogleOAuthStateService, SlackOAuthStateService, GitHubResourceService, GoogleResourceService, AccountRequestGuard],
   exports: [CredentialService, CredentialVaultService],
 })
 export class CredentialModule {}

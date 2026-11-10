@@ -71,6 +71,7 @@ test("connector discovery checks workspace ownership before credential access", 
 test("new discovery routes select the workspace credential and sanitize failures", async () => {
   const calls: unknown[][] = [];
   const credentials = {
+    runNotionOperation: async <T>(_id: string, _workspace: string, operation: () => Promise<T>) => operation(),
     requireOwner: async (...args: unknown[]) => { calls.push(["owner", ...args]); },
     readForExecution: async (...args: unknown[]) => { calls.push(["read", ...args]); return { token: "fixture secret", apiKey: "fixture key" }; },
   };

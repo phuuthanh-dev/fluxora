@@ -172,5 +172,9 @@ async function executeDriveNode(config: Record<string, unknown>, mode: "mock" | 
 
 export const registeredConnectorNodeTypes = Object.freeze(Object.keys(executors) as Array<keyof typeof executors>);
 export function getConnectorExecutor(type: string): ConnectorExecutor | undefined {
-  return Object.hasOwn(executors, type) ? executors[type as keyof typeof executors] : undefined;
+  const executor: ConnectorExecutor | undefined = Object.hasOwn(executors, type) ? executors[type as keyof typeof executors] : undefined;
+  if (!executor || !type.startsWith("action.notion.")) return executor;
+  // Current Notion operations contain at most one provider write. A definite
+  // authentication rejection can renew the grant; ambiguous writes never retry.
+  return (context) => context.mode === "mock" ? executor(context) : context.credentials.runNotionOperation(readCredentialId(context.config), context.workspaceId, () => executor(context));
 }

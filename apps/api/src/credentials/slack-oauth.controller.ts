@@ -53,10 +53,11 @@ export class SlackOAuthController {
       if (!raw || typeof raw !== "object" || Array.isArray(raw)) return failure(response, "token_failed", workspaceId);
       const data = raw as Record<string, unknown>; const team = data.team && typeof data.team === "object" && !Array.isArray(data.team) ? data.team as Record<string, unknown> : {};
       if (data.refresh_token !== undefined || data.expires_in !== undefined) return failure(response, "rotation_unsupported", workspaceId);
+      if (data.is_enterprise_install === true || typeof data.app_id !== "string" || !/^[A-Z][A-Z0-9]{2,63}$/.test(data.app_id) || (process.env.SLACK_APP_ID && data.app_id !== process.env.SLACK_APP_ID)) return failure(response, "token_failed", workspaceId);
       const scopes = typeof data.scope === "string" ? new Set(data.scope.split(",")) : new Set<string>();
       if (data.ok !== true || typeof data.access_token !== "string" || typeof team.id !== "string" || typeof team.name !== "string" || !scopes.has("channels:read") || !scopes.has("chat:write")) return failure(response, "token_failed", workspaceId);
       if (consumed.eventAccess && (!scopes.has("channels:history") || !scopes.has("app_mentions:read"))) return failure(response, "token_failed", workspaceId);
-      await this.credentials.saveSlackOAuth(workspaceId, user.id, { accessToken: data.access_token, teamId: team.id, teamName: team.name, grantedScopes: [...scopes] }, consumed.credentialId);
+      await this.credentials.saveSlackOAuth(workspaceId, user.id, { accessToken: data.access_token, appId: data.app_id, teamId: team.id, teamName: team.name, grantedScopes: [...scopes] }, consumed.credentialId);
       const target = new URL("/dashboard/connections", process.env.WEB_ORIGIN ?? "http://localhost:3000"); target.searchParams.set("workspace", workspaceId); target.searchParams.set("connected", "slack");
       return response.redirect(target.toString());
     } catch { return failure(response, "failed", workspaceId); }

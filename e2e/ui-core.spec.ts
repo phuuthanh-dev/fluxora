@@ -177,6 +177,7 @@ for (const theme of ["light", "dark"] as const) {
       if (path.endsWith("/credentials")) return send({ credentials: [
         { id: "calendar", provider: "GOOGLE_CALENDAR", label: "Google Calendar OAuth · design-review@example.test · 0123456789abcdef", isManaged: true },
         { id: "slack", provider: "SLACK_OAUTH", label: "Slack · Design review", isManaged: true },
+        { id: "notion", provider: "NOTION", label: "Notion · Design review", isManaged: true },
         { id: "gitlab", provider: "GITLAB", label: "GitLab sandbox", isManaged: false },
         { id: "steam", provider: "STEAM", label: "Steam account", isManaged: false },
       ] });
@@ -200,9 +201,9 @@ for (const theme of ["light", "dark"] as const) {
     expect(form!.y + form!.height).toBeLessThanOrEqual(list!.y);
     await page.getByRole("button", { name: "Hide new connection", exact: true }).click();
     // Filtering must affect the directory without changing any saved connection.
-    await page.getByRole("button", { name: "OAuth 2", exact: true }).click();
-    await expect(page.locator(".credential-card")).toHaveCount(2);
-    await page.getByRole("button", { name: "All connections 4", exact: true }).click();
+    await page.getByRole("button", { name: "OAuth 3", exact: true }).click();
+    await expect(page.locator(".credential-card")).toHaveCount(3);
+    await page.getByRole("button", { name: "All connections 5", exact: true }).click();
     for (const width of [1440, 900, 390]) {
       await page.setViewportSize({ width, height: 1000 });
       await calendar.getByRole("button", { name: /^Open / }).click();
@@ -215,6 +216,9 @@ for (const theme of ["light", "dark"] as const) {
       await slack.getByRole("button", { name: /^Open / }).click();
       await expect(settings.getByRole("button", { name: "Reconnect Slack" })).toBeVisible();
       await expect(settings.getByRole("button", { name: "Enable Slack triggers" })).toBeVisible();
+      await settings.getByRole("button", { name: "Close connection settings", exact: true }).click();
+      await page.locator('[data-credential-id="notion"]').getByRole("button", { name: /^Open / }).click();
+      await expect(settings.getByRole("button", { name: "Reconnect Notion" })).toBeVisible();
       expect(await settings.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
       await noHorizontalOverflow(page);
       await page.screenshot({ path: testInfo.outputPath(`connection-settings-${theme}-${width}.png`) });

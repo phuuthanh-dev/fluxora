@@ -368,6 +368,8 @@
         "apps/api/src/credentials/google-oauth.controller.ts",
         "apps/api/src/credentials/google-resource.controller.ts",
         "apps/api/src/credentials/google-resource.service.ts",
+        "apps/api/src/credentials/notion-oauth-state.service.ts",
+        "apps/api/src/credentials/notion-oauth.controller.ts",
         "apps/api/src/credentials/openai-resource.controller.ts",
         "apps/api/src/credentials/slack-oauth-state.service.ts",
         "apps/api/src/credentials/slack-oauth.controller.ts",
@@ -386,6 +388,7 @@
         "apps/api/src/credentials/credential-references.ts",
         "apps/api/src/credentials/credential-vault.service.ts",
         "apps/api/src/credentials/google-oauth-policy.ts",
+        "apps/api/src/credentials/notion-oauth.ts",
         "apps/api/src/database/prisma.service.ts",
         "apps/api/src/execution/gitlab.ts",
         "apps/api/src/execution/mongodb-find.ts",
@@ -542,6 +545,48 @@
       ],
       "externalImports": [
         "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/notion-oauth-state.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/oauth-state-store.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "express",
+        "ioredis"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/notion-oauth.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/auth.service.ts",
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/credentials/notion-oauth-state.service.ts",
+        "apps/api/src/credentials/notion-oauth.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "express"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/notion-oauth.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential-vault.service.ts",
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/provider-json.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client"
       ]
     },
     {
@@ -2202,6 +2247,16 @@
       ]
     },
     {
+      "id": "apps/api/src/webhooks/slack-events.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/webhooks/webhook.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
       "id": "apps/api/src/webhooks/slack-trigger-protocol.ts",
       "boundary": "api",
       "internalImports": [],
@@ -2309,6 +2364,7 @@
         "apps/api/src/webhooks/provider-webhook-recovery.service.ts",
         "apps/api/src/webhooks/sentry-delivery-recovery.service.ts",
         "apps/api/src/webhooks/slack-delivery-recovery.service.ts",
+        "apps/api/src/webhooks/slack-events.controller.ts",
         "apps/api/src/webhooks/telegram-delivery-recovery.service.ts",
         "apps/api/src/webhooks/trello-delivery-recovery.service.ts",
         "apps/api/src/webhooks/vercel-delivery-recovery.service.ts",
@@ -4657,6 +4713,14 @@
     },
     {
       "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/notion-oauth-state.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/notion-oauth.controller.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
       "to": "apps/api/src/credentials/openai-resource.controller.ts"
     },
     {
@@ -4690,6 +4754,10 @@
     {
       "from": "apps/api/src/credentials/credential.service.ts",
       "to": "apps/api/src/credentials/google-oauth-policy.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.service.ts",
+      "to": "apps/api/src/credentials/notion-oauth.ts"
     },
     {
       "from": "apps/api/src/credentials/credential.service.ts",
@@ -4869,6 +4937,50 @@
     },
     {
       "from": "apps/api/src/credentials/google-resource.service.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/notion-oauth-state.service.ts",
+      "to": "apps/api/src/credentials/oauth-state-store.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/notion-oauth.controller.ts",
+      "to": "apps/api/src/auth/auth.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/notion-oauth.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/notion-oauth.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/notion-oauth.controller.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/notion-oauth.controller.ts",
+      "to": "apps/api/src/credentials/notion-oauth-state.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/notion-oauth.controller.ts",
+      "to": "apps/api/src/credentials/notion-oauth.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/notion-oauth.ts",
+      "to": "apps/api/src/credentials/credential-vault.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/notion-oauth.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/notion-oauth.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/notion-oauth.ts",
       "to": "apps/api/src/execution/provider-json.ts"
     },
     {
@@ -6828,6 +6940,10 @@
       "to": "apps/api/src/webhooks/kuma-delivery-recovery.service.ts"
     },
     {
+      "from": "apps/api/src/webhooks/slack-events.controller.ts",
+      "to": "apps/api/src/webhooks/webhook.service.ts"
+    },
+    {
       "from": "apps/api/src/webhooks/telegram-delivery-recovery.service.ts",
       "to": "apps/api/src/database/prisma.service.ts"
     },
@@ -6918,6 +7034,10 @@
     {
       "from": "apps/api/src/webhooks/webhook.module.ts",
       "to": "apps/api/src/webhooks/slack-delivery-recovery.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.module.ts",
+      "to": "apps/api/src/webhooks/slack-events.controller.ts"
     },
     {
       "from": "apps/api/src/webhooks/webhook.module.ts",

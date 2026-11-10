@@ -17,44 +17,31 @@ complete in the delivery ledger.
   issue/comment, a private Notion test page, one Slack mention, and a production
   Calendar created-event trigger. Qualification workflows were made inactive.
   These are bounded tests, not proof that every operation or tenant is qualified.
-- Current request: explain account-owned OAuth/public distribution across apps
-  and audit/update product UI sizing against landing/Admin core. Local branch
-  `codex/workspace-connections-ui` contains a compact Connections directory, method
-  filters and a right-side settings Dialog; workflow-first dashboard cards include
-  actual node icons. Shared page/section headers wrap. UI UX Pro Max is installed
-  in the agent skill directory and its usage is documented in AGENTS/docs25. No provider grants, tokens, database
-  schema, live workflow or production settings were changed for this UI batch.
-- Source inspection confirms workspace-scoped Google/Slack grants and manual
-  credentials; it does not prove multi-tenant live isolation. Slack app console
-  still says **Not distributed**, needs HTTPS redirect configuration and the
-  hard-coded-information declaration. Slack events currently target a registered
-  workflow endpoint, not a common installation router. See docs/48.
-- Final batch validation: code graph/diff checks, 1,135 API tests (one optional
-  Riot case skipped), 75 web tests, typechecks and builds passed. The isolated
-  full verify had 224/228 E2E passes and four failures in stale layout assertions
-  and incomplete test fixtures. Corrected the tests; the three affected files
-  then had 26 passes and two ambiguous token-field locators. After making those
-  locators exact, both light/dark directory tests passed. No full verify rerun
-  was performed after these test-only corrections; require a clean CI gate
-  before release rather than claiming the first full command passed.
-- Browser-reviewed local directory/dashboard and light settings drawer; themed
-  E2E exercised 1440/900/390px, focus restoration, filtering, form placement and
-  unchanged credential actions. This UI batch is awaiting PR CI and owner visual
-  review. Local web/API returned HTTP 200/ready on 3000/3001 with scheduler
-  disabled. Preserve the pre-existing generated `apps/web/next-env.d.ts` diff.
-
-### Proposed next work (not implementation authorization)
-
-1. Prepare Slack production distribution with separate local app configuration,
-   a common signed event ingress and workspace routing; qualify two installations
-   before enabling a public rollout. Do not blindly change the current Events URL.
-2. Follow up Google's existing data-access review; Production is not the same
-   thing as verified sensitive/restricted scopes. Do not repeat the submitted
-   application or change user scopes without a concrete reason.
-3. Consider managed Notion OAuth as the next one-click connection, retaining its
-   existing manual-token actions. Other manual connectors already accept each
-   customer's own keys; don't invent OAuth for databases or Steam Web API keys.
-4. Jira remains an optional new-app proposal, not part of this UI work.
+- UI PR #116 merged as `3fd0f0d8e2579b48399b807b989960a7445e4cc4`; its
+  quality gate `42755583270`, main gate `42757723707` and production deploy
+  `42758871143` passed. The current approved OAuth batch needs one
+  new develop→main PR, based on merge commit `3fd0f0d`. Shared signed Slack ingress and Notion OAuth are implemented locally;
+  final audit/verification and release are pending. See docs/48 and task
+  `.agent/tasks/2026-11-10-workspace-oauth.md` for bounded scope.
+- Notion public OAuth app was created with explicit owner consent, production and
+  local callbacks; after owner-generated refresh, valid-shaped Client Secret
+  was stored only in ignored local/production env. Local OAuth completed with
+  permission only for the test database; the existing adapter found and read that
+  database successfully. The manual-token connection is preserved. Real token
+  expiry/refresh and a second tenant are not yet qualified. No schema migration
+  or node version.
+- Google verification was rechecked: homepage/branding complete, remaining data
+  access/functionality/privacy checks in progress. No resubmission/scope changes.
+- Owner chose **production Slack only for now**; defer creating a separate local
+  OAuth app. The HTTP callback has been removed from the production app. Keep local web/API scheduler-disabled; local Slack reconnect
+  will be unavailable after that callback is removed. Existing data is preserved.
+- Final local audit: schema/harness checks, 1,141 API passes (one optional skip),
+  75 web passes, typecheck/lint and production build passed. The full E2E run
+  finished with 227 passes and one stale Slack help-text assertion; its corrected
+  focused rerun passed. A clean full CI remains required before merge. Local Notion OAuth
+  plus a read of only the approved test database passed.
+- Production distribution and release status are pending; record the PR/CI/deploy
+  result after it exists. Preserve the preexisting next-env generated diff.
 
 ## Historical pre-release snapshot — 2026-11-09 (superseded by PR #113)
 

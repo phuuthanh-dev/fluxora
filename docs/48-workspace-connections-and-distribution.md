@@ -1,6 +1,7 @@
 # Workspace connections, distribution and UI audit
 
-Audit: 2026-11-10, against PR #115 (`0ae4129`) and the focused local UI changes.
+Audit: 2026-11-10; PR #116 delivered the UI. Workspace OAuth is the following approved batch.
+Implementation complete locally; final verification/release evidence is recorded below.
 This document distinguishes existing behavior from proposed expansion. It does
 not declare public distribution, provider verification or multi-tenant live
 qualification complete.
@@ -26,10 +27,11 @@ Current code:
 
 | Connector group | Account ownership today | Remaining distribution work |
 | --- | --- | --- |
-| Google Drive/Sheets, Gmail, Calendar, Chat OAuth | User authorizes their Google account; encrypted grant saved in the selected Fluxora workspace | Google External/Production configuration and approval of the actual scopes. Previous recorded status: data access under review; approval was not rechecked in this UI batch. |
+| Google Drive/Sheets, Gmail, Calendar, Chat OAuth | User authorizes their Google account; encrypted grant saved in the selected Fluxora workspace | Google External/Production configuration and approval of the actual scopes. Rechecked 10 November: branding/homepage complete, data access and remaining checks in progress. |
 | Slack OAuth actions | Separate authorization for the selected Slack workspace | Slack app currently says **Not distributed**. Enable public installation only after configuration/readiness steps below. |
-| Slack Trigger | Signed, filtered events for the registered workflow endpoint | One shared Slack app needs a common event ingress and routing across installations/workflows. Public Distribution alone does not implement this. |
-| GitHub, GitLab, Notion, Trello, Sentry, Vercel, Reddit | User supplies their own provider token/key | Managed OAuth is not implemented for these connector credentials. Login with GitHub is a different feature. Each provider needs its own OAuth/review lifecycle if adding one-click connection. |
+| Slack Trigger | Shared signed ingress with app/team matching and owner-scoped active subscriptions implemented locally | Deploy the shared ingress before switching the Slack Events URL; a second real installation remains unqualified. |
+| GitHub, GitLab, Trello, Sentry, Vercel, Reddit | User supplies their own provider token/key | Managed OAuth is not implemented for these connector credentials. Login with GitHub is a different feature. Each provider needs its own OAuth/review lifecycle if adding one-click connection. |
+| Notion | OAuth installation or manual token; each connection belongs to its Fluxora workspace | Public/Any workspace app created on 10 November; local OAuth and a bounded test-database read passed. Production release and a second tenant are separate checks. |
 | Gemini, OpenAI, Steam, Riot | User supplies their own API key | Preserve the provider's supported authentication. Steam sign-in is OpenID identity, not authorization for a Web API key. Riot public use depends on Riot approval. |
 | PostgreSQL, MongoDB, Supabase, HTTP, SMTP | User supplies their own database/service credentials | These remain connection forms; OAuth is not a universal replacement for database passwords or service keys. |
 | Discord/Google Chat/Slack incoming webhook; Telegram bot | User supplies their webhook or bot token | A connection is already tenant-owned. Provider destination/registration limits must be considered separately from OAuth installation. |
@@ -51,17 +53,17 @@ Read-only console findings on 2026-11-10:
 - App `Fluxora` is **Not distributed**; Activate Public Distribution is disabled.
 - The checklist requests confirmation that hard-coded tokens/webhook URLs have
   been removed and flags **Use HTTPS For Your Features → Update Redirect URIs**.
-- The production and localhost redirect URLs currently share an app. Use a
-  separate development app for HTTP localhost rather than breaking local OAuth
-  while preparing an HTTPS-only production registration.
+- The owner deferred local Slack OAuth; its HTTP callback was removed and Slack
+  now marks HTTPS satisfied. A future local app can restore local OAuth.
 - The Events URL is associated with a qualification workflow, not a shared
   installation router. Do not replace it casually: existing subscriptions depend
   on it. The application currently rejects rotating/expiring Slack token payloads;
   token rotation must remain disabled until its lifecycle is implemented.
 
-Recommended sequence (proposed work, not already implemented):
+Release sequence (implementation evidence below):
 
-1. Keep production callbacks/features HTTPS; use a separate development app.
+1. Keep production callbacks/features HTTPS. Owner deferred the separate local
+   app on 10 November; local Slack OAuth is deferred, not silently supported.
 2. For the managed Slack app, verify incoming signatures with its server-owned
    signing secret, then route verified `api_app_id`/`team_id` events to matching
    active workspace registrations. Apply event/channel filters, dedupe by
@@ -75,9 +77,8 @@ Recommended sequence (proposed work, not already implemented):
    qualify a second workspace. Seek Marketplace approval for broader/commercial
    rollout according to Slack's rules.
 
-Notion is a sensible later managed-OAuth candidate: implement its authorization
-and refresh lifecycle once, reuse the existing action adapter, and retain manual
-tokens. Do not add a generic OAuth engine or new node versions for this.
+Notion managed OAuth is now implemented locally using the existing adapters; manual
+tokens remain available. No generic OAuth engine or new node versions were added.
 
 ## UI audit and changes
 
@@ -117,3 +118,61 @@ proof of public OAuth readiness.
 - [Google OAuth application states](https://developers.google.com/identity/protocols/oauth2/production-readiness/overview)
 - [Notion authorization](https://developers.notion.com/guides/authorization/overview):
   internal connection tokens, personal tokens and OAuth are distinct options.
+
+
+## Implementation in the 10 November batch
+
+- Slack OAuth saves the provider-returned app ID as well as team ID. The shared
+  `POST /api/v1/integrations/slack/events` checks Slack's raw-body signature and
+  five-minute timestamp, then routes only matching app/team credentials in each
+  active, current published registration. Existing database delivery deduplication
+  and recovery remain authoritative; the response does not wait for node execution.
+- Workflow owners register subscriptions without entering the administrator's
+  signing secret. The server reads `SLACK_APP_ID`/`SLACK_SIGNING_SECRET`. Existing
+  per-workflow endpoint support is not a second node version. Existing Slack
+  connections need OAuth reconnect once to acquire the provider-returned app ID
+  before using shared ingress. No credential is deleted or guessed from a label.
+- This bounded first release covers normal workspace installations and public
+  channels the bot has joined. Enterprise-wide installs and externally shared
+  Slack Connect events are excluded. Revoked tokens fail provider calls; uninstall
+  stops Slack delivery. Automatic revocation UI/state cleanup is not implemented.
+- Registration lookup is paginated but synchronous until executions are durably
+  recorded. This is appropriate to the current small installation count; a large
+  public launch needs measured acknowledgement latency against Slack's three-second
+  limit. It is not presented as an unlimited-scale ingress service.
+- Notion OAuth uses the existing vault, credentials table and nodes. Single-use
+  state is bound to the authenticated user/browser and workspace. Reconnect must
+  match Notion workspace and bot identity. Manual token forms remain available.
+- Notion's rotating refresh token stays encrypted. Only a definite HTTP 401 can
+  refresh and retry once; 403, timeout and uncertain writes do not retry here. A
+  database row lock serializes refresh across API/worker processes. This uses the
+  existing table, without a migration, generic OAuth engine or new node versions.
+- Managed Notion credentials expose neither raw secrets nor masked token suffixes.
+
+### Provider evidence (not equivalent to approval)
+
+Google Cloud verification on 10 November shows homepage and branding complete;
+privacy, app functionality, data access, minimum scopes and additional requirements
+are in progress. The console estimates review at four to six weeks. No resubmission
+or scope change was performed. External/Production is not verification approval.
+
+Notion's public OAuth app `Fluxora` was created after owner consent. Both production
+HTTPS and localhost callbacks are registered. Marketplace listing is separate from
+letting another workspace authorize the app. The owner refreshed the initially miscaptured one-time Client Secret; its new
+value was saved privately in ignored local/production env. No invalid secret was
+deployed. Local OAuth then succeeded with only the owner-approved
+`Fluxora connector test` database and test content. The existing adapter discovered
+and read that source; the manual-token connection remains available. User profile
+and email capabilities are disabled. Real token expiry/refresh and a second tenant
+have not been qualified; synthetic tests cover renewal and isolation.
+
+n8n's Slack credential documentation distinguishes OAuth actions from its Slack
+Trigger, which uses an API token. Fluxora's shared managed ingress follows Slack's
+one-Events-URL-per-app contract, not a claim of identical n8n implementation.
+
+Additional references:
+- [Notion token exchange](https://developers.notion.com/reference/create-a-token)
+- [Notion refresh](https://developers.notion.com/reference/refresh-a-token)
+
+Owner update: configure production only; do not create Fluxora Local now. The
+prepared manifest was cancelled before creation. Keep local web/API running.
