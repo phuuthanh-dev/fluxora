@@ -25,7 +25,7 @@ export function liveCredentialRequirements(graph: WorkflowGraph): LiveCredential
     if (node.type.startsWith("action.vercel.")) return [{ nodeId: node.id, provider: CredentialProvider.VERCEL, credentialId }];
     if (node.type === "action.supabase.select" || node.type === "action.supabase.insert-row") return [{ nodeId: node.id, provider: CredentialProvider.SUPABASE, credentialId }];
     if (node.type === "action.reddit.list-posts") return [{ nodeId: node.id, provider: CredentialProvider.REDDIT, credentialId }];
-    if (node.type === "action.postgres.select") return [{ nodeId: node.id, provider: CredentialProvider.POSTGRES, credentialId }];
+    if (["action.postgres.select", "action.postgres.insert-row", "action.postgres.upsert-row"].includes(node.type)) return [{ nodeId: node.id, provider: CredentialProvider.POSTGRES, credentialId }];
     if (node.type.startsWith("action.gmail.") || node.type === "trigger.gmail") return [{ nodeId: node.id, provider: CredentialProvider.GMAIL, credentialId }];
     if (node.type === "trigger.google-calendar.event" || node.type === "action.google-calendar.list-events" || node.type === "action.google-calendar.create-event" || node.type === "action.google-calendar.get-event" || node.type === "action.google-calendar.update-event" || node.type === "action.google-calendar.delete-event" || node.type === "action.google-calendar.availability") return [{ nodeId: node.id, provider: CredentialProvider.GOOGLE_CALENDAR, credentialId }];
     if (node.type === "action.google-chat.oauth" || node.type === "action.google-chat.reply" || node.type === "action.google-chat.edit-message") return [{ nodeId: node.id, provider: CredentialProvider.GOOGLE_CHAT_OAUTH, credentialId }];

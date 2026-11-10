@@ -19,7 +19,7 @@ import { trelloCreate, trelloFind, trelloGet, trelloList, trelloMove, trelloUpda
 import { notionCreateEntry, notionUpdateEntry, notionChildren, notionCreate, notionPage, notionProperty, notionQuery, notionSearch, notionUpdate } from "./node-config-schemas/notion";
 import { gmailGet, gmailLabel, gmailRead, gmailReply, gmailSend, gmailUpdateDraft } from "./node-config-schemas/gmail";
 import { calendarAvailability, calendarCreate, calendarEvent, calendarList, calendarUpdate } from "./node-config-schemas/google-calendar";
-import { postgresSelect, supabaseInsert, supabaseSelect } from "./node-config-schemas/relational";
+import { postgresSelect, postgresInsert, postgresUpsert, supabaseInsert, supabaseSelect } from "./node-config-schemas/relational";
 import { riotLol, riotTft } from "./node-config-schemas/riot";
 import { slackMessage, slackWebhook, slackTrigger } from "./node-config-schemas/slack";
 import { discordWebhook } from "./node-config-schemas/discord";
@@ -100,6 +100,8 @@ const rules: Readonly<Record<string, ConfigRules>> = {
   "action.google-calendar.delete-event": calendarEvent,
   "action.google-calendar.availability": calendarAvailability,
   "action.postgres.select": postgresSelect,
+  "action.postgres.insert-row": postgresInsert,
+  "action.postgres.upsert-row": postgresUpsert,
   "action.supabase.select": supabaseSelect,
   "action.supabase.insert-row": supabaseInsert,
   "action.riot-lol": riotLol,

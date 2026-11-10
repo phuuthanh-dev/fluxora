@@ -14,7 +14,7 @@ import { assertNoCredentialInProviderValue } from "./provider-credential-safety"
 export type PostgresCredential = { host: string; port: number; database: string; username: string; password: string; caCertificate?: string };
 
 /** Accept only bounded CA certificate PEM blocks, never private keys or arbitrary text. */
-function postgresCaCertificates(value: unknown): string[] | undefined {
+export function postgresCaCertificates(value: unknown): string[] | undefined {
   if (value === undefined || value === "") return undefined;
   if (typeof value !== "string" || value.length > 32_768) throw new NodeFailure("POSTGRES_CA_INVALID", "Enter a valid PostgreSQL CA certificate in PEM format.", false);
   const pemPattern = /-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g;

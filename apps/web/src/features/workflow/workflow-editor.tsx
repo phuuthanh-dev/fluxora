@@ -309,9 +309,9 @@ function DateTimeField({ label, value, allowExpressions, onChange, error }: { la
   </Field>;
 }
 
-function RowValuesField({ value, onChange, workspaceId, workflowId, nodeId, owner, credentials, config }: { value: unknown; onChange: (value: Array<{ column: string; type: string; value: string }>) => void; workspaceId: string; workflowId: string; nodeId: string; owner: boolean; credentials: CredentialSummary[]; config: Record<string, unknown> }) {
+function RowValuesField({ value, onChange, workspaceId, workflowId, nodeId, owner, credentials, config, provider }: { provider: RelationalProvider; value: unknown; onChange: (value: Array<{ column: string; type: string; value: string }>) => void; workspaceId: string; workflowId: string; nodeId: string; owner: boolean; credentials: CredentialSummary[]; config: Record<string, unknown> }) {
   const listId = useId();
-  const { metadata, loading, eligible } = useRelationalMetadata({ provider: "supabase", workspaceId, workflowId, nodeId, owner, credentials, credentialId: readConfigText(config, "credentialId"), table: readConfigText(config, "table"), schema: "" });
+  const { metadata, loading, eligible } = useRelationalMetadata({ provider, workspaceId, workflowId, nodeId, owner, credentials, credentialId: readConfigText(config, "credentialId"), table: readConfigText(config, "table"), schema: readConfigText(config, "schema") });
   const rows = Array.isArray(value) ? value.map((entry) => {
     const row = entry && typeof entry === "object" && !Array.isArray(entry) ? entry as Record<string, unknown> : {};
     return { column: typeof row.column === "string" ? row.column : "", type: typeof row.type === "string" ? row.type : "text", value: typeof row.value === "string" ? row.value : row.value == null ? "" : String(row.value) };
@@ -319,7 +319,7 @@ function RowValuesField({ value, onChange, workspaceId, workflowId, nodeId, owne
   const update = (index: number, patch: Partial<(typeof rows)[number]>) => onChange(rows.map((row, current) => current === index ? { ...row, ...patch } : row));
   return <div className="config-field mongo-filter">
     <strong>Row values</strong>
-    <small>Enter one value per column. Other columns use their database defaults. Write permission and row-level security apply. Changing the connection or table clears these values.</small>
+    <small>Enter one value per column. Other columns use their database defaults. Write permission and row-level security apply. Changing the connection{provider === "postgres" ? ", schema" : ""} or table clears these values.</small>
     <small role="status">{loading ? "Loading columns…" : metadata.status === "available" ? metadata.partial ? "Some columns may be missing. You can also enter an exact column name." : "Choose a suggested column or enter its exact name." : eligible ? "Column suggestions are unavailable. Enter exact column names." : "Choose a connection and table to load column suggestions, or enter names manually."}</small>
     {metadata.status === "available" && <datalist id={listId}>{metadata.columns.map((column) => <option key={column.value} value={column.value}>{column.label}</option>)}</datalist>}
     {rows.map((row, index) => <div className="mongo-filter__condition" key={index}>
@@ -394,7 +394,11 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, wor
       </section>;
       if (field.kind === "mongo-filter") return <Fragment key={field.key}><MongoFilterField value={value} draft={draft.filter} onDraftChange={(next) => onDraftChange("filter", next)} rawDraft={draft.filterRaw} onRawDraftChange={(next) => onDraftChange("filterRaw", next)} onChange={(nextValue) => onChange(field.key, nextValue)} />{error && <p className="ui-field__error" role="alert">{error}</p>}</Fragment>;
       if (field.kind === "drive-search") return <Fragment key={field.key}><DriveSearchField value={value} workspaceId={workspaceId} credentialId={readConfigText(config, "credentialId")} onChange={(nextValue) => onChange(field.key, nextValue)} />{error && <p className="ui-field__error" role="alert">{error}</p>}</Fragment>;
-      if (field.kind === "row-values") return <Fragment key={field.key}><RowValuesField value={config[field.key]} workspaceId={workspaceId} workflowId={workflowId} nodeId={nodeId} owner={owner} credentials={credentials} config={config} onChange={(nextValue) => onChange(field.key, nextValue)} />{error && <p className="ui-field__error" role="alert">{error}</p>}</Fragment>;
+      if (field.key === "conflictColumn" && field.kind === "text") {
+        const columns = Array.isArray(config.fields) ? config.fields.flatMap((entry) => entry && typeof entry === "object" && "column" in entry && typeof entry.column === "string" && entry.column ? [entry.column] : []) : [];
+        return <Field key={field.key} label={field.label} className="config-field" error={error}><Select aria-label={field.label} value={value} onChange={(event) => onChange(field.key, event.target.value)}><option value="">Choose a unique column</option>{!columns.includes(value) && value && <option value={value}>{value}</option>}{[...new Set(columns)].map((column) => <option key={column} value={column}>{column}</option>)}</Select><small>The column must have a unique constraint in PostgreSQL and be included in the row.</small></Field>;
+      }
+      if (field.kind === "row-values") return <Fragment key={field.key}><RowValuesField provider={fields.some((candidate) => candidate.kind === "resource" && candidate.resource === "postgres-schema") ? "postgres" : "supabase"} value={config[field.key]} workspaceId={workspaceId} workflowId={workflowId} nodeId={nodeId} owner={owner} credentials={credentials} config={config} onChange={(nextValue) => onChange(field.key, nextValue)} />{error && <p className="ui-field__error" role="alert">{error}</p>}</Fragment>;
       return <ConfigField
         key={field.key}
         label={field.label}
@@ -1119,9 +1123,10 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       if (["credentialId", "team"].includes(key) && "deploymentId" in config) config.deploymentId = "";
       if (effectiveNodeType === "action.vercel.list-deployments" && ["credentialId", "team", "project", "limit"].includes(key) && "cursor" in config) config.cursor = "";
     }
-    if (effectiveNodeType === "action.postgres.select" && node.data.config[key] !== value) {
+    if (["action.postgres.select", "action.postgres.insert-row", "action.postgres.upsert-row"].includes(effectiveNodeType) && node.data.config[key] !== value) {
       if (key === "credentialId") { config.schema = ""; config.table = ""; }
       else if (key === "schema") config.table = "";
+      if (["action.postgres.insert-row", "action.postgres.upsert-row"].includes(effectiveNodeType) && ["credentialId", "schema", "table"].includes(key)) { config.fields = []; if (effectiveNodeType === "action.postgres.upsert-row") config.conflictColumn = ""; }
     }
     if (["action.mongodb", "action.mongodb.insert"].includes(effectiveNodeType) && node.data.config[key] !== value) {
       if (key === "credentialId") { config.database = ""; config.collection = ""; }

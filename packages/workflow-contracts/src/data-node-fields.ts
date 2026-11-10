@@ -72,6 +72,19 @@ export const dataNodeFields = {
       { kind: "resource", key: "table", label: "Table", resource: "postgres-table", credentialKey: "credentialId", dependencyKey: "schema", placeholder: "Search tables" },
       { kind: "number", key: "limit", label: "Maximum rows (1–100)", fallbackValue: 20 },
     ],
+  "action.postgres.insert-row": (): NodeConfigurationField[] => [
+      { kind: "credential", key: "credentialId", label: "PostgreSQL credential", providers: ["POSTGRES"] },
+      { kind: "resource", key: "schema", label: "Schema", resource: "postgres-schema", credentialKey: "credentialId", placeholder: "Search schemas" },
+      { kind: "resource", key: "table", label: "Table", resource: "postgres-table", credentialKey: "credentialId", dependencyKey: "schema", placeholder: "Search tables" },
+      { kind: "row-values", key: "fields", label: "Row values" },
+    ],
+  "action.postgres.upsert-row": (): NodeConfigurationField[] => [
+      { kind: "credential", key: "credentialId", label: "PostgreSQL credential", providers: ["POSTGRES"] },
+      { kind: "resource", key: "schema", label: "Schema", resource: "postgres-schema", credentialKey: "credentialId", placeholder: "Search schemas" },
+      { kind: "resource", key: "table", label: "Table", resource: "postgres-table", credentialKey: "credentialId", dependencyKey: "schema", placeholder: "Search tables" },
+      { kind: "row-values", key: "fields", label: "Row values" },
+      { kind: "text", key: "conflictColumn", label: "Unique conflict column" },
+    ],
   "action.rss.read": (): NodeConfigurationField[] => [
       { kind: "text", key: "url", label: "Public feed URL (no secrets)" },
       { kind: "number", key: "limit", label: "Maximum items (1–100)", fallbackValue: 20 },

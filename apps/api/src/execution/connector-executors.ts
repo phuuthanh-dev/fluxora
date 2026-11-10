@@ -32,6 +32,7 @@ import { executeSentryGetIssue } from "./sentry-observability";
 import { executeVercelPublicDeploymentLookup } from "./vercel-observability";
 import { executeRedditListPosts } from "./reddit";
 import { executePostgresSelect } from "./postgres-read";
+import { executePostgresWrite } from "./postgres-write";
 import { executeGmailRead } from "./gmail-read";
 import { executeGmailGetMessage } from "./gmail-get-message";
 import { executeGmailWrite } from "./gmail-write";
@@ -125,6 +126,8 @@ const executors = {
   "action.supabase.select": ({ config, mode, workspaceId, credentials }) => executeSupabaseSelect(config, mode, workspaceId, credentials),
   "action.supabase.insert-row": ({ config, mode, workspaceId, credentials }) => executeSupabaseInsert(config, mode, workspaceId, credentials),
   "action.reddit.list-posts": ({ config, mode, workspaceId, credentials }) => executeRedditListPosts(config, mode, workspaceId, credentials),
+  "action.postgres.insert-row": ({ config, mode, workspaceId, credentials }) => executePostgresWrite(config, "insert", mode, workspaceId, credentials),
+  "action.postgres.upsert-row": ({ config, mode, workspaceId, credentials }) => executePostgresWrite(config, "upsert", mode, workspaceId, credentials),
   "action.postgres.select": ({ config, mode, workspaceId, credentials }) => executePostgresSelect(config, mode, workspaceId, credentials),
   "action.gmail.read": ({ config, mode, workspaceId, credentials }) => executeGmailRead(config, mode, workspaceId, credentials),
   "action.gmail.get-message": ({ config, mode, workspaceId, credentials }) => executeGmailGetMessage(config, mode, workspaceId, credentials),

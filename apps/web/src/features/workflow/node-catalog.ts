@@ -719,6 +719,16 @@ export const nodeCatalog: NodeDefinition[] = [
     configurationFields: getSharedNodeConfigurationFields("action.postgres.select"),
   },
   {
+    type: "action.postgres.insert-row", label: "Insert PostgreSQL row", description: "Insert one row into a selected table.",
+    category: "action", libraryGroup: "developer-data", appId: "postgres", operationId: "insert-row", operationLabel: "Insert row", operationKind: "action", icon: "postgres", available: true,
+    defaultConfig: { credentialId: "", schema: "public", table: "", fields: [] }, configurationFields: getSharedNodeConfigurationFields("action.postgres.insert-row"),
+  },
+  {
+    type: "action.postgres.upsert-row", label: "Insert or update PostgreSQL row", description: "Insert a row or update it using a unique column.",
+    category: "action", libraryGroup: "developer-data", appId: "postgres", operationId: "upsert-row", operationLabel: "Insert or update row", operationKind: "action", icon: "postgres", available: true,
+    defaultConfig: { credentialId: "", schema: "public", table: "", fields: [], conflictColumn: "" }, configurationFields: getSharedNodeConfigurationFields("action.postgres.upsert-row"),
+  },
+  {
     type: "action.rss.read", label: "Read RSS feed", description: "Read recent items from a public RSS or Atom feed.",
     category: "action", libraryGroup: "developer-data", appId: "rss", operationId: "read-feed", operationLabel: "Read feed", operationKind: "search", icon: "rss", available: true,
     defaultConfig: { url: "", limit: 20 },
