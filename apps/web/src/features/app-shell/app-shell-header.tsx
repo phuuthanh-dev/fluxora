@@ -7,6 +7,7 @@ import { apiRequest, apiUrl } from "../api/api-client";
 import { ThemeToggle } from "../theme/theme-toggle";
 import { Button, Menu, Select } from "../../components/ui";
 import { BrandLockup } from "../../components/brand/brand-lockup";
+import { NodeIcon } from "../workflow/node-icon";
 import { WorkspaceSidebar } from "./workspace-sidebar";
 
 export type AppShellWorkspace = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
@@ -84,12 +85,26 @@ export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, act
 
   const workspacePicker = <label className="app-shell-workspace" htmlFor="app-shell-workspace"><span>Workspace</span><Select id="app-shell-workspace" value={workspaceId} disabled={workspaces.length === 0} onChange={(event) => { if (onBeforeNavigate?.() !== false) onWorkspaceChange(event.target.value); }}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</Select></label>;
   const accountMenu = <Menu label="Account" trigger={<><span className={`app-shell-avatar app-shell-avatar--${user?.avatarColor ?? "lime"}`} aria-hidden="true">{avatarInitials(user)}</span><span className="sidebar-account-copy"><strong>{user?.displayName ?? "Your account"}</strong><span>Account & preferences</span></span></>} className="app-shell-account-menu">
-          <p className="app-shell-account-menu__user">{user?.displayName ?? user?.email ?? "Your account"}</p>
-          <Button variant="ghost" onClick={() => navigate(`/settings/account?workspace=${encodeURIComponent(workspaceId)}`)}><Settings size={14} /> Account settings</Button>
-          {isAdmin && <Button variant="ghost" onClick={() => navigate("/admin")}>Platform administration</Button>}
-          {identityError && <p role="alert">{identityError}</p>}
-          {identities.length ? identities.map((identity) => <div key={identity.provider}><span>{providerLabel(identity.provider)}{identity.provider === "STEAM" ? " linked" : ""}</span><Button variant="ghost" disabled={unlinking === identity.provider} onClick={() => void unlink(identity.provider)}>{unlinking === identity.provider ? "Unlinking…" : "Unlink"}</Button></div>) : <p>No external identities linked.</p>}
-          {!identities.some((identity) => identity.provider === "STEAM") && <Button variant="ghost" disabled={!providers.steam} onClick={() => { if (onBeforeNavigate?.() !== false) window.location.assign(`${apiUrl}/auth/steam/connect`); }}>{providers.steam ? "Link Steam" : "Steam setup"}</Button>}
+          <div className="app-shell-account-menu__user"><strong>{user?.displayName ?? "Your account"}</strong>{user?.email && <span>{user.email}</span>}</div>
+          <Button variant="ghost" className="app-shell-account-menu__link" onClick={() => navigate(`/settings/account?workspace=${encodeURIComponent(workspaceId)}`)}><Settings size={15} /> Account settings</Button>
+          {isAdmin && <Button variant="ghost" className="app-shell-account-menu__link" onClick={() => navigate("/admin")}>Platform administration</Button>}
+          <div className="app-shell-account-menu__identities">
+            <p className="app-shell-account-menu__section">Sign-in methods</p>
+            {identityError && <p role="alert">{identityError}</p>}
+            {identities.length ? identities.map((identity) => (
+              <div className="app-shell-account-menu__identity" key={identity.provider}>
+                <span className="app-shell-account-menu__provider">
+                  <span className="app-shell-account-menu__provider-icon" aria-hidden="true"><NodeIcon name={identity.provider.toLowerCase() as "google" | "github" | "steam"} size={17} /></span>
+                  <span><strong>{providerLabel(identity.provider)}</strong><small>Linked</small></span>
+                </span>
+                <Button variant="ghost" data-menu-keep-open aria-label={`Unlink ${providerLabel(identity.provider)}`} disabled={unlinking === identity.provider} onClick={(event) => { event.currentTarget.closest("details")?.querySelector("summary")?.focus(); void unlink(identity.provider); }}>{unlinking === identity.provider ? "Unlinking…" : "Unlink"}</Button>
+              </div>
+            )) : <p>No external identities linked.</p>}
+            {!identities.some((identity) => identity.provider === "STEAM") && <div className="app-shell-account-menu__identity">
+              <span className="app-shell-account-menu__provider"><span className="app-shell-account-menu__provider-icon" aria-hidden="true"><NodeIcon name="steam" size={17} /></span><span><strong>Steam</strong><small>Not linked</small></span></span>
+              <Button variant="ghost" disabled={!providers.steam} onClick={() => { if (onBeforeNavigate?.() !== false) window.location.assign(`${apiUrl}/auth/steam/connect`); }}>{providers.steam ? "Link Steam" : "Steam setup"}</Button>
+            </div>}
+          </div>
           <hr className="app-shell-account-menu__divider" />
           <Button variant="ghost" className="app-shell-account-menu__sign-out" onClick={() => void logout()}><LogOut size={14} /> Sign out</Button>
         </Menu>;

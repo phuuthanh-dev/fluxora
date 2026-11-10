@@ -317,6 +317,26 @@ test("sidebar account menu stays above its avatar and inside the viewport", asyn
   await expect(menu.getByRole("button", { name: "Sign out" })).toBeVisible();
 });
 
+test("account menu keeps unlink errors visible beside the sign-in method", async ({ page }) => {
+  await signUpAndDashboard(page, `regression-account-menu-${Date.now()}@example.test`);
+  const origin = new URL(page.url()).origin;
+  const headers = { "access-control-allow-origin": origin, "access-control-allow-credentials": "true", "access-control-allow-methods": "GET, DELETE, OPTIONS", "access-control-allow-headers": "content-type" };
+  await page.route("**/api/v1/auth/identities**", async (route) => {
+    const request = route.request();
+    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    if (request.method() === "DELETE") return route.fulfill({ status: 409, headers, json: { message: "Keep another sign-in method first." } });
+    return route.fulfill({ headers, json: { identities: [{ provider: "GOOGLE", providerAccountId: "test-account" }] } });
+  });
+  await page.reload();
+  await page.getByLabel("Account actions", { exact: true }).click();
+  const menu = page.getByRole("menu", { name: "Account menu" });
+  await expect(menu.getByText("Sign-in methods")).toBeVisible();
+  await expect(menu.getByText("Google", { exact: true })).toBeVisible();
+  await menu.getByRole("button", { name: "Unlink Google" }).click();
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole("alert")).toHaveText("Keep another sign-in method first.");
+});
+
 test("connections are managed on a dedicated workspace page without exposing a close-only editor panel", async ({ page }) => {
   const email = `regression-connection-center-${Date.now()}@example.test`;
   await signUpAndDashboard(page, email);

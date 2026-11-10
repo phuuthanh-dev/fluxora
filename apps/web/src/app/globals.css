@@ -589,15 +589,15 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px soli
    behavior, but intentionally remove the fixed overlay constraint. */
 .dashboard-header__user .dashboard-header__link { align-items: center; font-size: 12px; gap: 6px; height: 32px; padding: 0 9px; white-space: nowrap; width: auto; }
 .connections-main, .executions-main { margin: 0 auto; max-width: var(--page-width); padding: 40px var(--page-gutter) 72px; }
-.retention-summary { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-md); color: var(--text-secondary); font-size: 12px; line-height: 1.5; margin-bottom: 18px; padding: 12px 16px; }
+.retention-summary { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-md); color: var(--text-secondary); font-size: var(--control-text); line-height: 1.5; margin-bottom: 18px; padding: 16px 20px; }
 .retention-summary summary { color: var(--ink); cursor: pointer; font-weight: 700; }
 .retention-summary p { margin: 8px 0 0; }
-.saved-execution-views { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-md); color: var(--text-secondary); font-size: 12px; line-height: 1.5; margin-bottom: 18px; padding: 12px 16px; }
+.saved-execution-views { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-md); color: var(--text-secondary); font-size: var(--control-text); line-height: 1.5; margin-bottom: 18px; padding: 16px 20px; }
 .saved-execution-views summary { color: var(--ink); cursor: pointer; font-weight: 700; }
 .saved-execution-views p { margin: 8px 0; }
 .saved-execution-views ul { display: grid; gap: 6px; list-style: none; margin: 8px 0; padding: 0; }
 .saved-execution-views li, .saved-execution-views form { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; }
-.saved-execution-views input { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; color: var(--ink); min-height: 36px; padding: 7px 10px; }
+.saved-execution-views input { background: var(--surface-inset); border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--ink); font-size: var(--control-text); min-height: var(--control-height); min-width: 0; padding: 7px 10px; }
 .connections-main .ui-page-header, .executions-main .ui-page-header { margin-bottom: 28px; }
 .connections-error, .executions-error { align-items: center; display: flex; gap: 9px; margin-bottom: 18px; padding: 12px 14px; }
 .connections-error .ui-button, .executions-error .ui-button { margin-left: auto; min-height: 29px; padding: 6px 9px; }
@@ -621,7 +621,7 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px soli
 .credential-panel--page { background: var(--surface-dark); border: 1px solid var(--surface-dark-border); border-radius: var(--radius-lg); box-shadow: none; color: var(--text-on-dark); max-height: none; overflow: visible; padding: 28px; position: static; width: auto; }
 
 
-.credential-panel--page .credential-form { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); max-width: 760px; margin: 0; padding: 24px; gap: 20px; }
+.credential-panel--page .credential-form { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); margin: 0; padding: 24px; gap: 20px; }
 .credential-panel--page .credential-secret-fields, .credential-panel--page .credential-form__hint, .credential-panel--page .credential-form > .run-button, .credential-panel--page .credential-form__error { grid-column: 1 / -1; }
 .credential-panel--page .credential-form textarea { min-height: 132px; }
 .credential-panel--page .credential-panel__notice { border-top-color: var(--surface-dark-border); color: var(--muted-on-dark); }
@@ -664,8 +664,9 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px soli
 .credential-panel__directory { margin-top: 7px; }
 .credential-panel__directory-link { background: transparent !important; border: 0 !important; color: var(--text-accent) !important; font-size: 12px !important; font-weight: 700; gap: 5px; justify-content: flex-start !important; margin: 0 !important; min-height: 22px !important; padding: 0 !important; }
 .credential-panel--page .credential-panel__directory { display: none; }
-.credential-form__oauth-helper { align-items: center; border-bottom: 1px solid var(--surface-dark-border); display: flex; gap: 10px; justify-content: space-between; padding: 0 0 10px; }
-.credential-form__oauth-helper span { color: var(--muted-on-dark); font-size: 12px; line-height: 1.4; }
+.credential-form__oauth-helper { align-items: center; border-bottom: 1px solid var(--surface-dark-border); display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; min-width: 0; padding: 0 0 14px; }
+.credential-form__oauth-helper > span { color: var(--muted-on-dark); flex: 1 1 26rem; font-size: var(--control-text); line-height: 1.5; min-width: 0; }
+.credential-form__oauth-helper > .ui-button { flex: 0 0 auto; white-space: nowrap; }
 .credential-form__oauth-link { align-items: center; background: transparent; border: 0; color: var(--text-accent); cursor: pointer; display: inline-flex; flex: 0 0 auto; font-family: inherit; font-size: 12px; font-weight: 700; gap: 4px; padding: 0; white-space: nowrap; }
 .credential-form__oauth-link:hover { color: var(--accent-strong); text-decoration: underline; text-underline-offset: 3px; }
 .credential-form__oauth-link:focus-visible { border-radius: 3px; outline: 2px solid var(--accent); outline-offset: 3px; }

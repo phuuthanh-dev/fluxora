@@ -18,6 +18,16 @@ test("guided connection fields preserve JSON, mask secrets, search saved account
   const originalWorkspace = await page.locator("#app-shell-workspace").inputValue();
   await page.getByRole("button", { name: "Connections", exact: true }).click();
   await expect(page.getByText("Your connections will appear here")).toBeVisible();
+  const createForm = page.getByRole("form", { name: "New connection", exact: true });
+  const panel = page.locator(".credential-panel--page");
+  await expect(createForm).toBeVisible();
+  const [formBox, panelBox] = await Promise.all([createForm.boundingBox(), panel.boundingBox()]);
+  expect(formBox!.width).toBeGreaterThanOrEqual(panelBox!.width - 2);
+  await page.getByLabel("Provider", { exact: true }).selectOption("JIRA");
+  const jiraButton = page.getByRole("button", { name: "Connect Jira" });
+  await expect(jiraButton).toBeVisible();
+  await expect(jiraButton).toHaveCSS("white-space", "nowrap");
+  expect((await jiraButton.boundingBox())!.height).toBeLessThan(55);
   await page.getByLabel("Provider", { exact: true }).selectOption("STEAM");
   await page.getByLabel("Connection name", { exact: true }).fill("Steam personal");
   await page.getByLabel("Steam Web API key", { exact: true }).fill("local-fixture-key");

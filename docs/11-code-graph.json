@@ -3212,7 +3212,8 @@
         "apps/web/src/components/ui/index.ts",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/app-shell/workspace-sidebar.tsx",
-        "apps/web/src/features/theme/theme-toggle.tsx"
+        "apps/web/src/features/theme/theme-toggle.tsx",
+        "apps/web/src/features/workflow/node-icon.tsx"
       ],
       "externalImports": [
         "lucide-react",
@@ -8137,6 +8138,10 @@
     {
       "from": "apps/web/src/features/app-shell/app-shell-header.tsx",
       "to": "apps/web/src/features/theme/theme-toggle.tsx"
+    },
+    {
+      "from": "apps/web/src/features/app-shell/app-shell-header.tsx",
+      "to": "apps/web/src/features/workflow/node-icon.tsx"
     },
     {
       "from": "apps/web/src/features/app-shell/workspace-sidebar.tsx",

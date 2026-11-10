@@ -104,7 +104,8 @@ export function Menu({ label, children, trigger, className, contentClassName }: 
         aria-label={`${label} menu`}
         onKeyDown={onContentKeyDown}
         onClick={(event) => {
-          if (event.target instanceof HTMLElement && event.target.closest("button")) {
+          const button = event.target instanceof Element ? event.target.closest("button") : null;
+          if (button && !button.hasAttribute("data-menu-keep-open")) {
             closeAndRestoreFocus();
           }
         }}
