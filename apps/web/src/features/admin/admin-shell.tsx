@@ -9,10 +9,10 @@ import { ThemeToggle } from "../theme/theme-toggle";
 import { adminLabel, type AdminSection } from "./admin-sections";
 
 const preferenceKey = "fluxora-admin-sidebar-collapsed";
-const icons: Record<AdminSection, LucideIcon> = { overview: LayoutDashboard, users: Users, workspaces: Building2, workflows: Workflow, executions: Activity, audit: ScrollText, support: CircleHelp };
+const icons: Record<AdminSection, LucideIcon> = { overview: LayoutDashboard, users: Users, workspaces: Building2, workflows: Workflow, executions: Activity, audit: ScrollText, privacy: ShieldCheck, support: CircleHelp };
 const navigationGroups: { label: string; sections: AdminSection[] }[] = [
   { label: "Platform", sections: ["overview", "users", "workspaces"] },
-  { label: "Operations", sections: ["workflows", "executions", "audit"] },
+  { label: "Operations", sections: ["workflows", "executions", "audit", "privacy"] },
   { label: "Resources", sections: ["support"] },
 ];
 

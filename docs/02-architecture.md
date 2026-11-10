@@ -1,5 +1,19 @@
 # Architecture
 
+## Jira privacy response — 2026-11-10
+
+The existing reporting ledger retains credential/workspace IDs independently of
+credential lifetime. Admin-only preview/response endpoints compose this ledger,
+the vault and existing execution tables; no second engine or generic privacy
+framework is introduced. Confirmed closed/updated responses block Jira credential
+use. Reviewed erasure uses a signed, administrator-bound snapshot and serializable
+transaction, blocks active work, clears all related terminal execution/node/item
+payloads and removes connections/ledger while preserving state, timing and graphs.
+`privacyErasedAt` prevents retries, including a race with erasure. Explicit inventory
+backfill does not guess deleted legacy identities. Reporting recovery requires a
+reviewed later provider cycle; no blind replay. Operational boundaries, retention
+and copies outside this database are documented in `51-jira-privacy-response.md`.
+
 ## Data transforms and connector expansion — 2026-11-09
 
 Aggregate, Split Out, Sort and Limit operate once on the incoming item stream

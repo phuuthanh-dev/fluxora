@@ -402,6 +402,12 @@ model JiraPrivacyAccount {
   claimedAt          DateTime?
   claimToken         String?
   lastErrorCode      String?
+  // Attribution remains after the connection is removed. Older records need review.
+  credentialIds      String[] @default([])
+  workspaceIds       String[] @default([])
+  coverageReviewedAt DateTime?
+  lastAttemptAt      DateTime?
+  cycleDays          Int      @default(7)
   updatedAt          DateTime @updatedAt
 
   @@index([state, nextReportAt])
@@ -418,6 +424,7 @@ model Execution {
   webhookPayloadDigest String?
   idempotencyRootId String?
   triggerData       Json?
+  privacyErasedAt   DateTime?
   errorCode         String?
   errorMessage      String?
   errorRetryable    Boolean?

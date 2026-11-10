@@ -19,7 +19,7 @@ test("Jira reconnect does not replace a different account or site", async (t) =>
   const previous = process.env.APP_ENCRYPTION_KEY; process.env.APP_ENCRYPTION_KEY = Buffer.alloc(32, 1).toString("base64");
   t.after(() => { if (previous === undefined) delete process.env.APP_ENCRYPTION_KEY; else process.env.APP_ENCRYPTION_KEY = previous; });
   const record = { id: "credential", encryptedData: vault.encrypt(grant) }; let writes = 0;
-  const prisma = { credential: { findFirst: async () => record, updateMany: async () => { writes++; return { count: 1 }; } }, jiraPrivacyAccount: { upsert: async () => ({}) }, auditLog: { create: async () => ({}) }, $transaction: async (fn: (tx: unknown) => Promise<void>) => fn(prisma) };
+  const prisma = { credential: { findFirst: async () => record, updateMany: async () => { writes++; return { count: 1 }; } }, jiraPrivacyAccount: { upsert: async () => ({}), updateMany: async () => ({ count: 1 }) }, $queryRaw: async () => [{ state: "READY" }], auditLog: { create: async () => ({}) }, $transaction: async (fn: (tx: unknown) => Promise<void>) => fn(prisma) };
   await assert.rejects(saveJiraAuthorization(prisma as never, vault as never, "workspace", "owner", { ...grant, accountId: "different" }, "credential"));
   assert.equal(writes, 0);
   await saveJiraAuthorization(prisma as never, vault as never, "workspace", "owner", grant, "credential"); assert.equal(writes, 1);

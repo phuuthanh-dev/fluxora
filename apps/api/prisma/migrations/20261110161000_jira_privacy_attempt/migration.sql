@@ -1,0 +1,3 @@
+ALTER TABLE "JiraPrivacyAccount"
+  ADD COLUMN "lastAttemptAt" TIMESTAMP(3),
+  ADD COLUMN "cycleDays" INTEGER NOT NULL DEFAULT 7;

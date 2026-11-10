@@ -14,8 +14,15 @@ test("Jira reporting posts oldest date with bounded, fixed endpoint and honors c
 });
 test("Jira reporting records required actions, respects rate limits, rejects malformed responses", async () => {
   assert.deepEqual(await reportJiraPrivacyAccount("x", account, oldest, async () => Response.json({ accounts: [{ accountId: account, status: "closed" }] })), { action: "closed", cycleDays: 7 });
+  assert.deepEqual(await reportJiraPrivacyAccount("x", account, oldest, async () => Response.json({ accounts: [{ accountId: account, status: "updated" }] })), { action: "updated", cycleDays: 7 });
   assert.deepEqual(await reportJiraPrivacyAccount("x", account, oldest, async () => new Response(null, { status: 429, headers: { "Retry-After": "30" } })), { retrySeconds: 30 });
   await assert.rejects(reportJiraPrivacyAccount("x", "unknown", oldest));
   await assert.rejects(reportJiraPrivacyAccount("x", account, oldest, async () => Response.json({ accounts: [{ accountId: "other", status: "closed" }] })));
   await assert.rejects(reportJiraPrivacyAccount("x", account, oldest, async () => new Response(null, { status: 500 })));
+});
+
+test("invalid Jira reporting timing or authorization never produces an actionable response", async () => {
+  for (const header of ["0", "-1", "later", "1.5", "1000"]) await assert.rejects(reportJiraPrivacyAccount("x", account, oldest, async () => new Response(null, { status: 204, headers: { "Cycle-Period": header } })));
+  await assert.rejects(reportJiraPrivacyAccount("x", account, oldest, async () => new Response(null, { status: 429 })));
+  await assert.rejects(reportJiraPrivacyAccount("secret-do-not-log", account, oldest, async () => Response.json({ token: "secret-do-not-log" }, { status: 401 })), (error: unknown) => error instanceof Error && !error.message.includes("secret-do-not-log"));
 });

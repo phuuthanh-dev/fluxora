@@ -50,7 +50,15 @@ test("data nodes, typed Notion properties and GitLab selectors remain editable a
   await page.goto("/editor?workflow=data-connectors");
   await page.getByRole("button", { name: "Collapse node palette" }).click();
   await page.getByRole("button", { name: "Fit canvas" }).click();
-  const selectNode = (id: string) => page.locator(`.react-flow__node[data-id="${id}"]`).click();
+  const selectNode = async (id: string) => {
+    const heading = page.locator(`.react-flow__node[data-id="${id}"]`).getByRole("heading", { level: 3 });
+    const title = await heading.innerText();
+    // Fit-canvas animates: confirm the intended inspector, not just pointer focus.
+    await expect(async () => {
+      await heading.click();
+      await expect(page.locator("#node-inspector").getByRole("heading", { level: 2 })).toContainText(title);
+    }).toPass({ timeout: 5000 });
+  };
   await selectNode("merge");
   await page.getByLabel("Mode", { exact: true }).selectOption("matching");
   await page.getByLabel("Input 1 matching field").fill("customer.id");

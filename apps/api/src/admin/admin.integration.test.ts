@@ -17,7 +17,7 @@ test("administration disables and restores sign-in while retaining the user's wo
     const account = await auth.register({ email, password, displayName: "Test account" });
     userId = account.user.id;
     workspaceId = (await db.workspace.findFirstOrThrow({ where: { ownerId: userId }, select: { id: true } })).id;
-    const controller = new AdminController(db as never, {} as never);
+    const controller = new AdminController(db as never, {} as never, {} as never);
     const request = { currentUser: { id: admin.id } } as never;
     await controller.setAccountState(userId, "disable", request);
     await assert.rejects(auth.getCurrentUser(account.token));
