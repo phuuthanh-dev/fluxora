@@ -88,7 +88,7 @@ way to maintain both free space and a local rollback image.
 
 ## Nginx and HTTPS
 
-Jira OAuth webhook callbacks include a connection-specific delivery token in the URL. Before enabling Jira webhook automation, configure every reverse proxy and upstream log to omit webhook query strings. The Nginx template logs the request path without its query for `/api/v1/webhooks/`; already-installed configurations must be updated separately and verified. Protect callback URLs in provider and database access as secrets. Jira's OAuth bearer does not sign the request body, so this binding reduces cross-connection replay but does not guarantee payload integrity if a callback URL and a valid bearer are both exposed.
+Jira OAuth webhook callbacks include a connection-specific delivery token in the URL. Before enabling Jira webhook automation, configure every reverse proxy and upstream log to omit webhook query strings. The Nginx template logs the request path without its query for `/api/v1/webhooks/` and disables Nginx error logging for that location because Nginx error messages include the raw request line. HTTP status remains available in the access log and application diagnostics remain available, but Nginx-specific error details for webhook requests are lost. Already-installed configurations must be updated separately and verified. Protect callback URLs in provider and database access as secrets. Jira's OAuth bearer does not sign the request body, so this binding reduces cross-connection replay but does not guarantee payload integrity if a callback URL and a valid bearer are both exposed.
 
 Render the template with only the two intended variables so Nginx variables
 such as `$host` are preserved:
