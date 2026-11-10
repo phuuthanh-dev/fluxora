@@ -3,7 +3,8 @@
 ## Jira privacy response — 2026-11-10
 
 The existing reporting ledger retains credential/workspace IDs independently of
-credential lifetime. Admin-only preview/response endpoints compose this ledger,
+credential lifetime. Pending reviews live under existing Admin Support, with no
+dedicated Privacy route or provider-specific navigation. Admin-only preview/response endpoints compose this ledger,
 the vault and existing execution tables; no second engine or generic privacy
 framework is introduced. Confirmed closed/updated responses block Jira credential
 use. Reviewed erasure uses a signed, administrator-bound snapshot and serializable

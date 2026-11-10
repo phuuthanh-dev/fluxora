@@ -9,7 +9,9 @@ never returned. See `docs/35-connector-coverage-and-discovery.md`.
 
 ## 1. Product intent
 
-Owner-approved Jira privacy response (10 November 2026): platform Admin may
+Owner-approved Jira privacy response (10 November 2026): the existing Admin Support
+area opens pending data requests on demand; there is no separate Privacy page or
+navigation item. Routine reporting records stay out of this review list. Admin may
 prepare a bounded affected-data preview and explicitly confirm erasure for a
 confirmed Jira closed/updated response. Execution status/timing remain; identified
 trigger/node/item payloads and error text are erased and retries disabled. Matching

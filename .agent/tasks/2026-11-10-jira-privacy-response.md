@@ -21,6 +21,7 @@ Both closed and updated responses use reviewed erasure, not speculative refresh.
 - [x] Block active workflows/executions, changed previews and unreviewed copies. Scrub identified execution/node/item payloads, retain statuses/timings, remove matching connections and the resolved reporting account atomically.
 - [x] Erased executions cannot be retried; normal execution and OAuth ownership remain intact.
 - [x] Uncertain reporting has an explicit operator recovery boundary and does not silently replay.
+- [x] Owner-approved simplification: review pending Jira requests on demand in existing Admin Support; no separate Privacy page/menu or generic privacy framework.
 - [ ] Meaningful protocol, response, concurrency/authorization and both-theme Admin tests; audit then npm run verify at the end.
 - [ ] Production OAuth/read evidence, truthful retention/copy limitations, one PR/merge after CI and deploy evidence.
 

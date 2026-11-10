@@ -30,7 +30,6 @@ const descriptions: Record<AdminSection, string> = {
   executions: "Investigate run metadata across the platform. Payloads stay inside their workspace.",
   audit: "A record of administrative and workspace actions. Secret values are never shown here.",
   support: "Handle support, privacy and data requests through the existing support process.",
-  privacy: "Review Jira reporting requests and affected data. Erasure requires an explicit operator review.",
 };
 
 function Badge({ children, good = false, warning = false }: { children: ReactNode; good?: boolean; warning?: boolean }) {
@@ -61,6 +60,7 @@ export function AdminDashboard({ section = "overview", initialStatus = "", scope
   const [auditDraft, setAuditDraft] = useState({ actor: "", from: "", to: "", targetType: scope.targetType ?? "", targetId: scope.targetId ?? "" });
   const [auditSearch, setAuditSearch] = useState(auditDraft);
   const [refresh, setRefresh] = useState(0);
+  const [requestsOpen, setRequestsOpen] = useState(false);
   const [confirmation, setConfirmation] = useState<{ user: User; action: "sessions" | "disable" | "enable" } | null>(null);
 
   useEffect(() => {
@@ -73,7 +73,7 @@ export function AdminDashboard({ section = "overview", initialStatus = "", scope
       if (section === "overview") {
         const data = await apiRequest<Overview>("/admin/overview");
         if (active) setOverview(data);
-      } else if (section !== "support" && section !== "privacy") {
+      } else if (section !== "support") {
         const params = new URLSearchParams({ ...scope, q: search, page: String(page) });
         if (section === "executions") { if (status) params.set("status", status); params.set("period", period); }
         if (section === "audit") for (const [key, value] of Object.entries(auditSearch)) { if (value) params.set(key, value); else params.delete(key); }
@@ -117,9 +117,14 @@ export function AdminDashboard({ section = "overview", initialStatus = "", scope
       </div>
       <Status tone="info" className="admin-scope-note"><ShieldCheck size={16} aria-hidden="true" /><span>Platform administration shows operational metadata. Connections and execution payloads remain in the workspace.</span></Status>
     </>}
-    {section === "support" && !busy && !error && <div className="admin-overview-grid"><section className="admin-card"><CircleHelp size={22} aria-hidden="true" /><h2>Support requests</h2><p>Review incoming requests through the published support channel. Confirm which account and workspace need help.</p><Link className="admin-text-link" href="/support">Open support information<ArrowUpRight size={15} /></Link></section><section className="admin-card"><ShieldCheck size={22} aria-hidden="true" /><h2>Privacy and data requests</h2><p>Verify account ownership before taking action. Data deletion is a manual operator process; this area never deletes workspace data.</p><Link className="admin-text-link" href="/privacy">Read the privacy policy<ArrowUpRight size={15} /></Link></section></div>}
-    {section === "privacy" && !busy && !error && <JiraPrivacyPanel key={refresh} />}
-    {section !== "overview" && section !== "support" && section !== "privacy" && <section className="admin-list" aria-busy={busy}>
+    {section === "support" && !busy && !error && <>
+      <div className="admin-overview-grid">
+        <section className="admin-card"><CircleHelp size={22} aria-hidden="true" /><h2>Support requests</h2><p>Review incoming requests through the published support channel. Confirm which account and workspace need help.</p><Link className="admin-text-link" href="/support">Open support information<ArrowUpRight size={15} aria-hidden="true" /></Link></section>
+        <section className="admin-card"><ShieldCheck size={22} aria-hidden="true" /><h2>Privacy and data requests</h2><p>Verify ownership and review the affected data before taking action. Provider requests appear here when they need attention.</p><Button variant="secondary" aria-expanded={requestsOpen} aria-controls="admin-data-requests" onClick={() => setRequestsOpen((value) => !value)}>{requestsOpen ? "Hide data requests" : "Review data requests"}</Button><Link className="admin-text-link" href="/privacy">Read the privacy policy<ArrowUpRight size={15} aria-hidden="true" /></Link></section>
+      </div>
+      <section id="admin-data-requests" aria-label="Data requests" hidden={!requestsOpen}>{requestsOpen && <JiraPrivacyPanel key={refresh} />}</section>
+    </>}
+    {section !== "overview" && section !== "support" && <section className="admin-list" aria-busy={busy}>
       <form className="admin-search" onSubmit={(event) => { event.preventDefault(); setPage(1); setSearch(searchDraft.trim()); setAuditSearch(auditDraft); }}>
         <label className="admin-search__query">Search {section}<span><Search size={16} aria-hidden="true" /><input maxLength={80} value={searchDraft} placeholder={section === "users" ? "Name or email" : section === "audit" ? "Action name" : section === "executions" ? "Workflow name" : "Name"} onChange={(event) => setSearchDraft(event.target.value)} /></span></label>
         {section === "executions" && <><label>Status<Select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="">All statuses</option>{["QUEUED", "RUNNING", "WAITING_APPROVAL", "SUCCEEDED", "FAILED", "CANCELLED"].map((value) => <option key={value} value={value}>{adminLabel(value.toLowerCase().replaceAll("_", " "))}</option>)}</Select></label><label>Period<Select value={period} onChange={(event) => { setPeriod(event.target.value); setPage(1); }}><option value="24h">Last 24 hours</option><option value="7d">Last 7 days</option><option value="30d">Last 30 days</option><option value="all">All retained history</option></Select></label></>}

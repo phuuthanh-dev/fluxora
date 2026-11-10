@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { Database, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button, Dialog, DialogHeader, EmptyState, Field, Progress, Status } from "../../components/ui";
 import { apiRequest } from "../api/api-client";
@@ -76,22 +75,22 @@ export function JiraPrivacyPanel() {
   return <div className="admin-privacy">
     <section className="admin-card">
       <div className="admin-card__heading"><h2><ShieldCheck size={19} aria-hidden="true" /> Jira data requests</h2><span className="admin-badge">Reporting {page?.enabled ? "configured on" : "off"}</span></div>
-      <p>Review account-linked data before resolving an Atlassian request. This screen never shows account IDs, credentials or execution payloads.</p>
-      <div className="admin-privacy__actions"><Button variant="secondary" disabled={busy || loading} onClick={() => void discover()}><Database size={15} aria-hidden="true" />Inventory current connections</Button><Button variant="ghost" disabled={busy || loading} onClick={() => setRefresh((value) => value + 1)}><RefreshCw size={15} aria-hidden="true" />Refresh records</Button><Link href="/privacy" className="admin-text-link">Privacy policy</Link></div>
-      <p className="admin-caption">Inventory only adds metadata links. It does not erase data, enable reporting, or prove that all people in free text have been identified.</p>
+      <p>Only requests needing review are listed. Account IDs, credentials and execution payloads stay hidden.</p>
+      <Button variant="ghost" disabled={busy || loading} onClick={() => setRefresh((value) => value + 1)}><RefreshCw size={15} aria-hidden="true" />Refresh requests</Button>
+      <details className="admin-privacy__inventory"><summary>Connection inventory</summary><p>For existing connections that predate tracking. Inventory only adds metadata links; it does not erase data, enable reporting, or identify people in free text. Deleted legacy connections still need operator investigation.</p><Button variant="secondary" disabled={busy || loading} onClick={() => void discover()}><Database size={15} aria-hidden="true" />Inventory current connections</Button></details>
     </section>
     {notice && <Status tone="success">{notice}</Status>}
     {error && <Status tone="error">{error}</Status>}
-    {loading && <Progress label="Loading Jira reporting records" />}
-    {!loading && !error && page?.records.length === 0 && <EmptyState title="No Jira reporting records" description="Connect Jira or inventory existing connections. A request appears after Atlassian responds to a scheduled report." />}
-    <ul className="admin-privacy__records" aria-label="Jira reporting records">{!loading && page?.records.map((record) => <li key={record.id} className="admin-card">
+    {loading && <Progress label="Loading Jira data requests" />}
+    {!loading && !error && page?.records.length === 0 && <EmptyState title={cursor ? "No requests on this page" : "No pending Jira requests"} description="Requests appear here when Atlassian requires action or a reporting attempt needs investigation. No action is needed here right now." />}
+    <ul className="admin-privacy__records" aria-label="Jira data requests">{!loading && page?.records.map((record) => <li key={record.id} className="admin-card">
       <div className="admin-card__heading"><h3>Record <code>{record.id.slice(0, 8)}</code></h3><span className="admin-badge">{record.requiredAction ?? record.state.replaceAll("_", " ").toLowerCase()}</span></div>
       <dl className="admin-privacy__metadata"><div><dt>Connections tracked</dt><dd>{record.connectionCount}</dd></div><div><dt>Workspaces tracked</dt><dd>{record.workspaceCount}</dd></div><div><dt>Last reported</dt><dd>{date(record.lastReportedAt)}</dd></div><div><dt>Next report</dt><dd>{date(record.nextReportAt)}</dd></div></dl>
       {!record.coverageReviewedAt && <p className="admin-caption">Legacy attribution needs review, including connections deleted before tracking was added.</p>}
       {record.lastErrorCode && <p className="admin-caption">Last result: <code>{record.lastErrorCode}</code></p>}
       {["ACTION_REQUIRED", "UNCERTAIN"].includes(record.state) && <Button variant="secondary" disabled={busy} onClick={() => void review(record)}>{busy ? "Preparing…" : record.state === "UNCERTAIN" ? "Review uncertain attempt" : "Review affected data"}</Button>}
     </li>)}</ul>
-    {(cursor || page?.nextCursor) && <div className="admin-privacy__actions">{page?.nextCursor && <Button variant="secondary" disabled={loading} onClick={() => setCursor(page.nextCursor!)}>Next records</Button>}{cursor && <Button variant="ghost" onClick={() => setCursor("")}>First page</Button>}</div>}
+    {(cursor || page?.nextCursor) && <div className="admin-privacy__actions">{page?.nextCursor && <Button variant="secondary" disabled={loading} onClick={() => setCursor(page.nextCursor!)}>Next requests</Button>}{cursor && <Button variant="ghost" onClick={() => setCursor("")}>First page</Button>}</div>}
     {selected && <div className="admin-dialog-backdrop"><Dialog label={selected.state === "UNCERTAIN" ? "Review uncertain Jira report" : "Review Jira data erasure"} className="admin-dialog admin-privacy-dialog" onClose={() => { if (!busy) { setSelected(null); setPreview(null); } }}>
       <DialogHeader eyebrow="JIRA PRIVACY / OPERATOR REVIEW" title={selected.state === "UNCERTAIN" ? "Schedule a reviewed report" : "Review before erasing"} onClose={() => { if (!busy) { setSelected(null); setPreview(null); } }} />
       {error && <Status tone="error">{error}</Status>}

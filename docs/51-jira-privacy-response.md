@@ -8,12 +8,25 @@ Owner-approved batch: 10 November 2026. Task:
 - [Atlassian user privacy guide](https://developer.atlassian.com/cloud/jira/platform/user-privacy-developer-guide/): report account IDs and the oldest stored-data observation, respect the reporting cycle, and act on closed/updated responses. Updated data may be erased rather than refreshed. The reporting API recommends the app owner's bearer token. Its documented active/closed test accounts are appropriate for protocol testing; do not repeatedly report real closed accounts.
 - [Atlassian 3LO](https://developer.atlassian.com/cloud/jira/platform/oauth-2-3lo-apps/): a user's grant is constrained by their selected site and permissions. Production callbacks, provider distribution and actual consent are independent of a successful mock test.
 - [n8n execution data management](https://docs.n8n.io/deploy/host-n8n/configure-n8n/scaling/manage-execution-data.md): reduce retained data and prune finished executions; running/waiting work is excluded. Fluxora already has retention. This batch does not add another pruning scheduler or claim n8n implements this Jira-specific response screen.
+- [n8n Jira credentials](https://docs.n8n.io/integrations/builtin/credentials/jira/): the documented OAuth setup uses an Atlassian app created by the person configuring n8n, alongside API-token authentication. [Make](https://apps.make.com/jira) documents an API-token connection; [Zapier](https://help.zapier.com/hc/en-us/articles/38815673973133-How-to-get-started-with-Jira-Software-Cloud-on-Zapier) documents its common Apps/connection flow. Their public connection instructions do not establish their internal reporting implementation or an exemption from privacy obligations.
+
+Atlassian requires reporting when an app stores personal data; it recommends
+retrieving current data without storing it to avoid that reporting process. It
+does not prescribe a dedicated Admin screen. Fluxora retains execution payloads,
+so the reporting/storage assessment cannot be skipped merely because it is an
+automation tool. Managed OAuth remains unchanged: each user connects their own
+authorized site. The owner chose to consolidate operator review into Support,
+rather than add a Jira-specific administration area or generic privacy framework.
 
 ## Response process
 
-`/admin/privacy` uses the existing platform-administrator boundary, same-origin
-mutation guard and shared landing-derived controls/themes. It lists metadata,
-not raw Atlassian account IDs, credentials or execution payloads.
+`/admin/support` reuses its existing Privacy and data requests card. Its review
+section loads only when opened, uses the existing platform-administrator boundary,
+same-origin mutation guard and shared landing-derived controls/themes. Only
+`ACTION_REQUIRED` and `UNCERTAIN` records are listed; normal reporting remains
+background work. Connection inventory is a secondary disclosure. There is no
+separate Privacy menu or `/admin/privacy` route. Metadata, not raw Atlassian
+account IDs, credentials or execution payloads, appears in the review section.
 
 OAuth saves durable credential/workspace IDs in the existing encrypted-account
 ledger. Those links survive credential deletion. **Inventory current connections**

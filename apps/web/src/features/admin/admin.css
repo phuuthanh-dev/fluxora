@@ -123,6 +123,9 @@ body:has(.admin-drawer-backdrop) { overflow: hidden; }
 .admin-privacy { display: grid; gap: var(--space-5); }
 .admin-privacy__records { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
 .admin-privacy .admin-card__heading h2 { display: flex; align-items: center; gap: var(--space-2); }
+.admin-privacy__inventory { width: 100%; border-top: 1px solid var(--line); padding-top: var(--space-4); }
+.admin-privacy__inventory summary { cursor: pointer; color: var(--text-accent); font-size: 14px; font-weight: 600; }
+.admin-privacy__inventory p { margin-block: var(--space-4); }
 .admin-privacy__actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-4); }
 .admin-privacy__metadata { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--space-4); margin-block: var(--space-5); }
 .admin-privacy__metadata dt { color: var(--text-secondary); font-size: 12px; text-transform: capitalize; }

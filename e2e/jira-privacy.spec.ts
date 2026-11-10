@@ -21,11 +21,20 @@ test("Jira Admin response review is accessible in both themes and requires a fre
     }
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(data) });
   });
-  await page.goto("/admin/privacy");
+  await page.goto("/admin/support");
+  await expect(page.getByRole("link", { name: "Privacy", exact: true })).toHaveCount(0);
+  const requests = page.getByRole("button", { name: "Review data requests", exact: true });
+  await expect(requests).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("heading", { name: "Jira data requests", exact: true })).toHaveCount(0);
+  await requests.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: "Hide data requests", exact: true })).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("button", { name: "Inventory current connections", exact: true })).not.toBeVisible();
   for (const theme of ["light", "dark"]) {
     const toggle = page.getByRole("button", { name: `Switch to ${theme} mode`, exact: true });
     if (await toggle.isVisible()) await toggle.click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+    await page.screenshot({ path: testInfo.outputPath(`jira-support-${theme}.png`), fullPage: true });
     await page.getByRole("button", { name: "Review affected data", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Review Jira data erasure", exact: true });
     await expect(dialog).toBeVisible();
@@ -83,5 +92,12 @@ test("Jira Admin response review is accessible in both themes and requires a fre
   expect(mutations).toHaveLength(2);
   expect(mutations[1].body).toMatchObject({ previewToken: "synthetic-preview", copiesReviewed: true, legacyReviewed: true, confirmation: "ERASE", reviewReference: "SYNTHETIC-REVIEW-1" });
   expect(mutations.every((item) => item.path.startsWith("/api/v1/admin/jira-privacy-reporting/"))).toBe(true);
-  await expect(page.getByRole("heading", { name: "No Jira reporting records" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "No pending Jira requests" })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
+  await page.screenshot({ path: testInfo.outputPath("jira-support-mobile.png") });
+  await page.getByRole("button", { name: "Hide data requests", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Jira data requests", exact: true })).toHaveCount(0);
+  const removedRoute = await page.goto("/admin/privacy");
+  expect(removedRoute?.status()).toBe(404);
 });

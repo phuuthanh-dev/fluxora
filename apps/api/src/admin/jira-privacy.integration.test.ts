@@ -41,6 +41,21 @@ async function fixture() {
   return { db, user, workspace, credential, workflow, version, graph, execution, accountId, accountHash, grant, vault, service, cleanup };
 }
 
+test("Support lists only Jira requests needing review without exposing account data", { skip: !enabled }, async () => {
+  const f = await fixture();
+  try {
+    assert.equal((await f.service.list()).records.some((record) => record.id === f.accountHash), false);
+    for (const state of ["ACTION_REQUIRED", "UNCERTAIN"] as const) {
+      await f.db.jiraPrivacyAccount.update({ where: { accountHash: f.accountHash }, data: { state } });
+      const record = (await f.service.list()).records.find((item) => item.id === f.accountHash);
+      assert.equal(record?.state, state);
+      assert.equal(record?.connectionCount, 1);
+      assert.equal(JSON.stringify(record).includes(f.accountId), false);
+      assert.doesNotMatch(JSON.stringify(record), /encryptedAccountId|accessToken|refreshToken|synthetic-personal-data/);
+    }
+  } finally { await f.cleanup(); }
+});
+
 for (const action of ["closed", "updated"] as const) test(`reviewed Jira ${action} response erases payload copies atomically, preserves metadata and blocks retry`, { skip: !enabled }, async () => {
   const f = await fixture();
   try {

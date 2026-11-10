@@ -24,7 +24,7 @@ export class JiraPrivacyService {
 
   async list(cursor?: string) {
     if (cursor) requestId(cursor);
-    const rows = await this.prisma.jiraPrivacyAccount.findMany({ take: 51, orderBy: { accountHash: "asc" }, ...(cursor ? { cursor: { accountHash: cursor }, skip: 1 } : {}), select: { accountHash: true, state: true, requiredAction: true, oldestDataAt: true, nextReportAt: true, lastReportedAt: true, lastAttemptAt: true, cycleDays: true, coverageReviewedAt: true, credentialIds: true, workspaceIds: true, lastErrorCode: true } });
+    const rows = await this.prisma.jiraPrivacyAccount.findMany({ where: { state: { in: ["ACTION_REQUIRED", "UNCERTAIN"] } }, take: 51, orderBy: { accountHash: "asc" }, ...(cursor ? { cursor: { accountHash: cursor }, skip: 1 } : {}), select: { accountHash: true, state: true, requiredAction: true, oldestDataAt: true, nextReportAt: true, lastReportedAt: true, lastAttemptAt: true, cycleDays: true, coverageReviewedAt: true, credentialIds: true, workspaceIds: true, lastErrorCode: true } });
     return { enabled: process.env.JIRA_PRIVACY_REPORTING_ENABLED === "true", records: rows.slice(0, 50).map(({ accountHash, credentialIds, workspaceIds, ...item }) => ({ id: accountHash, ...item, connectionCount: credentialIds.length, workspaceCount: workspaceIds.length })), nextCursor: rows.length > 50 ? rows[49]?.accountHash ?? null : null };
   }
 
