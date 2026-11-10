@@ -1,3 +1,4 @@
+import { isNotionOAuth, requireNotionReconnect, runNotionAuthorized, saveNotionAuthorization, type NotionAuthorization } from "./notion-oauth";
 import { validGitLabToken } from "../execution/gitlab";
 import { CredentialProvider, ExecutionStatus, type Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
@@ -101,6 +102,8 @@ export class CredentialService {
     const credential = await this.prisma.credential.findFirst({ where: { id: credentialId, workspaceId } });
     if (!credential) throw new NotFoundException({ code: "CREDENTIAL_NOT_FOUND", message: "A matching credential was not found in this workspace." });
     if (credential.provider === CredentialProvider.SLACK_OAUTH && input.data !== undefined) throw new BadRequestException({ code: "CREDENTIAL_MANAGED_BY_OAUTH", message: "Reconnect Slack to change its authorization." });
+
+    if (credential.provider === CredentialProvider.NOTION && isNotionOAuth(this.vault.decrypt(credential.encryptedData)) && input.data !== undefined) throw new BadRequestException({ code: "CREDENTIAL_MANAGED_BY_OAUTH", message: "Reconnect Notion to change its authorization." });
 
     if (isCanonicalGoogleOAuth(credential)) {
       throw new BadRequestException({
@@ -287,6 +290,20 @@ export class CredentialService {
     return (await this.readForExecutionSnapshot(credentialId, workspaceId, provider)).data;
   }
 
+  async requireNotionReconnectTarget(workspaceId: string, userId: string, credentialId: string) {
+    await this.workspaces.requireOwner(workspaceId, userId);
+    return requireNotionReconnect(this.prisma, this.vault, workspaceId, credentialId);
+  }
+
+  async saveNotionOAuth(workspaceId: string, userId: string, data: NotionAuthorization, credentialId?: string) {
+    await this.workspaces.requireOwner(workspaceId, userId);
+    return saveNotionAuthorization(this.prisma, this.vault, workspaceId, userId, data, credentialId);
+  }
+
+  runNotionOperation<T>(credentialId: string, workspaceId: string, operation: () => Promise<T>) {
+    return runNotionAuthorized(this.prisma, this.vault, workspaceId, credentialId, operation);
+  }
+
   async requireSlackReconnectTarget(workspaceId: string, userId: string, credentialId: string) {
     await this.workspaces.requireOwner(workspaceId, userId);
     const existing = await this.prisma.credential.findFirst({ where: { id: credentialId, workspaceId, provider: CredentialProvider.SLACK_OAUTH } });
@@ -294,19 +311,20 @@ export class CredentialService {
     return existing;
   }
 
-  async saveSlackOAuth(workspaceId: string, userId: string, data: { accessToken: string; teamId: string; teamName: string; grantedScopes?: string[] }, credentialId?: string) {
+  async saveSlackOAuth(workspaceId: string, userId: string, data: { accessToken: string; appId: string; teamId: string; teamName: string; grantedScopes?: string[] }, credentialId?: string) {
     await this.workspaces.requireOwner(workspaceId, userId);
-    if (!/^xoxb-[A-Za-z0-9-]{10,512}$/.test(data.accessToken) || !/^[A-Z0-9]{2,64}$/.test(data.teamId) || !data.teamName || data.teamName.length > 200) throw new BadRequestException({ code: "SLACK_OAUTH_INVALID", message: "Slack returned an invalid authorization." });
+    if (!/^xoxb-[A-Za-z0-9-]{10,512}$/.test(data.accessToken) || !/^[A-Z0-9]{2,64}$/.test(data.teamId) || !/^[A-Z][A-Z0-9]{2,63}$/.test(data.appId) || !data.teamName || data.teamName.length > 200) throw new BadRequestException({ code: "SLACK_OAUTH_INVALID", message: "Slack returned an invalid authorization." });
     const encryptedData = this.vault.encrypt(data);
     let id: string;
     if (credentialId) {
       const existing = await this.requireSlackReconnectTarget(workspaceId, userId, credentialId);
-      if (this.vault.decrypt(existing.encryptedData).teamId !== data.teamId) throw new ConflictException({ code: "SLACK_WORKSPACE_MISMATCH", message: "Reconnect the same Slack workspace or create a new connection." });
+      const previous = this.vault.decrypt(existing.encryptedData);
+      if (previous.teamId !== data.teamId || previous.appId && previous.appId !== data.appId) throw new ConflictException({ code: "SLACK_WORKSPACE_MISMATCH", message: "Reconnect the same Slack workspace and app, or create a new connection." });
       const updated = await this.prisma.credential.updateMany({ where: { id: credentialId, workspaceId, provider: CredentialProvider.SLACK_OAUTH, encryptedData: existing.encryptedData }, data: { encryptedData } });
       if (!updated.count) throw new ConflictException({ code: "CREDENTIAL_CHANGED", message: "The Slack connection changed. Try again." });
       id = credentialId;
     } else {
-      const label = `Slack · ${data.teamId}`;
+      const label = `Slack · ${data.teamName.slice(0, 45)} · ${data.teamId}`;
       try { id = (await this.prisma.credential.create({ data: { workspaceId, provider: CredentialProvider.SLACK_OAUTH, label, encryptedData } })).id; }
       catch (error) { if (hasErrorCode(error, "P2002")) throw new ConflictException({ code: "CREDENTIAL_LABEL_CONFLICT", message: "This Slack workspace is already connected. Reconnect it instead." }); throw error; }
     }
@@ -512,6 +530,7 @@ export class CredentialService {
 
   private summary(credential: { id: string; provider: CredentialProvider; label: string; createdAt: Date; updatedAt: Date; encryptedData?: string }) {
     let hints: ReturnType<typeof credentialHints> = [];
+    let notionManaged = false;
     let selectedGmailCapabilities: GmailCapability[] | undefined;
     let chatManageEnabled = false;
     let googleReconnectRequired = false;
@@ -530,7 +549,11 @@ export class CredentialService {
       } catch { /* Keep listing usable when one credential is unreadable. */ }
     }
     if (credential.encryptedData && !isCanonicalGoogleOAuth(credential)) {
-      try { hints = credentialHints(credential.provider, this.vault.decrypt(credential.encryptedData)); }
+      try {
+        const data = this.vault.decrypt(credential.encryptedData);
+        notionManaged = credential.provider === CredentialProvider.NOTION && isNotionOAuth(data);
+        if (!notionManaged) hints = credentialHints(credential.provider, data);
+      }
       catch { /* A malformed or old encrypted value must not prevent listing other connections. */ }
     }
     return {
@@ -539,7 +562,7 @@ export class CredentialService {
       label: credential.label,
       createdAt: credential.createdAt,
       updatedAt: credential.updatedAt,
-      isManaged: isCanonicalGoogleOAuth(credential) || credential.provider === CredentialProvider.SLACK_OAUTH,
+      isManaged: isCanonicalGoogleOAuth(credential) || credential.provider === CredentialProvider.SLACK_OAUTH || notionManaged,
       ...(selectedGmailCapabilities ? { gmailCapabilities: selectedGmailCapabilities } : {}),
       ...(chatManageEnabled ? { chatManageEnabled: true } : {}),
       ...(googleReconnectRequired ? { googleReconnectRequired: true } : {}),
@@ -647,6 +670,7 @@ function validateCredentialPayload(provider: CredentialProvider, data: Record<st
     return;
   }
   if (provider === CredentialProvider.NOTION) {
+    if (Object.keys(data).some((key) => key !== "token")) throw new BadRequestException({ code: "INVALID_INPUT", message: "Manual Notion connections accept only a token. Use OAuth to authorize a workspace." });
     if (typeof data.token !== "string" || !data.token || data.token.length > 4096 || /\s/.test(data.token)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid Notion integration token." });
     return;
   }

@@ -328,7 +328,7 @@ test("Google Drive fields follow the selected operation without losing draft val
   await expect(page.getByRole("group", { name: "Text file" })).toBeVisible();
 });
 
-test("Slack trigger uses published event settings and imports a hidden signing secret", async ({ page }) => {
+test("Slack trigger registers its published subscription without requesting app secrets", async ({ page }) => {
   const graph = { nodes: [{ id: "slack", type: "trigger.slack.event", position: { x: 100, y: 100 }, config: { credentialId: "slack-1", channel: "CEXAMPLE", event: "app_mention" } }], edges: [] };
   const workflow = { id: "slack-test", workspaceId: "workspace-1", name: "Slack test", isActive: false, draft: { id: "draft", version: 1, graph }, published: { id: "published", version: 1, graph } };
   let registration: Record<string, unknown> | undefined;
@@ -351,16 +351,13 @@ test("Slack trigger uses published event settings and imports a hidden signing s
   });
   await page.goto("/editor?workflow=slack-test");
   await page.locator('.react-flow__node[data-id="slack"]').click();
-  await expect(page.getByText(/Slack sending permissions alone/)).toBeVisible();
+  await expect(page.getByText(/Enable trigger access in Connections/)).toBeVisible();
   await page.getByRole("button", { name: "Configure webhook", exact: true }).click();
   const panel = page.getByRole("dialog", { name: "Webhook endpoint" });
-  await expect(panel.getByText(/Slack accepts one Events Request URL per app/)).toBeVisible();
-  await expect(panel.getByRole("button", { name: "Create registration" })).toBeDisabled();
-  await panel.getByLabel("Slack app signing secret").fill("synthetic-signing-fixture");
-  await expect(panel.getByLabel("Slack app signing secret")).toHaveAttribute("type", "password");
-  await panel.getByRole("button", { name: "Create registration" }).click();
-  await expect(panel.getByText(/Signing secret saved/)).toBeVisible();
-  expect(registration?.signingSecret).toBe("synthetic-signing-fixture");
+  await expect(panel.getByText(/Fluxora uses one shared Events URL/)).toBeVisible();
+  await expect(panel.getByLabel("Slack app signing secret")).toHaveCount(0);
+  await panel.getByRole("button", { name: "Register subscription" }).click();
+  await expect(panel.getByRole("button", { name: "Update subscription" })).toBeVisible();
+  expect(registration?.signingSecret).toBeUndefined();
   expect(registration?.publishedVersionId).toBe("published");
-  await expect(panel.getByLabel("Slack app signing secret")).toHaveValue("");
 });

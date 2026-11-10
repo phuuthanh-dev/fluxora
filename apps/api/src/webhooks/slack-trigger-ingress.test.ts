@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import test from "node:test";
+import { NotFoundException } from "@nestjs/common";
 import { WebhookService, hashWebhookSecret } from "./webhook.service";
 import { parseWorkflowGraph, validatePublishableGraph } from "../workflows/workflow-graph";
 import { WebhookController } from "./webhook.controller";
@@ -71,4 +72,26 @@ test("Slack HTTP acknowledgement is 200 while other webhook response codes remai
   status = undefined;
   await controller.receive("path", undefined, undefined, undefined, undefined, Buffer.from("{}"), { body: {} } as never, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, response as never);
   assert.equal(status, undefined);
+});
+
+test("shared Slack ingress routes only the signed app/team to each owned active subscription", async (t) => {
+  const previousSecret = process.env.SLACK_SIGNING_SECRET, previousApp = process.env.SLACK_APP_ID;
+  process.env.SLACK_SIGNING_SECRET = secret; process.env.SLACK_APP_ID = "AEXAMPLE";
+  t.after(() => { if (previousSecret === undefined) delete process.env.SLACK_SIGNING_SECRET; else process.env.SLACK_SIGNING_SECRET = previousSecret; if (previousApp === undefined) delete process.env.SLACK_APP_ID; else process.env.SLACK_APP_ID = previousApp; });
+  const endpoints = ["one", "two", "stale", "removed"].map((id) => ({ id, path: id, workflowId: id, workflowVersionId: "version", secretHash: hashWebhookSecret(secret), encryptedSigningSecret: vault.encrypt({ secret }), workflow: { workspaceId: id, publishedVersionId: id === "stale" ? "new" : "version" }, workflowVersion: { graph } }));
+  const runs: unknown[] = [], reads: string[] = []; let lookups = 0;
+  const service = new WebhookService({ webhookEndpoint: { findMany: async ({ where }: { where: unknown }) => { lookups++; assert.match(JSON.stringify(where), /isActive/); return endpoints; } } } as never, { createSlackScheduledExecution: async (input: unknown) => { runs.push(input); return { id: "run", status: "SUCCEEDED" }; } } as never, {} as never, { readForExecution: async (_id: string, workspace: string) => { reads.push(workspace); if (workspace === "removed") throw new NotFoundException(); return { appId: "AEXAMPLE", teamId: workspace === "one" ? "TONE" : "TTWO" }; } } as never, vault as never);
+  const receive = (payload: unknown, valid = true) => {
+    const raw = Buffer.from(JSON.stringify(payload)), timestamp = String(Math.floor(Date.now() / 1000));
+    const signature = `v0=${createHmac("sha256", secret).update(`v0:${timestamp}:`).update(raw).digest("hex")}`;
+    return service.receiveSlackEvent(raw, { timestamp, signature: valid ? signature : "invalid" });
+  };
+  const event = { type: "event_callback", event_id: "EvONE", api_app_id: "AEXAMPLE", team_id: "TONE", event: { type: "app_mention", channel: "CEXAMPLE", user: "UEXAMPLE", text: "Hello", ts: "1794213000.123456" } };
+  await assert.rejects(receive(event, false)); assert.equal(lookups, 0);
+  assert.deepEqual(await receive({ type: "url_verification", challenge: "challenge" }), { challenge: "challenge" });
+  await receive({ ...event, api_app_id: "AOTHER" }); await receive({ ...event, is_ext_shared_channel: true }); assert.equal(lookups, 0);
+  await receive(event); assert.equal(runs.length, 1); assert.equal((runs[0] as { workflowId: string }).workflowId, "one"); assert.deepEqual(reads, ["one", "two", "removed"]);
+  await receive({ ...event, event_id: "EvTWO", team_id: "TTWO" }); assert.equal(runs.length, 2); assert.equal((runs[1] as { workflowId: string }).workflowId, "two");
+  await receive({ ...event, event: { ...event.event, channel: "COTHER" } }); assert.equal(runs.length, 2);
+  assert.ok(!JSON.stringify(runs).includes(secret));
 });

@@ -631,3 +631,16 @@ Upsert uses `ON CONFLICT` against one user-selected unique column included in
 the row; PostgreSQL enforces the uniqueness constraint atomically. The server
 does not silently retry after a query may have been sent. Execution output
 contains only an acknowledgement and target names, not row values.
+
+
+### Workspace-owned OAuth additions (2026-11-10)
+
+Notion public OAuth reuses the Credential vault and existing Notion operations.
+Callback state is browser/session/owner/workspace-bound. Reconnect checks workspace
+and bot identity; only a definite 401 renews authorization under a database row lock
+and retries once. Manual tokens and ambiguous-write failure behavior are preserved.
+
+Managed Slack events enter one signed app endpoint, then route by provider-returned
+app/team IDs to current active published workflow subscriptions in each workspace.
+The existing durable delivery key and execution recovery avoid duplicate runs on
+provider retry. See docs/48 for deployment prerequisites and current scale limits.

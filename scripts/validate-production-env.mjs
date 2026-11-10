@@ -95,6 +95,12 @@ export function validateProductionEnv(text) {
   validateProviderGroup(values, ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"], errors);
   validateProviderGroup(values, ["GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET"], errors);
   validateProviderGroup(values, ["SLACK_CLIENT_ID", "SLACK_CLIENT_SECRET", "SLACK_REDIRECT_URI"], errors);
+  validateProviderGroup(values, ["NOTION_CLIENT_ID", "NOTION_CLIENT_SECRET", "NOTION_REDIRECT_URI"], errors);
+  if (values.get("NOTION_REDIRECT_URI")) {
+    try { const url = new URL(values.get("NOTION_REDIRECT_URI")); if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) errors.push("NOTION_REDIRECT_URI: must be HTTPS without credentials/query/fragment"); }
+    catch { errors.push("NOTION_REDIRECT_URI: invalid URL"); }
+  }
+  if (Boolean(values.get("SLACK_APP_ID")) !== Boolean(values.get("SLACK_SIGNING_SECRET"))) errors.push("SLACK_APP_ID and SLACK_SIGNING_SECRET must be configured together for shared events");
   if (values.get("SLACK_REDIRECT_URI")) {
     try {
       const url = new URL(values.get("SLACK_REDIRECT_URI"));

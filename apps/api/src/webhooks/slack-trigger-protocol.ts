@@ -21,7 +21,7 @@ export function readSlackEnvelope(raw: Buffer) {
     if (typeof body.challenge !== "string" || !/^[A-Za-z0-9_-]{1,512}$/.test(body.challenge)) throw invalid();
     return { kind: "challenge" as const, challenge: body.challenge };
   }
-  if (body.type !== "event_callback") return { kind: "ignored" as const };
+  if (body.type !== "event_callback" || body.is_ext_shared_channel === true) return { kind: "ignored" as const };
   const event = object(body.event);
   if (typeof body.event_id !== "string" || !/^[A-Za-z0-9_-]{3,160}$/.test(body.event_id) || !id(body.team_id) || !id(body.api_app_id) || !event) throw invalid();
   return { kind: "event" as const, eventId: body.event_id, teamId: body.team_id, appId: body.api_app_id, event };

@@ -405,7 +405,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
     ["GOOGLE", "GOOGLE_CHAT_OAUTH", "GMAIL", "GOOGLE_CALENDAR"].includes(cred.provider) && (cred.isManaged ?? (cred.provider === "GOOGLE" && cred.label === "Google OAuth"));
 
 
-  const isManaged = (credential: CredentialSummary) => isGoogleOAuth(credential) || credential.provider === "SLACK_OAUTH";
+  const isManaged = (credential: CredentialSummary) => isGoogleOAuth(credential) || credential.provider === "SLACK_OAUTH" || (credential.provider === "NOTION" && credential.isManaged === true);
   const openSettings = (credential: CredentialSummary) => {
     cancelAction();
     setActiveAction({ credentialId: credential.id, type: isManaged(credential) ? "oauth" : "details" });
@@ -433,6 +433,9 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
                       variant="secondary" type="button" className="credential-panel__oauth"
                       onClick={() => startGoogleConnection(workspaceId, credential.provider === "GOOGLE_CALENDAR" ? "calendar" : "google", credential.id, credential.googleIdentityUnverified)}
                     >Reconnect Google</Button>}
+                  </> : credential.provider === "NOTION" ? <>
+                    <p className="credential-card__oauth-text">Reconnect the same Notion workspace and choose the pages Fluxora can access. Existing workflows keep this connection.</p>
+                    <Button variant="secondary" type="button" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/notion/connect?credentialId=${encodeURIComponent(credential.id)}`)}>Reconnect Notion</Button>
                   </> : <>
                     <p className="credential-card__oauth-text">Reconnect the same Slack workspace if access expires or is revoked. To connect a different workspace, add a new connection.</p>
                     <div className="credential-card__form-actions">
@@ -599,6 +602,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
         {provider === "REDDIT" ? <div className="credential-form__oauth-helper"><span>Reddit has stopped accepting new public Data API access requests and plans to retire remaining access in March 2027. Existing approved apps may still work during the transition.</span><a className="credential-form__oauth-link" href="https://support.reddithelp.com/hc/en-us/articles/54353370049684-Changelog-October-8-2026" target="_blank" rel="noopener noreferrer">Reddit access timeline <ArrowUpRight size={13} aria-hidden="true" /></a></div> : null}
         {provider === "SUPABASE" ? <div className="credential-form__oauth-helper"><span>Find your project reference and API key in the Supabase dashboard. A secret key grants elevated access and bypasses Row Level Security.</span><a className="credential-form__oauth-link" href="https://supabase.com/docs/guides/getting-started/api-keys" target="_blank" rel="noopener noreferrer">Supabase key guide <ArrowUpRight size={13} aria-hidden="true" /></a><a className="credential-form__oauth-link" href="https://supabase.com/docs/guides/platform/personal-access-tokens" target="_blank" rel="noopener noreferrer">Scoped management token guide <ArrowUpRight size={13} aria-hidden="true" /></a></div> : null}
         <p className="credential-form__hint" aria-live="polite">{credentialPresets[provider].hint}</p>
+        {provider === "NOTION" && <div className="credential-form__oauth-helper"><span>Connect your own Notion workspace and select the pages Fluxora may read and update, or enter an integration token below.</span><Button variant="secondary" type="button" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/notion/connect`)}>Connect Notion</Button></div>}
         {provider === "SLACK_OAUTH" ? <div className="credential-form__oauth-helper"><span>Slack lets Fluxora list public channels and send messages as its bot.</span><button type="button" className="credential-form__oauth-link" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/slack/connect`)}>Connect Slack <ArrowUpRight size={13} aria-hidden="true" /></button></div> : <CredentialSecretFields provider={provider} value={data} onChange={(value) => { setData(value); setJsonError(null); setCreateError(null); }} />}
         {jsonError && <p className="credential-form__error" role="alert">{jsonError}</p>}
         {createError && <p className="credential-form__error" role="alert">{createError}</p>}
