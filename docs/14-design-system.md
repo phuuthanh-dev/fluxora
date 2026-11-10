@@ -72,7 +72,7 @@ only when it is a provider brand color or a clearly documented semantic state.
 | Light border | `--line` | `#e1e6dc` |
 | Light panel | `--panel` | `#fffef9` |
 | Spacing | `--space-1` … `--space-7` | 4px–32px rhythm |
-| Type scale | `--text-xs` … `--text-xl` | 10px–24px product scale |
+| Type scale | `--text-xs` … `--text-xl` | 12px–24px product scale |
 | Type weight | `--weight-medium` … `--weight-extrabold` | 500–700; matches bundled fonts |
 | Navigation | `--header-height`, `--brand-size` | 64px header, 20px wordmark; wrapping allowed on narrow app screens |
 | Page layout | `--page-width`, `--page-gutter`, `--page-title` | Shared management-page width, gutter, 28–36px title |

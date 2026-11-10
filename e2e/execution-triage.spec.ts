@@ -37,6 +37,8 @@ test("execution filters request the selected status before pagination", async ({
   expect(seen).toContain("FAILED");
   await expect(page.getByText("1 loaded")).toBeVisible();
   await page.getByText("Saved views", { exact: true }).click();
+  const retentionSize = await page.locator(".retention-summary").evaluate((element) => getComputedStyle(element).fontSize);
+  await expect(page.locator(".saved-execution-views")).toHaveCSS("font-size", retentionSize);
   await page.getByLabel("View name").fill("Failures");
   await page.getByRole("button", { name: "Save current filter" }).click();
   await expect(page.getByRole("button", { name: "Failures", exact: true })).toBeVisible();
