@@ -1,12 +1,12 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { ArrowUpRight, ChevronUp, KeyRound, LockKeyhole, MoreVertical, Plus, Search } from "lucide-react";
+import { ArrowUpRight, ChevronRight, ChevronUp, KeyRound, LockKeyhole, MoreVertical, Plus, Search } from "lucide-react";
 import { ApiClientError, apiRequest, apiUrl } from "../api/api-client";
 import type { CredentialProvider, CredentialReferenceDetails, CredentialSummary, GmailCapability } from "./credential-types";
-import { Button, EmptyState, Field, IconButton, Menu, Select, Skeleton, Status, useDialogFocus } from "../../components/ui";
+import { Button, Dialog, DialogHeader, EmptyState, Field, IconButton, Menu, Select, Skeleton, Status, useDialogFocus } from "../../components/ui";
 
-import { Collapse } from "../../components/ui/disclosure";
+import { Collapse, Disclosure } from "../../components/ui/disclosure";
 import "./credentials.css";
 import { CredentialSecretFields } from "./credential-secret-fields";
 import { NodeIcon, type NodeIconName } from "../workflow/node-icon";
@@ -23,7 +23,7 @@ const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
   RIOT: { label: "Riot API", data: '{\n  "apiKey": ""\n}', hint: "Use your own Riot API key for its approved product. Development keys expire after 24 hours; personal keys are not for public products." },
   GOOGLE_CALENDAR: { label: "Google Calendar manual token", data: '{\n  "accessToken": ""\n}', hint: "Connect Google Calendar separately. Calendar events can appear in execution history." },
   GMAIL: { label: "Gmail manual token", data: '{\n  "accessToken": ""\n}', hint: "Connect Gmail separately from Google sign-in and Drive. Reading requires Gmail access." },
-  NOTION: { label: "Notion", data: '{\n  "token": ""\n}', hint: "Use your Notion integration token and share the pages with the integration." },
+  NOTION: { label: "Notion", data: '{\n  "token": ""\n}', hint: "Use your own Notion token. For an integration token, share the pages with that integration; a personal access token uses your own access." },
   TRELLO: { label: "Trello", data: '{\n  "apiKey": "",\n  "token": ""\n}', hint: "Enter a Trello API key and user token with board read and write access." },
   SENTRY: { label: "Sentry", data: '{\n  "token": "",\n  "region": "global"\n}', hint: "Use a Sentry token with organization and issue read permissions. Issue titles may appear in execution history." },
   VERCEL: { label: "Vercel", data: '{\n  "token": ""\n}', hint: "Use your own Vercel access token. This connection reads projects and deployments available to that token." },
@@ -96,7 +96,7 @@ const providerGroups: { label: string; options: ProviderOption[] }[] = [
   { label: "Social & gaming", options: [{ value: "REDDIT", label: "Reddit" }, { value: "STEAM", label: "Steam" }, { value: "RIOT", label: "Riot Games" }] },
 ];
 
-type ActiveAction = { credentialId: string; type: "rename" | "rotate" | "delete" };
+type ActiveAction = { credentialId: string; type: "rename" | "rotate" | "delete" | "oauth" | "details" };
 
 function requestErrorMessage(reason: unknown, fallback: string) {
   if (reason instanceof TypeError && /failed to fetch/i.test(reason.message)) {
@@ -157,6 +157,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
   const formRef = useRef<HTMLFormElement>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [methodFilter, setMethodFilter] = useState<"all" | "oauth" | "manual">("all");
   const [providerQuery, setProviderQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -166,7 +167,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
   const [provider, setProvider] = useState<CredentialProvider>("GOOGLE");
   const [label, setLabel] = useState(credentialPresets.GOOGLE.label);
   const [data, setData] = useState(credentialPresets.GOOGLE.data);
-  const [notice, setNotice] = useState("Encrypted server-side. Node runs never expose your secret values.");
+  const [notice, setNotice] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -403,134 +404,45 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
   const isGoogleOAuth = (cred: CredentialSummary) =>
     ["GOOGLE", "GOOGLE_CHAT_OAUTH", "GMAIL", "GOOGLE_CALENDAR"].includes(cred.provider) && (cred.isManaged ?? (cred.provider === "GOOGLE" && cred.label === "Google OAuth"));
 
-  const currentProvider = provider === "SMTP" || provider === "GMAIL" ? "EMAIL" : provider;
-  const matchingProviderGroups = providerGroups.map((group) => ({ ...group, options: group.options.filter((option) => `${option.label} ${option.keywords ?? ""}`.toLowerCase().includes(providerQuery.trim().toLowerCase())) })).filter((group) => group.options.length);
-  const currentIsMatching = matchingProviderGroups.some((group) => group.options.some((option) => option.value === currentProvider));
-  const currentProviderLabel = providerGroups.flatMap((group) => group.options).find((option) => option.value === currentProvider)?.label ?? currentProvider;
-  const providerMatchCount = matchingProviderGroups.reduce((count, group) => count + group.options.length, 0);
-  const visibleCredentials = credentials.filter((credential) => `${credential.label} ${credentialProviderLabel(credential.provider)}`.toLowerCase().includes(query.trim().toLowerCase()));
 
-  return (
-    <section
-      ref={panelRef}
-      className={`credential-panel credential-panel--${presentation}`}
-      aria-label="Credential manager"
-      role={presentation === "panel" ? "dialog" : "region"}
-      aria-modal={presentation === "panel" ? false : undefined}
-      tabIndex={presentation === "panel" ? -1 : undefined}
-    >
-      <div className="credential-panel__heading">
-        <div>
-          <p className="section-label">WORKSPACE VAULT</p>
-          <h2>{presentation === "page" ? "Saved connections" : "Secure connections"}</h2>
-        </div>
-        {onClose ? <IconButton className="icon-button" label="Close credential manager" onClick={onClose}>×</IconButton> : null}
-      </div>
-      <p>Full secrets are encrypted and never shown after saving. Some tokens display their last two characters for identification.</p>
-      <p>Google may combine returned permissions with prior grants to this app, even when connections appear as separate cards. Review the permissions on Google’s consent screen.</p>
-      {presentation === "panel" ? (
-        <div className="credential-panel__directory">
-          <Button variant="ghost" className="credential-panel__directory-link" onClick={() => window.open(`/dashboard/connections?workspace=${encodeURIComponent(workspaceId)}`, "_blank", "noopener,noreferrer")}>
-            Open connection center <ArrowUpRight size={13} aria-hidden="true" />
-          </Button>
-        </div>
-      ) : null}
-      <div className="credential-toolbar">
-        <label className="credential-search"><Search size={16} aria-hidden="true" /><input type="search" aria-label="Search connections" placeholder="Search name or app" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
-        <Button variant={createOpen ? "secondary" : "primary"} type="button" aria-expanded={createOpen} aria-controls="credential-create-content" onClick={toggleCreate}>{createOpen ? <ChevronUp size={15} /> : <Plus size={15} />}{createOpen ? "Hide new connection" : "New connection"}</Button>
-      </div>
-      <Collapse open={createOpen} id="credential-create-content" className="credential-create">
-      <form ref={formRef} onSubmit={submit} className="credential-form" aria-label="New connection">
-        <div className="credential-form__title"><h3>New connection</h3><p>Choose an app and add its authorization details.</p></div>
-        <div className="credential-provider-picker">
-          <Field label="Find an app" className="credential-form__field">
-            <input type="search" aria-label="Find an app" placeholder="Search apps" value={providerQuery} onChange={(event) => setProviderQuery(event.target.value)} />
-          </Field>
-          <Field label="Provider" className="credential-form__field">
-            <Select aria-label="Provider" value={currentProvider} onChange={(event) => changeProvider(event.target.value === "EMAIL" ? "GMAIL" : event.target.value as CredentialProvider)}>
-              {!currentIsMatching && <optgroup label="Current selection"><option value={currentProvider}>{currentProviderLabel}</option></optgroup>}
-              {matchingProviderGroups.map((group) => <optgroup label={group.label} key={group.label}>{group.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</optgroup>)}
-            </Select>
-          </Field>
-          {providerQuery.trim() && <p className="credential-provider-picker__result" role="status">{providerMatchCount ? `${providerMatchCount} ${providerMatchCount === 1 ? "app" : "apps"} found. Select a provider below.` : "No apps found. Try another search."}</p>}
-        </div>
-        {provider === "SMTP" || provider === "GMAIL" ? <Field label="Connection type" className="credential-form__field">
-          <Select aria-label="Email connection type" value={provider} onChange={(event) => changeProvider(event.target.value as "GMAIL" | "SMTP")}>
-            <option value="GMAIL">Gmail API (read and optional actions)</option>
-            <option value="SMTP">SMTP (send email)</option>
-          </Select>
-        </Field> : null}
-        {provider !== "SLACK_OAUTH" && <Field label="Connection name" className="credential-form__field">
-          <input aria-label="Connection name" value={label} onChange={(event) => { setLabel(event.target.value); setCreateError(null); }} />
-        </Field>}
-        {provider === "GOOGLE" ? (
-          <div className="credential-form__oauth-helper">
-            <span>Google requests access to view, create, edit and delete files in your Drive, including spreadsheets. This connection is separate from Google sign-in.</span>
-            <button type="button" className="credential-form__oauth-link" onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google/connect`); }}>
-              Connect Google <ArrowUpRight size={13} aria-hidden="true" />
-            </button>
-          </div>
-        ) : null}
-        {provider === "GOOGLE_CHAT_OAUTH" ? <GoogleChatOAuthConsent workspaceId={workspaceId} /> : null}
-        {provider === "GMAIL" ? <GmailOAuthConsent workspaceId={workspaceId} /> : null}
-        {provider === "GOOGLE_CALENDAR" ? <div className="credential-form__oauth-helper"><span>Google Calendar requests permission to view and edit events, list your calendars and check availability. Events may appear in workflow execution history.</span><button type="button" className="credential-form__oauth-link" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google-calendar/connect`)}>Connect Google Calendar <ArrowUpRight size={13} aria-hidden="true" /></button></div> : null}
-        {provider === "TRELLO" ? <div className="credential-form__oauth-helper"><span>Create an API key for a Trello Power-Up, then authorize a token with access to the boards you need.</span><a className="credential-form__oauth-link" href="https://developer.atlassian.com/cloud/trello/guides/rest-api/authorization/" target="_blank" rel="noopener noreferrer">Trello setup guide <ArrowUpRight size={13} aria-hidden="true" /></a></div> : null}
-        {provider === "SENTRY" ? <div className="credential-form__oauth-helper"><span>Create a Sentry authentication token with organization and issue read scopes.</span><a className="credential-form__oauth-link" href="https://docs.sentry.io/api/guides/create-auth-token/" target="_blank" rel="noopener noreferrer">Sentry setup guide <ArrowUpRight size={13} aria-hidden="true" /></a></div> : null}
-        {provider === "VERCEL" ? <div className="credential-form__oauth-helper"><span>Create an access token for the personal account or team you want to use.</span><a className="credential-form__oauth-link" href="https://vercel.com/docs/rest-api" target="_blank" rel="noopener noreferrer">Vercel API guide <ArrowUpRight size={13} aria-hidden="true" /></a></div> : null}
-        {provider === "REDDIT" ? <div className="credential-form__oauth-helper"><span>Reddit has stopped accepting new public Data API access requests and plans to retire remaining access in March 2027. Existing approved apps may still work during the transition.</span><a className="credential-form__oauth-link" href="https://support.reddithelp.com/hc/en-us/articles/54353370049684-Changelog-October-8-2026" target="_blank" rel="noopener noreferrer">Reddit access timeline <ArrowUpRight size={13} aria-hidden="true" /></a></div> : null}
-        {provider === "SUPABASE" ? <div className="credential-form__oauth-helper"><span>Find your project reference and API key in the Supabase dashboard. A secret key grants elevated access and bypasses Row Level Security.</span><a className="credential-form__oauth-link" href="https://supabase.com/docs/guides/getting-started/api-keys" target="_blank" rel="noopener noreferrer">Supabase key guide <ArrowUpRight size={13} aria-hidden="true" /></a><a className="credential-form__oauth-link" href="https://supabase.com/docs/guides/platform/personal-access-tokens" target="_blank" rel="noopener noreferrer">Scoped management token guide <ArrowUpRight size={13} aria-hidden="true" /></a></div> : null}
-        <p className="credential-form__hint" aria-live="polite">{credentialPresets[provider].hint}</p>
-        {provider === "SLACK_OAUTH" ? <div className="credential-form__oauth-helper"><span>Slack lets Fluxora list public channels and send messages as its bot.</span><button type="button" className="credential-form__oauth-link" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/slack/connect`)}>Connect Slack <ArrowUpRight size={13} aria-hidden="true" /></button></div> : <CredentialSecretFields provider={provider} value={data} onChange={(value) => { setData(value); setJsonError(null); setCreateError(null); }} />}
-        {jsonError && <p className="credential-form__error" role="alert">{jsonError}</p>}
-        {createError && <p className="credential-form__error" role="alert">{createError}</p>}
-        {provider !== "SLACK_OAUTH" && <Button variant="primary" className="run-button" type="submit" disabled={isSaving}>{isSaving ? "Encrypting…" : "Encrypt & save"}</Button>}
-      </form>
-      </Collapse>
-      {loading ? <div className="credential-list-loading" aria-busy="true" aria-label="Loading connections"><Skeleton /><Skeleton /></div> : loadError ? <Status tone="error" role="alert">{loadError}<Button variant="ghost" onClick={() => void load()}>Retry connections</Button></Status> : visibleCredentials.length === 0 ? <EmptyState icon={<KeyRound size={22} />} title={query ? "No matching connections" : "Your connections will appear here"} description={query ? "Try another app or connection name." : "Add an app once, then select it in any compatible workflow node."} action={query ? <Button variant="ghost" onClick={() => setQuery("")}>Clear search</Button> : undefined} /> : (
-      <ul className="credential-list">
-        {visibleCredentials.map((credential) => {
-          const isRenaming = activeAction?.credentialId === credential.id && activeAction.type === "rename";
-          const isRotating = activeAction?.credentialId === credential.id && activeAction.type === "rotate";
-          const isDeleting = activeAction?.credentialId === credential.id && activeAction.type === "delete";
-
-          return (
-            <li key={credential.id} className="credential-card" data-credential-id={credential.id}>
-              <div className="credential-card__header">
-                <span className="credential-card__icon"><NodeIcon name={providerIcons[credential.provider]} size={23} /></span>
-                <div className="credential-card__info">
-                  <strong>{credential.label}</strong>
-                  <span className="credential-card__provider">{credentialProviderLabel(credential.provider)}</span>
-                  {credential.hints && credential.hints.length > 0 && <span className="credential-card__hints" aria-label="Saved credential identification">{credential.hints.map((hint) => <span key={hint.field}>{hint.label} <code>{hint.masked}</code></span>)}</span>}
-                </div>
-                {isGoogleOAuth(credential) || credential.provider === "SLACK_OAUTH" ? <span className="credential-card__managed-badge">Managed OAuth</span> : null}
-                  <Menu
-                    label={`Actions for ${credential.label}`}
-                    trigger={<MoreVertical size={17} aria-hidden="true" />}
-                    className="credential-card__menu"
-                    contentClassName="credential-card__menu-content"
-                  >
-                    {!isGoogleOAuth(credential) ? <button type="button" aria-label={`Rename ${credential.label}`} onClick={() => startRename(credential)}>Rename</button> : null}
-                    {!isGoogleOAuth(credential) && credential.provider !== "SLACK_OAUTH" ? <button type="button" aria-label={`Rotate secret for ${credential.label}`} onClick={() => startRotate(credential)}>Rotate secret</button> : null}
-                    <button type="button" className="credential-card__menu-delete" aria-label={`Delete ${credential.label}`} onClick={() => startDelete(credential)}>Delete</button>
-                  </Menu>
-              </div>
-
-              {isGoogleOAuth(credential) ? (
+  const isManaged = (credential: CredentialSummary) => isGoogleOAuth(credential) || credential.provider === "SLACK_OAUTH";
+  const openSettings = (credential: CredentialSummary) => {
+    cancelAction();
+    setActiveAction({ credentialId: credential.id, type: isManaged(credential) ? "oauth" : "details" });
+  };
+  const closeSettings = () => { if (!isActionSubmitting) cancelAction(); };
+  const selectedCredential = credentials.find((credential) => credential.id === activeAction?.credentialId);
+  const renderAction = (credential: CredentialSummary) => {
+    const isRenaming = activeAction?.type === "rename";
+    const isRotating = activeAction?.type === "rotate";
+    const isDeleting = activeAction?.type === "delete";
+    const isManagingOAuth = activeAction?.type === "oauth";
+    return <>
+      {activeAction?.type === "details" && <div className="connection-details__overview">
+        <p>Your secret is stored securely. To change it, enter replacement values.</p>
+        {credential.hints?.length ? <div className="credential-card__hints" aria-label="Saved credential identification">{credential.hints.map((hint) => <span key={hint.field}>{hint.label} <code>{hint.masked}</code></span>)}</div> : null}
+        <div className="connection-details__actions"><Button variant="secondary" onClick={() => startRotate(credential)}>Rotate secret</Button><Button variant="ghost" onClick={() => startRename(credential)}>Rename</Button></div>
+      </div>}
+              {isManagingOAuth ? <>
                 <div className="credential-card__oauth-managed">
-                  <p className="credential-card__oauth-text">Reconnect with the same Google account. Google may combine returned permissions with prior grants.</p>
-                  {credential.googleReconnectRequired ? <p role="status">Google permissions need to be verified again. Reconnect this account before the current token expires.</p> : null}
-                  {credential.googleLegacyScopesUnverified ? <p role="status">Reconnect to verify permissions for newer features.</p> : null}
-                  {credential.provider === "GMAIL" ? <GmailOAuthConsent workspaceId={workspaceId} credentialId={credential.id} identityUnverified={credential.googleIdentityUnverified} initialCapabilities={credential.gmailCapabilities} /> : credential.provider === "GOOGLE_CHAT_OAUTH" ? <GoogleChatOAuthConsent workspaceId={workspaceId} credentialId={credential.id} identityUnverified={credential.googleIdentityUnverified} initialManage={credential.chatManageEnabled} /> : <Button
-                    variant="ghost"
-                    type="button"
-                    className="ghost-button credential-panel__oauth"
-                    onClick={() => startGoogleConnection(workspaceId, credential.provider === "GOOGLE_CALENDAR" ? "calendar" : "google", credential.id, credential.googleIdentityUnverified)}
-                  >
-                    Reconnect Google
-                  </Button>}
+                  {isGoogleOAuth(credential) ? <>
+                    <p className="credential-card__oauth-text">Reconnect with the same Google account. Google may combine permissions with prior grants.</p>
+                    {credential.googleReconnectRequired ? <p role="status">Reconnect to verify permissions before the current token expires.</p> : null}
+                    {credential.googleLegacyScopesUnverified ? <p role="status">Reconnect to verify permissions for newer features.</p> : null}
+                    {credential.provider === "GMAIL" ? <GmailOAuthConsent workspaceId={workspaceId} credentialId={credential.id} identityUnverified={credential.googleIdentityUnverified} initialCapabilities={credential.gmailCapabilities} /> : credential.provider === "GOOGLE_CHAT_OAUTH" ? <GoogleChatOAuthConsent workspaceId={workspaceId} credentialId={credential.id} identityUnverified={credential.googleIdentityUnverified} initialManage={credential.chatManageEnabled} /> : <Button
+                      variant="secondary" type="button" className="credential-panel__oauth"
+                      onClick={() => startGoogleConnection(workspaceId, credential.provider === "GOOGLE_CALENDAR" ? "calendar" : "google", credential.id, credential.googleIdentityUnverified)}
+                    >Reconnect Google</Button>}
+                  </> : <>
+                    <p className="credential-card__oauth-text">Reconnect the same Slack workspace if access expires or is revoked. To connect a different workspace, add a new connection.</p>
+                    <div className="credential-card__form-actions">
+                      <Button variant="secondary" type="button" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/slack/connect?credentialId=${encodeURIComponent(credential.id)}`)}>Reconnect Slack</Button>
+                      <Button variant="secondary" type="button" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/slack/connect?credentialId=${encodeURIComponent(credential.id)}&permissions=events`)}>Enable Slack triggers</Button>
+                    </div>
+                    <p>Trigger access allows reading messages in public channels the bot has joined and receiving app mentions. Slack will ask you to approve these permissions.</p>
+                  </>}
                 </div>
-              ) : null}
-              {credential.provider === "SLACK_OAUTH" && <div className="credential-card__oauth-managed"><p className="credential-card__oauth-text">Reconnect the same Slack workspace if access expires or is revoked.</p><Button variant="ghost" type="button" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/slack/connect?credentialId=${encodeURIComponent(credential.id)}`)}>Reconnect Slack</Button><Button variant="ghost" type="button" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/slack/connect?credentialId=${encodeURIComponent(credential.id)}&permissions=events`)}>Enable Slack triggers</Button><small>Trigger access allows reading messages in public channels the bot has joined and receiving app mentions. Slack will ask you to approve these permissions.</small></div>}
+              </> : null}
 
               {isRenaming && (
                 <form className="credential-card__form" onSubmit={(event) => void submitRename(event, credential)}>
@@ -605,15 +517,143 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
                   </div>
                 </div>
               )}
-            </li>
-          );
-        })}
-      </ul>
+    </>;
+  };
+
+  const currentProvider = provider === "SMTP" || provider === "GMAIL" ? "EMAIL" : provider;
+  const matchingProviderGroups = providerGroups.map((group) => ({ ...group, options: group.options.filter((option) => `${option.label} ${option.keywords ?? ""}`.toLowerCase().includes(providerQuery.trim().toLowerCase())) })).filter((group) => group.options.length);
+  const currentIsMatching = matchingProviderGroups.some((group) => group.options.some((option) => option.value === currentProvider));
+  const currentProviderLabel = providerGroups.flatMap((group) => group.options).find((option) => option.value === currentProvider)?.label ?? currentProvider;
+  const providerMatchCount = matchingProviderGroups.reduce((count, group) => count + group.options.length, 0);
+  const oauthCount = credentials.filter(isManaged).length;
+  const visibleCredentials = credentials.filter((credential) =>
+    (methodFilter === "all" || (methodFilter === "oauth" ? isManaged(credential) : !isManaged(credential))) &&
+    `${credential.label} ${credentialProviderLabel(credential.provider)}`.toLowerCase().includes(query.trim().toLowerCase()));
+
+  return (
+    <section
+      ref={panelRef}
+      className={`credential-panel credential-panel--${presentation}`}
+      aria-label="Credential manager"
+      role={presentation === "panel" ? "dialog" : "region"}
+      aria-modal={presentation === "panel" ? false : undefined}
+      tabIndex={presentation === "panel" ? -1 : undefined}
+    >
+      {presentation === "panel" && <div className="credential-panel__heading">
+        <div><p className="section-label">CONNECTIONS</p><h2>Secure connections</h2></div>
+        {onClose ? <IconButton label="Close credential manager" onClick={onClose}>×</IconButton> : null}
+      </div>}
+      {presentation === "panel" ? (
+        <div className="credential-panel__directory">
+          <Button variant="ghost" className="credential-panel__directory-link" onClick={() => window.open(`/dashboard/connections?workspace=${encodeURIComponent(workspaceId)}`, "_blank", "noopener,noreferrer")}>
+            Open connection center <ArrowUpRight size={13} aria-hidden="true" />
+          </Button>
+        </div>
+      ) : null}
+      <div className="credential-toolbar">
+        <label className="credential-search"><Search size={16} aria-hidden="true" /><input type="search" aria-label="Search connections" placeholder="Search name or app" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+        <Button variant={createOpen ? "secondary" : "primary"} type="button" aria-expanded={createOpen} aria-controls="credential-create-content" onClick={toggleCreate}>{createOpen ? <ChevronUp size={15} /> : <Plus size={15} />}{createOpen ? "Hide new connection" : "New connection"}</Button>
+      </div>
+      {presentation === "page" && <div className="connection-methods" role="group" aria-label="Filter connection method">
+        {([["all", "All connections", credentials.length], ["oauth", "OAuth", oauthCount], ["manual", "Manual", credentials.length - oauthCount]] as const).map(([value, label, count]) =>
+          <button key={value} type="button" aria-pressed={methodFilter === value} onClick={() => setMethodFilter(value)}>{label}<span>{count}</span></button>)}
+      </div>}
+      <Collapse open={createOpen} id="credential-create-content" className="credential-create">
+      <form ref={formRef} onSubmit={submit} className="credential-form" aria-label="New connection">
+        <div className="credential-form__title"><h3>New connection</h3><p>Choose an app and add its authorization details.</p></div>
+        <div className="credential-provider-picker">
+          <Field label="Find an app" className="credential-form__field">
+            <input type="search" aria-label="Find an app" placeholder="Search apps" value={providerQuery} onChange={(event) => setProviderQuery(event.target.value)} />
+          </Field>
+          <Field label="Provider" className="credential-form__field">
+            <Select aria-label="Provider" value={currentProvider} onChange={(event) => changeProvider(event.target.value === "EMAIL" ? "GMAIL" : event.target.value as CredentialProvider)}>
+              {!currentIsMatching && <optgroup label="Current selection"><option value={currentProvider}>{currentProviderLabel}</option></optgroup>}
+              {matchingProviderGroups.map((group) => <optgroup label={group.label} key={group.label}>{group.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</optgroup>)}
+            </Select>
+          </Field>
+          {providerQuery.trim() && <p className="credential-provider-picker__result" role="status">{providerMatchCount ? `${providerMatchCount} ${providerMatchCount === 1 ? "app" : "apps"} found. Select a provider below.` : "No apps found. Try another search."}</p>}
+        </div>
+        {provider === "SMTP" || provider === "GMAIL" ? <Field label="Connection type" className="credential-form__field">
+          <Select aria-label="Email connection type" value={provider} onChange={(event) => changeProvider(event.target.value as "GMAIL" | "SMTP")}>
+            <option value="GMAIL">Gmail API (read and optional actions)</option>
+            <option value="SMTP">SMTP (send email)</option>
+          </Select>
+        </Field> : null}
+        {provider !== "SLACK_OAUTH" && <Field label="Connection name" className="credential-form__field">
+          <input aria-label="Connection name" value={label} onChange={(event) => { setLabel(event.target.value); setCreateError(null); }} />
+        </Field>}
+        {provider === "GOOGLE" ? (
+          <div className="credential-form__oauth-helper">
+            <span>Google requests access to view, create, edit and delete files in your Drive, including spreadsheets. This connection is separate from Google sign-in.</span>
+            <button type="button" className="credential-form__oauth-link" onClick={() => { window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google/connect`); }}>
+              Connect Google <ArrowUpRight size={13} aria-hidden="true" />
+            </button>
+          </div>
+        ) : null}
+        {provider === "GOOGLE_CHAT_OAUTH" ? <GoogleChatOAuthConsent workspaceId={workspaceId} /> : null}
+        {provider === "GMAIL" ? <GmailOAuthConsent workspaceId={workspaceId} /> : null}
+        {provider === "GOOGLE_CALENDAR" ? <div className="credential-form__oauth-helper"><span>Google Calendar requests permission to view and edit events, list your calendars and check availability. Events may appear in workflow execution history.</span><button type="button" className="credential-form__oauth-link" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/google-calendar/connect`)}>Connect Google Calendar <ArrowUpRight size={13} aria-hidden="true" /></button></div> : null}
+        {provider === "TRELLO" ? <div className="credential-form__oauth-helper"><span>Create an API key for a Trello Power-Up, then authorize a token with access to the boards you need.</span><a className="credential-form__oauth-link" href="https://developer.atlassian.com/cloud/trello/guides/rest-api/authorization/" target="_blank" rel="noopener noreferrer">Trello setup guide <ArrowUpRight size={13} aria-hidden="true" /></a></div> : null}
+        {provider === "SENTRY" ? <div className="credential-form__oauth-helper"><span>Create a Sentry authentication token with organization and issue read scopes.</span><a className="credential-form__oauth-link" href="https://docs.sentry.io/api/guides/create-auth-token/" target="_blank" rel="noopener noreferrer">Sentry setup guide <ArrowUpRight size={13} aria-hidden="true" /></a></div> : null}
+        {provider === "VERCEL" ? <div className="credential-form__oauth-helper"><span>Create an access token for the personal account or team you want to use.</span><a className="credential-form__oauth-link" href="https://vercel.com/docs/rest-api" target="_blank" rel="noopener noreferrer">Vercel API guide <ArrowUpRight size={13} aria-hidden="true" /></a></div> : null}
+        {provider === "REDDIT" ? <div className="credential-form__oauth-helper"><span>Reddit has stopped accepting new public Data API access requests and plans to retire remaining access in March 2027. Existing approved apps may still work during the transition.</span><a className="credential-form__oauth-link" href="https://support.reddithelp.com/hc/en-us/articles/54353370049684-Changelog-October-8-2026" target="_blank" rel="noopener noreferrer">Reddit access timeline <ArrowUpRight size={13} aria-hidden="true" /></a></div> : null}
+        {provider === "SUPABASE" ? <div className="credential-form__oauth-helper"><span>Find your project reference and API key in the Supabase dashboard. A secret key grants elevated access and bypasses Row Level Security.</span><a className="credential-form__oauth-link" href="https://supabase.com/docs/guides/getting-started/api-keys" target="_blank" rel="noopener noreferrer">Supabase key guide <ArrowUpRight size={13} aria-hidden="true" /></a><a className="credential-form__oauth-link" href="https://supabase.com/docs/guides/platform/personal-access-tokens" target="_blank" rel="noopener noreferrer">Scoped management token guide <ArrowUpRight size={13} aria-hidden="true" /></a></div> : null}
+        <p className="credential-form__hint" aria-live="polite">{credentialPresets[provider].hint}</p>
+        {provider === "SLACK_OAUTH" ? <div className="credential-form__oauth-helper"><span>Slack lets Fluxora list public channels and send messages as its bot.</span><button type="button" className="credential-form__oauth-link" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/slack/connect`)}>Connect Slack <ArrowUpRight size={13} aria-hidden="true" /></button></div> : <CredentialSecretFields provider={provider} value={data} onChange={(value) => { setData(value); setJsonError(null); setCreateError(null); }} />}
+        {jsonError && <p className="credential-form__error" role="alert">{jsonError}</p>}
+        {createError && <p className="credential-form__error" role="alert">{createError}</p>}
+        {provider !== "SLACK_OAUTH" && <Button variant="primary" className="run-button" type="submit" disabled={isSaving}>{isSaving ? "Encrypting…" : "Encrypt & save"}</Button>}
+      </form>
+      </Collapse>
+      {loading ? <div className="credential-list-loading" aria-busy="true" aria-label="Loading connections"><Skeleton /><Skeleton /></div> : loadError ? <Status tone="error" role="alert">{loadError}<Button variant="ghost" onClick={() => void load()}>Retry connections</Button></Status> : visibleCredentials.length === 0 ? <EmptyState icon={<KeyRound size={22} />} title={query || methodFilter !== "all" ? "No matching connections" : "Your connections will appear here"} description={query || methodFilter !== "all" ? "Try another app, name or connection method." : "Add an app once, then select it in any compatible workflow node."} action={query || methodFilter !== "all" ? <Button variant="ghost" onClick={() => { setQuery(""); setMethodFilter("all"); }}>Clear filters</Button> : undefined} /> : (
+      <div className="connection-directory">
+        {presentation === "page" && <div className="connection-directory__columns" aria-hidden="true"><span>Connection</span><span>Method</span><span>Last updated</span><span /></div>}
+        <ul className="credential-list">
+          {visibleCredentials.map((credential) => {
+            const managed = isManaged(credential);
+            const attention = credential.googleReconnectRequired ? "Reconnect required" : credential.googleIdentityUnverified ? "Verify account" : credential.googleLegacyScopesUnverified ? "Review permissions" : null;
+            return <li key={credential.id} className="credential-card" data-credential-id={credential.id}>
+              <div className="credential-card__row">
+                <button type="button" className="credential-card__identity" onClick={() => openSettings(credential)} aria-label={`Open ${credential.label}`}>
+                  <span className="credential-card__icon"><NodeIcon name={providerIcons[credential.provider]} size={22} /></span>
+                  <span className="credential-card__info"><strong title={credential.label}>{credential.label}</strong><span className="credential-card__metadata"><span className="credential-card__provider">{credentialProviderLabel(credential.provider)}</span>{attention && <span className="credential-card__attention">{attention}</span>}</span></span>
+                </button>
+                <span className="credential-card__method"><span className="credential-card__managed-badge">{managed ? "OAuth" : "Manual"}</span></span>
+                <span className="credential-card__updated">{credential.updatedAt ? new Date(credential.updatedAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "—"}</span>
+                <div className="credential-card__controls">
+                  <Button variant="ghost" className="credential-card__settings" onClick={() => openSettings(credential)} aria-label={`Connection settings for ${credential.label}`}>Manage<ChevronRight size={14} /></Button>
+                  <Menu label={`Actions for ${credential.label}`} trigger={<MoreVertical size={17} aria-hidden="true" />} className="credential-card__menu" contentClassName="credential-card__menu-content">
+                    <button type="button" onClick={() => openSettings(credential)}>Connection settings</button>
+                    {!isGoogleOAuth(credential) && <button type="button" aria-label={`Rename ${credential.label}`} onClick={() => startRename(credential)}>Rename</button>}
+                    {!managed && <button type="button" aria-label={`Rotate secret for ${credential.label}`} onClick={() => startRotate(credential)}>Rotate secret</button>}
+                    <button type="button" className="credential-card__menu-delete" aria-label={`Delete ${credential.label}`} onClick={() => startDelete(credential)}>Delete</button>
+                  </Menu>
+                </div>
+              </div>
+              {presentation === "panel" && activeAction?.credentialId === credential.id && <div className="credential-card__inline-settings">{renderAction(credential)}<Button variant="ghost" onClick={closeSettings} disabled={isActionSubmitting}>Close settings</Button></div>}
+            </li>;
+          })}
+        </ul>
+        <div className="connection-directory__footer"><LockKeyhole size={13} aria-hidden="true" /><span>{visibleCredentials.length} of {credentials.length} connections · Secrets encrypted</span></div>
+      </div>
       )}
-      <Status tone="info" className="credential-panel__notice" aria-live="polite">
+      <Disclosure className="credential-security-note" summary="How connections and permissions work">
+        <p>Connections belong to this workspace and use your own app accounts. Full secrets are encrypted and never shown after saving. Some tokens display their last two characters for identification in connection settings.</p>
+        <p>Google may combine returned permissions with prior grants to this app, even when connections appear separately. Review the permissions on Google’s consent screen.</p>
+      </Disclosure>
+      {presentation === "page" && selectedCredential && activeAction && <div className="connection-details-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) closeSettings(); }}>
+        <Dialog label="Connection settings" className="connection-details" onClose={closeSettings} initialFocusSelector='[aria-label="Close connection settings"]'>
+          <DialogHeader eyebrow="CONNECTION" title={activeAction.type === "rename" ? "Rename connection" : activeAction.type === "rotate" ? "Replace secret" : activeAction.type === "delete" ? "Delete connection" : "Connection settings"} onClose={closeSettings} closeLabel="Close connection settings" />
+          <div className="connection-details__identity"><span className="credential-card__icon"><NodeIcon name={providerIcons[selectedCredential.provider]} size={24} /></span><div><strong>{selectedCredential.label}</strong><span>{credentialProviderLabel(selectedCredential.provider)} · {isManaged(selectedCredential) ? "OAuth" : "Manual connection"}</span></div></div>
+          <div className="connection-details__body">{renderAction(selectedCredential)}</div>
+          <div className="connection-details__footer"><LockKeyhole size={14} /><span>Your saved secrets are never displayed.</span></div>
+        </Dialog>
+      </div>}
+
+      {notice && <Status tone="info" className="credential-panel__notice" aria-live="polite">
         <span className="credential-panel__notice-icon"><LockKeyhole size={15} aria-hidden="true" /></span>
         <span className="credential-panel__notice-copy">{notice}</span>
-      </Status>
+      </Status>}
 
     </section>
   );

@@ -44,7 +44,7 @@ test("guided connection fields preserve JSON, mask secrets, search saved account
   await expect(page.locator(".credential-form")).not.toBeVisible();
   await page.getByLabel("Search connections").fill("missing");
   await expect(page.getByText("No matching connections")).toBeVisible();
-  await page.getByRole("button", { name: "Clear search" }).click();
+  await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page.locator(".credential-card")).toHaveCount(1);
   await page.getByRole("button", { name: "New connection", exact: true }).click();
   const toolbar = await page.locator(".credential-toolbar").boundingBox();

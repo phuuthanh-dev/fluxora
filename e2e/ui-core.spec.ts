@@ -112,11 +112,17 @@ test("workspace routes share shell, theme-aware overlays and compact editor cont
       await page.keyboard.press("Escape");
       await expect(page.getByLabel("Account actions", { exact: true })).toBeFocused();
       await expect(page.getByRole("menu", { name: "Account menu" })).toHaveCount(0);
+      if (route === "/dashboard") {
+        const workflows = await page.locator(".dashboard-workflows").boundingBox();
+        const operations = await page.locator(".dashboard-operations").boundingBox();
+        expect(workflows!.y + workflows!.height).toBeLessThan(operations!.y);
+        await expect(page.locator(".workflow-card__node-icon")).toHaveCount(3);
+      }
       if (route.endsWith("connections")) {
         await expect(page.locator(".credential-form")).toBeVisible();
         await readable(page.locator(".credential-form__hint"));
         await readable(page.locator(".credential-form__oauth-link"));
-        await expect(page.locator(".credential-panel")).toHaveCSS("background-color", theme === "light" ? "rgb(255, 254, 249)" : "rgb(17, 23, 18)");
+        await expect(page.locator(".credential-panel")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
       }
       await noHorizontalOverflow(page);
       await page.screenshot({ path: testInfo.outputPath(`${route.split("/").at(-1)}-${theme}.png`), fullPage: true });
@@ -153,3 +159,78 @@ test("workspace routes share shell, theme-aware overlays and compact editor cont
     await page.screenshot({ path: testInfo.outputPath(`${route.split("/").at(-1)}-mobile.png`), fullPage: true });
   }
 });
+
+
+for (const theme of ["light", "dark"] as const) {
+  test(`connection directory and settings drawer stay usable in ${theme}`, async ({ page }, testInfo) => {
+    await page.addInitScript((value) => localStorage.setItem("fluxora-theme", value), theme);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.route("**/api/v1/**", async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+      if (path.endsWith("/auth/me")) return send({ user: { id: "ui-owner", displayName: "UI Review", email: "ui@example.test", avatarColor: "lime" } });
+      if (path.endsWith("/auth/identities")) return send({ identities: [] });
+      if (path.endsWith("/auth/providers")) return send({ google: false, github: false, steam: false });
+      if (path.endsWith("/admin/access")) return route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ message: "Forbidden" }) });
+      if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "ui-workspace", name: "Design review workspace", slug: "review", role: "OWNER" }] });
+      if (path.endsWith("/credentials")) return send({ credentials: [
+        { id: "calendar", provider: "GOOGLE_CALENDAR", label: "Google Calendar OAuth · design-review@example.test · 0123456789abcdef", isManaged: true },
+        { id: "slack", provider: "SLACK_OAUTH", label: "Slack · Design review", isManaged: true },
+        { id: "gitlab", provider: "GITLAB", label: "GitLab sandbox", isManaged: false },
+        { id: "steam", provider: "STEAM", label: "Steam account", isManaged: false },
+      ] });
+      return send({});
+    });
+    await page.goto("/dashboard/connections?workspace=ui-workspace");
+    const calendar = page.locator('[data-credential-id="calendar"]');
+    const slack = page.locator('[data-credential-id="slack"]');
+    await expect(calendar).toBeVisible();
+    await expect(calendar.getByRole("button", { name: "Reconnect Google" })).toBeHidden();
+    await expect(slack.getByRole("button", { name: "Enable Slack triggers" })).toBeHidden();
+    await readable(calendar.locator(".credential-card__provider"));
+    await readable(calendar.locator(".credential-card__info strong"));
+    expect((await calendar.boundingBox())!.height).toBeLessThan(110);
+    await page.screenshot({ path: testInfo.outputPath(`saved-connections-${theme}.png`), fullPage: true });
+    await page.getByRole("button", { name: "New connection", exact: true }).click();
+    const form = await page.locator(".credential-form").boundingBox();
+    const list = await page.locator(".credential-list").boundingBox();
+    const toolbar = await page.locator(".credential-toolbar").boundingBox();
+    expect(form!.y).toBeGreaterThanOrEqual(toolbar!.y + toolbar!.height);
+    expect(form!.y + form!.height).toBeLessThanOrEqual(list!.y);
+    await page.getByRole("button", { name: "Hide new connection", exact: true }).click();
+    // Filtering must affect the directory without changing any saved connection.
+    await page.getByRole("button", { name: "OAuth 2", exact: true }).click();
+    await expect(page.locator(".credential-card")).toHaveCount(2);
+    await page.getByRole("button", { name: "All connections 4", exact: true }).click();
+    for (const width of [1440, 900, 390]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await calendar.getByRole("button", { name: /^Open / }).click();
+      const settings = page.getByRole("dialog", { name: "Connection settings", exact: true });
+      await expect(settings.getByRole("button", { name: "Reconnect Google" })).toBeVisible();
+      await expect(settings.getByRole("button", { name: "Close connection settings" })).toBeFocused();
+      await readable(settings.locator(".credential-card__oauth-text"));
+      await page.keyboard.press("Escape");
+      await expect(calendar.getByRole("button", { name: /^Open / })).toBeFocused();
+      await slack.getByRole("button", { name: /^Open / }).click();
+      await expect(settings.getByRole("button", { name: "Reconnect Slack" })).toBeVisible();
+      await expect(settings.getByRole("button", { name: "Enable Slack triggers" })).toBeVisible();
+      expect(await settings.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
+      await noHorizontalOverflow(page);
+      await page.screenshot({ path: testInfo.outputPath(`connection-settings-${theme}-${width}.png`) });
+      await settings.getByRole("button", { name: "Close connection settings", exact: true }).click();
+      await calendar.getByLabel(/Actions for/).click();
+      await expect(calendar.getByRole("button", { name: /Delete Google Calendar/ })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(calendar.getByLabel(/Actions for/)).toBeFocused();
+    }
+    // Manual actions use the same drawer; replacement values start empty.
+    const gitlab = page.locator('[data-credential-id="gitlab"]');
+    await gitlab.getByRole("button", { name: "Open GitLab sandbox", exact: true }).click();
+    const settings = page.getByRole("dialog", { name: "Connection settings", exact: true });
+    await settings.getByRole("button", { name: "Rotate secret", exact: true }).click();
+    await expect(settings.getByLabel("GitLab personal access token", { exact: true })).toHaveValue("");
+    await settings.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(settings).toHaveCount(0);
+  });
+}

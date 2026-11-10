@@ -113,3 +113,31 @@ from failed runs in the last 24 hours. Lists share search, pagination, empty,
 loading and error states; execution filters are validated server-side. The
 area displays operational metadata, never credentials or execution payloads.
 This does not introduce tenant impersonation, a ticket system or new RBAC.
+
+Connections/dashboard refinement (2026-11-10): product card titles share
+`--card-title: 15px`; section titles remain 18px, ordinary product copy 13–14px.
+Page/section header actions wrap at narrow widths. Connections use compact directory
+rows with identity, method and date; account settings open in a right-side shared
+Dialog. The editor's existing credential dialog uses inline settings to avoid
+nested dialogs. Keep the new-connection form above the list, visible reconnect
+warnings, workspace boundaries and the masked-secret policy.
+Dashboard puts workflow search/cards before operational telemetry. Cards show
+actual node icons and use 16px titles, not marketing display typography.
+See [the distribution/UI audit](48-workspace-connections-and-distribution.md).
+
+### UI/UX skill configuration
+
+`ui-ux-pro-max` is installed at `~/.codex/skills/ui-ux-pro-max` from
+[nextlevelbuilder/ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill),
+source directory `.claude/skills/ui-ux-pro-max`, revision
+`4f2dbb67e64969a9a30ab00742f2d55d66ddec2b` (MIT).
+This is an agent-side skill, not an application/npm dependency. Read its
+`SKILL.md` for UI work. Use targeted UX/React searches for implementation guidance;
+keep this document and `design-system.css` as Fluxora's design source of truth.
+Do not generate a competing palette, font system or duplicate component library.
+
+Applied here: scannable data-directory hierarchy, progressive disclosure of
+connection settings, labeled controls and Dialog focus restoration. The targeted
+React search supported focus management; progressive disclosure uses the skill's
+Forms & Feedback default (the UX search did not yield a specific matching rule).
+Review real layouts and states; installing a skill alone does not validate a UI.

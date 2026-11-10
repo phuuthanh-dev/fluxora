@@ -94,10 +94,11 @@ test("Gmail reconnect shows previously selected capabilities", async ({ page }) 
   await page.route("**/workspaces/workspace-1/credentials", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ credentials: [{ id: "gmail-1", provider: "GMAIL", label: "Work Gmail", isManaged: true, gmailCapabilities: ["readonly", "send"] }] }) }));
   await page.goto("/dashboard/connections?workspace=workspace-1");
   const card = page.locator('li[data-credential-id="gmail-1"]');
-  await card.getByText("Gmail permissions", { exact: true }).first().click();
-  await expect(card.getByLabel("Send email (sensitive)")).toBeChecked();
-  await expect(card.getByLabel("Manage drafts and send (restricted)")).not.toBeChecked();
-  await expect(card.getByRole("button", { name: "Reconnect Google" })).toBeVisible();
+  await card.getByRole("button", { name: /^Open / }).click();
+  await page.getByRole("dialog", { name: "Connection settings", exact: true }).getByText("Gmail permissions", { exact: true }).first().click();
+  await expect(page.getByRole("dialog", { name: "Connection settings", exact: true }).getByLabel("Send email (sensitive)")).toBeChecked();
+  await expect(page.getByRole("dialog", { name: "Connection settings", exact: true }).getByLabel("Manage drafts and send (restricted)")).not.toBeChecked();
+  await expect(page.getByRole("dialog", { name: "Connection settings", exact: true }).getByRole("button", { name: "Reconnect Google" })).toBeVisible();
 });
 
 test("retry retains the selected Gmail permissions and target", async ({ page }) => {
@@ -120,7 +121,9 @@ test("a changed refresh grant prompts the owner to reconnect", async ({ page }) 
   await page.route("**/workspaces/workspace-1/credentials", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ credentials: [{ id: "gmail-1", provider: "GMAIL", label: "Work Gmail", isManaged: true, gmailCapabilities: ["readonly"], googleReconnectRequired: true }] }) }));
   await page.goto("/dashboard/connections?workspace=workspace-1");
   const card = page.locator('li[data-credential-id="gmail-1"]');
-  await expect(card.getByRole("status")).toContainText("Reconnect this account before the current token expires");
+  await expect(card.getByText("Reconnect required", { exact: true })).toBeVisible();
+  await card.getByRole("button", { name: /^Open / }).click();
+  await expect(page.getByRole("dialog", { name: "Connection settings", exact: true }).getByRole("status")).toContainText("Reconnect to verify permissions before the current token expires");
 });
 
 test("legacy Google connections offer an explicit verification reconnect without removing existing access", async ({ page }) => {
@@ -128,8 +131,10 @@ test("legacy Google connections offer an explicit verification reconnect without
   await page.route("**/workspaces/workspace-1/credentials", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ credentials: [{ id: "legacy-google", provider: "GOOGLE", label: "Google OAuth", isManaged: true, googleLegacyScopesUnverified: true }] }) }));
   await page.goto("/dashboard/connections?workspace=workspace-1");
   const card = page.locator('li[data-credential-id="legacy-google"]');
-  await expect(card.getByRole("status")).toContainText("Reconnect to verify permissions");
-  await expect(card.getByRole("button", { name: "Reconnect Google" })).toBeVisible();
+  await expect(card.getByText("Review permissions", { exact: true })).toBeVisible();
+  await card.getByRole("button", { name: /^Open / }).click();
+  await expect(page.getByRole("dialog", { name: "Connection settings", exact: true }).getByRole("status")).toContainText("Reconnect to verify permissions");
+  await expect(page.getByRole("dialog", { name: "Connection settings", exact: true }).getByRole("button", { name: "Reconnect Google" })).toBeVisible();
 });
 
 test("legacy connection starts review before asking Google for access", async ({ page }) => {
@@ -137,20 +142,22 @@ test("legacy connection starts review before asking Google for access", async ({
   await page.route("**/credentials/legacy-google/references", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ references: { workflows: [], executions: [] } }) }));
   await page.route("**/workspaces/workspace-1/credentials", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ credentials: [{ id: "legacy-google", provider: "GOOGLE", label: "Google OAuth", isManaged: true, googleIdentityUnverified: true }] }) }));
   await page.goto("/dashboard/connections?workspace=workspace-1");
-  await page.locator('li[data-credential-id="legacy-google"]').getByRole("button", { name: "Reconnect Google" }).click();
+  await page.locator('li[data-credential-id="legacy-google"]').getByRole("button", { name: /^Open / }).click();
+  await page.getByRole("dialog", { name: "Connection settings", exact: true }).getByRole("button", { name: "Reconnect Google" }).click();
   await expect(page).toHaveURL(/google_oauth=legacy_identity_unknown/);
   await expect(page.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
 });
 
-test("managed Google Chat card keeps permission controls inside its bounds", async ({ page }) => {
+test("managed Google Chat drawer keeps permission controls inside its bounds", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 900 });
   await mockWorkspace(page);
   await page.route("**/workspaces/workspace-1/credentials", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ credentials: [{ id: "chat", provider: "GOOGLE_CHAT_OAUTH", label: "Google Chat OAuth", isManaged: true }] }) }));
   await page.goto("/dashboard/connections?workspace=workspace-1");
   const card = page.locator('li[data-credential-id="chat"]');
-  await card.getByText("Google Chat permissions", { exact: true }).first().click();
-  const overflow = await card.evaluate((node) => node.scrollWidth > node.clientWidth + 1);
+  await card.getByRole("button", { name: /^Open / }).click();
+  await page.getByRole("dialog", { name: "Connection settings", exact: true }).getByText("Google Chat permissions", { exact: true }).first().click();
+  const overflow = await page.getByRole("dialog", { name: "Connection settings", exact: true }).evaluate((node) => node.scrollWidth > node.clientWidth + 1);
   expect(overflow).toBe(false);
-  await expect(card.getByRole("button", { name: "Reconnect Google Chat" })).toBeVisible();
-  await expect(card.getByLabel("Manage messages and reactions")).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Connection settings", exact: true }).getByRole("button", { name: "Reconnect Google Chat" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Connection settings", exact: true }).getByLabel("Manage messages and reactions")).toBeVisible();
 });
