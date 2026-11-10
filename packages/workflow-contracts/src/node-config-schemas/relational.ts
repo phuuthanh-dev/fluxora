@@ -25,3 +25,9 @@ export const supabaseInsert: ConfigRules = {
   fields: { schema: z.array(z.unknown()).min(1).max(50), required: true, message: "Enter between 1 and 50 column values." },
   timeoutMs: { schema: z.number().int().min(1000).max(120_000), message: "Supabase timeout must be between 1,000 and 120,000 milliseconds." },
 };
+
+export const postgresInsert: ConfigRules = {
+  schema: identifier("database schema"), table,
+  fields: { schema: z.array(z.unknown()).min(1).max(50), required: true, message: "Enter between 1 and 50 column values." },
+};
+export const postgresUpsert: ConfigRules = { ...postgresInsert, conflictColumn: identifier("conflict column") };

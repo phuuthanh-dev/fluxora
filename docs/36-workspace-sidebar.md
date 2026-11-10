@@ -35,6 +35,25 @@ it is not a workflow/content search and does not call a provider.
 Functional checks do not establish exact visual parity with the reference.
 The owner reviews the Fluxora adaptation on localhost.
 
+## Administration sidebar — 2026-11-10
+
+The global `/admin` area keeps its own scope and routes. It reuses BrandLockup,
+IconButton, Dialog and ThemeToggle, Gilroy and the same semantic light/dark
+colors as the workspace; it does not introduce a second theme or menu library.
+
+- 240px expanded / 76px compact rail; optional browser preference independent
+  of workspace navigation. Platform and Operations groups separate account
+  management from run investigation; Support remains a distinct utility link.
+- Compact scope label replaces the large bordered card. Navigation alone scrolls
+  on short screens; the brand, return link and theme control stay reachable.
+- At 900px and below, a small top bar opens the shared focus-managed Dialog.
+  Escape, backdrop, navigation and returning to desktop dismiss the drawer.
+- Existing Admin endpoints, authorization and data are unchanged. Layout belongs
+  in `features/admin/admin.css`, not duplicated product-wide overrides.
+- Next's development indicator is disabled via its supported config so it cannot
+  cover the Fluxora logo in previews. This does not suppress the error overlay
+  or change production behavior.
+
 ## Reddit: code is not access approval
 
 Fluxora has a Reddit connector with mock coverage; no successful live Reddit

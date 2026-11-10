@@ -222,6 +222,8 @@ test("configured mock outputs contain the fields advertised by operation metadat
     ["action.sentry.list-issues", { organization: "example", project: "project" }],
     ["action.vercel.list-deployments", { team: "personal", project: "prj_example" }],
     ["action.supabase.insert-row", { table: "items", fields: [{ column: "name", type: "text", value: "Sample" }] }],
+    ["action.postgres.insert-row", { schema: "public", table: "items", fields: [{ column: "name", type: "text", value: "Sample" }] }],
+    ["action.postgres.upsert-row", { schema: "public", table: "items", fields: [{ column: "id", type: "number", value: "1" }, { column: "name", type: "text", value: "Sample" }], conflictColumn: "id" }],
     ["action.riot-lol", { operation: "accountByRiotId", platform: "vn2", gameName: "Test Player", tagLine: "VN2" }],
     ["action.riot-tft", { operation: "accountByRiotId", platform: "vn2", gameName: "Test Player", tagLine: "VN2" }],
   ] as const;

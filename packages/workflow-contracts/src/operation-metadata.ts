@@ -161,6 +161,8 @@ const definitions = {
   "action.supabase.select": executable(credential("SUPABASE"), "read", fields("rows", "count", "returnedCount", "page"), { kind: "offset", input: "offset", page: "page", preserve: ["credentialId", "table", "limit", "columns", "filters", "order", "rejectUnsafeNumbers"], caveat: "A nonzero offset requires sorting. Completeness is unknown, and changing rows can shift between pages." }),
   "action.supabase.insert-row": executable(credential("SUPABASE"), "write", fields("accepted", "table")),
   "action.reddit.list-posts": executable(credential("REDDIT"), "read", fields("posts", "hasMore")),
+  "action.postgres.insert-row": executable(credential("POSTGRES"), "write", fields("accepted", "schema", "table")),
+  "action.postgres.upsert-row": executable(credential("POSTGRES"), "write", fields("accepted", "schema", "table")),
   "action.postgres.select": executable(credential("POSTGRES"), "read", fields("rows", "count", "returnedCount", "page"), { kind: "offset", input: "offset", page: "page", preserve: ["credentialId", "schema", "table", "limit", "columns", "conditions", "orderBy", "orderDirection"], caveat: "A nonzero offset requires sorting. Completeness is unknown, and changing rows can shift between pages." }),
   "action.gmail.read": executable(credential("GMAIL"), "read", fields("messages", "count", "hasMore", "nextPageToken"), { kind: "continuation", input: "pageToken", next: "nextPageToken", hasMore: "hasMore", preserve: ["credentialId", "mailbox", "query", "limit", "collectPages"] }),
   "action.gmail.get-message": executable(credential("GMAIL"), "read", fields("message")),

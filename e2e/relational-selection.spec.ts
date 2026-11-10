@@ -5,14 +5,15 @@ type MetadataResponse = { status?: number; body: unknown };
 type HarnessOptions = {
   provider?: Provider;
   insert?: boolean;
+  upsert?: boolean;
   configOverride?: Record<string, unknown>;
   metadata?: (table: string) => MetadataResponse | Promise<MetadataResponse>;
   clone?: () => Promise<void>;
   save?: () => Promise<void>;
 };
 
-function workflow(id: string, provider: Provider, table = "items", insert = false) {
-  const config = insert ? { credentialId: "sb-1", table, fields: [] } : provider === "postgres"
+function workflow(id: string, provider: Provider, table = "items", insert = false, upsert = false) {
+  const config = (insert || upsert) ? { credentialId: provider === "postgres" ? "pg-1" : "sb-1", ...(provider === "postgres" ? { schema: "public" } : {}), table, fields: [], ...(upsert ? { conflictColumn: "" } : {}) } : provider === "postgres"
     ? { credentialId: "pg-1", schema: "public", table, limit: 20, columns: ["id"], orderBy: "id", orderDirection: "asc", offset: 0, retryAttempts: 2 }
     : { credentialId: "sb-1", table, limit: 20, columns: ["id"], filters: [{ column: "active", operator: "equals", value: true }], order: [{ column: "id", direction: "desc", nulls: "last" }], offset: 0, timeoutMs: 9000 };
   return {
@@ -20,16 +21,16 @@ function workflow(id: string, provider: Provider, table = "items", insert = fals
     draft: { id: `draft-${id}`, version: 1, graph: { nodes: [
       { id: "manual", type: "trigger.manual", position: { x: 50, y: 100 }, config: {} },
       // Deliberately reuse the node ID in both workflows.
-      { id: "relational", type: insert ? "action.supabase.insert-row" : `action.${provider}.select`, position: { x: 420, y: 100 }, config },
+      { id: "relational", type: upsert ? "action.postgres.upsert-row" : insert ? `action.${provider}.insert-row` : `action.${provider}.select`, position: { x: 420, y: 100 }, config },
     ], edges: [] } }, published: null,
   };
 }
 
 async function setup(page: Page, options: HarnessOptions = {}) {
   const provider = options.provider ?? "postgres";
-  const first = workflow("first", provider, "items", options.insert);
+  const first = workflow("first", provider, "items", options.insert, options.upsert);
   Object.assign(first.draft.graph.nodes[1]!.config, options.configOverride);
-  const second = workflow("second", provider, "other_items", options.insert);
+  const second = workflow("second", provider, "other_items", options.insert, options.upsert);
   const saves: Array<Record<string, unknown>> = [];
   const requests: string[] = [];
   const metadataRequests: Array<{ provider: string; credential: string; table: string | null; schema: string | null }> = [];
@@ -377,4 +378,26 @@ test("unsafe numeric conditions direct the user to text instead of rounding", as
   await page.getByLabel("Condition 1 value", { exact: true }).fill("9007199254740993");
   await page.getByRole("button", { name: "Apply selection" }).click();
   await expect(page.getByRole("button", { name: "Save draft" })).toBeEnabled();
+});
+
+
+test("PostgreSQL upsert selects discovered columns and clears values when the table changes", async ({ page }) => {
+  const { saves, metadataRequests } = await setup(page, { provider: "postgres", upsert: true });
+  await selectRelational(page);
+  await page.getByRole("button", { name: "Add column" }).click();
+  await expect(page.locator('datalist option[value="id"]').first()).toHaveText("id · integer");
+  await page.getByLabel("Column 1 name").fill("id");
+  await page.getByLabel("Column 1 type").selectOption("number");
+  await page.getByLabel("Column 1 value", { exact: true }).fill("42");
+  await page.getByRole("button", { name: "Add column" }).click();
+  await page.getByLabel("Column 2 name").fill("active");
+  await page.getByLabel("Column 2 type").selectOption("boolean");
+  await page.getByLabel("Unique conflict column").selectOption("id");
+  await page.getByRole("button", { name: "Save draft" }).click();
+  await expect.poll(() => saves.length).toBe(1);
+  expect(configFromSave(saves[0]!)).toMatchObject({ schema: "public", table: "items", conflictColumn: "id", fields: [{ column: "id", type: "number", value: "42" }, { column: "active", type: "boolean", value: "true" }] });
+  expect(metadataRequests.some((request) => request.provider === "postgres" && request.table === "items" && request.schema === "public")).toBe(true);
+  await page.getByRole("group", { name: "Table" }).getByLabel("Table", { exact: true }).selectOption("other_items");
+  await expect(page.getByLabel("Column 1 name")).toHaveCount(0);
+  await expect(page.getByLabel("Unique conflict column")).toHaveValue("");
 });

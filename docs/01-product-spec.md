@@ -392,3 +392,16 @@ Comparison: [Aggregate](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-
 [Split Out](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.splitout/),
 [Merge](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.merge/).
 Implementation/qualification is pending the final batch gate.
+
+
+### PostgreSQL row writes (owner-approved expansion)
+
+PostgreSQL provides distinct Insert row and Insert or update row actions alongside
+Select. Users choose their workspace credential, schema and table, then map
+column values using provider metadata or exact names. Upsert chooses a supplied
+column with a PostgreSQL unique constraint. One input item writes at most one
+row; other columns use database defaults. Mock mode validates but never writes.
+Output is `{ accepted, schema, table }`; no database row or credential is returned.
+A connection failure after sending the write reports `DELIVERY_UNCERTAIN` and
+is not automatically retried. Users should inspect the table before rerunning.
+These actions do not provide arbitrary SQL, deletion or multi-column conflict keys.

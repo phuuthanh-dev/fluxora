@@ -619,3 +619,15 @@ recovery. No new database table or runtime version is introduced. A challenge
 is signed and accepted before workflow activation; event execution additionally
 requires the current published version and a matching Slack workspace/channel.
 Optional OAuth event permissions are explicit, not added to ordinary reconnect.
+
+
+### PostgreSQL row writes
+
+Insert and upsert reuse the PostgreSQL vault credential, public DNS resolution
+and pinning, verified TLS, schema/table/column discovery and node executor
+registry. Identifiers are strictly validated and quoted; values are bound as query
+parameters. Writes are limited to one row and 50 supplied fields per item.
+Upsert uses `ON CONFLICT` against one user-selected unique column included in
+the row; PostgreSQL enforces the uniqueness constraint atomically. The server
+does not silently retry after a query may have been sent. Execution output
+contains only an acknowledgement and target names, not row values.

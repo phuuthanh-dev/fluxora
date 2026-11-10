@@ -701,6 +701,7 @@
         "apps/api/src/execution/notion-search.ts",
         "apps/api/src/execution/openai-text.ts",
         "apps/api/src/execution/postgres-read.ts",
+        "apps/api/src/execution/postgres-write.ts",
         "apps/api/src/execution/reddit.ts",
         "apps/api/src/execution/riot-lol.ts",
         "apps/api/src/execution/rss-read.ts",
@@ -1322,6 +1323,26 @@
       "externalImports": [
         "node:dns/promises",
         "node:net"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/postgres-write.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/json-decimal.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/postgres-read.ts",
+        "apps/api/src/execution/postgres-target.ts",
+        "apps/api/src/execution/provider-credential-safety.ts",
+        "apps/api/src/execution/provider-request-policy.ts",
+        "apps/api/src/execution/relational-selection-validation.ts"
+      ],
+      "externalImports": [
+        "@prisma/client",
+        "@workflow/contracts",
+        "node:tls",
+        "pg"
       ]
     },
     {
@@ -2852,6 +2873,7 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/components/brand/brand-lockup.tsx",
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/features/admin/admin-sections.ts",
         "apps/web/src/features/theme/theme-toggle.tsx"
       ],
@@ -5054,6 +5076,10 @@
     },
     {
       "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/postgres-write.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
       "to": "apps/api/src/execution/reddit.ts"
     },
     {
@@ -5823,6 +5849,38 @@
     {
       "from": "apps/api/src/execution/postgres-target.ts",
       "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/postgres-write.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/postgres-write.ts",
+      "to": "apps/api/src/execution/json-decimal.ts"
+    },
+    {
+      "from": "apps/api/src/execution/postgres-write.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/postgres-write.ts",
+      "to": "apps/api/src/execution/postgres-read.ts"
+    },
+    {
+      "from": "apps/api/src/execution/postgres-write.ts",
+      "to": "apps/api/src/execution/postgres-target.ts"
+    },
+    {
+      "from": "apps/api/src/execution/postgres-write.ts",
+      "to": "apps/api/src/execution/provider-credential-safety.ts"
+    },
+    {
+      "from": "apps/api/src/execution/postgres-write.ts",
+      "to": "apps/api/src/execution/provider-request-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/postgres-write.ts",
+      "to": "apps/api/src/execution/relational-selection-validation.ts"
     },
     {
       "from": "apps/api/src/execution/provider-credential-safety.ts",
@@ -7287,6 +7345,10 @@
     {
       "from": "apps/web/src/features/admin/admin-shell.tsx",
       "to": "apps/web/src/components/brand/brand-lockup.tsx"
+    },
+    {
+      "from": "apps/web/src/features/admin/admin-shell.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
     },
     {
       "from": "apps/web/src/features/admin/admin-shell.tsx",
