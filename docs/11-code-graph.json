@@ -2852,6 +2852,7 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/components/brand/brand-lockup.tsx",
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/features/admin/admin-sections.ts",
         "apps/web/src/features/theme/theme-toggle.tsx"
       ],
@@ -7287,6 +7288,10 @@
     {
       "from": "apps/web/src/features/admin/admin-shell.tsx",
       "to": "apps/web/src/components/brand/brand-lockup.tsx"
+    },
+    {
+      "from": "apps/web/src/features/admin/admin-shell.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
     },
     {
       "from": "apps/web/src/features/admin/admin-shell.tsx",

@@ -4,23 +4,42 @@ This file is the compact, machine-checked handoff point for the next coding
 loop. It prevents an agent from proposing implementation work that is already
 complete in the delivery ledger.
 
-## Active approved batch — 2026-11-09
+## Current snapshot — 2026-11-10
 
-- Released baseline: PR #113, commit `912ad05`; main Quality gate
-  `42608924824` and deployment `42610611727` succeeded. Dashboard/Admin UX
-  and two-input Append Merge are already released; do not implement again.
-- Owner approved Aggregate/Split Out, Sort/Limit and matching-key Merge, typed
-  Notion database writes and GitLab actions/triggers. Implement as one batch;
-  audit and verify at the end, then one develop→main PR and merge. No additional
-  Slack/Calendar permission changes or live qualification are included.
-- Implementation and final local audit/verify are complete: 1,131 API tests
-  passed (one optional Riot test skipped), 75 web tests and 224 E2E passed.
-  Both themes were visually reviewed. One additive GitLab enum migration was
-  applied locally; existing data and credentials are preserved.
-- Release is delivered through the single develop→main PR associated with this
-  commit. Check that PR and its main/deploy runs for release status; do not
-  repeat this implementation from an older snapshot. No real Notion write or
-  GitLab event/account qualification is claimed. See docs/47 and the batch report.
+- PR [#114](https://github.com/phuuthanh-dev/fluxora/pull/114) is merged as
+  `bcabb51326d1ea950c1a0aa08ceaf85aa918023a`. PR Quality `42658258787`, main
+  Quality `42660897511` and production deployment `42662783711` succeeded.
+- Aggregate/Split Out, Sort/Limit, matching-key Merge, typed Notion database
+  writes and GitLab actions/triggers are released. Final CI: 1,131 API passes,
+  one optional Riot skip, 75 web passes, 224 E2E passes. See docs/47; do not
+  reimplement these features from the older pending ledger snapshot.
+- Current focused request: audit/update the Admin sidebar and layout from the
+  November 10 screenshot, then propose a roadmap. No new provider, schema,
+  permissions, live calls or release is authorized by this UI request.
+- Changes: compact grouped navigation, browser-local collapse preference,
+  independently scrolling navigation, accessible mobile drawer, shared theme
+  tokens/controls and removal of the overlapping local Next development badge.
+  Final web typecheck and codegraph check passed; all three Admin E2E scenarios
+  passed, covering both themes, account menus, contextual links, short viewport,
+  compact persistence, mobile dismissal/focus and scroll locking. Changes stay
+  local; full npm verify and release have not been run for this focused request.
+- Real Notion writes and GitLab account/events remain unqualified. Slack Trigger
+  live testing is explicitly deferred. Calendar updated-event qualification
+  passed locally; production qualification needs a production connection.
+
+### Proposed next work (not implementation authorization)
+
+1. Qualify the released Notion typed writes and GitLab actions/events with a
+   designated test source/project. Do not confuse passing mocks with live access.
+2. Resume Slack Trigger / production Calendar qualification when the owner
+   supplies the required connection/permissions; both features already exist.
+3. Expand PostgreSQL from the current Select-only connector to bounded Insert
+   and Insert-or-Update with discovered columns and parameterized values. This
+   follows [n8n Postgres](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.postgres/),
+   without adding arbitrary SQL or destructive operations by default.
+4. Consider Jira as one next app: project/issue discovery, create/update issue
+   and add comment. Compare [n8n Jira](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.jira/)
+   before fixing scope. This is a proposal, not a commitment to the entire API.
 
 ## Historical pre-release snapshot — 2026-11-09 (superseded by PR #113)
 

@@ -25,6 +25,7 @@ test("admin has separate navigation, safe account menus, states and execution fi
     await expect(page.getByText("Active workflows", { exact: true })).toBeVisible();
     await expect(page.getByText("Last 24 hours", { exact: true })).toBeVisible();
     await expect(page.getByRole("combobox")).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath(`admin-overview-${theme}.png`), animations: "disabled" });
     await page.getByRole("navigation", { name: "Platform administration" }).getByRole("link", { name: "Users", exact: true }).click();
     await expect(page).toHaveURL(/\/admin\/users/);
     // Loading this route directly must not depend on styles from another page.
@@ -131,4 +132,60 @@ test("admin follows user context to run metadata and filters audit without works
   await expect.poll(() => requests.some((url) => url.pathname.endsWith("/audit") && url.searchParams.get("actor") === "owner@example.test" && url.searchParams.get("from") === "2026-11-01" && url.searchParams.get("to") === "2026-11-09" && url.searchParams.get("targetId") === "w1")).toBe(true);
   await expect(page.getByText("w1", { exact: true })).toBeVisible();
   expect(requests.every((url) => url.pathname.startsWith("/api/v1/admin/"))).toBe(true);
+});
+
+test("administration navigation stays reachable on short screens, in compact mode and in the mobile drawer", async ({ page }, testInfo) => {
+  await page.route("**/api/v1/**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(route.request().url().endsWith("/admin/access") ? { allowed: true, userId: "admin" } : {}) }));
+  for (const theme of ["light", "dark"]) {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/admin/support");
+    const toggle = page.getByRole("button", { name: `Switch to ${theme} mode`, exact: true });
+    if (await toggle.isVisible()) await toggle.click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+    const sidebar = page.getByRole("complementary", { name: "Administration sidebar" });
+    const nav = page.getByRole("navigation", { name: "Platform administration" });
+    await expect(nav.getByRole("link", { name: "Support", exact: true })).toHaveAttribute("aria-current", "page");
+    await page.screenshot({ path: testInfo.outputPath(`admin-navigation-${theme}.png`) });
+    await page.setViewportSize({ width: 1280, height: 520 });
+    const footer = sidebar.getByRole("link", { name: "Back to workspace", exact: true });
+    await expect(footer).toBeInViewport();
+    expect(await nav.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+    await nav.getByRole("link", { name: "Support", exact: true }).focus();
+    await expect(nav.getByRole("link", { name: "Support", exact: true })).toBeInViewport();
+    await expect(footer).toBeInViewport();
+    await page.getByRole("button", { name: "Collapse administration sidebar", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Expand administration sidebar", exact: true })).toHaveAttribute("aria-expanded", "false");
+    expect((await sidebar.boundingBox())!.width).toBe(76);
+    // Compact navigation retains accessible names and survives a direct route load.
+    await nav.getByRole("link", { name: "Users", exact: true }).click();
+    await expect(page).toHaveURL(/\/admin\/users/);
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Expand administration sidebar", exact: true })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Users", exact: true })).toHaveAttribute("aria-current", "page");
+    await page.setViewportSize({ width: 390, height: 720 });
+    await expect(sidebar).toBeHidden();
+    const open = page.getByRole("button", { name: "Open administration navigation", exact: true });
+    await open.click();
+    const drawer = page.getByRole("dialog", { name: "Administration navigation", exact: true });
+    const close = drawer.getByRole("button", { name: "Close administration navigation", exact: true });
+    await expect(close).toBeFocused();
+    await expect(drawer).toHaveCSS("opacity", "1");
+    await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+    await expect(drawer.getByRole("link", { name: "Back to workspace", exact: true })).toBeInViewport();
+    await page.screenshot({ path: testInfo.outputPath(`admin-navigation-mobile-${theme}.png`), animations: "disabled" });
+    await page.keyboard.press("Escape");
+    await expect(drawer).toHaveCount(0);
+    await expect(open).toBeFocused();
+    await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
+    await open.click();
+    await drawer.getByRole("link", { name: "Support", exact: true }).click();
+    await expect(page).toHaveURL(/\/admin\/support/);
+    await expect(drawer).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await open.click();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(drawer).toHaveCount(0);
+    await page.getByRole("button", { name: "Expand administration sidebar", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Collapse administration sidebar", exact: true })).toBeVisible();
+  }
 });
