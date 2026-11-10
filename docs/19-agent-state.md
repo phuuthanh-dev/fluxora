@@ -6,40 +6,55 @@ complete in the delivery ledger.
 
 ## Current snapshot — 2026-11-10
 
-- PR [#114](https://github.com/phuuthanh-dev/fluxora/pull/114) is merged as
-  `bcabb51326d1ea950c1a0aa08ceaf85aa918023a`. PR Quality `42658258787`, main
-  Quality `42660897511` and production deployment `42662783711` succeeded.
-- Aggregate/Split Out, Sort/Limit, matching-key Merge, typed Notion database
-  writes and GitLab actions/triggers are released. Final CI: 1,131 API passes,
-  one optional Riot skip, 75 web passes, 224 E2E passes. See docs/47; do not
-  reimplement these features from the older pending ledger snapshot.
-- Current focused request: audit/update the Admin sidebar and layout from the
-  November 10 screenshot, then propose a roadmap. No new provider, schema,
-  permissions, live calls or release is authorized by this UI request.
-- Changes: compact grouped navigation, browser-local collapse preference,
-  independently scrolling navigation, accessible mobile drawer, shared theme
-  tokens/controls and removal of the overlapping local Next development badge.
-  Final web typecheck and codegraph check passed; all three Admin E2E scenarios
-  passed, covering both themes, account menus, contextual links, short viewport,
-  compact persistence, mobile dismissal/focus and scroll locking. Changes stay
-  local; full npm verify and release have not been run for this focused request.
-- Real Notion writes and GitLab account/events remain unqualified. Slack Trigger
-  live testing is explicitly deferred. Calendar updated-event qualification
-  passed locally; production qualification needs a production connection.
+- PR [#115](https://github.com/phuuthanh-dev/fluxora/pull/115) merged as
+  `0ae4129b02681e27f428d33b6502c2512f9856ab`. Main Quality gate `42749673882`
+  and production deploy `42751313812` succeeded on that commit.
+- Admin sidebar refinement and bounded PostgreSQL Insert/Upsert with discovered
+  columns/parameterized values are included. Prior batch full verify passed
+  226 E2E cases. Aggregate/Split Out, Sort/Limit, matching-key Merge, Notion
+  typed writes and GitLab were already released in PR #114; do not redo them.
+- Owner-authorized live checks from the preceding batch succeeded for GitLab
+  issue/comment, a private Notion test page, one Slack mention, and a production
+  Calendar created-event trigger. Qualification workflows were made inactive.
+  These are bounded tests, not proof that every operation or tenant is qualified.
+- Current request: explain account-owned OAuth/public distribution across apps
+  and audit/update product UI sizing against landing/Admin core. Local branch
+  `codex/workspace-connections-ui` contains a compact Connections directory, method
+  filters and a right-side settings Dialog; workflow-first dashboard cards include
+  actual node icons. Shared page/section headers wrap. UI UX Pro Max is installed
+  in the agent skill directory and its usage is documented in AGENTS/docs25. No provider grants, tokens, database
+  schema, live workflow or production settings were changed for this UI batch.
+- Source inspection confirms workspace-scoped Google/Slack grants and manual
+  credentials; it does not prove multi-tenant live isolation. Slack app console
+  still says **Not distributed**, needs HTTPS redirect configuration and the
+  hard-coded-information declaration. Slack events currently target a registered
+  workflow endpoint, not a common installation router. See docs/48.
+- Final batch validation: code graph/diff checks, 1,135 API tests (one optional
+  Riot case skipped), 75 web tests, typechecks and builds passed. The isolated
+  full verify had 224/228 E2E passes and four failures in stale layout assertions
+  and incomplete test fixtures. Corrected the tests; the three affected files
+  then had 26 passes and two ambiguous token-field locators. After making those
+  locators exact, both light/dark directory tests passed. No full verify rerun
+  was performed after these test-only corrections; require a clean CI gate
+  before release rather than claiming the first full command passed.
+- Browser-reviewed local directory/dashboard and light settings drawer; themed
+  E2E exercised 1440/900/390px, focus restoration, filtering, form placement and
+  unchanged credential actions. This UI batch is awaiting PR CI and owner visual
+  review. Local web/API returned HTTP 200/ready on 3000/3001 with scheduler
+  disabled. Preserve the pre-existing generated `apps/web/next-env.d.ts` diff.
 
 ### Proposed next work (not implementation authorization)
 
-1. Qualify the released Notion typed writes and GitLab actions/events with a
-   designated test source/project. Do not confuse passing mocks with live access.
-2. Resume Slack Trigger / production Calendar qualification when the owner
-   supplies the required connection/permissions; both features already exist.
-3. Expand PostgreSQL from the current Select-only connector to bounded Insert
-   and Insert-or-Update with discovered columns and parameterized values. This
-   follows [n8n Postgres](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.postgres/),
-   without adding arbitrary SQL or destructive operations by default.
-4. Consider Jira as one next app: project/issue discovery, create/update issue
-   and add comment. Compare [n8n Jira](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.jira/)
-   before fixing scope. This is a proposal, not a commitment to the entire API.
+1. Prepare Slack production distribution with separate local app configuration,
+   a common signed event ingress and workspace routing; qualify two installations
+   before enabling a public rollout. Do not blindly change the current Events URL.
+2. Follow up Google's existing data-access review; Production is not the same
+   thing as verified sensitive/restricted scopes. Do not repeat the submitted
+   application or change user scopes without a concrete reason.
+3. Consider managed Notion OAuth as the next one-click connection, retaining its
+   existing manual-token actions. Other manual connectors already accept each
+   customer's own keys; don't invent OAuth for databases or Steam Web API keys.
+4. Jira remains an optional new-app proposal, not part of this UI work.
 
 ## Historical pre-release snapshot — 2026-11-09 (superseded by PR #113)
 

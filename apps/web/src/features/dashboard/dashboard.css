@@ -1,0 +1,45 @@
+/* Workflow-first workspace layout, using the landing/admin foundation. */
+.dashboard-main .dashboard-stats { display: flex; flex-wrap: wrap; gap: 0; margin: 24px 0 30px; padding: 14px 0; border-block: 1px solid var(--line); background: none; }
+.dashboard-main .dashboard-stats > div { display: flex; align-items: center; gap: 9px; min-width: 0; padding: 2px 26px; border: 0; border-right: 1px solid var(--line); border-radius: 0; background: none; }
+.dashboard-main .dashboard-stats > div:first-child { padding-left: 0; }
+.dashboard-main .dashboard-stats > div:last-child { border-right: 0; }
+.dashboard-main .dashboard-stats strong { font-size: 18px; font-weight: 600; color: var(--ink); }
+.dashboard-main .dashboard-stats span { font-size: 12px; color: var(--muted); }
+.dashboard-main .dashboard-stats svg { width: 15px; color: var(--muted); }
+.dashboard-main .dashboard-workflows { margin-top: 0; }
+.dashboard-workflows .dashboard-section-heading { align-items: center; gap: 18px; margin-bottom: 20px; }
+.dashboard-workflows .dashboard-section-heading .section-label { display: none; }
+.dashboard-workflows .dashboard-section-heading h2 { font-size: 18px; font-weight: 600; margin: 0; }
+.dashboard-workflows .dashboard-workflow-toolbar { padding: 0; border: 0; background: none; gap: 12px; }
+.dashboard-workflows .dashboard-workflow-summary { margin: 14px 0 18px; font-size: 12px; }
+.dashboard-workflows .workflow-card-grid { gap: 18px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); }
+.dashboard-workflows .workflow-card { min-height: 250px; padding: 22px; gap: 12px; border-radius: 12px; box-shadow: none; }
+.dashboard-workflows .workflow-card:hover { transform: none; border-color: var(--text-tertiary); box-shadow: var(--shadow-soft); }
+.dashboard-workflows .workflow-card__status { align-items: center; flex-wrap: nowrap; }
+.dashboard-workflows .workflow-status { display: inline-flex; align-items: center; gap: 6px; border-radius: 5px; padding: 4px 7px; font-size: 11px; font-weight: 500; }
+.dashboard-workflows .workflow-status--live::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.dashboard-workflows .workflow-card__title { margin: 4px 0 0; }
+.dashboard-workflows .workflow-card__title h3 { font-size: 16px; line-height: 1.45; font-weight: 600; letter-spacing: -.015em; }
+.dashboard-workflows .workflow-card > .workflow-card__description { font-size: 13px; line-height: 1.6; }
+.dashboard-workflows .workflow-card > .workflow-card__description--empty { font-size: 12px; }
+.workflow-card__nodes { display: flex; align-items: center; gap: 12px; margin: auto 0 2px; padding-top: 8px; }
+.workflow-card__nodes > span { color: var(--muted); font-size: 11px; }
+.workflow-card__node-trail { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.workflow-card__node-icon, .workflow-card__node-more { display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); background: var(--surface-inset); border-radius: 8px; width: 29px; height: 29px; flex-shrink: 0; }
+.workflow-card__node-icon .provider-icon { width: 18px; height: 18px; }
+.workflow-card__node-more { color: var(--muted); font-size: 11px; }
+.dashboard-workflows .workflow-card footer { margin-top: 0; padding-top: 12px; gap: 12px; }
+.dashboard-workflows .workflow-card footer .workflow-card__updated { font-size: 11px; }
+.dashboard-workflows .workflow-card footer .ui-button { min-height: 32px; padding: 4px 0 4px 6px; font-size: 12px; }
+.dashboard-operations { margin-top: 40px; padding-top: 8px; border-top: 1px solid var(--line); }
+.dashboard-operations .workspace-activity { margin-top: 24px; }
+.dashboard-operations .dashboard-runtime { margin-top: 24px; }
+@media (max-width: 600px) {
+  .dashboard-main .dashboard-stats { row-gap: 12px; }
+  .dashboard-main .dashboard-stats > div { padding: 2px 12px; gap: 6px; }
+  .dashboard-main .dashboard-stats svg { display: none; }
+  .dashboard-main .dashboard-stats span { font-size: 11px; }
+  .dashboard-workflows .dashboard-section-heading { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .dashboard-workflows .dashboard-section-heading > span { text-align: left; }
+  .dashboard-workflows .workflow-card { padding: 20px; }
+}

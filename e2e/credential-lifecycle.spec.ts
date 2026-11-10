@@ -64,6 +64,7 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   expect(JSON.stringify(trelloResponse)).not.toContain(savedKey);
   expect(JSON.stringify(trelloResponse)).not.toContain(savedToken);
   const trelloCard = page.locator("li.credential-card").filter({ hasText: "Trello visibility test" });
+  await trelloCard.getByRole("button", { name: "Open Trello visibility test", exact: true }).click();
   await expect(trelloCard.getByText("••••••ab")).toBeVisible();
   await expect(trelloCard.getByText("••••••xy")).toBeVisible();
   await trelloCard.getByLabel("Actions for Trello visibility test actions").click();
@@ -294,7 +295,7 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   // Verify the manual "OAuth backup" card keeps its actions in the compact menu.
   const oauthBackupCard = page.locator(`li[data-credential-id="${oauthBackupCred.credential.id}"]`);
   await expect(oauthBackupCard).toBeVisible();
-  await expect(oauthBackupCard.getByText("Managed OAuth")).toHaveCount(0);
+  await expect(oauthBackupCard.getByText("OAuth", { exact: true })).toHaveCount(0);
   await oauthBackupCard.getByLabel("Actions for OAuth backup actions").click();
   await expect(oauthBackupCard.getByRole("button", { name: "Rename OAuth backup" })).toBeVisible();
   await expect(oauthBackupCard.getByRole("button", { name: "Rotate secret for OAuth backup" })).toBeVisible();
@@ -303,13 +304,15 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   // Managed OAuth credentials can be deleted after reference checks, but not manually edited.
   const googleOAuthCard = page.locator(`li[data-credential-id="${googleOAuthCred.id}"]`);
   await expect(googleOAuthCard).toBeVisible();
-  await expect(googleOAuthCard.getByText("Managed OAuth")).toBeVisible();
+  await expect(googleOAuthCard.getByText("OAuth", { exact: true })).toBeVisible();
+  await expect(googleOAuthCard.getByRole("button", { name: "Reconnect Google" })).toBeHidden();
   await googleOAuthCard.getByLabel("Actions for Google OAuth actions").click();
-  await expect(googleOAuthCard.getByText(/Google may combine returned permissions with prior grants/)).toBeVisible();
-  await expect(googleOAuthCard.getByRole("button", { name: "Reconnect Google" })).toBeVisible();
   await expect(googleOAuthCard.getByRole("button", { name: /Rename/ })).toHaveCount(0);
   await expect(googleOAuthCard.getByRole("button", { name: /Rotate/ })).toHaveCount(0);
   await expect(googleOAuthCard.getByRole("button", { name: /Delete/ })).toBeVisible();
+  await googleOAuthCard.locator(".credential-card__menu-content").getByRole("button", { name: "Connection settings", exact: true }).click();
+  await expect(googleOAuthCard.getByText(/Google may combine permissions with prior grants/)).toBeVisible();
+  await expect(googleOAuthCard.getByRole("button", { name: "Reconnect Google" })).toBeVisible();
 
   // Direct API regression: direct PATCH must be rejected with CREDENTIAL_MANAGED_BY_OAUTH
   const directPatchRes = await page.request.patch(`${api}/workspaces/${workspaceId}/credentials/${googleOAuthCred.id}`, {

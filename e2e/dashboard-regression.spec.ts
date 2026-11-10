@@ -509,7 +509,7 @@ test("workflow cards expose rename, duplicate, archive, and guarded delete actio
   const cardMeta = actionCard.locator(".workflow-card__meta");
   await expect(cardMeta.locator("summary")).toHaveCount(1);
   await expect(cardMeta).toHaveCSS("flex-direction", "row");
-  await expect(cardMeta.locator(".workflow-card__updated")).toHaveCSS("font-size", "12px");
+  await expect(actionCard.locator("footer .workflow-card__updated")).toContainText("Edited");
   await actionCard.getByLabel("Workflow actions for Action target actions").click();
   await actionCard.getByRole("button", { name: "Rename" }).click();
   await expect(page.getByRole("dialog", { name: "Rename workflow" })).toBeVisible();
