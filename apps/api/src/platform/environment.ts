@@ -11,7 +11,11 @@ export function validateEnvironment(environment: NodeJS.ProcessEnv = process.env
   requireEncryptionKey(environment.APP_ENCRYPTION_KEY);
   if (queueMode !== "redis") throw new Error("EXECUTION_QUEUE_MODE must be redis in production.");
   requireRedisUrl(environment.REDIS_URL);
-  if (environment.GITHUB_WEBHOOK_AUTOMATION_ENABLED === "true") requireHttpsUrl(environment.PUBLIC_API_ORIGIN, "PUBLIC_API_ORIGIN");
+  if (environment.GITHUB_WEBHOOK_AUTOMATION_ENABLED === "true" || environment.JIRA_WEBHOOK_AUTOMATION_ENABLED === "true") requireHttpsUrl(environment.PUBLIC_API_ORIGIN, "PUBLIC_API_ORIGIN");
+  if (environment.JIRA_WEBHOOK_AUTOMATION_ENABLED === "true") {
+    requireAllOrNone(environment, ["JIRA_CLIENT_ID", "JIRA_CLIENT_SECRET", "JIRA_REDIRECT_URI"]);
+    if (!environment.JIRA_CLIENT_SECRET || !environment.JIRA_CLIENT_ID || !environment.JIRA_REDIRECT_URI) throw new Error("Jira OAuth must be configured when Jira webhooks are enabled.");
+  }
   requireCompleteOAuthConfig(environment, "GOOGLE");
   requireCompleteOAuthConfig(environment, "GITHUB");
   requireAllOrNone(environment, ["STEAM_OPENID_RETURN_URI", "STEAM_OPENID_REALM"]);

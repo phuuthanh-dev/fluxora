@@ -343,6 +343,7 @@ export class WorkflowService {
     const gmailNodes = graph.nodes.filter((node) => node.type === "trigger.gmail");
     const rssNodes = graph.nodes.filter((node) => ["trigger.rss.new-item", "trigger.steam.game-news"].includes(node.type));
     const calendarNodes = graph.nodes.filter((node) => node.type === "trigger.google-calendar.event");
+    const jiraNodes = graph.nodes.filter((node) => node.type === "trigger.jira.issue");
     if (gmailNodes.length && !this.gmailTriggers) throw new BadRequestException({ code: "GMAIL_TRIGGER_UNAVAILABLE", message: "Gmail trigger is unavailable." });
     if (rssNodes.length && !this.rssTriggers) throw new BadRequestException({ code: "RSS_TRIGGER_UNAVAILABLE", message: "RSS trigger is unavailable." });
     if (calendarNodes.length && !this.calendarTriggers) throw new BadRequestException({ code: "CALENDAR_TRIGGER_UNAVAILABLE", message: "Calendar trigger is unavailable." });
@@ -351,9 +352,13 @@ export class WorkflowService {
     const calendarBaselines = calendarNodes.length ? await this.calendarTriggers!.baselines(workflowId, workflow.publishedVersion.id, workflow.workspaceId, graph) : [];
     const activatedAt = new Date();
     const updated = await this.prisma.$transaction(async (transaction) => {
-      if (gmailNodes.length || rssNodes.length || calendarNodes.length) {
+      if (gmailNodes.length || rssNodes.length || calendarNodes.length || jiraNodes.length) {
         const locked = await transaction.$queryRaw<Array<{ publishedVersionId: string | null; isActive: boolean; archivedAt: Date | null }>>`SELECT "publishedVersionId", "isActive", "archivedAt" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
         if (!locked[0] || locked[0].isActive || locked[0].archivedAt || locked[0].publishedVersionId !== workflow.publishedVersion!.id) throw new ConflictException({ code: "WORKFLOW_CHANGED", message: "The workflow changed while activating. Reload and try again." });
+        if (jiraNodes.length) {
+          const registrations = await transaction.$queryRaw<Array<{ state: string; workflowVersionId: string; isActive: boolean }>>`SELECT r."state", r."workflowVersionId", e."isActive" FROM "ProviderWebhookRegistration" r JOIN "WebhookEndpoint" e ON e.id = r."endpointId" WHERE e."workflowId" = ${workflowId} AND r.provider = 'JIRA' FOR UPDATE OF r, e`;
+          if (registrations.length !== 1 || registrations[0]?.state !== "ACTIVE" || !registrations[0]?.isActive || registrations[0]?.workflowVersionId !== workflow.publishedVersion!.id) throw new ConflictException({ code: "JIRA_WEBHOOK_REQUIRED", message: "Connect the Jira webhook before activating this workflow." });
+        }
         for (const baseline of baselines) {
           const key = { workflowVersionId_nodeId: { workflowVersionId: workflow.publishedVersion!.id, nodeId: baseline.nodeId } };
           const existing = await transaction.gmailTriggerCheckpoint.findUnique({ where: key });

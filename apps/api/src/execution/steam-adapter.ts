@@ -27,7 +27,7 @@ export function mockSteamSnapshot(steamId: string, config: Record<string, unknow
     ownedGames,
     recentGames,
     achievements,
-    summary: { totalGames: ownedGames.length, topGames: topSteamGames(ownedGames) },
+    summary: { totalGames: ownedGames.length, topGames: topSteamGames(ownedGames), ...(achievementAppId ? { achievementProgress: summarizeAchievements(achievements) } : {}) },
   };
 }
 
@@ -59,11 +59,20 @@ export async function steamSnapshot(credential: Record<string, unknown>, config:
     ownedGames,
     recentGames,
     achievements,
-    summary: { totalGames: ownedGames.length, topGames: topSteamGames(ownedGames) },
+    summary: { totalGames: ownedGames.length, topGames: topSteamGames(ownedGames), ...(achievementAppId ? { achievementProgress: summarizeAchievements(achievements) } : {}) },
   };
 }
 
 type SteamGame = { appid?: number; name?: string; playtime_forever?: number; playtime_2weeks?: number; [key: string]: unknown };
+
+/** Missing or private data is unknown, never reported as zero achievements. */
+function summarizeAchievements(value: unknown): { unlocked: number; total: number } | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  if (record.success === false || !Array.isArray(record.achievements) || record.achievements.length > 10000) return null;
+  if (!record.achievements.every((item: unknown) => item && typeof item === "object" && !Array.isArray(item) && [0, 1].includes((item as Record<string, unknown>).achieved as number))) return null;
+  return { unlocked: record.achievements.filter((item: Record<string, unknown>) => item.achieved === 1).length, total: record.achievements.length };
+}
 
 async function steamResponse<T>(url: string, label: string, apiKey: string, transport: SnapshotTransport, optional = false): Promise<T | null> {
   let response: Response;

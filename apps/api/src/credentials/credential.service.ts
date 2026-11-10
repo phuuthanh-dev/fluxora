@@ -297,6 +297,12 @@ export class CredentialService {
     return requireJiraReconnect(this.prisma, workspaceId, credentialId);
   }
 
+  async jiraReconnectScopes(workspaceId: string, userId: string, credentialId: string) {
+    const credential = await this.requireJiraReconnectTarget(workspaceId, userId, credentialId);
+    const scopes = this.vault.decrypt(credential.encryptedData).grantedScopes;
+    return Array.isArray(scopes) ? scopes : [];
+  }
+
   async saveJiraOAuth(workspaceId: string, userId: string, data: JiraAuthorization, credentialId?: string) {
     await this.workspaces.requireOwner(workspaceId, userId);
     return saveJiraAuthorization(this.prisma, this.vault, workspaceId, userId, data, credentialId);

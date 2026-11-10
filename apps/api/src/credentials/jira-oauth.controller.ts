@@ -11,15 +11,19 @@ export class JiraOAuthController {
   constructor(@Inject(CredentialService) private readonly credentials: CredentialService, @Inject(JiraOAuthStateService) private readonly states: JiraOAuthStateService, @Inject(AuthService) private readonly auth: AuthService) {}
   @Get("workspaces/:workspaceId/credentials/jira/connect")
   @UseGuards(AuthenticationGuard)
-  async connect(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest, @Res() response: Response, @Query("credentialId") credentialId?: string) {
+  async connect(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest, @Res() response: Response, @Query("credentialId") credentialId?: string, @Query("permissions") permissions?: string) {
     response.setHeader("Cache-Control", "no-store");
     const userId = request.currentUser?.id; if (!userId) throw new Error("Authentication required");
     await this.credentials.requireOwner(workspaceId, userId);
     if (credentialId !== undefined) { if (!/^[A-Za-z0-9_-]{1,128}$/.test(credentialId)) return failure(response, "invalid", workspaceId); await this.credentials.requireJiraReconnectTarget(workspaceId, userId, credentialId); }
+    if (permissions !== undefined && permissions !== "events") return failure(response, "invalid", workspaceId);
+    if (permissions === "events" && process.env.JIRA_WEBHOOK_AUTOMATION_ENABLED !== "true") return failure(response, "unavailable", workspaceId);
     try {
-      const config = jiraOAuthConfig(), issued = await this.states.issue({ workspaceId, userId, credentialId }, request, response);
+      const previousScopes = credentialId ? await this.credentials.jiraReconnectScopes(workspaceId, userId, credentialId) : [];
+      const webhookAccess = permissions === "events" || previousScopes.includes("manage:jira-webhook");
+      const config = jiraOAuthConfig(), issued = await this.states.issue({ workspaceId, userId, credentialId, webhookAccess }, request, response);
       const url = new URL("https://auth.atlassian.com/authorize");
-      url.search = new URLSearchParams({ audience: "api.atlassian.com", client_id: config.clientId, redirect_uri: config.redirectUri, response_type: "code", prompt: "consent", scope: jiraScopes, state: issued.state }).toString();
+      url.search = new URLSearchParams({ audience: "api.atlassian.com", client_id: config.clientId, redirect_uri: config.redirectUri, response_type: "code", prompt: "consent", scope: webhookAccess ? `${jiraScopes} manage:jira-webhook` : jiraScopes, state: issued.state }).toString();
       return response.redirect(url.href);
     } catch { return failure(response, "unavailable", workspaceId); }
   }
@@ -37,7 +41,7 @@ export class JiraOAuthController {
       if (consumed.credentialId) await this.credentials.requireJiraReconnectTarget(workspaceId, user.id, consumed.credentialId);
       if (providerError) return failure(response, "denied", workspaceId);
       if (typeof code !== "string" || !code || code.length > 4096) return failure(response, "invalid", workspaceId);
-      const authorization = await identifyJiraAuthorization(await exchangeJiraToken({ code }));
+      const authorization = await identifyJiraAuthorization(await exchangeJiraToken({ code }), consumed.webhookAccess === true);
       await this.credentials.saveJiraOAuth(workspaceId, user.id, authorization, consumed.credentialId);
       const target = new URL("/dashboard/connections", process.env.WEB_ORIGIN ?? "http://localhost:3000");
       target.searchParams.set("workspace", workspaceId); target.searchParams.set("connected", "jira"); return response.redirect(target.href);

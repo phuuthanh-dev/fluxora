@@ -59,3 +59,39 @@ test("Jira managed connections do not expose tokens and cannot be manually creat
   assert.equal(summary?.isManaged, true); assert.equal(summary?.hints, undefined); assert.doesNotMatch(JSON.stringify(summary), /synthetic|refreshToken|accountId/);
   await assert.rejects(service.create("workspace", "owner", { provider: CredentialProvider.JIRA, label: "Spoof", data: grant }));
 });
+
+test("Jira trigger permissions are requested explicitly and retained on reconnect", async (t) => {
+  configure(t);
+  const flag = process.env.JIRA_WEBHOOK_AUTOMATION_ENABLED;
+  process.env.JIRA_WEBHOOK_AUTOMATION_ENABLED = "true";
+  t.after(() => { if (flag === undefined) delete process.env.JIRA_WEBHOOK_AUTOMATION_ENABLED; else process.env.JIRA_WEBHOOK_AUTOMATION_ENABLED = flag; });
+  const { JiraOAuthController } = await import("./jira-oauth.controller");
+  let location = "", previousScopes: string[] = [], stateInput: Record<string, unknown> = {};
+  const credentials = { requireOwner: async () => {}, requireJiraReconnectTarget: async () => ({}), jiraReconnectScopes: async () => previousScopes };
+  const states = { issue: async (input: Record<string, unknown>) => { stateInput = input; return { state: "state" }; } };
+  const controller = new JiraOAuthController(credentials as never, states as never, {} as never);
+  const response = { setHeader() {}, redirect(url: string) { location = url; } } as never;
+  const request = { currentUser: { id: "owner" }, headers: {} } as never;
+  await controller.connect("workspace", request, response, "credential");
+  assert.doesNotMatch(new URL(location).searchParams.get("scope") ?? "", /manage:jira-webhook/);
+  assert.equal(stateInput.webhookAccess, false);
+  await controller.connect("workspace", request, response, "credential", "events");
+  assert.match(new URL(location).searchParams.get("scope") ?? "", /manage:jira-webhook/);
+  assert.equal(stateInput.webhookAccess, true);
+  previousScopes = ["manage:jira-webhook"];
+  await controller.connect("workspace", request, response, "credential");
+  assert.match(new URL(location).searchParams.get("scope") ?? "", /manage:jira-webhook/);
+});
+
+test("Jira authorization requires provider-confirmed webhook scope when trigger access is requested", async (t) => {
+  configure(t);
+  const { identifyJiraAuthorization } = await import("./jira-oauth");
+  let scopes = ["read:jira-work"];
+  globalThis.fetch = async (url) => String(url).endsWith("accessible-resources")
+    ? Response.json([{ id: grant.cloudId, name: grant.siteName, scopes }])
+    : Response.json({ account_id: grant.accountId });
+  await assert.rejects(identifyJiraAuthorization({ accessToken: grant.accessToken, refreshToken: grant.refreshToken }, true));
+  scopes = ["read:jira-work", "manage:jira-webhook"];
+  const authorization = await identifyJiraAuthorization({ accessToken: grant.accessToken, refreshToken: grant.refreshToken }, true);
+  assert.ok(authorization.grantedScopes?.includes("manage:jira-webhook"));
+});
