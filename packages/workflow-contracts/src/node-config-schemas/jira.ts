@@ -5,6 +5,7 @@ const issue = { schema: z.string().regex(/^[A-Z][A-Z0-9_]*-\d+$/), required: tru
 const summary = { schema: z.string().trim().min(1).max(255), required: true, message: "Enter a summary of at most 255 characters." };
 export const jiraCreate: ConfigRules = { project: id, issueType: id, summary, description: { schema: z.string().max(10000), message: "Description is limited to 10,000 characters." } };
 export const jiraGet: ConfigRules = { issue };
+export const jiraTrigger: ConfigRules = { project: id, event: { schema: z.enum(["jira:issue_created", "jira:issue_updated", "jira:issue_deleted"]), required: true, message: "Choose a Jira issue event." } };
 export const jiraUpdate: ConfigRules = { issue, summary };
 export const jiraComment: ConfigRules = { issue, comment: { schema: z.string().trim().min(1).max(10000), required: true, message: "Enter a comment of at most 10,000 characters." } };
 

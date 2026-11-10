@@ -15,6 +15,10 @@ import { VercelDeliveryRecoveryService } from "./vercel-delivery-recovery.servic
 import { TrelloDeliveryRecoveryService } from "./trello-delivery-recovery.service";
 import { SentryDeliveryRecoveryService } from "./sentry-delivery-recovery.service";
 import { LegacyDeliveryRecoveryService } from "./legacy-delivery-recovery.service";
+import { JiraWebhookAdapter } from "./jira-webhook-adapter";
+import { JiraWebhookManagementService } from "./jira-webhook-management.service";
+import { JiraWebhookRenewalService } from "./jira-webhook-renewal.service";
+import { JiraDeliveryRecoveryService } from "./jira-delivery-recovery.service";
 
 @Module({
   imports: [AuthModule, CredentialModule, ExecutionModule],
@@ -29,6 +33,10 @@ import { LegacyDeliveryRecoveryService } from "./legacy-delivery-recovery.servic
     TrelloDeliveryRecoveryService,
     SentryDeliveryRecoveryService,
     LegacyDeliveryRecoveryService,
+    JiraDeliveryRecoveryService,
+    { provide: JiraWebhookAdapter, useFactory: () => new JiraWebhookAdapter() },
+    JiraWebhookManagementService,
+    JiraWebhookRenewalService,
     { provide: GITHUB_WEBHOOK_FETCH, useValue: globalThis.fetch },
     GitHubWebhookAdapter,
     GitHubWebhookManagementService,

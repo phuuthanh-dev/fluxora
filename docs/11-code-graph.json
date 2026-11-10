@@ -2304,6 +2304,104 @@
       ]
     },
     {
+      "id": "apps/api/src/webhooks/jira-delivery-recovery.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/execution-queue.service.ts",
+        "apps/api/src/webhooks/kuma-delivery-recovery.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/jira-trigger-protocol.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/webhooks/jira-webhook-adapter.ts"
+      ],
+      "externalImports": [
+        "@nestjs/jwt",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/jira-webhook-adapter.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-json.ts",
+        "apps/api/src/webhooks/provider-webhook-adapter.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/webhooks/jira-webhook-create.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/webhooks/jira-webhook-adapter.ts",
+        "apps/api/src/webhooks/provider-webhook-adapter.ts",
+        "apps/api/src/webhooks/provider-webhook-state.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/jira-webhook-management.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential-vault.service.ts",
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/webhooks/jira-webhook-adapter.ts",
+        "apps/api/src/webhooks/jira-webhook-create.ts",
+        "apps/api/src/webhooks/jira-webhook-reservation.ts",
+        "apps/api/src/webhooks/provider-webhook-adapter.ts",
+        "apps/api/src/webhooks/provider-webhook-state.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/jira-webhook-renewal.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/platform/background-work.ts",
+        "apps/api/src/webhooks/jira-webhook-adapter.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client"
+      ]
+    },
+    {
+      "id": "apps/api/src/webhooks/jira-webhook-reservation.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential-vault.service.ts",
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/webhooks/jira-trigger-protocol.ts",
+        "apps/api/src/webhooks/jira-webhook-adapter.ts",
+        "apps/api/src/workflows/workflow-graph.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client",
+        "node:crypto"
+      ]
+    },
+    {
       "id": "apps/api/src/webhooks/kuma-delivery-recovery.service.ts",
       "boundary": "api",
       "internalImports": [
@@ -2484,6 +2582,7 @@
         "apps/api/src/auth/authenticated-request.ts",
         "apps/api/src/auth/authentication.guard.ts",
         "apps/api/src/webhooks/github-webhook-management.service.ts",
+        "apps/api/src/webhooks/jira-webhook-management.service.ts",
         "apps/api/src/webhooks/webhook.service.ts"
       ],
       "externalImports": [
@@ -2500,6 +2599,10 @@
         "apps/api/src/execution/execution.module.ts",
         "apps/api/src/webhooks/github-webhook-adapter.ts",
         "apps/api/src/webhooks/github-webhook-management.service.ts",
+        "apps/api/src/webhooks/jira-delivery-recovery.service.ts",
+        "apps/api/src/webhooks/jira-webhook-adapter.ts",
+        "apps/api/src/webhooks/jira-webhook-management.service.ts",
+        "apps/api/src/webhooks/jira-webhook-renewal.service.ts",
         "apps/api/src/webhooks/kuma-delivery-recovery.service.ts",
         "apps/api/src/webhooks/legacy-delivery-recovery.service.ts",
         "apps/api/src/webhooks/provider-webhook-recovery.service.ts",
@@ -2527,6 +2630,8 @@
         "apps/api/src/execution/execution.service.ts",
         "apps/api/src/platform/background-work.ts",
         "apps/api/src/webhooks/gitlab-trigger-protocol.ts",
+        "apps/api/src/webhooks/jira-trigger-protocol.ts",
+        "apps/api/src/webhooks/jira-webhook-adapter.ts",
         "apps/api/src/webhooks/sentry-trigger-protocol.ts",
         "apps/api/src/webhooks/slack-trigger-protocol.ts",
         "apps/api/src/webhooks/telegram-trigger-protocol.ts",
@@ -7258,6 +7363,126 @@
       "to": "apps/api/src/workflows/workflow-graph.ts"
     },
     {
+      "from": "apps/api/src/webhooks/jira-delivery-recovery.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-delivery-recovery.service.ts",
+      "to": "apps/api/src/execution/execution-queue.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-delivery-recovery.service.ts",
+      "to": "apps/api/src/webhooks/kuma-delivery-recovery.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-trigger-protocol.ts",
+      "to": "apps/api/src/webhooks/jira-webhook-adapter.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-adapter.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-adapter.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-adapter.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-adapter.ts",
+      "to": "apps/api/src/webhooks/provider-webhook-adapter.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-create.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-create.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-create.ts",
+      "to": "apps/api/src/webhooks/jira-webhook-adapter.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-create.ts",
+      "to": "apps/api/src/webhooks/provider-webhook-adapter.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-create.ts",
+      "to": "apps/api/src/webhooks/provider-webhook-state.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-management.service.ts",
+      "to": "apps/api/src/credentials/credential-vault.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-management.service.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-management.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-management.service.ts",
+      "to": "apps/api/src/webhooks/jira-webhook-adapter.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-management.service.ts",
+      "to": "apps/api/src/webhooks/jira-webhook-create.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-management.service.ts",
+      "to": "apps/api/src/webhooks/jira-webhook-reservation.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-management.service.ts",
+      "to": "apps/api/src/webhooks/provider-webhook-adapter.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-management.service.ts",
+      "to": "apps/api/src/webhooks/provider-webhook-state.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-renewal.service.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-renewal.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-renewal.service.ts",
+      "to": "apps/api/src/platform/background-work.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-renewal.service.ts",
+      "to": "apps/api/src/webhooks/jira-webhook-adapter.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-reservation.ts",
+      "to": "apps/api/src/credentials/credential-vault.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-reservation.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-reservation.ts",
+      "to": "apps/api/src/webhooks/jira-trigger-protocol.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-reservation.ts",
+      "to": "apps/api/src/webhooks/jira-webhook-adapter.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/jira-webhook-reservation.ts",
+      "to": "apps/api/src/workflows/workflow-graph.ts"
+    },
+    {
       "from": "apps/api/src/webhooks/kuma-delivery-recovery.service.ts",
       "to": "apps/api/src/database/prisma.service.ts"
     },
@@ -7367,6 +7592,10 @@
     },
     {
       "from": "apps/api/src/webhooks/webhook.controller.ts",
+      "to": "apps/api/src/webhooks/jira-webhook-management.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.controller.ts",
       "to": "apps/api/src/webhooks/webhook.service.ts"
     },
     {
@@ -7388,6 +7617,22 @@
     {
       "from": "apps/api/src/webhooks/webhook.module.ts",
       "to": "apps/api/src/webhooks/github-webhook-management.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.module.ts",
+      "to": "apps/api/src/webhooks/jira-delivery-recovery.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.module.ts",
+      "to": "apps/api/src/webhooks/jira-webhook-adapter.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.module.ts",
+      "to": "apps/api/src/webhooks/jira-webhook-management.service.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.module.ts",
+      "to": "apps/api/src/webhooks/jira-webhook-renewal.service.ts"
     },
     {
       "from": "apps/api/src/webhooks/webhook.module.ts",
@@ -7460,6 +7705,14 @@
     {
       "from": "apps/api/src/webhooks/webhook.service.ts",
       "to": "apps/api/src/webhooks/gitlab-trigger-protocol.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.service.ts",
+      "to": "apps/api/src/webhooks/jira-trigger-protocol.ts"
+    },
+    {
+      "from": "apps/api/src/webhooks/webhook.service.ts",
+      "to": "apps/api/src/webhooks/jira-webhook-adapter.ts"
     },
     {
       "from": "apps/api/src/webhooks/webhook.service.ts",

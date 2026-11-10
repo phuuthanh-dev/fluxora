@@ -91,6 +91,7 @@ test("trigger metadata describes the common output wrapper without assuming a pr
   const configurations: Record<string, Record<string, unknown>> = {
     "trigger.gitlab.pipeline": { project: "42", status: "all" },
     "trigger.gitlab.merge-request": { project: "42", action: "all" },
+    "trigger.jira.issue": { credentialId: "cred", project: "10001", event: "jira:issue_created" },
     "trigger.slack.event": { credentialId: "cred", channel: "CEXAMPLE", event: "app_mention" },
     "trigger.cron": { expression: "0 9 * * *", timezone: "UTC" },
     "trigger.google-calendar.event": { credentialId: "cred", calendarId: "primary", event: "created", pollMinutes: "5" },

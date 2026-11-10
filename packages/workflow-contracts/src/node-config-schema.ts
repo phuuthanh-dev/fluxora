@@ -1,4 +1,4 @@
-import { jiraSearch, jiraCreate, jiraGet, jiraUpdate, jiraComment } from "./node-config-schemas/jira";
+import { jiraSearch, jiraCreate, jiraGet, jiraUpdate, jiraComment, jiraTrigger } from "./node-config-schemas/jira";
 import { gitlabProject, gitlabListIssues, gitlabIssue, gitlabCreateIssue, gitlabComment, gitlabPipeline, gitlabMergeRequest, gitlabUpdateIssue, gitlabGetPipeline, gitlabGetMergeRequest } from "./node-config-schemas/gitlab";
 import { aggregate, splitOut, sortItems, limitItems, merge } from "./node-config-schemas/data-transform";
 import { steamOperation, steamSnapshot } from "./node-config-schemas/steam";
@@ -113,6 +113,7 @@ const rules: Readonly<Record<string, ConfigRules>> = {
   "action.slack.message": slackMessage,
   "action.slack.update-message": slackUpdateMessage,
   "action.jira.search-issues": jiraSearch,
+  "trigger.jira.issue": jiraTrigger,
   "action.jira.create-issue": jiraCreate,
   "action.jira.get-issue": jiraGet,
   "action.jira.update-issue": jiraUpdate,

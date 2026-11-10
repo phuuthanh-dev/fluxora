@@ -24,6 +24,7 @@ test("Steam snapshot returns profile, current/recent/owned games, and optional a
   assert.equal((snapshot.ownedGames as unknown[]).length, 2);
   assert.equal((snapshot.recentGames as unknown[]).length, 1);
   assert.deepEqual(snapshot.achievements, { steamID: "7656", achievements: [{ apiname: "ACH_TEST", achieved: 1 }] });
+  assert.deepEqual(snapshot.summary.achievementProgress, { unlocked: 1, total: 1 });
   assert.equal((snapshot.summary as { topGames: Array<{ name: string }> }).topGames[0]?.name, "Portal 2");
   assert.equal(requested.length, 4);
   const metadata = getOperationMetadata("action.steam.account-snapshot");
@@ -157,4 +158,5 @@ test("unavailable optional achievements still return null", async () => {
   const transport = async (url: string) => url.includes("GetPlayerAchievements") ? new Response(null, { status: 403 }) : Response.json({ response: { players: [{ steamid: "7656" }] } });
   const output = await steamSnapshot({ apiKey: "synthetic-key", steamId: "7656" }, { includeOwnedGames: false, includeRecentGames: false, achievementAppId: "620" }, transport);
   assert.equal(output.achievements, null);
+  assert.equal(output.summary.achievementProgress, null);
 });

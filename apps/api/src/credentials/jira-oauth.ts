@@ -11,7 +11,7 @@ const opaque = (v: unknown): v is string => typeof v === "string" && v.length > 
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 export const jiraAccountId = (value: unknown): value is string => typeof value === "string" && value !== "unknown" && /^[A-Za-z0-9:-]{1,128}$/.test(value);
 const object = (v: unknown): Record<string, unknown> => v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : {};
-export type JiraAuthorization = { accessToken: string; refreshToken: string; cloudId: string; siteName: string; accountId: string };
+export type JiraAuthorization = { accessToken: string; refreshToken: string; cloudId: string; siteName: string; accountId: string; grantedScopes?: string[] };
 export const jiraScopes = "read:jira-work write:jira-work read:me offline_access";
 export function jiraOAuthConfig() {
   const clientId = process.env.JIRA_CLIENT_ID, clientSecret = process.env.JIRA_CLIENT_SECRET;
@@ -30,13 +30,15 @@ export async function exchangeJiraToken(grant: { code: string } | { refreshToken
   if (!opaque(raw.access_token) || !opaque(raw.refresh_token)) throw new Error("Invalid Jira authorization");
   return { accessToken: raw.access_token, refreshToken: raw.refresh_token };
 }
-export async function identifyJiraAuthorization(tokens: { accessToken: string; refreshToken: string }): Promise<JiraAuthorization> {
+export async function identifyJiraAuthorization(tokens: { accessToken: string; refreshToken: string }, requireWebhooks = false): Promise<JiraAuthorization> {
   const headers = { authorization: `Bearer ${tokens.accessToken}`, accept: "application/json" };
   const [sites, profile] = await Promise.all([providerJson("https://api.atlassian.com/oauth/token/accessible-resources", { headers }), providerJson("https://api.atlassian.com/me", { headers })]);
   if (!Array.isArray(sites) || sites.length !== 1) throw new Error("Select exactly one Jira site");
   const site = object(sites[0]), person = object(profile);
   if (typeof site.id !== "string" || !uuid.test(site.id) || typeof site.name !== "string" || !site.name.trim() || site.name.includes(tokens.accessToken) || site.name.includes(tokens.refreshToken) || !jiraAccountId(person.account_id)) throw new Error("Invalid Jira site or account");
-  return { ...tokens, cloudId: site.id.toLowerCase(), siteName: site.name.slice(0, 100), accountId: person.account_id };
+  const grantedScopes = Array.isArray(site.scopes) && site.scopes.every((scope: unknown) => typeof scope === "string" && /^[a-z0-9:_-]{1,120}$/.test(scope)) ? site.scopes as string[] : undefined;
+  if (requireWebhooks && !grantedScopes?.includes("manage:jira-webhook")) throw new Error("Jira webhook access was not granted");
+  return { ...tokens, cloudId: site.id.toLowerCase(), siteName: site.name.slice(0, 100), accountId: person.account_id, ...(grantedScopes ? { grantedScopes } : {}) };
 }
 export async function requireJiraReconnect(prisma: PrismaService, workspaceId: string, credentialId: string) {
   const credential = await prisma.credential.findFirst({ where: { id: credentialId, workspaceId, provider: CredentialProvider.JIRA } });

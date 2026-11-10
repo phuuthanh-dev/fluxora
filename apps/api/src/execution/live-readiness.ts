@@ -18,7 +18,7 @@ export function liveCredentialRequirements(graph: WorkflowGraph): LiveCredential
     if (node.type === "action.gemini") return [{ nodeId: node.id, provider: CredentialProvider.GEMINI, credentialId }];
     if (node.type === "action.openai") return [{ nodeId: node.id, provider: CredentialProvider.OPENAI, credentialId }];
     if (node.type === "action.mongodb" || node.type === "action.mongodb.insert") return [{ nodeId: node.id, provider: CredentialProvider.MONGODB, credentialId }];
-    if (node.type.startsWith("action.jira.")) return [{ nodeId: node.id, provider: CredentialProvider.JIRA, credentialId }];
+    if (node.type.startsWith("action.jira.") || node.type === "trigger.jira.issue") return [{ nodeId: node.id, provider: CredentialProvider.JIRA, credentialId }];
     if (node.type.startsWith("action.gitlab.") || node.type.startsWith("trigger.gitlab.")) return [{ nodeId: node.id, provider: CredentialProvider.GITLAB, credentialId }];
     if (node.type.startsWith("action.notion.")) return [{ nodeId: node.id, provider: CredentialProvider.NOTION, credentialId }];
     if (node.type.startsWith("action.trello.")) return [{ nodeId: node.id, provider: CredentialProvider.TRELLO, credentialId }];

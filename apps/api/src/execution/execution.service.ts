@@ -134,7 +134,11 @@ export class ExecutionService {
     return this.createGuardedWebhookExecution(input, "slack");
   }
 
-  private async createGuardedWebhookExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey?: string }, provider: "kuma" | "telegram" | "vercel" | "trello" | "sentry" | "slack") {
+  async createJiraScheduledExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey: string; registrationId: string; remoteHookId: bigint }) {
+    return this.createGuardedWebhookExecution(input, "jira");
+  }
+
+  private async createGuardedWebhookExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey?: string; registrationId?: string; remoteHookId?: bigint }, provider: "kuma" | "telegram" | "vercel" | "trello" | "sentry" | "slack" | "jira") {
     const version = await this.prisma.workflowVersion.findUnique({ where: { id: input.workflowVersionId }, include: { workflow: true } });
     if (!version || version.workflowId !== input.workflowId) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
     await this.assertLiveReady(version.workflow.workspaceId, parseStoredWorkflowGraph(version.graph));
@@ -147,6 +151,7 @@ export class ExecutionService {
     if (provider === "trello" && (!input.deliveryKey || !/^[a-f0-9]{24}$/.test(input.deliveryKey))) throw new BadRequestException({ code: "TRELLO_WEBHOOK_INVALID", message: "Trello webhook data is invalid." });
     if (provider === "sentry" && (!input.deliveryKey || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}:[1-9][0-9]{0,29}$/.test(input.deliveryKey))) throw new BadRequestException({ code: "SENTRY_WEBHOOK_INVALID", message: "Sentry webhook data is invalid." });
     if (provider === "slack" && (!input.deliveryKey || !/^[A-Za-z0-9_-]{3,160}$/.test(input.deliveryKey))) throw new BadRequestException({ code: "SLACK_EVENT_INVALID", message: "Slack event ID is invalid." });
+    if (provider === "jira" && (!input.deliveryKey || !/^[\x21-\x7e]{1,160}$/.test(input.deliveryKey) || !input.registrationId || input.remoteHookId === undefined)) throw new BadRequestException({ code: "JIRA_EVENT_INVALID", message: "Jira event ID is invalid." });
     const identityParts = provider === "kuma" ? ["kuma-delivery-v2", input.endpointId, input.workflowVersionId, input.deliveryKey === undefined ? "generated" : "provided", input.deliveryKey ?? randomBytes(24).toString("hex")] : [`${provider}-delivery-v1`, input.endpointId, input.deliveryKey];
     const identity = createHmac("sha256", key).update(JSON.stringify(identityParts)).digest("hex");
     const idempotencyKey = `${provider === "kuma" ? "kuma-v2" : `${provider}-v1`}:${identity}`;
@@ -157,6 +162,11 @@ export class ExecutionService {
       const endpoints = await transaction.$queryRaw<Array<{ workflowId: string; workflowVersionId: string; path: string; secretHash: string | null; isActive: boolean }>>`SELECT "workflowId", "workflowVersionId", "path", "secretHash", "isActive" FROM "WebhookEndpoint" WHERE id = ${input.endpointId} FOR UPDATE`;
       const endpoint = endpoints[0];
       if (!endpoint?.isActive || endpoint.workflowId !== input.workflowId || endpoint.workflowVersionId !== input.workflowVersionId || endpoint.path !== input.path || endpoint.secretHash !== input.secretHash) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
+      if (provider === "jira") {
+        const rows = await transaction.$queryRaw<Array<{ state: string; provider: string; endpointId: string; workflowVersionId: string; remoteHookId: bigint | null }>>`SELECT "state", "provider", "endpointId", "workflowVersionId", "remoteHookId" FROM "ProviderWebhookRegistration" WHERE id = ${input.registrationId} FOR UPDATE`;
+        const registration = rows[0];
+        if (!registration || registration.state !== "ACTIVE" || registration.provider !== "JIRA" || registration.endpointId !== input.endpointId || registration.workflowVersionId !== input.workflowVersionId || registration.remoteHookId !== input.remoteHookId) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
+      }
       const existing = await transaction.execution.findUnique({ where: { idempotencyKey } });
       if (existing) {
         const rows = await transaction.$queryRaw<Array<{ webhookPayloadDigest: string | null }>>`SELECT "webhookPayloadDigest" FROM "Execution" WHERE id = ${existing.id}`;
@@ -1133,6 +1143,7 @@ export async function executeNode(node: WorkflowNode, config: Record<string, unk
   if (node.type === "trigger.rss.new-item" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "rss", item: { id: "example-item", title: "Example item", link: "https://example.test/item", publishedAt: "", summary: "Synthetic feed item" } } }, route: "success" };
   if (node.type === "trigger.telegram.update" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "telegram", event: "message", updateId: 1, message: { chatId: "123456", messageId: 1, senderId: "123456", threadId: null, text: "Example message" } } }, route: "success" };
   if (node.type.startsWith("trigger.gitlab.") && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "gitlab", projectId: Number(config.project), event: node.type.endsWith("pipeline") ? "pipeline" : "merge_request", eventId: "sample-event", ...(node.type.endsWith("pipeline") ? { pipeline: { id: 1, status: !config.status || config.status === "all" ? "success" : config.status, ref: "main" } } : { mergeRequest: { id: 1, iid: 1, action: !config.action || config.action === "all" ? "open" : config.action, title: "Sample merge request" } }) } }, route: "success" };
+  if (node.type === "trigger.jira.issue" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "jira", event: config.event, issue: { id: "10001", key: "EXAMPLE-1", summary: "Example issue" }, deliveryId: "example-delivery" } }, route: "success" };
   if (node.type === "trigger.slack.event" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "slack", event: config.event, eventId: "EVEXAMPLE", teamId: "TEXAMPLE", channel: config.channel || "CEXAMPLE", user: "UEXAMPLE", text: "Example Slack event", timestamp: "1794213000.000001", threadTimestamp: null } }, route: "success" };
   if (node.type === "trigger.vercel.deployment" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "vercel", event: config.event || "deployment.created", eventId: "evt_example", projectId: "prj_example", deploymentId: "dpl_example", teamId: null } }, route: "success" };
   if (node.type === "trigger.trello.board-action" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "trello", event: config.action === "all" ? "createCard" : config.action, actionId: "5d5ea62fd76aa1136000000c", boardId: config.boardId || "4d5ea62fd76aa1136000000c", cardId: "6d5ea62fd76aa1136000000c", listId: null, cardName: "Sample card", text: null } }, route: "success" };

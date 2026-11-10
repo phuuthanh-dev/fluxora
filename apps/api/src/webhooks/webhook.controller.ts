@@ -4,10 +4,11 @@ import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
 import { WebhookService } from "./webhook.service";
 import { GitHubWebhookManagementService } from "./github-webhook-management.service";
+import { JiraWebhookManagementService } from "./jira-webhook-management.service";
 
 @Controller()
 export class WebhookController {
-  constructor(@Inject(WebhookService) private readonly webhooks: WebhookService, @Optional() @Inject(GitHubWebhookManagementService) private readonly githubHooks?: GitHubWebhookManagementService) {}
+  constructor(@Inject(WebhookService) private readonly webhooks: WebhookService, @Optional() @Inject(GitHubWebhookManagementService) private readonly githubHooks?: GitHubWebhookManagementService, @Optional() @Inject(JiraWebhookManagementService) private readonly jiraHooks?: JiraWebhookManagementService) {}
 
   @Get("workflows/:workflowId/webhook-endpoint")
   @UseGuards(AuthenticationGuard)
@@ -55,14 +56,43 @@ export class WebhookController {
     return { providerWebhook: await this.requireGitHubHooks().reconcile(workflowId, userId(request)) };
   }
 
+  @Get("workflows/:workflowId/jira-provider-webhook")
+  @UseGuards(AuthenticationGuard)
+  async jiraStatus(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return { providerWebhook: await this.requireJiraHooks().status(workflowId, userId(request)) };
+  }
+
+  @Post("workflows/:workflowId/jira-provider-webhook")
+  @Header("Cache-Control", "no-store")
+  @UseGuards(AuthenticationGuard)
+  async jiraCreate(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return { providerWebhook: await this.requireJiraHooks().create(workflowId, userId(request)) };
+  }
+
+  @Delete("workflows/:workflowId/jira-provider-webhook")
+  @Header("Cache-Control", "no-store")
+  @UseGuards(AuthenticationGuard)
+  async jiraDelete(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return { providerWebhook: await this.requireJiraHooks().remove(workflowId, userId(request)) };
+  }
+
+  @Post("workflows/:workflowId/jira-provider-webhook/reconcile")
+  @Header("Cache-Control", "no-store")
+  @UseGuards(AuthenticationGuard)
+  async jiraReconcile(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return { providerWebhook: await this.requireJiraHooks().reconcile(workflowId, userId(request)) };
+  }
+
   @Head("webhooks/:path")
   async trelloValidation(@Param("path") path: string) {
     await this.webhooks.checkTrelloEndpoint(path);
   }
 
   @Post("webhooks/:path")
-  async receive(@Param("path") path: string, @Headers("x-workflow-secret") secret: string | undefined, @Headers("x-github-event") githubEvent: string | undefined, @Headers("x-hub-signature-256") githubSignature: string | undefined, @Headers("idempotency-key") idempotencyKey: string | undefined, @RawBody() rawBody: Buffer | undefined, @Req() request: AuthenticatedRequest, @Headers("x-github-delivery") githubDelivery?: string, @Headers("x-telegram-bot-api-secret-token") telegramSecret?: string, @Headers("x-vercel-signature") vercelSignature?: string, @Headers("x-trello-webhook") trelloSignature?: string, @Headers("sentry-hook-signature") sentrySignature?: string, @Headers("sentry-hook-resource") sentryResource?: string, @Headers("x-slack-signature") slackSignature?: string, @Headers("x-slack-request-timestamp") slackTimestamp?: string, @Res({ passthrough: true }) response?: Response, @Headers("x-gitlab-event") gitlabEvent?: string, @Headers("webhook-id") gitlabId?: string, @Headers("webhook-timestamp") gitlabTimestamp?: string, @Headers("webhook-signature") gitlabSignature?: string) {
-    const result = await this.webhooks.receive(path, secret, request.body, readIdempotencyKey(idempotencyKey), { githubEvent, githubSignature, githubDelivery: readIdempotencyKey(githubDelivery), rawBody }, telegramSecret, vercelSignature, trelloSignature, sentrySignature, sentryResource, { signature: slackSignature, timestamp: slackTimestamp }, { event: gitlabEvent, id: gitlabId, timestamp: gitlabTimestamp, signature: gitlabSignature });
+  async receive(@Param("path") path: string, @Headers("x-workflow-secret") secret: string | undefined, @Headers("x-github-event") githubEvent: string | undefined, @Headers("x-hub-signature-256") githubSignature: string | undefined, @Headers("idempotency-key") idempotencyKey: string | undefined, @RawBody() rawBody: Buffer | undefined, @Req() request: AuthenticatedRequest, @Headers("x-github-delivery") githubDelivery?: string, @Headers("x-telegram-bot-api-secret-token") telegramSecret?: string, @Headers("x-vercel-signature") vercelSignature?: string, @Headers("x-trello-webhook") trelloSignature?: string, @Headers("sentry-hook-signature") sentrySignature?: string, @Headers("sentry-hook-resource") sentryResource?: string, @Headers("x-slack-signature") slackSignature?: string, @Headers("x-slack-request-timestamp") slackTimestamp?: string, @Res({ passthrough: true }) response?: Response, @Headers("x-gitlab-event") gitlabEvent?: string, @Headers("webhook-id") gitlabId?: string, @Headers("webhook-timestamp") gitlabTimestamp?: string, @Headers("webhook-signature") gitlabSignature?: string, @Headers("authorization") jiraAuthorization?: string, @Headers("x-atlassian-webhook-identifier") jiraDelivery?: string) {
+    const query = new URLSearchParams((request.originalUrl ?? "").split("?")[1] ?? "");
+    const jiraDeliveryTokens = query.getAll("delivery");
+    const result = await this.webhooks.receive(path, secret, request.body, readIdempotencyKey(idempotencyKey), { githubEvent, githubSignature, githubDelivery: readIdempotencyKey(githubDelivery), rawBody }, telegramSecret, vercelSignature, trelloSignature, sentrySignature, sentryResource, { signature: slackSignature, timestamp: slackTimestamp }, { event: gitlabEvent, id: gitlabId, timestamp: gitlabTimestamp, signature: gitlabSignature }, { authorization: jiraAuthorization, deliveryId: jiraDelivery, deliveryToken: jiraDeliveryTokens.length === 1 && [...query.keys()].length === 1 ? jiraDeliveryTokens[0] : undefined });
     if (slackSignature !== undefined || gitlabSignature !== undefined) response?.status(200);
     return result;
   }
@@ -70,6 +100,11 @@ export class WebhookController {
   private requireGitHubHooks() {
     if (!this.githubHooks) throw new Error("GitHub webhook management service is not configured.");
     return this.githubHooks;
+  }
+
+  private requireJiraHooks() {
+    if (!this.jiraHooks) throw new Error("Jira webhook management service is not configured.");
+    return this.jiraHooks;
   }
 }
 
