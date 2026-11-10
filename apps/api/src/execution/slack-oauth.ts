@@ -11,7 +11,7 @@ const validChannel = (value: unknown): value is string => typeof value === "stri
 const validCursor = (value: string) => value.length <= 512 && /^[\x21-\x7e]+$/.test(value);
 const record = (value: unknown): Record<string, unknown> | null => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 
-async function slackRequest(method: "conversations.list" | "chat.postMessage", token: string, body?: Record<string, unknown>, cursor?: string, transport = body ? fetchSafeOutboundWrite : fetchSafeOutbound) {
+async function slackRequest(method: "conversations.list" | "chat.postMessage" | "chat.update", token: string, body?: Record<string, unknown>, cursor?: string, transport = body ? fetchSafeOutboundWrite : fetchSafeOutbound) {
   if (!/^xoxb-[A-Za-z0-9-]{10,512}$/.test(token)) throw new NodeFailure("CREDENTIAL_INVALID", "Reconnect the Slack workspace.", false);
   const url = new URL(`https://slack.com/api/${method}`);
   if (method === "conversations.list") { url.searchParams.set("types", "public_channel"); url.searchParams.set("exclude_archived", "true"); url.searchParams.set("limit", "100"); if (cursor) url.searchParams.set("cursor", cursor); }
@@ -50,16 +50,18 @@ export async function listSlackChannels(token: string, cursor?: string, transpor
   return { channels, nextCursor };
 }
 
-export async function executeSlackOAuth(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport = fetchSafeOutboundWrite) {
-  const issue = nodeConfigIssues("action.slack.message", config, "resolved")[0];
+export async function executeSlackOAuth(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport = fetchSafeOutboundWrite, operation: "send" | "update" = "send") {
+  const issue = nodeConfigIssues(operation === "update" ? "action.slack.update-message" : "action.slack.message", config, "resolved")[0];
   if (issue) throw new NodeFailure("INVALID_CONFIGURATION", issue.message, false);
   const channel = String(config.channel ?? ""); const text = String(config.message ?? "");
   if (!validChannel(channel) || !text.trim() || text.length > 4000) throw new NodeFailure("INVALID_CONFIGURATION", "Select a Slack channel and enter a message of at most 4,000 characters.", false);
-  if (mode === "mock") return { status: "succeeded" as const, output: { delivered: true, provider: "slack", destination: channel, messageId: "example", sentAt: new Date().toISOString(), mode }, route: "success" as const };
+  if (mode === "mock") return { status: "succeeded" as const, output: { delivered: true, provider: "slack", destination: channel, messageId: operation === "update" ? String(config.messageId) : "1700000000.000001", sentAt: new Date().toISOString(), mode }, route: "success" as const };
   const credential = await credentials.readForExecution(readCredentialId(config), workspaceId, CredentialProvider.SLACK_OAUTH);
   const token = typeof credential.accessToken === "string" ? credential.accessToken : "";
-  const data = await slackRequest("chat.postMessage", token, { channel, text }, undefined, transport);
+  const threadTs = typeof config.threadTs === "string" ? config.threadTs : "";
+  const data = await slackRequest(operation === "update" ? "chat.update" : "chat.postMessage", token, { channel, text, ...(operation === "update" ? { ts: config.messageId } : threadTs ? { thread_ts: threadTs } : {}) }, undefined, transport);
   if (!validChannel(data.channel) || data.channel !== channel || typeof data.ts !== "string" || !/^\d{1,20}\.\d{1,20}$/.test(data.ts)) throw new NodeFailure("DELIVERY_UNCERTAIN", "Slack did not confirm the message. Check the channel before retrying.", false);
+  if (operation === "update" && data.ts !== config.messageId) throw new NodeFailure("DELIVERY_UNCERTAIN", "Slack did not confirm the selected message. Check the channel before retrying.", false);
   assertNoCredentialInProviderFields([data.channel, data.ts], token);
   return { status: "succeeded" as const, output: { delivered: true, provider: "slack", destination: data.channel, messageId: data.ts, sentAt: new Date().toISOString(), mode }, route: "success" as const };
 }

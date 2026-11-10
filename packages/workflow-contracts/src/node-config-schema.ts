@@ -1,4 +1,5 @@
-import { gitlabProject, gitlabListIssues, gitlabIssue, gitlabCreateIssue, gitlabComment, gitlabPipeline, gitlabMergeRequest } from "./node-config-schemas/gitlab";
+import { jiraCreate, jiraGet, jiraUpdate, jiraComment } from "./node-config-schemas/jira";
+import { gitlabProject, gitlabListIssues, gitlabIssue, gitlabCreateIssue, gitlabComment, gitlabPipeline, gitlabMergeRequest, gitlabUpdateIssue, gitlabGetPipeline, gitlabGetMergeRequest } from "./node-config-schemas/gitlab";
 import { aggregate, splitOut, sortItems, limitItems, merge } from "./node-config-schemas/data-transform";
 import { steamOperation, steamSnapshot } from "./node-config-schemas/steam";
 import { mongoFind, mongoInsert } from "./node-config-schemas/mongodb";
@@ -16,12 +17,12 @@ import { drive, driveCreateFolder, driveGetFile } from "./node-config-schemas/go
 import { googleSheets } from "./node-config-schemas/google-sheets";
 import { telegramEdit, telegramReply, telegramSend } from "./node-config-schemas/telegram";
 import { trelloCreate, trelloFind, trelloGet, trelloList, trelloMove, trelloUpdate } from "./node-config-schemas/trello";
-import { notionCreateEntry, notionUpdateEntry, notionChildren, notionCreate, notionPage, notionProperty, notionQuery, notionSearch, notionUpdate } from "./node-config-schemas/notion";
+import { notionAppend, notionCreateEntry, notionUpdateEntry, notionChildren, notionCreate, notionPage, notionProperty, notionQuery, notionSearch, notionUpdate } from "./node-config-schemas/notion";
 import { gmailGet, gmailLabel, gmailRead, gmailReply, gmailSend, gmailUpdateDraft } from "./node-config-schemas/gmail";
 import { calendarAvailability, calendarCreate, calendarEvent, calendarList, calendarUpdate } from "./node-config-schemas/google-calendar";
 import { postgresSelect, postgresInsert, postgresUpsert, supabaseInsert, supabaseSelect } from "./node-config-schemas/relational";
 import { riotLol, riotTft } from "./node-config-schemas/riot";
-import { slackMessage, slackWebhook, slackTrigger } from "./node-config-schemas/slack";
+import { slackMessage, slackUpdateMessage, slackWebhook, slackTrigger } from "./node-config-schemas/slack";
 import { discordWebhook } from "./node-config-schemas/discord";
 import { calendarTrigger, cron, githubTrigger, gmailTrigger, manual, rssTrigger, steamNewsTrigger, sentryTrigger, telegramTrigger, trelloTrigger, uptimeTrigger, vercelTrigger, webhookTrigger } from "./node-config-schemas/triggers";
 import { approval, editFields, ifCondition, switchCondition } from "./node-config-schemas/flow";
@@ -86,6 +87,7 @@ const rules: Readonly<Record<string, ConfigRules>> = {
   "action.notion.update-entry": notionUpdateEntry,
   "action.notion.create-page": notionCreate,
   "action.notion.update-title": notionUpdate,
+  "action.notion.append-block": notionAppend,
   "action.gmail.read": gmailRead,
   "action.gmail.get-message": gmailGet,
   "action.gmail.send": gmailSend,
@@ -109,11 +111,19 @@ const rules: Readonly<Record<string, ConfigRules>> = {
   "action.discord.webhook": discordWebhook,
   "action.slack.webhook": slackWebhook,
   "action.slack.message": slackMessage,
+  "action.slack.update-message": slackUpdateMessage,
+  "action.jira.create-issue": jiraCreate,
+  "action.jira.get-issue": jiraGet,
+  "action.jira.update-issue": jiraUpdate,
+  "action.jira.add-comment": jiraComment,
   "action.gitlab.get-project": gitlabProject,
   "action.gitlab.list-issues": gitlabListIssues,
   "action.gitlab.get-issue": gitlabIssue,
   "action.gitlab.create-issue": gitlabCreateIssue,
   "action.gitlab.add-comment": gitlabComment,
+  "action.gitlab.update-issue": gitlabUpdateIssue,
+  "action.gitlab.get-pipeline": gitlabGetPipeline,
+  "action.gitlab.get-merge-request": gitlabGetMergeRequest,
   "trigger.gitlab.pipeline": gitlabPipeline,
   "trigger.gitlab.merge-request": gitlabMergeRequest,
   "trigger.slack.event": slackTrigger,

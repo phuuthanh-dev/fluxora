@@ -74,3 +74,23 @@ export async function executeNotionUpdateTitle(config: Record<string, unknown>, 
   if (!sameId(updatedId, pageId)) throw uncertainDelivery("Notion");
   return { status: "succeeded" as const, output, route: "success" as const };
 }
+
+/** Append a single paragraph; an ambiguous response must never be retried. */
+export async function executeNotionAppendBlock(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, write: Transport = fetchSafeOutboundWrite) {
+  const issue = nodeConfigIssues("action.notion.append-block", config, "resolved")[0];
+  if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
+  const pageId = String(config.pageId).trim(), content = String(config.content);
+  if (mode === "mock") return { status: "succeeded" as const, output: { pageId, blockId: "00000000-0000-4000-8000-000000000001" }, route: "success" as const };
+  const token = await notionToken(config, workspaceId, credentials, pageId);
+  let response: Response;
+  try {
+    response = await write(`https://api.notion.com/v1/blocks/${pageId}/children`, { method: "PATCH", headers: { authorization: `Bearer ${token}`, "notion-version": "2022-06-28", "content-type": "application/json", accept: "application/json" }, body: JSON.stringify({ children: [{ object: "block", type: "paragraph", paragraph: { rich_text: [{ type: "text", text: { content } }] } }] }), signal: AbortSignal.timeout(10_000) });
+  } catch { throw uncertainDelivery("Notion"); }
+  if (wasOutboundRedirected(response) || (response.status >= 300 && response.status < 400) || response.status === 408 || response.status === 429 || response.status >= 500) { await response.body?.cancel().catch(() => undefined); throw uncertainDelivery("Notion", response.status); }
+  if (!response.ok) { await response.body?.cancel().catch(() => undefined); throw new NodeFailure("NOTION_WRITE_REJECTED", `Notion returned ${response.status}.`, false, response.status); }
+  const data = await readProviderJson(response, "Notion", true);
+  const list = data && typeof data === "object" && !Array.isArray(data) ? (data as Record<string, unknown>).results : undefined;
+  const first = Array.isArray(list) && list.length === 1 && list[0] && typeof list[0] === "object" ? list[0] as Record<string, unknown> : null;
+  if (!first || first.object !== "block" || typeof first.id !== "string" || !notionId.test(first.id) || first.id.includes(token)) throw uncertainDelivery("Notion");
+  return { status: "succeeded" as const, output: { pageId, blockId: first.id }, route: "success" as const };
+}

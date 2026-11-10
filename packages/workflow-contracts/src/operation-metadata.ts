@@ -3,7 +3,7 @@ import { workflowNodeTypes, type DataTransformNodeType, type ExecutableWorkflowN
 /** Descriptive metadata only: it must not authorize execution or determine retry policy. */
 export type OperationCredentialProvider =
   | "GOOGLE" | "STEAM" | "GOOGLE_CHAT_WEBHOOK" | "GOOGLE_CHAT_OAUTH" | "GMAIL" | "GOOGLE_CALENDAR"
-  | "MONGODB" | "NOTION" | "POSTGRES" | "HTTP" | "DISCORD_WEBHOOK" | "SLACK_WEBHOOK" | "SLACK_OAUTH" | "TELEGRAM_BOT" | "GITHUB" | "GITLAB"
+  | "JIRA" | "MONGODB" | "NOTION" | "POSTGRES" | "HTTP" | "DISCORD_WEBHOOK" | "SLACK_WEBHOOK" | "SLACK_OAUTH" | "TELEGRAM_BOT" | "GITHUB" | "GITLAB"
   | "SMTP" | "GEMINI" | "OPENAI" | "TRELLO" | "SENTRY" | "VERCEL" | "SUPABASE" | "REDDIT" | "RIOT";
 
 export type OperationAuth =
@@ -74,6 +74,7 @@ const definitions = {
   "action.notion.update-entry": executable(credential("NOTION"), "write", fields("pageId", "dataSourceId")),
   "action.notion.create-page": executable(credential("NOTION"), "write", fields("pageId", "parentPageId")),
   "action.notion.update-title": executable(credential("NOTION"), "write", fields("pageId", "updatedField")),
+  "action.notion.append-block": executable(credential("NOTION"), "write", fields("pageId", "blockId")),
   "action.trello.get-card": executable(credential("TRELLO"), "read", trelloCard),
   "action.trello.update-card": executable(credential("TRELLO"), "write", trelloCard),
   "action.trello.move-card": executable(credential("TRELLO"), "write", trelloCard),
@@ -93,10 +94,17 @@ const definitions = {
   "trigger.telegram.update": trigger(conditional, "read", triggerOutput),
   "trigger.gitlab.pipeline": trigger(credential("GITLAB"), "read", triggerOutput),
   "trigger.gitlab.merge-request": trigger(credential("GITLAB"), "read", triggerOutput),
+  "action.jira.create-issue": executable(credential("JIRA"), "write", fields("issue")),
+  "action.jira.get-issue": executable(credential("JIRA"), "read", fields("issue")),
+  "action.jira.update-issue": executable(credential("JIRA"), "write", fields("issue")),
+  "action.jira.add-comment": executable(credential("JIRA"), "write", fields("issueKey", "commentId")),
   "action.gitlab.get-project": executable(credential("GITLAB"), "read", fields("project")),
   "action.gitlab.get-issue": executable(credential("GITLAB"), "read", fields("issue")),
   "action.gitlab.create-issue": executable(credential("GITLAB"), "write", fields("issue")),
   "action.gitlab.add-comment": executable(credential("GITLAB"), "write", fields("commentId", "issueNumber", "projectId")),
+  "action.gitlab.update-issue": executable(credential("GITLAB"), "write", fields("issue")),
+  "action.gitlab.get-pipeline": executable(credential("GITLAB"), "read", fields("pipeline")),
+  "action.gitlab.get-merge-request": executable(credential("GITLAB"), "read", fields("mergeRequest")),
   "action.gitlab.list-issues": executable(credential("GITLAB"), "read", fields("items", "nextPage"), { kind: "continuation", input: "page", next: "nextPage", preserve: ["credentialId", "project", "state", "pageSize"] }),
   "trigger.slack.event": trigger(credential("SLACK_OAUTH"), "read", triggerOutput),
   "trigger.vercel.deployment": trigger(conditional, "read", triggerOutput),
@@ -133,6 +141,7 @@ const definitions = {
   "action.discord.webhook": executable(credential("DISCORD_WEBHOOK"), "write", notificationReceipt),
   "action.slack.webhook": executable(credential("SLACK_WEBHOOK"), "write", fields("delivered", "provider", "destination", "sentAt", "mode")),
   "action.slack.message": executable(credential("SLACK_OAUTH"), "write", fields("delivered", "provider", "destination", "messageId", "sentAt", "mode")),
+  "action.slack.update-message": executable(credential("SLACK_OAUTH"), "write", fields("delivered", "provider", "destination", "messageId", "sentAt", "mode")),
   "action.telegram.message": executable(credential("TELEGRAM_BOT"), "write", notificationReceipt),
   "action.telegram.reply": executable(credential("TELEGRAM_BOT"), "write", fields(...notificationReceipt.knownFields, "operation")),
   "action.telegram.edit-message": executable(credential("TELEGRAM_BOT"), "write", fields(...notificationReceipt.knownFields, "operation")),

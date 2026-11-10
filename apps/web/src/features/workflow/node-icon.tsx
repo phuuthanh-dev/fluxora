@@ -34,6 +34,7 @@ import supabaseIcon from "@iconify-icons/logos/supabase-icon";
 import {
   SiFacebook,
   SiGithub,
+  SiJira,
   SiGooglechat,
   SiGooglesheets,
   SiMongodb,
@@ -85,6 +86,7 @@ export type NodeIconName =
   | "uptime-kuma"
   | "reddit"
   | "postgres"
+  | "jira"
   | "gitlab"
   | "github"
   | "facebook"
@@ -152,6 +154,7 @@ export function NodeIcon({ name, size = 18, className = "" }: { name: NodeIconNa
       case "reddit": return <BrandIcon icon={redditIcon} size={size} />;
       case "uptime-kuma": return <SiUptimekuma {...props} />;
       case "postgres": return <SiPostgresql {...props} />;
+      case "jira": return <SiJira size={size} color="#2684ff" />;
       case "gitlab": return <BrandIcon icon={gitlabIcon} size={size} />;
       case "github": return <SiGithub {...props} />;
       case "facebook": return <SiFacebook {...props} />;

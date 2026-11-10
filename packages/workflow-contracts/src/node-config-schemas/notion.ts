@@ -25,6 +25,7 @@ export const notionChildren: ConfigRules = { blockId: notionId("page or block"),
 export const notionProperty: ConfigRules = { pageId: notionId("page"), propertyId: { schema: property, required: true, message: "Choose a valid Notion property." }, ...pagination };
 export const notionCreate: ConfigRules = { parentPageId: notionId("parent page", true), title, content: { schema: z.string().max(2000), message: "Enter text of at most 2,000 characters." } };
 export const notionUpdate: ConfigRules = { pageId: notionId("page", true), title };
+export const notionAppend: ConfigRules = { pageId: notionId("page", true), content: { schema: z.string().refine((value) => !!value.trim() && value.length <= 2000), required: true, message: "Enter text of at most 2,000 characters." } };
 export const notionQuery: ConfigRules = {
   dataSourceId: notionId("data source"), ...pagination,
   sort: { schema: z.enum(["provider", "created-newest", "created-oldest", "edited-newest", "edited-oldest"]), message: "Choose a valid sort order." },

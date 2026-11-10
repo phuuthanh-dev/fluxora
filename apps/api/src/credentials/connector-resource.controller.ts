@@ -1,3 +1,4 @@
+import { listJiraProjects, listJiraIssueTypes } from "../execution/jira";
 import { executeGitLab, listGitLabProjects } from "../execution/gitlab";
 import { BadRequestException, Controller, Get, Inject, Param, Query, Req, UseGuards } from "@nestjs/common";
 import { CredentialProvider } from "@prisma/client";
@@ -75,6 +76,22 @@ export class ConnectorResourceController {
       const response = await executeSteamOperation({ credentialId, operation: "ownedGames", steamId: steamId ?? "", includePlayedFreeGames: true }, "live", workspaceId, this.credentials);
       return steamGameOptions(response.output.result.games);
     } catch { throw new BadRequestException({ code: "STEAM_GAMES_UNAVAILABLE", message: "Games could not be loaded. Check your Steam connection and game privacy, or enter the App ID manually." }); }
+  }
+
+  @Get("jira/projects")
+  async jiraProjects(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication required");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    try { return await listJiraProjects(credentialId, workspaceId, this.credentials); }
+    catch { throw new BadRequestException({ code: "JIRA_PROJECTS_UNAVAILABLE", message: "Projects could not be loaded. Reconnect Jira or enter a project ID manually." }); }
+  }
+
+  @Get("jira/issue-types")
+  async jiraIssueTypes(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Query("project") project: string | undefined, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication required");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    try { return await listJiraIssueTypes(credentialId, workspaceId, project ?? "", this.credentials); }
+    catch { throw new BadRequestException({ code: "JIRA_ISSUE_TYPES_UNAVAILABLE", message: "Issue types could not be loaded. Check the project or enter the ID manually." }); }
   }
 
   @Get("gitlab/projects")

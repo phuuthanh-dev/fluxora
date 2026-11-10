@@ -46,6 +46,9 @@ export type ApiExecution = {
 type Diagnostic = { schemaVersion: "fluxora.execution-diagnostic.v1"; execution: { id: string } };
 
 export function executionRecoveryGuidance(node: ExecutionNodeDetail) {
+  if (node.status === "FAILED" && ["DELIVERY_UNCERTAIN", "OUTCOME_UNKNOWN", "SMTP_PARTIAL_REJECTION"].includes(node.error?.code ?? "")) {
+    return "The provider may have accepted some or all of the request. Check the destination before retrying to avoid duplicates.";
+  }
   if (node.status === "FAILED" && node.nodeType === "action.google-chat.webhook" && node.error?.code === "HTTP_ERROR" && node.error.message === "Google Chat returned 403.") {
     return "Check that the incoming webhook exists in the intended Google Chat space and that webhooks are allowed. If needed, update the webhook in Connections before retrying.";
   }
@@ -134,7 +137,7 @@ export function ExecutionDetailsPanel({ executionId, onClose, onSelectNode }: { 
           <div><span>Started</span><strong>{formatTimestamp(execution.startedAt ?? execution.createdAt)}</strong></div>
         </section>
         {execution.failureAlertOutcome === "SENT" ? <Status tone="info">The failure alert was accepted by the provider.</Status> : execution.failureAlertOutcome === "UNCONFIRMED" ? <Status tone="warning"><span>The failure alert has not been confirmed. It may still be in progress, or delivery may have failed; check the destination.</span><Button variant="ghost" onClick={() => void load()}>Refresh status</Button></Status> : null}
-        {execution.error ? <Status tone="error" className="execution-observability__run-error"><AlertTriangle size={17} /><span><strong>{execution.error.code}</strong>{execution.error.message ?? "Execution failed."} {execution.error.retryable ? "A manual retry may succeed." : "Fix the workflow or credential before retrying."}</span>{failedNode && <Button variant="ghost" onClick={() => onSelectNode(failedNode.nodeId)}>Inspect failed node</Button>}</Status> : null}
+        {execution.error ? <Status tone="error" className="execution-observability__run-error"><AlertTriangle size={17} /><span><strong>{execution.error.code}</strong>{execution.error.message ?? "Execution failed."} {execution.error.retryable ? "A manual retry may succeed." : "Inspect the failed node and check the destination before retrying."}</span>{failedNode && <Button variant="ghost" onClick={() => onSelectNode(failedNode.nodeId)}>Inspect failed node</Button>}</Status> : null}
         {execution.nodeExecutions.length === 0 ? <EmptyState icon={<Clock3 size={22} />} title="No node activity yet" description="The run is queued or has not persisted its first node state." /> : <ol className="execution-timeline" aria-label="Node execution timeline">
           {execution.nodeExecutions.map((node) => {
             const explanation = executionFailureExplanation(node);
@@ -144,6 +147,7 @@ export function ExecutionDetailsPanel({ executionId, onClose, onSelectNode }: { 
               <div className="execution-timeline__body">
                 <div className="execution-timeline__title"><strong>{node.nodeId}</strong><span>{node.status}</span></div>
                 <p>{nodeNames.get(node.nodeId) ?? node.nodeType} · attempt {node.attempt} · {formatDuration(node.durationMs)}</p>
+                {node.items && node.items.length > 0 ? <p>{node.items.length} {node.items.length === 1 ? "item" : "items"} · {node.items.filter((item) => item.status === "FAILED").length} failed. Inspect the node to view each input and output.</p> : null}
                 {node.error ? <code>{node.error.code}: {node.error.message}</code> : null}
                 {recovery ? <p>{recovery}</p> : null}
                 {explanation ? <div className="execution-timeline__explanation">{node.failureHandling?.kind === "error_branch" ? <GitBranch size={14} /> : node.status === "SKIPPED" ? <SkipForward size={14} /> : <RotateCcw size={14} />}<span>{explanation}</span></div> : null}

@@ -18,6 +18,13 @@ export class AdminController {
   @Header("Cache-Control", "no-store")
   access(@Req() request: AuthenticatedRequest) { return { allowed: true, userId: request.currentUser!.id }; }
 
+  @Get("jira-privacy-reporting")
+  @Header("Cache-Control", "no-store")
+  async jiraPrivacyReporting() {
+    const accounts = await this.prisma.jiraPrivacyAccount.groupBy({ by: ["state", "requiredAction"], _count: { _all: true } });
+    return { enabled: process.env.JIRA_PRIVACY_REPORTING_ENABLED === "true", accounts: accounts.map((item) => ({ state: item.state, requiredAction: item.requiredAction, count: item._count._all })) };
+  }
+
   @Get("overview")
   @Header("Cache-Control", "no-store")
   async overview() {

@@ -134,6 +134,7 @@ function providerLabel(provider: CredentialProvider) {
     GEMINI: "Gemini",
     OPENAI: "OpenAI",
     MONGODB: "MongoDB",
+    JIRA: "Jira",
     NOTION: "Notion",
     TRELLO: "Trello",
     SENTRY: "Sentry",
@@ -1093,6 +1094,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       if (effectiveNodeType === "action.trello.find-cards" && ["credentialId", "boardId", "query", "limit"].includes(key) && "page" in config) config.page = 0;
       if (effectiveNodeType === "action.trello.find-cards" && key === "searchPagination" && value === "pages") config.page = 0;
     }
+    if (effectiveNodeType === "action.jira.create-issue" && ["credentialId", "project"].includes(key) && node.data.config[key] !== value) { if (key === "credentialId") config.project = ""; config.issueType = ""; }
     if (effectiveNodeType.startsWith("action.notion.") && node.data.config[key] !== value) {
       if (key === "credentialId") {
         for (const dependent of ["pageId", "parentPageId", "blockId", "propertyId", "dataSourceId", "filterProperty", "cursor"]) { if (dependent in config) config[dependent] = ""; }
@@ -1211,6 +1213,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       {effectiveNodeType === "action.google-drive" && ["list", "search"].includes(String(node.data.config.operation ?? "list")) && node.data.config.collectPages === true && <Status tone="info" className="inspector-note">Fetch up to 100 files using at most five Drive requests. Check <code>nextPageToken</code> for more results; changes in Drive can affect pagination.</Status>}
       {effectiveNodeType === "action.gmail.read" && node.data.config.collectPages === true && <Status tone="info" className="inspector-note">Fetch up to the selected maximum using at most five Gmail list requests, plus one request per message. Check <code>hasMore</code> and <code>nextPageToken</code> for more results.</Status>}
       {effectiveNodeType === "action.google-drive.create-folder" && <Status tone="info" className="inspector-note">Leave the parent folder empty to create it in My Drive. If creation is unconfirmed, check Drive before retrying to avoid duplicate folders.</Status>}
+      {effectiveNodeType === "action.jira.create-issue" && <Status tone="info" className="inspector-note">This action supports a summary and optional description. Some Jira projects require additional fields; those issue types may reject creation.</Status>}
       {effectiveNodeType === "action.notion.create-page" && <Status tone="info" className="inspector-note">Creates a page inside the selected page. If delivery is uncertain, check Notion before running it again to avoid duplicates.</Status>}
       {effectiveNodeType === "action.notion.update-title" && <Status tone="info" className="inspector-note">Updates only the title. Changes made by someone else at the same time can be overwritten; check Notion before retrying an uncertain result.</Status>}
       {effectiveNodeType === "action.notion.list-children" && <Status tone="info" className="inspector-note">Returns direct child blocks only. Nested blocks require a separate request.</Status>}

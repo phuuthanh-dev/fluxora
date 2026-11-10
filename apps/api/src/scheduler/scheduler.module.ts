@@ -5,6 +5,7 @@ import { CronSchedulerService } from "./cron-scheduler.service";
 import { GmailTriggerService } from "./gmail-trigger.service";
 import { RssTriggerService } from "./rss-trigger.service";
 import { CalendarTriggerService } from "./calendar-trigger.service";
+import { JiraPrivacyReportingService } from "./jira-privacy-reporting.service";
 
-@Module({ imports: [ExecutionModule, CredentialModule], providers: [CronSchedulerService, GmailTriggerService, RssTriggerService, CalendarTriggerService], exports: [GmailTriggerService, RssTriggerService, CalendarTriggerService] })
+@Module({ imports: [ExecutionModule, CredentialModule], providers: [CronSchedulerService, GmailTriggerService, RssTriggerService, CalendarTriggerService, JiraPrivacyReportingService], exports: [GmailTriggerService, RssTriggerService, CalendarTriggerService] })
 export class SchedulerModule {}
