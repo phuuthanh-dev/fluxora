@@ -25,6 +25,7 @@ for (const theme of ["light", "dark"] as const) test(`Slack mapping and failure 
   await message.focus();
   await message.evaluate((element: HTMLTextAreaElement) => element.setSelectionRange(7, 7));
   await expect(page.getByRole("button", { name: "{{ steps.manual.output.received }}", exact: true })).toHaveCount(0);
+  await page.getByText("Use data from an earlier step", { exact: true }).click();
   await page.getByLabel("Mapping source step").selectOption("manual");
   await page.getByRole("button", { name: "{{ steps.manual.output.received }}", exact: true }).click();
   await expect(message).toHaveValue("Before {{ steps.manual.output.received }}after");

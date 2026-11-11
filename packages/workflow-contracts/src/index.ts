@@ -19,6 +19,8 @@ export { getItemCollectionField } from "./item-metadata";
 export const workflowNodeTypes = [
   "trigger.manual",
   "trigger.gmail",
+  "trigger.notion.page",
+  "trigger.google-drive.file",
   "trigger.google-calendar.event",
   "trigger.rss.new-item",
   "trigger.steam.game-news",
@@ -154,6 +156,8 @@ export type WorkflowNodeType = (typeof workflowNodeTypes)[number];
 export const executableWorkflowNodeTypes = [
   "trigger.manual",
   "trigger.gmail",
+  "trigger.notion.page",
+  "trigger.google-drive.file",
   "trigger.google-calendar.event",
   "trigger.rss.new-item",
   "trigger.steam.game-news",

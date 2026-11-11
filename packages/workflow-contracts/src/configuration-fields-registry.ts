@@ -26,6 +26,12 @@ const sharedFields = {
   ...developerNodeFields,
   ...googleNodeFields,
   ...otherNodeFields,
+  "trigger.notion.page": () => [
+    { kind: "credential", key: "credentialId", label: "Notion connection", providers: ["NOTION"] },
+    { kind: "resource", key: "resourceId", label: "Data source", resource: "notion-data-source", credentialKey: "credentialId", placeholder: "Search shared data sources" },
+    { kind: "select", key: "event", label: "Event", options: [{ value: "created", label: "Page created" }, { value: "updated", label: "Page updated" }] },
+    { kind: "select", key: "pollMinutes", label: "Check for changes", options: [{ value: "1", label: "Every minute" }, { value: "5", label: "Every 5 minutes" }, { value: "15", label: "Every 15 minutes" }, { value: "60", label: "Every hour" }] },
+  ],
   "action.github.list-issues": () => githubReadConfigurationFields("issue", true),
   "action.github.get-issue": () => githubReadConfigurationFields("issue", false),
   "action.github.update-issue": () => [

@@ -79,6 +79,16 @@ export class WorkflowController {
     return this.workflows.calendarTriggerStatus(workflowId, requireUserId(request));
   }
 
+  @Get("workflows/:workflowId/provider-poll-status")
+  async providerPollStatus(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return this.workflows.providerPollStatus(workflowId, requireUserId(request));
+  }
+
+  @Post("workflows/:workflowId/provider-poll-reset")
+  async resetProviderPoll(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
+    return this.workflows.resetProviderPoll(workflowId, requireUserId(request), request.body?.confirmDataGap === true);
+  }
+
   @Post("workflows/:workflowId/calendar-trigger-reset")
   async resetCalendarTrigger(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
     return this.workflows.resetCalendarTrigger(workflowId, requireUserId(request), request.body?.confirmDataGap === true);

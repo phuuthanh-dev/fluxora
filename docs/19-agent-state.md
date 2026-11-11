@@ -1,5 +1,11 @@
 # Agent Current State Gate
 
+## Notion, Drive and editor batch — 2026-11-11 (local verification snapshot)
+
+- This batch supersedes the assessment immediately below: a Notion data-source page trigger and a Google Drive file/folder change trigger have been implemented locally, along with configuration-level access to the existing mapping helper. Their release and live-provider qualification have not yet been established. See `.agent/tasks/2026-11-11-notion-drive-mapping.md` for scope and limitations; do not implement duplicates.
+- Production observation: Steam daily v9 and all three game-news workflows are active. The three news checkpoints reported recent polling; no new live news delivery or scheduled v9 execution had yet been observed. The production Jira trigger qualification remains inactive after its earlier issue-created test; update/delete and renewal remain unqualified.
+- Isolated local `npm run verify` passed: 1,202 API tests, 76 web tests and 234 E2E tests; one optional Riot integration test was skipped. The first verification failed on a missing new-trigger test fixture and a worker startup timeout; after fixing the fixture, the worker test and full gate passed. Existing landing GSAP empty-target warnings remain. PR and deployment evidence must be checked separately. The pre-existing `apps/web/next-env.d.ts` diff is unrelated and must be preserved; local scheduling is disabled.
+
 ## UI and trigger assessment — 2026-11-11 (local, unreleased)
 
 - Targeted browser review covered Connections and Execution history in both themes, Admin Audit in both themes, Dashboard in light/dark, and the Jira editor/picker. This is not an audit of every page or viewport. The connection helper, disclosure typography and shared resource picker were adjusted; the Jira picker accepted an upstream expression in local UI without saving the workflow.

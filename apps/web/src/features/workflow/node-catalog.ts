@@ -206,6 +206,16 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "google-calendar", available: true, defaultConfig: { credentialId: "", calendarId: "", event: "created", pollMinutes: "5" }, configurationFields: getSharedNodeConfigurationFields("trigger.google-calendar.event"),
   },
   {
+    type: "trigger.notion.page", label: "Notion page", description: "Start when a page in a data source is created or updated.", category: "trigger",
+    libraryGroup: "productivity", appId: "notion", operationId: "page-change", operationLabel: "Page created or updated", operationKind: "trigger",
+    icon: "notion", available: true, defaultConfig: { credentialId: "", resourceId: "", event: "created", pollMinutes: "5" }, configurationFields: getSharedNodeConfigurationFields("trigger.notion.page"),
+  },
+  {
+    type: "trigger.google-drive.file", label: "Google Drive file", description: "Start when a file is created or updated.", category: "trigger",
+    libraryGroup: "google-workspace", appId: "google-drive", operationId: "file-change", operationLabel: "File created or updated", operationKind: "trigger",
+    icon: "google-drive", available: true, defaultConfig: { credentialId: "", resourceType: "folder", resourceId: "", event: "created", pollMinutes: "5" }, configurationFields: getSharedNodeConfigurationFields("trigger.google-drive.file"),
+  },
+  {
     type: "trigger.cron",
     label: "Schedule",
     description: "Start on a cron schedule.",
