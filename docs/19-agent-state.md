@@ -1,5 +1,11 @@
 # Agent Current State Gate
 
+## Sheets trigger and provider qualification — 2026-11-11 (local, unreleased)
+
+- PR #126 (`474f7a5`) merged the Notion and Drive triggers; do not implement them again. On an isolated local workflow each, a new Notion test page and an edit to an approved Drive test file produced one successful live execution. Both test workflows were deactivated and the Drive filename restored. Global local scheduling was disabled; individual target polls were invoked for the tests, so periodic scheduling itself was not qualified.
+- The current batch adds a Google Sheets row-added polling trigger using the existing checkpoint machinery, and clarifies the existing mapping and execution retry UI. An added row in a test tab produced one successful local live execution through a targeted poll; the test workflow was deactivated. The final isolated `npm run verify` passed (1,209 API tests, one optional skip; 76 web tests; 234 E2E). Release is pending PR and CI. The trigger requires a stable unique key column, processes at most 1,000 rows and 100 columns, and stops on deleted/changed keys or headers. It does not detect row updates, deletions, or transient changes between polls.
+- Google Drive file selection was corrected to accept longer valid page tokens observed from the provider. Sheets resource pickers and the execution history were visually reviewed in light and dark themes. This is not a complete visual audit of the entire product.
+
 ## Notion, Drive and editor batch — 2026-11-11 (local verification snapshot)
 
 - This batch supersedes the assessment immediately below: a Notion data-source page trigger and a Google Drive file/folder change trigger have been implemented locally, along with configuration-level access to the existing mapping helper. Their release and live-provider qualification have not yet been established. See `.agent/tasks/2026-11-11-notion-drive-mapping.md` for scope and limitations; do not implement duplicates.

@@ -81,6 +81,7 @@ This table records the MVP baseline and selected later additions. Entries marked
 | Action | GitHub Merge Pull Request | Merge an existing pull request with an explicit merge method using the same workspace-owned GitHub connector credential. |
 | Action | Google Drive | List/search file metadata and upload/download text assets. |
 | Action | Google Sheets | Read ranges, append rows, update ranges. |
+| Trigger | Google Sheets | Poll for added rows in a selected tab, using a stable unique key column. Initial rows are a baseline; up to 1,000 rows and 100 columns are supported. Changed/deleted keys or headers stop polling for review. Row updates and intermediate changes between polls are not detected. |
 | Action | HTTP Request | Generic REST request with structured response. |
 | Action | SMTP Email | Dedicated encrypted SMTP credential, TLS-only submission and normalized delivery result. One owner-approved local submission reached the intended inbox; production delivery and sustained behavior remain unqualified. |
 | Action | Gmail Read | Read bounded inbox results using a dedicated Gmail connection. Released in PR #57; one targeted local read succeeded. Google scope verification and sustained behavior remain open. |

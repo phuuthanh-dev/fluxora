@@ -90,6 +90,7 @@ const definitions = {
   "trigger.gmail": trigger(credential("GMAIL", "required", "trigger-setup"), "unspecified", triggerOutput),
   "trigger.notion.page": trigger(credential("NOTION", "required", "trigger-setup"), "read", triggerOutput),
   "trigger.google-drive.file": trigger(credential("GOOGLE", "required", "trigger-setup"), "read", triggerOutput),
+  "trigger.google-sheets.row": trigger(credential("GOOGLE", "required", "trigger-setup"), "read", triggerOutput),
   "trigger.google-calendar.event": trigger(credential("GOOGLE_CALENDAR", "required", "trigger-setup"), "read", triggerOutput),
   "trigger.rss.new-item": trigger(none, "read", triggerOutput),
   "trigger.steam.game-news": trigger(none, "read", triggerOutput),

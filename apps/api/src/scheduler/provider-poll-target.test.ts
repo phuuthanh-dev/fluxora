@@ -12,3 +12,12 @@ test("provider polling scopes a checkpoint to its connection, resource and event
   assert.notEqual(target().configHash, target({ event: "updated" }).configHash);
   assert.throws(() => target({ pollMinutes: "0" }), /polling interval/);
 });
+
+test("Sheets polling scopes checkpoint identity to spreadsheet, tab and unique column", () => {
+  const graph = (changes: Record<string, unknown> = {}) => ({ nodes: [{ id: "trigger", type: "trigger.google-sheets.row" as const, position: { x: 0, y: 0 }, config: { credentialId: "connection", resourceId: "sheet-id", sheetName: "Sheet1", keyColumn: "ID", pollMinutes: "5", ...changes } }], edges: [] });
+  const target = (changes?: Record<string, unknown>) => providerPollTargets("flow", "version", "workspace", graph(changes))[0]!;
+  assert.equal(target().provider, "google-sheets");
+  assert.notEqual(target().configHash, target({ sheetName: "Other" }).configHash);
+  assert.notEqual(target().configHash, target({ keyColumn: "Other" }).configHash);
+  assert.throws(() => target({ keyColumn: "" }), /unique key column/);
+});

@@ -144,7 +144,7 @@ export class WorkflowService {
     const workflow = await this.findOwned(workflowId, userId);
     if (!workflow.publishedVersion) return { active: workflow.isActive, checkpoints: [] };
     const checkpoints = await this.prisma.providerPollCheckpoint.findMany({ where: { workflowId, workflowVersionId: workflow.publishedVersion.id }, select: { nodeId: true, state: true, lastErrorCode: true, updatedAt: true } });
-    if (workflow.isActive) for (const node of parseStoredWorkflowGraph(workflow.publishedVersion.graph).nodes.filter((item) => item.type === "trigger.notion.page" || item.type === "trigger.google-drive.file")) if (!checkpoints.some((checkpoint) => checkpoint.nodeId === node.id)) checkpoints.push({ nodeId: node.id, state: "ERROR", lastErrorCode: "PROVIDER_CHECKPOINT_MISSING", updatedAt: new Date() });
+    if (workflow.isActive) for (const node of parseStoredWorkflowGraph(workflow.publishedVersion.graph).nodes.filter((item) => item.type === "trigger.notion.page" || item.type === "trigger.google-drive.file" || item.type === "trigger.google-sheets.row")) if (!checkpoints.some((checkpoint) => checkpoint.nodeId === node.id)) checkpoints.push({ nodeId: node.id, state: "ERROR", lastErrorCode: "PROVIDER_CHECKPOINT_MISSING", updatedAt: new Date() });
     return { active: workflow.isActive, checkpoints };
   }
 
@@ -391,7 +391,7 @@ export class WorkflowService {
     const rssNodes = graph.nodes.filter((node) => ["trigger.rss.new-item", "trigger.steam.game-news"].includes(node.type));
     const calendarNodes = graph.nodes.filter((node) => node.type === "trigger.google-calendar.event");
     const jiraNodes = graph.nodes.filter((node) => node.type === "trigger.jira.issue");
-    const providerNodes = graph.nodes.filter((node) => node.type === "trigger.notion.page" || node.type === "trigger.google-drive.file");
+    const providerNodes = graph.nodes.filter((node) => node.type === "trigger.notion.page" || node.type === "trigger.google-drive.file" || node.type === "trigger.google-sheets.row");
     if (gmailNodes.length && !this.gmailTriggers) throw new BadRequestException({ code: "GMAIL_TRIGGER_UNAVAILABLE", message: "Gmail trigger is unavailable." });
     if (rssNodes.length && !this.rssTriggers) throw new BadRequestException({ code: "RSS_TRIGGER_UNAVAILABLE", message: "RSS trigger is unavailable." });
     if (calendarNodes.length && !this.calendarTriggers) throw new BadRequestException({ code: "CALENDAR_TRIGGER_UNAVAILABLE", message: "Calendar trigger is unavailable." });

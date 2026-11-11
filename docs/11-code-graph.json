@@ -2187,6 +2187,7 @@
         "apps/api/src/scheduler/drive-trigger-protocol.ts",
         "apps/api/src/scheduler/notion-trigger-protocol.ts",
         "apps/api/src/scheduler/provider-poll-target.ts",
+        "apps/api/src/scheduler/sheets-trigger-protocol.ts",
         "apps/api/src/workflows/workflow-graph.ts"
       ],
       "externalImports": [
@@ -2262,6 +2263,19 @@
       ],
       "externalImports": [
         "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/scheduler/sheets-trigger-protocol.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-credential-safety.ts",
+        "apps/api/src/execution/provider-json.ts"
+      ],
+      "externalImports": [
+        "node:crypto"
       ]
     },
     {
@@ -7286,6 +7300,10 @@
     },
     {
       "from": "apps/api/src/scheduler/provider-poll.service.ts",
+      "to": "apps/api/src/scheduler/sheets-trigger-protocol.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/provider-poll.service.ts",
       "to": "apps/api/src/workflows/workflow-graph.ts"
     },
     {
@@ -7399,6 +7417,22 @@
     {
       "from": "apps/api/src/scheduler/scheduler.module.ts",
       "to": "apps/api/src/scheduler/rss-trigger.service.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/sheets-trigger-protocol.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/sheets-trigger-protocol.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/sheets-trigger-protocol.ts",
+      "to": "apps/api/src/execution/provider-credential-safety.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/sheets-trigger-protocol.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
     },
     {
       "from": "apps/api/src/webhooks/github-webhook-adapter.ts",

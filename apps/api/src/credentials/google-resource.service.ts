@@ -87,13 +87,13 @@ export class GoogleResourceService {
     if (kind === "all" && (data.files.length > 100 || data.files.some((item) => {
       const file = record(item);
       return !file || typeof file.id !== "string" || !/^[A-Za-z0-9_-]{1,200}$/.test(file.id) || typeof file.name !== "string" || file.name.length > 1024 || typeof file.mimeType !== "string" || file.mimeType.length > 256 || [file.id, file.name, file.mimeType].some((value) => value.includes(token));
-    }) || (data.nextPageToken !== undefined && (typeof data.nextPageToken !== "string" || data.nextPageToken.length > 512 || !/^[\x21-\x7e]+$/.test(data.nextPageToken) || data.nextPageToken.includes(token))))) throw new BadRequestException({ code: "GOOGLE_RESOURCE_INVALID", message: "Google returned an invalid file list." });
+    }) || (data.nextPageToken !== undefined && (typeof data.nextPageToken !== "string" || data.nextPageToken.length > 2048 || !/^[\x21-\x7e]+$/.test(data.nextPageToken) || data.nextPageToken.includes(token))))) throw new BadRequestException({ code: "GOOGLE_RESOURCE_INVALID", message: "Google returned an invalid file list." });
     const files = data.files.flatMap((item) => {
       if (!item || typeof item !== "object" || Array.isArray(item)) return [];
       const file = item as Record<string, unknown>;
       return typeof file.id === "string" && typeof file.name === "string" && typeof file.mimeType === "string" ? [{ id: file.id, name: file.name, mimeType: file.mimeType }] : [];
     });
-    const nextPageToken = typeof data.nextPageToken === "string" && data.nextPageToken.length <= 512 && /^[\x21-\x7e]+$/.test(data.nextPageToken) ? data.nextPageToken : null;
+    const nextPageToken = typeof data.nextPageToken === "string" && data.nextPageToken.length <= 2048 && /^[\x21-\x7e]+$/.test(data.nextPageToken) ? data.nextPageToken : null;
     return { files, nextPageToken };
   }
 }

@@ -703,3 +703,6 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px soli
 .dashboard-create__template-details { border-top: 1px solid var(--line); color: var(--muted); flex-basis: 100%; font-size: 13px; line-height: 1.5; padding-top: 14px; }
 .dashboard-create__template-details p { margin: 0 0 5px; }
 .dashboard-create__template-details span { color: var(--ink); font-weight: 600; }
+
+.expression-suggestions__source { display: grid; gap: 6px; margin-top: 10px; }
+.expression-suggestions .expression-suggestions__target { color: var(--text-secondary); font-weight: var(--weight-semibold); }
