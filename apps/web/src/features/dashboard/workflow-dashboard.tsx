@@ -4,13 +4,14 @@ import { Activity, Archive, ArrowRight, ChevronDown, CirclePlus, Copy, FilePlus2
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { WorkflowNodeType } from "@workflow/contracts";
-import { apiRequest, apiUrl } from "../api/api-client";
+import { apiRequest, apiUrl, isUnauthenticated } from "../api/api-client";
 import { NodeIcon } from "../workflow/node-icon";
 import "./dashboard.css";
 import { getNodeDefinition } from "../workflow/node-catalog";
 import type { ApiWorkflow } from "../workflow/workflow-api";
 import { Button, Dialog, DialogHeader, IconButton, Menu, PageHeader, SectionHeader, Select, Status, Toolbar } from "../../components/ui";
 import { AppShellHeader } from "../app-shell/app-shell-header";
+import { consumeOAuthReturn, loginHref } from "../auth/auth-redirect";
 import { Collapse } from "../../components/ui/disclosure";
 import { ArchivedWorkflows } from "./archived-workflows";
 import { WorkspaceActivity } from "./workspace-activity";
@@ -127,6 +128,11 @@ export function WorkflowDashboard() {
         const workspaceResponse = await apiRequest<{ workspaces: WorkspaceSummary[] }>("/workspaces");
         const templatesResponse = await templatesRequest;
         if (!active) return;
+        const authProvider = new URLSearchParams(window.location.search).get("auth");
+        if (authProvider === "google" || authProvider === "github") {
+          const destination = consumeOAuthReturn();
+          if (destination !== "/dashboard") { router.replace(destination); return; }
+        }
         setWorkspaces(workspaceResponse.workspaces);
         const availableTemplates = templatesResponse?.templates.length ? templatesResponse.templates : fallbackTemplates;
         setTemplates(availableTemplates);
@@ -141,7 +147,7 @@ export function WorkflowDashboard() {
       } catch (reason) {
         if (!active) return;
         const message = reason instanceof Error ? reason.message : "Unable to load your workspace.";
-        if (message === "Sign in is required." || message === "Your session has expired.") router.replace("/login");
+        if (isUnauthenticated(reason)) router.replace(loginHref(window.location));
         else setNotice(message);
       } finally {
         if (active) setIsLoading(false);

@@ -36,7 +36,7 @@ import {
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { getOperationMetadata, nodeConfigIssues, type MockBehavior, type NodeConfigIssue } from "@workflow/contracts";
-import { ApiClientError, apiRequest, apiUrl } from "../api/api-client";
+import { ApiClientError, apiRequest, apiUrl, isUnauthenticated } from "../api/api-client";
 import { validateWorkflowGraph } from "./graph-validation";
 import {
   getNodeDefinition,
@@ -61,6 +61,7 @@ import { NodeLibrary, type NodeLibraryHandle } from "./node-library";
 import { Button, Dialog, DialogHeader, Field, IconButton, Menu, Select, Status, useDialogFocus } from "../../components/ui";
 import { useSurfaceMotion } from "../../components/ui/ui-motion";
 import { AppShellHeader } from "../app-shell/app-shell-header";
+import { loginHref } from "../auth/auth-redirect";
 import { ExecutionDetailsPanel, executionRecoveryGuidance, outputHasList, type ApiExecution } from "./execution-observability";
 import { executionPagination } from "./execution-pagination";
 import { ResourcePicker } from "./resource-picker";
@@ -1612,8 +1613,8 @@ export function WorkflowEditor() {
       } catch (reason) {
         if (!isCurrent) return;
         const message = reason instanceof Error ? reason.message : "Unable to load this workspace.";
-        if (message === "Sign in is required." || message === "Your session has expired.") {
-          router.replace("/login");
+        if (isUnauthenticated(reason)) {
+          router.replace(loginHref(window.location));
           return;
         }
         setNotice(message);

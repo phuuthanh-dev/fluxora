@@ -82,11 +82,11 @@ export class AuthController {
     const clearState = () => response.clearCookie(GITHUB_STATE_COOKIE, oauthStateCookieOptions());
     if (error) {
       clearState();
-      return response.redirect(webRedirect("/", "authError", "github_cancelled"));
+      return response.redirect(webRedirect("/login", "authError", "github_cancelled"));
     }
     if (!code || !state || !safeEqual(state, readCookie(request, GITHUB_STATE_COOKIE))) {
       clearState();
-      return response.redirect(webRedirect("/", "authError", "github_failed"));
+      return response.redirect(webRedirect("/login", "authError", "github_failed"));
     }
     try {
       const identity = await fetchGitHubIdentity(code, githubAuthConfig());
@@ -96,7 +96,7 @@ export class AuthController {
       return response.redirect(webRedirect("/dashboard", "auth", "github"));
     } catch {
       clearState();
-      return response.redirect(webRedirect("/", "authError", "github_failed"));
+      return response.redirect(webRedirect("/login", "authError", "github_failed"));
     }
   }
 
@@ -105,11 +105,11 @@ export class AuthController {
     const clearState = () => response.clearCookie(GOOGLE_STATE_COOKIE, { httpOnly: true, sameSite: "lax", secure: isProduction() });
     if (error) {
       clearState();
-      return response.redirect(webRedirect("/", "authError", "google_cancelled"));
+      return response.redirect(webRedirect("/login", "authError", "google_cancelled"));
     }
     if (!code || !state || !safeEqual(state, readCookie(request, GOOGLE_STATE_COOKIE))) {
       clearState();
-      return response.redirect(webRedirect("/", "authError", "google_failed"));
+      return response.redirect(webRedirect("/login", "authError", "google_failed"));
     }
 
     try {
@@ -129,7 +129,7 @@ export class AuthController {
       return response.redirect(webRedirect("/dashboard", "auth", "google"));
     } catch {
       clearState();
-      return response.redirect(webRedirect("/", "authError", "google_failed"));
+      return response.redirect(webRedirect("/login", "authError", "google_failed"));
     }
   }
 

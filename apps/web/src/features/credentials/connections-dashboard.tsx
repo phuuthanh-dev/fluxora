@@ -3,10 +3,11 @@
 import { KeyRound } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { apiRequest, apiUrl } from "../api/api-client";
+import { apiRequest, apiUrl, isUnauthenticated } from "../api/api-client";
 import { Button, EmptyState, PageHeader, Skeleton, Status } from "../../components/ui";
 import { CredentialManager } from "./credential-panel";
 import { AppShellHeader } from "../app-shell/app-shell-header";
+import { loginHref } from "../auth/auth-redirect";
 
 type WorkspaceSummary = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
 
@@ -35,7 +36,7 @@ export function ConnectionsDashboard() {
       } catch (reason) {
         if (!active) return;
         const message = reason instanceof Error ? reason.message : "Unable to load connections.";
-        if (message === "Sign in is required." || message === "Your session has expired.") router.replace("/login");
+        if (isUnauthenticated(reason)) router.replace(loginHref(window.location));
         else setError(message);
       } finally {
         if (active) setIsLoading(false);

@@ -45,6 +45,7 @@ The Steam profile is public. The Steam node returns every field available throug
 - Google and GitHub identity sign-in are production-preparation requirements. The two providers share the external-identity model but use independent OAuth callbacks and credentials.
 - Owner-approved ACCOUNT-1 (2026-10-30): `/settings/account` edits the display name, changes the password with current-password verification, and lists/revokes the user's active sessions. Email is read-only; existing identity links remain separate from workflow connections.
 - `/forgot-password` and `/reset-password` use operator-configured system email, not workspace SMTP credentials. Links expire in 30 minutes, work once, and invalidate outstanding links and all sessions. Passwordless social accounts may set a password by verifying access to their account email. No automatic sign-in follows recovery. See `docs/29-account-recovery.md` for security, configuration and activation boundaries.
+- Authenticated visitors to login/register return to their workspace. Unauthenticated visitors to private pages are directed to sign in and can return to a validated internal destination; admin access remains separately authorized by the API. Failed sign-out is reported without claiming the session ended.
 
 ## 4. MVP feature scope
 

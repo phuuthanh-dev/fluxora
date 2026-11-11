@@ -12,6 +12,7 @@ test("RSS trigger explains a checkpoint gap and confirms an explicit reset", asy
     if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
     if (path.endsWith("/credentials")) return send({ credentials: [] });
     if (path.endsWith("/workflows/rss-test")) return send({ workflow });
+    if (path.endsWith("/live-readiness")) return send({ readiness: { ready: true, requirements: [], unavailableNodes: [] } });
     if (path.endsWith("/rss-trigger-status")) return send({ active: false, checkpoints: [{ nodeId: "rss", state: "ERROR", lastErrorCode: errorCode }] });
     if (path.endsWith("/rss-trigger-reset")) {
       expect(route.request().postDataJSON()).toEqual({ confirmDataGap: true });

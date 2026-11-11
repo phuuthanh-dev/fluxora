@@ -9,6 +9,7 @@ import { Button, Menu, Select } from "../../components/ui";
 import { BrandLockup } from "../../components/brand/brand-lockup";
 import { NodeIcon } from "../workflow/node-icon";
 import { WorkspaceSidebar } from "./workspace-sidebar";
+import { loginHref } from "../auth/auth-redirect";
 
 export type AppShellWorkspace = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
 type Identity = { provider: "GOOGLE" | "GITHUB" | "STEAM"; providerAccountId: string };
@@ -40,13 +41,21 @@ export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, act
   const [providers, setProviders] = useState<ProviderStatus>({ google: false, github: false, steam: false });
   const [unlinking, setUnlinking] = useState<Identity["provider"] | null>(null);
   const [identityError, setIdentityError] = useState<string | null>(null);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const expired = () => { if (onBeforeNavigate?.() !== false) router.replace(loginHref(window.location)); };
+    window.addEventListener("fluxora:unauthenticated", expired);
+    return () => window.removeEventListener("fluxora:unauthenticated", expired);
+  }, [router, onBeforeNavigate]);
 
   useEffect(() => {
     let activeRequest = true;
     void Promise.all([
       apiRequest<{ user: User }>("/auth/me"),
-      apiRequest<{ identities: Identity[] }>("/auth/identities"),
+      apiRequest<{ identities: Identity[] }>("/auth/identities", undefined, { silentUnauthorized: true }),
       apiRequest<ProviderStatus>("/auth/providers"),
     ]).then(([auth, identityResponse, providerResponse]) => {
       if (!activeRequest) return;
@@ -59,14 +68,21 @@ export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, act
 
   useEffect(() => {
     let active = true;
-    void apiRequest("/admin/access").then(() => { if (active) setIsAdmin(true); }).catch(() => undefined);
+    void apiRequest("/admin/access", undefined, { silentUnauthorized: true }).then(() => { if (active) setIsAdmin(true); }).catch(() => undefined);
     return () => { active = false; };
   }, []);
 
   const logout = async () => {
     if (onBeforeNavigate?.() === false) return;
-    await apiRequest("/auth/logout", { method: "POST" }).catch(() => undefined);
-    router.replace("/login");
+    setLogoutError(null);
+    setLoggingOut(true);
+    try {
+      await apiRequest("/auth/logout", { method: "POST" });
+      router.replace("/login");
+    } catch {
+      setLogoutError("Could not sign out. Check your connection and try again.");
+      setLoggingOut(false);
+    }
   };
   const unlink = async (provider: Identity["provider"]) => {
     setUnlinking(provider);
@@ -106,7 +122,8 @@ export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, act
             </div>}
           </div>
           <hr className="app-shell-account-menu__divider" />
-          <Button variant="ghost" className="app-shell-account-menu__sign-out" onClick={() => void logout()}><LogOut size={14} /> Sign out</Button>
+          {logoutError && <p role="alert">{logoutError}</p>}
+          <Button variant="ghost" data-menu-keep-open className="app-shell-account-menu__sign-out" disabled={loggingOut} onClick={(event) => { event.currentTarget.closest("details")?.querySelector("summary")?.focus(); void logout(); }}><LogOut size={14} /> {loggingOut ? "Signing out…" : "Sign out"}</Button>
         </Menu>;
 
   if (active !== "editor") return <WorkspaceSidebar active={active} workspaceId={workspaceId} workspacePicker={workspacePicker} accountMenu={accountMenu} navigate={navigate} />;

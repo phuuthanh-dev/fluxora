@@ -15,6 +15,7 @@ test("Steam offers the community operations and an owned-game picker with manual
     if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
     if (path.endsWith("/credentials")) return send({ credentials: [{ id: "steam-1", provider: "STEAM", label: "My Steam" }] });
     if (path.endsWith("/steam/games")) { gameRequests++; return send({ games: [{ id: "620", name: "Portal 2" }, { id: "570", name: "Dota 2" }], hasMore: false }); }
+    if (path.endsWith("/rss-trigger-status")) return send({ active: false, checkpoints: [] });
     if (path.endsWith("/workflows/steam-test")) return send({ workflow });
     return route.continue();
   });
@@ -62,7 +63,7 @@ test("Steam offers the community operations and an owned-game picker with manual
   await owned.click();
   await expect(page.getByLabel("Operation", { exact: true })).toHaveValue("ownedGames");
   await expect(page.locator(".react-flow__node").filter({ hasText: "Get owned games" })).toBeVisible();
-  await expect(library.getByRole("button", { name: "Remove Get owned games from favorites (Steam)" })).toBeVisible();
+  await expect(library.getByRole("button", { name: "Remove Get owned games from favorites (Steam)" }).first()).toBeVisible();
   await library.getByLabel("Search apps and operations").fill("badges");
   await library.getByRole("button", { name: /Steam: Get badges/ }).dragTo(page.locator(".react-flow__pane"));
   await expect(page.getByLabel("Operation", { exact: true })).toHaveValue("badges");
