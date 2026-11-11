@@ -16,6 +16,7 @@ for (const failure of [
     if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
     if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
     if (path.endsWith("/credentials")) return send({ credentials: [{ id: "supabase-1", provider: "SUPABASE", label: "My Supabase" }] });
+    if (path.endsWith("/supabase/columns")) return send({ columns: [], hasMore: false });
     if (path.endsWith("/supabase/tables")) {
       if (discoveryAvailable) return send({ tables: [{ id: "items", name: "items" }] });
       return route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify(failure) });

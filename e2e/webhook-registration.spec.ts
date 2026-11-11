@@ -166,6 +166,7 @@ test("managed GitHub webhook can verify a recorded remote identity without expos
     if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
     if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
     if (path.endsWith("/credentials")) return send({ credentials: [{ id: "github-credential", provider: "GITHUB", label: "GitHub" }] });
+    if (path.endsWith("/github/repositories")) return send({ repositories: [], hasMore: false });
     if (path.endsWith("/provider-webhook/reconcile")) {
       reconciled = true;
       return send({ providerWebhook: { enabled: true, endpoint: { id: "endpoint-1", path: "github-push", workflowVersionId: "published", updatedAt: "2026-01-01" }, registration: { provider: "GITHUB", repository: "owner/repo", event: "push", workflowVersionId: "published", state: "ACTIVE", createdAt: "2026-01-01", updatedAt: "2026-01-02" }, reconciliation: { outcome: "MATCHED", message: "The recorded GitHub webhook matches the published workflow and is active." } } });
@@ -236,6 +237,7 @@ test("GitHub repository picker loads more pages and keeps the chosen value", asy
     if (url.pathname.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
     if (url.pathname.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
     if (url.pathname.endsWith("/credentials")) return send({ credentials: [{ id: "credential-1", provider: "GITHUB", label: "GitHub" }] });
+    if (url.pathname.endsWith("/items/github-label")) return send({ items: [], nextCursor: null });
     if (url.pathname.endsWith("/github/repositories")) {
       if (url.searchParams.get("owner") === "ithelpdesk") { ownerRequest = url.toString(); return send({ repositories: [{ id: 3, fullName: "ithelpdesk/owned", private: true }], repositoryOwners: ["ithelpdesk", "owner"], nextPage: null }); }
       return url.searchParams.get("page") === "2" ? send({ repositories: [{ id: 2, fullName: "owner/second", private: false }], repositoryOwners: ["owner", "ithelpdesk"], nextPage: null }) : send({ repositories: [{ id: 1, fullName: "owner/first", private: false }], repositoryOwners: ["owner", "ithelpdesk"], nextPage: 2 });

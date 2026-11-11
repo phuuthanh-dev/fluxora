@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Check, KeyRound, LoaderCircle, Monitor, ShieldCheck, UserRound } from "lucide-react";
 import { Button, Field, PageHeader } from "../../components/ui";
-import { ApiClientError, apiRequest } from "../api/api-client";
+import { ApiClientError, apiRequest, isUnauthenticated } from "../api/api-client";
+import { loginHref } from "./auth-redirect";
 import { AppShellHeader, type AppShellWorkspace } from "../app-shell/app-shell-header";
 import { PasswordField } from "./password-field";
 
@@ -34,7 +35,7 @@ export function AccountSettings() {
   const errorRef = useRef<HTMLParagraphElement>(null);
 
   function fail(reason: unknown) {
-    if (reason instanceof ApiClientError && ["UNAUTHENTICATED", "PASSWORD_CHANGED"].includes(reason.code ?? "")) router.replace("/login");
+    if (isUnauthenticated(reason) || (reason instanceof ApiClientError && reason.code === "PASSWORD_CHANGED")) router.replace(loginHref(window.location));
     else setError(reason instanceof Error ? reason.message : "Please try again.");
   }
   useEffect(() => {

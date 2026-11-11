@@ -10,6 +10,7 @@ import { Button, Field, IconButton } from "../../components/ui";
 import { useSurfaceMotion } from "../../components/ui/ui-motion";
 import { OAuthProviderIcon } from "../../components/brand/oauth-provider-icon";
 import { NodeIcon } from "../workflow/node-icon";
+import { authReturnFromLocation, consumeOAuthReturn, rememberOAuthReturn } from "./auth-redirect";
 
 type AuthMode = "login" | "register";
 type AuthResponse = { user?: { email: string }; message?: string | { message?: string } };
@@ -26,8 +27,26 @@ export function LoginForm({ mode = "login" }: { mode?: AuthMode }) {
   const [passwordChanged, setPasswordChanged] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [providers, setProviders] = useState<{ google: boolean; github: boolean } | null>(null);
+  const [sessionState, setSessionState] = useState<"checking" | "guest" | "unavailable">("checking");
+  const [sessionAttempt, setSessionAttempt] = useState(0);
   const isRegister = mode === "register";
   useSurfaceMotion(cardRef);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setSessionState("checking");
+    void fetch(`${apiUrl}/auth/me`, { credentials: "include", cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        if (response.ok) {
+          const body = await response.json().catch(() => null) as { user?: { id?: unknown } } | null;
+          if (typeof body?.user?.id !== "string" || !body.user.id) { setSessionState("unavailable"); return; }
+          router.replace(authReturnFromLocation(window.location.search));
+        }
+        else if (response.status === 401) setSessionState("guest");
+        else setSessionState("unavailable");
+      }).catch(() => { if (!controller.signal.aborted) setSessionState("unavailable"); });
+    return () => controller.abort();
+  }, [router, sessionAttempt]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -58,7 +77,9 @@ export function LoginForm({ mode = "login" }: { mode?: AuthMode }) {
         const message = typeof body.message === "string" ? body.message : body.message?.message;
         throw new Error(message ?? "We could not complete your request. Please try again.");
       }
-      router.push("/dashboard");
+      const destination = authReturnFromLocation(window.location.search);
+      consumeOAuthReturn();
+      router.replace(destination);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "We could not complete your request.");
       submittingRef.current = false;
@@ -88,6 +109,9 @@ export function LoginForm({ mode = "login" }: { mode?: AuthMode }) {
       </section>
       <section className="auth-panel" aria-labelledby="auth-title">
         <div ref={cardRef} className="auth-card">
+          {sessionState === "checking" && <p id="auth-title" role="status">Checking your session…</p>}
+          {sessionState === "unavailable" && <div role="alert"><h1 id="auth-title">Unable to check your session</h1><p>Check your connection and try again.</p><Button variant="secondary" onClick={() => setSessionAttempt((value) => value + 1)}>Try again</Button></div>}
+          {sessionState === "guest" && <>
           <p className="auth-eyebrow">{isRegister ? "GET STARTED" : "WELCOME BACK"}</p>
           <h1 id="auth-title">{isRegister ? "Create your workspace" : "Sign in to your workspace"}</h1>
           <p className="auth-subtitle">{isRegister ? "Start with an account. Build your first workflow at your own pace." : "Pick up where you left off. Your workflows are waiting."}</p>
@@ -114,14 +138,15 @@ export function LoginForm({ mode = "login" }: { mode?: AuthMode }) {
           <div className="auth-oauth-actions">
             {(["google", "github"] as const).map(provider => {
               const label = provider === "google" ? "Google" : "GitHub";
-              return <Button key={provider} className="auth-oauth-button" disabled={isSubmitting || !providers?.[provider]} onClick={() => window.location.assign(`${apiUrl}/auth/${provider}/start`)}>
+              return <Button key={provider} className="auth-oauth-button" disabled={isSubmitting || !providers?.[provider]} onClick={() => { rememberOAuthReturn(authReturnFromLocation(window.location.search)); window.location.assign(`${apiUrl}/auth/${provider}/start`); }}>
                 <span className="auth-oauth-button__brand"><span className={`auth-oauth-button__icon auth-oauth-button__icon--${provider}`}><OAuthProviderIcon provider={provider} /></span>{label}</span>
                 {!providers?.[provider] && <small>{providers ? "Unavailable" : "Checking…"}</small>}
               </Button>;
             })}
           </div>
-          <p className="auth-switch">{isRegister ? "Already have an account?" : "New to Fluxora?"} <button type="button" disabled={isSubmitting} onClick={() => router.push(isRegister ? "/login" : "/register")}>{isRegister ? "Sign in" : "Create an account"}</button></p>
+          <p className="auth-switch">{isRegister ? "Already have an account?" : "New to Fluxora?"} <button type="button" disabled={isSubmitting} onClick={() => { const params = new URLSearchParams(window.location.search); const next = params.has("next") || params.has("authError") ? authReturnFromLocation(window.location.search) : ""; router.push(`${isRegister ? "/login" : "/register"}${next ? `?${new URLSearchParams({ next })}` : ""}`); }}>{isRegister ? "Sign in" : "Create an account"}</button></p>
           <p className="auth-legal">By continuing, you agree to our <Link href="/terms">Terms</Link> and acknowledge our <Link href="/privacy">Privacy policy</Link>.</p>
+          </>}
         </div>
       </section>
     </main>

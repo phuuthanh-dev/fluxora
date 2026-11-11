@@ -3,9 +3,10 @@
 import { ArrowLeft, ArrowRight, CircleAlert, History, LoaderCircle, RefreshCw } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { apiRequest } from "../api/api-client";
+import { apiRequest, isUnauthenticated } from "../api/api-client";
 import { Button, EmptyState, IconButton, PageHeader, Progress, SectionHeader, Skeleton, Status, Toolbar } from "../../components/ui";
 import { AppShellHeader } from "../app-shell/app-shell-header";
+import { loginHref } from "../auth/auth-redirect";
 import { SavedExecutionViews } from "./saved-execution-views";
 import { Disclosure } from "../../components/ui/disclosure";
 
@@ -101,7 +102,7 @@ export function ExecutionsDashboard() {
       } catch (reason) {
         if (!active) return;
         const message = reason instanceof Error ? reason.message : "Unable to load execution history.";
-        if (message === "Sign in is required." || message === "Your session has expired.") router.replace("/login");
+        if (isUnauthenticated(reason)) router.replace(loginHref(window.location));
         else setError(message);
       }
     })();

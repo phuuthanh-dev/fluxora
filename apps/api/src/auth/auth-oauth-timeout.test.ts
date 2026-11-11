@@ -32,6 +32,7 @@ test("Google sign-in bounds both provider requests and handles a timeout without
     };
     await controller.completeGoogleLogin("synthetic-code", "synthetic-state", undefined, request, response);
     assert.equal(sessions, 1);
+    assert.equal(new URL(redirects[1]!).pathname, "/login");
     assert.equal(new URL(redirects[1]!).searchParams.get("authError"), "google_failed");
 
     let calls = 0;
@@ -43,6 +44,7 @@ test("Google sign-in bounds both provider requests and handles a timeout without
     await controller.completeGoogleLogin("synthetic-code", "synthetic-state", undefined, request, response);
     assert.equal(calls, 2);
     assert.equal(sessions, 1);
+    assert.equal(new URL(redirects[2]!).pathname, "/login");
     assert.equal(new URL(redirects[2]!).searchParams.get("authError"), "google_failed");
   } finally {
     globalThis.fetch = originalFetch;

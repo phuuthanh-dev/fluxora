@@ -58,6 +58,7 @@ test("Gmail trigger shows polling choices and requires confirmation before check
     if (path.endsWith("/credentials")) return send({ credentials: [{ id: "gmail-1", provider: "GMAIL", label: "My Gmail" }] });
     if (path.endsWith("/gmail/labels")) return send({ labels: [{ id: "Label_1", name: "Support" }], hasMore: false });
     if (path.endsWith("/workflows/gmail-trigger-test")) return send({ workflow });
+    if (path.endsWith("/live-readiness")) return send({ readiness: { ready: true, requirements: [], unavailableNodes: [] } });
     if (path.endsWith("/gmail-trigger-status")) return send({ active: false, checkpoints: [{ nodeId: "mail", state: "ERROR", lastErrorCode: "GMAIL_HISTORY_EXPIRED" }] });
     if (path.endsWith("/gmail-trigger-reset")) { resets++; return send({ success: true }); }
     return route.continue();

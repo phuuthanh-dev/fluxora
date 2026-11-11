@@ -2,9 +2,12 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowUpRight, CircleHelp, LogOut, MoreVertical, RefreshCw, Search, ShieldCheck, UserRoundCheck, UserRoundX } from "lucide-react";
 import { Button, Dialog, DialogHeader, EmptyState, Menu, PageHeader, Progress, Select, Status } from "../../components/ui";
-import { apiRequest } from "../api/api-client";
+import { ApiClientError, apiRequest, isUnauthenticated } from "../api/api-client";
+import { loginHref } from "../auth/auth-redirect";
+import { AuthNavigation } from "../auth/auth-navigation";
 import { AdminShell } from "./admin-shell";
 import { adminLabel, type AdminSection } from "./admin-sections";
 import { JiraPrivacyPanel } from "./jira-privacy-panel";
@@ -45,8 +48,10 @@ function targetHref(type: string, id: string | null) {
 }
 
 export function AdminDashboard({ section = "overview", initialStatus = "", scope = emptyScope }: { section?: AdminSection; initialStatus?: string; scope?: Record<string, string> }) {
+  const router = useRouter();
   const [overview, setOverview] = useState<Overview | null>(null);
   const [actorId, setActorId] = useState("");
+  const [denied, setDenied] = useState(false);
   const [records, setRecords] = useState<Records>({});
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -64,8 +69,14 @@ export function AdminDashboard({ section = "overview", initialStatus = "", scope
   const [confirmation, setConfirmation] = useState<{ user: User; action: "sessions" | "disable" | "enable" } | null>(null);
 
   useEffect(() => {
+    const expired = () => { setActorId(""); router.replace(loginHref(window.location)); };
+    window.addEventListener("fluxora:unauthenticated", expired);
+    return () => window.removeEventListener("fluxora:unauthenticated", expired);
+  }, [router]);
+
+  useEffect(() => {
     let active = true;
-    setBusy(true); setError(""); setRecords({});
+    setBusy(true); setError(""); setDenied(false); setRecords({});
     void (async () => {
       const access = await apiRequest<{ userId: string }>("/admin/access");
       if (!active) return;
@@ -80,9 +91,14 @@ export function AdminDashboard({ section = "overview", initialStatus = "", scope
         const data = await apiRequest<Records>(`/admin/${section}?${params}`);
         if (active) setRecords(data);
       }
-    })().catch((reason: unknown) => { if (active) setError(reason instanceof Error ? reason.message : "Administration is unavailable."); }).finally(() => { if (active) setBusy(false); });
+    })().catch((reason: unknown) => {
+      if (!active) return;
+      if (isUnauthenticated(reason)) { setActorId(""); router.replace(loginHref(window.location)); return; }
+      if (reason instanceof ApiClientError && (reason.code === "ADMIN_REQUIRED" || reason.status === 403)) { setActorId(""); setDenied(true); return; }
+      setError(reason instanceof Error ? reason.message : "Administration is unavailable.");
+    }).finally(() => { if (active) setBusy(false); });
     return () => { active = false; };
-  }, [section, search, page, status, period, refresh, scope, auditSearch]);
+  }, [section, search, page, status, period, refresh, scope, auditSearch, router]);
 
   async function confirmAction() {
     if (!confirmation || saving) return;
@@ -102,6 +118,9 @@ export function AdminDashboard({ section = "overview", initialStatus = "", scope
     finally { setSaving(false); }
   }
 
+  if (!actorId) return <main className="auth-page auth-page--recovery"><AuthNavigation /><section className="auth-panel"><div className="auth-card recovery-card">
+    {denied ? <><p className="auth-eyebrow">PLATFORM ADMINISTRATION</p><h1>Access restricted</h1><p className="auth-subtitle">Platform administration is available to the administrator of this instance.</p><Link className="recovery-back" href="/dashboard">Back to workspace</Link></> : error ? <><h1>Unable to check access</h1><p className="auth-subtitle" role="alert">{error}</p><Button variant="secondary" onClick={() => setRefresh((value) => value + 1)}>Try again</Button></> : <Progress label="Checking administration access" />}
+  </div></section></main>;
   const count = section === "audit" ? records.events?.length ?? 0 : records[section as keyof Omit<Records, "hasMore" | "events">]?.length ?? 0;
   return <AdminShell section={section}>
     <PageHeader eyebrow="PLATFORM / ALL WORKSPACES" title={section === "overview" ? "Platform administration" : adminLabel(section)} description={descriptions[section]} actions={section !== "support" && <Button variant="secondary" disabled={busy} onClick={() => setRefresh((value) => value + 1)}><RefreshCw size={15} aria-hidden="true" />Refresh</Button>} />
