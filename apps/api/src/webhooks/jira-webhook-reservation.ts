@@ -3,7 +3,7 @@ import { BadRequestException, ConflictException, NotFoundException } from "@nest
 import { CredentialProvider, Prisma } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
 import { CredentialVaultService } from "../credentials/credential-vault.service";
-import { parseStoredWorkflowGraph } from "../workflows/workflow-graph";
+import { parseStoredWorkflowGraph, webhookTriggerNode } from "../workflows/workflow-graph";
 import { jiraIssueEvents, type JiraIssueEvent } from "./jira-webhook-adapter";
 import { jiraDeliveryToken } from "./jira-trigger-protocol";
 
@@ -20,9 +20,8 @@ export async function reserveJiraWebhook(prisma: PrismaService, vault: Credentia
       if (!workflow.publishedVersion || workflow.publishedVersion.id !== input.versionId) throw changed();
       const endpoint = await tx.webhookEndpoint.findFirst({ where: { id: input.endpointId, workflowId: workflow.id } });
       if (!endpoint || !endpoint.isActive || endpoint.workflowVersionId !== input.versionId || endpoint.updatedAt.getTime() !== input.endpointUpdatedAt.getTime() || !endpoint.encryptedSigningSecret || !endpoint.secretHash) throw changed();
-      const triggers = parseStoredWorkflowGraph(workflow.publishedVersion.graph).nodes.filter((node) => node.type.startsWith("trigger."));
-      const trigger = triggers[0];
-      if (triggers.length !== 1 || trigger?.type !== "trigger.jira.issue") throw new BadRequestException({ code: "JIRA_TRIGGER_REQUIRED", message: "Publish a workflow with a Jira issue trigger." });
+      const trigger = webhookTriggerNode(parseStoredWorkflowGraph(workflow.publishedVersion.graph), endpoint.triggerNodeId);
+      if (trigger?.type !== "trigger.jira.issue") throw new BadRequestException({ code: "JIRA_TRIGGER_REQUIRED", message: "Publish a workflow with a Jira issue trigger." });
       const credentialId = typeof trigger.config.credentialId === "string" ? trigger.config.credentialId.trim() : "";
       const projectId = typeof trigger.config.project === "string" ? trigger.config.project.trim() : "";
       const event = trigger.config.event;

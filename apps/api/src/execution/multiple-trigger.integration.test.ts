@@ -14,11 +14,17 @@ test("each persisted trigger runs only its branch, including after queue recover
   const graph = { nodes: [
     { id: "daily", type: "trigger.cron", position: { x: 0, y: 0 }, config: { expression: "16 17 * * *", timezone: "Asia/Ho_Chi_Minh" } },
     { id: "news", type: "trigger.steam.game-news", position: { x: 0, y: 0 }, config: { appId: "4115450", pollMinutes: 5 } },
+    { id: "hook", type: "trigger.webhook", position: { x: 0, y: 0 }, config: {} },
+    { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
     { id: "daily-action", type: "action.edit-fields", position: { x: 0, y: 0 }, config: { fields: [{ name: "kind", type: "text", value: "daily" }] } },
     { id: "news-action", type: "action.edit-fields", position: { x: 0, y: 0 }, config: { fields: [{ name: "kind", type: "text", value: "news" }] } },
+    { id: "hook-action", type: "action.edit-fields", position: { x: 0, y: 0 }, config: { fields: [{ name: "kind", type: "text", value: "hook" }] } },
+    { id: "manual-action", type: "action.edit-fields", position: { x: 0, y: 0 }, config: { fields: [{ name: "kind", type: "text", value: "manual" }] } },
   ], edges: [
     { id: "one", source: "daily", target: "daily-action", kind: "success" },
     { id: "two", source: "news", target: "news-action", kind: "success" },
+    { id: "three", source: "hook", target: "hook-action", kind: "success" },
+    { id: "four", source: "manual", target: "manual-action", kind: "success" },
   ] };
   try {
     await prisma.user.create({ data: { id: userId, email: `${suffix}@example.test` } });
@@ -29,13 +35,15 @@ test("each persisted trigger runs only its branch, including after queue recover
     await prisma.workflow.update({ where: { id: workflowId }, data: { publishedVersionId: versionId } });
     const service = new ExecutionService(prisma as never, {} as never, { publish: () => undefined } as never);
     await assert.rejects(service.createManualExecution(workflowId, userId, true, {}, undefined, "daily-action"));
-    for (const [trigger, expected] of [["daily", "daily-action"], ["news", "news-action"]] as const) {
+    for (const [trigger, expected] of [["daily", "daily-action"], ["news", "news-action"], ["hook", "hook-action"], ["manual", "manual-action"]] as const) {
       const run = await prisma.execution.create({ data: { workflowVersionId: versionId, mode: "MOCK", triggerNodeId: trigger, triggerData: {} } });
       // Deliberately omit queue startNodeIds as a recovered/retried job can do.
       await service.run(run.id, "mock");
       const steps = await prisma.nodeExecution.findMany({ where: { executionId: run.id } });
       assert.equal(steps.find((item) => item.nodeId === expected)?.status, "SUCCEEDED");
-      assert.equal(steps.find((item) => item.nodeId === (expected === "daily-action" ? "news-action" : "daily-action"))?.status, "SKIPPED");
+      for (const other of ["daily-action", "news-action", "hook-action", "manual-action"].filter((id) => id !== expected)) {
+        assert.equal(steps.find((item) => item.nodeId === other)?.status, "SKIPPED");
+      }
     }
     const selected = await service.createManualExecution(workflowId, userId, true, {}, undefined, "news");
     assert.equal(selected.triggerNodeId, "news");

@@ -17,7 +17,7 @@ function fixture() {
     deleteMany: async () => { deleted = true; return { count: 1 }; },
   };
   const tx = { $queryRaw: async () => [{ id: "flow" }], providerWebhookRegistration: table };
-  const prisma = { workflow: { findFirst: async () => workflow }, webhookEndpoint: { findFirst: async () => endpoint }, providerWebhookRegistration: table, $transaction: async (fn: (value: typeof tx) => Promise<unknown>) => fn(tx) };
+  const prisma = { workflow: { findFirst: async () => workflow }, webhookEndpoint: { findMany: async () => [endpoint] }, providerWebhookRegistration: table, $transaction: async (fn: (value: typeof tx) => Promise<unknown>) => fn(tx) };
   const credentials = { readForExecution: async () => ({ cloudId, accessToken: "synthetic-token" }), runJiraOperation: async (_id: string, _space: string, operation: () => Promise<unknown>) => operation() };
   const adapter = { inspect: async () => ({ found: true, matches: true }), remove: async () => { removeCalls++; }, findMatching: async () => [42] };
   const service = new JiraWebhookManagementService(prisma as never, credentials as never, {} as never, adapter as never);

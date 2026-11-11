@@ -18,8 +18,8 @@ import { assertSupportedItemPath, isCollectionProducer, maximumOutputItems, outp
 import { appendInputs, failedItem, mergesAfterEmpty, restoreMergeStreams } from "./merge-streams";
 import { redactValue } from "./redaction";
 import { isRetryableFailure, retryDelayMs } from "./retry-policy";
-import { parseStoredWorkflowGraph, unavailableWorkflowNodes, workflowNodeDepths } from "../workflows/workflow-graph";
-import { liveCredentialRequirements } from "./live-readiness";
+import { parseStoredWorkflowGraph, unavailableWorkflowNodes, webhookTriggerNode, workflowNodeDepths } from "../workflows/workflow-graph";
+import { liveCredentialRequirements, reachableWorkflowGraph } from "./live-readiness";
 import { executionRetentionPolicy } from "./retention-policy";
 
 export type ExecutionTriageFilter = "ALL" | "ATTENTION" | "IN_PROGRESS" | "FAILED" | "SUCCEEDED";
@@ -54,37 +54,42 @@ export class ExecutionService {
     if (!workflow) throw new NotFoundException({ code: "WORKFLOW_NOT_FOUND", message: "Workflow was not found." });
     const version = mock ? workflow.draftVersion ?? workflow.publishedVersion : workflow.publishedVersion;
     if (!version) throw new NotFoundException({ code: "PUBLISHED_VERSION_REQUIRED", message: "Publish the workflow before starting a live execution." });
-    if (!mock && !debugNodeId && parseStoredWorkflowGraph(version.graph).nodes.some((node) => node.type === "trigger.gmail")) throw new BadRequestException({ code: "GMAIL_TRIGGER_LIVE_ONLY", message: "Activate this workflow and wait for a new Gmail message. Use a test run for sample data." });
-    if (!mock && !debugNodeId && parseStoredWorkflowGraph(version.graph).nodes.some((node) => node.type === "trigger.google-calendar.event")) throw new BadRequestException({ code: "CALENDAR_TRIGGER_LIVE_ONLY", message: "Activate this workflow and wait for a Calendar change. Use a test run for sample data." });
-    if (!mock && !debugNodeId && parseStoredWorkflowGraph(version.graph).nodes.some((node) => node.type === "trigger.notion.page" || node.type === "trigger.google-drive.file" || node.type === "trigger.google-sheets.row")) throw new BadRequestException({ code: "PROVIDER_TRIGGER_LIVE_ONLY", message: "Activate this workflow and wait for a provider change. Use a test run for sample data." });
+    const graph = parseStoredWorkflowGraph(version.graph);
+    const triggers = graph.nodes.filter((node) => node.type.startsWith("trigger."));
+    if (requestedTriggerId && (!mock || debugNodeId || !triggers.some((node) => node.id === requestedTriggerId))) throw new BadRequestException({ code: "TRIGGER_NOT_FOUND", message: "Choose a trigger in this workflow for the test run." });
+    const chosenTrigger = triggers.find((node) => node.id === requestedTriggerId) ?? triggers.find((node) => node.type === "trigger.manual") ?? triggers.find((node) => node.type === "trigger.cron") ?? triggers[0];
+    if (!mock && !debugNodeId && chosenTrigger?.type === "trigger.gmail") throw new BadRequestException({ code: "GMAIL_TRIGGER_LIVE_ONLY", message: "Activate this workflow and wait for a new Gmail message. Use a test run for sample data." });
+    if (!mock && !debugNodeId && chosenTrigger?.type === "trigger.google-calendar.event") throw new BadRequestException({ code: "CALENDAR_TRIGGER_LIVE_ONLY", message: "Activate this workflow and wait for a Calendar change. Use a test run for sample data." });
+    if (!mock && !debugNodeId && ["trigger.notion.page", "trigger.google-drive.file", "trigger.google-sheets.row"].includes(chosenTrigger?.type ?? "")) throw new BadRequestException({ code: "PROVIDER_TRIGGER_LIVE_ONLY", message: "Activate this workflow and wait for a provider change. Use a test run for sample data." });
     if (debugNodeId) {
       const debugNode = parseStoredWorkflowGraph(version.graph).nodes.find((node) => node.id === debugNodeId);
       if (!debugNode) throw new BadRequestException({ code: "NODE_NOT_FOUND", message: "The selected node does not exist in this workflow." });
       if (debugNode.type === "approval.request" || debugNode.type === "action.merge" || isDataTransformNode(debugNode.type)) throw new BadRequestException({ code: "NODE_DEBUG_UNSUPPORTED", message: "Approval and collection nodes must be tested as part of the full workflow." });
     }
-    if (!mock) await this.assertLiveReady(workflow.workspaceId, parseStoredWorkflowGraph(version.graph));
-    const triggers = parseStoredWorkflowGraph(version.graph).nodes.filter((node) => node.type.startsWith("trigger."));
-    if (requestedTriggerId && (!mock || debugNodeId || !triggers.some((node) => node.id === requestedTriggerId))) throw new BadRequestException({ code: "TRIGGER_NOT_FOUND", message: "Choose a trigger in this workflow for the test run." });
-    const chosenTrigger = triggers.find((node) => node.id === requestedTriggerId) ?? triggers.find((node) => node.type === "trigger.manual") ?? triggers.find((node) => node.type === "trigger.cron") ?? triggers[0];
+    if (!mock) await this.assertLiveReady(workflow.workspaceId, graph, debugNodeId ? undefined : chosenTrigger?.id);
     const data = { workflowVersionId: version.id, mode: mock ? "MOCK" : "LIVE", triggerData: redactValue(triggerData) as Prisma.InputJsonValue, ...(!debugNodeId && (triggers.length > 1 || requestedTriggerId) && chosenTrigger ? { triggerNodeId: chosenTrigger.id } : {}) };
     const execution = mock ? await this.prisma.execution.create({ data }) : await this.prisma.$transaction(async (tx) => {
-      await lockGraphCredentials(tx, workflow.workspaceId, version.graph);
+      await lockGraphCredentials(tx, workflow.workspaceId, !debugNodeId && chosenTrigger ? reachableWorkflowGraph(graph, chosenTrigger.id) : graph);
       return tx.execution.create({ data });
     });
     await this.prisma.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: debugNodeId ? "execution.node_debug_started" : "execution.manual_started", targetType: "execution", targetId: execution.id, metadata: { mode: mock ? "mock" : "live", ...(debugNodeId ? { nodeId: debugNodeId } : {}) } } });
     return execution;
   }
 
-  async createLegacyWebhookExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; path: string; secretHash: string | null; encryptedSigningSecret: string | null; credentialSnapshot?: { id: string; encryptedData: string }; payload: Record<string, unknown>; idempotencyKey?: string }) {
+  async createLegacyWebhookExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; triggerNodeId?: string; path: string; secretHash: string | null; encryptedSigningSecret: string | null; credentialSnapshot?: { id: string; encryptedData: string }; payload: Record<string, unknown>; idempotencyKey?: string }) {
     const version = await this.prisma.workflowVersion.findUnique({ where: { id: input.workflowVersionId }, include: { workflow: true } });
     if (!version || version.workflowId !== input.workflowId) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
-    await this.assertLiveReady(version.workflow.workspaceId, parseStoredWorkflowGraph(version.graph));
+    const graph = parseStoredWorkflowGraph(version.graph);
+    const trigger = webhookTriggerNode(graph, input.triggerNodeId);
+    if (!trigger) throw new BadRequestException({ code: "WEBHOOK_TRIGGER_REQUIRED", message: "The webhook trigger is missing or ambiguous." });
+    const triggerNodeId = trigger.id;
+    await this.assertLiveReady(version.workflow.workspaceId, graph, triggerNodeId);
     return this.prisma.$transaction(async (transaction) => {
       const workflows = await transaction.$queryRaw<Array<{ isActive: boolean; archivedAt: Date | null; publishedVersionId: string | null }>>`SELECT "isActive", "archivedAt", "publishedVersionId" FROM "Workflow" WHERE id = ${input.workflowId} FOR UPDATE`;
       if (!workflows[0]?.isActive || workflows[0].archivedAt || workflows[0].publishedVersionId !== input.workflowVersionId) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
-      const endpoints = await transaction.$queryRaw<Array<{ workflowId: string; workflowVersionId: string; path: string; secretHash: string | null; encryptedSigningSecret: string | null; isActive: boolean }>>`SELECT "workflowId", "workflowVersionId", path, "secretHash", "encryptedSigningSecret", "isActive" FROM "WebhookEndpoint" WHERE id = ${input.endpointId} FOR UPDATE`;
+      const endpoints = await transaction.$queryRaw<Array<{ workflowId: string; workflowVersionId: string; triggerNodeId: string | null; path: string; secretHash: string | null; encryptedSigningSecret: string | null; isActive: boolean }>>`SELECT "workflowId", "workflowVersionId", "triggerNodeId", path, "secretHash", "encryptedSigningSecret", "isActive" FROM "WebhookEndpoint" WHERE id = ${input.endpointId} FOR UPDATE`;
       const endpoint = endpoints[0];
-      if (!endpoint?.isActive || endpoint.workflowId !== input.workflowId || endpoint.workflowVersionId !== input.workflowVersionId || endpoint.path !== input.path || endpoint.secretHash !== input.secretHash || endpoint.encryptedSigningSecret !== input.encryptedSigningSecret) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
+      if (!endpoint?.isActive || endpoint.workflowId !== input.workflowId || endpoint.workflowVersionId !== input.workflowVersionId || (endpoint.triggerNodeId && endpoint.triggerNodeId !== triggerNodeId) || endpoint.path !== input.path || endpoint.secretHash !== input.secretHash || endpoint.encryptedSigningSecret !== input.encryptedSigningSecret) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
       if (input.credentialSnapshot) {
         const rows = await transaction.$queryRaw<Array<{ encryptedData: string }>>`SELECT "encryptedData" FROM "Credential" WHERE id = ${input.credentialSnapshot.id} AND "workspaceId" = ${version.workflow.workspaceId} AND provider = 'GITHUB' FOR SHARE`;
         if (!rows[0] || rows[0].encryptedData !== input.credentialSnapshot.encryptedData) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
@@ -93,7 +98,7 @@ export class ExecutionService {
         const existing = await transaction.execution.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
         if (existing) return existing;
       }
-      return transaction.execution.create({ data: { workflowVersionId: input.workflowVersionId, mode: "LIVE", triggerData: redactValue(input.payload) as Prisma.InputJsonValue, ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}) } });
+      return transaction.execution.create({ data: { workflowVersionId: input.workflowVersionId, mode: "LIVE", triggerNodeId, triggerData: redactValue(input.payload) as Prisma.InputJsonValue, ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}) } });
     });
   }
 
@@ -102,7 +107,7 @@ export class ExecutionService {
   async createCronScheduledExecution(workflowVersionId: string, triggerData: Record<string, unknown>, idempotencyKey: string, triggerNodeId?: string) {
     const version = await this.prisma.workflowVersion.findUnique({ where: { id: workflowVersionId }, include: { workflow: true } });
     if (!version) throw new NotFoundException({ code: "WORKFLOW_VERSION_NOT_FOUND", message: "Workflow version was not found." });
-    await this.assertLiveReady(version.workflow.workspaceId, parseStoredWorkflowGraph(version.graph));
+    await this.assertLiveReady(version.workflow.workspaceId, parseStoredWorkflowGraph(version.graph), triggerNodeId);
     return this.prisma.$transaction(async (transaction) => {
       const rows = await transaction.$queryRaw<Array<{ isActive: boolean; archivedAt: Date | null; publishedVersionId: string | null }>>`SELECT "isActive", "archivedAt", "publishedVersionId" FROM "Workflow" WHERE id = ${version.workflowId} FOR UPDATE`;
       if (!rows[0]?.isActive || rows[0].archivedAt || rows[0].publishedVersionId !== workflowVersionId) throw new ConflictException({ code: "WORKFLOW_CHANGED", message: "The workflow is no longer active at this version." });
@@ -114,38 +119,42 @@ export class ExecutionService {
 
   /** Persist a filtered Kuma delivery before queueing. The workflow lock
    * serializes duplicate delivery IDs and endpoint changes for this workflow. */
-  async createKumaScheduledExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey?: string }) {
+  async createKumaScheduledExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; triggerNodeId?: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey?: string }) {
     return this.createGuardedWebhookExecution(input, "kuma");
   }
 
-  async createTelegramScheduledExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey: string }) {
+  async createTelegramScheduledExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; triggerNodeId?: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey: string }) {
     return this.createGuardedWebhookExecution(input, "telegram");
   }
 
-  async createVercelScheduledExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey: string }) {
+  async createVercelScheduledExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; triggerNodeId?: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey: string }) {
     return this.createGuardedWebhookExecution(input, "vercel");
   }
 
-  async createTrelloScheduledExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey: string }) {
+  async createTrelloScheduledExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; triggerNodeId?: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey: string }) {
     return this.createGuardedWebhookExecution(input, "trello");
   }
 
-  async createSentryScheduledExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey: string }) {
+  async createSentryScheduledExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; triggerNodeId?: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey: string }) {
     return this.createGuardedWebhookExecution(input, "sentry");
   }
 
-  async createSlackScheduledExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey: string }) {
+  async createSlackScheduledExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; triggerNodeId?: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey: string }) {
     return this.createGuardedWebhookExecution(input, "slack");
   }
 
-  async createJiraScheduledExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey: string; registrationId: string; remoteHookId: bigint }) {
+  async createJiraScheduledExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; triggerNodeId?: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey: string; registrationId: string; remoteHookId: bigint }) {
     return this.createGuardedWebhookExecution(input, "jira");
   }
 
-  private async createGuardedWebhookExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey?: string; registrationId?: string; remoteHookId?: bigint }, provider: "kuma" | "telegram" | "vercel" | "trello" | "sentry" | "slack" | "jira") {
+  private async createGuardedWebhookExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; triggerNodeId?: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey?: string; registrationId?: string; remoteHookId?: bigint }, provider: "kuma" | "telegram" | "vercel" | "trello" | "sentry" | "slack" | "jira") {
     const version = await this.prisma.workflowVersion.findUnique({ where: { id: input.workflowVersionId }, include: { workflow: true } });
     if (!version || version.workflowId !== input.workflowId) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
-    await this.assertLiveReady(version.workflow.workspaceId, parseStoredWorkflowGraph(version.graph));
+    const graph = parseStoredWorkflowGraph(version.graph);
+    const trigger = webhookTriggerNode(graph, input.triggerNodeId);
+    if (!trigger) throw new BadRequestException({ code: "WEBHOOK_TRIGGER_REQUIRED", message: "The webhook trigger is missing or ambiguous." });
+    const triggerNodeId = trigger.id;
+    await this.assertLiveReady(version.workflow.workspaceId, graph, triggerNodeId);
     const key = Buffer.from(process.env.APP_ENCRYPTION_KEY ?? "", "base64");
     if (key.length !== 32) throw new BadRequestException({ code: "ENCRYPTION_KEY_INVALID", message: "A valid encryption key is required for webhook delivery." });
     // Never store the incoming key or raw payload as a fingerprint. The
@@ -163,9 +172,9 @@ export class ExecutionService {
     return this.prisma.$transaction(async (transaction) => {
       const workflows = await transaction.$queryRaw<Array<{ isActive: boolean; archivedAt: Date | null; publishedVersionId: string | null }>>`SELECT "isActive", "archivedAt", "publishedVersionId" FROM "Workflow" WHERE id = ${input.workflowId} FOR UPDATE`;
       if (!workflows[0]?.isActive || workflows[0].archivedAt || workflows[0].publishedVersionId !== input.workflowVersionId) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
-      const endpoints = await transaction.$queryRaw<Array<{ workflowId: string; workflowVersionId: string; path: string; secretHash: string | null; isActive: boolean }>>`SELECT "workflowId", "workflowVersionId", "path", "secretHash", "isActive" FROM "WebhookEndpoint" WHERE id = ${input.endpointId} FOR UPDATE`;
+      const endpoints = await transaction.$queryRaw<Array<{ workflowId: string; workflowVersionId: string; triggerNodeId: string | null; path: string; secretHash: string | null; isActive: boolean }>>`SELECT "workflowId", "workflowVersionId", "triggerNodeId", "path", "secretHash", "isActive" FROM "WebhookEndpoint" WHERE id = ${input.endpointId} FOR UPDATE`;
       const endpoint = endpoints[0];
-      if (!endpoint?.isActive || endpoint.workflowId !== input.workflowId || endpoint.workflowVersionId !== input.workflowVersionId || endpoint.path !== input.path || endpoint.secretHash !== input.secretHash) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
+      if (!endpoint?.isActive || endpoint.workflowId !== input.workflowId || endpoint.workflowVersionId !== input.workflowVersionId || (endpoint.triggerNodeId && endpoint.triggerNodeId !== triggerNodeId) || endpoint.path !== input.path || endpoint.secretHash !== input.secretHash) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
       if (provider === "jira") {
         const rows = await transaction.$queryRaw<Array<{ state: string; provider: string; endpointId: string; workflowVersionId: string; remoteHookId: bigint | null }>>`SELECT "state", "provider", "endpointId", "workflowVersionId", "remoteHookId" FROM "ProviderWebhookRegistration" WHERE id = ${input.registrationId} FOR UPDATE`;
         const registration = rows[0];
@@ -179,7 +188,7 @@ export class ExecutionService {
         if (!same) throw new ConflictException({ code: "WEBHOOK_DELIVERY_CONFLICT", message: "The delivery key was already used for different content." });
         return existing;
       }
-      const execution = await transaction.execution.create({ data: { workflowVersionId: input.workflowVersionId, mode: "LIVE", triggerData: redactValue(input.payload) as Prisma.InputJsonValue, idempotencyKey } });
+      const execution = await transaction.execution.create({ data: { workflowVersionId: input.workflowVersionId, mode: "LIVE", triggerNodeId, triggerData: redactValue(input.payload) as Prisma.InputJsonValue, idempotencyKey } });
       await transaction.$executeRaw`UPDATE "Execution" SET "webhookPayloadDigest" = ${digest} WHERE id = ${execution.id}`;
       return execution;
     });
@@ -188,7 +197,7 @@ export class ExecutionService {
   async createGmailScheduledExecution(workflowVersionId: string, workflowId: string, nodeId: string, messageId: string, leaseToken: string, triggerData: Record<string, unknown>, idempotencyKey: string) {
     const version = await this.prisma.workflowVersion.findUnique({ where: { id: workflowVersionId }, include: { workflow: true } });
     if (!version || version.workflowId !== workflowId) throw new NotFoundException({ code: "WORKFLOW_VERSION_NOT_FOUND", message: "Workflow version was not found." });
-    await this.assertLiveReady(version.workflow.workspaceId, parseStoredWorkflowGraph(version.graph));
+    await this.assertLiveReady(version.workflow.workspaceId, parseStoredWorkflowGraph(version.graph), nodeId);
     return this.prisma.$transaction(async (transaction) => {
       const workflows = await transaction.$queryRaw<Array<{ isActive: boolean; archivedAt: Date | null; publishedVersionId: string | null }>>`SELECT "isActive", "archivedAt", "publishedVersionId" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
       if (!workflows[0]?.isActive || workflows[0].archivedAt || workflows[0].publishedVersionId !== workflowVersionId) return { execution: null, alreadyDispatched: false };
@@ -203,7 +212,7 @@ export class ExecutionService {
         if (!existing) throw new NodeFailure("GMAIL_EXECUTION_MISSING", "A previous Gmail execution is unavailable. Review the trigger before resetting its checkpoint.", false);
         return { execution: existing, alreadyDispatched: false };
       }
-      const execution = await transaction.execution.create({ data: { workflowVersionId, mode: "LIVE", triggerData: redactValue(triggerData) as Prisma.InputJsonValue, idempotencyKey } });
+      const execution = await transaction.execution.create({ data: { workflowVersionId, mode: "LIVE", triggerNodeId: nodeId, triggerData: redactValue(triggerData) as Prisma.InputJsonValue, idempotencyKey } });
       await transaction.gmailTriggerDelivery.update({ where: { workflowVersionId_nodeId_messageId: { workflowVersionId, nodeId, messageId } }, data: { executionId: execution.id } });
       return { execution, alreadyDispatched: false };
     });
@@ -316,7 +325,7 @@ export class ExecutionService {
     if (!source) throw new NotFoundException({ code: "EXECUTION_NOT_FOUND", message: "Execution was not found." });
     if (source.privacyErasedAt) throw new BadRequestException({ code: "EXECUTION_DATA_ERASED", message: "This execution's data was erased by a privacy request and cannot be retried." });
     if (source.status !== ExecutionStatus.FAILED) throw new BadRequestException({ code: "EXECUTION_NOT_RETRYABLE", message: "Only failed executions can be retried." });
-    if (source.mode === "LIVE") await this.assertLiveReady(source.workflowVersion.workflow.workspaceId, parseStoredWorkflowGraph(source.workflowVersion.graph));
+    if (source.mode === "LIVE") await this.assertLiveReady(source.workflowVersion.workflow.workspaceId, parseStoredWorkflowGraph(source.workflowVersion.graph), source.triggerNodeId ?? undefined);
     const data = {
       workflowVersionId: source.workflowVersionId,
       mode: source.mode,
@@ -325,7 +334,10 @@ export class ExecutionService {
       idempotencyRootId: source.idempotencyRootId ?? source.id,
     };
     const execution = await this.prisma.$transaction(async (tx) => {
-      if (source.mode === "LIVE") await lockGraphCredentials(tx, source.workflowVersion.workflow.workspaceId, source.workflowVersion.graph);
+      if (source.mode === "LIVE") {
+        const graph = parseStoredWorkflowGraph(source.workflowVersion.graph);
+        await lockGraphCredentials(tx, source.workflowVersion.workflow.workspaceId, source.triggerNodeId ? reachableWorkflowGraph(graph, source.triggerNodeId) : graph);
+      }
       const locked = await tx.$queryRaw<Array<{ privacyErasedAt: Date | null }>>`SELECT "privacyErasedAt" FROM "Execution" WHERE id = ${source.id} FOR UPDATE`;
       if (!locked[0] || locked[0].privacyErasedAt) throw new BadRequestException({ code: "EXECUTION_DATA_ERASED", message: "This execution's data was erased by a privacy request and cannot be retried." });
       return tx.execution.create({ data });
@@ -1050,8 +1062,8 @@ export class ExecutionService {
     return renewed.count === 1;
   }
 
-  private async assertLiveReady(workspaceId: string, graph: WorkflowGraph) {
-    const readiness = await this.evaluateLiveReadiness(workspaceId, graph);
+  private async assertLiveReady(workspaceId: string, graph: WorkflowGraph, triggerNodeId?: string) {
+    const readiness = await this.evaluateLiveReadiness(workspaceId, graph, triggerNodeId);
     if (readiness.ready) return;
     if (readiness.unavailableNodes.length) throw new BadRequestException({ code: "NODE_UNAVAILABLE", message: "Remove unavailable nodes and publish a new version before running live.", details: readiness.unavailableNodes });
     throw new BadRequestException({
@@ -1061,9 +1073,9 @@ export class ExecutionService {
     });
   }
 
-  private async evaluateLiveReadiness(workspaceId: string, graph: WorkflowGraph) {
+  private async evaluateLiveReadiness(workspaceId: string, graph: WorkflowGraph, triggerNodeId?: string) {
     const unavailableNodes = unavailableWorkflowNodes(graph);
-    const requirements = liveCredentialRequirements(graph);
+    const requirements = liveCredentialRequirements(graph, triggerNodeId);
     const selectedIds = requirements.flatMap((requirement) => requirement.credentialId ? [requirement.credentialId] : []);
     const credentials = selectedIds.length
       ? await this.prisma.credential.findMany({ where: { id: { in: selectedIds }, workspaceId }, select: { id: true, provider: true } })

@@ -77,7 +77,12 @@ export class CalendarTriggerService implements OnModuleInit, OnModuleDestroy {
       await this.recoverQueued();
       const versions = await this.prisma.workflowVersion.findMany({ where: { status: WorkflowVersionStatus.PUBLISHED, publishedFor: { is: { isActive: true, archivedAt: null } } }, include: { workflow: true } });
       for (const version of versions) {
-        try { for (const target of calendarTargets(version.workflowId, version.id, version.workflow.workspaceId, parseStoredWorkflowGraph(version.graph))) await this.poll(target); }
+        try {
+          for (const target of calendarTargets(version.workflowId, version.id, version.workflow.workspaceId, parseStoredWorkflowGraph(version.graph))) {
+            try { await this.poll(target); }
+            catch { this.logger.warn(`Calendar trigger scan failed for node ${target.nodeId} in workflow ${version.workflowId}.`); }
+          }
+        }
         catch { this.logger.warn(`Calendar trigger scan failed for workflow ${version.workflowId}.`); }
       }
     } catch { this.logger.warn("Calendar trigger scheduler could not complete its scan."); }
@@ -124,7 +129,7 @@ export class CalendarTriggerService implements OnModuleInit, OnModuleDestroy {
       const graph = parseStoredWorkflowGraph(version.graph);
       const current = calendarTargets(target.workflowId, target.versionId, target.workspaceId, graph).find((item) => item.nodeId === target.nodeId);
       if (!current || current.configHash !== target.configHash || current.pollMinutes !== target.pollMinutes) throw new NodeFailure("CALENDAR_TRIGGER_CHANGED", "The Calendar trigger changed; review it before continuing.", false);
-      const requirements = liveCredentialRequirements(graph);
+      const requirements = liveCredentialRequirements(graph, target.nodeId);
       const credentialIds = [...new Set(requirements.flatMap((item) => item.credentialId ? [item.credentialId] : []))];
       const credentials = credentialIds.length ? await tx.$queryRaw<Array<{ id: string; provider: string }>>`SELECT id, provider::text AS provider FROM "Credential" WHERE "workspaceId" = ${target.workspaceId} AND id IN (${Prisma.join(credentialIds)}) FOR SHARE` : [];
       const providers = new Map(credentials.map((item) => [item.id, item.provider]));
@@ -144,7 +149,7 @@ export class CalendarTriggerService implements OnModuleInit, OnModuleDestroy {
         const receipt = await tx.calendarTriggerDelivery.findUnique({ where: { workflowId_nodeId_changeKey: { workflowId: target.workflowId, nodeId: target.nodeId, changeKey } } });
         if (receipt) continue;
         const id = randomUUID();
-        await tx.execution.create({ data: { id, workflowVersionId: target.versionId, mode: "LIVE", idempotencyKey: `calendar:${hash(`${target.workflowId}\0${target.nodeId}\0${changeKey}`)}`, triggerData: redactValue({ source: "google-calendar", event: kind, item: event }) as Prisma.InputJsonValue } });
+        await tx.execution.create({ data: { id, workflowVersionId: target.versionId, mode: "LIVE", triggerNodeId: target.nodeId, idempotencyKey: `calendar:${hash(`${target.workflowId}\0${target.nodeId}\0${changeKey}`)}`, triggerData: redactValue({ source: "google-calendar", event: kind, item: event }) as Prisma.InputJsonValue } });
         await tx.calendarTriggerDelivery.create({ data: { workflowId: target.workflowId, nodeId: target.nodeId, changeKey, executionId: id } });
         ids.push(id);
       }

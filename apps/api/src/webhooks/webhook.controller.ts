@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { BadRequestException, Controller, Delete, Get, Head, Header, Headers, Inject, Optional, Param, Post, RawBody, Req, Res, UseGuards } from "@nestjs/common";
+import { BadRequestException, Controller, Delete, Get, Head, Header, Headers, Inject, Optional, Param, Post, Query, RawBody, Req, Res, UseGuards } from "@nestjs/common";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
 import { WebhookService } from "./webhook.service";
@@ -12,8 +12,8 @@ export class WebhookController {
 
   @Get("workflows/:workflowId/webhook-endpoint")
   @UseGuards(AuthenticationGuard)
-  async get(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
-    return { endpoint: await this.webhooks.getEndpoint(workflowId, userId(request)) };
+  async get(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest, @Query("triggerNodeId") triggerNodeId?: string) {
+    return { endpoint: await this.webhooks.getEndpoint(workflowId, userId(request), readTriggerNodeId(triggerNodeId)) };
   }
 
   @Post("workflows/:workflowId/webhook-endpoint")
@@ -26,61 +26,61 @@ export class WebhookController {
     if (typeof body.publishedVersionId !== "string" || !body.publishedVersionId) throw new BadRequestException({ code: "INVALID_INPUT", message: "Reload the workflow before configuring its webhook." });
     const expected = body.expectedEndpoint;
     if (expected !== null && (!expected || typeof expected !== "object" || Array.isArray(expected) || typeof (expected as Record<string, unknown>).id !== "string" || typeof (expected as Record<string, unknown>).updatedAt !== "string")) throw new BadRequestException({ code: "INVALID_INPUT", message: "Reload the webhook status before saving." });
-    return { endpoint: await this.webhooks.createEndpoint(workflowId, userId(request), path, secretRequired, { publishedVersionId: body.publishedVersionId, endpoint: expected as { id: string; updatedAt: string } | null }, body.signingSecret, body.callbackUrl) };
+    return { endpoint: await this.webhooks.createEndpoint(workflowId, userId(request), path, secretRequired, { publishedVersionId: body.publishedVersionId, endpoint: expected as { id: string; updatedAt: string } | null }, body.signingSecret, body.callbackUrl, readTriggerNodeId(body.triggerNodeId)) };
   }
 
   @Get("workflows/:workflowId/provider-webhook")
   @UseGuards(AuthenticationGuard)
-  async providerStatus(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
-    return { providerWebhook: await this.requireGitHubHooks().status(workflowId, userId(request)) };
+  async providerStatus(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest, @Query("triggerNodeId") triggerNodeId?: string) {
+    return { providerWebhook: await this.requireGitHubHooks().status(workflowId, userId(request), readTriggerNodeId(triggerNodeId)) };
   }
 
   @Post("workflows/:workflowId/provider-webhook")
   @Header("Cache-Control", "no-store")
   @UseGuards(AuthenticationGuard)
-  async providerCreate(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
-    return { providerWebhook: await this.requireGitHubHooks().create(workflowId, userId(request)) };
+  async providerCreate(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest, @Query("triggerNodeId") triggerNodeId?: string) {
+    return { providerWebhook: await this.requireGitHubHooks().create(workflowId, userId(request), readTriggerNodeId(triggerNodeId)) };
   }
 
   @Delete("workflows/:workflowId/provider-webhook")
   @Header("Cache-Control", "no-store")
   @UseGuards(AuthenticationGuard)
-  async providerDelete(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
-    return { providerWebhook: await this.requireGitHubHooks().remove(workflowId, userId(request)) };
+  async providerDelete(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest, @Query("triggerNodeId") triggerNodeId?: string) {
+    return { providerWebhook: await this.requireGitHubHooks().remove(workflowId, userId(request), readTriggerNodeId(triggerNodeId)) };
   }
 
   @Post("workflows/:workflowId/provider-webhook/reconcile")
   @Header("Cache-Control", "no-store")
   @UseGuards(AuthenticationGuard)
-  async providerReconcile(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
-    return { providerWebhook: await this.requireGitHubHooks().reconcile(workflowId, userId(request)) };
+  async providerReconcile(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest, @Query("triggerNodeId") triggerNodeId?: string) {
+    return { providerWebhook: await this.requireGitHubHooks().reconcile(workflowId, userId(request), readTriggerNodeId(triggerNodeId)) };
   }
 
   @Get("workflows/:workflowId/jira-provider-webhook")
   @UseGuards(AuthenticationGuard)
-  async jiraStatus(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
-    return { providerWebhook: await this.requireJiraHooks().status(workflowId, userId(request)) };
+  async jiraStatus(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest, @Query("triggerNodeId") triggerNodeId?: string) {
+    return { providerWebhook: await this.requireJiraHooks().status(workflowId, userId(request), readTriggerNodeId(triggerNodeId)) };
   }
 
   @Post("workflows/:workflowId/jira-provider-webhook")
   @Header("Cache-Control", "no-store")
   @UseGuards(AuthenticationGuard)
-  async jiraCreate(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
-    return { providerWebhook: await this.requireJiraHooks().create(workflowId, userId(request)) };
+  async jiraCreate(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest, @Query("triggerNodeId") triggerNodeId?: string) {
+    return { providerWebhook: await this.requireJiraHooks().create(workflowId, userId(request), readTriggerNodeId(triggerNodeId)) };
   }
 
   @Delete("workflows/:workflowId/jira-provider-webhook")
   @Header("Cache-Control", "no-store")
   @UseGuards(AuthenticationGuard)
-  async jiraDelete(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
-    return { providerWebhook: await this.requireJiraHooks().remove(workflowId, userId(request)) };
+  async jiraDelete(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest, @Query("triggerNodeId") triggerNodeId?: string) {
+    return { providerWebhook: await this.requireJiraHooks().remove(workflowId, userId(request), readTriggerNodeId(triggerNodeId)) };
   }
 
   @Post("workflows/:workflowId/jira-provider-webhook/reconcile")
   @Header("Cache-Control", "no-store")
   @UseGuards(AuthenticationGuard)
-  async jiraReconcile(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
-    return { providerWebhook: await this.requireJiraHooks().reconcile(workflowId, userId(request)) };
+  async jiraReconcile(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest, @Query("triggerNodeId") triggerNodeId?: string) {
+    return { providerWebhook: await this.requireJiraHooks().reconcile(workflowId, userId(request), readTriggerNodeId(triggerNodeId)) };
   }
 
   @Head("webhooks/:path")
@@ -120,6 +120,12 @@ function readObject(value: unknown): Record<string, unknown> {
 
 function readPath(value: unknown) {
   if (typeof value !== "string" || !/^[a-z0-9][a-z0-9-]{2,80}$/i.test(value)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Webhook path must be 3–81 letters, numbers, or hyphens." });
+  return value;
+}
+
+function readTriggerNodeId(value: unknown) {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || !value.trim() || value.length > 256) throw new BadRequestException({ code: "INVALID_INPUT", message: "Choose a valid webhook trigger." });
   return value;
 }
 

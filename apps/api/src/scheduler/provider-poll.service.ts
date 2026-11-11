@@ -93,7 +93,12 @@ export class ProviderPollService implements OnModuleInit, OnModuleDestroy {
       await this.recoverQueued();
       const versions = await this.prisma.workflowVersion.findMany({ where: { status: WorkflowVersionStatus.PUBLISHED, publishedFor: { is: { isActive: true, archivedAt: null } } }, include: { workflow: true } });
       for (const version of versions) {
-        try { for (const target of providerPollTargets(version.workflowId, version.id, version.workflow.workspaceId, parseStoredWorkflowGraph(version.graph))) await this.poll(target); }
+        try {
+          for (const target of providerPollTargets(version.workflowId, version.id, version.workflow.workspaceId, parseStoredWorkflowGraph(version.graph))) {
+            try { await this.poll(target); }
+            catch { this.logger.warn(`Provider poll scan failed for node ${target.nodeId} in workflow ${version.workflowId}.`); }
+          }
+        }
         catch { this.logger.warn(`Provider poll scan failed for workflow ${version.workflowId}.`); }
       }
     } catch { this.logger.warn("Provider polling scan could not complete."); }
@@ -165,7 +170,7 @@ export class ProviderPollService implements OnModuleInit, OnModuleDestroy {
       const graph = parseStoredWorkflowGraph(version.graph);
       const current = providerPollTargets(target.workflowId, target.versionId, target.workspaceId, graph).find((item) => item.nodeId === target.nodeId);
       if (!current || current.configHash !== target.configHash || current.pollMinutes !== target.pollMinutes) throw new NodeFailure("PROVIDER_POLL_CHANGED", "The trigger changed. Review it before continuing.", false);
-      const requirements = liveCredentialRequirements(graph);
+      const requirements = liveCredentialRequirements(graph, target.nodeId);
       const credentialIds = [...new Set(requirements.flatMap((item) => item.credentialId ? [item.credentialId] : []))];
       const credentials = credentialIds.length ? await tx.$queryRaw<Array<{ id: string; provider: string }>>`SELECT id, provider::text AS provider FROM "Credential" WHERE "workspaceId" = ${target.workspaceId} AND id IN (${Prisma.join(credentialIds)}) FOR SHARE` : [];
       const providers = new Map(credentials.map((item) => [item.id, item.provider]));
@@ -175,7 +180,7 @@ export class ProviderPollService implements OnModuleInit, OnModuleDestroy {
         const key = { workflowId_nodeId_changeKey: { workflowId: target.workflowId, nodeId: target.nodeId, changeKey: change.key } };
         if (await tx.providerPollDelivery.findUnique({ where: key })) continue;
         const id = randomUUID();
-        await tx.execution.create({ data: { id, workflowVersionId: target.versionId, mode: "LIVE", idempotencyKey: `provider-poll:${pollHash(`${target.workflowId}\0${target.nodeId}\0${change.key}`)}`, triggerData: redactValue({ source: target.provider, event: change.event, item: change.item }) as Prisma.InputJsonValue } });
+        await tx.execution.create({ data: { id, workflowVersionId: target.versionId, mode: "LIVE", triggerNodeId: target.nodeId, idempotencyKey: `provider-poll:${pollHash(`${target.workflowId}\0${target.nodeId}\0${change.key}`)}`, triggerData: redactValue({ source: target.provider, event: change.event, item: change.item }) as Prisma.InputJsonValue } });
         await tx.providerPollDelivery.create({ data: { workflowId: target.workflowId, nodeId: target.nodeId, changeKey: change.key, executionId: id } });
         ids.push(id);
       }

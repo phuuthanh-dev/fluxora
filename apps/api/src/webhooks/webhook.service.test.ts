@@ -82,6 +82,30 @@ test("webhook requests without a delivery ID get distinct recovery identities", 
   assert.notEqual(keys[0], keys[1]);
 });
 
+test("multiple webhook endpoints route and authenticate their own trigger", async () => {
+  const graph = { nodes: [
+    { id: "github", type: "trigger.github.push", position: { x: 0, y: 0 }, config: { event: "push" } },
+    { id: "generic", type: "trigger.webhook", position: { x: 0, y: 0 }, config: {} },
+  ], edges: [] };
+  const common = { workflowId: "flow", workflowVersionId: "version", isActive: true, workflow: { workspaceId: "space", isActive: true, archivedAt: null }, workflowVersion: { graph } };
+  const endpoints = {
+    git: { ...common, id: "git-endpoint", path: "git", triggerNodeId: "github", encryptedSigningSecret: "cipher", secretHash: null },
+    plain: { ...common, id: "plain-endpoint", path: "plain", triggerNodeId: "generic", encryptedSigningSecret: null, secretHash: null },
+    unknown: { ...common, id: "old", path: "unknown", triggerNodeId: null, encryptedSigningSecret: null, secretHash: null },
+  };
+  const started: string[] = [];
+  const service = new WebhookService({ webhookEndpoint: { findUnique: async ({ where }: { where: { path: keyof typeof endpoints } }) => endpoints[where.path] } } as never,
+    { createLegacyWebhookExecution: async ({ triggerNodeId }: { triggerNodeId: string }) => { started.push(triggerNodeId); return { id: "run", status: "SUCCEEDED" }; } } as never,
+    {} as never, {} as never, { decrypt: () => ({ secret: "fixture" }) } as never);
+  const body = Buffer.from('{}');
+  const signature = `sha256=${createHmac("sha256", "fixture").update(body).digest("hex")}`;
+  await assert.rejects(service.receive("git", undefined, {}, undefined, { githubEvent: "push", githubSignature: "bad", rawBody: body }));
+  await service.receive("git", undefined, {}, undefined, { githubEvent: "push", githubSignature: signature, rawBody: body });
+  await service.receive("plain", undefined, {});
+  await assert.rejects(service.receive("unknown", undefined, {}));
+  assert.deepEqual(started, ["github", "generic"]);
+});
+
 test("GitHub registration encrypts its own secret and never stores it in the credential", async () => {
   let stored: Record<string, unknown> | undefined;
   const transaction = {

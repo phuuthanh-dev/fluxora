@@ -6,7 +6,7 @@ import { GitHubWebhookManagementService } from "./github-webhook-management.serv
 function service() {
   const prisma = {
     workflow: { findFirst: async () => ({ publishedVersion: { id: "version-1" } }) },
-    webhookEndpoint: { findFirst: async () => ({ id: "endpoint-1", path: "github-hook", workflowVersionId: "version-1", updatedAt: new Date("2026-01-01T00:00:00.000Z") }) },
+    webhookEndpoint: { findMany: async () => [{ id: "endpoint-1", path: "github-hook", workflowVersionId: "version-1", updatedAt: new Date("2026-01-01T00:00:00.000Z") }] },
     providerWebhookRegistration: { findUnique: async () => ({ provider: "GITHUB", repository: "ithelpdesk/livestream", event: "push", workflowVersionId: "version-1", state: ProviderWebhookState.ACTIVE, createdAt: new Date("2026-01-01T00:00:00.000Z"), updatedAt: new Date("2026-01-01T00:00:00.000Z"), id: "registration-1", remoteHookId: 99n, callbackUrl: "https://private.example/hook", encryptedSigningSecret: "private" }) },
   };
   return new GitHubWebhookManagementService(prisma as never, {} as never, {} as never, {} as never);

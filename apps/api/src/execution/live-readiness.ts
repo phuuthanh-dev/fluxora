@@ -3,8 +3,28 @@ import { CredentialProvider } from "@prisma/client";
 
 export type LiveCredentialRequirement = { nodeId: string; provider: CredentialProvider; credentialId: string | null };
 
-export function liveCredentialRequirements(graph: WorkflowGraph): LiveCredentialRequirement[] {
-  return graph.nodes.flatMap<LiveCredentialRequirement>((node) => {
+/** Only nodes reachable from the selected trigger can run for this event. */
+export function reachableWorkflowGraph(graph: WorkflowGraph, startNodeId: string): WorkflowGraph {
+  if (!graph.nodes.some((node) => node.id === startNodeId && node.type.startsWith("trigger."))) {
+    throw new Error("Selected workflow trigger was not found.");
+  }
+  const reachable = new Set([startNodeId]);
+  const pending = [startNodeId];
+  while (pending.length) {
+    const source = pending.pop()!;
+    for (const edge of graph.edges) {
+      if (edge.source === source && !reachable.has(edge.target)) {
+        reachable.add(edge.target);
+        pending.push(edge.target);
+      }
+    }
+  }
+  return { nodes: graph.nodes.filter((node) => reachable.has(node.id)), edges: graph.edges.filter((edge) => reachable.has(edge.source) && reachable.has(edge.target)) };
+}
+
+export function liveCredentialRequirements(graph: WorkflowGraph, triggerNodeId?: string): LiveCredentialRequirement[] {
+  const scoped = triggerNodeId ? reachableWorkflowGraph(graph, triggerNodeId) : graph;
+  return scoped.nodes.flatMap<LiveCredentialRequirement>((node) => {
     const credentialId = readCredentialId(node.config);
     if (node.type === "trigger.github.issue-opened" || node.type === "trigger.github.pull-request-opened" || node.type === "trigger.github.push" || node.type === "trigger.github.workflow-run-completed") return [{ nodeId: node.id, provider: CredentialProvider.GITHUB, credentialId }];
     if (node.type === "action.steam.account-snapshot" || (node.type === "action.steam" && node.config.operation !== "gameNews")) return [{ nodeId: node.id, provider: CredentialProvider.STEAM, credentialId }];

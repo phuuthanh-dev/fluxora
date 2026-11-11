@@ -51,14 +51,15 @@ The Steam profile is public. The Steam node returns every field available throug
 
 ### Runtime nodes
 
-Owner-approved multi-trigger scope (2026-11-11): a workflow can combine at
-most one Schedule trigger with Steam game-news triggers. Each scheduled or
-news execution starts only from its own trigger; other trigger branches are
-skipped. When testing a multi-trigger workflow, the editor asks which trigger
-should start the full mock run. Other mixed
-trigger combinations remain unavailable until their registration and recovery
-semantics are implemented. This follows the per-trigger execution model in
-[n8n's node documentation](https://github.com/n8n-io/n8n-docs/blob/main/docs/connect/create-nodes/plan-your-node/choose-a-node-type.md), without claiming full n8n trigger parity.
+The released multi-trigger scope is one Schedule plus Steam game-news triggers.
+The local expansion allows supported triggers to coexist: each event starts a
+separate execution at its own trigger, while unrelated branches are skipped.
+The editor asks which trigger to use for a full test run. Webhook registration
+and polling checkpoints belong to a trigger node. Activation still requires
+the workflow's configured live connections and any necessary provider setup.
+The expansion is not released until the final verification and deployment.
+This follows the per-trigger execution model in
+[n8n's node documentation](https://docs.n8n.io/connect/create-nodes/plan-your-node/choose-a-node-type/), without claiming full n8n trigger parity.
 
 This table records the MVP baseline and selected later additions. Entries marked
 **local draft** are not evidence of release or live-provider qualification.

@@ -284,13 +284,17 @@ For If nodes, the resolved comparison operator must be supported; an unresolved 
 
 MVP graph is a DAG. Control nodes select one downstream path; action nodes select success or error path.
 
-For the bounded Schedule plus Steam-news combination, each new execution stores
-its originating trigger node ID alongside the immutable workflow version.
-Queue recovery and retries use that persisted ID to start the same branch. Each
-Steam trigger maintains its own checkpoint, which is preserved independently
-when an inactive workflow is republished without changing its feed. Resetting a
-checkpoint targets one selected trigger. Older single-trigger executions need
-no stored trigger ID and retain their existing behavior.
+The local multi-trigger expansion stores the originating trigger node ID
+alongside each new event execution and immutable workflow version. Queue
+recovery and retries start the same branch, and credential readiness is scoped
+to nodes reachable from that trigger. Each webhook endpoint and polling
+checkpoint belongs to a trigger node. Unchanged managed webhook registrations
+are retained across publication; changed registrations must be disconnected or
+reconciled. Polling workflows may need deactivation before republishing.
+Older unambiguous webhook endpoints are associated with their trigger by the
+database migration; ambiguous endpoints fail closed. Activation remains a
+workflow-level operation and requires all configured live connections.
+This expansion remains local until the final verification and deployment.
 
 Execution detail is owner-scoped and derived from the immutable workflow version plus persisted execution/node records. It exposes timestamps, duration, attempt count, retryability, error-branch routing, and conservative skip reasons. The downloadable `fluxora.execution-diagnostic.v1` snapshot intentionally excludes graph configuration, trigger data, node input/output, credentials, headers, and provider URLs; it is support metadata, not a secret-bearing execution export.
 

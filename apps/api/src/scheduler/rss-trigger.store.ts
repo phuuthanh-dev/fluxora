@@ -41,7 +41,7 @@ export class PrismaRssTriggerStore implements RssTriggerStore {
       const graph = parseStoredWorkflowGraph(version.graph);
       const current = rssTargets(target.workflowId, target.versionId, graph).find((item) => item.nodeId === target.nodeId);
       if (!current || rssFeedUrlHash(current.url) !== checkpoint.feedUrlHash || current.pollMinutes !== target.pollMinutes) throw new NodeFailure("RSS_FEED_CHANGED", "The feed changed; review the trigger before resetting it.", false);
-      const requirements = liveCredentialRequirements(graph);
+      const requirements = liveCredentialRequirements(graph, target.nodeId);
       const ids = [...new Set(requirements.flatMap((item) => item.credentialId ? [item.credentialId] : []))];
       const credentials = ids.length ? await tx.$queryRaw<Array<{ id: string; provider: string }>>`SELECT id, provider::text AS provider FROM "Credential" WHERE "workspaceId" = ${workflow.workspaceId} AND id IN (${Prisma.join(ids)}) FOR SHARE` : [];
       const providers = new Map(credentials.map((item) => [item.id, item.provider]));
