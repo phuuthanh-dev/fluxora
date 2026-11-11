@@ -65,6 +65,7 @@ for (const theme of ["light", "dark"]) test(`connector resource choices, search,
   await issue.getByRole("button", { name: "Enter value or expression" }).click();
   await issue.getByLabel("Issue value").fill("");
   await issue.getByLabel("Issue value").focus();
+  await page.getByText("Use data from an earlier step", { exact: true }).click();
   await page.getByLabel("Mapping source step").selectOption("manual");
   await page.getByRole("button", { name: "{{ steps.manual.output.received }}", exact: true }).click();
   await expect(issue.getByLabel("Issue value")).toHaveValue("{{ steps.manual.output.received }}");

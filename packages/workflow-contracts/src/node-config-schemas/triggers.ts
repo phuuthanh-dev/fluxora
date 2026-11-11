@@ -30,6 +30,17 @@ export const calendarTrigger: ConfigRules = {
   event: { schema: z.enum(["created", "updated"]), required: true, message: "Choose whether to monitor created or updated events." },
   pollMinutes: { schema: interval, message: "Choose a supported polling interval." },
 };
+export const notionTrigger: ConfigRules = {
+  resourceId: { schema: z.string().regex(/^(?:[a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/i), required: true, message: "Choose a Notion data source." },
+  event: { schema: z.enum(["created", "updated"]), required: true, message: "Choose a page event." },
+  pollMinutes: { schema: interval, message: "Choose a supported polling interval." },
+};
+export const driveTrigger: ConfigRules = {
+  resourceId: { schema: z.string().regex(/^[A-Za-z0-9_-]{1,256}$/), required: true, message: "Choose a Drive file or folder." },
+  resourceType: { schema: z.enum(["file", "folder"]), required: true, message: "Choose a file or folder." },
+  event: { schema: z.enum(["created", "updated"]), required: true, dependsOn: ["resourceType"], matches: (value, config) => config.resourceType !== "file" || value === "updated", message: "Choose a folder for created files, or updated for an existing file." },
+  pollMinutes: { schema: interval, message: "Choose a supported polling interval." },
+};
 export const telegramTrigger: ConfigRules = {
   event: { schema: z.enum(["all", "message", "channel_post", "callback_query"]), required: true, message: "Choose a supported Telegram event." },
   chatMode: { schema: z.enum(["all", "allowlist"]), required: true, message: "Choose an allowed-chat policy." },

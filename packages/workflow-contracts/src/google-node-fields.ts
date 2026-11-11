@@ -18,6 +18,15 @@ function sheetsFields(): NodeConfigurationField[] {
 
 /** Inspector descriptors only; backend validation remains authoritative. */
 export const googleNodeFields = {
+  "trigger.google-drive.file": (): NodeConfigurationField[] => [
+    { kind: "credential", key: "credentialId", label: "Google connection", providers: ["GOOGLE"] },
+    { kind: "select", key: "resourceType", label: "Watch", options: [{ value: "file", label: "A file" }, { value: "folder", label: "Files in a folder" }] },
+    { kind: "resource", key: "resourceId", label: "File", resource: "google-drive-item", credentialKey: "credentialId", placeholder: "Search files", visibleWhen: { key: "resourceType", equals: "file" } },
+    { kind: "resource", key: "resourceId", label: "Folder", resource: "google-folder", credentialKey: "credentialId", placeholder: "Search folders", visibleWhen: { key: "resourceType", equals: "folder" } },
+    { kind: "select", key: "event", label: "Event", options: [{ value: "created", label: "File created" }, { value: "updated", label: "File updated" }], visibleWhen: { key: "resourceType", equals: "folder" } },
+    { kind: "select", key: "event", label: "Event", options: [{ value: "updated", label: "File updated" }], visibleWhen: { key: "resourceType", equals: "file" } },
+    { kind: "select", key: "pollMinutes", label: "Check for changes", options: [{ value: "1", label: "Every minute" }, { value: "5", label: "Every 5 minutes" }, { value: "15", label: "Every 15 minutes" }, { value: "60", label: "Every hour" }] },
+  ],
   "trigger.google-calendar.event": (): NodeConfigurationField[] => [
     { kind: "credential", key: "credentialId", label: "Google Calendar connection", providers: ["GOOGLE_CALENDAR"] },
     { kind: "resource", key: "calendarId", label: "Calendar", resource: "google-calendar", credentialKey: "credentialId", placeholder: "Search calendars" },

@@ -8,6 +8,8 @@ import { systemWorkflowTemplates } from "./system-templates";
 import { GmailTriggerService } from "../scheduler/gmail-trigger.service";
 import { RssTriggerService } from "../scheduler/rss-trigger.service";
 import { CalendarTriggerService, calendarTargets } from "../scheduler/calendar-trigger.service";
+import { ProviderPollService } from "../scheduler/provider-poll.service";
+import { providerPollTargets } from "../scheduler/provider-poll-target";
 import { canResumeRssCheckpoint, rssFeedUrlHash, rssTargets } from "../scheduler/rss-trigger-poller";
 import { lockGraphCredentials } from "../credentials/credential-references";
 
@@ -21,7 +23,7 @@ const defaultGraph: WorkflowGraph = {
 
 @Injectable()
 export class WorkflowService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService, @Inject(WorkspaceService) private readonly workspaces: WorkspaceService, @Optional() @Inject(GmailTriggerService) private readonly gmailTriggers?: GmailTriggerService, @Optional() @Inject(RssTriggerService) private readonly rssTriggers?: RssTriggerService, @Optional() @Inject(CalendarTriggerService) private readonly calendarTriggers?: CalendarTriggerService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService, @Inject(WorkspaceService) private readonly workspaces: WorkspaceService, @Optional() @Inject(GmailTriggerService) private readonly gmailTriggers?: GmailTriggerService, @Optional() @Inject(RssTriggerService) private readonly rssTriggers?: RssTriggerService, @Optional() @Inject(CalendarTriggerService) private readonly calendarTriggers?: CalendarTriggerService, @Optional() @Inject(ProviderPollService) private readonly providerPoll?: ProviderPollService) {}
 
   async list(workspaceId: string, userId: string) {
     await this.workspaces.requireOwner(workspaceId, userId);
@@ -136,6 +138,39 @@ export class WorkflowService {
     const checkpoints = await this.prisma.calendarTriggerCheckpoint.findMany({ where: { workflowId, workflowVersionId: workflow.publishedVersion.id }, select: { nodeId: true, state: true, lastErrorCode: true, updatedAt: true } });
     if (workflow.isActive) for (const node of parseStoredWorkflowGraph(workflow.publishedVersion.graph).nodes.filter((item) => item.type === "trigger.google-calendar.event")) if (!checkpoints.some((checkpoint) => checkpoint.nodeId === node.id)) checkpoints.push({ nodeId: node.id, state: "ERROR", lastErrorCode: "CALENDAR_CHECKPOINT_MISSING", updatedAt: new Date() });
     return { active: workflow.isActive, checkpoints };
+  }
+
+  async providerPollStatus(workflowId: string, userId: string) {
+    const workflow = await this.findOwned(workflowId, userId);
+    if (!workflow.publishedVersion) return { active: workflow.isActive, checkpoints: [] };
+    const checkpoints = await this.prisma.providerPollCheckpoint.findMany({ where: { workflowId, workflowVersionId: workflow.publishedVersion.id }, select: { nodeId: true, state: true, lastErrorCode: true, updatedAt: true } });
+    if (workflow.isActive) for (const node of parseStoredWorkflowGraph(workflow.publishedVersion.graph).nodes.filter((item) => item.type === "trigger.notion.page" || item.type === "trigger.google-drive.file")) if (!checkpoints.some((checkpoint) => checkpoint.nodeId === node.id)) checkpoints.push({ nodeId: node.id, state: "ERROR", lastErrorCode: "PROVIDER_CHECKPOINT_MISSING", updatedAt: new Date() });
+    return { active: workflow.isActive, checkpoints };
+  }
+
+  async resetProviderPoll(workflowId: string, userId: string, confirmDataGap: boolean) {
+    if (!confirmDataGap) throw new BadRequestException({ code: "PROVIDER_RESET_CONFIRM_REQUIRED", message: "Confirm that changes during the gap may be missed." });
+    const workflow = await this.findOwned(workflowId, userId);
+    if (workflow.isActive || !workflow.publishedVersion || !this.providerPoll) throw new ConflictException({ code: "PROVIDER_RESET_REQUIRES_INACTIVE", message: "Deactivate the workflow before resetting its trigger." });
+    const versionId = workflow.publishedVersion.id;
+    const baselines = await this.providerPoll.baselines(workflowId, versionId, workflow.workspaceId, parseStoredWorkflowGraph(workflow.publishedVersion.graph), true);
+    if (!baselines.length) throw new BadRequestException({ code: "PROVIDER_TRIGGER_NOT_FOUND", message: "The published workflow has no supported trigger." });
+    await this.prisma.$transaction(async (tx) => {
+      const locked = await tx.$queryRaw<Array<{ publishedVersionId: string | null; isActive: boolean; archivedAt: Date | null }>>`SELECT "publishedVersionId", "isActive", "archivedAt" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
+      if (!locked[0] || locked[0].isActive || locked[0].archivedAt || locked[0].publishedVersionId !== versionId) throw new ConflictException({ code: "WORKFLOW_CHANGED", message: "The workflow changed. Reload and try again." });
+      for (const { target, cursor, baselineAt } of baselines) {
+        if (!cursor) throw new ConflictException({ code: "PROVIDER_TRIGGER_CHANGED", message: "The baseline could not be prepared." });
+        const key = { workflowId_nodeId: { workflowId, nodeId: target.nodeId } };
+        const existing = await tx.providerPollCheckpoint.findUnique({ where: key });
+        if (existing?.leaseToken && existing.leaseExpiresAt && existing.leaseExpiresAt > new Date()) throw new ConflictException({ code: "PROVIDER_POLL_IN_PROGRESS", message: "Wait for the current check to finish." });
+        const pending = await tx.$queryRaw<Array<{ pending: boolean }>>`SELECT EXISTS (SELECT 1 FROM "ProviderPollDelivery" d JOIN "Execution" e ON e.id = d."executionId" WHERE d."workflowId" = ${workflowId} AND d."nodeId" = ${target.nodeId} AND e.status = 'QUEUED' AND e."startedAt" IS NULL) AS pending`;
+        if (pending[0]?.pending) throw new ConflictException({ code: "PROVIDER_PENDING_RUNS", message: "Wait for queued runs to start before resetting." });
+        if (existing) await tx.providerPollCheckpoint.delete({ where: key });
+        await tx.providerPollCheckpoint.create({ data: { workflowId, nodeId: target.nodeId, workflowVersionId: versionId, provider: target.provider, configHash: target.configHash, cursor, baselineAt } });
+      }
+      await tx.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "workflow.provider_checkpoint_reset", targetType: "workflow", targetId: workflowId, metadata: { versionId } } });
+    }, { maxWait: 2000, timeout: 30_000 });
+    return { success: true };
   }
 
   async resetCalendarTrigger(workflowId: string, userId: string, confirmDataGap: boolean) {
@@ -277,6 +312,16 @@ export class WorkflowService {
       const nextRss = rssTargets(workflowId, draftVersion.id, graph)[0];
       const previousCalendar = previous ? calendarTargets(workflowId, previous.id, workflow.workspaceId, parseStoredWorkflowGraph(previous.graph))[0] : undefined;
       const nextCalendar = calendarTargets(workflowId, draftVersion.id, workflow.workspaceId, graph)[0];
+      const previousProvider = previous ? providerPollTargets(workflowId, previous.id, workflow.workspaceId, parseStoredWorkflowGraph(previous.graph))[0] : undefined;
+      const nextProvider = providerPollTargets(workflowId, draftVersion.id, workflow.workspaceId, graph)[0];
+      if (locked[0]?.isActive && (previousProvider || nextProvider)) throw new ConflictException({ code: "PROVIDER_TRIGGER_DEACTIVATE_TO_PUBLISH", message: "Deactivate the workflow before publishing a different trigger version." });
+      const providerCheckpoint = previousProvider ? await transaction.providerPollCheckpoint.findUnique({ where: { workflowId_nodeId: { workflowId, nodeId: previousProvider.nodeId } } }) : null;
+      if (providerCheckpoint?.leaseToken && providerCheckpoint.leaseExpiresAt && providerCheckpoint.leaseExpiresAt > new Date()) throw new ConflictException({ code: "PROVIDER_POLL_IN_PROGRESS", message: "Wait for the current check to finish before publishing." });
+      const preserveProvider = Boolean(providerCheckpoint && nextProvider && previousProvider?.nodeId === nextProvider.nodeId && providerCheckpoint.configHash === nextProvider.configHash);
+      if (providerCheckpoint && !preserveProvider) {
+        const pending = await transaction.$queryRaw<Array<{ pending: boolean }>>`SELECT EXISTS (SELECT 1 FROM "ProviderPollDelivery" d JOIN "Execution" e ON e.id = d."executionId" WHERE d."workflowId" = ${workflowId} AND d."nodeId" = ${previousProvider!.nodeId} AND e.status = 'QUEUED' AND e."startedAt" IS NULL) AS pending`;
+        if (pending[0]?.pending) throw new ConflictException({ code: "PROVIDER_PENDING_RUNS", message: "Wait for queued trigger runs to start before changing this trigger." });
+      }
       if (locked[0]?.isActive && (nextGmail || previousGmail)) throw new ConflictException({ code: "GMAIL_TRIGGER_DEACTIVATE_TO_PUBLISH", message: "Deactivate the Gmail-triggered workflow before publishing a different version." });
       if (locked[0]?.isActive && (nextRss || previousRss)) throw new ConflictException({ code: "RSS_TRIGGER_DEACTIVATE_TO_PUBLISH", message: "Deactivate the RSS-triggered workflow before publishing a different version." });
       if (locked[0]?.isActive && (nextCalendar || previousCalendar)) throw new ConflictException({ code: "CALENDAR_TRIGGER_DEACTIVATE_TO_PUBLISH", message: "Deactivate the Calendar-triggered workflow before publishing a different version." });
@@ -300,6 +345,8 @@ export class WorkflowService {
         where: { id: draftVersion.id },
         data: { status: WorkflowVersionStatus.PUBLISHED, publishedAt: new Date() },
       });
+      if (providerCheckpoint && previousProvider && preserveProvider) await transaction.providerPollCheckpoint.update({ where: { workflowId_nodeId: { workflowId, nodeId: previousProvider.nodeId } }, data: { workflowVersionId: published.id, leaseToken: null, leaseExpiresAt: null, nextPollAt: null } });
+      else if (providerCheckpoint && previousProvider) await transaction.providerPollCheckpoint.delete({ where: { workflowId_nodeId: { workflowId, nodeId: previousProvider.nodeId } } });
       if (calendarCheckpoint && previousCalendar && preserveCalendar) await transaction.calendarTriggerCheckpoint.update({ where: { workflowId_nodeId: { workflowId, nodeId: previousCalendar.nodeId } }, data: { workflowVersionId: published.id, leaseToken: null, leaseExpiresAt: null, nextPollAt: null } });
       else if (calendarCheckpoint && previousCalendar) await transaction.calendarTriggerCheckpoint.delete({ where: { workflowId_nodeId: { workflowId, nodeId: previousCalendar.nodeId } } });
       if (rssCheckpoint && previousRss && preserveRss) {
@@ -344,15 +391,18 @@ export class WorkflowService {
     const rssNodes = graph.nodes.filter((node) => ["trigger.rss.new-item", "trigger.steam.game-news"].includes(node.type));
     const calendarNodes = graph.nodes.filter((node) => node.type === "trigger.google-calendar.event");
     const jiraNodes = graph.nodes.filter((node) => node.type === "trigger.jira.issue");
+    const providerNodes = graph.nodes.filter((node) => node.type === "trigger.notion.page" || node.type === "trigger.google-drive.file");
     if (gmailNodes.length && !this.gmailTriggers) throw new BadRequestException({ code: "GMAIL_TRIGGER_UNAVAILABLE", message: "Gmail trigger is unavailable." });
     if (rssNodes.length && !this.rssTriggers) throw new BadRequestException({ code: "RSS_TRIGGER_UNAVAILABLE", message: "RSS trigger is unavailable." });
     if (calendarNodes.length && !this.calendarTriggers) throw new BadRequestException({ code: "CALENDAR_TRIGGER_UNAVAILABLE", message: "Calendar trigger is unavailable." });
+    if (providerNodes.length && !this.providerPoll) throw new BadRequestException({ code: "PROVIDER_TRIGGER_UNAVAILABLE", message: "This trigger is unavailable." });
     const baselines = gmailNodes.length ? await this.gmailTriggers!.baseline(workflow.workspaceId, graph) : [];
     const rssBaselines = rssNodes.length ? await this.rssTriggers!.baselines(workflowId, workflow.publishedVersion.id, graph) : [];
     const calendarBaselines = calendarNodes.length ? await this.calendarTriggers!.baselines(workflowId, workflow.publishedVersion.id, workflow.workspaceId, graph) : [];
+    const providerBaselines = providerNodes.length ? await this.providerPoll!.baselines(workflowId, workflow.publishedVersion.id, workflow.workspaceId, graph) : [];
     const activatedAt = new Date();
     const updated = await this.prisma.$transaction(async (transaction) => {
-      if (gmailNodes.length || rssNodes.length || calendarNodes.length || jiraNodes.length) {
+      if (gmailNodes.length || rssNodes.length || calendarNodes.length || jiraNodes.length || providerNodes.length) {
         const locked = await transaction.$queryRaw<Array<{ publishedVersionId: string | null; isActive: boolean; archivedAt: Date | null }>>`SELECT "publishedVersionId", "isActive", "archivedAt" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
         if (!locked[0] || locked[0].isActive || locked[0].archivedAt || locked[0].publishedVersionId !== workflow.publishedVersion!.id) throw new ConflictException({ code: "WORKFLOW_CHANGED", message: "The workflow changed while activating. Reload and try again." });
         if (jiraNodes.length) {
@@ -390,6 +440,17 @@ export class WorkflowService {
             if (!baseline) throw new ConflictException({ code: "CALENDAR_TRIGGER_CHANGED", message: "The Calendar trigger changed. Reload and try again." });
             await transaction.calendarTriggerCheckpoint.create({ data: { workflowId, nodeId: target.nodeId, workflowVersionId: target.versionId, configHash: target.configHash, syncToken: baseline.syncToken, baselineAt: baseline.baselineAt } });
             if (baseline.seen.length) await transaction.calendarTriggerSeen.createMany({ data: baseline.seen.map((item) => ({ workflowId, nodeId: target.nodeId, ...item })) });
+          }
+        }
+        for (const { target, cursor, baselineAt } of providerBaselines) {
+          const key = { workflowId_nodeId: { workflowId, nodeId: target.nodeId } };
+          const existing = await transaction.providerPollCheckpoint.findUnique({ where: key });
+          if (existing && (existing.state !== "READY" || existing.workflowVersionId !== target.versionId || existing.configHash !== target.configHash)) throw new ConflictException({ code: "PROVIDER_POLL_RECOVERY_REQUIRED", message: "Review the trigger before reactivating it." });
+          if (existing?.leaseToken && existing.leaseExpiresAt && existing.leaseExpiresAt > activatedAt) throw new ConflictException({ code: "PROVIDER_POLL_IN_PROGRESS", message: "Wait for the current check to finish before activating." });
+          if (existing) await transaction.providerPollCheckpoint.update({ where: key, data: { leaseToken: null, leaseExpiresAt: null, nextPollAt: null } });
+          else {
+            if (!cursor) throw new ConflictException({ code: "PROVIDER_TRIGGER_CHANGED", message: "The trigger changed. Reload and try again." });
+            await transaction.providerPollCheckpoint.create({ data: { workflowId, nodeId: target.nodeId, workflowVersionId: target.versionId, provider: target.provider, configHash: target.configHash, cursor, baselineAt } });
           }
         }
       }

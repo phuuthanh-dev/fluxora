@@ -95,6 +95,8 @@ test("trigger metadata describes the common output wrapper without assuming a pr
     "trigger.slack.event": { credentialId: "cred", channel: "CEXAMPLE", event: "app_mention" },
     "trigger.cron": { expression: "0 9 * * *", timezone: "UTC" },
     "trigger.google-calendar.event": { credentialId: "cred", calendarId: "primary", event: "created", pollMinutes: "5" },
+    "trigger.notion.page": { credentialId: "cred", resourceId: "00000000-0000-4000-8000-000000000001", event: "created", pollMinutes: "5" },
+    "trigger.google-drive.file": { credentialId: "cred", resourceId: "folder", resourceType: "folder", event: "created", pollMinutes: "5" },
     "trigger.rss.new-item": { url: "https://example.test/feed.xml" },
     "trigger.steam.game-news": { appId: "620" },
     "trigger.telegram.update": { event: "message", chatMode: "all" },

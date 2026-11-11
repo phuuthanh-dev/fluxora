@@ -162,9 +162,10 @@ test("configure Discord and Telegram notification nodes with encrypted credentia
   // Run test (mock run)
   await page.getByRole("button", { name: "Run test" }).click();
   await expect(page.getByText(/Mock execution succeeded/i)).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Fit canvas" }).click();
 
   // Inspect Discord node output in execution result
-  await page.getByRole("heading", { name: "Send webhook message", exact: true }).click();
+  await page.getByTestId("rf__node-discord-node").click();
   await expect(page.getByLabel("Display name", { exact: true })).toHaveValue("Discord webhook");
   await expect(page.getByRole("region", { name: "Last execution" }).getByText(/SUCCEEDED · ATTEMPT/i)).toBeVisible();
   await expect(page.locator(".result-view").getByText("delivered", { exact: true })).toBeVisible();
@@ -172,7 +173,7 @@ test("configure Discord and Telegram notification nodes with encrypted credentia
   await expect(page.locator(".result-view").getByText("destination", { exact: true })).toBeVisible();
 
   // Inspect Telegram node output in execution result
-  await page.getByRole("heading", { name: "Send message", exact: true }).click();
+  await page.getByTestId("rf__node-telegram-node").click();
   await expect(page.getByLabel("Display name", { exact: true })).toHaveValue("Telegram message");
   await expect(page.getByRole("region", { name: "Last execution" }).getByText(/SUCCEEDED · ATTEMPT/i)).toBeVisible();
   await expect(page.locator(".result-view").getByText("delivered", { exact: true })).toBeVisible();

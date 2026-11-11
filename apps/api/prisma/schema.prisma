@@ -234,6 +234,7 @@ model Workflow {
   webhookEndpoints   WebhookEndpoint[]
   rssTriggerCheckpoints RssTriggerCheckpoint[]
   calendarTriggerCheckpoints CalendarTriggerCheckpoint[]
+  providerPollCheckpoints ProviderPollCheckpoint[]
 
   @@index([workspaceId, updatedAt])
   @@index([workspaceId, archivedAt, updatedAt])
@@ -371,6 +372,39 @@ model CalendarTriggerDelivery {
   executionId String? @unique
   createdAt   DateTime @default(now())
   checkpoint  CalendarTriggerCheckpoint @relation(fields: [workflowId, nodeId], references: [workflowId, nodeId], onDelete: Cascade)
+
+  @@id([workflowId, nodeId, changeKey])
+}
+
+// Durable checkpoint and delivery receipts for credential-scoped provider polling.
+model ProviderPollCheckpoint {
+  workflowId        String
+  nodeId            String
+  workflowVersionId String
+  provider          String
+  configHash        String
+  cursor            String
+  baselineAt        DateTime
+  state             String   @default("READY")
+  leaseToken        String?
+  leaseExpiresAt    DateTime?
+  nextPollAt        DateTime?
+  lastErrorCode     String?
+  updatedAt         DateTime @updatedAt
+  workflow          Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  deliveries        ProviderPollDelivery[]
+
+  @@id([workflowId, nodeId])
+  @@index([state, nextPollAt, leaseExpiresAt])
+}
+
+model ProviderPollDelivery {
+  workflowId  String
+  nodeId      String
+  changeKey   String
+  executionId String? @unique
+  createdAt   DateTime @default(now())
+  checkpoint  ProviderPollCheckpoint @relation(fields: [workflowId, nodeId], references: [workflowId, nodeId], onDelete: Cascade)
 
   @@id([workflowId, nodeId, changeKey])
 }

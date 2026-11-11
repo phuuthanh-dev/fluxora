@@ -24,7 +24,7 @@ import { postgresSelect, postgresInsert, postgresUpsert, supabaseInsert, supabas
 import { riotLol, riotTft } from "./node-config-schemas/riot";
 import { slackMessage, slackUpdateMessage, slackWebhook, slackTrigger } from "./node-config-schemas/slack";
 import { discordWebhook } from "./node-config-schemas/discord";
-import { calendarTrigger, cron, githubTrigger, gmailTrigger, manual, rssTrigger, steamNewsTrigger, sentryTrigger, telegramTrigger, trelloTrigger, uptimeTrigger, vercelTrigger, webhookTrigger } from "./node-config-schemas/triggers";
+import { calendarTrigger, notionTrigger, driveTrigger, cron, githubTrigger, gmailTrigger, manual, rssTrigger, steamNewsTrigger, sentryTrigger, telegramTrigger, trelloTrigger, uptimeTrigger, vercelTrigger, webhookTrigger } from "./node-config-schemas/triggers";
 import { approval, editFields, ifCondition, switchCondition } from "./node-config-schemas/flow";
 import type { ConfigRules, NodeConfigIssue } from "./node-config-schemas/types";
 
@@ -37,6 +37,8 @@ export { isCalendarResourceId } from "./node-config-schemas/google-calendar";
 
 // Only migrated nodes appear here. Missing entries are not validation claims.
 const rules: Readonly<Record<string, ConfigRules>> = {
+  "trigger.notion.page": notionTrigger,
+  "trigger.google-drive.file": driveTrigger,
   "action.steam.account-snapshot": steamSnapshot,
   "action.steam": steamOperation,
   "action.mongodb": mongoFind,

@@ -102,6 +102,10 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await canvasNavigation.getByRole("button", { name: "Center selected node" }).click();
   await expect(page.getByRole("region", { name: "Setup" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Configuration" })).toBeVisible();
+  const mapping = page.getByRole("region", { name: "Configuration" }).getByText("Use data from an earlier step", { exact: true });
+  await expect(mapping).toBeVisible();
+  await mapping.click();
+  await expect(page.getByLabel("Mapping source step")).toBeVisible();
   await expect(page.getByRole("region", { name: "Test & debug" })).toBeVisible();
   const debugPanel = page.getByRole("region", { name: "Test & debug" });
   await expect(debugPanel.getByText("Returns sample output without calling the provider. Only this node runs; live connections and inputs are not verified.")).toBeVisible();

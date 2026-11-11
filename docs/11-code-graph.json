@@ -2106,6 +2106,17 @@
       ]
     },
     {
+      "id": "apps/api/src/scheduler/drive-trigger-protocol.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-credential-safety.ts",
+        "apps/api/src/execution/provider-json.ts"
+      ],
+      "externalImports": []
+    },
+    {
       "id": "apps/api/src/scheduler/gmail-trigger.service.ts",
       "boundary": "api",
       "internalImports": [
@@ -2139,6 +2150,49 @@
       "externalImports": [
         "@nestjs/common",
         "@prisma/client",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/scheduler/notion-trigger-protocol.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/notion-operations.ts"
+      ],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/scheduler/provider-poll-target.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts"
+      ],
+      "externalImports": [
+        "@workflow/contracts",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/scheduler/provider-poll.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/execution-queue.service.ts",
+        "apps/api/src/execution/live-readiness.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/redaction.ts",
+        "apps/api/src/platform/background-work.ts",
+        "apps/api/src/scheduler/drive-trigger-protocol.ts",
+        "apps/api/src/scheduler/notion-trigger-protocol.ts",
+        "apps/api/src/scheduler/provider-poll-target.ts",
+        "apps/api/src/workflows/workflow-graph.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client",
+        "@workflow/contracts",
         "node:crypto"
       ]
     },
@@ -2203,6 +2257,7 @@
         "apps/api/src/scheduler/cron-scheduler.service.ts",
         "apps/api/src/scheduler/gmail-trigger.service.ts",
         "apps/api/src/scheduler/jira-privacy-reporting.service.ts",
+        "apps/api/src/scheduler/provider-poll.service.ts",
         "apps/api/src/scheduler/rss-trigger.service.ts"
       ],
       "externalImports": [
@@ -2709,6 +2764,8 @@
         "apps/api/src/database/prisma.service.ts",
         "apps/api/src/scheduler/calendar-trigger.service.ts",
         "apps/api/src/scheduler/gmail-trigger.service.ts",
+        "apps/api/src/scheduler/provider-poll-target.ts",
+        "apps/api/src/scheduler/provider-poll.service.ts",
         "apps/api/src/scheduler/rss-trigger-poller.ts",
         "apps/api/src/scheduler/rss-trigger.service.ts",
         "apps/api/src/workflows/system-templates.ts",
@@ -7104,6 +7161,22 @@
       "to": "apps/api/src/workflows/workflow-graph.ts"
     },
     {
+      "from": "apps/api/src/scheduler/drive-trigger-protocol.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/drive-trigger-protocol.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/drive-trigger-protocol.ts",
+      "to": "apps/api/src/execution/provider-credential-safety.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/drive-trigger-protocol.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
       "from": "apps/api/src/scheduler/gmail-trigger.service.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
     },
@@ -7158,6 +7231,62 @@
     {
       "from": "apps/api/src/scheduler/jira-privacy-reporting.service.ts",
       "to": "apps/api/src/platform/background-work.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/notion-trigger-protocol.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/notion-trigger-protocol.ts",
+      "to": "apps/api/src/execution/notion-operations.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/provider-poll-target.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/provider-poll.service.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/provider-poll.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/provider-poll.service.ts",
+      "to": "apps/api/src/execution/execution-queue.service.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/provider-poll.service.ts",
+      "to": "apps/api/src/execution/live-readiness.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/provider-poll.service.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/provider-poll.service.ts",
+      "to": "apps/api/src/execution/redaction.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/provider-poll.service.ts",
+      "to": "apps/api/src/platform/background-work.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/provider-poll.service.ts",
+      "to": "apps/api/src/scheduler/drive-trigger-protocol.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/provider-poll.service.ts",
+      "to": "apps/api/src/scheduler/notion-trigger-protocol.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/provider-poll.service.ts",
+      "to": "apps/api/src/scheduler/provider-poll-target.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/provider-poll.service.ts",
+      "to": "apps/api/src/workflows/workflow-graph.ts"
     },
     {
       "from": "apps/api/src/scheduler/rss-trigger-poller.ts",
@@ -7262,6 +7391,10 @@
     {
       "from": "apps/api/src/scheduler/scheduler.module.ts",
       "to": "apps/api/src/scheduler/jira-privacy-reporting.service.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/scheduler.module.ts",
+      "to": "apps/api/src/scheduler/provider-poll.service.ts"
     },
     {
       "from": "apps/api/src/scheduler/scheduler.module.ts",
@@ -7830,6 +7963,14 @@
     {
       "from": "apps/api/src/workflows/workflow.service.ts",
       "to": "apps/api/src/scheduler/gmail-trigger.service.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow.service.ts",
+      "to": "apps/api/src/scheduler/provider-poll-target.ts"
+    },
+    {
+      "from": "apps/api/src/workflows/workflow.service.ts",
+      "to": "apps/api/src/scheduler/provider-poll.service.ts"
     },
     {
       "from": "apps/api/src/workflows/workflow.service.ts",

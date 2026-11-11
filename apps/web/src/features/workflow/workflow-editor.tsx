@@ -531,7 +531,7 @@ function ExpressionSuggestions({ suggestions, possible, previews, sources, sourc
   const [notice, setNotice] = useState("");
   if (!suggestions.length && !possible.length && !hasUpstream) return null;
   const select = (suggestion: string) => setNotice(onInsert(suggestion) ? "Inserted into the selected field." : "First select a text field in Configuration, then choose a value.");
-  return <section className="expression-suggestions"><div className="section-label">USE DATA FROM AN EARLIER STEP</div><p>Select a text field in Configuration, then choose a value to insert at the cursor. Available fields depend on the steps that run.</p><label>Source step<select aria-label="Mapping source step" value={sourceId} onChange={(event) => { onSourceChange(event.target.value); setNotice(""); }}><option value="">All earlier steps</option>{sources.map((source) => <option key={source.id} value={source.id}>{source.label}</option>)}</select></label><small>Up to 18 example fields per group. Select a source step to explore its output.</small>{suggestions.length > 0 && <><strong>From the selected execution</strong><p>These are sample values from that run. Select a recent run after editing to see current data.</p><div>{suggestions.map((suggestion) => <button key={suggestion} type="button" onClick={() => select(suggestion)}><span>{suggestion}</span>{previews[suggestion] !== undefined && <span className="expression-suggestions__preview">{previews[suggestion]}</span>}</button>)}</div></>}{possible.length > 0 && <><strong>Possible fields</strong><p>These fields may be available when the earlier step runs.</p><div>{possible.map((suggestion) => <button key={suggestion} type="button" onClick={() => select(suggestion)}>{suggestion}</button>)}</div></>}{!suggestions.length && <p>Run an earlier step and select its execution to see available sample values.</p>}{notice && <small role="status">{notice}</small>}</section>;
+  return <section className="expression-suggestions"><p>Select a text field in Configuration, then choose a value to insert at the cursor. Available fields depend on the steps that run.</p><label>Source step<select aria-label="Mapping source step" value={sourceId} onChange={(event) => { onSourceChange(event.target.value); setNotice(""); }}><option value="">All earlier steps</option>{sources.map((source) => <option key={source.id} value={source.id}>{source.label}</option>)}</select></label><small>Up to 18 example fields per group. Select a source step to explore its output.</small>{suggestions.length > 0 && <><strong>From the selected execution</strong><p>These are sample values from that run. Select a recent run after editing to see current data.</p><div>{suggestions.map((suggestion) => <button key={suggestion} type="button" onClick={() => select(suggestion)}><span>{suggestion}</span>{previews[suggestion] !== undefined && <span className="expression-suggestions__preview">{previews[suggestion]}</span>}</button>)}</div></>}{possible.length > 0 && <><strong>Possible fields</strong><p>These fields may be available when the earlier step runs.</p><div>{possible.map((suggestion) => <button key={suggestion} type="button" onClick={() => select(suggestion)}>{suggestion}</button>)}</div></>}{!suggestions.length && <p>Run an earlier step and select its execution to see available sample values.</p>}{notice && <small role="status">{notice}</small>}</section>;
 }
 
 function EditFieldsEditor({ value, onChange, error }: { value: unknown; onChange: (value: Array<{ name: string; type: string; value: string | number | boolean }>) => void; error?: string }) {
@@ -914,6 +914,31 @@ function GmailTriggerStatus({ workflowId, nodeId }: { workflowId: string; nodeId
   </Status>;
 }
 
+function ProviderPollStatus({ workflowId, nodeId, provider }: { workflowId: string; nodeId: string; provider: string }) {
+  const [status, setStatus] = useState<{ active: boolean; checkpoints: Array<{ nodeId: string; state: string; lastErrorCode: string | null }> } | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
+  const [refresh, setRefresh] = useState(0);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState("");
+  useEffect(() => {
+    if (!workflowId) return;
+    let current = true;
+    const load = () => { void apiRequest<{ active: boolean; checkpoints: Array<{ nodeId: string; state: string; lastErrorCode: string | null }> }>(`/workflows/${encodeURIComponent(workflowId)}/provider-poll-status`).then((data) => { if (current) { setStatus(data); setUnavailable(false); } }).catch(() => { if (current) setUnavailable(true); }); };
+    load(); const timer = window.setInterval(load, 30_000);
+    return () => { current = false; window.clearInterval(timer); };
+  }, [workflowId, refresh]);
+  const checkpoint = status?.checkpoints.find((item) => item.nodeId === nodeId);
+  return <Status tone={checkpoint?.state === "ERROR" || unavailable ? "warning" : "info"} className="inspector-note">
+    <strong>{provider} trigger</strong>
+    <span>Checking starts when the published workflow is activated; existing items are not run. Multiple edits between checks may be combined.</span>
+    <span>{unavailable ? "Status is unavailable. Try refreshing." : checkpoint?.state === "ERROR" ? "The trigger needs attention. Check the connection or reset its checkpoint." : checkpoint?.lastErrorCode ? "The last check failed. Fluxora will retry from the saved checkpoint." : status?.active && checkpoint ? "Active. Changes are checked at the selected interval." : checkpoint ? "Inactive. Reactivating resumes the saved checkpoint." : "Publish and activate to start checking."}</span>
+    <Button type="button" variant="ghost" onClick={() => setRefresh((value) => value + 1)}>Refresh status</Button>
+    {!status?.active && checkpoint && <Button type="button" variant="ghost" onClick={() => { setResetError(""); setResetOpen(true); }}>Reset checkpoint…</Button>}
+    {resetOpen && <Dialog label={`Reset ${provider} checkpoint`} onClose={() => { if (!resetting) setResetOpen(false); }}><DialogHeader title="Start from the current state?" onClose={() => { if (!resetting) setResetOpen(false); }} closeLabel="Close reset confirmation" /><p>Changes since the saved checkpoint may be missed. Running executions may still finish.</p>{resetError && <Status tone="error" role="alert">{resetError}</Status>}<div className="dialog-actions"><Button variant="secondary" type="button" disabled={resetting} onClick={() => setResetOpen(false)}>Cancel</Button><Button variant="primary" type="button" disabled={resetting} onClick={() => { setResetting(true); setResetError(""); void apiRequest(`/workflows/${encodeURIComponent(workflowId)}/provider-poll-reset`, { method: "POST", body: JSON.stringify({ confirmDataGap: true }) }).then(() => { setResetOpen(false); setRefresh((value) => value + 1); }).catch((reason: unknown) => setResetError(reason instanceof Error ? reason.message : "Could not reset the checkpoint.")).finally(() => setResetting(false)); }}>{resetting ? "Resetting…" : "Reset checkpoint"}</Button></div></Dialog>}
+  </Status>;
+}
+
 function CalendarTriggerStatus({ workflowId, nodeId }: { workflowId: string; nodeId: string }) {
   const [status, setStatus] = useState<{ active: boolean; checkpoints: Array<{ nodeId: string; state: string; lastErrorCode: string | null }> } | null>(null);
   const [unavailable, setUnavailable] = useState(false);
@@ -1068,6 +1093,10 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
   const updateConfig = (key: string, value: unknown) => {
     const config = effectiveNodeType === "action.google-drive" ? resetDrivePageToken(node.data.config, key, value) : { ...node.data.config, [key]: value };
     if (value === undefined) delete config[key];
+    if (["trigger.notion.page", "trigger.google-drive.file"].includes(effectiveNodeType) && node.data.config[key] !== value && (key === "credentialId" || key === "resourceType")) {
+      config.resourceId = "";
+      if (effectiveNodeType === "trigger.google-drive.file" && key === "resourceType") config.event = value === "file" ? "updated" : "created";
+    }
     if (effectiveNodeType.startsWith("action.telegram.") && key === "destinationType" && value !== "supergroup" && "messageThreadId" in config) config.messageThreadId = "";
     if (["action.google-chat.oauth", "action.google-chat.reply", "action.google-chat.edit-message"].includes(effectiveNodeType) && node.data.config[key] !== value) {
       if (key === "credentialId") config.space = "";
@@ -1242,6 +1271,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       {effectiveNodeType === "trigger.gmail" && <GmailTriggerStatus workflowId={workflowId} nodeId={node.id} />}
       {["trigger.rss.new-item", "trigger.steam.game-news"].includes(effectiveNodeType) && <RssTriggerStatus workflowId={workflowId} nodeId={node.id} steam={effectiveNodeType === "trigger.steam.game-news"} />}
       {effectiveNodeType === "trigger.google-calendar.event" && <CalendarTriggerStatus workflowId={workflowId} nodeId={node.id} />}
+      {(effectiveNodeType === "trigger.notion.page" || effectiveNodeType === "trigger.google-drive.file") && <ProviderPollStatus workflowId={workflowId} nodeId={node.id} provider={effectiveNodeType === "trigger.notion.page" ? "Notion" : "Google Drive"} />}
       {effectiveNodeType === "trigger.manual" && <TestDataEditor key={`test-data-${node.id}`} value={node.data.config.testData} onApply={(testData) => updateConfig("testData", testData)} draft={draft.testData} onDraftChange={(next) => onDraftChange("testData", next)} />}
       {effectiveNodeType === "trigger.cron" && (
         <>
@@ -1316,6 +1346,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
         <CredentialField label="Notification credential (optional)" value={readConfigText(node.data.config, "notificationCredentialId")} providers={readConfigText(node.data.config, "notificationProvider") === "http_webhook" ? ["HTTP"] : ["GOOGLE_CHAT_WEBHOOK"]} credentials={credentials} onChange={(value) => updateConfig("notificationCredentialId", value)} optional />
       </>}
       {definition && !definition.available && <p className="planned-note">This node is visible for roadmap clarity, but cannot run in the MVP.</p>}
+      {upstream.size > 0 && <details className="execution-pagination"><summary>Use data from an earlier step</summary><ExpressionSuggestions sources={graphNodes.filter((item) => upstream.has(item.id)).map((item) => ({ id: item.id, label: item.data.label }))} sourceId={sourceId} onSourceChange={(source) => setMappingSource({ target: node.id, source })} suggestions={suggestions} possible={possible} previews={previews} hasUpstream onInsert={insertExpression} /></details>}
       </div>
       </InspectorSection>
       <InspectorSection title="Test & debug">
@@ -1331,7 +1362,6 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       <InspectorSection title="Advanced">
         {node.data.category === "action" && effectiveNodeType !== "action.merge" && !isDataTransformNode(effectiveNodeType) && <div className="config-field"><label className="checkbox-field"><input type="checkbox" checked={node.data.config.executeOnce === true} onChange={(event) => updateConfig("executeOnce", event.target.checked ? true : undefined)} /> Run once for the first item</label><small>When the previous step returns multiple items, run this action only for the first. No items means this action does not run.</small>{configIssues.find((issue) => issue.field === "executeOnce") && <p className="ui-field__error" role="alert">{configIssues.find((issue) => issue.field === "executeOnce")?.message}</p>}</div>}
         <JsonConfigEditor key={node.id} config={node.data.config} onApply={(config) => updateNodeData(node.id, { config })} draft={draft.json} onDraftChange={(next) => onDraftChange("json", next)} otherPending={draft.filter !== undefined || draft.filterRaw !== undefined || draft.testData !== undefined || draft.structuredOutput !== undefined || draft.relational !== undefined || draft.sheetsMapping !== undefined} />
-        <ExpressionSuggestions sources={graphNodes.filter((item) => upstream.has(item.id)).map((item) => ({ id: item.id, label: item.data.label }))} sourceId={sourceId} onSourceChange={(source) => setMappingSource({ target: node.id, source })} suggestions={suggestions} possible={possible} previews={previews} hasUpstream={upstream.size > 0} onInsert={insertExpression} />
       </InspectorSection>
       {nodeExecution && (
         <InspectorSection title="Last execution">
