@@ -64,3 +64,41 @@ test("RSS activation, republish and confirmed reset preserve or discard progress
     await prisma.$disconnect();
   }
 });
+
+test("multiple Steam checkpoints retain independent progress on republish", { skip: process.env.FLUXORA_RSS_INTEGRATION !== "1" }, async () => {
+  const database = new URL(process.env.DATABASE_URL ?? "");
+  if (!/^\/fluxora_[a-z0-9_]*test[a-z0-9_]*$/.test(database.pathname) || !["localhost", "127.0.0.1"].includes(database.hostname)) throw new Error("RSS integration requires a disposable local fluxora_*test* database.");
+  const prisma = new PrismaClient(), suffix = randomUUID();
+  const userId = `multi-user-${suffix}`, workspaceId = `multi-space-${suffix}`, workflowId = `multi-flow-${suffix}`, versionId = `multi-version-${suffix}`, draftId = `multi-draft-${suffix}`;
+  const steam = (id: string, appId: string) => ({ id, type: "trigger.steam.game-news" as const, position: { x: 0, y: 0 }, config: { appId, pollMinutes: 5 } });
+  const graph = { nodes: [{ id: "cron", type: "trigger.cron" as const, position: { x: 0, y: 0 }, config: { expression: "16 17 * * *", timezone: "Asia/Ho_Chi_Minh" } }, steam("one", "1245620"), steam("two", "4115450"), steam("three", "2358720")], edges: [] };
+  const baselines = async (workflow: string, version: string, value: Parameters<typeof rssTargets>[2]) => rssTargets(workflow, version, value).map((target, index) => ({ target, baseline: { feedUrlHash: rssFeedUrlHash(target.url), keys: [String(index + 1).repeat(64)], etag: null, lastModified: null } }));
+  const rss = { baselines, freshBaselines: baselines };
+  try {
+    await prisma.user.create({ data: { id: userId, email: `${suffix}@example.test` } });
+    await prisma.workspace.create({ data: { id: workspaceId, ownerId: userId, name: "Synthetic", slug: `multi-${suffix}` } });
+    await prisma.workspaceMember.create({ data: { workspaceId, userId, role: "OWNER" } });
+    await prisma.workflow.create({ data: { id: workflowId, workspaceId, name: "Synthetic" } });
+    await prisma.workflowVersion.create({ data: { id: versionId, workflowId, version: 1, status: "PUBLISHED", graph } });
+    await prisma.workflowVersion.create({ data: { id: draftId, workflowId, version: 2, status: "DRAFT", graph } });
+    await prisma.workflow.update({ where: { id: workflowId }, data: { publishedVersionId: versionId, draftVersionId: draftId } });
+    const service = new WorkflowService(prisma as never, {} as never, undefined, rss as never);
+    await service.activate(workflowId, userId);
+    await service.deactivate(workflowId, userId);
+    await service.publish(workflowId, userId);
+    const rows = await prisma.$queryRaw<Array<{ nodeId: string; workflowVersionId: string; snapshot: unknown }>>`SELECT "nodeId", "workflowVersionId", snapshot FROM "RssTriggerCheckpoint" WHERE "workflowId" = ${workflowId} ORDER BY "nodeId"`;
+    assert.deepEqual(rows.map((row) => [row.nodeId, row.workflowVersionId]), [["one", draftId], ["three", draftId], ["two", draftId]]);
+    assert.deepEqual(rows.map((row) => row.snapshot), [["1".repeat(64)], ["3".repeat(64)], ["2".repeat(64)]]);
+    await assert.rejects(service.resetRssTrigger(workflowId, userId, true));
+    await service.resetRssTrigger(workflowId, userId, true, "two");
+    const afterReset = await prisma.$queryRaw<Array<{ nodeId: string; snapshot: unknown }>>`SELECT "nodeId", snapshot FROM "RssTriggerCheckpoint" WHERE "workflowId" = ${workflowId} ORDER BY "nodeId"`;
+    assert.deepEqual(afterReset.map((row) => row.snapshot), [["1".repeat(64)], ["3".repeat(64)], ["1".repeat(64)]]);
+  } finally {
+    await prisma.execution.deleteMany({ where: { workflowVersion: { workflowId } } });
+    await prisma.workflow.deleteMany({ where: { id: workflowId } });
+    await prisma.auditLog.deleteMany({ where: { workspaceId } });
+    await prisma.workspace.deleteMany({ where: { id: workspaceId } });
+    await prisma.user.deleteMany({ where: { id: userId } });
+    await prisma.$disconnect();
+  }
+});

@@ -44,6 +44,16 @@ test("node debug is always queued as a mock run for only the selected node", asy
   assert.deepEqual(result, { execution: { id: "execution-debug-1", status: "SUCCEEDED" } });
 });
 
+test("a full mock run forwards the selected trigger without using node debug", async () => {
+  const calls: unknown[] = [], queued: unknown[] = [];
+  const executions = { createManualExecution: async (...args: unknown[]) => { calls.push(args); return { id: "selected-run" }; }, get: async () => ({ id: "selected-run" }) };
+  const controller = new ExecutionController(executions as never, { dispatch: async (job: unknown) => { queued.push(job); } } as never, {} as never);
+  await controller.startManual("workflow-1", { body: { mock: true, triggerNodeId: "news" }, currentUser: { id: "user-1" } } as never);
+  assert.deepEqual(calls, [["workflow-1", "user-1", true, {}, undefined, "news"]]);
+  assert.deepEqual(queued, [{ executionId: "selected-run", mode: "mock" }]);
+  await assert.rejects(() => controller.startManual("workflow-1", { body: { mock: false, confirmLive: true, triggerNodeId: "news" }, currentUser: { id: "user-1" } } as never), BadRequestException);
+});
+
 test("retry dispatches the same safe mode and requires a fresh confirmation for live providers", async () => {
   const queued: unknown[] = [];
   const executions = {

@@ -71,7 +71,7 @@ export class WorkflowController {
 
   @Post("workflows/:workflowId/rss-trigger-reset")
   async resetRssTrigger(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
-    return this.workflows.resetRssTrigger(workflowId, requireUserId(request), request.body?.confirmDataGap === true);
+    return this.workflows.resetRssTrigger(workflowId, requireUserId(request), request.body?.confirmDataGap === true, typeof request.body?.nodeId === "string" ? request.body.nodeId : undefined);
   }
 
   @Get("workflows/:workflowId/calendar-trigger-status")

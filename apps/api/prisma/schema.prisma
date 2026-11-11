@@ -458,6 +458,8 @@ model Execution {
   webhookPayloadDigest String?
   idempotencyRootId String?
   triggerData       Json?
+  // The trigger that created this run, persisted for queue recovery and retries.
+  triggerNodeId     String?
   privacyErasedAt   DateTime?
   errorCode         String?
   errorMessage      String?

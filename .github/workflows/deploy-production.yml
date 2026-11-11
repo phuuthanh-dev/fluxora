@@ -152,12 +152,17 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ env.COMMIT_SHA }}
+      - name: Require pinned SSH host fingerprint
+        env:
+          VPS_HOST_FINGERPRINT: ${{ vars.VPS_HOST_FINGERPRINT }}
+        run: test -n "$VPS_HOST_FINGERPRINT" || { echo "VPS_HOST_FINGERPRINT is required" >&2; exit 1; }
       - name: Stage deployment bundle
         uses: appleboy/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634 # v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          fingerprint: ${{ vars.VPS_HOST_FINGERPRINT }}
           source: "infra/docker-compose.production.yml,infra/scripts"
           target: "/opt/workflow-automation/.incoming/${{ github.run_id }}-${{ github.run_attempt }}"
       - name: Deploy immutable image tag
@@ -173,6 +178,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          fingerprint: ${{ vars.VPS_HOST_FINGERPRINT }}
           envs: IMAGE_TAG,RELEASE_BUNDLE,GHCR_PULL_USERNAME,GHCR_PULL_TOKEN,FLUXORA_LEGACY_CUTOVER_IMAGE_ID,FLUXORA_SKIP_LEGACY_BACKUP
           script: |
             set -eu

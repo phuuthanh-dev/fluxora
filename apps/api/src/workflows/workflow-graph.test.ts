@@ -106,3 +106,13 @@ test("RSS drafts allow incomplete URLs without DNS but reject identifiable secre
   assert.doesNotThrow(() => validatePublishableGraph(parseWorkflowGraph(graph("https://feeds.example.test/path?lang=vi"))));
   assert.throws(() => parseWorkflowGraph(graph("https://feeds.example.test/path?token=private")), (error: unknown) => error instanceof BadRequestException && !String(error).includes("private"));
 });
+
+
+test("publishes a schedule and independent Steam news triggers, but rejects unsupported trigger combinations", () => {
+  const schedule = { id: "daily", type: "trigger.cron", position: { x: 0, y: 0 }, config: { expression: "16 17 * * *", timezone: "Asia/Ho_Chi_Minh" } };
+  const steam = (id: string, appId: string) => ({ id, type: "trigger.steam.game-news", position: { x: 0, y: 0 }, config: { appId, pollMinutes: 5 } });
+  const nodes = [schedule, steam("one", "1245620"), steam("two", "4115450"), steam("three", "2358720")];
+  assert.doesNotThrow(() => validatePublishableGraph(parseWorkflowGraph({ nodes, edges: [] })));
+  assert.throws(() => validatePublishableGraph(parseWorkflowGraph({ nodes: [...nodes, { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} }], edges: [] })), BadRequestException);
+  assert.throws(() => validatePublishableGraph(parseWorkflowGraph({ nodes, edges: [{ id: "bad", source: "daily", target: "one", kind: "success" }] })), BadRequestException);
+});

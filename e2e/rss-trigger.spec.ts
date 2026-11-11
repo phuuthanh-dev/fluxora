@@ -15,7 +15,7 @@ test("RSS trigger explains a checkpoint gap and confirms an explicit reset", asy
     if (path.endsWith("/live-readiness")) return send({ readiness: { ready: true, requirements: [], unavailableNodes: [] } });
     if (path.endsWith("/rss-trigger-status")) return send({ active: false, checkpoints: [{ nodeId: "rss", state: "ERROR", lastErrorCode: errorCode }] });
     if (path.endsWith("/rss-trigger-reset")) {
-      expect(route.request().postDataJSON()).toEqual({ confirmDataGap: true });
+      expect(route.request().postDataJSON()).toEqual({ confirmDataGap: true, nodeId: "rss" });
       resets++;
       return send({ success: true });
     }

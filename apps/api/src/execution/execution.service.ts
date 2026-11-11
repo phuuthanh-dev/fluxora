@@ -46,7 +46,7 @@ async function finishInterruptedItems(transaction: Prisma.TransactionClient, exe
 export class ExecutionService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService, @Inject(CredentialService) private readonly credentials: CredentialService, @Inject(ExecutionEventsService) private readonly events: ExecutionEventsService) {}
 
-  async createManualExecution(workflowId: string, userId: string, mock: boolean, triggerData: unknown = {}, debugNodeId?: string) {
+  async createManualExecution(workflowId: string, userId: string, mock: boolean, triggerData: unknown = {}, debugNodeId?: string, requestedTriggerId?: string) {
     const workflow = await this.prisma.workflow.findFirst({
       where: { id: workflowId, workspace: { members: { some: { userId, role: "OWNER" } } } },
       include: { draftVersion: true, publishedVersion: true },
@@ -63,7 +63,10 @@ export class ExecutionService {
       if (debugNode.type === "approval.request" || debugNode.type === "action.merge" || isDataTransformNode(debugNode.type)) throw new BadRequestException({ code: "NODE_DEBUG_UNSUPPORTED", message: "Approval and collection nodes must be tested as part of the full workflow." });
     }
     if (!mock) await this.assertLiveReady(workflow.workspaceId, parseStoredWorkflowGraph(version.graph));
-    const data = { workflowVersionId: version.id, mode: mock ? "MOCK" : "LIVE", triggerData: redactValue(triggerData) as Prisma.InputJsonValue };
+    const triggers = parseStoredWorkflowGraph(version.graph).nodes.filter((node) => node.type.startsWith("trigger."));
+    if (requestedTriggerId && (!mock || debugNodeId || !triggers.some((node) => node.id === requestedTriggerId))) throw new BadRequestException({ code: "TRIGGER_NOT_FOUND", message: "Choose a trigger in this workflow for the test run." });
+    const chosenTrigger = triggers.find((node) => node.id === requestedTriggerId) ?? triggers.find((node) => node.type === "trigger.manual") ?? triggers.find((node) => node.type === "trigger.cron") ?? triggers[0];
+    const data = { workflowVersionId: version.id, mode: mock ? "MOCK" : "LIVE", triggerData: redactValue(triggerData) as Prisma.InputJsonValue, ...(!debugNodeId && (triggers.length > 1 || requestedTriggerId) && chosenTrigger ? { triggerNodeId: chosenTrigger.id } : {}) };
     const execution = mock ? await this.prisma.execution.create({ data }) : await this.prisma.$transaction(async (tx) => {
       await lockGraphCredentials(tx, workflow.workspaceId, version.graph);
       return tx.execution.create({ data });
@@ -96,7 +99,7 @@ export class ExecutionService {
 
   /** A cron scan can hold an old version across deactivation or publication.
    * Serialize acceptance with those operations on the workflow row. */
-  async createCronScheduledExecution(workflowVersionId: string, triggerData: Record<string, unknown>, idempotencyKey: string) {
+  async createCronScheduledExecution(workflowVersionId: string, triggerData: Record<string, unknown>, idempotencyKey: string, triggerNodeId?: string) {
     const version = await this.prisma.workflowVersion.findUnique({ where: { id: workflowVersionId }, include: { workflow: true } });
     if (!version) throw new NotFoundException({ code: "WORKFLOW_VERSION_NOT_FOUND", message: "Workflow version was not found." });
     await this.assertLiveReady(version.workflow.workspaceId, parseStoredWorkflowGraph(version.graph));
@@ -105,7 +108,7 @@ export class ExecutionService {
       if (!rows[0]?.isActive || rows[0].archivedAt || rows[0].publishedVersionId !== workflowVersionId) throw new ConflictException({ code: "WORKFLOW_CHANGED", message: "The workflow is no longer active at this version." });
       const existing = await transaction.execution.findUnique({ where: { idempotencyKey } });
       if (existing) return existing;
-      return transaction.execution.create({ data: { workflowVersionId, mode: "LIVE", triggerData: redactValue(triggerData) as Prisma.InputJsonValue, idempotencyKey } });
+      return transaction.execution.create({ data: { workflowVersionId, mode: "LIVE", triggerData: redactValue(triggerData) as Prisma.InputJsonValue, idempotencyKey, ...(triggerNodeId ? { triggerNodeId } : {}) } });
     });
   }
 
@@ -318,6 +321,7 @@ export class ExecutionService {
       workflowVersionId: source.workflowVersionId,
       mode: source.mode,
       triggerData: source.triggerData ?? Prisma.JsonNull,
+      ...(source.triggerNodeId ? { triggerNodeId: source.triggerNodeId } : {}),
       idempotencyRootId: source.idempotencyRootId ?? source.id,
     };
     const execution = await this.prisma.$transaction(async (tx) => {
@@ -468,6 +472,9 @@ export class ExecutionService {
     // previously-started execution. The atomic claim below repeats this check.
     if (initialOnly && execution.startedAt !== null) return execution;
     const graph = parseStoredWorkflowGraph(execution.workflowVersion.graph);
+    if (!resumeToken && !debugNodeId && execution.triggerNodeId) {
+      startNodeIds = [execution.triggerNodeId];
+    }
     if (resumeToken) {
       const stored = execution.resumeNodeIds;
       if (!Array.isArray(stored) || !stored.length || stored.some((id) => typeof id !== "string" || !graph.nodes.some((node) => node.id === id)) || new Set(stored).size !== stored.length || mode !== (execution.mode === "MOCK" ? "mock" : "live")) throw new NodeFailure("APPROVAL_CONTINUATION_INVALID", "The approval continuation requires review.", false);
@@ -492,6 +499,11 @@ export class ExecutionService {
     });
     if (!initialized) return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
     this.events.publish(executionId, "execution.running");
+
+    if (!resumeToken && !debugNodeId && execution.triggerNodeId && !graph.nodes.some((node) => node.id === execution.triggerNodeId && node.type.startsWith("trigger."))) {
+      await this.markUnvisitedSkipped(executionId, runToken, graph, new Set());
+      return this.finishRunning(executionId, runToken, { status: ExecutionStatus.FAILED, completedAt: new Date(), leaseExpiresAt: null, errorCode: "TRIGGER_NOT_FOUND", errorMessage: "The execution trigger is not in this workflow version.", errorRetryable: false }, "execution.failed");
+    }
 
     // Existing queued/approval-continuation jobs can predate publish checks.
     // Fail live jobs before calling any node rather than running earlier writes.

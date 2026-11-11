@@ -48,7 +48,9 @@ function parseGraph(value: unknown): WorkflowGraph {
 
 export function validatePublishableGraph(graph: WorkflowGraph) {
   const triggers = graph.nodes.filter((node) => node.type.startsWith("trigger."));
-  if (triggers.length !== 1) invalid("A published workflow must have exactly one trigger.");
+  if (!triggers.length) invalid("A published workflow needs a trigger.");
+  if (triggers.length > 1 && (triggers.some((node) => node.type !== "trigger.cron" && node.type !== "trigger.steam.game-news") || triggers.filter((node) => node.type === "trigger.cron").length > 1)) invalid("Multiple triggers currently support one schedule and Steam game news triggers only.");
+  if (triggers.length > 1 && graph.edges.some((edge) => triggers.some((node) => node.id === edge.target))) invalid("Triggers cannot receive connections from another node.");
   if (!graph.nodes.length) invalid("A published workflow must contain at least one node.");
   assertExecutableGraph(graph);
   const inputIssue = mergeInputIssues(graph, true)[0];
