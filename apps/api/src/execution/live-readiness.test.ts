@@ -2,8 +2,29 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { CredentialProvider } from "@prisma/client";
 import { getOperationMetadataRegistry, workflowNodeTypes } from "@workflow/contracts";
-import { liveCredentialRequirements } from "./live-readiness";
+import { liveCredentialRequirements, reachableWorkflowGraph } from "./live-readiness";
 import { ExecutionService } from "./execution.service";
+
+test("readiness follows only the triggering branch, including error paths", () => {
+  const position = { x: 0, y: 0 };
+  const graph = {
+    nodes: [
+      { id: "schedule", type: "trigger.cron" as const, position, config: {} },
+      { id: "calendar", type: "trigger.google-calendar.event" as const, position, config: { credentialId: "calendar" } },
+      { id: "chat", type: "action.google-chat.webhook" as const, position, config: { credentialId: "chat" } },
+      { id: "slack", type: "action.slack.message" as const, position, config: { credentialId: "slack" } },
+      { id: "error", type: "action.email" as const, position, config: { credentialId: "mail" } },
+    ],
+    edges: [
+      { id: "1", source: "schedule", target: "chat", kind: "success" as const },
+      { id: "2", source: "chat", target: "error", kind: "error" as const },
+      { id: "3", source: "calendar", target: "slack", kind: "success" as const },
+    ],
+  };
+  assert.deepEqual(liveCredentialRequirements(graph, "schedule").map((item) => item.nodeId), ["chat", "error"]);
+  assert.deepEqual(liveCredentialRequirements(graph, "calendar").map((item) => item.nodeId), ["calendar", "slack"]);
+  assert.throws(() => reachableWorkflowGraph(graph, "missing"));
+});
 
 test("Steam game news needs no credential, while profile reads still do", () => {
   const node = { id: "steam", type: "action.steam" as const, position: { x: 0, y: 0 }, config: { operation: "gameNews", appId: "620" } };

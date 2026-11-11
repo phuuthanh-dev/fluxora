@@ -68,7 +68,9 @@ export class RssTriggerService implements OnModuleInit, OnModuleDestroy {
         try {
           const targets = rssTargets(version.workflowId, version.id, parseStoredWorkflowGraph(version.graph));
           for (const target of targets) {
-            const accepted = await this.poller.poll(target);
+            let accepted: string[] | null;
+            try { accepted = await this.poller.poll(target); }
+            catch { this.logger.warn(`RSS trigger scan failed for node ${target.nodeId} in workflow ${version.workflowId}.`); continue; }
             for (const executionId of accepted ?? []) {
               try { await this.queue.ensureDispatched({ executionId, mode: "live", startNodeIds: [target.nodeId], initialOnly: true }); }
               catch { this.logger.warn(`Could not dispatch RSS execution ${executionId}; recovery will retry.`); }

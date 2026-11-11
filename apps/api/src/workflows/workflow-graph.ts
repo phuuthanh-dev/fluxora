@@ -1,4 +1,4 @@
-import { mergeInputIssues, isExecutableWorkflowNodeType, nodeConfigIssues, workflowEdgeKinds, workflowNodeOutputKinds, workflowNodeTypes, type WorkflowEdgeKind, type WorkflowGraph, type WorkflowNodeType } from "@workflow/contracts";
+import { isWebhookTriggerType, mergeInputIssues, isExecutableWorkflowNodeType, nodeConfigIssues, workflowEdgeKinds, workflowNodeOutputKinds, workflowNodeTypes, type WorkflowEdgeKind, type WorkflowGraph, type WorkflowNodeType } from "@workflow/contracts";
 import { BadRequestException } from "@nestjs/common";
 import { parseExpression } from "cron-parser";
 import { readUptimeKumaFilter } from "../webhooks/uptime-kuma-filter";
@@ -15,6 +15,12 @@ type StoredWorkflowEdge = WorkflowGraph["edges"][number];
 
 const nodeTypeSet = new Set<string>(workflowNodeTypes);
 const edgeKindSet = new Set<string>(workflowEdgeKinds);
+
+/** Old registrations had no node id: resolve them only when unambiguous. */
+export function webhookTriggerNode(graph: WorkflowGraph, nodeId?: string | null) {
+  const nodes = graph.nodes.filter((node) => isWebhookTriggerType(node.type));
+  return nodeId ? nodes.find((node) => node.id === nodeId) : nodes.length === 1 ? nodes[0] : undefined;
+}
 
 export function parseWorkflowGraph(value: unknown): WorkflowGraph {
   return parseGraph(value);
@@ -49,7 +55,6 @@ function parseGraph(value: unknown): WorkflowGraph {
 export function validatePublishableGraph(graph: WorkflowGraph) {
   const triggers = graph.nodes.filter((node) => node.type.startsWith("trigger."));
   if (!triggers.length) invalid("A published workflow needs a trigger.");
-  if (triggers.length > 1 && (triggers.some((node) => node.type !== "trigger.cron" && node.type !== "trigger.steam.game-news") || triggers.filter((node) => node.type === "trigger.cron").length > 1)) invalid("Multiple triggers currently support one schedule and Steam game news triggers only.");
   if (triggers.length > 1 && graph.edges.some((edge) => triggers.some((node) => node.id === edge.target))) invalid("Triggers cannot receive connections from another node.");
   if (!graph.nodes.length) invalid("A published workflow must contain at least one node.");
   assertExecutableGraph(graph);

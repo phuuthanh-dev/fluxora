@@ -39,7 +39,7 @@ test("changing a Gmail trigger requires acknowledgement before publishing", asyn
   const changed = { nodes: [{ ...graph.nodes[0]!, config: { credentialId: "other" } }], edges: [] };
   const transaction = {
     $queryRaw: async () => [{ draftVersionId: "v2", publishedVersionId: "v1", isActive: false }],
-    providerWebhookRegistration: { findFirst: async () => null },
+    webhookEndpoint: { findMany: async () => [] },
     workflowVersion: { findUnique: async ({ where }: { where: { id: string } }) => where.id === "v1" ? version : { ...draft, graph: changed } },
     gmailTriggerCheckpoint: { findUnique: async () => ({ leaseToken: null, leaseExpiresAt: null }) },
   };
@@ -65,4 +65,23 @@ test("checkpoint reset requires explicit acknowledgement and cancels pending que
   assert.deepEqual(await service.resetGmailTrigger("flow", "owner", true), { success: true });
   assert.deepEqual(cancelled, { id: { in: ["execution-1"] }, status: "QUEUED" });
   assert.equal((audit as Record<string, unknown> | undefined)?.action, "workflow.gmail_checkpoint_reset");
+});
+
+test("reset targets one Gmail trigger without touching the other checkpoint", async () => {
+  const multiGraph = { nodes: [graph.nodes[0]!, { ...graph.nodes[0]!, id: "mail-2", config: { credentialId: "gmail-2" } }], edges: [] };
+  const selected: string[] = [];
+  const changed: string[] = [];
+  const tx = {
+    $queryRaw: async () => [{ publishedVersionId: "v1", isActive: false, archivedAt: null }],
+    gmailTriggerCheckpoint: { findUnique: async () => ({ state: "ERROR" }), update: async ({ where }: any) => { changed.push(where.workflowVersionId_nodeId.nodeId); } },
+    gmailTriggerDelivery: { findMany: async () => [], updateMany: async () => ({ count: 0 }) },
+    auditLog: { create: async () => ({}) },
+  };
+  const prisma = { workflow: { findFirst: async () => ({ ...baseWorkflow, publishedVersion: { ...version, graph: multiGraph } }) }, $transaction: async (fn: (t: typeof tx) => Promise<unknown>) => fn(tx) };
+  const gmail = { baseline: async (_workspace: string, input: typeof multiGraph) => { selected.push(...input.nodes.filter((node) => node.type === "trigger.gmail").map((node) => node.id)); return [{ nodeId: "mail-2", historyId: "999", mailboxHash: "same" }]; } };
+  const service = new WorkflowService(prisma as never, {} as never, gmail as never);
+  await assert.rejects(service.resetGmailTrigger("flow", "owner", true), /Select the published trigger/);
+  await service.resetGmailTrigger("flow", "owner", true, "mail-2");
+  assert.deepEqual(selected, ["mail-2"]);
+  assert.deepEqual(changed, ["mail-2"]);
 });

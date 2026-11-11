@@ -3,14 +3,14 @@ import { normalizeJiraIssueEvent, verifyJiraBearer } from "./jira-trigger-protoc
 import { type JiraIssueEvent } from "./jira-webhook-adapter";
 import { normalizeSlackEvent, readSlackEnvelope, verifySlackSignature } from "./slack-trigger-protocol";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, OnModuleDestroy } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, OnModuleDestroy, ServiceUnavailableException } from "@nestjs/common";
 import { PrismaService } from "../database/prisma.service";
 import { ExecutionQueueService } from "../execution/execution-queue.service";
 import { ExecutionService } from "../execution/execution.service";
 import { CredentialProvider } from "@prisma/client";
 import { CredentialService } from "../credentials/credential.service";
 import { CredentialVaultService } from "../credentials/credential-vault.service";
-import { parseStoredWorkflowGraph } from "../workflows/workflow-graph";
+import { parseStoredWorkflowGraph, webhookTriggerNode } from "../workflows/workflow-graph";
 import { matchesUptimeKumaFilter } from "./uptime-kuma-filter";
 import { normalizeTelegramUpdate, telegramTriggerFilterFromConfig, telegramWebhookSecretMatches } from "./telegram-trigger-protocol";
 import { normalizeVercelDeployment, vercelTriggerFilterFromConfig, verifyVercelSignature } from "./vercel-trigger-protocol";
@@ -32,42 +32,45 @@ export class WebhookService implements OnModuleDestroy {
 
   async onModuleDestroy() { await this.webhookDispatches.drain(); }
 
-  async getEndpoint(workflowId: string, userId: string) {
+  async getEndpoint(workflowId: string, userId: string, triggerNodeId?: string) {
     const workflow = await this.findOwned(workflowId, userId);
-    const endpoint = await this.prisma.webhookEndpoint.findFirst({ where: { workflowId: workflow.id } });
+    const endpoints = await this.prisma.webhookEndpoint.findMany({ where: { workflowId: workflow.id, ...(triggerNodeId ? { triggerNodeId } : {}) }, take: 2 });
+    if (endpoints.length > 1) throw new ConflictException({ code: "WEBHOOK_TRIGGER_REQUIRED", message: "Choose a webhook trigger to view its registration." });
+    const endpoint = endpoints[0];
     if (!endpoint) return null;
-    const isCurrentTrello = workflow.publishedVersion && endpoint.workflowVersionId === workflow.publishedVersion.id && parseStoredWorkflowGraph(workflow.publishedVersion.graph).nodes.some((node) => node.type === "trigger.trello.board-action");
+    const isCurrentTrello = workflow.publishedVersion && endpoint.workflowVersionId === workflow.publishedVersion.id && webhookTriggerNode(parseStoredWorkflowGraph(workflow.publishedVersion.graph), endpoint.triggerNodeId)?.type === "trigger.trello.board-action";
     const stored = isCurrentTrello && endpoint.encryptedSigningSecret ? this.vault.decrypt(endpoint.encryptedSigningSecret) : undefined;
     const callbackUrl = isCurrentTrello && typeof stored?.callbackUrl === "string" ? readTrelloCallbackUrl(stored.callbackUrl, endpoint.path) : undefined;
     return { id: endpoint.id, path: endpoint.path, secretRequired: Boolean(endpoint.secretHash || endpoint.encryptedSigningSecret), signingMode: endpoint.encryptedSigningSecret ? "registration" : "legacy", workflowVersionId: endpoint.workflowVersionId, createdAt: endpoint.createdAt, updatedAt: endpoint.updatedAt, ...(callbackUrl ? { callbackUrl } : {}) };
   }
 
-  async createEndpoint(workflowId: string, userId: string, path: string, secretRequired: boolean, expected: { publishedVersionId: string; endpoint: { id: string; updatedAt: string } | null }, importedSigningSecret?: unknown, importedCallbackUrl?: unknown) {
+  async createEndpoint(workflowId: string, userId: string, path: string, secretRequired: boolean, expected: { publishedVersionId: string; endpoint: { id: string; updatedAt: string } | null }, importedSigningSecret?: unknown, importedCallbackUrl?: unknown, triggerNodeId?: string) {
     const workflow = await this.findOwned(workflowId, userId);
     if (!workflow.publishedVersion) throw new NotFoundException({ code: "PUBLISHED_VERSION_REQUIRED", message: "Publish this workflow before creating a webhook endpoint." });
     const graph = parseStoredWorkflowGraph(workflow.publishedVersion.graph);
-    const githubTrigger = githubWebhookTrigger(graph);
-    const kumaTrigger = graph.nodes.some((node) => isUptimeKumaTrigger(node.type));
-    const telegramTrigger = graph.nodes.some((node) => node.type === "trigger.telegram.update");
-    const vercelTrigger = graph.nodes.some((node) => node.type === "trigger.vercel.deployment");
-    const trelloTrigger = graph.nodes.some((node) => node.type === "trigger.trello.board-action");
-    const gitlabTrigger = graph.nodes.some((node) => node.type.startsWith("trigger.gitlab."));
-    const jiraTrigger = graph.nodes.some((node) => node.type === "trigger.jira.issue");
-    const slackTrigger = graph.nodes.some((node) => node.type === "trigger.slack.event");
-    const sentryTrigger = graph.nodes.some((node) => node.type === "trigger.sentry.issue-created");
+    const trigger = webhookTriggerNode(graph, triggerNodeId);
+    if (!trigger) throw new BadRequestException({ code: "WEBHOOK_TRIGGER_REQUIRED", message: "Choose a published webhook trigger before creating its endpoint." });
+    const githubTrigger = trigger.type.startsWith("trigger.github.") ? trigger : undefined;
+    const kumaTrigger = isUptimeKumaTrigger(trigger.type);
+    const telegramTrigger = trigger.type === "trigger.telegram.update";
+    const vercelTrigger = trigger.type === "trigger.vercel.deployment";
+    const trelloTrigger = trigger.type === "trigger.trello.board-action";
+    const gitlabTrigger = trigger.type.startsWith("trigger.gitlab.");
+    const jiraTrigger = trigger.type === "trigger.jira.issue";
+    const slackTrigger = trigger.type === "trigger.slack.event";
+    const sentryTrigger = trigger.type === "trigger.sentry.issue-created";
     if (slackTrigger && importedSigningSecret === undefined) {
       importedSigningSecret = process.env.SLACK_SIGNING_SECRET;
-      const trigger = graph.nodes.find((node) => node.type === "trigger.slack.event")!;
       const connection = await this.credentials.readForExecution(String(trigger.config.credentialId ?? ""), workflow.workspaceId, CredentialProvider.SLACK_OAUTH);
       if (!process.env.SLACK_APP_ID || connection.appId !== process.env.SLACK_APP_ID || !Array.isArray(connection.grantedScopes) || !connection.grantedScopes.includes(trigger.config.event === "app_mention" ? "app_mentions:read" : "channels:history")) {
         throw new BadRequestException({ code: "SLACK_EVENTS_UNAVAILABLE", message: "Reconnect Slack with trigger access before enabling events." });
       }
     }
 
-    if (!graph.nodes.some((node) => node.type === "trigger.webhook") && !githubTrigger && !kumaTrigger && !telegramTrigger && !vercelTrigger && !trelloTrigger && !sentryTrigger && !slackTrigger && !gitlabTrigger && !jiraTrigger) {
+    if (trigger.type !== "trigger.webhook" && !githubTrigger && !kumaTrigger && !telegramTrigger && !vercelTrigger && !trelloTrigger && !sentryTrigger && !slackTrigger && !gitlabTrigger && !jiraTrigger) {
       throw new BadRequestException({ code: "WEBHOOK_TRIGGER_REQUIRED", message: "Publish a workflow version containing a supported webhook trigger before creating an endpoint." });
     }
-    const conflictingEndpoint = await this.prisma.webhookEndpoint.findFirst({ where: { path, NOT: { workflowId } } });
+    const conflictingEndpoint = await this.prisma.webhookEndpoint.findFirst({ where: { path, NOT: { workflowId, triggerNodeId: trigger.id } } });
     if (conflictingEndpoint) throw new ConflictException({ code: "WEBHOOK_PATH_IN_USE", message: "This webhook path is already in use by another workflow." });
     if (gitlabTrigger && !validGitLabSigningToken(importedSigningSecret)) throw new BadRequestException({ code: "GITLAB_SIGNING_TOKEN_REQUIRED", message: "Enter the signing token generated in GitLab webhook settings (whsec_…)." });
     if ((vercelTrigger || trelloTrigger || sentryTrigger || slackTrigger) && (typeof importedSigningSecret !== "string" || !/^[\x21-\x7e]{1,1024}$/.test(importedSigningSecret))) throw new BadRequestException({ code: vercelTrigger ? "VERCEL_SIGNING_SECRET_REQUIRED" : trelloTrigger ? "TRELLO_SIGNING_SECRET_REQUIRED" : slackTrigger ? "SLACK_SIGNING_SECRET_REQUIRED" : "SENTRY_SIGNING_SECRET_REQUIRED", message: "Enter the provider webhook signing secret." });
@@ -81,7 +84,7 @@ export class WebhookService implements OnModuleDestroy {
     const endpoint = await this.prisma.$transaction(async (transaction) => {
       const locked = await transaction.$queryRaw<Array<{ publishedVersionId: string | null }>>`SELECT "publishedVersionId" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
       if (locked[0]?.publishedVersionId !== publishedVersionId || expected.publishedVersionId !== publishedVersionId) throw new ConflictException({ code: "WEBHOOK_VERSION_CHANGED", message: "The published workflow changed. Reload before configuring the webhook." });
-      const registrations = await transaction.webhookEndpoint.findMany({ where: { workflowId }, take: 2 });
+      const registrations = await transaction.webhookEndpoint.findMany({ where: { workflowId, OR: [{ triggerNodeId: trigger.id }, ...(triggerNodeId ? [] : [{ triggerNodeId: null }])] }, take: 2 });
       if (registrations.length > 1) throw new ConflictException({ code: "WEBHOOK_REGISTRATION_DUPLICATE", message: "Multiple webhook registrations exist for this workflow. Resolve them before making changes." });
       const existing = registrations[0];
       if ((existing?.id ?? null) !== (expected.endpoint?.id ?? null) || (existing && existing.updatedAt.toISOString() !== expected.endpoint?.updatedAt)) {
@@ -92,8 +95,8 @@ export class WebhookService implements OnModuleDestroy {
       }
       const updatedAt = existing ? new Date(Math.max(Date.now(), existing.updatedAt.getTime() + 1)) : undefined;
       const saved = existing
-        ? await transaction.webhookEndpoint.update({ where: { id: existing.id }, data: { path, secretHash: !githubTrigger && identitySecret ? hashWebhookSecret(identitySecret) : null, encryptedSigningSecret, workflowVersionId: publishedVersionId, isActive: true, updatedAt } })
-        : await transaction.webhookEndpoint.create({ data: { workflowId, workflowVersionId: publishedVersionId, path, secretHash: !githubTrigger && identitySecret ? hashWebhookSecret(identitySecret) : null, encryptedSigningSecret } });
+        ? await transaction.webhookEndpoint.update({ where: { id: existing.id }, data: { path, triggerNodeId: trigger.id, secretHash: !githubTrigger && identitySecret ? hashWebhookSecret(identitySecret) : null, encryptedSigningSecret, workflowVersionId: publishedVersionId, isActive: true, updatedAt } })
+        : await transaction.webhookEndpoint.create({ data: { workflowId, workflowVersionId: publishedVersionId, triggerNodeId: trigger.id, path, secretHash: !githubTrigger && identitySecret ? hashWebhookSecret(identitySecret) : null, encryptedSigningSecret } });
       await transaction.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "webhook.created", targetType: "webhook", targetId: saved.id, metadata: { path, secretRequired: Boolean(secretRequired) || Boolean(githubTrigger) || kumaTrigger || telegramTrigger || vercelTrigger || trelloTrigger || sentryTrigger || slackTrigger || gitlabTrigger || jiraTrigger } } });
       return saved;
     }).catch((error: unknown) => {
@@ -112,6 +115,7 @@ export class WebhookService implements OnModuleDestroy {
     // Scope to active published Slack subscriptions. Each connection is still read
     // through its own Fluxora workspace boundary before any event is accepted.
     let cursor: string | undefined;
+    let retryNeeded = false;
     do {
       const endpoints = await this.prisma.webhookEndpoint.findMany({
         where: { isActive: true, workflow: { isActive: true, archivedAt: null }, workflowVersion: { graph: { path: ["nodes"], array_contains: [{ type: "trigger.slack.event" }] } } },
@@ -120,33 +124,38 @@ export class WebhookService implements OnModuleDestroy {
       });
       for (const endpoint of endpoints) {
         if (endpoint.workflow.publishedVersionId !== endpoint.workflowVersionId || !endpoint.secretHash || !endpoint.encryptedSigningSecret) continue;
-        const node = parseStoredWorkflowGraph(endpoint.workflowVersion.graph).nodes.find((candidate) => candidate.type === "trigger.slack.event");
-        if (!node) continue;
+        const node = webhookTriggerNode(parseStoredWorkflowGraph(endpoint.workflowVersion.graph), endpoint.triggerNodeId);
+        if (!node || node.type !== "trigger.slack.event") continue;
         let connection: Record<string, unknown>;
         try { connection = await this.credentials.readForExecution(String(node.config.credentialId ?? ""), endpoint.workflow.workspaceId, CredentialProvider.SLACK_OAUTH); }
-        catch (error) { if (error instanceof NotFoundException) continue; throw error; }
+        catch (error) { if (!(error instanceof NotFoundException)) retryNeeded = true; continue; }
         // No inference from labels, channel names or user-supplied team IDs.
         if (connection.appId !== envelope.appId || connection.teamId !== envelope.teamId) continue;
-        const secret = this.vault.decrypt(endpoint.encryptedSigningSecret).secret;
+        let secret: unknown;
+        try { secret = this.vault.decrypt(endpoint.encryptedSigningSecret).secret; }
+        catch { retryNeeded = true; continue; }
         if (secret !== signingSecret) continue;
         const data = normalizeSlackEvent(envelope, node.config, connection.teamId, signingSecret);
         if (!data) continue;
         try {
-          const execution = await this.executions.createSlackScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, path: endpoint.path, secretHash: endpoint.secretHash, payload: data, deliveryKey: envelope.eventId });
+          const execution = await this.executions.createSlackScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, triggerNodeId: node.id, path: endpoint.path, secretHash: endpoint.secretHash, payload: data, deliveryKey: envelope.eventId });
           if (execution.status === "QUEUED" && execution.startedAt === null) this.webhookDispatches.start(() => this.queue.ensureDispatched({ executionId: execution.id, mode: "live", initialOnly: true }), () => this.logger.warn(`Slack execution ${execution.id} awaits delivery recovery.`));
         } catch (error) {
           // A concurrent pause/delete affects this subscription, not other owners.
-          if (!(error instanceof NotFoundException)) throw error;
+          if (!(error instanceof NotFoundException)) retryNeeded = true;
         }
       }
       cursor = endpoints.length === 50 ? endpoints.at(-1)!.id : undefined;
     } while (cursor);
+    // Let Slack retry an unsuccessful subscription after processing the
+    // others. Their durable delivery identities prevent duplicate runs.
+    if (retryNeeded) throw new ServiceUnavailableException({ code: "SLACK_DELIVERY_RETRY", message: "Some Slack subscriptions could not accept the event." });
     return { acknowledged: true };
   }
 
   async checkTrelloEndpoint(path: string) {
     const endpoint = await this.prisma.webhookEndpoint.findUnique({ where: { path }, include: { workflow: true, workflowVersion: true } });
-    if (!endpoint || !endpoint.isActive || endpoint.workflow.archivedAt || endpoint.workflow.publishedVersionId !== endpoint.workflowVersionId || !parseStoredWorkflowGraph(endpoint.workflowVersion.graph).nodes.some((node) => node.type === "trigger.trello.board-action")) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
+    if (!endpoint || !endpoint.isActive || endpoint.workflow.archivedAt || endpoint.workflow.publishedVersionId !== endpoint.workflowVersionId || webhookTriggerNode(parseStoredWorkflowGraph(endpoint.workflowVersion.graph), endpoint.triggerNodeId)?.type !== "trigger.trello.board-action") throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
   }
 
   private async findOwned(workflowId: string, userId: string) {
@@ -162,15 +171,17 @@ export class WebhookService implements OnModuleDestroy {
     const endpoint = await this.prisma.webhookEndpoint.findUnique({ where: { path }, include: { workflow: true, workflowVersion: true } });
     if (!endpoint || !endpoint.isActive || endpoint.workflow.archivedAt) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
     const graph = parseStoredWorkflowGraph(endpoint.workflowVersion.graph);
-    const githubTrigger = githubWebhookTrigger(graph);
-    const kumaTrigger = graph.nodes.find((node) => isUptimeKumaTrigger(node.type));
-    const telegramTrigger = graph.nodes.find((node) => node.type === "trigger.telegram.update");
-    const vercelTrigger = graph.nodes.find((node) => node.type === "trigger.vercel.deployment");
-    const trelloTrigger = graph.nodes.find((node) => node.type === "trigger.trello.board-action");
-    const sentryTrigger = graph.nodes.find((node) => node.type === "trigger.sentry.issue-created");
-    const slackTrigger = graph.nodes.find((node) => node.type === "trigger.slack.event");
-    const gitlabTrigger = graph.nodes.find((node) => node.type.startsWith("trigger.gitlab."));
-    const jiraTrigger = graph.nodes.find((node) => node.type === "trigger.jira.issue");
+    const trigger = webhookTriggerNode(graph, endpoint.triggerNodeId);
+    if (!trigger) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
+    const githubTrigger = trigger.type.startsWith("trigger.github.") ? trigger : undefined;
+    const kumaTrigger = isUptimeKumaTrigger(trigger.type) ? trigger : undefined;
+    const telegramTrigger = trigger.type === "trigger.telegram.update" ? trigger : undefined;
+    const vercelTrigger = trigger.type === "trigger.vercel.deployment" ? trigger : undefined;
+    const trelloTrigger = trigger.type === "trigger.trello.board-action" ? trigger : undefined;
+    const sentryTrigger = trigger.type === "trigger.sentry.issue-created" ? trigger : undefined;
+    const slackTrigger = trigger.type === "trigger.slack.event" ? trigger : undefined;
+    const gitlabTrigger = trigger.type.startsWith("trigger.gitlab.") ? trigger : undefined;
+    const jiraTrigger = trigger.type === "trigger.jira.issue" ? trigger : undefined;
     if (jiraTrigger) {
       const registration = await this.prisma.providerWebhookRegistration.findUnique({ where: { endpointId: endpoint.id } });
       if (!registration || registration.provider !== "JIRA" || registration.state !== "ACTIVE" || registration.workflowVersionId !== endpoint.workflowVersionId || registration.remoteHookId === null || !endpoint.secretHash || !verifyJiraBearer(jiraHeaders.authorization, process.env.JIRA_CLIENT_SECRET, endpoint.id, jiraHeaders.deliveryToken)) throw new ForbiddenException({ code: "WEBHOOK_SECRET_INVALID", message: "Jira webhook authorization is invalid." });
@@ -183,7 +194,7 @@ export class WebhookService implements OnModuleDestroy {
       const normalized = normalizeJiraIssueEvent(payload, { projectId, event: registration.event as JiraIssueEvent, remoteHookId: Number(registration.remoteHookId), deliveryId: jiraHeaders.deliveryId });
       if (!normalized) return { acknowledged: true };
       if (process.env.JIRA_CLIENT_SECRET && JSON.stringify(normalized).includes(process.env.JIRA_CLIENT_SECRET)) throw new BadRequestException({ code: "JIRA_EVENT_INVALID", message: "Jira event data is invalid." });
-      const execution = await this.executions.createJiraScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, path: endpoint.path, secretHash: endpoint.secretHash, registrationId: registration.id, remoteHookId: registration.remoteHookId, payload: normalized, deliveryKey: normalized.deliveryId });
+      const execution = await this.executions.createJiraScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, triggerNodeId: trigger.id, path: endpoint.path, secretHash: endpoint.secretHash, registrationId: registration.id, remoteHookId: registration.remoteHookId, payload: normalized, deliveryKey: normalized.deliveryId });
       if (execution.status === "QUEUED" && execution.startedAt === null) this.webhookDispatches.start(() => this.queue.ensureDispatched({ executionId: execution.id, mode: "live", initialOnly: true }), () => this.logger.warn(`Jira execution ${execution.id} awaits delivery recovery.`));
       return { acknowledged: true };
     }
@@ -194,7 +205,7 @@ export class WebhookService implements OnModuleDestroy {
       const normalized = normalizeGitLabEvent(githubEventHeaders.rawBody!, gitlabHeaders, gitlabTrigger.type, gitlabTrigger.config);
       if (!normalized) return { acknowledged: true };
       if (JSON.stringify(normalized).includes(signingToken)) throw new BadRequestException({ code: "GITLAB_EVENT_INVALID", message: "GitLab event data is invalid." });
-      const execution = await this.executions.createLegacyWebhookExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, path: endpoint.path, secretHash: endpoint.secretHash, encryptedSigningSecret: endpoint.encryptedSigningSecret, payload: normalized, idempotencyKey: `webhook:${endpoint.id}:gitlab:${gitlabHeaders.id}` });
+      const execution = await this.executions.createLegacyWebhookExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, triggerNodeId: trigger.id, path: endpoint.path, secretHash: endpoint.secretHash, encryptedSigningSecret: endpoint.encryptedSigningSecret, payload: normalized, idempotencyKey: `webhook:${endpoint.id}:gitlab:${gitlabHeaders.id}` });
       if (execution.status === "QUEUED" && execution.startedAt === null) this.webhookDispatches.start(() => this.queue.ensureDispatched({ executionId: execution.id, mode: "live", initialOnly: true }), () => this.logger.warn(`GitLab execution ${execution.id} awaits delivery recovery.`));
       return { acknowledged: true };
     }
@@ -209,7 +220,7 @@ export class WebhookService implements OnModuleDestroy {
       const credential = await this.credentials.readForExecution(String(slackTrigger.config.credentialId ?? ""), endpoint.workflow.workspaceId, CredentialProvider.SLACK_OAUTH);
       const data = normalizeSlackEvent(envelope, slackTrigger.config, credential.teamId, signingSecret);
       if (!data) return { acknowledged: true };
-      const execution = await this.executions.createSlackScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, path: endpoint.path, secretHash: endpoint.secretHash, payload: data, deliveryKey: envelope.eventId });
+      const execution = await this.executions.createSlackScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, triggerNodeId: trigger.id, path: endpoint.path, secretHash: endpoint.secretHash, payload: data, deliveryKey: envelope.eventId });
       // Acknowledgement follows the database commit, not provider work or a stalled Redis connection.
       // Shutdown drains this service's dispatches; the delivery recovery service handles lost jobs.
       if (execution.status === "QUEUED" && execution.startedAt === null) this.webhookDispatches.start(() => this.queue.ensureDispatched({ executionId: execution.id, mode: "live", initialOnly: true }), () => this.logger.warn(`Slack execution ${execution.id} awaits delivery recovery.`));
@@ -221,7 +232,7 @@ export class WebhookService implements OnModuleDestroy {
       if (!endpoint.workflow.isActive) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
       const event = normalizeSentryIssueCreated(githubEventHeaders.rawBody!, sentryResource, readSentryIssueCreatedFilter(sentryTrigger.config), typeof signingSecret === "string" ? signingSecret : undefined);
       if (event.kind === "ignored") return { acknowledged: true };
-      const execution = await this.executions.createSentryScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, path: endpoint.path, secretHash: endpoint.secretHash, payload: event.payload, deliveryKey: event.deliveryKey });
+      const execution = await this.executions.createSentryScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, triggerNodeId: trigger.id, path: endpoint.path, secretHash: endpoint.secretHash, payload: event.payload, deliveryKey: event.deliveryKey });
       if (execution.status === "QUEUED" && execution.startedAt === null) await this.queue.ensureDispatched({ executionId: execution.id, mode: "live", initialOnly: true });
       return { executionId: execution.id };
     }
@@ -231,7 +242,7 @@ export class WebhookService implements OnModuleDestroy {
       if (!endpoint.workflow.isActive) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
       const event = normalizeTrelloAction(githubEventHeaders.rawBody!, readTrelloTriggerFilter(trelloTrigger.config), typeof signing?.secret === "string" ? signing.secret : undefined);
       if (event.kind === "ignored") return { acknowledged: true };
-      const execution = await this.executions.createTrelloScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, path: endpoint.path, secretHash: endpoint.secretHash, payload: event.payload, deliveryKey: event.actionId });
+      const execution = await this.executions.createTrelloScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, triggerNodeId: trigger.id, path: endpoint.path, secretHash: endpoint.secretHash, payload: event.payload, deliveryKey: event.actionId });
       if (execution.status === "QUEUED" && execution.startedAt === null) await this.queue.ensureDispatched({ executionId: execution.id, mode: "live", initialOnly: true });
       return { executionId: execution.id };
     }
@@ -241,7 +252,7 @@ export class WebhookService implements OnModuleDestroy {
       if (!endpoint.workflow.isActive) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
       const event = normalizeVercelDeployment(githubEventHeaders.rawBody!, vercelTriggerFilterFromConfig(vercelTrigger.config), typeof signingSecret === "string" ? signingSecret : undefined);
       if (event.kind === "ignored") return { acknowledged: true };
-      const execution = await this.executions.createVercelScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, path: endpoint.path, secretHash: endpoint.secretHash, payload: event.payload, deliveryKey: event.eventId });
+      const execution = await this.executions.createVercelScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, triggerNodeId: trigger.id, path: endpoint.path, secretHash: endpoint.secretHash, payload: event.payload, deliveryKey: event.eventId });
       if (execution.status === "QUEUED" && execution.startedAt === null) await this.queue.ensureDispatched({ executionId: execution.id, mode: "live", initialOnly: true });
       return { executionId: execution.id };
     }
@@ -260,7 +271,7 @@ export class WebhookService implements OnModuleDestroy {
     if (telegramTrigger) {
       const update = normalizeTelegramUpdate(payload, telegramTriggerFilterFromConfig(telegramTrigger.config));
       if (update.kind === "ignored") return { acknowledged: true };
-      const execution = await this.executions.createTelegramScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, path: endpoint.path, secretHash: endpoint.secretHash!, payload: update.payload, deliveryKey: String(update.updateId) });
+      const execution = await this.executions.createTelegramScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, triggerNodeId: trigger.id, path: endpoint.path, secretHash: endpoint.secretHash!, payload: update.payload, deliveryKey: String(update.updateId) });
       if (execution.status === "QUEUED" && execution.startedAt === null) await this.queue.ensureDispatched({ executionId: execution.id, mode: "live", initialOnly: true });
       return { executionId: execution.id };
     }
@@ -268,7 +279,7 @@ export class WebhookService implements OnModuleDestroy {
       const monitor = normalized.payload.monitor as { id: string };
       const heartbeat = normalized.payload.heartbeat as { status: number };
       if (!matchesUptimeKumaFilter(kumaTrigger.config, monitor.id, heartbeat.status)) return { acknowledged: true };
-      const execution = await this.executions.createKumaScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, path: endpoint.path, secretHash: endpoint.secretHash!, payload: normalized.payload, deliveryKey: idempotencyKey });
+      const execution = await this.executions.createKumaScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, triggerNodeId: trigger.id, path: endpoint.path, secretHash: endpoint.secretHash!, payload: normalized.payload, deliveryKey: idempotencyKey });
       // A persisted delivery is recovered after a queue outage. This job is
       // explicitly initial-only, so a duplicate cannot resume an approval.
       if (execution.status === "QUEUED" && execution.startedAt === null) await this.queue.ensureDispatched({ executionId: execution.id, mode: "live", initialOnly: true });
@@ -276,7 +287,7 @@ export class WebhookService implements OnModuleDestroy {
     }
     const deliveryKey = githubTrigger && githubEventHeaders.githubDelivery ? `github:${githubEventHeaders.githubDelivery}` : idempotencyKey;
     const execution = await this.executions.createLegacyWebhookExecution({
-      workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, path: endpoint.path,
+      workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, triggerNodeId: trigger.id, path: endpoint.path,
       secretHash: endpoint.secretHash, encryptedSigningSecret: endpoint.encryptedSigningSecret, credentialSnapshot,
       payload: normalized ? normalized.payload : payload && typeof payload === "object" && !Array.isArray(payload) ? payload as Record<string, unknown> : { payload },
       // Even without a caller delivery ID, persist a unique local identity so
@@ -318,10 +329,6 @@ export type GitHubEventHeaders = { githubEvent?: string; githubSignature?: strin
 
 function isUptimeKumaTrigger(type: string) {
   return type === "trigger.uptime-kuma.alert";
-}
-
-function githubWebhookTrigger(graph: ReturnType<typeof parseStoredWorkflowGraph>) {
-  return graph.nodes.find((node) => node.type === "trigger.github.issue-opened" || node.type === "trigger.github.pull-request-opened" || node.type === "trigger.github.push" || node.type === "trigger.github.workflow-run-completed");
 }
 
 function readCredentialId(config: Record<string, unknown>) {

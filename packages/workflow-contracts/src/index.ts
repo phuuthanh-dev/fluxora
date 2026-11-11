@@ -146,6 +146,11 @@ export const workflowNodeTypes = [
 
 export type WorkflowNodeType = (typeof workflowNodeTypes)[number];
 
+/** Trigger operations with individually registered HTTP endpoints. */
+export function isWebhookTriggerType(type: string): boolean {
+  return type === "trigger.webhook" || type.startsWith("trigger.github.") || type.startsWith("trigger.gitlab.") || ["trigger.uptime-kuma.alert", "trigger.telegram.update", "trigger.vercel.deployment", "trigger.trello.board-action", "trigger.sentry.issue-created", "trigger.slack.event", "trigger.jira.issue"].includes(type);
+}
+
 /**
  * Node types backed by an executor in the current runtime.
  *

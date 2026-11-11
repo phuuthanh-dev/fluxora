@@ -19,26 +19,26 @@ export class JiraWebhookManagementService {
     @Inject(JiraWebhookAdapter) private readonly adapter: JiraWebhookAdapter,
   ) {}
 
-  async status(workflowId: string, userId: string) {
-    const { endpoint, registration } = await this.findOwned(workflowId, userId);
+  async status(workflowId: string, userId: string, triggerNodeId?: string) {
+    const { endpoint, registration } = await this.findOwned(workflowId, userId, triggerNodeId);
     return { enabled: process.env.JIRA_WEBHOOK_AUTOMATION_ENABLED === "true", endpoint: endpoint ? { id: endpoint.id, workflowVersionId: endpoint.workflowVersionId, updatedAt: endpoint.updatedAt } : null,
       registration: registration ? { provider: registration.provider, repository: registration.repository.split(":")[1] ?? "", event: registration.event, workflowVersionId: registration.workflowVersionId, state: registration.state, createdAt: registration.createdAt, updatedAt: registration.updatedAt } : null };
   }
 
-  async create(workflowId: string, userId: string) {
+  async create(workflowId: string, userId: string, triggerNodeId?: string) {
     if (process.env.JIRA_WEBHOOK_AUTOMATION_ENABLED !== "true") throw new BadRequestException({ code: "PROVIDER_WEBHOOK_AUTOMATION_DISABLED", message: "Jira webhook registration is unavailable." });
-    const { workflow, endpoint, registration } = await this.findOwned(workflowId, userId);
+    const { workflow, endpoint, registration } = await this.findOwned(workflowId, userId, triggerNodeId);
     if (!workflow.publishedVersionId) throw new BadRequestException({ code: "PUBLISHED_VERSION_REQUIRED", message: "Publish this workflow before connecting its Jira webhook." });
     if (!endpoint) throw new NotFoundException({ code: "WEBHOOK_ENDPOINT_REQUIRED", message: "Create the webhook endpoint before connecting Jira." });
     if (registration && registration.state !== "REMOVED" && registration.state !== "CREATE_REJECTED") throw new ConflictException({ code: "PROVIDER_WEBHOOK_EXISTS", message: "This endpoint already has a provider registration." });
     const reservation = await reserveJiraWebhook(this.prisma, this.vault, { workflowId, userId, versionId: workflow.publishedVersionId, endpointId: endpoint.id, endpointUpdatedAt: endpoint.updatedAt, apiOrigin: process.env.PUBLIC_API_ORIGIN ?? "", clientSecret: process.env.JIRA_CLIENT_SECRET });
     await dispatchJiraWebhookCreate(this.prisma, this.credentials, this.adapter, { ...reservation, userId });
-    return this.status(workflowId, userId);
+    return this.status(workflowId, userId, triggerNodeId);
   }
 
-  async remove(workflowId: string, userId: string) {
+  async remove(workflowId: string, userId: string, triggerNodeId?: string) {
     if (process.env.JIRA_WEBHOOK_AUTOMATION_ENABLED !== "true") throw new BadRequestException({ code: "PROVIDER_WEBHOOK_AUTOMATION_DISABLED", message: "Jira webhook registration is unavailable." });
-    const { workflow, registration } = await this.findOwned(workflowId, userId);
+    const { workflow, registration } = await this.findOwned(workflowId, userId, triggerNodeId);
     if (!registration || registration.provider !== "JIRA") throw new NotFoundException({ code: "PROVIDER_WEBHOOK_NOT_FOUND", message: "This workflow has no managed Jira webhook." });
     if (registration.state === ProviderWebhookState.CREATE_REJECTED && registration.remoteHookId === null) {
       await this.prisma.$transaction(async (tx) => {
@@ -46,7 +46,7 @@ export class JiraWebhookManagementService {
         const deleted = await tx.providerWebhookRegistration.deleteMany({ where: { id: registration.id, operationId: registration.operationId, state: ProviderWebhookState.CREATE_REJECTED, remoteHookId: null } });
         if (deleted.count !== 1) throw changed();
       });
-      return { ...await this.status(workflowId, userId), operationResult: "REMOVED" };
+      return { ...await this.status(workflowId, userId, triggerNodeId), operationResult: "REMOVED" };
     }
     if (registration.state !== ProviderWebhookState.ACTIVE || registration.remoteHookId === null) throw new ConflictException({ code: "PROVIDER_WEBHOOK_REQUIRES_RECONCILIATION", message: "Review the recorded Jira webhook before removing it." });
     const [cloudId = "", projectId = ""] = registration.repository.split(":");
@@ -83,12 +83,12 @@ export class JiraWebhookManagementService {
         if (deleted.count !== 1) throw changed();
       });
     }
-    return { ...await this.status(workflowId, userId), operationResult: outcome.toUpperCase() };
+    return { ...await this.status(workflowId, userId, triggerNodeId), operationResult: outcome.toUpperCase() };
   }
 
-  async reconcile(workflowId: string, userId: string) {
+  async reconcile(workflowId: string, userId: string, triggerNodeId?: string) {
     if (process.env.JIRA_WEBHOOK_AUTOMATION_ENABLED !== "true") throw new BadRequestException({ code: "PROVIDER_WEBHOOK_AUTOMATION_DISABLED", message: "Jira webhook registration is unavailable." });
-    const { workflow, registration } = await this.findOwned(workflowId, userId);
+    const { workflow, registration } = await this.findOwned(workflowId, userId, triggerNodeId);
     if (!registration || registration.provider !== "JIRA") throw new NotFoundException({ code: "PROVIDER_WEBHOOK_NOT_FOUND", message: "This workflow has no managed Jira webhook." });
     if (!new Set<ProviderWebhookState>([ProviderWebhookState.ACTIVE, ProviderWebhookState.CREATE_UNCERTAIN, ProviderWebhookState.DELETE_UNCERTAIN]).has(registration.state)) throw new ConflictException({ code: "PROVIDER_WEBHOOK_OPERATION_IN_PROGRESS", message: "This Jira webhook cannot be checked right now." });
     const [cloudId = "", projectId = ""] = registration.repository.split(":");
@@ -123,13 +123,15 @@ export class JiraWebhookManagementService {
         return { outcome: "MATCHED" as const, message: "The Jira webhook matches the saved registration." };
       });
     } catch { /* Do not disclose provider data or assume a failed request changed nothing. */ }
-    return { ...await this.status(workflowId, userId), reconciliation: result };
+    return { ...await this.status(workflowId, userId, triggerNodeId), reconciliation: result };
   }
 
-  private async findOwned(workflowId: string, userId: string) {
+  private async findOwned(workflowId: string, userId: string, triggerNodeId?: string) {
     const workflow = await this.prisma.workflow.findFirst({ where: { id: workflowId, workspace: { members: { some: { userId, role: "OWNER" } } } }, select: { id: true, workspaceId: true, publishedVersionId: true } });
     if (!workflow) throw new NotFoundException({ code: "WORKFLOW_NOT_FOUND", message: "Workflow was not found." });
-    const endpoint = await this.prisma.webhookEndpoint.findFirst({ where: { workflowId: workflow.id } });
+    const endpoints = await this.prisma.webhookEndpoint.findMany({ where: { workflowId: workflow.id, ...(triggerNodeId ? { triggerNodeId } : {}) }, take: 2 });
+    if (endpoints.length > 1) throw new ConflictException({ code: "WEBHOOK_TRIGGER_REQUIRED", message: "Choose a webhook trigger to manage its registration." });
+    const endpoint = endpoints[0] ?? null;
     const registration = endpoint ? await this.prisma.providerWebhookRegistration.findUnique({ where: { endpointId: endpoint.id } }) : null;
     return { workflow, endpoint, registration };
   }

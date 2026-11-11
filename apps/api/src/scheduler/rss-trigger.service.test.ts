@@ -40,3 +40,16 @@ test("RSS scheduler dispatches only executions accepted by the transactional sto
   await service.tick();
   assert.deepEqual(jobs, [{ executionId: "accepted", mode: "live", startNodeIds: ["rss"], initialOnly: true }]);
 });
+
+test("a failed trigger scan does not prevent other triggers in the same workflow", async () => {
+  const multiGraph = { nodes: [
+    { id: "first", type: "trigger.steam.game-news", position: { x: 0, y: 0 }, config: { appId: "1245620", pollMinutes: 5 } },
+    { id: "second", type: "trigger.steam.game-news", position: { x: 0, y: 0 }, config: { appId: "4115450", pollMinutes: 5 } },
+  ], edges: [] };
+  const prisma = { $queryRaw: async () => [], workflowVersion: { findMany: async () => [{ id: "version", workflowId: "workflow", graph: multiGraph }] } };
+  const jobs: unknown[] = [];
+  const service = new RssTriggerService(prisma as never, { ensureDispatched: async (job: unknown) => { jobs.push(job); } } as never);
+  Object.defineProperty(service, "poller", { value: { poll: async (target: { nodeId: string }) => { if (target.nodeId === "first") throw new Error("fixture failure"); return ["second-run"]; } } });
+  await service.tick();
+  assert.deepEqual(jobs, [{ executionId: "second-run", mode: "live", startNodeIds: ["second"], initialOnly: true }]);
+});

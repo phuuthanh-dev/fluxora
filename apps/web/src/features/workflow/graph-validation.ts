@@ -15,9 +15,6 @@ export function validateWorkflowGraph(nodes: WorkflowCanvasNode[], edges: Workfl
     issues.push({ severity: "error", message: "Add a trigger to start this workflow." });
   }
 
-  if (triggers.length > 1 && (triggers.some((node) => !["trigger.cron", "trigger.steam.game-news"].includes(node.data.nodeType)) || triggers.filter((node) => node.data.nodeType === "trigger.cron").length > 1)) {
-    issues.push({ severity: "warning", message: "Multiple triggers currently support one schedule and Steam game news triggers only." });
-  }
   if (triggers.length > 1 && edges.some((edge) => triggers.some((node) => node.id === edge.target))) {
     issues.push({ severity: "error", message: "Triggers cannot receive connections from another node." });
   }

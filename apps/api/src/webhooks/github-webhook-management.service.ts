@@ -32,14 +32,14 @@ export class GitHubWebhookManagementService {
     @Inject(GitHubWebhookAdapter) private readonly adapter: GitHubWebhookAdapter,
   ) {}
 
-  async status(workflowId: string, userId: string) {
-    const record = await this.findOwnedRecord(workflowId, userId);
+  async status(workflowId: string, userId: string, triggerNodeId?: string) {
+    const record = await this.findOwnedRecord(workflowId, userId, triggerNodeId);
     return this.safeStatus(record.endpoint, record.registration);
   }
 
-  async create(workflowId: string, userId: string) {
+  async create(workflowId: string, userId: string, triggerNodeId?: string) {
     this.requireEnabled();
-    const record = await this.findOwnedRecord(workflowId, userId);
+    const record = await this.findOwnedRecord(workflowId, userId, triggerNodeId);
     if (!record.workflow.publishedVersion) throw new BadRequestException({ code: "PUBLISHED_VERSION_REQUIRED", message: "Publish this workflow before connecting its GitHub webhook." });
     if (!record.endpoint) throw new NotFoundException({ code: "WEBHOOK_ENDPOINT_REQUIRED", message: "Create the webhook endpoint before connecting GitHub." });
     if (record.registration) {
@@ -56,34 +56,36 @@ export class GitHubWebhookManagementService {
       apiOrigin: process.env.PUBLIC_API_ORIGIN ?? "",
     });
     await dispatchGitHubWebhookCreate(this.prisma, this.credentials, this.vault, this.adapter, { id: reservation.id, operationId: reservation.operationId, userId });
-    return this.status(workflowId, userId);
+    return this.status(workflowId, userId, triggerNodeId);
   }
 
-  async remove(workflowId: string, userId: string) {
+  async remove(workflowId: string, userId: string, triggerNodeId?: string) {
     this.requireEnabled();
-    const record = await this.findOwnedRecord(workflowId, userId);
+    const record = await this.findOwnedRecord(workflowId, userId, triggerNodeId);
     if (!record.registration) throw new NotFoundException({ code: "PROVIDER_WEBHOOK_NOT_FOUND", message: "This workflow has no managed GitHub webhook." });
     if (busyStates.has(record.registration.state)) throw new ConflictException({ code: "PROVIDER_WEBHOOK_OPERATION_IN_PROGRESS", message: "A GitHub webhook operation is already in progress." });
     if (record.registration.state !== ProviderWebhookState.ACTIVE) throw new ConflictException({ code: "PROVIDER_WEBHOOK_REQUIRES_RECONCILIATION", message: "Reconcile the recorded GitHub webhook state before removing it." });
     const result = await dispatchGitHubWebhookDelete(this.prisma, this.credentials, this.adapter, { id: record.registration.id, userId });
-    return { ...await this.status(workflowId, userId), operationResult: result.result };
+    return { ...await this.status(workflowId, userId, triggerNodeId), operationResult: result.result };
   }
 
-  async reconcile(workflowId: string, userId: string) {
+  async reconcile(workflowId: string, userId: string, triggerNodeId?: string) {
     this.requireEnabled();
-    const record = await this.findOwnedRecord(workflowId, userId);
+    const record = await this.findOwnedRecord(workflowId, userId, triggerNodeId);
     if (!record.registration) throw new NotFoundException({ code: "PROVIDER_WEBHOOK_NOT_FOUND", message: "This workflow has no managed GitHub webhook." });
     const reconciliation = await reconcileGitHubWebhook(this.prisma, this.credentials, this.adapter, { id: record.registration.id, userId });
-    return { ...await this.status(workflowId, userId), reconciliation };
+    return { ...await this.status(workflowId, userId, triggerNodeId), reconciliation };
   }
 
-  private async findOwnedRecord(workflowId: string, userId: string) {
+  private async findOwnedRecord(workflowId: string, userId: string, triggerNodeId?: string) {
     const workflow = await this.prisma.workflow.findFirst({
       where: { id: workflowId, workspace: { members: { some: { userId, role: "OWNER" } } } },
       include: { publishedVersion: { select: { id: true } } },
     });
     if (!workflow) throw new NotFoundException({ code: "WORKFLOW_NOT_FOUND", message: "Workflow was not found." });
-    const endpoint = await this.prisma.webhookEndpoint.findFirst({ where: { workflowId: workflow.id } });
+    const endpoints = await this.prisma.webhookEndpoint.findMany({ where: { workflowId: workflow.id, ...(triggerNodeId ? { triggerNodeId } : {}) }, take: 2 });
+    if (endpoints.length > 1) throw new ConflictException({ code: "WEBHOOK_TRIGGER_REQUIRED", message: "Choose a webhook trigger to manage its registration." });
+    const endpoint = endpoints[0] ?? null;
     const registration = endpoint ? await this.prisma.providerWebhookRegistration.findUnique({ where: { endpointId: endpoint.id } }) : null;
     return { workflow, endpoint, registration };
   }

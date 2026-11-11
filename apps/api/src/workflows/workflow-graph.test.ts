@@ -108,11 +108,13 @@ test("RSS drafts allow incomplete URLs without DNS but reject identifiable secre
 });
 
 
-test("publishes a schedule and independent Steam news triggers, but rejects unsupported trigger combinations", () => {
+test("publishes different independent triggers, but rejects connections into triggers", () => {
   const schedule = { id: "daily", type: "trigger.cron", position: { x: 0, y: 0 }, config: { expression: "16 17 * * *", timezone: "Asia/Ho_Chi_Minh" } };
   const steam = (id: string, appId: string) => ({ id, type: "trigger.steam.game-news", position: { x: 0, y: 0 }, config: { appId, pollMinutes: 5 } });
   const nodes = [schedule, steam("one", "1245620"), steam("two", "4115450"), steam("three", "2358720")];
   assert.doesNotThrow(() => validatePublishableGraph(parseWorkflowGraph({ nodes, edges: [] })));
-  assert.throws(() => validatePublishableGraph(parseWorkflowGraph({ nodes: [...nodes, { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} }], edges: [] })), BadRequestException);
+  assert.doesNotThrow(() => validatePublishableGraph(parseWorkflowGraph({ nodes: [...nodes, { id: "manual", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} }], edges: [] })));
+  const hook = (id: string) => ({ id, type: "trigger.webhook", position: { x: 0, y: 0 }, config: {} });
+  assert.doesNotThrow(() => validatePublishableGraph(parseWorkflowGraph({ nodes: [...nodes, hook("hook-1"), hook("hook-2")], edges: [] })));
   assert.throws(() => validatePublishableGraph(parseWorkflowGraph({ nodes, edges: [{ id: "bad", source: "daily", target: "one", kind: "success" }] })), BadRequestException);
 });

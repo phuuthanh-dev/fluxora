@@ -62,7 +62,10 @@ export class GmailTriggerService implements OnModuleInit, OnModuleDestroy {
       for (const version of versions) {
         try {
           const graph = parseStoredWorkflowGraph(version.graph);
-          for (const node of graph.nodes.filter((item) => item.type === "trigger.gmail")) await this.poll(version.id, version.workflowId, version.workflow.workspaceId, node.id, node.config);
+          for (const node of graph.nodes.filter((item) => item.type === "trigger.gmail")) {
+            try { await this.poll(version.id, version.workflowId, version.workflow.workspaceId, node.id, node.config); }
+            catch { this.logger.warn(`Gmail trigger scan failed for node ${node.id} in workflow ${version.workflowId}.`); }
+          }
         } catch { this.logger.warn(`Gmail trigger scan failed for workflow ${version.workflowId}.`); }
       }
     } catch { this.logger.error("Gmail trigger scheduler could not complete its scan."); }

@@ -61,7 +61,7 @@ export class WorkflowController {
 
   @Post("workflows/:workflowId/gmail-trigger-reset")
   async resetGmailTrigger(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
-    return this.workflows.resetGmailTrigger(workflowId, requireUserId(request), request.body?.confirmDataGap === true);
+    return this.workflows.resetGmailTrigger(workflowId, requireUserId(request), request.body?.confirmDataGap === true, typeof request.body?.nodeId === "string" ? request.body.nodeId : undefined);
   }
 
   @Get("workflows/:workflowId/rss-trigger-status")
@@ -86,12 +86,12 @@ export class WorkflowController {
 
   @Post("workflows/:workflowId/provider-poll-reset")
   async resetProviderPoll(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
-    return this.workflows.resetProviderPoll(workflowId, requireUserId(request), request.body?.confirmDataGap === true);
+    return this.workflows.resetProviderPoll(workflowId, requireUserId(request), request.body?.confirmDataGap === true, typeof request.body?.nodeId === "string" ? request.body.nodeId : undefined);
   }
 
   @Post("workflows/:workflowId/calendar-trigger-reset")
   async resetCalendarTrigger(@Param("workflowId") workflowId: string, @Req() request: AuthenticatedRequest) {
-    return this.workflows.resetCalendarTrigger(workflowId, requireUserId(request), request.body?.confirmDataGap === true);
+    return this.workflows.resetCalendarTrigger(workflowId, requireUserId(request), request.body?.confirmDataGap === true, typeof request.body?.nodeId === "string" ? request.body.nodeId : undefined);
   }
 
   @Patch("workflows/:workflowId/draft")

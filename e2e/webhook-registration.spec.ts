@@ -73,7 +73,7 @@ test("webhook registration stays disabled when the trigger exists only in the dr
   await expect(panel.getByRole("button", { name: "Create registration" })).toBeDisabled();
 });
 
-test("a second draft webhook does not open the first trigger's setup", async ({ page }) => {
+test("a second draft webhook opens its own unpublished setup", async ({ page }) => {
   const graph = { nodes: [
     { id: "first", type: "trigger.github.push", position: { x: 100, y: 100 }, config: { path: "first", event: "push" } },
     { id: "second", type: "trigger.github.pull-request-opened", position: { x: 500, y: 100 }, config: { path: "second", event: "pull_request", action: "opened" } },
@@ -86,13 +86,50 @@ test("a second draft webhook does not open the first trigger's setup", async ({ 
     if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
     if (path.endsWith("/credentials")) return send({ credentials: [] });
     if (path.endsWith("/provider-webhook")) return send({ providerWebhook: { enabled: false, endpoint: null, registration: null } });
+    if (path.endsWith("/webhook-endpoint")) return send({ endpoint: null });
     if (path.endsWith("/workflows/workflow-multiple")) return send({ workflow });
     return route.continue();
   });
   await page.goto("/editor?workflow=workflow-multiple");
   await page.locator(".react-flow__node").filter({ hasText: "Pull request opened" }).click();
-  await expect(page.locator(".inspector-note")).toContainText("multiple webhook triggers");
-  await expect(page.getByRole("button", { name: "Configure webhook" })).toHaveCount(0);
+  await expect(page.locator(".inspector-note")).toContainText("Publish this workflow");
+  await page.getByRole("button", { name: "Configure webhook" }).click();
+  const panel = page.getByRole("dialog", { name: "Webhook endpoint" });
+  await expect(panel.getByRole("button", { name: "Create registration" })).toBeDisabled();
+});
+
+test("each published webhook shows its own endpoint", async ({ page }) => {
+  const graph = { nodes: [
+    { id: "hook-one", type: "trigger.webhook", position: { x: 100, y: 100 }, config: { path: "first-hook" } },
+    { id: "hook-two", type: "trigger.webhook", position: { x: 500, y: 100 }, config: { path: "second-hook" } },
+  ], edges: [] };
+  const workflow = { id: "workflow-two-hooks", workspaceId: "workspace-1", name: "Two webhooks", description: null, isActive: false, draft: { id: "draft", version: 2, graph }, published: { id: "published", version: 1, graph } };
+  const requests: string[] = [];
+  await page.route("**/api/v1/**", async (route) => {
+    const url = new URL(route.request().url());
+    const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+    if (url.pathname.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
+    if (url.pathname.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
+    if (url.pathname.endsWith("/credentials")) return send({ credentials: [] });
+    if (url.pathname.endsWith("/webhook-endpoint")) {
+      const id = url.searchParams.get("triggerNodeId") ?? "";
+      requests.push(id);
+      return send({ endpoint: { id: `endpoint-${id}`, path: id === "hook-one" ? "first-hook" : "second-hook", workflowVersionId: "published", secretRequired: true, createdAt: "2026-01-01", updatedAt: "2026-01-01" } });
+    }
+    if (url.pathname.endsWith("/workflows/workflow-two-hooks")) return send({ workflow });
+    return route.continue();
+  });
+  await page.goto("/editor?workflow=workflow-two-hooks");
+  const nodes = page.locator(".react-flow__node");
+  await nodes.nth(0).click();
+  await page.getByRole("button", { name: "Configure webhook" }).click();
+  const panel = page.getByRole("dialog", { name: "Webhook endpoint" });
+  await expect(panel.getByLabel("Public path")).toHaveValue("first-hook");
+  await panel.getByRole("button", { name: "Close webhook endpoint" }).click();
+  await nodes.nth(1).click();
+  await page.getByRole("button", { name: "Configure webhook" }).click();
+  await expect(panel.getByLabel("Public path")).toHaveValue("second-hook");
+  expect([...new Set(requests)]).toEqual(["hook-one", "hook-two"]);
 });
 
 test("GitHub registration is readable and protects existing secrets while loading and rotating", async ({ page }) => {

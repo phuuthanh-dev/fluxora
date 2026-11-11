@@ -548,6 +548,7 @@ model WebhookEndpoint {
   id           String   @id @default(uuid())
   workflowId   String
   workflowVersionId String
+  triggerNodeId String?
   path         String   @unique
   secretHash   String?
   encryptedSigningSecret String?
@@ -559,6 +560,7 @@ model WebhookEndpoint {
   providerRegistration ProviderWebhookRegistration?
 
   @@index([workflowVersionId])
+  @@unique([workflowId, triggerNodeId])
 }
 
 // Not yet used by the manual webhook flow. Provider operations own exactly

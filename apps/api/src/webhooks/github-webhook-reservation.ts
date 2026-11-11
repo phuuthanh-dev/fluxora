@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { BadRequestException, ConflictException, NotFoundException } from "@nestjs/common";
 import { CredentialProvider, Prisma } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
-import { parseStoredWorkflowGraph } from "../workflows/workflow-graph";
+import { parseStoredWorkflowGraph, webhookTriggerNode } from "../workflows/workflow-graph";
 
 const eventByType: Record<string, string> = {
   "trigger.github.issue-opened": "issues",
@@ -27,10 +27,9 @@ export async function reserveGitHubWebhook(prisma: PrismaService, input: { workf
       if (!workflow.publishedVersion || workflow.publishedVersion.id !== input.versionId) throw changed();
       const endpoint = await tx.webhookEndpoint.findFirst({ where: { id: input.endpointId, workflowId: workflow.id } });
       if (!endpoint || endpoint.workflowVersionId !== input.versionId || endpoint.updatedAt.getTime() !== input.endpointUpdatedAt.getTime() || !endpoint.isActive || !endpoint.encryptedSigningSecret) throw changed();
-      const triggers = parseStoredWorkflowGraph(workflow.publishedVersion.graph).nodes.filter((node) => node.type.startsWith("trigger."));
-      const trigger = triggers[0];
+      const trigger = webhookTriggerNode(parseStoredWorkflowGraph(workflow.publishedVersion.graph), endpoint.triggerNodeId);
       const event = trigger && eventByType[trigger.type];
-      if (triggers.length !== 1 || !trigger || !event) throw new BadRequestException({ code: "GITHUB_TRIGGER_REQUIRED", message: "Publish a workflow with a GitHub event trigger." });
+      if (!trigger || !event) throw new BadRequestException({ code: "GITHUB_TRIGGER_REQUIRED", message: "Publish a workflow with a GitHub event trigger." });
       const repository = typeof trigger.config.repository === "string" ? trigger.config.repository.trim().toLowerCase() : "";
       const credentialId = typeof trigger.config.credentialId === "string" ? trigger.config.credentialId.trim() : "";
       if (!/^[a-z0-9_.-]{1,100}\/[a-z0-9_.-]{1,100}$/.test(repository) || repository.split("/").some((part) => part === "." || part === "..")) throw new BadRequestException({ code: "GITHUB_REPOSITORY_REQUIRED", message: "Select one GitHub repository before setting up automatic registration." });
