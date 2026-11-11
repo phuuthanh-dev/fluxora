@@ -47,3 +47,16 @@ test("Drive metadata picker loads all file types and rejects credential echoes",
     await assert.rejects(service.listFiles("workspace", "connection", "owner", "all"));
   } finally { globalThis.fetch = original; }
 });
+
+
+test("Drive picker preserves a long provider page token and still rejects oversized tokens", async () => {
+  const original = globalThis.fetch;
+  const service = new GoogleResourceService({ requireOwner: async () => undefined, readGoogleForExecution: async () => ({ accessToken: "synthetic-token" }) } as never);
+  try {
+    const cursor = "x".repeat(616);
+    globalThis.fetch = async () => Response.json({ files: [], nextPageToken: cursor });
+    assert.equal((await service.listFiles("workspace", "connection", "owner", "all")).nextPageToken, cursor);
+    globalThis.fetch = async () => Response.json({ files: [], nextPageToken: "x".repeat(2049) });
+    await assert.rejects(service.listFiles("workspace", "connection", "owner", "all"));
+  } finally { globalThis.fetch = original; }
+});

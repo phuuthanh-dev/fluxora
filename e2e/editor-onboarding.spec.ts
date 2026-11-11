@@ -238,7 +238,7 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(page.getByText(/Mock execution failed/)).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Retry test" }).click();
   await expect(page.getByRole("heading", { name: "Retry this test execution?" })).toBeVisible();
-  await expect(page.getByText("This creates a new execution from the original immutable workflow version and its original redacted trigger data.")).toBeVisible();
+  await expect(page.getByText("This starts a new execution from the beginning, using the original workflow version and its saved, redacted trigger data. Completed steps run again.")).toBeVisible();
   await page.getByRole("button", { name: "Retry test run" }).click();
   await expect(page.getByText(/Mock retry failed — using the original version 2/)).toBeVisible({ timeout: 15_000 });
 });
@@ -272,14 +272,14 @@ test("Google connector fields follow selected operations and preserve table-shap
   await expect(page.getByRole("textbox", { name: "Text content" })).toBeVisible();
 
   await page.getByRole("button", { name: "All apps" }).click();
-  await page.getByRole("button", { name: /Open Google Sheets, 1 operation/ }).click();
+  await page.getByRole("button", { name: /Open Google Sheets, 2 operations/ }).click();
   await page.getByRole("button", { name: /Google Sheets: Read or write rows/ }).click();
   const sheetsNode = page.locator(".react-flow__node").filter({ hasText: "Google Sheets" }).last();
   await expect(sheetsNode).toBeVisible();
   await sheetsNode.evaluate((element) => element.dispatchEvent(new MouseEvent("click", { bubbles: true })));
   await expect(page.getByRole("textbox", { name: "Values row 1 column 1" })).toBeVisible();
   await page.getByRole("textbox", { name: "Values row 1 column 1" }).fill("Steam");
-  await page.getByRole("button", { name: "Add row" }).click();
+  await page.getByRole("button", { name: "Add row", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Values row 2 column 1" })).toBeVisible();
   await page.getByRole("button", { name: "Add column" }).click();
   await expect(page.getByRole("textbox", { name: "Values row 1 column 2" })).toBeVisible();

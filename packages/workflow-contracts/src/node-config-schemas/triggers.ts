@@ -41,6 +41,12 @@ export const driveTrigger: ConfigRules = {
   event: { schema: z.enum(["created", "updated"]), required: true, dependsOn: ["resourceType"], matches: (value, config) => config.resourceType !== "file" || value === "updated", message: "Choose a folder for created files, or updated for an existing file." },
   pollMinutes: { schema: interval, message: "Choose a supported polling interval." },
 };
+export const sheetsTrigger: ConfigRules = {
+  resourceId: { schema: z.string().regex(/^[A-Za-z0-9_-]{1,200}$/), required: true, message: "Choose a spreadsheet." },
+  sheetName: { schema: z.string().refine((value) => !!value.trim() && value.length <= 100 && !/[\x00-\x1f\x7f]/.test(value)), required: true, message: "Choose a sheet tab." },
+  keyColumn: { schema: z.string().refine((value) => !!value.trim() && value.length <= 256), required: true, message: "Choose a unique ID column." },
+  pollMinutes: { schema: interval, message: "Choose a supported polling interval." },
+};
 export const telegramTrigger: ConfigRules = {
   event: { schema: z.enum(["all", "message", "channel_post", "callback_query"]), required: true, message: "Choose a supported Telegram event." },
   chatMode: { schema: z.enum(["all", "allowlist"]), required: true, message: "Choose an allowed-chat policy." },

@@ -18,6 +18,13 @@ function sheetsFields(): NodeConfigurationField[] {
 
 /** Inspector descriptors only; backend validation remains authoritative. */
 export const googleNodeFields = {
+  "trigger.google-sheets.row": (): NodeConfigurationField[] => [
+    { kind: "credential", key: "credentialId", label: "Google connection", providers: ["GOOGLE"] },
+    { kind: "resource", key: "resourceId", label: "Spreadsheet", resource: "google-spreadsheet", credentialKey: "credentialId", placeholder: "Search spreadsheets" },
+    { kind: "resource", key: "sheetName", label: "Sheet tab", resource: "google-sheet-tab", credentialKey: "credentialId", dependencyKey: "resourceId", placeholder: "Search tabs" },
+    { kind: "resource", key: "keyColumn", label: "Unique ID column", resource: "google-sheet-header", credentialKey: "credentialId", dependencyKey: "resourceId", secondaryDependencyKey: "sheetName", placeholder: "Search columns" },
+    { kind: "select", key: "pollMinutes", label: "Check for changes", options: [{ value: "1", label: "Every minute" }, { value: "5", label: "Every 5 minutes" }, { value: "15", label: "Every 15 minutes" }, { value: "60", label: "Every hour" }] },
+  ],
   "trigger.google-drive.file": (): NodeConfigurationField[] => [
     { kind: "credential", key: "credentialId", label: "Google connection", providers: ["GOOGLE"] },
     { kind: "select", key: "resourceType", label: "Watch", options: [{ value: "file", label: "A file" }, { value: "folder", label: "Files in a folder" }] },

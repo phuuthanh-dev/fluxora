@@ -21,4 +21,9 @@ test("Notion and Drive triggers expose provider-specific configuration", async (
   await page.getByLabel("Watch").selectOption("file");
   await expect(page.getByLabel("Event")).toHaveValue("updated");
   await expect(page.getByLabel("Event").locator("option")).toHaveCount(1);
+  await page.getByLabel("Search apps and operations").fill("Google Sheets");
+  await page.getByRole("button", { name: /Google Sheets: Row added/ }).click();
+  await expect(page.getByLabel("Google connection", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Use a stable, unique ID/)).toBeVisible();
+  await expect(page.getByText("Choose a spreadsheet.")).toBeVisible();
 });

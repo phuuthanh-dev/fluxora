@@ -216,6 +216,11 @@ export const nodeCatalog: NodeDefinition[] = [
     icon: "google-drive", available: true, defaultConfig: { credentialId: "", resourceType: "folder", resourceId: "", event: "created", pollMinutes: "5" }, configurationFields: getSharedNodeConfigurationFields("trigger.google-drive.file"),
   },
   {
+    type: "trigger.google-sheets.row", label: "Google Sheets row", description: "Start when a row is added to a sheet.", category: "trigger",
+    libraryGroup: "google-workspace", appId: "google-sheets", operationId: "row-added", operationLabel: "Row added", operationKind: "trigger",
+    icon: "google-sheets", available: true, defaultConfig: { credentialId: "", resourceId: "", sheetName: "", keyColumn: "", pollMinutes: "5" }, configurationFields: getSharedNodeConfigurationFields("trigger.google-sheets.row"),
+  },
+  {
     type: "trigger.cron",
     label: "Schedule",
     description: "Start on a cron schedule.",

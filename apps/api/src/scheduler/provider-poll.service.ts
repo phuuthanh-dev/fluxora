@@ -12,6 +12,7 @@ import { BackgroundWork } from "../platform/background-work";
 import { parseStoredWorkflowGraph } from "../workflows/workflow-graph";
 import { notionChangedPages } from "./notion-trigger-protocol";
 import { driveChanges, driveStartCursor } from "./drive-trigger-protocol";
+import { readSheetSnapshot, sheetCheckpoint, sheetChanges } from "./sheets-trigger-protocol";
 import { pollHash, providerPollTargets, type ProviderPollTarget } from "./provider-poll-target";
 
 const leaseMs = 5 * 60_000;
@@ -28,6 +29,7 @@ export class ProviderPollService implements OnModuleInit, OnModuleDestroy {
   protected readonly notionChanges = notionChangedPages;
   protected readonly driveCursor = driveStartCursor;
   protected readonly drivePage = driveChanges;
+  protected readonly sheetsSnapshot = readSheetSnapshot;
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService, @Inject(CredentialService) private readonly credentials: CredentialService, @Inject(ExecutionQueueService) private readonly queue: ExecutionQueueService) {}
 
   onModuleInit() {
@@ -46,6 +48,12 @@ export class ProviderPollService implements OnModuleInit, OnModuleDestroy {
         result.push({ target, cursor: null, baselineAt: existing.baselineAt }); continue;
       }
       const baselineAt = new Date();
+      if (target.provider === "google-sheets") {
+        const credential = await this.credentials.readGoogleForExecution(target.credentialId, workspaceId);
+        const snapshot = await this.sheetsSnapshot(typeof credential.accessToken === "string" ? credential.accessToken : "", target.resourceId, target.sheetName!, target.keyColumn!);
+        result.push({ target, cursor: JSON.stringify(sheetCheckpoint(snapshot)), baselineAt });
+        continue;
+      }
       if (target.provider === "google-drive") {
         const credential = await this.credentials.readGoogleForExecution(target.credentialId, workspaceId);
         result.push({ target, cursor: await this.driveCursor(typeof credential.accessToken === "string" ? credential.accessToken : ""), baselineAt });
@@ -118,13 +126,19 @@ export class ProviderPollService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  private async readSheets(target: ProviderPollTarget, cursor: string): Promise<Batch> {
+    const credential = await this.credentials.readGoogleForExecution(target.credentialId, target.workspaceId);
+    const snapshot = await this.sheetsSnapshot(typeof credential.accessToken === "string" ? credential.accessToken : "", target.resourceId, target.sheetName!, target.keyColumn!);
+    return sheetChanges(cursor, snapshot);
+  }
+
   async poll(target: ProviderPollTarget) {
     const leaseToken = randomUUID(), now = new Date();
     const claim = await this.prisma.providerPollCheckpoint.updateMany({ where: { workflowId: target.workflowId, nodeId: target.nodeId, workflowVersionId: target.versionId, configHash: target.configHash, state: "READY", workflow: { isActive: true, archivedAt: null, publishedVersionId: target.versionId }, AND: [{ OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { lt: now } }] }, { OR: [{ nextPollAt: null }, { nextPollAt: { lte: now } }] }] }, data: { leaseToken, leaseExpiresAt: new Date(now.getTime() + leaseMs) } });
     if (!claim.count) return;
     try {
       const checkpoint = await this.prisma.providerPollCheckpoint.findUniqueOrThrow({ where: { workflowId_nodeId: { workflowId: target.workflowId, nodeId: target.nodeId } } });
-      const batch = target.provider === "notion" ? await this.readNotion(target, checkpoint.cursor, checkpoint.baselineAt) : await this.readDrive(target, checkpoint.cursor, checkpoint.baselineAt);
+      const batch = target.provider === "notion" ? await this.readNotion(target, checkpoint.cursor, checkpoint.baselineAt) : target.provider === "google-sheets" ? await this.readSheets(target, checkpoint.cursor) : await this.readDrive(target, checkpoint.cursor, checkpoint.baselineAt);
       const ids = await this.commitBatch(target, leaseToken, checkpoint.cursor, batch);
       for (const id of ids) try { await this.queue.ensureDispatched({ executionId: id, mode: "live", startNodeIds: [target.nodeId], initialOnly: true }); } catch { this.logger.warn(`Could not dispatch provider poll execution ${id}.`); }
     } catch (error) {

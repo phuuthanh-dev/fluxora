@@ -21,7 +21,7 @@ export function liveCredentialRequirements(graph: WorkflowGraph): LiveCredential
     if (node.type.startsWith("action.jira.") || node.type === "trigger.jira.issue") return [{ nodeId: node.id, provider: CredentialProvider.JIRA, credentialId }];
     if (node.type.startsWith("action.gitlab.") || node.type.startsWith("trigger.gitlab.")) return [{ nodeId: node.id, provider: CredentialProvider.GITLAB, credentialId }];
     if (node.type.startsWith("action.notion.") || node.type === "trigger.notion.page") return [{ nodeId: node.id, provider: CredentialProvider.NOTION, credentialId }];
-    if (node.type === "trigger.google-drive.file") return [{ nodeId: node.id, provider: CredentialProvider.GOOGLE, credentialId }];
+    if ((node.type === "trigger.google-drive.file" || node.type === "trigger.google-sheets.row")) return [{ nodeId: node.id, provider: CredentialProvider.GOOGLE, credentialId }];
     if (node.type.startsWith("action.trello.")) return [{ nodeId: node.id, provider: CredentialProvider.TRELLO, credentialId }];
     if (node.type.startsWith("action.sentry.")) return [{ nodeId: node.id, provider: CredentialProvider.SENTRY, credentialId }];
     if (node.type.startsWith("action.vercel.")) return [{ nodeId: node.id, provider: CredentialProvider.VERCEL, credentialId }];
