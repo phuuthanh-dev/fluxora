@@ -1,5 +1,11 @@
 # Agent Current State Gate
 
+## UI and trigger assessment — 2026-11-11 (local, unreleased)
+
+- Targeted browser review covered Connections and Execution history in both themes, Admin Audit in both themes, Dashboard in light/dark, and the Jira editor/picker. This is not an audit of every page or viewport. The connection helper, disclosure typography and shared resource picker were adjusted; the Jira picker accepted an upstream expression in local UI without saving the workflow.
+- The current batch assesses—not implements—Google Drive and Notion triggers. Neither appears in the executable catalog; source-linked comparison, suggested scope and remaining provider limits are recorded in `.agent/tasks/2026-11-11-ux-resource-triggers.md`. Do not claim either has been released or live-qualified.
+- Isolated local `npm run verify` passed: 1,195 API tests passed (one optional skipped), 76 web tests and 233 Playwright tests. The isolated database is `fluxora_ui_verify_20261111_test`; existing local data and services were retained. GSAP cleanup emitted empty-target warnings in existing landing tests; these tests passed, but the warnings remain a separate observation. Release is pending PR and CI. Preserve unrelated `apps/web/next-env.d.ts` changes and keep the local scheduler disabled.
+
 ## Current owner-directed Jira and Steam batch — updated 2026-11-11
 
 - Production PR #120 (`1460218`) was deployed. With the owner's separate approval, Jira reporting was enabled on the existing API configuration; the first real report succeeded at 14:55 UTC, with the next due seven days later. This reports identified authorizing accounts; arbitrary personal data in issue text, external destinations and backups is not automatically attributed or erased.

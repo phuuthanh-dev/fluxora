@@ -63,8 +63,11 @@ for (const theme of ["light", "dark"]) test(`connector resource choices, search,
   await issue.getByRole("button", { name: "Load more issues" }).click();
   await expect(issue.getByRole("button", { name: "Load more issues" })).toHaveCount(0);
   await issue.getByRole("button", { name: "Enter value or expression" }).click();
-  await issue.getByLabel("Issue value").fill("{{ steps.manual.output.key }}");
-  await expect(issue.getByLabel("Issue value")).toHaveValue("{{ steps.manual.output.key }}");
+  await issue.getByLabel("Issue value").fill("");
+  await issue.getByLabel("Issue value").focus();
+  await page.getByLabel("Mapping source step").selectOption("manual");
+  await page.getByRole("button", { name: "{{ steps.manual.output.received }}", exact: true }).click();
+  await expect(issue.getByLabel("Issue value")).toHaveValue("{{ steps.manual.output.received }}");
   await node("gitlab");
   await expect(page.getByRole("group", { name: "Pipeline", exact: true }).getByRole("combobox")).toHaveValue("999");
   await page.getByRole("group", { name: "Project", exact: true }).getByRole("combobox").selectOption("43");

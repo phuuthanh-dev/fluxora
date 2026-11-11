@@ -157,8 +157,8 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px soli
 .resource-picker__owner small { margin: 0; }
 .resource-picker > .ui-field__label { margin: 0 0 2px; }
 .resource-picker input, .resource-picker select { min-width: 0; text-overflow: ellipsis; }
-.resource-picker small { font-size: 12px; margin: 0; }
-.resource-picker .resource-picker__mode, .inspector-webhook-setup__action { border-color: transparent; color: var(--text-accent); font-size: 12px; justify-self: start; min-height: 32px; padding: 4px 2px; }
+.resource-picker small { font-size: 13px; line-height: 1.5; margin: 0; }
+.resource-picker .resource-picker__mode, .inspector-webhook-setup__action { border-color: transparent; color: var(--text-accent); font-size: 13px; justify-self: start; min-height: 36px; padding: 6px 2px; }
 .inspector-webhook-setup { display: grid; gap: 6px; }
 .inspector-webhook-setup__action { justify-self: start; }
 .webhook-endpoint-panel__help, .webhook-endpoint-panel__notice, .webhook-endpoint-panel__confirmation { font-size: 12px; line-height: 1.5; }
@@ -589,14 +589,19 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px soli
    behavior, but intentionally remove the fixed overlay constraint. */
 .dashboard-header__user .dashboard-header__link { align-items: center; font-size: 12px; gap: 6px; height: 32px; padding: 0 9px; white-space: nowrap; width: auto; }
 .connections-main, .executions-main { margin: 0 auto; max-width: var(--page-width); padding: 40px var(--page-gutter) 72px; }
-.retention-summary { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-md); color: var(--text-secondary); font-size: var(--control-text); line-height: 1.5; margin-bottom: 18px; padding: 16px 20px; }
-.retention-summary summary { color: var(--ink); cursor: pointer; font-weight: 700; }
-.retention-summary p { margin: 8px 0 0; }
-.saved-execution-views { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-md); color: var(--text-secondary); font-size: var(--control-text); line-height: 1.5; margin-bottom: 18px; padding: 16px 20px; }
-.saved-execution-views summary { color: var(--ink); cursor: pointer; font-weight: 700; }
-.saved-execution-views p { margin: 8px 0; }
+.retention-summary { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-md); color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin-bottom: 18px; padding: 16px 20px; }
+.retention-summary summary { color: var(--ink); cursor: pointer; font-size: 14px; font-weight: 600; }
+.retention-summary p { margin: 12px 0 0; }
+.saved-execution-views { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-md); color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin-bottom: 18px; padding: 16px 20px; }
+.saved-execution-views summary { color: var(--ink); cursor: pointer; font-size: 14px; font-weight: 600; }
+.retention-summary summary, .saved-execution-views summary { align-items: center; display: flex; gap: 10px; min-height: 24px; list-style: none; }
+.retention-summary summary::-webkit-details-marker, .saved-execution-views summary::-webkit-details-marker { display: none; }
+.retention-summary summary::before, .saved-execution-views summary::before { border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; content: ""; display: block; flex: 0 0 7px; height: 7px; transform: rotate(-45deg); transition: transform 160ms ease; }
+.retention-summary[data-expanded="true"] summary::before, .saved-execution-views[data-expanded="true"] summary::before, .retention-summary[open]:not([data-expanded]) summary::before, .saved-execution-views[open]:not([data-expanded]) summary::before { transform: rotate(45deg); }
+@media (prefers-reduced-motion: reduce) { .retention-summary summary::before, .saved-execution-views summary::before { transition: none; } }
+.saved-execution-views p { margin: 12px 0; }
 .saved-execution-views ul { display: grid; gap: 6px; list-style: none; margin: 8px 0; padding: 0; }
-.saved-execution-views li, .saved-execution-views form { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; }
+.saved-execution-views li, .saved-execution-views form { align-items: center; display: flex; flex-wrap: wrap; gap: 12px; }
 .saved-execution-views input { background: var(--surface-inset); border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--ink); font-size: var(--control-text); min-height: var(--control-height); min-width: 0; padding: 7px 10px; }
 .connections-main .ui-page-header, .executions-main .ui-page-header { margin-bottom: 28px; }
 .connections-error, .executions-error { align-items: center; display: flex; gap: 9px; margin-bottom: 18px; padding: 12px 14px; }
