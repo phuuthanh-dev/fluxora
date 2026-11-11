@@ -16,11 +16,13 @@ export class ExecutionController {
     const body = request.body && typeof request.body === "object" && !Array.isArray(request.body) ? request.body as Record<string, unknown> : {};
     const mock = body.mock !== false;
     const debugNodeId = typeof body.nodeId === "string" && body.nodeId.trim() ? body.nodeId.trim() : undefined;
+    const triggerNodeId = typeof body.triggerNodeId === "string" && body.triggerNodeId.trim() ? body.triggerNodeId.trim() : undefined;
     if (!mock && body.confirmLive !== true) throw new BadRequestException({ code: "LIVE_CONFIRMATION_REQUIRED", message: "Confirm live execution before running providers." });
     if (debugNodeId && !mock) throw new BadRequestException({ code: "NODE_DEBUG_MOCK_ONLY", message: "Node debug is available only as a safe mock run." });
+    if (triggerNodeId && (!mock || debugNodeId)) throw new BadRequestException({ code: "TRIGGER_SELECTION_MOCK_ONLY", message: "Choose a trigger only for a full test run." });
     const execution = debugNodeId
       ? await this.executions.createManualExecution(workflowId, requireUserId(request), mock, body.triggerData ?? {}, debugNodeId)
-      : await this.executions.createManualExecution(workflowId, requireUserId(request), mock, body.triggerData ?? {});
+      : triggerNodeId ? await this.executions.createManualExecution(workflowId, requireUserId(request), mock, body.triggerData ?? {}, undefined, triggerNodeId) : await this.executions.createManualExecution(workflowId, requireUserId(request), mock, body.triggerData ?? {});
     await this.queue.dispatch({ executionId: execution.id, mode: mock ? "mock" : "live", ...(debugNodeId ? { debugNodeId } : {}) });
     return { execution: await this.executions.get(execution.id, requireUserId(request)) };
   }

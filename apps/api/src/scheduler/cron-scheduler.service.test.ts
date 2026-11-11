@@ -39,7 +39,7 @@ test("cron scheduler creates and dispatches one live execution for a due publish
   assert.equal(created[0]?.versionId, "version-1");
   assert.equal(typeof created[0]?.triggerData.scheduledAt, "string");
   assert.match(created[0]?.idempotencyKey ?? "", /^cron:version-1:cron:/);
-  assert.deepEqual(jobs, [{ executionId: "execution-1", mode: "live", initialOnly: true }]);
+  assert.deepEqual(jobs, [{ executionId: "execution-1", mode: "live", startNodeIds: ["cron"], initialOnly: true }]);
 });
 
 test("a worker process never starts the cron scheduler", () => {
@@ -126,7 +126,7 @@ test("a live-readiness failure for one schedule does not stop later cron dispatc
   assert.equal(created.length, 2);
   assert.equal(errors.length, 1);
   assert.ok(!JSON.stringify(errors).includes("synthetic-private-provider-detail"));
-  assert.deepEqual(jobs, [{ executionId: "execution-2", mode: "live", initialOnly: true }]);
+  assert.deepEqual(jobs, [{ executionId: "execution-2", mode: "live", startNodeIds: ["valid"], initialOnly: true }]);
 });
 
 test("a malformed published graph does not prevent another schedule from running", async () => {
@@ -136,7 +136,7 @@ test("a malformed published graph does not prevent another schedule from running
   const scheduler = new CronSchedulerService(prisma, { createCronScheduledExecution: async (version: string) => ({ id: version }) } as never, { dispatch: async (job: unknown) => { jobs.push(job); } } as never);
   (scheduler as unknown as { logger: { warn: () => void } }).logger.warn = () => undefined;
   await (scheduler as unknown as { tick: (now: Date) => Promise<void> }).tick(new Date("2026-10-25T10:30:30.000Z"));
-  assert.deepEqual(jobs, [{ executionId: "valid-version", mode: "live", initialOnly: true }]);
+  assert.deepEqual(jobs, [{ executionId: "valid-version", mode: "live", startNodeIds: ["cron"], initialOnly: true }]);
 });
 
 test("a database outage during the cron scan is contained and a later scan can run", async () => {
@@ -155,7 +155,7 @@ test("a database outage during the cron scan is contained and a later scan can r
   await tick(now);
   assert.equal(errors.length, 1);
   assert.ok(!errors[0]?.includes("synthetic database failure"));
-  assert.deepEqual(jobs, [{ executionId: "run", mode: "live", initialOnly: true }]);
+  assert.deepEqual(jobs, [{ executionId: "run", mode: "live", startNodeIds: ["cron"], initialOnly: true }]);
 });
 
 test("cron recovery requeues only never-started jobs and preserves a bounded scan cursor", async () => {

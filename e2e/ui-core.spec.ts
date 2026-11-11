@@ -136,9 +136,11 @@ test("workspace routes share shell, theme-aware overlays and compact editor cont
     await readable(page.locator(".credential-panel__directory-link"));
     await readable(page.locator(".credential-form__hint"));
     const manager = page.getByRole("dialog", { name: "Credential manager" });
-    const toolbar = await manager.locator(".credential-toolbar").boundingBox();
-    const form = await manager.locator(".credential-form").boundingBox();
-    expect(form!.y).toBeGreaterThanOrEqual(toolbar!.y + toolbar!.height);
+    await expect.poll(async () => {
+      const toolbar = await manager.locator(".credential-toolbar").boundingBox();
+      const form = await manager.locator(".credential-form").boundingBox();
+      return Boolean(form && toolbar && form.y >= toolbar.y + toolbar.height);
+    }, { message: "Connection form should appear below its toolbar" }).toBe(true);
     await expect(manager.getByLabel("Provider", { exact: true })).toHaveCSS("padding-right", "40px");
     await page.screenshot({ path: testInfo.outputPath(`connections-panel-${theme}.png`) });
     await page.getByRole("button", { name: "Close credential manager" }).click();

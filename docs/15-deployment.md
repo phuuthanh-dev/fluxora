@@ -1,6 +1,6 @@
 # Production deployment
 
-This document describes the first self-hosted deployment shape for Fluxora. It is deliberately conservative for the current 14 GB VPS and the target of approximately five users.
+This document describes the self-hosted deployment shape for Fluxora. Capacity depends on the provisioned server and workload; do not infer a user limit from server specifications alone.
 
 ## Runtime shape
 
@@ -35,11 +35,11 @@ The API and worker use the same application image and encryption key. Only the A
 ## One-time VPS setup
 
 The production deployment uses `fluxora.io.vn` for the web application and
-`api.fluxora.io.vn` for the API. Both `A` records point to `103.140.249.73`:
+`api.fluxora.io.vn` for the API. Configure both `A` records to the current production VPS IP, and retain a working forwarding path until old DNS caches expire:
 
 ```text
-@    A    103.140.249.73
-api  A    103.140.249.73
+@    A    <production-vps-ip>
+api  A    <production-vps-ip>
 ```
 
 ```bash
@@ -60,6 +60,10 @@ The GitHub Actions deploy workflow expects these GitHub Actions secrets:
 - `GHCR_PULL_TOKEN` (read-only package token, required when the application packages are private)
 
 The production workflow reads the public frontend API origin from the `NEXT_PUBLIC_API_URL` repository/environment variable. It temporarily falls back to a legacy secret with the same name so an existing setup does not break during migration; prefer the variable and remove the old secret after the next successful production build.
+
+Set `VPS_HOST_FINGERPRINT` as a GitHub Actions variable to the SSH host key's SHA256 fingerprint, verified independently through the VPS console or an already trusted connection. Both upload and remote execution verify it; the deploy fails if it is missing. When changing servers or rotating the SSH host key, verify and update this variable before deploying.
+
+The deploy-time database dump lives on the same VPS as the database. It does not protect against loss of that VPS. Recovery requires an independently retained database dump and the matching `APP_ENCRYPTION_KEY`; protect access to both. Test restoration on an isolated instance before relying on a backup. A retained old VPS is a temporary fallback, not proof of an off-site backup or tested restore.
 
 If GHCR packages are private, configure `GHCR_PULL_USERNAME` and `GHCR_PULL_TOKEN` as GitHub Actions secrets. The deploy workflow authenticates Docker on the VPS immediately before pulling the immutable application images. Do not place that token in this repository or in the production env file.
 

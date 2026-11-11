@@ -203,6 +203,8 @@ test("CI/CD workflow keeps bounded jobs, cache, and least-privilege deploy permi
   assert.doesNotMatch(workflow, /uses: [^\n]+@v\d/);
   assert.match(workflow, /docker\/setup-buildx-action@[0-9a-f]{40}/);
   assert.match(workflow, /appleboy\/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634/);
+  assert.match(workflow, /VPS_HOST_FINGERPRINT is required/);
+  assert.equal((workflow.match(/fingerprint: \$\{\{ vars\.VPS_HOST_FINGERPRINT \}\}/g) ?? []).length, 2);
   assert.match(workflow, /name: Build and push API image/);
   assert.match(workflow, /name: Build and push Web image/);
 });
