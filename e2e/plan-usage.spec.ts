@@ -84,3 +84,23 @@ test("paid plan screen handles no pending order and displays a pending order on 
   await expect(page.getByRole("button", { name: "Choose Pro" })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+test("an active paid plan offers renewal and explains when another tier is available", async ({ page }) => {
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const data: Record<string, unknown> = {
+      "/api/v1/workspaces": { workspaces: [{ id: "space-1", name: "Sample workspace", slug: "sample", role: "OWNER" }] },
+      "/api/v1/workspaces/space-1/plan-usage": { plan: "STARTER", paidUntil: "2099-12-01T00:00:00.000Z", trialExpiresAt: null, periodStart: "2026-11-01T00:00:00.000Z", periodEnd: "2026-12-01T00:00:00.000Z", retainedRuns: 0, trackedRuns: 0, meterComplete: true, activeWorkflows: 0, catalog },
+      "/api/v1/workspaces/space-1/billing/availability": { available: true },
+      "/api/v1/workspaces/space-1/billing/orders/latest": { order: null },
+      "/api/v1/auth/me": { user: { displayName: "Owner", email: "owner@example.test", avatarColor: "lime" } },
+      "/api/v1/auth/identities": { identities: [] }, "/api/v1/auth/providers": { google: false, github: false, steam: false },
+    };
+    await route.fulfill({ status: path === "/api/v1/admin/access" ? 403 : 200, contentType: "application/json", body: JSON.stringify(data[path] ?? {}) });
+  });
+  await page.goto("/dashboard/plan");
+  await expect(page.getByRole("button", { name: "Renew Starter" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Choose Pro" })).toHaveCount(0);
+  await expect(page.getByText("Available after your current paid plan ends.")).toBeVisible();
+  await expect(page.getByText(/Renewing your current plan adds 30 days/)).toBeVisible();
+});

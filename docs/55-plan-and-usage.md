@@ -1,5 +1,7 @@
 # Plan and usage — phase one
 
+> Historical design record. Production status as of 2026-11-13 is summarized in the live qualification note in [payOS checkout](56-payos-checkout.md). Workspace-count proposals below are not offered or enforced.
+
 Owner-approved 2026-11-12: provide an observational Free / Starter / Pro plan experience. Proposed prices are 0 / 99,000 / 199,000 VND per month; proposed monthly live-run allowances are 1,000 / 3,000 / 10,000, active workflows 5 / 15 / 50, workspaces 1 / 2 / 3 and concurrency 1 / 2 / 3. These amounts are not payment offers, performance guarantees or enforced entitlements. Payment, subscriptions, hard quota, automatic downgrade enforcement, trial notifications and the team plan are outside this release. Existing workflows, connections and users continue unchanged.
 
 The plan is scoped to a workspace; a platform admin may explicitly assign a 7, 14 or 30 day Starter or Pro trial, or reset it to Free. Expired trial metadata resolves to Free without a scheduled job. Changes serialize on the workspace and are written with actor and before/after metadata to the existing audit log. Only the separately authenticated platform administrator may manage trials. This assignment does not grant permissions, charge money or restrict workflow behavior.
