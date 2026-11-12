@@ -178,6 +178,8 @@ model Workspace {
   ownerId     String
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
+  trialPlan   String?
+  trialExpiresAt DateTime?
   owner       User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   members     WorkspaceMember[]
   workflows   Workflow[]

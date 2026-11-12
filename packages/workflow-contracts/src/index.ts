@@ -1,4 +1,5 @@
 export * from "./ai-schema";
+export * from "./plan-catalog";
 export * from "./node-config-schema";
 export * from "./operation-metadata";
 export * from "./riot-lol";

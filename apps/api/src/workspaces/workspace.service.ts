@@ -1,6 +1,7 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { PrismaService } from "../database/prisma.service";
+import { effectivePlan, planCatalog } from "@workflow/contracts";
 
 export type WorkspaceSummary = {
   id: string;
@@ -42,6 +43,19 @@ export class WorkspaceService {
       throw new NotFoundException({ code: "WORKSPACE_NOT_FOUND", message: "Workspace was not found." });
     }
     return membership.workspaceId;
+  }
+
+  async planUsage(workspaceId: string, userId: string, now = new Date()) {
+    await this.requireOwner(workspaceId, userId);
+    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+    const [workspace, retainedRuns, activeWorkflows] = await Promise.all([
+      this.prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { trialPlan: true, trialExpiresAt: true } }),
+      this.prisma.execution.count({ where: { mode: "LIVE", startedAt: { gte: start, lt: end }, workflowVersion: { workflow: { workspaceId } } } }),
+      this.prisma.workflow.count({ where: { workspaceId, isActive: true, archivedAt: null } }),
+    ]);
+    const plan = effectivePlan(workspace.trialPlan, workspace.trialExpiresAt, now);
+    return { plan, trialExpiresAt: plan === "FREE" ? null : workspace.trialExpiresAt, periodStart: start, periodEnd: end, retainedRuns, activeWorkflows, catalog: planCatalog };
   }
 
   private async nextSlug(name: string) {

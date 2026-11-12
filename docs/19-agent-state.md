@@ -869,6 +869,7 @@ one of these IDs or explicitly reopen a completed ledger slice.
 
 | ID | Outcome | Status | Owner/evidence boundary |
 |---|---|---|---|
+| `PLAN-USAGE-1` | Observe workspace usage and provide provisional Free, Starter and Pro plans | pending | Owner-approved phase one: no payments or hard limits, preserve live workflows and mark retention-related usage limitations. |
 | `AUTH-ROUTES-1` | Correct protected and guest route navigation, admin denial, deep-link return and logout failure UX | pending | Owner requested the specific regressions confirmed in the 2026-11-11 local audit. Keep API authorization authoritative and preserve existing OAuth and sessions. |
 | `DATA-NOTION-GITLAB-1` | Aggregate/Split Out, Sort/Limit, keyed Merge, typed Notion writes and GitLab.com | pending | Implementation complete; only PR/release tracking remains. Final verify passed: 1,131 API, 75 web, 224 E2E; one optional Riot test skipped. Check the associated develop→main PR for CI/merge/deploy. No real provider qualification claimed. See docs/47. |
 | `APP-EXPANSION-1` | Deepen existing app operations and remaining qualification; initial seven-app implementation and app discovery already exist | pending | Do not rebuild initial nodes. See docs/35 for latest live evidence and docs/37 for operation/trigger/auth/UX gaps and priorities. Slack message/mention Trigger is implemented and covered in the November 9 batch; the owner deferred live qualification. Reddit access remains blocked; future live calls require owner-authorized resources. |

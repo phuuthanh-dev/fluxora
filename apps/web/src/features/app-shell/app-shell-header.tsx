@@ -20,7 +20,7 @@ type AppShellHeaderProps = {
   workspaces: AppShellWorkspace[];
   workspaceId: string;
   onWorkspaceChange: (workspaceId: string) => void;
-  active: "dashboard" | "connections" | "executions" | "editor" | "account" | "admin";
+  active: "dashboard" | "connections" | "executions" | "editor" | "account" | "admin" | "plan";
   onBeforeNavigate?: () => boolean;
   workspaceDisabled?: boolean;
 };

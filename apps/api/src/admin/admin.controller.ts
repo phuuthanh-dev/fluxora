@@ -8,6 +8,7 @@ import { RuntimeHealthService } from "../platform/runtime-health.service";
 import { AdminGuard } from "./admin.guard";
 import { adminId, auditFilters, type AdminScope, type AuditFilters } from "./admin-query";
 import { JiraPrivacyService } from "./jira-privacy.service";
+import { effectivePlan } from "@workflow/contracts";
 
 @Controller("admin")
 @UseGuards(AccountRequestGuard, AuthenticationGuard, AdminGuard)
@@ -49,12 +50,15 @@ export class AdminController {
   @Get("overview")
   @Header("Cache-Control", "no-store")
   async overview() {
-    const [users, workspaces, workflows, activeWorkflows, failedRuns, health] = await Promise.all([
+    const now = new Date();
+    const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const [users, workspaces, workflows, activeWorkflows, failedRuns, retainedLiveRuns, health] = await Promise.all([
       this.prisma.user.count(), this.prisma.workspace.count(), this.prisma.workflow.count(),
       this.prisma.workflow.count({ where: { isActive: true, archivedAt: null } }),
-      this.prisma.execution.count({ where: { status: "FAILED", createdAt: { gte: new Date(Date.now() - 86400000) } } }), this.health.readiness(),
+      this.prisma.execution.count({ where: { status: "FAILED", createdAt: { gte: new Date(Date.now() - 86400000) } } }),
+      this.prisma.execution.count({ where: { mode: "LIVE", startedAt: { gte: periodStart, lte: now } } }), this.health.readiness(),
     ]);
-    return { users, workspaces, workflows, activeWorkflows, failedRuns, failedRunsPeriod: "24h", health };
+    return { users, workspaces, workflows, activeWorkflows, failedRuns, retainedLiveRuns, failedRunsPeriod: "24h", health };
   }
 
   @Get("users")
@@ -69,8 +73,44 @@ export class AdminController {
   @Header("Cache-Control", "no-store")
   async workspaces(@Query("q") query?: string, @Query("page") page?: string, @Query() scope: AdminScope = {}) {
     const { q, skip } = listOptions(query, page);
-    const workspaces = await this.prisma.workspace.findMany({ take: 51, skip, orderBy: [{ updatedAt: "desc" }, { id: "desc" }], where: { ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}), ...(adminId(scope.userId) ? { ownerId: scope.userId } : {}), ...(adminId(scope.workspaceId) ? { id: scope.workspaceId } : {}) }, select: { id: true, name: true, updatedAt: true, owner: { select: { id: true, email: true } }, _count: { select: { workflows: true } } } });
-    return { workspaces: workspaces.slice(0, 50), hasMore: workspaces.length > 50 };
+    const workspaces = await this.prisma.workspace.findMany({ take: 51, skip, orderBy: [{ updatedAt: "desc" }, { id: "desc" }], where: { ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}), ...(adminId(scope.userId) ? { ownerId: scope.userId } : {}), ...(adminId(scope.workspaceId) ? { id: scope.workspaceId } : {}) }, select: { id: true, name: true, updatedAt: true, trialPlan: true, trialExpiresAt: true, owner: { select: { id: true, email: true } }, _count: { select: { workflows: true } } } });
+    return { workspaces: workspaces.slice(0, 50).map((space) => ({ ...space, effectivePlan: effectivePlan(space.trialPlan, space.trialExpiresAt) })), hasMore: workspaces.length > 50 };
+  }
+
+  @Post("workspaces/:workspaceId/trial-plan")
+  @Header("Cache-Control", "no-store")
+  async setTrialPlan(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest, @Body() body: unknown) {
+    const value = body && typeof body === "object" && !Array.isArray(body) ? body as Record<string, unknown> : {};
+    if (!adminId(workspaceId) || !["FREE", "STARTER", "PRO"].includes(String(value.plan)) || (value.plan !== "FREE" && ![7, 14, 30].includes(Number(value.days))) || (value.plan !== "FREE" && typeof value.days !== "number")) {
+      throw new BadRequestException({ code: "INVALID_INPUT", message: "Choose a valid trial plan and duration." });
+    }
+    const plan = value.plan as "FREE" | "STARTER" | "PRO";
+    const expiresAt = plan === "FREE" ? null : new Date(Date.now() + Number(value.days) * 86400000);
+    return this.prisma.$transaction(async (tx) => {
+      const locked = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM "Workspace" WHERE id = ${workspaceId} FOR UPDATE`;
+      if (!locked.length) throw new NotFoundException({ code: "WORKSPACE_NOT_FOUND", message: "Workspace was not found." });
+      const workspace = await tx.workspace.findUnique({ where: { id: workspaceId }, select: { id: true, trialPlan: true, trialExpiresAt: true } });
+      if (!workspace) throw new NotFoundException({ code: "WORKSPACE_NOT_FOUND", message: "Workspace was not found." });
+      await tx.workspace.update({ where: { id: workspaceId }, data: { trialPlan: plan === "FREE" ? null : plan, trialExpiresAt: expiresAt } });
+      await tx.auditLog.create({ data: { actorId: request.currentUser!.id, workspaceId, action: "admin.trial_plan_changed", targetType: "workspace", targetId: workspaceId, metadata: { previousPlan: effectivePlan(workspace.trialPlan, workspace.trialExpiresAt), plan, expiresAt: expiresAt?.toISOString() ?? null } } });
+      return { plan, expiresAt };
+    });
+  }
+
+  @Get("workspaces/:workspaceId/plan-usage")
+  @Header("Cache-Control", "no-store")
+  async workspacePlanUsage(@Param("workspaceId") workspaceId: string) {
+    if (!adminId(workspaceId)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Use a valid workspace." });
+    const workspace = await this.prisma.workspace.findUnique({ where: { id: workspaceId }, select: { id: true } });
+    if (!workspace) throw new NotFoundException({ code: "WORKSPACE_NOT_FOUND", message: "Workspace was not found." });
+    const now = new Date();
+    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+    const [retainedRuns, activeWorkflows] = await Promise.all([
+      this.prisma.execution.count({ where: { mode: "LIVE", startedAt: { gte: start, lt: end }, workflowVersion: { workflow: { workspaceId } } } }),
+      this.prisma.workflow.count({ where: { workspaceId, isActive: true, archivedAt: null } }),
+    ]);
+    return { retainedRuns, activeWorkflows, periodStart: start, periodEnd: end };
   }
 
   @Get("workflows")

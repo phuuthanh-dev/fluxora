@@ -91,3 +91,24 @@ test("Jira privacy endpoints inherit administrator, session and mutation-origin 
   for (const guard of [AdminGuard, AuthenticationGuard, AccountRequestGuard]) assert.ok(guards.includes(guard));
   for (const method of ["jiraPrivacyRecords", "jiraPrivacyDiscover", "jiraPrivacyPreview", "jiraPrivacyResolve", "jiraPrivacyRecover"] as const) assert.equal(typeof AdminController.prototype[method], "function");
 });
+
+test("trial assignment validates input, records audit and never charges or mutates workflows", async () => {
+  const calls: string[] = [];
+  let update: Record<string, unknown> | undefined;
+  const tx = {
+    $queryRaw: async () => [{ id: "space-1" }],
+    workspace: {
+      findUnique: async () => ({ id: "space-1", trialPlan: null, trialExpiresAt: null }),
+      update: async (input: Record<string, unknown>) => { update = input; calls.push("updated"); },
+    },
+    auditLog: { create: async ({ data }: { data: { action: string; actorId: string } }) => { calls.push(data.action); assert.equal(data.actorId, "admin"); } },
+  };
+  const controller = new AdminController({ $transaction: async (fn: (arg: typeof tx) => Promise<unknown>) => fn(tx) } as never, {} as never, {} as never);
+  const request = { currentUser: { id: "admin" } } as never;
+  await assert.rejects(controller.setTrialPlan("space-1", request, { plan: "PRO", days: 999 }));
+  await assert.rejects(controller.setTrialPlan("space-1", request, { plan: "PRO", days: "14" }));
+  const result = await controller.setTrialPlan("space-1", request, { plan: "PRO", days: 14 });
+  assert.equal(result.plan, "PRO"); assert.ok(result.expiresAt instanceof Date);
+  assert.deepEqual(calls, ["updated", "admin.trial_plan_changed"]);
+  assert.equal((update?.data as { trialPlan: string }).trialPlan, "PRO");
+});

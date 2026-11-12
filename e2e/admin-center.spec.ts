@@ -104,7 +104,7 @@ test("admin follows user context to run metadata and filters audit without works
     const data: Record<string, unknown> = {
       "/api/v1/admin/access": { allowed: true, userId: "admin" },
       "/api/v1/admin/users": { users: [{ id: "u1", email: "owner@example.test", displayName: "Owner", createdAt: "2026-11-01T00:00:00Z", disabledAt: null, _count: { ownedWorkspaces: 1 } }] },
-      "/api/v1/admin/workspaces": { workspaces: [{ id: "s1", name: "Sample workspace", owner: { id: "u1", email: "owner@example.test" }, updatedAt: "2026-11-01T00:00:00Z", _count: { workflows: 1 } }] },
+      "/api/v1/admin/workspaces": { workspaces: [{ id: "s1", name: "Sample workspace", effectivePlan: "FREE", trialExpiresAt: null, owner: { id: "u1", email: "owner@example.test" }, updatedAt: "2026-11-01T00:00:00Z", _count: { workflows: 1 } }] },
       "/api/v1/admin/workflows": { workflows: [{ id: "w1", name: "Sample workflow", workspace: { id: "s1", name: "Sample workspace" }, updatedAt: "2026-11-01T00:00:00Z", archivedAt: null, isActive: false }] },
       "/api/v1/admin/executions": { executions: [{ id: "e1", status: "FAILED", mode: "MOCK", createdAt: "2026-11-01T00:00:00Z", startedAt: "2026-11-01T00:00:00Z", completedAt: "2026-11-01T00:00:01Z", errorCode: "INVALID_CONFIGURATION", workflowVersion: { version: 2, workflow: { id: "w1", name: "Sample workflow", workspace: { id: "s1", name: "Sample workspace" } } } }] },
       "/api/v1/admin/audit": { events: [{ id: "a1", action: "workflow.published", actor: { id: "u1", email: "owner@example.test" }, targetType: "workflow", targetId: "w1", workspaceId: "s1", createdAt: "2026-11-01T00:00:00Z" }] },
