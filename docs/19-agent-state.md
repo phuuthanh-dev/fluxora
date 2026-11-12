@@ -1,11 +1,19 @@
 # Agent Current State Gate
 
+## Current release — 2026-11-12
+
+- PR #133 merged as `0193678402be9b8e7a9e78439c470a7df6602741` and the production deploy succeeded. It adds keyboard/click and drag mapping improvements plus bounded test-only output pinning. See [Airtable and mapping](54-airtable-and-mapping.md) for supported scope.
+- Production Airtable OAuth, discovery, List and Get have been exercised on a dedicated test base. The later second-workspace authorization and any further checks are recorded separately; do not interpret the older snapshot below as current.
+- A second independent Airtable account authorized one new test base and a production manual workflow read its three sample records successfully; that workflow was then deactivated. This does not prove token refresh or all cross-workspace authorization cases.
+- A separate local PostgreSQL/API instance with scheduler disabled received a real synthetic generic webhook in a manual-plus-webhook workflow: the webhook and its action succeeded, and the manual branch was skipped. A bounded synthetic inline load of 50 mock executions at concurrency 5 completed 50/50; median 75 ms, p95 311 ms on this machine. Neither observation proves production RSS polling, restart recovery, provider throughput or 100-user capacity.
+- The owner explicitly excludes independent backup from the current scope. Historical backup records below are evidence of past work, not a new task or a claim of independent backup.
+
 ## Current batch — 2026-11-12 (qualification snapshot)
 
 - PR #130 merged and production deploy for `dbaf22262191acad1689080043d2cf1f6a7c1827` succeeded. The earlier claim below that multi-trigger had not yet deployed is historical; real mixed-provider delivery remains unqualified.
 - A local manual run in a published manual + webhook workflow succeeded and marked the other trigger skipped. The local test workflow was deactivated; real webhook delivery and mixed-provider polling were not proven by that run.
 - The owner's 03:08 backup was restored in an internal Docker network. Exact deployed API and web images started, API readiness and the home page returned 200, and the vault decrypted 17/17 restored connections. This is not an authenticated UI, provider, queue, or independent-storage test. See [recovery evidence](53-offsite-backup.md).
-- This batch adds four Airtable record operations, OAuth and bounded discovery, plus search in the existing mapper. See [scope and limits](54-airtable-and-mapping.md). At this snapshot Airtable OAuth has not been configured or qualified with a real account. Check PR, CI and deployment state separately before asserting release. The new migration adds an enum value and was applied to the working local database and to a separate disposable test database.
+- At this historical snapshot, the batch added four Airtable record operations, OAuth and bounded discovery, plus search in the existing mapper. See [scope, subsequent release and qualification](54-airtable-and-mapping.md). The new migration added an enum value and was applied to the working local database and to a separate disposable test database.
 - Isolated `npm run verify` passed on 2026-11-12: 1,193 API tests passed, 30 skipped, 77 web tests and 246 Playwright tests passed. A later mapping CSS adjustment was visually checked in both themes, followed by a successful web production build and all four editor-onboarding E2E tests. Existing GSAP missing-target warnings remain. These results do not prove live Airtable or independent offsite storage.
 
 ## Production migration and multi-trigger work — 2026-11-12

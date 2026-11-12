@@ -1,3 +1,4 @@
+import { selectProvider } from "./credential-picker";
 import { expect, test, type Page } from "@playwright/test";
 
 async function register(page: Page) {
@@ -23,12 +24,12 @@ test("guided connection fields preserve JSON, mask secrets, search saved account
   await expect(createForm).toBeVisible();
   const [formBox, panelBox] = await Promise.all([createForm.boundingBox(), panel.boundingBox()]);
   expect(formBox!.width).toBeGreaterThanOrEqual(panelBox!.width - 2);
-  await page.getByLabel("Provider", { exact: true }).selectOption("JIRA");
+  await selectProvider(page, "Jira");
   const jiraButton = page.getByRole("button", { name: "Connect Jira" });
   await expect(jiraButton).toBeVisible();
   await expect(jiraButton).toHaveCSS("white-space", "nowrap");
   expect((await jiraButton.boundingBox())!.height).toBeLessThan(55);
-  await page.getByLabel("Provider", { exact: true }).selectOption("STEAM");
+  await selectProvider(page, "Steam");
   await page.getByLabel("Connection name", { exact: true }).fill("Steam personal");
   await page.getByLabel("Steam Web API key", { exact: true }).fill("local-fixture-key");
   await expect(page.getByLabel("Steam Web API key", { exact: true })).toHaveAttribute("type", "password");
@@ -62,22 +63,25 @@ test("guided connection fields preserve JSON, mask secrets, search saved account
   const cards = await page.locator(".credential-list").boundingBox();
   expect(form!.y).toBeGreaterThanOrEqual(toolbar!.y + toolbar!.height);
   expect(form!.y + form!.height).toBeLessThan(cards!.y);
-  await expect(page.getByLabel("Find an app", { exact: true })).toBeFocused();
+  await expect(page.locator(".credential-provider-picker summary")).toBeFocused();
+  await page.locator(".credential-provider-picker summary").press("Enter");
   await page.getByLabel("Find an app").fill("reddit");
-  await expect(page.getByRole("status").filter({ hasText: "1 app found" })).toBeVisible();
-  await expect(page.getByLabel("Provider", { exact: true })).toHaveValue("GOOGLE");
-  await page.getByLabel("Provider", { exact: true }).selectOption("REDDIT");
+  await expect(page.getByRole("status").filter({ hasText: "1 app available" })).toBeVisible();
+  await expect(page.locator(".credential-provider-picker summary")).toContainText("Google Drive / Sheets");
+  await selectProvider(page, "Reddit");
   await expect(page.getByLabel("App client secret", { exact: true })).toHaveAttribute("type", "password");
   await expect(page.getByText(/plans to retire remaining access in March 2027/)).toBeVisible();
   await expect(page.getByRole("link", { name: "Reddit access timeline" })).toHaveAttribute("href", "https://support.reddithelp.com/hc/en-us/articles/54353370049684-Changelog-October-8-2026");
+  await page.locator(".credential-provider-picker summary").click();
   await page.getByLabel("Find an app").fill("no matching provider");
   await expect(page.getByText("No apps found. Try another search.")).toBeVisible();
-  await expect(page.getByLabel("Provider", { exact: true })).toHaveValue("REDDIT");
+  await expect(page.locator(".credential-provider-picker summary")).toContainText("Reddit");
   await page.getByLabel("Find an app").clear();
-  await expect(page.getByLabel("Provider", { exact: true })).toHaveCSS("padding-right", "40px");
-  await expect(page.getByLabel("Provider", { exact: true })).toHaveCSS("background-position", "calc(100% - 12px) 50%");
+  await page.getByLabel("Find an app").press("Escape");
+  await expect(page.locator(".credential-provider-picker summary")).toBeFocused();
+  await expect(page.locator(".credential-provider-picker details")).not.toHaveAttribute("open", "");
 
-  await page.getByLabel("Provider", { exact: true }).selectOption("EMAIL");
+  await selectProvider(page, "Email");
   await expect(page.getByLabel("Email connection type")).toHaveValue("GMAIL");
   await expect(page.getByRole("button", { name: "Connect Gmail" })).toBeVisible();
   await expect(page.getByLabel("Gmail access token", { exact: true })).toBeVisible();
@@ -107,7 +111,7 @@ test("guided connection fields preserve JSON, mask secrets, search saved account
 test("MongoDB credential shows fields appropriate to the selected connection type", async ({ page }) => {
   await register(page);
   await page.getByRole("button", { name: "Connections", exact: true }).click();
-  await page.getByLabel("Provider", { exact: true }).selectOption("MONGODB");
+  await selectProvider(page, "MongoDB");
   await expect(page.getByLabel("MongoDB host")).toBeVisible();
   await page.getByLabel("Connection type").selectOption("srv");
   await expect(page.getByLabel("Port", { exact: true })).toHaveCount(0);
@@ -117,7 +121,7 @@ test("MongoDB credential shows fields appropriate to the selected connection typ
   await page.getByLabel("Configuration type").selectOption("values");
   await page.getByLabel("Connection type").selectOption("direct");
   await expect(page.getByLabel("Port", { exact: true })).toBeVisible();
-  await page.getByLabel("Provider", { exact: true }).selectOption("POSTGRES");
+  await selectProvider(page, "PostgreSQL");
   const ca = page.getByLabel("CA certificate (optional)");
   await expect(ca).toBeVisible();
   await expect(page.getByText(/certificate and hostname are always verified/)).toBeVisible();

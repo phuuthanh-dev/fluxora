@@ -1,3 +1,4 @@
+import { selectProvider } from "./credential-picker";
 import { expect, test } from "@playwright/test";
 import type { Locator } from "@playwright/test";
 
@@ -347,7 +348,7 @@ test("connections are managed on a dedicated workspace page without exposing a c
   await expect(page.getByRole("region", { name: "Credential manager" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Close credential manager" })).toHaveCount(0);
 
-  await page.getByLabel("Provider").selectOption("STEAM");
+  await selectProvider(page, "Steam");
   await page.getByLabel("Connection name").fill("Steam page connection");
   await page.getByRole("button", { name: "Edit JSON", exact: true }).click();
   await page.getByLabel("Secret JSON").fill('{"apiKey":"test-key","steamId":"76561198000000000"}');
