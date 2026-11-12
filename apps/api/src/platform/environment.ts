@@ -19,6 +19,8 @@ export function validateEnvironment(environment: NodeJS.ProcessEnv = process.env
   requireCompleteOAuthConfig(environment, "GOOGLE");
   requireCompleteOAuthConfig(environment, "GITHUB");
   requireAllOrNone(environment, ["AIRTABLE_CLIENT_ID", "AIRTABLE_CLIENT_SECRET", "AIRTABLE_REDIRECT_URI"]);
+  requireAllOrNone(environment, ["PAYOS_CLIENT_ID", "PAYOS_API_KEY", "PAYOS_CHECKSUM_KEY"]);
+  if (environment.PAYOS_CHECKOUT_ENABLED === "true" && !environment.PAYOS_CLIENT_ID) throw new Error("payOS credentials must be configured when checkout is enabled.");
   if (environment.AIRTABLE_REDIRECT_URI) requireHttpsUrl(environment.AIRTABLE_REDIRECT_URI, "AIRTABLE_REDIRECT_URI");
   requireAllOrNone(environment, ["STEAM_OPENID_RETURN_URI", "STEAM_OPENID_REALM"]);
 }

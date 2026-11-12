@@ -4,7 +4,7 @@ import { FluxoraMark } from "../../components/brand/fluxora-mark";
 import { publicLinks } from "../public-site/site";
 import { LandingReveal } from "./landing-motion";
 
-export function LandingFooter() {
+export function LandingFooter({ publicPage = false }: { publicPage?: boolean }) {
   return (
     <LandingReveal
       as="footer"
@@ -16,7 +16,7 @@ export function LandingFooter() {
           <span className="landing-footer__watermark" aria-hidden="true">
             <FluxoraMark size={250} />
           </span>
-          <Link className="landing-brand" href="#top">
+          <Link className="landing-brand" href={publicPage ? "/" : "#top"}>
             <FluxoraMark size={28} />
             <strong>Fluxora</strong>
           </Link>
@@ -47,8 +47,8 @@ export function LandingFooter() {
         <span>Self-hosted infrastructure</span>
       </div>
       <nav aria-label="Footer">
-        <a href="#product">Product</a>
-        <a href="#faq">FAQ</a>
+        <a href={publicPage ? "/#product" : "#product"}>Product</a>
+        <a href={publicPage ? "/#faq" : "#faq"}>FAQ</a>
         {publicLinks.map((link) => (
           <Link key={link.href} href={link.href}>
             {link.label}

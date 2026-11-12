@@ -18,9 +18,10 @@ import { AdminController } from "./admin/admin.controller";
 import { JiraPrivacyService } from "./admin/jira-privacy.service";
 import { AdminGuard } from "./admin/admin.guard";
 import { AccountRequestGuard } from "./auth/account-request.guard";
+import { BillingModule } from "./billing/billing.module";
 
 @Module({
-  imports: [ConfigModule.forRoot({ envFilePath: resolve(__dirname, "../../../.env"), isGlobal: true }), PrismaModule, AuthModule, WorkspaceModule, WorkflowModule, CredentialModule, ExecutionModule, SchedulerModule, WebhookModule, ApprovalModule],
+  imports: [ConfigModule.forRoot({ envFilePath: resolve(__dirname, "../../../.env"), isGlobal: true }), PrismaModule, AuthModule, WorkspaceModule, WorkflowModule, CredentialModule, ExecutionModule, SchedulerModule, WebhookModule, ApprovalModule, BillingModule],
   controllers: [HealthController, AdminController],
   providers: [RuntimeHealthService, AdminGuard, AccountRequestGuard, JiraPrivacyService, RequestDrainInterceptor, { provide: APP_INTERCEPTOR, useExisting: RequestDrainInterceptor }],
 })

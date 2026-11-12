@@ -38,7 +38,7 @@ const faqItems = [
   },
 ];
 
-export function LandingNavigation() {
+export function LandingNavigation({ publicPage = false }: { publicPage?: boolean }) {
   const menu = useRef<HTMLDetailsElement>(null);
   const trigger = useRef<HTMLElement>(null);
   const panel = useRef<HTMLElement>(null);
@@ -67,12 +67,12 @@ export function LandingNavigation() {
       className="landing-nav landing-container"
       data-scrolled={scrolled}
     >
-      <Link className="landing-brand" href="#top" aria-label="Fluxora home">
+      <Link className="landing-brand" href={publicPage ? "/" : "#top"} aria-label="Fluxora home">
         <BrandLockup />
       </Link>
       <nav className="landing-nav__desktop" aria-label="Landing navigation">
         {links.map((link) => (
-          <a href={link.href} key={link.href}>
+          <a href={publicPage && link.href.startsWith("#") ? `/${link.href}` : link.href} key={link.href}>
             {link.label}
           </a>
         ))}
@@ -99,7 +99,7 @@ export function LandingNavigation() {
           <nav ref={panel} aria-label="Mobile navigation">
             {links.map((link) => (
               <a
-                href={link.href}
+                href={publicPage && link.href.startsWith("#") ? `/${link.href}` : link.href}
                 key={link.href}
                 onClick={() => {
                   if (menu.current) menu.current.open = false;

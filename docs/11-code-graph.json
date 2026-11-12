@@ -82,6 +82,7 @@
         "apps/api/src/approvals/approval.module.ts",
         "apps/api/src/auth/account-request.guard.ts",
         "apps/api/src/auth/auth.module.ts",
+        "apps/api/src/billing/billing.module.ts",
         "apps/api/src/credentials/credential.module.ts",
         "apps/api/src/database/prisma.module.ts",
         "apps/api/src/execution/execution.module.ts",
@@ -289,6 +290,46 @@
       "internalImports": [],
       "externalImports": [
         "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/billing/billing.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/account-request.guard.ts",
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/billing/billing.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/billing/billing.module.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/account-request.guard.ts",
+        "apps/api/src/auth/auth.module.ts",
+        "apps/api/src/billing/billing.controller.ts",
+        "apps/api/src/billing/billing.service.ts",
+        "apps/api/src/workspaces/workspace.module.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/billing/billing.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/workspaces/workspace.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@payos/node",
+        "@workflow/contracts"
       ]
     },
     {
@@ -3870,9 +3911,21 @@
       ]
     },
     {
+      "id": "apps/web/src/features/plan/checkout-action.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/api/api-client.ts"
+      ],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
       "id": "apps/web/src/features/plan/plan-cards.tsx",
       "boundary": "web",
-      "internalImports": [],
+      "internalImports": [
+        "apps/web/src/features/plan/checkout-action.tsx"
+      ],
       "externalImports": [
         "@workflow/contracts",
         "lucide-react",
@@ -3899,10 +3952,22 @@
       ]
     },
     {
+      "id": "apps/web/src/features/public-site/public-motion.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "gsap",
+        "gsap/ScrollTrigger",
+        "react"
+      ]
+    },
+    {
       "id": "apps/web/src/features/public-site/public-shell.tsx",
       "boundary": "web",
       "internalImports": [
-        "apps/web/src/components/brand/brand-lockup.tsx",
+        "apps/web/src/features/marketing/landing-footer.tsx",
+        "apps/web/src/features/marketing/landing-interactions.tsx",
+        "apps/web/src/features/public-site/public-motion.tsx",
         "apps/web/src/features/public-site/site.ts"
       ],
       "externalImports": [
@@ -4951,6 +5016,10 @@
     },
     {
       "from": "apps/api/src/app.module.ts",
+      "to": "apps/api/src/billing/billing.module.ts"
+    },
+    {
+      "from": "apps/api/src/app.module.ts",
       "to": "apps/api/src/credentials/credential.module.ts"
     },
     {
@@ -5144,6 +5213,50 @@
     {
       "from": "apps/api/src/auth/authentication.guard.ts",
       "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/billing/billing.controller.ts",
+      "to": "apps/api/src/auth/account-request.guard.ts"
+    },
+    {
+      "from": "apps/api/src/billing/billing.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/billing/billing.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/billing/billing.controller.ts",
+      "to": "apps/api/src/billing/billing.service.ts"
+    },
+    {
+      "from": "apps/api/src/billing/billing.module.ts",
+      "to": "apps/api/src/auth/account-request.guard.ts"
+    },
+    {
+      "from": "apps/api/src/billing/billing.module.ts",
+      "to": "apps/api/src/auth/auth.module.ts"
+    },
+    {
+      "from": "apps/api/src/billing/billing.module.ts",
+      "to": "apps/api/src/billing/billing.controller.ts"
+    },
+    {
+      "from": "apps/api/src/billing/billing.module.ts",
+      "to": "apps/api/src/billing/billing.service.ts"
+    },
+    {
+      "from": "apps/api/src/billing/billing.module.ts",
+      "to": "apps/api/src/workspaces/workspace.module.ts"
+    },
+    {
+      "from": "apps/api/src/billing/billing.service.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/billing/billing.service.ts",
+      "to": "apps/api/src/workspaces/workspace.service.ts"
     },
     {
       "from": "apps/api/src/credentials/airtable-oauth-state.service.ts",
@@ -9134,6 +9247,14 @@
       "to": "apps/web/src/features/marketing/landing-stream-particles.ts"
     },
     {
+      "from": "apps/web/src/features/plan/checkout-action.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/plan/plan-cards.tsx",
+      "to": "apps/web/src/features/plan/checkout-action.tsx"
+    },
+    {
       "from": "apps/web/src/features/plan/plan-usage.tsx",
       "to": "apps/web/src/components/ui/index.ts"
     },
@@ -9159,7 +9280,15 @@
     },
     {
       "from": "apps/web/src/features/public-site/public-shell.tsx",
-      "to": "apps/web/src/components/brand/brand-lockup.tsx"
+      "to": "apps/web/src/features/marketing/landing-footer.tsx"
+    },
+    {
+      "from": "apps/web/src/features/public-site/public-shell.tsx",
+      "to": "apps/web/src/features/marketing/landing-interactions.tsx"
+    },
+    {
+      "from": "apps/web/src/features/public-site/public-shell.tsx",
+      "to": "apps/web/src/features/public-site/public-motion.tsx"
     },
     {
       "from": "apps/web/src/features/public-site/public-shell.tsx",

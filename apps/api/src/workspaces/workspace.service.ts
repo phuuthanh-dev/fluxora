@@ -50,14 +50,15 @@ export class WorkspaceService {
     const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
     const [workspace, retainedRuns, activeWorkflows, trackedRuns, meter] = await Promise.all([
-      this.prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { trialPlan: true, trialExpiresAt: true } }),
+      this.prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { trialPlan: true, trialExpiresAt: true, paidPlan: true, paidUntil: true } }),
       this.prisma.execution.count({ where: { mode: "LIVE", startedAt: { gte: start, lt: end }, workflowVersion: { workflow: { workspaceId } } } }),
       this.prisma.workflow.count({ where: { workspaceId, isActive: true, archivedAt: null } }),
       this.prisma.usageRun.count({ where: { workspaceId, startedAt: { gte: start, lt: end } } }),
       this.prisma.usageMeter.findUniqueOrThrow({ where: { id: "primary" } }),
     ]);
-    const plan = effectivePlan(workspace.trialPlan, workspace.trialExpiresAt, now);
-    return { plan, trialExpiresAt: plan === "FREE" ? null : workspace.trialExpiresAt, periodStart: start, periodEnd: end, retainedRuns, trackedRuns, meteringSince: meter.startedAt, activeWorkflows, catalog: planCatalog };
+    const paidPlan = effectivePlan(workspace.paidPlan, workspace.paidUntil, now);
+    const plan = paidPlan !== "FREE" ? paidPlan : effectivePlan(workspace.trialPlan, workspace.trialExpiresAt, now);
+    return { plan, paidUntil: paidPlan === "FREE" ? null : workspace.paidUntil, trialExpiresAt: paidPlan !== "FREE" || plan === "FREE" ? null : workspace.trialExpiresAt, periodStart: start, periodEnd: end, retainedRuns, trackedRuns, meteringSince: meter.startedAt, activeWorkflows, catalog: planCatalog };
   }
 
   private async nextSlug(name: string) {

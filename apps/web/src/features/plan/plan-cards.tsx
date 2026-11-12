@@ -2,9 +2,10 @@ import { Check } from "lucide-react";
 import Link from "next/link";
 import { planCatalog, type PlanCode } from "@workflow/contracts";
 import "./plan-usage.css";
+import { CheckoutAction } from "./checkout-action";
 
 /** Public and workspace views share the same provisional catalogue. */
-export function PlanCards({ current }: { current?: PlanCode }) {
+export function PlanCards({ current, workspaceId, checkoutAvailable = false }: { current?: PlanCode; workspaceId?: string; checkoutAvailable?: boolean }) {
   return <div className="plan-cards">{(["FREE", "STARTER", "PRO"] as const).map((code) => {
     const item = planCatalog[code];
     return <article className={`plan-card${current === code ? " plan-card--current" : ""}`} key={code}>
@@ -18,7 +19,7 @@ export function PlanCards({ current }: { current?: PlanCode }) {
         <li><Check size={15} aria-hidden="true" />Visual editor and supported integrations</li>
         <li><Check size={15} aria-hidden="true" />Use your own AI provider keys</li>
       </ul>
-      {current ? <p className="plan-card__foot">{current === code ? "Your current plan" : "Not available for purchase"}</p> : code === "FREE" ? <Link className="plan-card__link" href="/register">Get started</Link> : <p className="plan-card__foot">Coming soon · no payment available yet</p>}
+      {current ? checkoutAvailable && workspaceId && code !== "FREE" ? <CheckoutAction workspaceId={workspaceId} plan={code} /> : <p className="plan-card__foot">{current === code ? "Your current plan" : "Not available for purchase"}</p> : code === "FREE" ? <Link className="plan-card__link" href="/register">Get started</Link> : <p className="plan-card__foot">Coming soon · no payment available yet</p>}
     </article>;
   })}</div>;
 }
