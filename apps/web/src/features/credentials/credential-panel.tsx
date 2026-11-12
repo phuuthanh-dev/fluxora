@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { ArrowUpRight, ChevronRight, ChevronUp, KeyRound, LockKeyhole, MoreVertical, Plus, Search } from "lucide-react";
+import { ArrowUpRight, Check, ChevronDown, ChevronRight, ChevronUp, KeyRound, LockKeyhole, MoreVertical, Plus, Search } from "lucide-react";
 import { ApiClientError, apiRequest, apiUrl } from "../api/api-client";
 import type { CredentialProvider, CredentialReferenceDetails, CredentialSummary, GmailCapability } from "./credential-types";
 import { Button, Dialog, DialogHeader, EmptyState, Field, IconButton, Menu, Select, Skeleton, Status, useDialogFocus } from "../../components/ui";
@@ -158,6 +158,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
   });
   const [credentials, setCredentials] = useState<CredentialSummary[]>([]);
   const formRef = useRef<HTMLFormElement>(null);
+  const providerPickerRef = useRef<HTMLDetailsElement>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [methodFilter, setMethodFilter] = useState<"all" | "oauth" | "manual">("all");
@@ -216,7 +217,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
     setCreateOpen(!createOpen);
     if (!createOpen) window.requestAnimationFrame(() => {
       formRef.current?.scrollIntoView({ behavior: "auto", block: "nearest" });
-      formRef.current?.querySelector<HTMLInputElement>('input[aria-label="Find an app"]')?.focus({ preventScroll: true });
+      formRef.current?.querySelector<HTMLElement>('.credential-provider-picker summary')?.focus({ preventScroll: true });
     });
   };
 
@@ -535,7 +536,6 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
 
   const currentProvider = provider === "SMTP" || provider === "GMAIL" ? "EMAIL" : provider;
   const matchingProviderGroups = providerGroups.map((group) => ({ ...group, options: group.options.filter((option) => `${option.label} ${option.keywords ?? ""}`.toLowerCase().includes(providerQuery.trim().toLowerCase())) })).filter((group) => group.options.length);
-  const currentIsMatching = matchingProviderGroups.some((group) => group.options.some((option) => option.value === currentProvider));
   const currentProviderLabel = providerGroups.flatMap((group) => group.options).find((option) => option.value === currentProvider)?.label ?? currentProvider;
   const providerMatchCount = matchingProviderGroups.reduce((count, group) => count + group.options.length, 0);
   const oauthCount = credentials.filter(isManaged).length;
@@ -575,16 +575,49 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
       <form ref={formRef} onSubmit={submit} className="credential-form" aria-label="New connection">
         <div className="credential-form__title"><h3>New connection</h3><p>Choose an app and add its authorization details.</p></div>
         <div className="credential-provider-picker">
-          <Field label="Find an app" className="credential-form__field">
-            <input type="search" aria-label="Find an app" placeholder="Search apps" value={providerQuery} onChange={(event) => setProviderQuery(event.target.value)} />
-          </Field>
-          <Field label="Provider" className="credential-form__field">
-            <Select aria-label="Provider" value={currentProvider} onChange={(event) => changeProvider(event.target.value === "EMAIL" ? "GMAIL" : event.target.value as CredentialProvider)}>
-              {!currentIsMatching && <optgroup label="Current selection"><option value={currentProvider}>{currentProviderLabel}</option></optgroup>}
-              {matchingProviderGroups.map((group) => <optgroup label={group.label} key={group.label}>{group.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</optgroup>)}
-            </Select>
-          </Field>
-          {providerQuery.trim() && <p className="credential-provider-picker__result" role="status">{providerMatchCount ? `${providerMatchCount} ${providerMatchCount === 1 ? "app" : "apps"} found. Select a provider below.` : "No apps found. Try another search."}</p>}
+          <span className="credential-provider-picker__label" id="provider-picker-label">App</span>
+          <details ref={providerPickerRef} className="credential-provider-picker__details" onToggle={(event) => {
+            if (event.currentTarget.open) event.currentTarget.querySelector<HTMLInputElement>('input[aria-label="Find an app"]')?.focus({ preventScroll: true });
+          }} onKeyDown={(event) => {
+            if (event.key === "Escape" && providerPickerRef.current?.open) {
+              event.preventDefault();
+              providerPickerRef.current.open = false;
+              providerPickerRef.current.querySelector<HTMLElement>("summary")?.focus();
+            }
+          }}>
+            <summary aria-labelledby="provider-picker-label provider-picker-current">
+              <span className="credential-card__icon" aria-hidden="true"><NodeIcon name={providerIcons[currentProvider === "EMAIL" ? "GMAIL" : currentProvider]} size={21} /></span>
+              <span className="credential-provider-picker__current" id="provider-picker-current"><small>Selected app</small><strong>{currentProviderLabel}</strong></span>
+              <span className="credential-provider-picker__change">Change <ChevronDown size={16} aria-hidden="true" /></span>
+            </summary>
+            <div className="credential-provider-picker__menu">
+              <label className="credential-provider-picker__search"><Search size={17} aria-hidden="true" /><span className="visually-hidden">Find an app</span><input type="search" aria-label="Find an app" placeholder="Search apps" value={providerQuery} onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }} onChange={(event) => setProviderQuery(event.target.value)} /></label>
+              <p className="credential-provider-picker__result" role="status">{providerMatchCount ? `${providerMatchCount} ${providerMatchCount === 1 ? "app" : "apps"} available` : "No apps found. Try another search."}</p>
+              <div className="credential-provider-picker__list">
+                {matchingProviderGroups.map((group) => (
+                  <section key={group.label} aria-label={group.label}>
+                    <h4>{group.label}</h4>
+                    <div className="credential-provider-picker__options">
+                      {group.options.map((option) => (
+                        <button type="button" className="credential-provider-picker__option" key={option.value} aria-pressed={option.value === currentProvider} onClick={() => {
+                          changeProvider(option.value === "EMAIL" ? "GMAIL" : option.value);
+                          setProviderQuery("");
+                          if (providerPickerRef.current) {
+                            providerPickerRef.current.open = false;
+                            providerPickerRef.current.querySelector<HTMLElement>("summary")?.focus();
+                          }
+                        }}>
+                          <span className="credential-card__icon" aria-hidden="true"><NodeIcon name={providerIcons[option.value === "EMAIL" ? "GMAIL" : option.value]} size={20} /></span>
+                          <span>{option.label}</span>
+                          {option.value === currentProvider && <Check size={16} aria-hidden="true" />}
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            </div>
+          </details>
         </div>
         {provider === "SMTP" || provider === "GMAIL" ? <Field label="Connection type" className="credential-form__field">
           <Select aria-label="Email connection type" value={provider} onChange={(event) => changeProvider(event.target.value as "GMAIL" | "SMTP")}>

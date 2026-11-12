@@ -57,3 +57,12 @@ with manual, generic webhook, and RSS triggers confirmed that a live manual
 run skips the other two triggers; its RSS trigger reported active. It too was
 deactivated. Actual webhook delivery, new RSS item delivery, token refresh and
 an independent user's Airtable authorization were not verified by that run.
+
+Later on 2026-11-12, a second Fluxora user authorized a different Airtable
+account for the isolated `Fluxora independent test` base. Production discovery
+showed that base and its table; a published manual-trigger workflow read three
+sample records successfully in a live run. The test workflow was deactivated
+afterward. This confirms the second user's bounded authorization, discovery and
+read, not token refresh, cross-workspace denial, write operations or sustained
+behavior. Airtable started a 14-day Teams trial during the new account's
+onboarding; its notice says it returns to the Free plan unless upgraded.

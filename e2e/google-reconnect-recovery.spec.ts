@@ -1,3 +1,4 @@
+import { selectProvider } from "./credential-picker";
 import { expect, test, type Page } from "@playwright/test";
 
 async function mockWorkspace(page: Page) {
@@ -78,7 +79,7 @@ test("Gmail asks for additional capabilities only when selected", async ({ page 
     await route.fulfill({ status: 200, contentType: "text/html", body: "Synthetic OAuth start" });
   });
   await page.goto("/dashboard/connections?workspace=workspace-1");
-  await page.getByLabel("Provider", { exact: true }).selectOption("EMAIL");
+  await selectProvider(page, "Email");
   await expect(page.getByLabel("Read messages (restricted; required)")).toBeChecked();
   await expect(page.getByLabel("Send email (sensitive)")).not.toBeChecked();
   await page.getByLabel("Send email (sensitive)").check();

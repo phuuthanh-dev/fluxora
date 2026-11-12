@@ -1,3 +1,4 @@
+import { selectProvider } from "./credential-picker";
 import { expect, test } from "@playwright/test";
 
 test("configure Discord and Telegram notification nodes with encrypted credentials and mock run", async ({ page }) => {
@@ -29,7 +30,7 @@ test("configure Discord and Telegram notification nodes with encrypted credentia
   await page.getByLabel("Manage actions").click();
   await page.getByRole("button", { name: "Credentials" }).click();
 
-  await page.getByLabel("Provider").selectOption("DISCORD_WEBHOOK");
+  await selectProvider(page, "Discord webhook");
   await expect(page.getByRole("textbox", { name: "Connection name" })).toHaveValue("Discord incoming webhook");
   await page.getByRole("button", { name: "Edit JSON", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Secret JSON" })).toContainText('"webhookUrl"');
@@ -43,7 +44,7 @@ test("configure Discord and Telegram notification nodes with encrypted credentia
   await expect(page.getByText("Credential encrypted and saved. Select it from a compatible node in the editor.")).toBeVisible();
 
   // Create Telegram Bot credential
-  await page.getByLabel("Provider").selectOption("TELEGRAM_BOT");
+  await selectProvider(page, "Telegram bot");
   await expect(page.getByRole("textbox", { name: "Connection name" })).toHaveValue("Telegram bot");
   await expect(page.getByRole("textbox", { name: "Secret JSON" })).toContainText('"botToken"');
   await expect(page.getByText("Enter your Telegram Bot API token from @BotFather. Destination Chat ID is configured on the Telegram message node (credential chatId is deprecated).")).toBeVisible();

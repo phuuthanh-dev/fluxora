@@ -1,3 +1,4 @@
+import { selectProvider } from "./credential-picker";
 import { expect, test } from "@playwright/test";
 
 test("a new owner can configure, save, publish, and inspect a Steam workflow", async ({ page }) => {
@@ -179,7 +180,7 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
 
   await page.getByLabel("Manage actions").click();
   await page.getByRole("button", { name: "Credentials" }).click();
-  await page.getByLabel("Provider").selectOption("STEAM");
+  await selectProvider(page, "Steam");
   await expect(page.getByRole("textbox", { name: "Connection name" })).toHaveValue("Steam account");
   await page.getByRole("button", { name: "Edit JSON", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Secret JSON" })).toContainText('"apiKey"');

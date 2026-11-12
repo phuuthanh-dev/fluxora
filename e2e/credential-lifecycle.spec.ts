@@ -1,3 +1,4 @@
+import { selectProvider } from "./credential-picker";
 import { expect, test } from "@playwright/test";
 
 const api = `http://localhost:${process.env.E2E_API_PORT ?? "3001"}/api/v1`;
@@ -36,7 +37,7 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   await page.getByRole("button", { name: "Credentials" }).click();
 
   // Secret visibility is per field and only affects the unsaved draft.
-  await page.getByLabel("Provider").selectOption("TRELLO");
+  await selectProvider(page, "Trello");
   const trelloKey = page.getByLabel("Trello API key", { exact: true });
   const trelloToken = page.getByLabel("Trello token", { exact: true });
   await trelloKey.fill("sample-key");
@@ -48,8 +49,8 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   await page.getByRole("button", { name: "Hide Trello API key" }).click();
   await expect(trelloKey).toHaveAttribute("type", "password");
   await page.getByRole("button", { name: "Show Trello API key" }).click();
-  await page.getByLabel("Provider").selectOption("DISCORD_WEBHOOK");
-  await page.getByLabel("Provider").selectOption("TRELLO");
+  await selectProvider(page, "Discord webhook");
+  await selectProvider(page, "Trello");
   await expect(page.getByLabel("Trello API key", { exact: true })).toHaveAttribute("type", "password");
   const savedKey = "fixture_trello_api_key_123456789ab";
   const savedToken = "fixture_trello_token_123456789xy";
@@ -72,7 +73,7 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   await trelloCard.getByRole("button", { name: "Confirm delete" }).click();
   await expect(trelloCard).toHaveCount(0);
   // Optional management credentials are encrypted and never returned as hints.
-  await page.getByLabel("Provider").selectOption("SUPABASE");
+  await selectProvider(page, "Supabase");
   await page.getByLabel("Connection name", { exact: true }).fill("Supabase discovery test");
   await page.getByLabel("Supabase project reference").fill("abcdefghijklmnopqrst");
   await page.getByLabel("Supabase API key", { exact: true }).fill("sb_publishable_synthetic_fixture");
@@ -90,7 +91,7 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   await supabaseCard.getByRole("button", { name: "Delete Supabase discovery test" }).click();
   await supabaseCard.getByRole("button", { name: "Confirm delete" }).click();
   await expect(supabaseCard).toHaveCount(0);
-  await page.getByLabel("Provider").selectOption("MONGODB");
+  await selectProvider(page, "MongoDB");
   await page.getByLabel("Configuration type").selectOption("connectionString");
   await page.getByLabel("Connection string", { exact: true }).fill("mongodb+srv://example.test");
   await page.getByRole("button", { name: "Show Connection string" }).click();
@@ -101,7 +102,7 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   await page.getByRole("button", { name: "Edit JSON", exact: true }).click();
 
   // 1. Create a Discord Webhook credential
-  await page.getByLabel("Provider").selectOption("DISCORD_WEBHOOK");
+  await selectProvider(page, "Discord webhook");
   await page.getByRole("textbox", { name: "Connection name" }).fill("Discord Primary Alerts");
   await page.getByRole("textbox", { name: "Secret JSON" }).fill('{"webhookUrl":"https://discord.com/api/webhooks/111/token-initial"}');
   const createDiscordPromise = page.waitForResponse((res) => res.request().method() === "POST" && res.url().includes("/credentials"));
@@ -110,7 +111,7 @@ test("credential lifecycle: create with conflict handling, rename, secret rotati
   await expect(page.getByText("Credential encrypted and saved. Select it from a compatible node in the editor.")).toBeVisible();
 
   // 2. Duplicate label test on creation: attempt creating another Discord credential with same label
-  await page.getByLabel("Provider").selectOption("DISCORD_WEBHOOK");
+  await selectProvider(page, "Discord webhook");
   await page.getByRole("textbox", { name: "Connection name" }).fill("Discord Primary Alerts");
   await page.getByRole("textbox", { name: "Secret JSON" }).fill('{"webhookUrl":"https://discord.com/api/webhooks/222/token-dup"}');
   await page.getByRole("button", { name: "Encrypt & save" }).click();
