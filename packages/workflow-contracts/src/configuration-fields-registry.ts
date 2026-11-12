@@ -1,4 +1,5 @@
 import { jiraFields } from "./jira-fields";
+import { airtableFields } from "./airtable-fields";
 import { gitlabFields } from "./gitlab-fields";
 import { dataTransformFields } from "./data-transform-fields";
 import type { WorkflowNodeType } from "./index";
@@ -19,6 +20,7 @@ import { githubReadConfigurationFields } from "./github-read-fields";
 const sharedFields = {
   ...dataTransformFields,
   ...jiraFields,
+  ...airtableFields,
   ...gitlabFields,
   ...aiNodeFields,
   ...communicationNodeFields,

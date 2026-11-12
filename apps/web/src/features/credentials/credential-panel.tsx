@@ -11,7 +11,7 @@ import "./credentials.css";
 import { CredentialSecretFields } from "./credential-secret-fields";
 import { NodeIcon, type NodeIconName } from "../workflow/node-icon";
 
-const providerIcons: Record<CredentialProvider, NodeIconName> = { GOOGLE: "google", STEAM: "steam", RIOT: "riot-games", GOOGLE_CHAT_WEBHOOK: "google-chat", GOOGLE_CHAT_OAUTH: "google-chat", GMAIL: "gmail", GOOGLE_CALENDAR: "google-calendar", MONGODB: "mongodb", NOTION: "notion", TRELLO: "trello", SENTRY: "sentry", VERCEL: "vercel", SUPABASE: "supabase", REDDIT: "reddit", POSTGRES: "postgres", HTTP: "http", DISCORD_WEBHOOK: "discord", SLACK_WEBHOOK: "slack", SLACK_OAUTH: "slack", TELEGRAM_BOT: "telegram", JIRA: "jira", GITLAB: "gitlab", GITHUB: "github", SMTP: "email", GEMINI: "gemini", OPENAI: "openai" };
+const providerIcons: Record<CredentialProvider, NodeIconName> = { AIRTABLE: "airtable", GOOGLE: "google", STEAM: "steam", RIOT: "riot-games", GOOGLE_CHAT_WEBHOOK: "google-chat", GOOGLE_CHAT_OAUTH: "google-chat", GMAIL: "gmail", GOOGLE_CALENDAR: "google-calendar", MONGODB: "mongodb", NOTION: "notion", TRELLO: "trello", SENTRY: "sentry", VERCEL: "vercel", SUPABASE: "supabase", REDDIT: "reddit", POSTGRES: "postgres", HTTP: "http", DISCORD_WEBHOOK: "discord", SLACK_WEBHOOK: "slack", SLACK_OAUTH: "slack", TELEGRAM_BOT: "telegram", JIRA: "jira", GITLAB: "gitlab", GITHUB: "github", SMTP: "email", GEMINI: "gemini", OPENAI: "openai" };
 
 type CredentialPreset = {
   label: string;
@@ -20,6 +20,7 @@ type CredentialPreset = {
 };
 
 const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
+  AIRTABLE: { label: "Airtable", data: "{}", hint: "Connect your own Airtable account and select the bases Fluxora can access." },
   RIOT: { label: "Riot API", data: '{\n  "apiKey": ""\n}', hint: "Use your own Riot API key for its approved product. Development keys expire after 24 hours; personal keys are not for public products." },
   GOOGLE_CALENDAR: { label: "Google Calendar manual token", data: '{\n  "accessToken": ""\n}', hint: "Connect Google Calendar separately. Calendar events can appear in execution history." },
   GMAIL: { label: "Gmail manual token", data: '{\n  "accessToken": ""\n}', hint: "Connect Gmail separately from Google sign-in and Drive. Reading requires Gmail access." },
@@ -91,7 +92,7 @@ const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
 type ProviderOption = { value: CredentialProvider | "EMAIL"; label: string; keywords?: string };
 const providerGroups: { label: string; options: ProviderOption[] }[] = [
   { label: "Communication", options: [{ value: "EMAIL", label: "Email", keywords: "gmail smtp" }, { value: "GOOGLE_CHAT_OAUTH", label: "Google Chat OAuth" }, { value: "GOOGLE_CHAT_WEBHOOK", label: "Google Chat webhook" }, { value: "DISCORD_WEBHOOK", label: "Discord webhook" }, { value: "SLACK_OAUTH", label: "Slack workspace" }, { value: "SLACK_WEBHOOK", label: "Slack webhook" }, { value: "TELEGRAM_BOT", label: "Telegram bot" }] },
-  { label: "Productivity", options: [{ value: "GOOGLE", label: "Google Drive / Sheets" }, { value: "GOOGLE_CALENDAR", label: "Google Calendar" }, { value: "NOTION", label: "Notion" }, { value: "JIRA", label: "Jira" }, { value: "TRELLO", label: "Trello" }] },
+  { label: "Productivity", options: [{ value: "GOOGLE", label: "Google Drive / Sheets" }, { value: "GOOGLE_CALENDAR", label: "Google Calendar" }, { value: "NOTION", label: "Notion" }, { value: "AIRTABLE", label: "Airtable" }, { value: "JIRA", label: "Jira" }, { value: "TRELLO", label: "Trello" }] },
   { label: "Developer & data", options: [{ value: "GITHUB", label: "GitHub connector" }, { value: "GITLAB", label: "GitLab" }, { value: "SENTRY", label: "Sentry" }, { value: "VERCEL", label: "Vercel" }, { value: "SUPABASE", label: "Supabase" }, { value: "MONGODB", label: "MongoDB" }, { value: "POSTGRES", label: "PostgreSQL" }, { value: "HTTP", label: "HTTP" }] },
   { label: "AI", options: [{ value: "GEMINI", label: "Gemini API" }, { value: "OPENAI", label: "OpenAI API" }] },
   { label: "Social & gaming", options: [{ value: "REDDIT", label: "Reddit" }, { value: "STEAM", label: "Steam" }, { value: "RIOT", label: "Riot Games" }] },
@@ -108,6 +109,7 @@ function requestErrorMessage(reason: unknown, fallback: string) {
 
 function credentialProviderLabel(provider: CredentialProvider) {
   const labels: Record<CredentialProvider, string> = {
+    AIRTABLE: "Airtable",
     GOOGLE: "Google",
     STEAM: "Steam",
     RIOT: "Riot Games",
@@ -226,7 +228,8 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
     setJsonError(null);
     setCreateError(null);
     const providerLabels: Record<CredentialProvider, string> = {
-      GOOGLE: "Google",
+      AIRTABLE: "Airtable",
+    GOOGLE: "Google",
       STEAM: "Steam",
       RIOT: "Riot Games",
       GOOGLE_CHAT_WEBHOOK: "Google Chat",
@@ -406,7 +409,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
     ["GOOGLE", "GOOGLE_CHAT_OAUTH", "GMAIL", "GOOGLE_CALENDAR"].includes(cred.provider) && (cred.isManaged ?? (cred.provider === "GOOGLE" && cred.label === "Google OAuth"));
 
 
-  const isManaged = (credential: CredentialSummary) => isGoogleOAuth(credential) || credential.provider === "SLACK_OAUTH" || credential.provider === "JIRA" || (credential.provider === "NOTION" && credential.isManaged === true);
+  const isManaged = (credential: CredentialSummary) => isGoogleOAuth(credential) || credential.provider === "SLACK_OAUTH" || credential.provider === "JIRA" || credential.provider === "AIRTABLE" || (credential.provider === "NOTION" && credential.isManaged === true);
   const openSettings = (credential: CredentialSummary) => {
     cancelAction();
     setActiveAction({ credentialId: credential.id, type: isManaged(credential) ? "oauth" : "details" });
@@ -434,6 +437,9 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
                       variant="secondary" type="button" className="credential-panel__oauth"
                       onClick={() => startGoogleConnection(workspaceId, credential.provider === "GOOGLE_CALENDAR" ? "calendar" : "google", credential.id, credential.googleIdentityUnverified)}
                     >Reconnect Google</Button>}
+                  </> : credential.provider === "AIRTABLE" ? <>
+                    <p className="credential-card__oauth-text">Reconnect the same Airtable account and choose accessible bases.</p>
+                    <Button variant="secondary" type="button" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/airtable/connect?credentialId=${encodeURIComponent(credential.id)}`)}>Reconnect Airtable</Button>
                   </> : credential.provider === "JIRA" ? <>
                     <p className="credential-card__oauth-text">Reconnect the same Jira site and account.</p>
                     <Button variant="secondary" type="button" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/jira/connect?credentialId=${encodeURIComponent(credential.id)}`)}>Reconnect Jira</Button>
@@ -586,7 +592,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
             <option value="SMTP">SMTP (send email)</option>
           </Select>
         </Field> : null}
-        {provider !== "SLACK_OAUTH" && provider !== "JIRA" && <Field label="Connection name" className="credential-form__field">
+        {provider !== "SLACK_OAUTH" && provider !== "JIRA" && provider !== "AIRTABLE" && <Field label="Connection name" className="credential-form__field">
           <input aria-label="Connection name" value={label} onChange={(event) => { setLabel(event.target.value); setCreateError(null); }} />
         </Field>}
         {provider === "GOOGLE" ? (
@@ -607,10 +613,10 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
         {provider === "SUPABASE" ? <div className="credential-form__oauth-helper"><span>Find your project reference and API key in the Supabase dashboard. A secret key grants elevated access and bypasses Row Level Security.</span><a className="credential-form__oauth-link" href="https://supabase.com/docs/guides/getting-started/api-keys" target="_blank" rel="noopener noreferrer">Supabase key guide <ArrowUpRight size={13} aria-hidden="true" /></a><a className="credential-form__oauth-link" href="https://supabase.com/docs/guides/platform/personal-access-tokens" target="_blank" rel="noopener noreferrer">Scoped management token guide <ArrowUpRight size={13} aria-hidden="true" /></a></div> : null}
         <p className="credential-form__hint" aria-live="polite">{credentialPresets[provider].hint}</p>
         {provider === "NOTION" && <div className="credential-form__oauth-helper"><span>Connect your own Notion workspace and select the pages Fluxora may read and update, or enter an integration token below.</span><Button variant="secondary" type="button" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/notion/connect`)}>Connect Notion</Button></div>}
-        {provider === "JIRA" ? <div className="credential-form__oauth-helper"><span>Choose your Jira site and approve issue access with Atlassian. Availability depends on server setup and Atlassian app distribution.</span><Button variant="secondary" type="button" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/jira/connect`)}>Connect Jira</Button></div> : provider === "SLACK_OAUTH" ? <div className="credential-form__oauth-helper"><span>Slack lets Fluxora list public channels and send messages as its bot.</span><button type="button" className="credential-form__oauth-link" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/slack/connect`)}>Connect Slack <ArrowUpRight size={13} aria-hidden="true" /></button></div> : <CredentialSecretFields provider={provider} value={data} onChange={(value) => { setData(value); setJsonError(null); setCreateError(null); }} />}
+        {provider === "AIRTABLE" ? <div className="credential-form__oauth-helper"><span>Choose the Airtable bases you want to connect. Airtable will show the requested permissions.</span><Button variant="secondary" type="button" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/airtable/connect`)}>Connect Airtable</Button></div> : provider === "JIRA" ? <div className="credential-form__oauth-helper"><span>Choose your Jira site and approve issue access with Atlassian. Availability depends on server setup and Atlassian app distribution.</span><Button variant="secondary" type="button" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/jira/connect`)}>Connect Jira</Button></div> : provider === "SLACK_OAUTH" ? <div className="credential-form__oauth-helper"><span>Slack lets Fluxora list public channels and send messages as its bot.</span><button type="button" className="credential-form__oauth-link" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/slack/connect`)}>Connect Slack <ArrowUpRight size={13} aria-hidden="true" /></button></div> : <CredentialSecretFields provider={provider} value={data} onChange={(value) => { setData(value); setJsonError(null); setCreateError(null); }} />}
         {jsonError && <p className="credential-form__error" role="alert">{jsonError}</p>}
         {createError && <p className="credential-form__error" role="alert">{createError}</p>}
-        {provider !== "SLACK_OAUTH" && provider !== "JIRA" && <Button variant="primary" className="run-button" type="submit" disabled={isSaving}>{isSaving ? "Encrypting…" : "Encrypt & save"}</Button>}
+        {provider !== "SLACK_OAUTH" && provider !== "JIRA" && provider !== "AIRTABLE" && <Button variant="primary" className="run-button" type="submit" disabled={isSaving}>{isSaving ? "Encrypting…" : "Encrypt & save"}</Button>}
       </form>
       </Collapse>
       {loading ? <div className="credential-list-loading" aria-busy="true" aria-label="Loading connections"><Skeleton /><Skeleton /></div> : loadError ? <Status tone="error" role="alert">{loadError}<Button variant="ghost" onClick={() => void load()}>Retry connections</Button></Status> : visibleCredentials.length === 0 ? <EmptyState icon={<KeyRound size={22} />} title={query || methodFilter !== "all" ? "No matching connections" : "Your connections will appear here"} description={query || methodFilter !== "all" ? "Try another app, name or connection method." : "Add an app once, then select it in any compatible workflow node."} action={query || methodFilter !== "all" ? <Button variant="ghost" onClick={() => { setQuery(""); setMethodFilter("all"); }}>Clear filters</Button> : undefined} /> : (

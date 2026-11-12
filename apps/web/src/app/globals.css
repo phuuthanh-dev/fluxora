@@ -706,3 +706,10 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px soli
 
 .expression-suggestions__source { display: grid; gap: 6px; margin-top: 10px; }
 .expression-suggestions .expression-suggestions__target { color: var(--text-secondary); font-weight: var(--weight-semibold); }
+.expression-suggestions__source { color: var(--ink); font-size: 12px; font-weight: var(--weight-semibold); }
+.expression-suggestions__source input, .expression-suggestions__source select { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; color: var(--ink); min-height: 36px; min-width: 0; padding: 8px 10px; width: 100%; }
+.expression-suggestions__source input:focus-visible, .expression-suggestions__source select:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.expression-suggestions > div { max-height: 280px; overflow: auto; }
+.expression-suggestions button { border-color: var(--line); font-size: 12px; line-height: 1.45; padding: 9px 10px; }
+.expression-suggestions button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.expression-suggestions p, .expression-suggestions small { color: var(--text-secondary); font-size: 12px; }

@@ -86,6 +86,7 @@ export const nodeLibraryFilters: Array<{ id: NodeLibraryFilter; label: string }>
 ];
 
 export const appCatalog: AppDefinition[] = [
+  { id: "airtable", label: "Airtable", description: "Read and update records in your Airtable bases.", icon: "airtable", category: "productivity", aliases: ["tables", "records"] },
   { id: "jira", label: "Jira", description: "Create and manage issues in your Jira Cloud site.", icon: "jira", category: "productivity", aliases: ["atlassian", "issues", "project"] },
   { id: "gitlab", label: "GitLab", description: "Manage issues and react to pipelines and merge requests on gitlab.com.", icon: "gitlab", category: "developer-devops" },
   { id: "slack", label: "Slack", description: "Receive channel events and send Slack messages.", icon: "slack", category: "communication", aliases: ["chat", "notification"] },
@@ -142,6 +143,11 @@ export function edgeKindFromHandle(handle: string | null | undefined): WorkflowE
 }
 
 export const nodeCatalog: NodeDefinition[] = [
+  ...([ ["list-records", "List records"], ["get-record", "Get record"], ["create-record", "Create record"], ["update-record", "Update record"] ] as const).map(([operation, label]): NodeDefinition => ({
+    type: `action.airtable.${operation}`, label: `Airtable · ${label}`, description: `${label} in a selected Airtable base.`, category: "action", libraryGroup: "productivity", appId: "airtable", operationId: operation, operationLabel: label, operationKind: operation === "list-records" || operation === "get-record" ? "search" : "action", icon: "airtable", available: true,
+    defaultConfig: { credentialId: "", baseId: "", tableId: "", ...(operation === "list-records" ? { pageSize: 20, cursor: "" } : {}), ...(operation === "get-record" || operation === "update-record" ? { recordId: "" } : {}), ...(operation === "create-record" || operation === "update-record" ? { fields: [] } : {}) },
+    configurationFields: getSharedNodeConfigurationFields(`action.airtable.${operation}`),
+  })),
   {
     type: "action.riot-tft", label: "Teamfight Tactics", description: "Read TFT post-game data from Riot.",
     category: "action", libraryGroup: "developer-data", appId: "riot-tft", operationId: "api", operationLabel: "Read TFT data", operationKind: "search", icon: "riot-tft", available: true,

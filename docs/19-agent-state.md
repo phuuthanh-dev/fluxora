@@ -1,5 +1,13 @@
 # Agent Current State Gate
 
+## Current batch — 2026-11-12 (qualification snapshot)
+
+- PR #130 merged and production deploy for `dbaf22262191acad1689080043d2cf1f6a7c1827` succeeded. The earlier claim below that multi-trigger had not yet deployed is historical; real mixed-provider delivery remains unqualified.
+- A local manual run in a published manual + webhook workflow succeeded and marked the other trigger skipped. The local test workflow was deactivated; real webhook delivery and mixed-provider polling were not proven by that run.
+- The owner's 03:08 backup was restored in an internal Docker network. Exact deployed API and web images started, API readiness and the home page returned 200, and the vault decrypted 17/17 restored connections. This is not an authenticated UI, provider, queue, or independent-storage test. See [recovery evidence](53-offsite-backup.md).
+- This batch adds four Airtable record operations, OAuth and bounded discovery, plus search in the existing mapper. See [scope and limits](54-airtable-and-mapping.md). At this snapshot Airtable OAuth has not been configured or qualified with a real account. Check PR, CI and deployment state separately before asserting release. The new migration adds an enum value and was applied to the working local database and to a separate disposable test database.
+- Isolated `npm run verify` passed on 2026-11-12: 1,193 API tests passed, 30 skipped, 77 web tests and 246 Playwright tests passed. A later mapping CSS adjustment was visually checked in both themes, followed by a successful web production build and all four editor-onboarding E2E tests. Existing GSAP missing-target warnings remain. These results do not prove live Airtable or independent offsite storage.
+
 ## Production migration and multi-trigger work — 2026-11-12
 
 - PR #129 (`8fea1e3`) deployed the current schedule plus Steam-news subset. The Steam daily workflow is now v11, containing the schedule and three news triggers; the former separate news workflows are archived. A new 4115450 item reached the three configured destinations on 2026-11-11. This supersedes the dated v9 and separate-workflow observations below.

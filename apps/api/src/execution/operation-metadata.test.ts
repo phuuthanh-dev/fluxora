@@ -152,6 +152,10 @@ test("notification receipt metadata matches successful mock output", async () =>
 test("configured mock outputs contain the fields advertised by operation metadata", async () => {
   const credentials = new Proxy({}, { get() { throw new Error("Mock must not read credentials"); } }) as never;
   const cases = [
+    ["action.airtable.list-records", { baseId: "app12345678901234", tableId: "tbl12345678901234" }],
+    ["action.airtable.get-record", { baseId: "app12345678901234", tableId: "tbl12345678901234", recordId: "rec12345678901234" }],
+    ["action.airtable.create-record", { baseId: "app12345678901234", tableId: "tbl12345678901234", fields: [{ column: "Name", type: "text", value: "Example" }] }],
+    ["action.airtable.update-record", { baseId: "app12345678901234", tableId: "tbl12345678901234", recordId: "rec12345678901234", fields: [{ column: "Name", type: "text", value: "Updated" }] }],
     ["action.notion.create-entry", { dataSourceId: "01234567-89ab-cdef-0123-456789abcdef", properties: [{ id: "title", type: "title", value: "Example" }] }],
     ["action.notion.update-entry", { dataSourceId: "01234567-89ab-cdef-0123-456789abcdef", pageId: "01234567-89ab-cdef-0123-456789abcdef", properties: [{ id: "title", type: "title", value: "Example" }] }],
     ["action.notion.append-block", { pageId: "01234567-89ab-cdef-0123-456789abcdef", content: "Example" }],

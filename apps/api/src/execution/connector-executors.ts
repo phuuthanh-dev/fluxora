@@ -43,10 +43,15 @@ import { executeSlackOAuth } from "./slack-oauth";
 import { executeTelegramMessageOperation } from "./telegram-message-operations";
 import { executeGitHubGetIssue, executeGitHubGetPullRequest, executeGitHubListIssues, executeGitHubListPullRequests } from "./github-read";
 import { executeGitHubUpdateIssue } from "./github-update-issue";
+import { executeAirtable } from "./airtable";
 
 /** Server-only registry. Adapters retain validation, authorization, redaction
  * and retry semantics; registration is not a credential or policy bypass. */
 const executors = {
+  "action.airtable.list-records": ({ config, mode, workspaceId, credentials }) => executeAirtable(config, "list-records", mode, workspaceId, credentials),
+  "action.airtable.get-record": ({ config, mode, workspaceId, credentials }) => executeAirtable(config, "get-record", mode, workspaceId, credentials),
+  "action.airtable.create-record": ({ config, mode, workspaceId, credentials }) => executeAirtable(config, "create-record", mode, workspaceId, credentials),
+  "action.airtable.update-record": ({ config, mode, workspaceId, credentials }) => executeAirtable(config, "update-record", mode, workspaceId, credentials),
   "action.steam": ({ config, mode, workspaceId, credentials }) => executeSteamOperation(config, mode, workspaceId, credentials),
   "action.riot-lol": ({ config, mode, workspaceId, credentials }) => executeRiotLol(config, mode, workspaceId, credentials),
   "action.riot-tft": ({ config, mode, workspaceId, credentials }) => executeRiotTft(config, mode, workspaceId, credentials),
