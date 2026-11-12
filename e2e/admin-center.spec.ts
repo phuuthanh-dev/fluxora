@@ -139,11 +139,12 @@ test("administration navigation stays reachable on short screens, in compact mod
   for (const theme of ["light", "dark"]) {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/admin/support");
+    const nav = page.getByRole("navigation", { name: "Platform administration" });
+    await expect(nav).toBeVisible();
     const toggle = page.getByRole("button", { name: `Switch to ${theme} mode`, exact: true });
     if (await toggle.isVisible()) await toggle.click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
     const sidebar = page.getByRole("complementary", { name: "Administration sidebar" });
-    const nav = page.getByRole("navigation", { name: "Platform administration" });
     await expect(nav.getByRole("link", { name: "Support", exact: true })).toHaveAttribute("aria-current", "page");
     await page.screenshot({ path: testInfo.outputPath(`admin-navigation-${theme}.png`) });
     await page.setViewportSize({ width: 1280, height: 520 });
