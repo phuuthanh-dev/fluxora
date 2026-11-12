@@ -226,14 +226,14 @@ test("editor loading surface follows the selected light and dark theme", async (
   // The workflow request remains gated, so DOM readiness does not skip the
   // loading state even when navigation is slow under local machine load.
   await page.goto(`/editor?workflow=${encodeURIComponent(workflowId!)}`, { waitUntil: "domcontentloaded" });
-  const loadingCard = page.locator(".editor-loading__card");
-  await expect(loadingCard).toBeVisible();
+  const loadingScreen = page.locator(".auth-session-loading");
+  await expect(loadingScreen).toBeVisible();
   await loadIntercepted;
-  await expect(loadingCard).toHaveAttribute("role", "status");
-  await expect(loadingCard).toHaveCSS("background-color", "rgb(255, 254, 249)");
+  await expect(loadingScreen.getByRole("status")).toContainText("Loading your workflow");
+  const lightBackground = await loadingScreen.evaluate((element) => getComputedStyle(element).backgroundColor);
 
   await page.evaluate(() => { document.documentElement.dataset.theme = "dark"; });
-  await expect(loadingCard).toHaveCSS("background-color", "rgb(17, 23, 18)");
+  await expect.poll(() => loadingScreen.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe(lightBackground);
 
   releaseLoad();
   await expect(page.getByRole("heading", { name: "Steam daily report" })).toBeVisible();

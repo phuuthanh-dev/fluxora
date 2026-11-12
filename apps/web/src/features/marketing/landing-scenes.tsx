@@ -52,10 +52,9 @@ export function LandingLightStream() {
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
   const [interactive, setInteractive] = useState(false);
-  const { paused, togglePaused } = useLandingEffects();
+  const { paused, togglePaused, introReady } = useLandingEffects();
   const hasStarted = useRef(false);
   const onReady = useCallback(() => {
-    hasStarted.current = true;
     setReady(true);
   }, []);
   const onFailure = useCallback(() => setFailed(true), []);
@@ -90,11 +89,15 @@ export function LandingLightStream() {
   useEffect(() => {
     if (!enabled) setReady(false);
   }, [enabled]);
+  useEffect(() => {
+    if (ready && introReady) hasStarted.current = true;
+  }, [ready, introReady]);
   return (
     <>
       <div
         className="landing-light-stream landing-scene"
         aria-hidden="true"
+        style={{ visibility: introReady ? "visible" : "hidden" }}
         data-scene-state={
           failed || !supported
             ? "fallback"
@@ -131,6 +134,7 @@ export function LandingLightStream() {
               onReady={onReady}
               onFailure={onFailure}
               playIntro={!hasStarted.current}
+              revealReady={introReady}
             />
           </SceneBoundary>
         ) : null}

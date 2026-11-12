@@ -22,6 +22,7 @@ type AppShellHeaderProps = {
   onWorkspaceChange: (workspaceId: string) => void;
   active: "dashboard" | "connections" | "executions" | "editor" | "account" | "admin";
   onBeforeNavigate?: () => boolean;
+  workspaceDisabled?: boolean;
 };
 
 function providerLabel(provider: Identity["provider"]) {
@@ -34,7 +35,7 @@ function avatarInitials(user: User | null) {
   return words.length > 1 ? `${words[0]?.[0] ?? ""}${words.at(-1)?.[0] ?? ""}`.toLocaleUpperCase() : source.slice(0, 2).toLocaleUpperCase();
 }
 
-export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, active, onBeforeNavigate }: AppShellHeaderProps) {
+export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, active, onBeforeNavigate, workspaceDisabled = false }: AppShellHeaderProps) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [identities, setIdentities] = useState<Identity[]>([]);
@@ -99,7 +100,7 @@ export function AppShellHeader({ workspaces, workspaceId, onWorkspaceChange, act
   const navPath = (target: "dashboard" | "connections" | "executions") => target === "dashboard" ? `/dashboard?workspace=${encodeURIComponent(workspaceId)}` : `/dashboard/${target}?workspace=${encodeURIComponent(workspaceId)}`;
   const navigate = (path: string) => { if (onBeforeNavigate?.() !== false) router.push(path); };
 
-  const workspacePicker = <label className="app-shell-workspace" htmlFor="app-shell-workspace"><span>Workspace</span><Select id="app-shell-workspace" value={workspaceId} disabled={workspaces.length === 0} onChange={(event) => { if (onBeforeNavigate?.() !== false) onWorkspaceChange(event.target.value); }}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</Select></label>;
+  const workspacePicker = <label className="app-shell-workspace" htmlFor="app-shell-workspace"><span>Workspace</span><Select id="app-shell-workspace" value={workspaceId} disabled={workspaceDisabled || workspaces.length === 0} onChange={(event) => { if (onBeforeNavigate?.() !== false) onWorkspaceChange(event.target.value); }}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</Select></label>;
   const accountMenu = <Menu label="Account" trigger={<><span className={`app-shell-avatar app-shell-avatar--${user?.avatarColor ?? "lime"}`} aria-hidden="true">{avatarInitials(user)}</span><span className="sidebar-account-copy"><strong>{user?.displayName ?? "Your account"}</strong><span>Account & preferences</span></span></>} className="app-shell-account-menu">
           <div className="app-shell-account-menu__user"><strong>{user?.displayName ?? "Your account"}</strong>{user?.email && <span>{user.email}</span>}</div>
           <Button variant="ghost" className="app-shell-account-menu__link" onClick={() => navigate(`/settings/account?workspace=${encodeURIComponent(workspaceId)}`)}><Settings size={15} /> Account settings</Button>

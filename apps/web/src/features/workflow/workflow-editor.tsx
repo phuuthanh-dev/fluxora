@@ -63,6 +63,7 @@ import { Button, Dialog, DialogHeader, Field, IconButton, Menu, Select, Status, 
 import { useSurfaceMotion } from "../../components/ui/ui-motion";
 import { AppShellHeader } from "../app-shell/app-shell-header";
 import { loginHref } from "../auth/auth-redirect";
+import { SessionLoading } from "../auth/session-loading";
 import { ExecutionDetailsPanel, executionRecoveryGuidance, outputHasList, type ApiExecution } from "./execution-observability";
 import { executionPagination } from "./execution-pagination";
 import { ResourcePicker } from "./resource-picker";
@@ -1439,6 +1440,7 @@ export function WorkflowEditor() {
   const inspectorDraftsRef = useRef<Record<string, InspectorDraft>>({});
   const [execution, setExecution] = useState<ApiExecution | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [initialLoadError, setInitialLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [activeOperation, setActiveOperation] = useState<"saving" | "publishing" | "running" | "debugging" | "retrying" | "activating" | "deactivating" | "live" | "cloning" | null>(null);
   const [credentialsOpen, setCredentialsOpen] = useState(false);
@@ -1608,6 +1610,7 @@ export function WorkflowEditor() {
     if (approvalLinkId === undefined || workflowLinkId === undefined || executionLinkId === undefined) return;
     let isCurrent = true;
     const load = async () => {
+      let redirecting = false;
       try {
         await apiRequest<{ user: { id: string } }>("/auth/me");
         const workspaceResponse = await apiRequest<{ workspaces: WorkspaceSummary[] }>("/workspaces");
@@ -1644,12 +1647,14 @@ export function WorkflowEditor() {
         if (!isCurrent) return;
         const message = reason instanceof Error ? reason.message : "Unable to load this workspace.";
         if (isUnauthenticated(reason)) {
+          redirecting = true;
           router.replace(loginHref(window.location));
           return;
         }
+        setInitialLoadError(message);
         setNotice(message);
       } finally {
-        if (isCurrent) setIsLoading(false);
+        if (isCurrent && !redirecting) setIsLoading(false);
       }
     };
     void load();
@@ -2082,8 +2087,10 @@ export function WorkflowEditor() {
   };
 
   if (isLoading) {
-    return <main className="editor-page editor-loading" aria-busy="true"><div className="editor-loading__card" role="status" aria-live="polite"><LoaderCircle className="ui-spinner" size={20} aria-hidden="true" /><strong>Preparing your workspace</strong><span>Loading workflow, credentials, and the editor canvas…</span><div className="editor-loading__progress" /></div></main>;
+    return <SessionLoading label="Loading your workflow…" />;
   }
+
+  if (initialLoadError && !workflow) return <main className="dashboard-loading"><div className="editor-loading__card" role="alert"><strong>Could not load this workflow</strong><span>{initialLoadError}</span><Button variant="secondary" onClick={() => window.location.reload()}>Try again</Button><Button variant="ghost" onClick={() => router.push("/dashboard")}>Back to dashboard</Button></div></main>;
 
   const progressLabel = activeOperation === "saving" ? "Saving draft" : activeOperation === "publishing" ? "Publishing workflow" : activeOperation === "running" ? "Starting test run" : activeOperation === "debugging" ? "Running node debug" : activeOperation === "retrying" ? "Retrying execution" : activeOperation === "activating" ? "Activating workflow" : activeOperation === "deactivating" ? "Deactivating workflow" : activeOperation === "live" ? "Starting live execution" : activeOperation === "cloning" ? "Creating workflow copy" : null;
 

@@ -4,10 +4,11 @@ import { KeyRound } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiRequest, apiUrl, isUnauthenticated } from "../api/api-client";
-import { Button, EmptyState, PageHeader, Skeleton, Status } from "../../components/ui";
+import { Button, EmptyState, PageHeader, Status } from "../../components/ui";
 import { CredentialManager } from "./credential-panel";
 import { AppShellHeader } from "../app-shell/app-shell-header";
 import { loginHref } from "../auth/auth-redirect";
+import { SessionLoading } from "../auth/session-loading";
 
 type WorkspaceSummary = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
 
@@ -25,6 +26,7 @@ export function ConnectionsDashboard() {
 
   useEffect(() => {
     let active = true;
+    let redirecting = false;
     void (async () => {
       try {
         const workspaceResponse = await apiRequest<{ workspaces: WorkspaceSummary[] }>("/workspaces");
@@ -36,10 +38,10 @@ export function ConnectionsDashboard() {
       } catch (reason) {
         if (!active) return;
         const message = reason instanceof Error ? reason.message : "Unable to load connections.";
-        if (isUnauthenticated(reason)) router.replace(loginHref(window.location));
+        if (isUnauthenticated(reason)) { redirecting = true; router.replace(loginHref(window.location)); }
         else setError(message);
       } finally {
-        if (active) setIsLoading(false);
+        if (active && !redirecting) setIsLoading(false);
       }
     })();
     return () => { active = false; };
@@ -109,13 +111,7 @@ export function ConnectionsDashboard() {
   };
 
   if (isLoading) {
-    return (
-      <main className="dashboard-loading connections-loading" aria-busy="true">
-        <Skeleton className="connections-loading__mark" />
-        <strong>Preparing connections</strong>
-        <span>Loading workspace access and encrypted connection summaries…</span>
-      </main>
-    );
+    return <SessionLoading />;
   }
 
   return (

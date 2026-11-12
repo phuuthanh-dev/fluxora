@@ -7,6 +7,7 @@ import { apiRequest, isUnauthenticated } from "../api/api-client";
 import { Button, EmptyState, IconButton, PageHeader, Progress, SectionHeader, Skeleton, Status, Toolbar } from "../../components/ui";
 import { AppShellHeader } from "../app-shell/app-shell-header";
 import { loginHref } from "../auth/auth-redirect";
+import { SessionLoading } from "../auth/session-loading";
 import { SavedExecutionViews } from "./saved-execution-views";
 import { Disclosure } from "../../components/ui/disclosure";
 
@@ -44,6 +45,7 @@ export function ExecutionsDashboard() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [filter, setFilter] = useState<ExecutionFilter>("ALL");
   const [isLoading, setIsLoading] = useState(true);
+  const [workspaceReady, setWorkspaceReady] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retention, setRetention] = useState<Retention | null>(null);
@@ -98,12 +100,13 @@ export function ExecutionsDashboard() {
         const initialWorkspaceId = initialWorkspace?.id ?? "";
         activeWorkspaceId.current = initialWorkspaceId;
         setWorkspaceId(initialWorkspaceId);
+        setWorkspaceReady(true);
         await loadExecutions(initialWorkspaceId);
       } catch (reason) {
         if (!active) return;
         const message = reason instanceof Error ? reason.message : "Unable to load execution history.";
         if (isUnauthenticated(reason)) router.replace(loginHref(window.location));
-        else setError(message);
+        else { setError(message); setWorkspaceReady(true); setIsLoading(false); }
       }
     })();
     return () => { active = false; };
@@ -140,6 +143,7 @@ export function ExecutionsDashboard() {
   };
 
   const activeWorkspace = workspaces.find((workspace) => workspace.id === workspaceId);
+  if (!workspaceReady) return <SessionLoading />;
   return (
     <main className="dashboard-page executions-page">
       <AppShellHeader workspaces={workspaces} workspaceId={workspaceId} onWorkspaceChange={switchWorkspace} active="executions" />

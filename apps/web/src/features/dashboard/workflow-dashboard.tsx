@@ -15,6 +15,7 @@ import { consumeOAuthReturn, loginHref } from "../auth/auth-redirect";
 import { Collapse } from "../../components/ui/disclosure";
 import { ArchivedWorkflows } from "./archived-workflows";
 import { WorkspaceActivity } from "./workspace-activity";
+import { SessionLoading } from "../auth/session-loading";
 
 type WorkspaceSummary = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
 type RuntimeStatus = { status: "ready" | "degraded"; checks: { database: "ready" | "unavailable"; scheduler?: "enabled" | "disabled"; queue: { status: "ready" | "unavailable"; mode: "inline" | "redis"; configuredWorkerConcurrency: number; waiting: number; active: number; delayed: number; failed: number } } };
@@ -51,6 +52,8 @@ export function WorkflowDashboard() {
   const [workflowName, setWorkflowName] = useState("Untitled workflow");
   const [workspaceName, setWorkspaceName] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [shellReady, setShellReady] = useState(false);
+  const [initialLoadError, setInitialLoadError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [notice, setNotice] = useState("Loading your workspace…");
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
@@ -122,35 +125,37 @@ export function WorkflowDashboard() {
 
   useEffect(() => {
     let active = true;
+    let redirecting = false;
     void (async () => {
       try {
         const templatesRequest = apiRequest<{ templates: WorkflowTemplate[] }>("/workflow-templates").catch(() => null);
         const workspaceResponse = await apiRequest<{ workspaces: WorkspaceSummary[] }>("/workspaces");
-        const templatesResponse = await templatesRequest;
         if (!active) return;
         const authProvider = new URLSearchParams(window.location.search).get("auth");
         if (authProvider === "google" || authProvider === "github") {
           const destination = consumeOAuthReturn();
-          if (destination !== "/dashboard") { router.replace(destination); return; }
+          if (destination !== "/dashboard") { redirecting = true; router.replace(destination); return; }
         }
         setWorkspaces(workspaceResponse.workspaces);
-        const availableTemplates = templatesResponse?.templates.length ? templatesResponse.templates : fallbackTemplates;
-        setTemplates(availableTemplates);
-        setSelectedTemplate((current) => availableTemplates.some((template) => template.slug === current) ? current : availableTemplates[0]!.slug);
         const requestedWorkspace = new URLSearchParams(window.location.search).get("workspace");
         const initialWorkspaceId = workspaceResponse.workspaces.find((workspace) => workspace.id === requestedWorkspace)?.id ?? workspaceResponse.workspaces[0]?.id ?? "";
         activeWorkspaceIdRef.current = initialWorkspaceId;
         setWorkspaceId(initialWorkspaceId);
-        await Promise.all([loadWorkflows(initialWorkspaceId), loadExecutions(initialWorkspaceId)]);
+        setShellReady(true);
+        const [templatesResponse] = await Promise.all([templatesRequest, loadWorkflows(initialWorkspaceId), loadExecutions(initialWorkspaceId)]);
+        if (!active) return;
+        const availableTemplates = templatesResponse?.templates.length ? templatesResponse.templates : fallbackTemplates;
+        setTemplates(availableTemplates);
+        setSelectedTemplate((current) => availableTemplates.some((template) => template.slug === current) ? current : availableTemplates[0]!.slug);
         const parameters = new URLSearchParams(window.location.search);
         if (active) setNotice(parameters.get("identity") === "steam" ? "Steam identity linked. Steam API access still requires a separate credential." : parameters.get("identityError") === "steam" ? "Steam identity could not be linked. Please try again." : initialWorkspaceId ? "Choose a workflow or start a new one." : "Create a workspace to begin.");
       } catch (reason) {
         if (!active) return;
         const message = reason instanceof Error ? reason.message : "Unable to load your workspace.";
-        if (isUnauthenticated(reason)) router.replace(loginHref(window.location));
-        else setNotice(message);
+        if (isUnauthenticated(reason)) { redirecting = true; router.replace(loginHref(window.location)); }
+        else { setNotice(message); setInitialLoadError(message); setShellReady(true); }
       } finally {
-        if (active) setIsLoading(false);
+        if (active && !redirecting) setIsLoading(false);
       }
     })();
 
@@ -306,13 +311,14 @@ export function WorkflowDashboard() {
 
   const selectedTemplateDetails = templates.find((template) => template.slug === selectedTemplate);
 
-  if (isLoading) return <main className="dashboard-loading" aria-busy="true"><Sparkles className="ui-spinner" size={22} /><strong>Preparing your dashboard</strong><span>Loading workspaces and workflows…</span></main>;
+  if (!shellReady) return <SessionLoading />;
 
   const activeWorkspace = workspaces.find((workspace) => workspace.id === workspaceId);
   return (
     <main className="dashboard-page">
-      <AppShellHeader workspaces={workspaces} workspaceId={workspaceId} onWorkspaceChange={(nextWorkspaceId) => void switchWorkspace(nextWorkspaceId)} active="dashboard" />
+      <AppShellHeader workspaces={workspaces} workspaceId={workspaceId} onWorkspaceChange={(nextWorkspaceId) => void switchWorkspace(nextWorkspaceId)} active="dashboard" workspaceDisabled={isLoading} />
       <section className="dashboard-main">
+        {isLoading ? <div className="dashboard-skeleton" role="status" aria-label="Loading workflows" aria-busy="true"><span className="sr-only">Loading your workflows…</span><div className="dashboard-skeleton__heading ui-skeleton" aria-hidden="true" /><div className="dashboard-skeleton__subheading ui-skeleton" aria-hidden="true" /><div className="dashboard-skeleton__toolbar ui-skeleton" aria-hidden="true" /><div className="workflow-card-grid" aria-hidden="true">{[0, 1, 2].map((item) => <div key={item} className="dashboard-skeleton__card"><span className="ui-skeleton" /><span className="ui-skeleton" /><span className="ui-skeleton" /></div>)}</div></div> : initialLoadError ? <div className="dashboard-empty" role="alert"><h1>Could not load your workspace</h1><p>{initialLoadError}</p><Button variant="secondary" onClick={() => window.location.reload()}>Try again</Button></div> : <>
         <PageHeader className="dashboard-hero" eyebrow={activeWorkspace?.name ?? "WORKSPACE"} title="Workflows" description="Build, test and manage the automations in this workspace." actions={<Button variant="primary" className="dashboard-new-button" onClick={focusWorkflowCreate}><CirclePlus size={17} /> New workflow</Button>} />
         <div className="dashboard-stats"><div><LayoutDashboard size={17} /><strong>{workflows.length}</strong><span>workflows</span></div><div><FolderKanban size={17} /><strong>{workflows.filter((workflow) => workflow.isActive).length}</strong><span>active workflows</span></div><div><FilePlus2 size={17} /><strong>{workflows.filter((workflow) => !workflow.published).length}</strong><span>draft-only</span></div></div>
         <section className="dashboard-workflows">
@@ -360,6 +366,7 @@ export function WorkflowDashboard() {
         </div>
         <section id="workflow-create" className="dashboard-create"><div><p className="section-label">CREATE</p><h2>Start a workflow</h2><p>Start with a blank canvas or choose a starter template.</p></div><div className="dashboard-create__actions"><input ref={workflowNameInputRef} aria-label="New workflow name" value={workflowName} onChange={(event) => setWorkflowName(event.target.value)} /><Button variant="secondary" className="dashboard-secondary-button" onClick={() => void createWorkflow()} disabled={isCreating || !workspaceId || !workflowName.trim()}>{isCreating && lastCreateTemplate === undefined ? "Creating…" : "Blank workflow"}</Button><Select aria-label="Choose workflow template" value={selectedTemplate} onChange={(event) => setSelectedTemplate(event.target.value)} disabled={isCreating || !workspaceId}>{templates.map((template) => <option key={template.slug} value={template.slug}>{template.name}</option>)}</Select><Button variant="primary" className="dashboard-primary-button" onClick={() => void createWorkflow(selectedTemplate)} disabled={isCreating || !workspaceId || !templates.some((template) => template.slug === selectedTemplate)}>{isCreating && lastCreateTemplate === selectedTemplate ? "Creating…" : selectedTemplate === "steam-daily-report" ? "Use Steam template" : "Use template"}</Button></div>{selectedTemplateDetails && <div className="dashboard-create__template-details" role="region" aria-label="Selected template details" aria-live="polite"><p>{selectedTemplateDetails.description}</p><span>Connections for live runs: {selectedTemplateDetails.requiredConnections.join(" · ")}</span></div>}{createError && <Status tone="error" className="dashboard-create__error"><span>{createError}</span><Button variant="ghost" className="dashboard-create__retry" onClick={() => void createWorkflow(lastCreateTemplate)} disabled={isCreating}>Retry</Button></Status>}</section>
         <section className="dashboard-workspace-create"><div><p className="section-label">WORKSPACE</p><h2>Create another workspace</h2></div><form onSubmit={createWorkspace}><input aria-label="New workspace name" value={workspaceName} onChange={(event) => setWorkspaceName(event.target.value)} placeholder="e.g. Personal automations" /><Button variant="secondary" className="dashboard-secondary-button" disabled={isCreating || !workspaceName.trim()} type="submit">Create workspace</Button></form></section>
+        </>}
       </section>
       {workflowAction && <div className="dashboard-action-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeWorkflowAction(); }}><Dialog label={workflowAction.type === "rename" ? "Rename workflow" : workflowAction.type === "archive" ? "Archive workflow" : workflowAction.type === "delete" ? "Delete workflow" : "Duplicate workflow"} className="dashboard-action-dialog" onClose={closeWorkflowAction} initialFocusSelector={workflowAction.type === "rename" ? '[aria-label="Workflow name"]' : undefined}><DialogHeader eyebrow="WORKFLOW ACTION" title={workflowAction.type === "rename" ? "Rename workflow" : workflowAction.type === "archive" ? "Archive workflow" : workflowAction.type === "delete" ? "Delete workflow" : "Duplicate workflow"} onClose={closeWorkflowAction} closeLabel="Close workflow action" />{workflowAction.type === "rename" ? <><p>Choose a clear name for <strong>{workflowAction.workflow.name}</strong>.</p><label className="dashboard-action-dialog__field"><span>Workflow name</span><input aria-label="Workflow name" value={workflowActionName} onChange={(event) => setWorkflowActionName(event.target.value)} /></label></> : <p>{workflowAction.type === "archive" ? <><strong>{workflowAction.workflow.name}</strong> will be hidden from this workspace. Its versions and execution history stay available.</> : workflowAction.type === "delete" ? <><strong>{workflowAction.workflow.name}</strong> will be permanently removed. This is only allowed when it has no execution history.</> : <>Create a new draft copy of <strong>{workflowAction.workflow.name}</strong>?</>}</p>}{workflowActionError && <Status tone="error" className="dashboard-action-dialog__error">{workflowActionError}</Status>}<div className="dashboard-action-dialog__actions"><Button variant="ghost" onClick={closeWorkflowAction} disabled={workflowActionLoading}>Cancel</Button><Button variant={workflowAction.type === "delete" ? "danger" : "primary"} onClick={() => void applyWorkflowAction()} disabled={workflowActionLoading || (workflowAction.type === "rename" && !workflowActionName.trim())}>{workflowActionLoading ? "Working…" : workflowAction.type === "rename" ? "Save name" : workflowAction.type === "archive" ? "Archive workflow" : workflowAction.type === "delete" ? "Delete permanently" : "Duplicate workflow"}</Button></div></Dialog></div>}
     </main>

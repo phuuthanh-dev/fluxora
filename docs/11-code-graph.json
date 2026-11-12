@@ -3307,7 +3307,8 @@
         "apps/web/src/features/admin/jira-privacy-panel.tsx",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/auth/auth-navigation.tsx",
-        "apps/web/src/features/auth/auth-redirect.ts"
+        "apps/web/src/features/auth/auth-redirect.ts",
+        "apps/web/src/features/auth/session-loading.tsx"
       ],
       "externalImports": [
         "lucide-react",
@@ -3395,7 +3396,8 @@
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/app-shell/app-shell-header.tsx",
         "apps/web/src/features/auth/auth-redirect.ts",
-        "apps/web/src/features/auth/password-field.tsx"
+        "apps/web/src/features/auth/password-field.tsx",
+        "apps/web/src/features/auth/session-loading.tsx"
       ],
       "externalImports": [
         "lucide-react",
@@ -3432,6 +3434,7 @@
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/auth/auth-navigation.tsx",
         "apps/web/src/features/auth/auth-redirect.ts",
+        "apps/web/src/features/auth/session-loading.tsx",
         "apps/web/src/features/workflow/node-icon.tsx"
       ],
       "externalImports": [
@@ -3468,6 +3471,14 @@
       ]
     },
     {
+      "id": "apps/web/src/features/auth/session-loading.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/brand/brand-lockup.tsx"
+      ],
+      "externalImports": []
+    },
+    {
       "id": "apps/web/src/features/credentials/connections-dashboard.tsx",
       "boundary": "web",
       "internalImports": [
@@ -3475,6 +3486,7 @@
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/app-shell/app-shell-header.tsx",
         "apps/web/src/features/auth/auth-redirect.ts",
+        "apps/web/src/features/auth/session-loading.tsx",
         "apps/web/src/features/credentials/credential-panel.tsx"
       ],
       "externalImports": [
@@ -3544,6 +3556,7 @@
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/app-shell/app-shell-header.tsx",
         "apps/web/src/features/auth/auth-redirect.ts",
+        "apps/web/src/features/auth/session-loading.tsx",
         "apps/web/src/features/dashboard/saved-execution-views.tsx"
       ],
       "externalImports": [
@@ -3573,6 +3586,7 @@
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/app-shell/app-shell-header.tsx",
         "apps/web/src/features/auth/auth-redirect.ts",
+        "apps/web/src/features/auth/session-loading.tsx",
         "apps/web/src/features/dashboard/archived-workflows.tsx",
         "apps/web/src/features/dashboard/workspace-activity.tsx",
         "apps/web/src/features/workflow/node-catalog.ts",
@@ -4160,6 +4174,7 @@
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/app-shell/app-shell-header.tsx",
         "apps/web/src/features/auth/auth-redirect.ts",
+        "apps/web/src/features/auth/session-loading.tsx",
         "apps/web/src/features/credentials/credential-panel.tsx",
         "apps/web/src/features/credentials/credential-types.ts",
         "apps/web/src/features/workflow/airtable-fields.tsx",
@@ -8514,6 +8529,10 @@
       "to": "apps/web/src/features/auth/auth-redirect.ts"
     },
     {
+      "from": "apps/web/src/features/admin/admin-dashboard.tsx",
+      "to": "apps/web/src/features/auth/session-loading.tsx"
+    },
+    {
       "from": "apps/web/src/features/admin/admin-shell.tsx",
       "to": "apps/web/src/components/brand/brand-lockup.tsx"
     },
@@ -8602,6 +8621,10 @@
       "to": "apps/web/src/features/auth/password-field.tsx"
     },
     {
+      "from": "apps/web/src/features/auth/account-settings.tsx",
+      "to": "apps/web/src/features/auth/session-loading.tsx"
+    },
+    {
       "from": "apps/web/src/features/auth/auth-navigation.tsx",
       "to": "apps/web/src/components/brand/brand-lockup.tsx"
     },
@@ -8635,6 +8658,10 @@
     },
     {
       "from": "apps/web/src/features/auth/login-form.tsx",
+      "to": "apps/web/src/features/auth/session-loading.tsx"
+    },
+    {
+      "from": "apps/web/src/features/auth/login-form.tsx",
       "to": "apps/web/src/features/workflow/node-icon.tsx"
     },
     {
@@ -8658,6 +8685,10 @@
       "to": "apps/web/src/features/auth/password-field.tsx"
     },
     {
+      "from": "apps/web/src/features/auth/session-loading.tsx",
+      "to": "apps/web/src/components/brand/brand-lockup.tsx"
+    },
+    {
       "from": "apps/web/src/features/credentials/connections-dashboard.tsx",
       "to": "apps/web/src/components/ui/index.ts"
     },
@@ -8672,6 +8703,10 @@
     {
       "from": "apps/web/src/features/credentials/connections-dashboard.tsx",
       "to": "apps/web/src/features/auth/auth-redirect.ts"
+    },
+    {
+      "from": "apps/web/src/features/credentials/connections-dashboard.tsx",
+      "to": "apps/web/src/features/auth/session-loading.tsx"
     },
     {
       "from": "apps/web/src/features/credentials/connections-dashboard.tsx",
@@ -8747,6 +8782,10 @@
     },
     {
       "from": "apps/web/src/features/dashboard/executions-dashboard.tsx",
+      "to": "apps/web/src/features/auth/session-loading.tsx"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/executions-dashboard.tsx",
       "to": "apps/web/src/features/dashboard/saved-execution-views.tsx"
     },
     {
@@ -8780,6 +8819,10 @@
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
       "to": "apps/web/src/features/auth/auth-redirect.ts"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
+      "to": "apps/web/src/features/auth/session-loading.tsx"
     },
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
@@ -9180,6 +9223,10 @@
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",
       "to": "apps/web/src/features/auth/auth-redirect.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/auth/session-loading.tsx"
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",

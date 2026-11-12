@@ -118,13 +118,17 @@ export function LightStreamScene({
   onReady,
   onFailure,
   playIntro,
+  revealReady,
 }: {
   onReady: () => void;
   onFailure: () => void;
   playIntro: boolean;
+  revealReady: boolean;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const initialIntro = useRef(playIntro);
+  const revealReadyRef = useRef(revealReady);
+  revealReadyRef.current = revealReady;
   useEffect(() => {
     const host = hostRef.current,
       page = document.querySelector<HTMLElement>(".landing-page");
@@ -349,7 +353,7 @@ export function LightStreamScene({
       lenis.raf(time * 1000);
       const dt = lastTick ? Math.min(0.1, Math.max(0, time - lastTick)) : 0;
       lastTick = time;
-      elapsed += dt;
+      if (revealReadyRef.current) elapsed += dt;
       scrollDistance += Math.abs(lenis.scroll - previousScroll) * 1.25;
       previousScroll = lenis.scroll;
       if (

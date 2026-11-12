@@ -81,6 +81,49 @@ test("session check distinguishes server errors from an absent session", async (
   await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
 });
 
+test("session checks do not flash the sign-in layout before the server responds", async ({ page }) => {
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  await page.route("**/auth/me", async (route) => { await pending; await route.fulfill({ status: 401, json: { code: "UNAUTHENTICATED" } }); });
+  await page.goto("/login");
+  await expect(page.getByRole("status")).toContainText("Checking your session");
+  await expect(page.locator(".auth-showcase")).toHaveCount(0);
+  release();
+  await expect(page.getByRole("heading", { name: "Sign in to your workspace" })).toBeVisible();
+});
+
+test("dashboard keeps its shell visible while workflows load", async ({ page }) => {
+  await register(page);
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  await page.route("**/workspaces/*/workflows", async (route) => { await pending; await route.continue(); });
+  await page.goto("/dashboard");
+  await expect(page.locator(".app-shell-header")).toBeVisible();
+  await expect(page.getByRole("status", { name: "Loading workflows" })).toBeVisible();
+  await expect(page.getByText("No workflows yet")).toHaveCount(0);
+  release();
+  await expect(page.getByRole("heading", { name: "Workflows", level: 1 })).toBeVisible();
+});
+
+test("admin access is checked before showing administration navigation", async ({ page }) => {
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  await page.route("**/admin/access", async (route) => { await pending; await route.fulfill({ status: 403, json: { code: "ADMIN_REQUIRED" } }); });
+  await page.goto("/admin");
+  await expect(page.getByRole("status")).toContainText("Checking administration access");
+  await expect(page.getByRole("navigation", { name: "Platform administration" })).toHaveCount(0);
+  release();
+  await expect(page.getByRole("heading", { name: "Access restricted" })).toBeVisible();
+});
+
+test("an inaccessible workflow shows an error instead of an editable placeholder", async ({ page }) => {
+  await register(page);
+  await page.route("**/workflows/not-found", route => route.fulfill({ status: 404, json: { message: "Workflow was not found." } }));
+  await page.goto("/editor?workflow=not-found");
+  await expect(page.locator("main").getByRole("alert")).toContainText("Could not load this workflow");
+  await expect(page.getByRole("button", { name: "Run test" })).toHaveCount(0);
+});
+
 test("a malformed successful session response is not treated as an authenticated user", async ({ page }) => {
   await page.route("**/auth/me", route => route.fulfill({ status: 200, json: {} }));
   await page.goto("/login");
