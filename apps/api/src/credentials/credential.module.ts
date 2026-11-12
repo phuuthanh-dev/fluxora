@@ -1,4 +1,7 @@
 import { JiraOAuthController } from "./jira-oauth.controller";
+import { AirtableOAuthController } from "./airtable-oauth.controller";
+import { AirtableResourceController } from "./airtable-resource.controller";
+import { AirtableOAuthStateService } from "./airtable-oauth-state.service";
 import { JiraOAuthStateService } from "./jira-oauth-state.service";
 import { NotionOAuthController } from "./notion-oauth.controller";
 import { NotionOAuthStateService } from "./notion-oauth-state.service";
@@ -26,8 +29,8 @@ import { SlackResourceController } from "./slack-resource.controller";
 
 @Module({
   imports: [AuthModule, WorkspaceModule],
-  controllers: [JiraOAuthController, NotionOAuthController, CredentialController, GoogleOAuthController, SlackOAuthController, SlackResourceController, GitHubResourceController, GoogleResourceController, GeminiResourceController, OpenAIResourceController, ConnectorResourceController, GoogleCalendarResourceController, GmailResourceController],
-  providers: [JiraOAuthStateService, NotionOAuthStateService, CredentialService, CredentialVaultService, GoogleOAuthStateService, SlackOAuthStateService, GitHubResourceService, GoogleResourceService, AccountRequestGuard],
+  controllers: [AirtableOAuthController, AirtableResourceController, JiraOAuthController, NotionOAuthController, CredentialController, GoogleOAuthController, SlackOAuthController, SlackResourceController, GitHubResourceController, GoogleResourceController, GeminiResourceController, OpenAIResourceController, ConnectorResourceController, GoogleCalendarResourceController, GmailResourceController],
+  providers: [AirtableOAuthStateService, JiraOAuthStateService, NotionOAuthStateService, CredentialService, CredentialVaultService, GoogleOAuthStateService, SlackOAuthStateService, GitHubResourceService, GoogleResourceService, AccountRequestGuard],
   exports: [CredentialService, CredentialVaultService],
 })
 export class CredentialModule {}

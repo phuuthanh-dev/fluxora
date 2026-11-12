@@ -106,6 +106,9 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(mapping).toBeVisible();
   await mapping.click();
   await expect(page.getByLabel("Mapping source step")).toBeVisible();
+  await page.getByLabel("Find a field").fill("no-such-field-123");
+  await expect(page.getByText("No matching fields. Try another name or source step.")).toBeVisible();
+  await page.getByLabel("Find a field").clear();
   await expect(page.getByRole("region", { name: "Test & debug" })).toBeVisible();
   const debugPanel = page.getByRole("region", { name: "Test & debug" });
   await expect(debugPanel.getByText("Returns sample output without calling the provider. Only this node runs; live connections and inputs are not verified.")).toBeVisible();

@@ -291,6 +291,61 @@
       ]
     },
     {
+      "id": "apps/api/src/credentials/airtable-oauth-state.service.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/oauth-state-store.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "express",
+        "ioredis"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/airtable-oauth.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/auth.service.ts",
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/credentials/airtable-oauth-state.service.ts",
+        "apps/api/src/credentials/airtable-oauth.ts",
+        "apps/api/src/credentials/credential.service.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "express"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/airtable-oauth.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential-vault.service.ts",
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/provider-json.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common",
+        "@prisma/client",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/credentials/airtable-resource.controller.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/auth/authenticated-request.ts",
+        "apps/api/src/auth/authentication.guard.ts",
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/airtable.ts"
+      ],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
       "id": "apps/api/src/credentials/connector-item-discovery.ts",
       "boundary": "api",
       "internalImports": [
@@ -393,6 +448,9 @@
       "internalImports": [
         "apps/api/src/auth/account-request.guard.ts",
         "apps/api/src/auth/auth.module.ts",
+        "apps/api/src/credentials/airtable-oauth-state.service.ts",
+        "apps/api/src/credentials/airtable-oauth.controller.ts",
+        "apps/api/src/credentials/airtable-resource.controller.ts",
         "apps/api/src/credentials/connector-resource.controller.ts",
         "apps/api/src/credentials/credential-vault.service.ts",
         "apps/api/src/credentials/credential.controller.ts",
@@ -424,6 +482,7 @@
       "id": "apps/api/src/credentials/credential.service.ts",
       "boundary": "api",
       "internalImports": [
+        "apps/api/src/credentials/airtable-oauth.ts",
         "apps/api/src/credentials/credential-hints.ts",
         "apps/api/src/credentials/credential-references.ts",
         "apps/api/src/credentials/credential-vault.service.ts",
@@ -804,6 +863,23 @@
       ]
     },
     {
+      "id": "apps/api/src/execution/airtable.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/json-decimal.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-credential-safety.ts",
+        "apps/api/src/execution/provider-request-policy.ts",
+        "apps/api/src/execution/redaction.ts",
+        "apps/api/src/execution/retry-policy.ts"
+      ],
+      "externalImports": [
+        "@workflow/contracts"
+      ]
+    },
+    {
       "id": "apps/api/src/execution/approval-continuation-recovery.service.ts",
       "boundary": "api",
       "internalImports": [
@@ -829,6 +905,7 @@
       "boundary": "api",
       "internalImports": [
         "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/airtable.ts",
         "apps/api/src/execution/connector-config.ts",
         "apps/api/src/execution/gemini-text.ts",
         "apps/api/src/execution/github-read.ts",
@@ -3774,6 +3851,17 @@
       ]
     },
     {
+      "id": "apps/web/src/features/workflow/airtable-fields.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/ui/index.ts",
+        "apps/web/src/features/api/api-client.ts"
+      ],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
       "id": "apps/web/src/features/workflow/auto-layout.ts",
       "boundary": "web",
       "internalImports": [
@@ -3930,6 +4018,7 @@
       "boundary": "web",
       "internalImports": [],
       "externalImports": [
+        "@iconify-icons/logos/airtable",
         "@iconify-icons/logos/discord-icon",
         "@iconify-icons/logos/gitlab-icon",
         "@iconify-icons/logos/google-calendar-2020",
@@ -4073,6 +4162,7 @@
         "apps/web/src/features/auth/auth-redirect.ts",
         "apps/web/src/features/credentials/credential-panel.tsx",
         "apps/web/src/features/credentials/credential-types.ts",
+        "apps/web/src/features/workflow/airtable-fields.tsx",
         "apps/web/src/features/workflow/data-path-field.tsx",
         "apps/web/src/features/workflow/drive-pagination.ts",
         "apps/web/src/features/workflow/drive-search-field.tsx",
@@ -4150,6 +4240,14 @@
       "externalImports": []
     },
     {
+      "id": "packages/workflow-contracts/src/airtable-fields.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-configuration-fields.ts"
+      ],
+      "externalImports": []
+    },
+    {
       "id": "packages/workflow-contracts/src/communication-node-fields.ts",
       "boundary": "contracts",
       "internalImports": [
@@ -4163,6 +4261,7 @@
       "boundary": "contracts",
       "internalImports": [
         "packages/workflow-contracts/src/ai-node-fields.ts",
+        "packages/workflow-contracts/src/airtable-fields.ts",
         "packages/workflow-contracts/src/communication-node-fields.ts",
         "packages/workflow-contracts/src/data-node-fields.ts",
         "packages/workflow-contracts/src/data-transform-fields.ts",
@@ -4284,6 +4383,7 @@
       "id": "packages/workflow-contracts/src/node-config-schema.ts",
       "boundary": "contracts",
       "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/airtable.ts",
         "packages/workflow-contracts/src/node-config-schemas/data-transform.ts",
         "packages/workflow-contracts/src/node-config-schemas/discord.ts",
         "packages/workflow-contracts/src/node-config-schemas/flow.ts",
@@ -4321,6 +4421,16 @@
       "boundary": "contracts",
       "internalImports": [
         "packages/workflow-contracts/src/ai-schema.ts",
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/airtable.ts",
+      "boundary": "contracts",
+      "internalImports": [
         "packages/workflow-contracts/src/node-config-schemas/types.ts"
       ],
       "externalImports": [
@@ -4948,6 +5058,62 @@
       "to": "apps/api/src/auth/authenticated-request.ts"
     },
     {
+      "from": "apps/api/src/credentials/airtable-oauth-state.service.ts",
+      "to": "apps/api/src/credentials/oauth-state-store.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/airtable-oauth.controller.ts",
+      "to": "apps/api/src/auth/auth.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/airtable-oauth.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/airtable-oauth.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/airtable-oauth.controller.ts",
+      "to": "apps/api/src/credentials/airtable-oauth-state.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/airtable-oauth.controller.ts",
+      "to": "apps/api/src/credentials/airtable-oauth.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/airtable-oauth.controller.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/airtable-oauth.ts",
+      "to": "apps/api/src/credentials/credential-vault.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/airtable-oauth.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/airtable-oauth.ts",
+      "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/airtable-resource.controller.ts",
+      "to": "apps/api/src/auth/authenticated-request.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/airtable-resource.controller.ts",
+      "to": "apps/api/src/auth/authentication.guard.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/airtable-resource.controller.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/airtable-resource.controller.ts",
+      "to": "apps/api/src/execution/airtable.ts"
+    },
+    {
       "from": "apps/api/src/credentials/connector-item-discovery.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
     },
@@ -5101,6 +5267,18 @@
     },
     {
       "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/airtable-oauth-state.service.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/airtable-oauth.controller.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
+      "to": "apps/api/src/credentials/airtable-resource.controller.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.module.ts",
       "to": "apps/api/src/credentials/connector-resource.controller.ts"
     },
     {
@@ -5186,6 +5364,10 @@
     {
       "from": "apps/api/src/credentials/credential.module.ts",
       "to": "apps/api/src/workspaces/workspace.module.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.service.ts",
+      "to": "apps/api/src/credentials/airtable-oauth.ts"
     },
     {
       "from": "apps/api/src/credentials/credential.service.ts",
@@ -5588,6 +5770,38 @@
       "to": "apps/api/src/execution/redaction.ts"
     },
     {
+      "from": "apps/api/src/execution/airtable.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/airtable.ts",
+      "to": "apps/api/src/execution/json-decimal.ts"
+    },
+    {
+      "from": "apps/api/src/execution/airtable.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/airtable.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/airtable.ts",
+      "to": "apps/api/src/execution/provider-credential-safety.ts"
+    },
+    {
+      "from": "apps/api/src/execution/airtable.ts",
+      "to": "apps/api/src/execution/provider-request-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/airtable.ts",
+      "to": "apps/api/src/execution/redaction.ts"
+    },
+    {
+      "from": "apps/api/src/execution/airtable.ts",
+      "to": "apps/api/src/execution/retry-policy.ts"
+    },
+    {
       "from": "apps/api/src/execution/approval-continuation-recovery.service.ts",
       "to": "apps/api/src/database/prisma.service.ts"
     },
@@ -5606,6 +5820,10 @@
     {
       "from": "apps/api/src/execution/connector-executors.ts",
       "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/airtable.ts"
     },
     {
       "from": "apps/api/src/execution/connector-executors.ts",
@@ -8772,6 +8990,14 @@
       "to": "apps/web/src/components/ui/index.ts"
     },
     {
+      "from": "apps/web/src/features/workflow/airtable-fields.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/airtable-fields.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
       "from": "apps/web/src/features/workflow/auto-layout.ts",
       "to": "apps/web/src/features/workflow/node-catalog.ts"
     },
@@ -8965,6 +9191,10 @@
     },
     {
       "from": "apps/web/src/features/workflow/workflow-editor.tsx",
+      "to": "apps/web/src/features/workflow/airtable-fields.tsx"
+    },
+    {
+      "from": "apps/web/src/features/workflow/workflow-editor.tsx",
       "to": "apps/web/src/features/workflow/data-path-field.tsx"
     },
     {
@@ -9092,6 +9322,10 @@
       "to": "packages/workflow-contracts/src/node-configuration-fields.ts"
     },
     {
+      "from": "packages/workflow-contracts/src/airtable-fields.ts",
+      "to": "packages/workflow-contracts/src/node-configuration-fields.ts"
+    },
+    {
       "from": "packages/workflow-contracts/src/communication-node-fields.ts",
       "to": "packages/workflow-contracts/src/index.ts"
     },
@@ -9102,6 +9336,10 @@
     {
       "from": "packages/workflow-contracts/src/configuration-fields-registry.ts",
       "to": "packages/workflow-contracts/src/ai-node-fields.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/configuration-fields-registry.ts",
+      "to": "packages/workflow-contracts/src/airtable-fields.ts"
     },
     {
       "from": "packages/workflow-contracts/src/configuration-fields-registry.ts",
@@ -9257,6 +9495,10 @@
     },
     {
       "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/airtable.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
       "to": "packages/workflow-contracts/src/node-config-schemas/data-transform.ts"
     },
     {
@@ -9377,6 +9619,10 @@
     },
     {
       "from": "packages/workflow-contracts/src/node-config-schemas/ai-common.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/airtable.ts",
       "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
     },
     {

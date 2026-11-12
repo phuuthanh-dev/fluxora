@@ -31,6 +31,7 @@
     "codegraph:check": "node scripts/generate-code-graph.mjs --check",
     "deployment:check": "node --test scripts/deployment-contract.test.mjs scripts/rollback-compatibility.test.mjs scripts/deploy-compatibility.test.mjs",
     "test:restore:docker": "FLUXORA_RESTORE_DOCKER_TEST=1 node --test scripts/restore-postgres.docker.test.mjs",
+    "backup:check": "node scripts/check-backup-freshness.mjs",
     "release:preflight": "node scripts/release-preflight.mjs",
     "release:smoke": "node scripts/smoke-health.mjs",
     "release:check": "node --test scripts/release-preflight.test.mjs && npm run release:preflight",
@@ -38,7 +39,7 @@
     "production:config:check": "node --test scripts/release-security.test.mjs",
     "agent:state": "node scripts/agent-state-check.mjs",
     "agent:task:check": "node scripts/agent-state-check.mjs --task",
-    "harness:check": "npm run agent:state && node --test scripts/agent-state-check.test.mjs scripts/code-graph.test.mjs && npm run codegraph:check && npm run deployment:check && npm run release:check && npm run security:check",
+    "harness:check": "npm run agent:state && node --test scripts/agent-state-check.test.mjs scripts/code-graph.test.mjs scripts/check-backup-freshness.test.mjs && npm run codegraph:check && npm run deployment:check && npm run release:check && npm run security:check",
     "harness:report": "node scripts/verify-agent-report.mjs",
     "verify": "npm run harness:check && npm run db:validate && npm run db:generate && npm run build:contracts && npm run test:workspaces && npm run quality:workspaces && npm run build:apps && npm run test:e2e"
   },

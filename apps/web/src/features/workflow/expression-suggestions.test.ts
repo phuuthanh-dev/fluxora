@@ -2,6 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildExpressionPreviews, buildExpressionSuggestions, buildItemExpressionSuggestions, buildPossibleExpressionSuggestions, upstreamNodeIds } from "./expression-suggestions";
 
+test("suggestions include later fields so they can be found in the mapper", () => {
+  const output = Object.fromEntries(Array.from({ length: 25 }, (_, index) => [`field${index}`, index]));
+  const suggestions = buildExpressionSuggestions([{ nodeId: "source", output }]);
+  assert.ok(suggestions.includes("{{ steps.source.output.field24 }}"));
+});
+
 test("previews selected output values without expanding objects or unbounded text", () => {
   const previews = buildExpressionPreviews([{ nodeId: "steam", output: { title: "A game update", long: "x".repeat(120), items: [{ count: 2 }], private: "[REDACTED]" } }]);
   assert.equal(previews["{{ steps.steam.output.title }}"], "A game update");

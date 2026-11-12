@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useId } from "react";
 import gitlabIcon from "@iconify-icons/logos/gitlab-icon";
+import airtableIcon from "@iconify-icons/logos/airtable";
 import slackIcon from "@iconify-icons/logos/slack-icon";
 import discordIcon from "@iconify-icons/logos/discord-icon";
 import googleDriveIcon from "@iconify-icons/logos/google-drive-2020";
@@ -48,6 +49,7 @@ import {
 import { BsOpenai } from "react-icons/bs";
 
 export type NodeIconName =
+  | "airtable"
   | "manual"
   | "schedule"
   | "webhook"
@@ -118,6 +120,7 @@ export function NodeIcon({ name, size = 18, className = "" }: { name: NodeIconNa
       case "manual": return <Play {...props} fill="currentColor" />;
       case "schedule": return <Clock3 {...props} />;
       case "webhook": return <Webhook {...props} />;
+      case "airtable": return <BrandIcon icon={airtableIcon} size={size} />;
       case "if": return <GitBranch {...props} />;
       case "merge": return <GitMerge {...props} />;
       case "switch": return <Shuffle {...props} />;

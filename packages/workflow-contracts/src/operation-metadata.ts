@@ -3,7 +3,7 @@ import { workflowNodeTypes, type DataTransformNodeType, type ExecutableWorkflowN
 /** Descriptive metadata only: it must not authorize execution or determine retry policy. */
 export type OperationCredentialProvider =
   | "GOOGLE" | "STEAM" | "GOOGLE_CHAT_WEBHOOK" | "GOOGLE_CHAT_OAUTH" | "GMAIL" | "GOOGLE_CALENDAR"
-  | "JIRA" | "MONGODB" | "NOTION" | "POSTGRES" | "HTTP" | "DISCORD_WEBHOOK" | "SLACK_WEBHOOK" | "SLACK_OAUTH" | "TELEGRAM_BOT" | "GITHUB" | "GITLAB"
+  | "AIRTABLE" | "JIRA" | "MONGODB" | "NOTION" | "POSTGRES" | "HTTP" | "DISCORD_WEBHOOK" | "SLACK_WEBHOOK" | "SLACK_OAUTH" | "TELEGRAM_BOT" | "GITHUB" | "GITLAB"
   | "SMTP" | "GEMINI" | "OPENAI" | "TRELLO" | "SENTRY" | "VERCEL" | "SUPABASE" | "REDDIT" | "RIOT";
 
 export type OperationAuth =
@@ -66,6 +66,10 @@ const trelloCard = fields("id", "name", "description", "boardId", "listId", "clo
 const triggerOutput = fields("received");
 
 const definitions = {
+  "action.airtable.list-records": executable(credential("AIRTABLE"), "read", fields("records", "nextCursor", "hasMore"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "baseId", "tableId", "pageSize"] }),
+  "action.airtable.get-record": executable(credential("AIRTABLE"), "read", fields("record")),
+  "action.airtable.create-record": executable(credential("AIRTABLE"), "write", fields("record")),
+  "action.airtable.update-record": executable(credential("AIRTABLE"), "write", fields("record")),
   "action.notion.retrieve-page": executable(credential("NOTION"), "read", fields("page", "outputInfo")),
   "action.notion.list-children": executable(credential("NOTION"), "read", fields("blocks", "hasMore", "nextCursor"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "blockId", "pageSize"] }),
   "action.notion.retrieve-property": executable(credential("NOTION"), "read", fields("kind", "hasMore", "nextCursor"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "pageId", "propertyId", "pageSize"], caveat: "Only list-valued properties have further pages." }),

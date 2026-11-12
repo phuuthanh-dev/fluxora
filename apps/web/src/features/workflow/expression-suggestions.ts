@@ -33,10 +33,11 @@ export function buildPossibleExpressionSuggestions(nodes: SuggestionNode[], upst
       if (schema.ok) collectSchemaPaths(schema.schema, `steps.${node.id}.output.json`, suggestions, 0);
     }
   }
-  return [...suggestions].slice(0, 18);
+  return [...suggestions].slice(0, 200);
 }
 
 function collectSchemaPaths(schema: AiSchema, path: string, results: Set<string>, depth: number) {
+  if (results.size >= 200) return;
   results.add(`{{ ${path} }}`);
   if (depth >= 4 || schema.type !== "object" || !schema.properties) return;
   for (const [key, child] of Object.entries(schema.properties)) {
@@ -51,13 +52,14 @@ export function buildExpressionSuggestions(executions: NodeExecutionOutput[]) {
     const root = `steps.${execution.nodeId}.output`;
     collectPaths(execution.output, root, suggestions, 0);
   }
-  return [...suggestions].slice(0, 18).map((path) => `{{ ${path} }}`);
+  return [...suggestions].slice(0, 200).map((path) => `{{ ${path} }}`);
 }
 
 /** Preview only values already present in the selected execution output. */
 export function buildExpressionPreviews(executions: NodeExecutionOutput[]): Record<string, string> {
   const previews: Record<string, string> = {};
   const visit = (value: unknown, path: string, depth: number) => {
+    if (Object.keys(previews).length >= 200) return;
     const expression = `{{ ${path} }}`;
     if (value === null) previews[expression] = "null";
     else if (Array.isArray(value)) previews[expression] = `List · ${value.length} items`;
@@ -88,10 +90,11 @@ export function buildItemExpressionSuggestions(node: SuggestionNode, output: unk
   const value = first && typeof first === "object" && !Array.isArray(first) ? first : { value: first };
   const paths = new Set<string>();
   collectPaths(value, "$json", paths, 0);
-  return [...paths].slice(0, 18).map((path) => `{{ ${path} }}`);
+  return [...paths].slice(0, 200).map((path) => `{{ ${path} }}`);
 }
 
 function collectPaths(value: unknown, path: string, results: Set<string>, depth: number) {
+  if (results.size >= 200) return;
   results.add(path);
   if (depth >= 4 || value === null || typeof value !== "object") return;
   if (Array.isArray(value)) {

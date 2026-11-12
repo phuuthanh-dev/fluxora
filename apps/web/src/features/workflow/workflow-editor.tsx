@@ -1,5 +1,6 @@
 "use client";
 import { DataPathField } from "./data-path-field";
+import { AirtableFields } from "./airtable-fields";
 import { NotionPropertiesField } from "./notion-properties-field";
 import { getSharedNodeConfigurationFields, isDataTransformNode, isWebhookTriggerType } from "@workflow/contracts";
 
@@ -121,6 +122,7 @@ function isUptimeKumaTrigger(nodeType: string) {
 
 function providerLabel(provider: CredentialProvider) {
   const labels: Record<CredentialProvider, string> = {
+    AIRTABLE: "Airtable",
     GOOGLE_CHAT_WEBHOOK: "Google Chat",
     DISCORD_WEBHOOK: "Discord",
     SLACK_WEBHOOK: "Slack",
@@ -359,6 +361,7 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, wor
       const value = readConfigurationFieldValue(config, field);
       const error = issues.find((issue) => issue.field === field.key)?.message;
       if (field.kind === "data-path") return <DataPathField key={field.key} label={field.label} value={value} sample={inputSamples[field.input ?? "default"]} error={error} onChange={(next) => onChange(field.key, next)} />;
+      if (field.kind === "airtable-fields") return <AirtableFields key={field.key} workspaceId={workspaceId} config={config} onChange={(next) => onChange(field.key, next)} error={error} />;
       if (field.kind === "notion-properties") return <NotionPropertiesField key={field.key} workspaceId={workspaceId} config={config} onChange={(next) => onChange(field.key, next)} error={error} />;
       if (field.kind === "credential") {
         return <CredentialField key={field.key} label={field.label} value={value} providers={field.providers} credentials={credentials} onChange={(nextValue) => onChange(field.key, nextValue)} optional={field.optional} />;
@@ -530,9 +533,24 @@ function TestDataEditor({ value, onApply, draft, onDraftChange }: { value: unkno
 
 function ExpressionSuggestions({ suggestions, possible, previews, sources, sourceId, onSourceChange, hasUpstream, targetLabel, onInsert }: { targetLabel: string; suggestions: string[]; possible: string[]; previews: Record<string, string>; sources: Array<{ id: string; label: string }>; sourceId: string; onSourceChange: (id: string) => void; hasUpstream: boolean; onInsert: (value: string) => boolean }) {
   const [notice, setNotice] = useState("");
+  const [query, setQuery] = useState("");
   if (!suggestions.length && !possible.length && !hasUpstream) return null;
   const select = (suggestion: string) => setNotice(onInsert(suggestion) ? "Inserted into the selected field." : "First select a text field in Configuration, then choose a value.");
-  return <section className="expression-suggestions"><p>Select a field in Configuration, then choose a value below.</p><p className="expression-suggestions__target" aria-live="polite">{targetLabel ? `Inserting into: ${targetLabel}` : "Choose a destination field first."}</p><label className="expression-suggestions__source">Source step<select aria-label="Mapping source step" value={sourceId} onChange={(event) => { onSourceChange(event.target.value); setNotice(""); }}><option value="">All earlier steps</option>{sources.map((source) => <option key={source.id} value={source.id}>{source.label}</option>)}</select></label><small>Up to 18 example fields per group. Select a source step to explore its output.</small>{suggestions.length > 0 && <><strong>From the selected execution</strong><p>These are sample values from that run. Select a recent run after editing to see current data.</p><div>{suggestions.map((suggestion) => <button key={suggestion} type="button" onClick={() => select(suggestion)}><span>{suggestion}</span>{previews[suggestion] !== undefined && <span className="expression-suggestions__preview">{previews[suggestion]}</span>}</button>)}</div></>}{possible.length > 0 && <><strong>Possible fields</strong><p>These fields may be available when the earlier step runs.</p><div>{possible.map((suggestion) => <button key={suggestion} type="button" onClick={() => select(suggestion)}>{suggestion}</button>)}</div></>}{!suggestions.length && <p>Run an earlier step and select its execution to see available sample values.</p>}{notice && <small role="status">{notice}</small>}</section>;
+  const matching = (values: string[]) => values.filter((value) => value.toLowerCase().includes(query.trim().toLowerCase()));
+  const sampleMatches = matching(suggestions);
+  const possibleMatches = matching(possible);
+  return <section className="expression-suggestions">
+    <p>Select a field in Configuration, then choose a value below.</p>
+    <p className="expression-suggestions__target" aria-live="polite">{targetLabel ? `Inserting into: ${targetLabel}` : "Choose a destination field first."}</p>
+    <label className="expression-suggestions__source">Source step<select aria-label="Mapping source step" value={sourceId} onChange={(event) => { onSourceChange(event.target.value); setNotice(""); }}><option value="">All earlier steps</option>{sources.map((source) => <option key={source.id} value={source.id}>{source.label}</option>)}</select></label>
+    <label className="expression-suggestions__source">Find a field<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search field names" /></label>
+    <small>Showing up to 18 matches per group. Select a source step to narrow the results.</small>
+    {sampleMatches.length > 0 && <><strong>From the selected execution</strong><p>These values come from the selected run and may have changed.</p><div>{sampleMatches.slice(0, 18).map((suggestion) => <button key={suggestion} type="button" onClick={() => select(suggestion)}><span>{suggestion}</span>{previews[suggestion] !== undefined && <span className="expression-suggestions__preview">{previews[suggestion]}</span>}</button>)}</div></>}
+    {possibleMatches.length > 0 && <><strong>Possible fields</strong><p>These fields may be available when the earlier step runs.</p><div>{possibleMatches.slice(0, 18).map((suggestion) => <button key={suggestion} type="button" onClick={() => select(suggestion)}>{suggestion}</button>)}</div></>}
+    {!suggestions.length && !query && <p>Run an earlier step and select its execution to see available sample values.</p>}
+    {query && !sampleMatches.length && !possibleMatches.length && <p role="status">No matching fields. Try another name or source step.</p>}
+    {notice && <small role="status">{notice}</small>}
+  </section>;
 }
 
 function EditFieldsEditor({ value, onChange, error }: { value: unknown; onChange: (value: Array<{ name: string; type: string; value: string | number | boolean }>) => void; error?: string }) {
@@ -1133,6 +1151,13 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       if (effectiveNodeType === "action.trello.find-cards" && ["credentialId", "boardId", "query", "limit"].includes(key) && "page" in config) config.page = 0;
       if (effectiveNodeType === "action.trello.find-cards" && key === "searchPagination" && value === "pages") config.page = 0;
     }
+    if (effectiveNodeType.startsWith("action.airtable.") && node.data.config[key] !== value && ["credentialId", "baseId", "tableId"].includes(key)) {
+      if (key === "credentialId") config.baseId = "";
+      if (key !== "tableId") config.tableId = "";
+      if ("recordId" in config) config.recordId = "";
+      if ("fields" in config) config.fields = [];
+      if ("cursor" in config) config.cursor = "";
+    }
     if (node.data.config[key] !== value && (getSharedNodeConfigurationFields(effectiveNodeType) ?? []).some((field) => field.kind === "resource" && ["jira-issue", "gitlab-pipeline", "gitlab-merge-request", "github-label", "sentry-issue", "vercel-deployment"].includes(field.resource))) {
       const changed = new Set([key]);
       const fields = getSharedNodeConfigurationFields(effectiveNodeType) ?? [];
@@ -1205,8 +1230,8 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
   const visibleRecorded = sourceId ? recorded.filter((item) => item.nodeId === sourceId) : recorded;
   const visibleUpstream = sourceId ? new Set([sourceId]) : upstream;
   const itemSuggestions = (!sourceId || sourceId === directSource) && sourceNode && sourceRun ? buildItemExpressionSuggestions(sourceNode, sourceRun.output, Boolean(sourceRun.items?.length)) : [];
-  const suggestions = [...itemSuggestions, ...buildExpressionSuggestions(visibleRecorded.map((item) => ({ nodeId: item.nodeId, output: item.output })))].slice(0, 18);
-  const previews = buildExpressionPreviews(recorded.map((item) => ({ nodeId: item.nodeId, output: item.output })));
+  const suggestions = [...itemSuggestions, ...buildExpressionSuggestions(visibleRecorded.map((item) => ({ nodeId: item.nodeId, output: item.output })))].slice(0, 200);
+  const previews = buildExpressionPreviews(visibleRecorded.map((item) => ({ nodeId: item.nodeId, output: item.output })));
   const possible = buildPossibleExpressionSuggestions(graphNodes, visibleUpstream).filter((item) => !suggestions.includes(item));
 
   return (
