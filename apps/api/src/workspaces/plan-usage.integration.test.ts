@@ -24,7 +24,15 @@ test("retained usage is workspace-scoped and admin trial changes are audited", {
     ] });
     const service = new WorkspaceService(db as never);
     const initial = await service.planUsage(space, user, now);
-    assert.equal(initial.retainedRuns, 1); assert.equal(initial.activeWorkflows, 1); assert.equal(initial.plan, "FREE");
+    assert.equal(initial.retainedRuns, 1); assert.equal(initial.trackedRuns, 1); assert.equal(initial.activeWorkflows, 1); assert.equal(initial.plan, "FREE");
+    const queued = await db.execution.findFirstOrThrow({ where: { workflowVersionId: version, status: "QUEUED" } });
+    // Repeated starts and approval continuations must not double count.
+    const claims = await Promise.all([0, 1].map(() => db.execution.updateMany({ where: { id: queued.id, startedAt: null }, data: { startedAt: now, status: "RUNNING" } })));
+    assert.equal(claims.reduce((sum, claim) => sum + claim.count, 0), 1);
+    await db.execution.update({ where: { id: queued.id }, data: { startedAt: now, status: "WAITING_APPROVAL" } });
+    assert.equal((await service.planUsage(space, user, now)).trackedRuns, 2);
+    await db.execution.delete({ where: { id: queued.id } });
+    assert.equal((await service.planUsage(space, user, now)).trackedRuns, 2, "usage survives execution retention");
     await assert.rejects(service.planUsage(space, other, now));
     const admin = new AdminController(db as never, {} as never, {} as never);
     const result = await admin.setTrialPlan(space, { currentUser: { id: user } } as never, { plan: "PRO", days: 14 });

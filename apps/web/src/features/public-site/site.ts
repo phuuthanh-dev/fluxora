@@ -9,6 +9,7 @@ export const publicSite = {
 } as const;
 
 export const publicLinks = [
+  { href: "/pricing", label: "Pricing" },
   { href: "/support", label: "Support" },
   { href: "/privacy", label: "Privacy" },
   { href: "/terms", label: "Terms" },

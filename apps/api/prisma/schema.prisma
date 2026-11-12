@@ -186,6 +186,23 @@ model Workspace {
   credentials Credential[]
   auditLogs   AuditLog[]
   executionViews ExecutionSavedView[]
+  usageRuns   UsageRun[]
+}
+
+// Independent of execution retention: one row per live execution that starts
+// after metering is installed. The execution itself may later be deleted.
+model UsageRun {
+  executionId String    @id
+  workspaceId String
+  startedAt   DateTime
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, startedAt])
+}
+
+model UsageMeter {
+  id        String   @id
+  startedAt DateTime
 }
 
 model ExecutionSavedView {

@@ -3051,6 +3051,16 @@
       ]
     },
     {
+      "id": "apps/web/src/app/pricing/page.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/plan/plan-cards.tsx",
+        "apps/web/src/features/public-site/public-shell.tsx",
+        "apps/web/src/features/public-site/site.ts"
+      ],
+      "externalImports": []
+    },
+    {
       "id": "apps/web/src/app/privacy/page.tsx",
       "boundary": "web",
       "internalImports": [
@@ -3860,6 +3870,16 @@
       ]
     },
     {
+      "id": "apps/web/src/features/plan/plan-cards.tsx",
+      "boundary": "web",
+      "internalImports": [],
+      "externalImports": [
+        "@workflow/contracts",
+        "lucide-react",
+        "next/link"
+      ]
+    },
+    {
       "id": "apps/web/src/features/plan/plan-usage.tsx",
       "boundary": "web",
       "internalImports": [
@@ -3867,7 +3887,8 @@
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/app-shell/app-shell-header.tsx",
         "apps/web/src/features/auth/auth-redirect.ts",
-        "apps/web/src/features/auth/session-loading.tsx"
+        "apps/web/src/features/auth/session-loading.tsx",
+        "apps/web/src/features/plan/plan-cards.tsx"
       ],
       "externalImports": [
         "@workflow/contracts",
@@ -8433,6 +8454,18 @@
       "to": "apps/web/src/features/public-site/site.ts"
     },
     {
+      "from": "apps/web/src/app/pricing/page.tsx",
+      "to": "apps/web/src/features/plan/plan-cards.tsx"
+    },
+    {
+      "from": "apps/web/src/app/pricing/page.tsx",
+      "to": "apps/web/src/features/public-site/public-shell.tsx"
+    },
+    {
+      "from": "apps/web/src/app/pricing/page.tsx",
+      "to": "apps/web/src/features/public-site/site.ts"
+    },
+    {
       "from": "apps/web/src/app/privacy/page.tsx",
       "to": "apps/web/src/features/public-site/public-shell.tsx"
     },
@@ -9119,6 +9152,10 @@
     {
       "from": "apps/web/src/features/plan/plan-usage.tsx",
       "to": "apps/web/src/features/auth/session-loading.tsx"
+    },
+    {
+      "from": "apps/web/src/features/plan/plan-usage.tsx",
+      "to": "apps/web/src/features/plan/plan-cards.tsx"
     },
     {
       "from": "apps/web/src/features/public-site/public-shell.tsx",

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Check, CircleGauge } from "lucide-react";
+import { ArrowRight, CircleGauge } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -10,9 +10,10 @@ import { apiRequest, isUnauthenticated } from "../api/api-client";
 import { loginHref } from "../auth/auth-redirect";
 import { SessionLoading } from "../auth/session-loading";
 import { PageHeader, Progress, Status } from "../../components/ui";
+import { PlanCards } from "./plan-cards";
 import "./plan-usage.css";
 
-type Usage = { plan: PlanCode; trialExpiresAt: string | null; periodStart: string; periodEnd: string; retainedRuns: number; activeWorkflows: number; catalog: typeof planCatalog };
+type Usage = { plan: PlanCode; trialExpiresAt: string | null; periodStart: string; periodEnd: string; retainedRuns: number; trackedRuns?: number; meteringSince?: string; activeWorkflows: number; catalog: typeof planCatalog };
 
 function isUsage(value: unknown): value is Usage {
   if (!value || typeof value !== "object") return false;
@@ -85,17 +86,10 @@ export function PlanUsagePage() {
           <div className="plan-usage-grid"><div><span>Retained live runs this month</span><strong>At least {data.retainedRuns.toLocaleString()}</strong><small>Started {new Date(data.periodStart).toLocaleDateString([], { dateStyle: "medium", timeZone: "UTC" })} · resets {new Date(data.periodEnd).toLocaleDateString([], { dateStyle: "medium", timeZone: "UTC" })} UTC</small></div><div><span>Active workflows</span><strong>{data.activeWorkflows.toLocaleString()}</strong><small>Currently active in this workspace</small></div></div>
           <Progress className="plan-usage-progress" label={`Retained runs compared with proposed ${data.catalog[data.plan].monthlyRuns.toLocaleString()} monthly runs`} value={data.retainedRuns / data.catalog[data.plan].monthlyRuns * 100} />
           <p className="plan-disclaimer">Usage is based on retained execution history, which may be cleaned up before month end. It is a minimum, not a complete usage meter. Live manual and node-debug runs are included; mock runs are excluded.</p>
+          {typeof data.trackedRuns === "number" && data.meteringSince && <p className="plan-meter-note">New usage tracking: {data.trackedRuns.toLocaleString()} live runs recorded this month since tracking began on {new Date(data.meteringSince).toLocaleDateString([], { dateStyle: "medium", timeZone: "UTC" })} UTC. Earlier runs may be missing; this count is not used for billing.</p>}
         </section>
         <div className="plan-section-heading"><div><p className="plan-eyebrow">EXPLORE PLANS</p><h2>Room to grow, on your terms.</h2><p>Proposed monthly pricing in VND. Availability and limits may change after testing.</p></div></div>
-        <div className="plan-cards">{(["FREE", "STARTER", "PRO"] as const).map((code) => {
-          const item = data.catalog[code];
-          return <article className={`plan-card${data.plan === code ? " plan-card--current" : ""}`} key={code}>
-            <div className="plan-card__heading"><h3>{item.name}</h3>{data.plan === code && <span>Current</span>}</div>
-            <p className="plan-card__price">{item.priceVnd.toLocaleString("vi-VN")}<small>đ / month</small></p><p className="plan-card__sub">{code === "FREE" ? "For your first workflows" : code === "STARTER" ? "For regular automation" : "For more frequent runs"}</p>
-            <ul><li><Check size={15} />{item.monthlyRuns.toLocaleString()} proposed live runs / month</li><li><Check size={15} />{item.activeWorkflows} proposed active workflows</li><li><Check size={15} />{item.workspaces} proposed {item.workspaces === 1 ? "workspace" : "workspaces"}</li><li><Check size={15} />{item.concurrentRuns} proposed concurrent {item.concurrentRuns === 1 ? "run" : "runs"}</li><li><Check size={15} />Supported apps and your own AI keys</li></ul>
-            <p className="plan-card__foot">{data.plan === code ? "Your current plan" : "Not available for purchase"}</p>
-          </article>;
-        })}</div>
+        <PlanCards current={data.plan} />
         <p className="plan-disclaimer">The proposed limits are not enforced. AI providers may charge you separately. All plans use the current system retention policy.</p>
       </> : null}
     </section>

@@ -25,6 +25,8 @@ Target usage is approximately five users and 5–10 executions per day. The MVP 
 
 Owner-approved plan observation phase (2026-11-12): Free, Starter and Pro are provisional, informational workspace plans; prices are not collected and limits are not enforced. Workspace owners can inspect retained live-run usage and admins may grant audited time-limited trials. Retention makes usage a lower bound, not a billing meter. See `docs/55-plan-and-usage.md`.
 
+Follow-up: public pricing uses the same provisional plan catalog; prospective live usage is persisted independently of execution retention from the database metering installation time. Historical and partially metered periods are not represented as complete or used for billing.
+
 ## 2. Primary success demo
 
 ```text

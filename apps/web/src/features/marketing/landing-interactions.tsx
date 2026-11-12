@@ -12,6 +12,7 @@ const links = [
   { href: "#product", label: "Product" },
   { href: "#narrative", label: "How it works" },
   { href: "#usage", label: "Plan your runs" },
+  { href: "/pricing", label: "Pricing" },
   { href: "#faq", label: "FAQ" },
 ];
 const faqItems = [
