@@ -43,3 +43,11 @@
   .dashboard-workflows .dashboard-section-heading > span { text-align: left; }
   .dashboard-workflows .workflow-card { padding: 20px; }
 }
+.dashboard-skeleton { padding-top: 8px; }
+.dashboard-skeleton__heading { display: block; height: 34px; width: min(220px, 65%); }
+.dashboard-skeleton__subheading { display: block; height: 15px; margin-top: 16px; width: min(430px, 85%); }
+.dashboard-skeleton__toolbar { display: block; height: 42px; margin: 56px 0 24px; width: min(360px, 100%); }
+.dashboard-skeleton__card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); display: flex; flex-direction: column; gap: 18px; min-height: 190px; padding: 22px; }
+.dashboard-skeleton__card .ui-skeleton { height: 14px; width: 80%; }
+.dashboard-skeleton__card .ui-skeleton:first-child { width: 34%; }
+.dashboard-skeleton__card .ui-skeleton:last-child { width: 55%; }

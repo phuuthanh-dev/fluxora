@@ -8,6 +8,7 @@ import { Button, Dialog, DialogHeader, EmptyState, Menu, PageHeader, Progress, S
 import { ApiClientError, apiRequest, isUnauthenticated } from "../api/api-client";
 import { loginHref } from "../auth/auth-redirect";
 import { AuthNavigation } from "../auth/auth-navigation";
+import { SessionLoading } from "../auth/session-loading";
 import { AdminShell } from "./admin-shell";
 import { adminLabel, type AdminSection } from "./admin-sections";
 import { JiraPrivacyPanel } from "./jira-privacy-panel";
@@ -118,6 +119,7 @@ export function AdminDashboard({ section = "overview", initialStatus = "", scope
     finally { setSaving(false); }
   }
 
+  if (!actorId && !denied && !error) return <SessionLoading label="Checking administration access…" />;
   if (!actorId) return <main className="auth-page auth-page--recovery"><AuthNavigation /><section className="auth-panel"><div className="auth-card recovery-card">
     {denied ? <><p className="auth-eyebrow">PLATFORM ADMINISTRATION</p><h1>Access restricted</h1><p className="auth-subtitle">Platform administration is available to the administrator of this instance.</p><Link className="recovery-back" href="/dashboard">Back to workspace</Link></> : error ? <><h1>Unable to check access</h1><p className="auth-subtitle" role="alert">{error}</p><Button variant="secondary" onClick={() => setRefresh((value) => value + 1)}>Try again</Button></> : <Progress label="Checking administration access" />}
   </div></section></main>;

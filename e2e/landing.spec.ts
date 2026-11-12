@@ -1,5 +1,23 @@
 import { expect, test } from "@playwright/test";
 
+test("the stream remains hidden until the intro closes, including fallback", async ({ page }) => {
+  await page.addInitScript(() => {
+    const original = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (contextId, ...args) {
+      if (contextId === "webgl" || contextId === "webgl2") return null;
+      return original.call(this, contextId, ...args);
+    };
+  });
+  await page.goto("/");
+  const stream = page.locator(".landing-light-stream");
+  const skip = page.getByRole("button", { name: "Skip intro" });
+  await expect(skip).toBeVisible();
+  await expect(stream).toHaveCSS("visibility", "hidden");
+  await skip.click();
+  await expect(stream).toHaveCSS("visibility", "visible");
+  await expect(page.locator(".landing-stream-fallback")).toBeVisible();
+});
+
 test("public landing leads to the existing login without changing the auth boundary", async ({
   page,
 }) => {

@@ -10,6 +10,7 @@ import { Button, Field, IconButton } from "../../components/ui";
 import { useSurfaceMotion } from "../../components/ui/ui-motion";
 import { OAuthProviderIcon } from "../../components/brand/oauth-provider-icon";
 import { NodeIcon } from "../workflow/node-icon";
+import { SessionLoading } from "./session-loading";
 import { authReturnFromLocation, consumeOAuthReturn, rememberOAuthReturn } from "./auth-redirect";
 
 type AuthMode = "login" | "register";
@@ -30,7 +31,7 @@ export function LoginForm({ mode = "login" }: { mode?: AuthMode }) {
   const [sessionState, setSessionState] = useState<"checking" | "guest" | "unavailable">("checking");
   const [sessionAttempt, setSessionAttempt] = useState(0);
   const isRegister = mode === "register";
-  useSurfaceMotion(cardRef);
+  useSurfaceMotion(cardRef, sessionState !== "checking");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -87,6 +88,10 @@ export function LoginForm({ mode = "login" }: { mode?: AuthMode }) {
     }
   };
 
+  if (sessionState === "checking") {
+    return <SessionLoading />;
+  }
+
   return (
     <main className="auth-page">
       <AuthNavigation />
@@ -109,7 +114,6 @@ export function LoginForm({ mode = "login" }: { mode?: AuthMode }) {
       </section>
       <section className="auth-panel" aria-labelledby="auth-title">
         <div ref={cardRef} className="auth-card">
-          {sessionState === "checking" && <p id="auth-title" role="status">Checking your session…</p>}
           {sessionState === "unavailable" && <div role="alert"><h1 id="auth-title">Unable to check your session</h1><p>Check your connection and try again.</p><Button variant="secondary" onClick={() => setSessionAttempt((value) => value + 1)}>Try again</Button></div>}
           {sessionState === "guest" && <>
           <p className="auth-eyebrow">{isRegister ? "GET STARTED" : "WELCOME BACK"}</p>

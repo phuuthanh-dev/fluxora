@@ -172,6 +172,8 @@
 
 /* Authentication shares the landing identity and the product's accessible controls. */
 .auth-page { background: var(--canvas); display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto 1fr; min-height: 100svh; }
+.auth-session-loading { align-items: center; background: var(--canvas); color: var(--ink); display: flex; flex-direction: column; gap: 20px; justify-content: center; min-height: 100svh; }
+.auth-session-loading > span[role="status"] { color: var(--muted); font-size: var(--text-sm); }
 .auth-navigation {
   /* Keep the brand bar dark while the form follows the selected theme. */
   --ink: var(--marketing-text);

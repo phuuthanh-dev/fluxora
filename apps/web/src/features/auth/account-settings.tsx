@@ -9,6 +9,7 @@ import { ApiClientError, apiRequest, isUnauthenticated } from "../api/api-client
 import { loginHref } from "./auth-redirect";
 import { AppShellHeader, type AppShellWorkspace } from "../app-shell/app-shell-header";
 import { PasswordField } from "./password-field";
+import { SessionLoading } from "./session-loading";
 
 type Account = { id: string; email: string; displayName: string | null; hasPassword: boolean };
 type Session = { id: string; current: boolean; createdAt: string; expiresAt: string };
@@ -24,6 +25,7 @@ export function AccountSettings() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [identities, setIdentities] = useState<Identity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [accessResolved, setAccessResolved] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const locked = useRef(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,11 +50,11 @@ export function AccountSettings() {
       apiRequest<{ identities: Identity[] }>("/auth/identities", { signal: controller.signal }),
     ]).then(([account, spaces, active, linked]) => {
       if (controller.signal.aborted) return;
-      setUser(account.user); setName(account.user.displayName ?? ""); setWorkspaces(spaces.workspaces);
+      setUser(account.user); setName(account.user.displayName ?? ""); setWorkspaces(spaces.workspaces); setAccessResolved(true);
       const requested = new URLSearchParams(window.location.search).get("workspace");
       setWorkspace(spaces.workspaces.find(item => item.id === requested)?.id ?? spaces.workspaces[0]?.id ?? "");
       setSessions(active.sessions); setIdentities(linked.identities);
-    }).catch(reason => { if (!controller.signal.aborted) fail(reason); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    }).catch(reason => { if (!controller.signal.aborted) { if (!isUnauthenticated(reason) && !(reason instanceof ApiClientError && reason.code === "PASSWORD_CHANGED")) setAccessResolved(true); fail(reason); } }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
     // Only explicit retry reloads this account snapshot.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -88,6 +90,7 @@ export function AccountSettings() {
       setSessions(active.sessions); setNotice(id ? "Session signed out." : "Other sessions signed out. This session is still active.");
     });
   }
+  if (!accessResolved) return <SessionLoading />;
   return <main className="dashboard-page account-page">
     <AppShellHeader key={user?.displayName} workspaces={workspaces} workspaceId={workspace} onWorkspaceChange={setWorkspace} active="account" />
     <div className="account-content">
