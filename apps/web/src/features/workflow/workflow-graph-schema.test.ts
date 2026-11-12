@@ -5,6 +5,11 @@ import { availableCatalogTypes, createNodeData, getNodeDefinition, initialEdges,
 import { parseWorkflowCanvasGraph } from "./workflow-graph-schema";
 import { graphForApi, graphFromApi } from "./workflow-api";
 
+test("keeps pinned test output when the editor saves a graph", () => {
+  const graph = { nodes: [{ id: "request", type: "action.http-request" as const, position: { x: 0, y: 0 }, config: { url: "https://example.test" }, pinData: { result: "sample" } }], edges: [] };
+  assert.deepEqual(graphForApi(graphFromApi(graph)), graph);
+});
+
 test("accepts a valid exported workflow graph", () => {
   const graph = parseWorkflowCanvasGraph(structuredClone({ nodes: initialNodes, edges: initialEdges }));
 

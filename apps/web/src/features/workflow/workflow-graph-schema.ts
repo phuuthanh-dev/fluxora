@@ -15,6 +15,7 @@ const canvasNodeSchema = z.object({
     description: z.string().max(500),
     category: z.enum(workflowNodeCategories),
     config: z.record(z.string(), z.unknown()),
+    pinData: z.record(z.string(), z.unknown()).optional(),
     available: z.boolean(),
   }),
 });

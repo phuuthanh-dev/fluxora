@@ -588,7 +588,8 @@ export class ExecutionService {
         }
       }
       const routeItemErrors = node.type.startsWith("action.") && graph.edges.some((edge) => edge.source === node.id && edge.kind === "error");
-      const itemRun = inputItems && !mergeFailure ? await this.runItemNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, inputItems, mode, execution.idempotencyRootId ?? execution.id, runToken, restoredSteps, routeItemErrors, isDataTransformNode(node.type) ? sourceInputs ?? [] : undefined) : undefined;
+      const usePinnedOutput = mode === "mock" && node.pinData !== undefined;
+      const itemRun = inputItems && !mergeFailure && (!usePinnedOutput || inputItems.length === 0) ? await this.runItemNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, inputItems, mode, execution.idempotencyRootId ?? execution.id, runToken, restoredSteps, routeItemErrors, isDataTransformNode(node.type) ? sourceInputs ?? [] : undefined) : undefined;
       const result: NodeResult = mergeFailure ? { status: "failed", output: {}, error: mergeFailure } : itemRun?.result ?? await this.runNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, mode, execution.idempotencyRootId ?? execution.id, runToken, restoredSteps);
       if (result.status === "interrupted") return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
       if (debugNodeId) {
@@ -650,7 +651,7 @@ export class ExecutionService {
       else restoredSteps.delete(node.id);
       let nextEdges = graph.edges.filter((edge) => edge.source === node.id && edgeMatchesResult(edge, result));
       const outputConfig = { ...node.config, ...(typeof result.output.operation === "string" ? { operation: result.output.operation } : {}) };
-      if (itemRun || isCollectionProducer(node, outputConfig)) {
+      if (itemRun || (usePinnedOutput && inputItems) || isCollectionProducer(node, outputConfig)) {
         try {
           assertSupportedItemPath(graph, node.id, !itemRun);
           const items = itemRun?.items ?? outputItems(node, outputConfig, result.output).map((item, itemIndex) => ({ ...item, pairedItem: { nodeId: node.id, itemIndex } }));
@@ -971,6 +972,12 @@ export class ExecutionService {
       if (!started) return { status: "interrupted", output: {} };
       this.events.publish(executionId, "node.updated");
       try {
+        if (mode === "mock" && node.pinData !== undefined) {
+          const output = node.pinData;
+          if (!await this.updateNodeWhileRunning(executionId, runToken, node.id, { status: NodeExecutionStatus.SUCCEEDED, output: redactValue(output) as Prisma.InputJsonValue, completedAt: new Date() })) return { status: "interrupted", output: {} };
+          this.events.publish(executionId, "node.updated");
+          return { status: "succeeded", output, route: "success" };
+        }
         // Schema objects are literal contracts; template-like examples inside a
         // field description must not be interpreted as workflow expressions.
         // A whole-schema expression remains supported and fails closed if absent.
