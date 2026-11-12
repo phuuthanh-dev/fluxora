@@ -434,3 +434,5 @@ These actions do not provide arbitrary SQL, deletion or multi-column conflict ke
 
 ## Owner-approved resource selection follow-up — 2026-11-10
 Jira get/update/comment select accessible issues using server-backed key/text search or a manual key/expression. GitLab pipeline/MR, GitHub label, Sentry issue and Vercel deployment controls reuse resource discovery. Jira Search issues is a bounded JQL read with cursor and minimal id/key/summary output; it is not a trigger. Existing array-item semantics apply. These additions do not establish public Jira distribution/privacy readiness; see docs/50.
+
+2026-11-12 owner decision for the upcoming paid plan release: each paid purchase is 30 days with manual renewal; live-run allowances reset per UTC calendar month, and new runs are blocked after the allowance is reached. Refund requests are reviewed manually through Support. Plan limits and checkout remain feature-gated until verified and released. Existing active workflows are not automatically disabled during a downgrade; starting further workflows remains subject to the current plan limit.

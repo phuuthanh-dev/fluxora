@@ -1,6 +1,6 @@
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
-import { Worker, type Job } from "bullmq";
+import { DelayedError, Worker, type Job } from "bullmq";
 import IORedis from "ioredis";
 import { AppModule } from "../app.module";
 import { ExecutionService } from "./execution.service";
@@ -8,9 +8,17 @@ import { validateEnvironment } from "../platform/environment";
 import { resolveExecutionQueueName } from "./execution-queue.config";
 import { type ExecutionJob } from "./execution-queue.service";
 import { resolveWorkerConcurrency } from "./worker-concurrency";
+import { PlanCapacityWait } from "./plan-capacity";
 
 export function createExecutionWorker(connection: IORedis, execute: (job: ExecutionJob) => Promise<void>, queueName = resolveExecutionQueueName(), concurrency = resolveWorkerConcurrency(), workerOptions: { lockDuration?: number; stalledInterval?: number } = {}) {
-  return new Worker<ExecutionJob>(queueName, async (job: Job<ExecutionJob>) => execute(job.data), {
+  return new Worker<ExecutionJob>(queueName, async (job: Job<ExecutionJob>, token?: string) => {
+    try { await execute(job.data); }
+    catch (error) {
+      if (!(error instanceof PlanCapacityWait)) throw error;
+      await job.moveToDelayed(Date.now() + 5000, token);
+      throw new DelayedError();
+    }
+  }, {
     connection,
     concurrency,
     // A stalled live execution may already have changed an external provider.
@@ -48,7 +56,7 @@ export async function bootstrapExecutionWorker() {
     try {
       await executions.run(job.executionId, job.mode, job.startNodeIds, job.debugNodeId, job.initialOnly, job.resumeToken);
     } catch (error) {
-      await markWorkerJobFailure(executions, job);
+      if (!(error instanceof PlanCapacityWait)) await markWorkerJobFailure(executions, job);
       throw error;
     }
   });

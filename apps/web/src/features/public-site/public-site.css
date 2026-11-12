@@ -35,4 +35,4 @@
 .public-contact strong { color:var(--ink); }
 .public-skip { position:fixed; top:-80px; z-index:100; background:var(--accent); color:var(--text-on-accent)!important; padding:14px; }
 .public-skip:focus { top:12px; }
-@media(max-width:700px) { .public-main { width: calc(100% - 40px); } .public-body--document { grid-template-columns:1fr; gap:32px; } .public-toc { position:static; } .public-toc nav { grid-template-columns:1fr 1fr; } .public-toc p { display:none; } .public-intro { padding:36px 0; } .public-back { margin-bottom:32px; } .public-support-grid { grid-template-columns:1fr; } .public-support-card { padding:24px; } }
+@media(max-width:700px) { .public-main { width: calc(100% - 40px); } .public-body--document { grid-template-columns:1fr; gap:32px; } .public-toc { position:static; } .public-toc nav { grid-template-columns:1fr 1fr; } .public-toc p { display:none; } .public-intro { padding:96px 0 36px; } .public-back { margin-bottom:32px; } .public-support-grid { grid-template-columns:1fr; } .public-support-card { padding:24px; } }

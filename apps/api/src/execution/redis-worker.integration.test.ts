@@ -475,3 +475,24 @@ async function waitForExecution(prisma: PrismaService, executionId: string, stat
   }
   throw new Error(`Execution ${executionId} did not reach ${status}.`);
 }
+
+test("plan capacity delays an unstarted job and retries without marking it failed", async () => {
+  const { PlanCapacityWait } = await import("./plan-capacity");
+  const name = `plan-wait-${randomUUID()}`;
+  const queueConnection = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", { maxRetriesPerRequest: null });
+  const workerConnection = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", { maxRetriesPerRequest: null });
+  const queue = new Queue<ExecutionJob>(name, { connection: queueConnection });
+  let attempts = 0;
+  const worker = createExecutionWorker(workerConnection, async () => { if (++attempts === 1) throw new PlanCapacityWait(); }, name);
+  try {
+    const completed = new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("Delayed plan job did not resume.")), 10000);
+      worker.on("completed", () => { clearTimeout(timeout); resolve(); });
+      worker.on("failed", (_, error) => { clearTimeout(timeout); reject(error); });
+    });
+    const job = await queue.add("execute", { executionId: randomUUID(), mode: "live" });
+    await completed;
+    assert.equal(attempts, 2);
+    assert.equal(await job.getState(), "completed");
+  } finally { await worker.close(); await queue.obliterate({ force: true }); await queue.close(); await workerConnection.quit(); await queueConnection.quit(); }
+});

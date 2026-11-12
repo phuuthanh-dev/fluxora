@@ -1105,6 +1105,7 @@
         "apps/api/src/execution/node-executor-contract.ts",
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/notification-adapters.ts",
+        "apps/api/src/execution/plan-capacity.ts",
         "apps/api/src/execution/redaction.ts",
         "apps/api/src/execution/retention-policy.ts",
         "apps/api/src/execution/retry-policy.ts",
@@ -1573,6 +1574,12 @@
       ]
     },
     {
+      "id": "apps/api/src/execution/plan-capacity.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
       "id": "apps/api/src/execution/postgres-read.ts",
       "boundary": "api",
       "internalImports": [
@@ -1981,6 +1988,7 @@
         "apps/api/src/execution/execution-queue.config.ts",
         "apps/api/src/execution/execution-queue.service.ts",
         "apps/api/src/execution/execution.service.ts",
+        "apps/api/src/execution/plan-capacity.ts",
         "apps/api/src/execution/worker-concurrency.ts",
         "apps/api/src/platform/environment.ts"
       ],
@@ -3921,6 +3929,29 @@
       ]
     },
     {
+      "id": "apps/web/src/features/plan/payment-return.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/ui/index.ts",
+        "apps/web/src/features/api/api-client.ts"
+      ],
+      "externalImports": [
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/plan/pending-payment.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/api/api-client.ts",
+        "apps/web/src/features/plan/checkout-action.tsx"
+      ],
+      "externalImports": [
+        "next/link",
+        "react"
+      ]
+    },
+    {
       "id": "apps/web/src/features/plan/plan-cards.tsx",
       "boundary": "web",
       "internalImports": [
@@ -3941,6 +3972,8 @@
         "apps/web/src/features/app-shell/app-shell-header.tsx",
         "apps/web/src/features/auth/auth-redirect.ts",
         "apps/web/src/features/auth/session-loading.tsx",
+        "apps/web/src/features/plan/payment-return.tsx",
+        "apps/web/src/features/plan/pending-payment.tsx",
         "apps/web/src/features/plan/plan-cards.tsx"
       ],
       "externalImports": [
@@ -6352,6 +6385,10 @@
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/plan-capacity.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/execution/redaction.ts"
     },
     {
@@ -7337,6 +7374,10 @@
     {
       "from": "apps/api/src/execution/worker.ts",
       "to": "apps/api/src/execution/execution.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/worker.ts",
+      "to": "apps/api/src/execution/plan-capacity.ts"
     },
     {
       "from": "apps/api/src/execution/worker.ts",
@@ -9251,6 +9292,22 @@
       "to": "apps/web/src/features/api/api-client.ts"
     },
     {
+      "from": "apps/web/src/features/plan/payment-return.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
+    },
+    {
+      "from": "apps/web/src/features/plan/payment-return.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/plan/pending-payment.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/plan/pending-payment.tsx",
+      "to": "apps/web/src/features/plan/checkout-action.tsx"
+    },
+    {
       "from": "apps/web/src/features/plan/plan-cards.tsx",
       "to": "apps/web/src/features/plan/checkout-action.tsx"
     },
@@ -9273,6 +9330,14 @@
     {
       "from": "apps/web/src/features/plan/plan-usage.tsx",
       "to": "apps/web/src/features/auth/session-loading.tsx"
+    },
+    {
+      "from": "apps/web/src/features/plan/plan-usage.tsx",
+      "to": "apps/web/src/features/plan/payment-return.tsx"
+    },
+    {
+      "from": "apps/web/src/features/plan/plan-usage.tsx",
+      "to": "apps/web/src/features/plan/pending-payment.tsx"
     },
     {
       "from": "apps/web/src/features/plan/plan-usage.tsx",

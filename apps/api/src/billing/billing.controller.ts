@@ -8,6 +8,9 @@ import { BillingService } from "./billing.service";
 export class BillingController {
   constructor(@Inject(BillingService) private readonly billing: BillingService) {}
 
+  @Get("billing/availability") @Header("Cache-Control", "no-store")
+  publicAvailability() { return this.billing.publicAvailability(); }
+
   @Post("workspaces/:workspaceId/billing/checkout")
   @UseGuards(AuthenticationGuard, AccountRequestGuard)
   @Header("Cache-Control", "no-store")
@@ -16,10 +19,28 @@ export class BillingController {
     return this.billing.createCheckout(workspaceId, req.currentUser!.id, plan);
   }
 
+  @Get("workspaces/:workspaceId/billing/orders/latest")
+  @UseGuards(AuthenticationGuard) @Header("Cache-Control", "no-store")
+  async latest(@Param("workspaceId") workspaceId: string, @Req() req: AuthenticatedRequest) {
+    return { order: await this.billing.latest(workspaceId, req.currentUser!.id) };
+  }
+
   @Get("workspaces/:workspaceId/billing/orders/:orderId")
   @UseGuards(AuthenticationGuard) @Header("Cache-Control", "no-store")
   status(@Param("workspaceId") workspaceId: string, @Param("orderId") orderId: string, @Req() req: AuthenticatedRequest) {
     return this.billing.status(workspaceId, req.currentUser!.id, orderId);
+  }
+
+  @Post("workspaces/:workspaceId/billing/orders/:orderId/reconcile") @HttpCode(200)
+  @UseGuards(AuthenticationGuard, AccountRequestGuard) @Header("Cache-Control", "no-store")
+  reconcile(@Param("workspaceId") workspaceId: string, @Param("orderId") orderId: string, @Req() req: AuthenticatedRequest) {
+    return this.billing.reconcile(workspaceId, req.currentUser!.id, orderId);
+  }
+
+  @Post("workspaces/:workspaceId/billing/orders/:orderId/cancel") @HttpCode(200)
+  @UseGuards(AuthenticationGuard, AccountRequestGuard) @Header("Cache-Control", "no-store")
+  cancel(@Param("workspaceId") workspaceId: string, @Param("orderId") orderId: string, @Req() req: AuthenticatedRequest) {
+    return this.billing.cancel(workspaceId, req.currentUser!.id, orderId);
   }
 
   @Get("workspaces/:workspaceId/billing/availability")

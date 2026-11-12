@@ -5,7 +5,7 @@ export { mockDrive, executeGoogleDrive } from "./google-workspace-adapter";
 export { executeGoogleChatWebhook, executeDiscordWebhook, executeTelegramMessage } from "./notification-adapters";
 export { executeGitHubCreateIssue, executeGitHubAddLabel, executeGitHubAddComment, executeGitHubMergePullRequest } from "./github-write-adapter";
 import { getConnectorExecutor } from "./connector-executors";
-import { isDataTransformNode, mergeInputIssues, isExecutableWorkflowNodeType, nodeConfigIssues, type WorkflowEdge, type WorkflowGraph, type WorkflowNode } from "@workflow/contracts";
+import { effectivePlan, planCatalog, isDataTransformNode, mergeInputIssues, isExecutableWorkflowNodeType, nodeConfigIssues, type WorkflowEdge, type WorkflowGraph, type WorkflowNode } from "@workflow/contracts";
 import { BadRequestException, ConflictException, HttpException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { ApprovalRequestStatus, CredentialProvider, ExecutionStatus, NodeExecutionStatus, Prisma } from "@prisma/client";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
@@ -21,6 +21,7 @@ import { isRetryableFailure, retryDelayMs } from "./retry-policy";
 import { parseStoredWorkflowGraph, unavailableWorkflowNodes, webhookTriggerNode, workflowNodeDepths } from "../workflows/workflow-graph";
 import { liveCredentialRequirements, reachableWorkflowGraph } from "./live-readiness";
 import { executionRetentionPolicy } from "./retention-policy";
+import { PlanCapacityWait } from "./plan-capacity";
 
 export type ExecutionTriageFilter = "ALL" | "ATTENTION" | "IN_PROGRESS" | "FAILED" | "SUCCEEDED";
 const executionLeaseMs = 5 * 60 * 1000;
@@ -494,10 +495,33 @@ export class ExecutionService {
     }
     const now = new Date();
     const runToken = randomBytes(24).toString("hex");
-    const claimed = await this.prisma.execution.updateMany({
-      where: { id: executionId, status: ExecutionStatus.QUEUED, mode: execution.mode, resumeToken: resumeToken ?? null, ...(initialOnly ? { startedAt: null } : {}) },
-      data: { status: ExecutionStatus.RUNNING, startedAt: execution.startedAt ?? now, completedAt: null, errorCode: null, errorMessage: null, errorRetryable: null, leaseExpiresAt: leaseExpiry(now), runToken, resumeToken: null, resumeNodeIds: Prisma.DbNull, resumeQueuedAt: null },
-    });
+    const enforcePlan = process.env.PLAN_LIMITS_ENABLED === "true" && mode === "live";
+    const limited = enforcePlan && execution.startedAt === null;
+    const where = { id: executionId, status: ExecutionStatus.QUEUED, mode: execution.mode, resumeToken: resumeToken ?? null, ...(initialOnly || limited ? { startedAt: null } : {}) };
+    const data = { status: ExecutionStatus.RUNNING, startedAt: execution.startedAt ?? now, completedAt: null, errorCode: null, errorMessage: null, errorRetryable: null, leaseExpiresAt: leaseExpiry(now), runToken, resumeToken: null, resumeNodeIds: Prisma.DbNull, resumeQueuedAt: null };
+    const claimed = enforcePlan ? await this.prisma.$transaction(async (tx) => {
+      const workspaceId = execution.workflowVersion.workflow.workspaceId;
+      await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${workspaceId} FOR UPDATE`;
+      const workspace = await tx.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { paidPlan: true, paidUntil: true, trialPlan: true, trialExpiresAt: true, createdAt: true } });
+      const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+      const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+      const meter = await tx.usageMeter.findUniqueOrThrow({ where: { id: "primary" } });
+      // Historical usage cannot be reconstructed after retention. Start enforcing
+      // only once the entire workspace/month is covered by the durable meter.
+      const complete = meter.startedAt <= monthStart || workspace.createdAt >= meter.startedAt;
+      const paid = effectivePlan(workspace.paidPlan, workspace.paidUntil, now);
+      const plan = paid === "FREE" ? effectivePlan(workspace.trialPlan, workspace.trialExpiresAt, now) : paid;
+      const count = limited && complete ? await tx.usageRun.count({ where: { workspaceId, startedAt: { gte: monthStart, lt: monthEnd } } }) : 0;
+      if (limited && complete && count >= planCatalog[plan].monthlyRuns) {
+        const failed = await tx.execution.updateMany({ where, data: { status: ExecutionStatus.FAILED, completedAt: now, errorCode: "PLAN_RUN_LIMIT", errorMessage: "This workspace has reached its monthly live-run limit. New runs can start next month.", errorRetryable: false } });
+        return { count: 0, limited: failed.count > 0 };
+      }
+      const running = await tx.execution.count({ where: { status: ExecutionStatus.RUNNING, mode: "LIVE", workflowVersion: { workflow: { workspaceId } } } });
+      if (running >= planCatalog[plan].concurrentRuns) throw new PlanCapacityWait();
+      const result = await tx.execution.updateMany({ where, data });
+      return { ...result, limited: false };
+    }) : { ...await this.prisma.execution.updateMany({ where, data }), limited: false };
+    if (claimed.limited) { this.events.publish(executionId, "execution.failed"); return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } }); }
     if (!claimed.count) return execution;
     const initialized = await this.prisma.$transaction(async (transaction) => {
       const rows = await transaction.$queryRaw<Array<{ status: ExecutionStatus; runToken: string | null }>>`SELECT status, "runToken" FROM "Execution" WHERE id = ${executionId} FOR UPDATE`;

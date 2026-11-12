@@ -11,9 +11,11 @@ import { loginHref } from "../auth/auth-redirect";
 import { SessionLoading } from "../auth/session-loading";
 import { PageHeader, Progress, Status } from "../../components/ui";
 import { PlanCards } from "./plan-cards";
+import { PaymentReturn } from "./payment-return";
+import { PendingPayment } from "./pending-payment";
 import "./plan-usage.css";
 
-type Usage = { plan: PlanCode; paidUntil?: string | null; trialExpiresAt: string | null; periodStart: string; periodEnd: string; retainedRuns: number; trackedRuns?: number; meteringSince?: string; activeWorkflows: number; catalog: typeof planCatalog };
+type Usage = { plan: PlanCode; paidUntil?: string | null; trialExpiresAt: string | null; periodStart: string; periodEnd: string; retainedRuns: number; trackedRuns?: number; meteringSince?: string; meterComplete?: boolean; activeWorkflows: number; catalog: typeof planCatalog };
 
 function isUsage(value: unknown): value is Usage {
   if (!value || typeof value !== "object") return false;
@@ -57,11 +59,13 @@ export function PlanUsagePage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [checkoutAvailable, setCheckoutAvailable] = useState(false);
+  const [paymentState, setPaymentState] = useState<"loading" | "none" | "pending" | "unknown">("loading");
   const { data, error } = usePlanUsage(workspaceId);
   useEffect(() => {
     if (!workspaceId) return;
     const controller = new AbortController();
     setCheckoutAvailable(false);
+    setPaymentState("loading");
     void apiRequest<{ available: boolean }>(`/workspaces/${encodeURIComponent(workspaceId)}/billing/availability`, { signal: controller.signal })
       .then((result) => { if (!controller.signal.aborted) setCheckoutAvailable(result.available === true); })
       .catch(() => { /* Checkout stays unavailable when status cannot be verified. */ });
@@ -85,24 +89,24 @@ export function PlanUsagePage() {
   return <main className="dashboard-page plan-page">
     <AppShellHeader workspaces={workspaces} workspaceId={workspaceId} onWorkspaceChange={(id) => { setWorkspaceId(id); router.replace(`/dashboard/plan?workspace=${encodeURIComponent(id)}`); }} active="plan" />
     <section className="plan-main">
-      <PageHeader eyebrow={workspace?.name ?? "WORKSPACE"} title="Plan & usage" description="Understand your workspace activity and explore proposed plans." />
+      <PageHeader eyebrow={workspace?.name ?? "WORKSPACE"} title="Plan & usage" description="Understand your workspace activity and explore available plans." />
       {loadError || error ? <Status tone="error">Could not load plan details. Please refresh and try again.</Status> : null}
       {!workspaceId && !loadError ? <Status tone="info">Create a workspace to view its plan and activity.</Status> : null}
       {workspaceId && !data && !error ? <Progress label="Loading plan and usage" /> : null}
-      {searchParams.get("payment") === "return" && <Status tone="info">Payment is confirmed only after payOS notifies Fluxora. Refresh this page to check your plan; contact support if it does not update.</Status>}
-      {searchParams.get("payment") === "cancel" && <Status tone="info">You returned from checkout. No payment is confirmed by this page.</Status>}
+      {workspaceId && searchParams.get("workspace") === workspaceId && searchParams.get("order") && <PaymentReturn workspaceId={workspaceId} orderId={searchParams.get("order")!} />}
       {data ? <>
-        <div className="plan-notice"><strong>{checkoutAvailable ? "Pay for 30 days · manual renewal" : "Early access · no charges"}</strong><p>{checkoutAvailable ? "Payments use payOS. No automatic renewal; plan limits are not yet enforced." : "Plans, prices and benefits are proposed. No payment or plan limits are active."}</p></div>
+        <div className="plan-notice"><strong>{checkoutAvailable ? "Pay for 30 days · manual renewal" : "Early access · no charges"}</strong><p>{checkoutAvailable ? "Payments use payOS. Runs reset each UTC month. No automatic renewal; refund requests are reviewed by Support." : "Plans, prices and benefits are proposed. No payment or plan limits are active."}</p></div>
+        {checkoutAvailable && <PendingPayment key={workspaceId} workspaceId={workspaceId} onStateChange={setPaymentState} />}
         <section className="plan-current" aria-labelledby="current-plan-heading">
-          <div className="plan-current__top"><div><p className="plan-eyebrow">CURRENT PLAN</p><h2 id="current-plan-heading">{data.catalog[data.plan].name}{data.trialExpiresAt ? " trial" : ""}</h2><p>{data.paidUntil ? `Paid access ends ${new Date(data.paidUntil).toLocaleDateString([], { dateStyle: "medium" })}.` : data.trialExpiresAt ? `Trial ends ${new Date(data.trialExpiresAt).toLocaleDateString([], { dateStyle: "medium" })}.` : "Available for your workspace during early access."}</p></div><span className="plan-current__badge">{data.paidUntil ? "Paid" : data.plan === "FREE" ? "Early access" : "Trial"}</span></div>
-          <div className="plan-usage-grid"><div><span>Retained live runs this month</span><strong>At least {data.retainedRuns.toLocaleString()}</strong><small>Started {new Date(data.periodStart).toLocaleDateString([], { dateStyle: "medium", timeZone: "UTC" })} · resets {new Date(data.periodEnd).toLocaleDateString([], { dateStyle: "medium", timeZone: "UTC" })} UTC</small></div><div><span>Active workflows</span><strong>{data.activeWorkflows.toLocaleString()}</strong><small>Currently active in this workspace</small></div></div>
-          <Progress className="plan-usage-progress" label={`Retained runs compared with proposed ${data.catalog[data.plan].monthlyRuns.toLocaleString()} monthly runs`} value={data.retainedRuns / data.catalog[data.plan].monthlyRuns * 100} />
-          <p className="plan-disclaimer">Usage is based on retained execution history, which may be cleaned up before month end. It is a minimum, not a complete usage meter. Live manual and node-debug runs are included; mock runs are excluded.</p>
-          {typeof data.trackedRuns === "number" && data.meteringSince && <p className="plan-meter-note">New usage tracking: {data.trackedRuns.toLocaleString()} live runs recorded this month since tracking began on {new Date(data.meteringSince).toLocaleDateString([], { dateStyle: "medium", timeZone: "UTC" })} UTC. Earlier runs may be missing; this count is not used for billing.</p>}
+          <div className="plan-current__top"><div><p className="plan-eyebrow">CURRENT PLAN</p><h2 id="current-plan-heading">{data.catalog[data.plan].name}{data.trialExpiresAt ? " trial" : ""}</h2><p>{data.paidUntil ? `Paid access ends ${new Date(data.paidUntil).toLocaleDateString([], { dateStyle: "medium" })}.` : data.trialExpiresAt ? `Trial ends ${new Date(data.trialExpiresAt).toLocaleDateString([], { dateStyle: "medium" })}.` : checkoutAvailable ? "Free plan for this workspace." : "Available for your workspace during early access."}</p></div><span className="plan-current__badge">{data.paidUntil ? "Paid" : data.plan === "FREE" ? checkoutAvailable ? "Free" : "Early access" : "Trial"}</span></div>
+          <div className="plan-usage-grid"><div><span>{checkoutAvailable && data.meterComplete ? "Live runs this month" : "Retained live runs this month"}</span><strong>{checkoutAvailable && data.meterComplete && typeof data.trackedRuns === "number" ? data.trackedRuns.toLocaleString() : `At least ${data.retainedRuns.toLocaleString()}`}</strong><small>Started {new Date(data.periodStart).toLocaleDateString([], { dateStyle: "medium", timeZone: "UTC" })} · resets {new Date(data.periodEnd).toLocaleDateString([], { dateStyle: "medium", timeZone: "UTC" })} UTC</small></div><div><span>Active workflows</span><strong>{data.activeWorkflows.toLocaleString()}</strong><small>Currently active in this workspace</small></div></div>
+          <Progress className="plan-usage-progress" label={`Runs compared with ${checkoutAvailable ? "" : "proposed "}${data.catalog[data.plan].monthlyRuns.toLocaleString()} monthly runs`} value={(checkoutAvailable && data.meterComplete ? data.trackedRuns ?? 0 : data.retainedRuns) / data.catalog[data.plan].monthlyRuns * 100} />
+          <p className="plan-disclaimer">{checkoutAvailable && data.meterComplete ? "Live manual and node-debug runs are included; mock runs are excluded." : "Usage is based on retained execution history, which may be cleaned up before month end. It is a minimum, not a complete usage meter. Live manual and node-debug runs are included; mock runs are excluded."}</p>
+          {typeof data.trackedRuns === "number" && data.meteringSince && !data.meterComplete && <p className="plan-meter-note">Usage tracking began on {new Date(data.meteringSince).toLocaleDateString([], { dateStyle: "medium", timeZone: "UTC" })} UTC. Earlier runs may be missing; the monthly limit starts when a complete month can be measured.</p>}
         </section>
-        <div className="plan-section-heading"><div><p className="plan-eyebrow">EXPLORE PLANS</p><h2>Room to grow, on your terms.</h2><p>Proposed monthly pricing in VND. Availability and limits may change after testing.</p></div></div>
-        <PlanCards current={data.plan} workspaceId={workspaceId} checkoutAvailable={checkoutAvailable} />
-        <p className="plan-disclaimer">The proposed limits are not enforced. AI providers may charge you separately. All plans use the current system retention policy.</p>
+        <div className="plan-section-heading"><div><p className="plan-eyebrow">EXPLORE PLANS</p><h2>Room to grow, on your terms.</h2><p>{checkoutAvailable ? "Prices in VND for 30 days of access. Renew manually when you need to." : "Proposed pricing in VND. Availability and limits may change after testing."}</p></div></div>
+        <PlanCards current={data.plan} workspaceId={workspaceId} checkoutAvailable={checkoutAvailable} paymentBlocked={checkoutAvailable && paymentState !== "none"} />
+        <p className="plan-disclaimer">{checkoutAvailable ? "New live runs stop when the monthly limit is reached. Existing runs continue; provider and AI charges are separate." : "The proposed limits are not enforced. AI providers may charge you separately."} All plans use the current system retention policy.</p>
       </> : null}
     </section>
   </main>;
