@@ -10,6 +10,7 @@ export type WorkflowNodeData = {
   description: string;
   category: WorkflowNodeCategory;
   config: Record<string, unknown>;
+  pinData?: Record<string, unknown>;
   available: boolean;
   /** Transient display state from the selected execution; never stored in the workflow. */
   executionStatus?: "RUNNING" | "SUCCEEDED" | "FAILED" | "WAITING" | "SKIPPED";

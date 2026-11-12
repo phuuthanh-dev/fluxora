@@ -1,6 +1,35 @@
 import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 
+test("pin a redacted output for test runs and unpin after reloading", async ({ page }) => {
+  const api = `http://localhost:${process.env.E2E_API_PORT ?? "3001"}/api/v1`;
+  const registration = await page.request.post(`${api}/auth/register`, { data: { email: `pin-${Date.now()}@example.test`, password: "synthetic-pin-test", displayName: "Pin test" } });
+  expect(registration.ok()).toBeTruthy();
+  const { workspaces } = await (await page.request.get(`${api}/workspaces`)).json();
+  const graph = { nodes: [
+    { id: "start", type: "trigger.manual", position: { x: 0, y: 0 }, config: {} },
+    { id: "request", type: "action.http-request", position: { x: 300, y: 0 }, config: { url: "https://example.test/first", method: "GET" } },
+  ], edges: [{ id: "edge", source: "start", target: "request", kind: "success" }] };
+  const created = await page.request.post(`${api}/workspaces/${workspaces[0].id}/workflows`, { data: { name: "Pinned output", graph } });
+  const { workflow } = await created.json();
+  await page.goto(`/editor?workflow=${encodeURIComponent(workflow.id)}`);
+  await page.locator('[data-id="request"] .workflow-node').click();
+  await page.getByRole("button", { name: "Run test", exact: true }).click();
+  await expect(page.getByText(/Mock execution succeeded/i)).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Pin output for tests" }).click();
+  await page.getByLabel("URL", { exact: true }).fill("https://example.test/second");
+  const rerun = page.waitForResponse((response) => response.request().method() === "POST" && /\/workflows\/[^/]+\/executions$/.test(new URL(response.url()).pathname));
+  await page.getByRole("button", { name: "Run test", exact: true }).click();
+  await rerun;
+  await expect(page.getByText(/Mock execution succeeded/i)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("https://example.test/first", { exact: false }).last()).toBeVisible();
+  await page.reload();
+  await page.locator('[data-id="request"] .workflow-node').click();
+  await expect(page.getByRole("button", { name: "Unpin output" })).toBeVisible();
+  await page.getByRole("button", { name: "Unpin output" }).click();
+  await page.getByRole("button", { name: "Save draft", exact: true }).click();
+});
+
 async function signUpRunAndOpenDetails(page: Page, email: string) {
   await page.goto("/login");
   await page.getByRole("button", { name: "Create an account" }).click();

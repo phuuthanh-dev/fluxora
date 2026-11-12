@@ -541,13 +541,13 @@ function ExpressionSuggestions({ suggestions, possible, previews, sources, sourc
   const sampleMatches = matching(suggestions);
   const possibleMatches = matching(possible);
   return <section className="expression-suggestions">
-    <p>Select a field in Configuration, then choose a value below.</p>
+    <p>Select a field in Configuration and choose a value, or drag a value into a text field.</p>
     <p className="expression-suggestions__target" aria-live="polite">{targetLabel ? `Inserting into: ${targetLabel}` : "Choose a destination field first."}</p>
     <label className="expression-suggestions__source">Source step<select aria-label="Mapping source step" value={sourceId} onChange={(event) => { onSourceChange(event.target.value); setNotice(""); }}><option value="">All earlier steps</option>{sources.map((source) => <option key={source.id} value={source.id}>{source.label}</option>)}</select></label>
     <label className="expression-suggestions__source">Find a field<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search field names" /></label>
     <small>Showing up to 18 matches per group. Select a source step to narrow the results.</small>
-    {sampleMatches.length > 0 && <><strong>From the selected execution</strong><p>These values come from the selected run and may have changed.</p><div>{sampleMatches.slice(0, 18).map((suggestion) => <button key={suggestion} type="button" onClick={() => select(suggestion)}><span>{suggestion}</span>{previews[suggestion] !== undefined && <span className="expression-suggestions__preview">{previews[suggestion]}</span>}</button>)}</div></>}
-    {possibleMatches.length > 0 && <><strong>Possible fields</strong><p>These fields may be available when the earlier step runs.</p><div>{possibleMatches.slice(0, 18).map((suggestion) => <button key={suggestion} type="button" onClick={() => select(suggestion)}>{suggestion}</button>)}</div></>}
+    {sampleMatches.length > 0 && <><strong>From the selected execution</strong><p>These values come from the selected run and may have changed.</p><div>{sampleMatches.slice(0, 18).map((suggestion) => <button key={suggestion} type="button" draggable onDragStart={(event) => { event.dataTransfer.setData("application/x-fluxora-expression", suggestion); event.dataTransfer.effectAllowed = "copy"; }} onClick={() => select(suggestion)}><span>{suggestion}</span>{previews[suggestion] !== undefined && <span className="expression-suggestions__preview">{previews[suggestion]}</span>}</button>)}</div></>}
+    {possibleMatches.length > 0 && <><strong>Possible fields</strong><p>These fields may be available when the earlier step runs.</p><div>{possibleMatches.slice(0, 18).map((suggestion) => <button key={suggestion} type="button" draggable onDragStart={(event) => { event.dataTransfer.setData("application/x-fluxora-expression", suggestion); event.dataTransfer.effectAllowed = "copy"; }} onClick={() => select(suggestion)}>{suggestion}</button>)}</div></>}
     {!suggestions.length && !query && <p>Run an earlier step and select its execution to see available sample values.</p>}
     {query && !sampleMatches.length && !possibleMatches.length && <p role="status">No matching fields. Try another name or source step.</p>}
     {notice && <small role="status">{notice}</small>}
@@ -1251,7 +1251,19 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
         />
       </InspectorSection>
       <InspectorSection title="Configuration">
-      <div onFocusCapture={(event) => {
+      <div onDragOverCapture={(event) => {
+        const target = event.target;
+        if ((target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) && target.hasAttribute("data-expression-target") && event.dataTransfer.types.includes("application/x-fluxora-expression")) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; }
+      }} onDropCapture={(event) => {
+        const target = event.target;
+        const value = event.dataTransfer.getData("application/x-fluxora-expression");
+        if ((target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) && target.hasAttribute("data-expression-target") && [...suggestions, ...possible].includes(value)) {
+          event.preventDefault();
+          expressionTarget.current = target;
+          setExpressionTargetLabel(target.getAttribute("aria-label") || target.labels?.[0]?.textContent?.trim() || "selected field");
+          insertExpression(value);
+        }
+      }} onFocusCapture={(event) => {
         const target = event.target;
         if (!node.data.nodeType.startsWith("trigger.") && (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) && target.hasAttribute("data-expression-target")) { expressionTarget.current = target; setExpressionTargetLabel(target.getAttribute("aria-label") || target.labels?.[0]?.textContent?.trim() || "selected field"); }
       }}>
@@ -1386,6 +1398,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
           <div><p className="section-label">NODE DEBUG</p><p>{debugGuidance}</p></div>
           <Button variant="secondary" className="node-debug-panel__button" disabled={!definition?.available || (effectiveNodeType === "approval.request" || effectiveNodeType === "action.merge" || isDataTransformNode(effectiveNodeType)) || isDebugging || hasPending} title={hasPending ? "Apply or discard pending edits first." : (effectiveNodeType === "approval.request" || effectiveNodeType === "action.merge" || isDataTransformNode(effectiveNodeType)) ? "Test this node in a full workflow run." : undefined} onClick={() => onDebugNode(node)}><Play size={14} />{isDebugging ? "Running node…" : "Run node"}</Button>
         </section>
+        {node.data.pinData && <section className="execution-inspector__section"><Status tone="info">Pinned output is used in test runs only. Save the draft to keep it.</Status><Button type="button" variant="ghost" onClick={() => updateNodeData(node.id, { pinData: undefined })}>Unpin output</Button></section>}
         <section className="input-preview">
           <div className="section-label">INPUT PREVIEW</div>
           <pre>{JSON.stringify(node.data.config, null, 2)}</pre>
@@ -1401,6 +1414,12 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
             <div className="section-label">{nodeExecution.status} · ATTEMPT {nodeExecution.attempt} · {nodeExecution.durationMs ?? 0}MS</div>
             <div className="execution-inspector__section"><strong>Redacted input</strong><ResultView label="Redacted input" value={nodeExecution.input} /></div>
             <div className="execution-inspector__section"><strong>{nodeExecution.error ? "Normalized error" : "Output"}</strong><ResultView label={nodeExecution.error ? "Normalized error" : "Output"} value={nodeExecution.error ?? nodeExecution.output} /></div>
+            {effectiveNodeType.startsWith("action.") && effectiveNodeType !== "action.merge" && !isDataTransformNode(effectiveNodeType) && <div className="execution-inspector__section">
+              <strong>Test output</strong>
+              <p>Pin this redacted output to reuse it in test runs. It is saved with the workflow and visible to workspace members; live runs always call the provider.</p>
+              {!node.data.pinData && <Button type="button" variant="ghost" disabled={nodeExecution.status !== "SUCCEEDED" || !!nodeExecution.items?.length || !nodeExecution.output || typeof nodeExecution.output !== "object" || Array.isArray(nodeExecution.output) || new TextEncoder().encode(JSON.stringify(nodeExecution.output)).length > 65536} onClick={() => updateNodeData(node.id, { pinData: nodeExecution.output as Record<string, unknown> })}>Pin output for tests</Button>}
+              {nodeExecution.items?.length ? <small>Pinning per-item execution results is not supported yet.</small> : null}
+            </div>}
             {executionRecoveryGuidance(nodeExecution) && <Status tone="info" className="inspector-note">{executionRecoveryGuidance(nodeExecution)}</Status>}
             {pagination && <details className="execution-pagination"><summary>Pagination</summary>
               {pagination.kind === "offset" ? <p>To inspect another page, adjust <code>{pagination.input}</code> and keep the same connection, sorting and filters.</p> : pagination.available ? <p>The output contains <code>{pagination.next}</code>. Use it as <code>{pagination.input}</code> for another page, keeping the same connection and other settings.</p> : <p>No usable <code>{pagination.next}</code> was returned. This does not guarantee the result is complete.</p>}

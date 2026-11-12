@@ -23,6 +23,7 @@ export function graphForApi(graph: WorkflowCanvasGraph): WorkflowGraph {
       type: node.data.nodeType,
       position: node.position,
       config: node.data.config,
+      ...(node.data.pinData ? { pinData: node.data.pinData } : {}),
     })),
     edges: parsed.edges.map((edge): WorkflowEdge => ({
       id: edge.id,
@@ -44,7 +45,7 @@ export function graphFromApi(graph: WorkflowGraph): WorkflowCanvasGraph {
       id: node.id,
       type: "workflowNode",
       position: node.position,
-      data: { ...data, nodeType: node.type, config: node.config },
+      data: { ...data, nodeType: node.type, config: node.config, ...(node.pinData ? { pinData: node.pinData } : {}) },
     };
   });
   const edges: WorkflowCanvasEdge[] = graph.edges.map((edge) => ({

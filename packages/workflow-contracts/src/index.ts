@@ -303,6 +303,8 @@ export type WorkflowNode = {
   type: WorkflowNodeType;
   position: { x: number; y: number };
   config: Record<string, unknown>;
+  /** Redacted sample output, used only by mock executions. */
+  pinData?: Record<string, unknown>;
 };
 
 export const workflowEdgeKinds = ["success", "error", "true", "false", "case", "default"] as const;

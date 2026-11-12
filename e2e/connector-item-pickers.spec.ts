@@ -70,6 +70,18 @@ for (const theme of ["light", "dark"]) test(`connector resource choices, search,
   await page.getByLabel("Mapping source step").selectOption("manual");
   await page.getByRole("button", { name: "{{ steps.manual.output.received }}", exact: true }).click();
   await expect(issue.getByLabel("Issue value")).toHaveValue("{{ steps.manual.output.received }}");
+  await issue.getByLabel("Issue value").fill("");
+  const suggestion = page.getByRole("button", { name: "{{ steps.manual.output.received }}", exact: true });
+  await suggestion.scrollIntoViewIfNeeded();
+  const sourceBox = (await suggestion.boundingBox())!;
+  await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2 - 15, { steps: 5 });
+  await issue.getByLabel("Issue value").scrollIntoViewIfNeeded();
+  const destinationBox = (await issue.getByLabel("Issue value").boundingBox())!;
+  await page.mouse.move(destinationBox.x + destinationBox.width / 2, destinationBox.y + destinationBox.height / 2, { steps: 5 });
+  await page.mouse.up();
+  await expect(issue.getByLabel("Issue value")).toHaveValue("{{ steps.manual.output.received }}");
   await node("gitlab");
   await expect(page.getByRole("group", { name: "Pipeline", exact: true }).getByRole("combobox")).toHaveValue("999");
   await page.getByRole("group", { name: "Project", exact: true }).getByRole("combobox").selectOption("43");
