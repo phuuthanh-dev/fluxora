@@ -5,7 +5,10 @@ import { resolveWorkerConcurrency } from "../execution/worker-concurrency";
 export function validateEnvironment(environment: NodeJS.ProcessEnv = process.env) {
   const queueMode = resolveQueueMode(environment.EXECUTION_QUEUE_MODE);
   resolveExecutionQueueName(environment.EXECUTION_QUEUE_NAME);
-  resolveWorkerConcurrency(environment.EXECUTION_WORKER_CONCURRENCY);
+  const workerConcurrency = resolveWorkerConcurrency(environment.EXECUTION_WORKER_CONCURRENCY);
+  if (environment.PLAN_LIMITS_ENABLED === "true" && queueMode !== "redis") throw new Error("PLAN_LIMITS_ENABLED requires the Redis execution queue.");
+  if (environment.PAYOS_CHECKOUT_ENABLED === "true" && environment.PLAN_LIMITS_ENABLED !== "true") throw new Error("Checkout requires plan limit enforcement.");
+  if (environment.PAYOS_CHECKOUT_ENABLED === "true" && workerConcurrency < 3) throw new Error("Checkout requires a worker concurrency of at least 3 for the Pro plan.");
   if (environment.NODE_ENV !== "production") return;
   requireHttpsUrl(environment.WEB_ORIGIN, "WEB_ORIGIN");
   requireEncryptionKey(environment.APP_ENCRYPTION_KEY);
@@ -19,6 +22,8 @@ export function validateEnvironment(environment: NodeJS.ProcessEnv = process.env
   requireCompleteOAuthConfig(environment, "GOOGLE");
   requireCompleteOAuthConfig(environment, "GITHUB");
   requireAllOrNone(environment, ["AIRTABLE_CLIENT_ID", "AIRTABLE_CLIENT_SECRET", "AIRTABLE_REDIRECT_URI"]);
+  requireAllOrNone(environment, ["PAYOS_CLIENT_ID", "PAYOS_API_KEY", "PAYOS_CHECKSUM_KEY"]);
+  if (environment.PAYOS_CHECKOUT_ENABLED === "true" && !environment.PAYOS_CLIENT_ID) throw new Error("payOS credentials must be configured when checkout is enabled.");
   if (environment.AIRTABLE_REDIRECT_URI) requireHttpsUrl(environment.AIRTABLE_REDIRECT_URI, "AIRTABLE_REDIRECT_URI");
   requireAllOrNone(environment, ["STEAM_OPENID_RETURN_URI", "STEAM_OPENID_REALM"]);
 }

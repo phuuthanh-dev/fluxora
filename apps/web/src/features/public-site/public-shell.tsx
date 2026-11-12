@@ -1,20 +1,22 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowLeft, ArrowUpRight } from "lucide-react";
-import { BrandLockup } from "../../components/brand/brand-lockup";
-import { publicLinks, publicSite } from "./site";
+import { ArrowLeft } from "lucide-react";
+import { LandingNavigation } from "../marketing/landing-interactions";
+import { LandingFooter } from "../marketing/landing-footer";
+import { PublicMotion } from "./public-motion";
+import { publicSite } from "./site";
+import "../marketing/landing.css";
+import "../marketing/landing-template.css";
 import "./public-site.css";
 
 export function PublicShell({ eyebrow, title, description, children, sections = [], updated = publicSite.updated }: {
   eyebrow: string; title: string; description: string; children: ReactNode;
   sections?: readonly { id: string; title: string }[]; updated?: string;
 }) {
-  return <div className="public-site" data-theme="dark">
+  return <div className="public-site landing-page" id="top" data-theme="dark">
     <a className="public-skip" href="#public-content">Skip to content</a>
-    <header className="public-nav">
-      <Link href="/" aria-label="Fluxora home"><BrandLockup /></Link>
-      <nav aria-label="Public navigation"><Link href="/support">Support</Link><Link className="public-signin" href="/login">Sign in <ArrowUpRight size={16} /></Link></nav>
-    </header>
+    <LandingNavigation publicPage />
+    <PublicMotion>
     <main id="public-content" className="public-main">
       <div className="public-intro"><Link className="public-back" href="/"><ArrowLeft size={14} /> Back to Fluxora</Link>
         <p className="public-eyebrow">{eyebrow}</p><h1>{title}</h1><p className="public-lead">{description}</p>
@@ -24,7 +26,8 @@ export function PublicShell({ eyebrow, title, description, children, sections = 
         <div className="public-content">{children}</div>
       </div>
     </main>
-    <footer className="public-footer"><span>© {new Date().getFullYear()} Fluxora</span><nav aria-label="Footer">{publicLinks.map(link => <Link key={link.href} href={link.href}>{link.label}</Link>)}<a href={publicSite.repository}>GitHub <ArrowUpRight size={12} /></a></nav></footer>
+    <LandingFooter publicPage />
+    </PublicMotion>
   </div>;
 }
 

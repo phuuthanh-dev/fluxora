@@ -56,3 +56,31 @@ test("admin can review and save a bounded trial without collecting payment", asy
   await expect(page.getByText("Trial plan updated. No payment or limits were applied.")).toBeVisible();
   expect(JSON.parse(posted)).toEqual({ plan: "PRO", days: 14 });
 });
+
+test("paid plan screen handles no pending order and displays a pending order on mobile", async ({ page }) => {
+  let pending = false;
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const data: Record<string, unknown> = {
+      "/api/v1/workspaces": { workspaces: [{ id: "space-1", name: "Sample workspace", slug: "sample", role: "OWNER" }] },
+      "/api/v1/workspaces/space-1/plan-usage": { plan: "FREE", trialExpiresAt: null, periodStart: "2026-11-01T00:00:00.000Z", periodEnd: "2026-12-01T00:00:00.000Z", retainedRuns: 0, trackedRuns: 0, meterComplete: true, activeWorkflows: 0, catalog },
+      "/api/v1/workspaces/space-1/billing/availability": { available: true },
+      "/api/v1/workspaces/space-1/billing/orders/latest": { order: pending ? { id: "order-1", plan: "STARTER", amount: 99000, status: "PENDING", canResume: true } : null },
+      "/api/v1/auth/me": { user: { displayName: "Owner", email: "owner@example.test", avatarColor: "lime" } },
+      "/api/v1/auth/identities": { identities: [] }, "/api/v1/auth/providers": { google: false, github: false, steam: false },
+    };
+    await route.fulfill({ status: path === "/api/v1/admin/access" ? 403 : 200, contentType: "application/json", body: JSON.stringify(data[path] ?? {}) });
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/dashboard/plan");
+  await expect(page.getByRole("heading", { name: "Plan & usage" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Payment status" })).toHaveCount(0);
+  pending = true;
+  await page.reload();
+  const status = page.getByRole("region", { name: "Payment status" });
+  await expect(status.getByText(/Payment link ready/)).toBeVisible();
+  await expect(status.getByRole("button", { name: "Continue to payOS" })).toBeVisible();
+  await expect(status.getByRole("button", { name: "Cancel payment link" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Choose Pro" })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});

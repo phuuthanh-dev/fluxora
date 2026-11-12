@@ -97,6 +97,9 @@ export function validateProductionEnv(text) {
   validateProviderGroup(values, ["SLACK_CLIENT_ID", "SLACK_CLIENT_SECRET", "SLACK_REDIRECT_URI"], errors);
   validateProviderGroup(values, ["NOTION_CLIENT_ID", "NOTION_CLIENT_SECRET", "NOTION_REDIRECT_URI"], errors);
   validateProviderGroup(values, ["AIRTABLE_CLIENT_ID", "AIRTABLE_CLIENT_SECRET", "AIRTABLE_REDIRECT_URI"], errors);
+  validateProviderGroup(values, ["PAYOS_CLIENT_ID", "PAYOS_API_KEY", "PAYOS_CHECKSUM_KEY"], errors);
+  if (values.get("PAYOS_CHECKOUT_ENABLED") === "true" && (!values.get("PAYOS_CLIENT_ID") || values.get("PLAN_LIMITS_ENABLED") !== "true")) errors.push("payOS checkout requires all credentials and plan limit enforcement");
+  if (values.get("PAYOS_CHECKOUT_ENABLED") === "true" && Number(values.get("EXECUTION_WORKER_CONCURRENCY") || 2) < 3) errors.push("payOS checkout requires EXECUTION_WORKER_CONCURRENCY of at least 3");
   validateProviderGroup(values, ["JIRA_CLIENT_ID", "JIRA_CLIENT_SECRET", "JIRA_REDIRECT_URI"], errors);
   if (values.get("JIRA_REDIRECT_URI")) {
     try { const url = new URL(values.get("JIRA_REDIRECT_URI")); if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) errors.push("JIRA_REDIRECT_URI: must be HTTPS without credentials/query/fragment"); }

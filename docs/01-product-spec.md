@@ -25,6 +25,8 @@ Target usage is approximately five users and 5–10 executions per day. The MVP 
 
 Owner-approved plan observation phase (2026-11-12): Free, Starter and Pro are provisional, informational workspace plans; prices are not collected and limits are not enforced. Workspace owners can inspect retained live-run usage and admins may grant audited time-limited trials. Retention makes usage a lower bound, not a billing meter. See `docs/55-plan-and-usage.md`.
 
+Follow-up: public pricing uses the same provisional plan catalog; prospective live usage is persisted independently of execution retention from the database metering installation time. Historical and partially metered periods are not represented as complete or used for billing.
+
 ## 2. Primary success demo
 
 ```text
@@ -432,3 +434,5 @@ These actions do not provide arbitrary SQL, deletion or multi-column conflict ke
 
 ## Owner-approved resource selection follow-up — 2026-11-10
 Jira get/update/comment select accessible issues using server-backed key/text search or a manual key/expression. GitLab pipeline/MR, GitHub label, Sentry issue and Vercel deployment controls reuse resource discovery. Jira Search issues is a bounded JQL read with cursor and minimal id/key/summary output; it is not a trigger. Existing array-item semantics apply. These additions do not establish public Jira distribution/privacy readiness; see docs/50.
+
+2026-11-12 owner decision for the upcoming paid plan release: each paid purchase is 30 days with manual renewal; live-run allowances reset per UTC calendar month, and new runs are blocked after the allowance is reached. Refund requests are reviewed manually through Support. Plan limits and checkout remain feature-gated until verified and released. Existing active workflows are not automatically disabled during a downgrade; starting further workflows remains subject to the current plan limit.

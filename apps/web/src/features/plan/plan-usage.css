@@ -2,16 +2,17 @@
 .plan-main .ui-page-header { margin-bottom: 28px; }
 .plan-notice, .plan-current, .plan-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); }
 .plan-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 15px 20px; margin-bottom: 20px; }
-.plan-notice strong { color: var(--text-accent); font-size: 13px; }
-.plan-notice p, .plan-current p, .plan-section-heading p, .plan-card__sub, .plan-disclaimer { color: var(--muted); font-size: 13px; line-height: 1.6; margin: 0; }
+.plan-notice strong { color: var(--text-accent); font-size: 14px; }
+.plan-notice p, .plan-current p, .plan-section-heading p, .plan-card__sub, .plan-disclaimer { color: var(--muted); font-size: 14px; line-height: 1.6; margin: 0; }
 .plan-current { padding: 24px; }
+.plan-meter-note { border-top: 1px solid var(--line); margin-top: 14px !important; padding-top: 14px; }
 .plan-current__top, .plan-card__heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
 .plan-current h2, .plan-section-heading h2 { font-size: 22px; letter-spacing: -.03em; margin: 7px 0; }
 .plan-current .plan-eyebrow, .plan-section-heading .plan-eyebrow { color: var(--text-accent); font-size: 11px; font-weight: 700; letter-spacing: .08em; }
 .plan-current__badge, .plan-card__heading span { background: var(--control-selected-bg); border: 1px solid var(--control-selected-border); border-radius: 999px; color: var(--control-selected-text); font-size: 11px; font-weight: 600; padding: 5px 10px; white-space: nowrap; }
 .plan-usage-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); margin: 24px 0 18px; }
 .plan-usage-grid > div { border: 1px solid var(--line); border-radius: var(--radius-sm); display: grid; gap: 7px; padding: 16px; }
-.plan-usage-grid span, .plan-usage-grid small { color: var(--muted); font-size: 12px; }
+.plan-usage-grid span, .plan-usage-grid small { color: var(--muted); font-size: 13px; }
 .plan-usage-grid strong { color: var(--ink); font-size: 22px; font-variant-numeric: tabular-nums; }
 .plan-usage-progress { align-items: stretch; flex-direction: column; margin: 0 0 18px; max-width: 520px; }
 .plan-usage-progress .ui-progress__track { width: 100%; }
@@ -21,11 +22,22 @@
 .plan-card--current { border-color: var(--control-selected-border); }
 .plan-card h3 { font-size: 17px; margin: 0; }
 .plan-card__price { color: var(--ink); font-size: 26px; font-weight: 700; letter-spacing: -.03em; margin: 22px 0 2px; }
-.plan-card__price small { color: var(--muted); font-size: 12px; font-weight: 500; letter-spacing: 0; }
+.plan-card__price small { color: var(--muted); font-size: 12px; font-weight: 500; letter-spacing: 0; margin-left: 4px; }
 .plan-card ul { border-top: 1px solid var(--line); display: grid; gap: 12px; list-style: none; margin: 20px 0; padding: 20px 0 0; }
-.plan-card li { align-items: flex-start; color: var(--text-secondary); display: flex; font-size: 13px; gap: 8px; line-height: 1.4; }
+.plan-card li { align-items: flex-start; color: var(--text-secondary); display: flex; font-size: 14px; gap: 8px; line-height: 1.5; }
 .plan-card li svg { color: var(--text-accent); flex: none; margin-top: 1px; }
-.plan-card__foot { border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; margin: auto 0 0; padding-top: 14px; }
+.plan-card__foot { border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; line-height: 1.5; margin: auto 0 0; padding-top: 14px; }
+.plan-card__link { align-items: center; background: var(--accent); border-radius: var(--radius-sm); color: var(--text-on-accent) !important; display: inline-flex; font-size: 14px; font-weight: 700; justify-content: center; margin-top: auto; min-height: 44px; padding: 10px 16px; }
+.plan-checkout { margin-top: auto; }.plan-checkout button { width: 100%; cursor: pointer; border: 0; }.plan-checkout button:disabled { opacity: .6; cursor: wait; }.plan-checkout p { color: var(--error, #ed6679); font-size: 13px; line-height: 1.5; margin: 12px 0 0; }
+.plan-pending { justify-content: space-between; gap: 16px; }.plan-pending__details { max-width: 520px; }.plan-pending__details p { margin-top: 6px; }.plan-pending__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }.plan-pending__actions button, .plan-pending__actions a { align-items: center; display: inline-flex; min-height: 44px; border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: var(--radius-sm); padding: 10px 14px; font: inherit; font-size: 13px; cursor: pointer; }.plan-pending__actions .plan-checkout button { background: var(--accent); color: var(--text-on-accent); border-color: transparent; }.plan-pending__actions button:disabled { opacity: .6; cursor: wait; }.plan-pending > [role="status"] { flex-basis: 100%; border-top: 1px solid var(--line); padding-top: 12px; }
+.public-site .plan-card { padding: 28px; }
+.public-site .plan-card h3 { font-size: 20px; }
+.public-site .plan-card__price { font-size: 32px; }
+.public-site .plan-card__price small, .public-site .plan-card__sub, .public-site .plan-card li, .public-site .plan-card__foot { font-size: 15px; }
+.public-site .plan-card li { line-height: 1.5; }
+.public-site .pricing-note { color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin: 24px 0 48px; }
+.pricing-questions { display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+.public-site .pricing-questions .public-section { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); margin: 0; padding: 24px; }
 .plan-cards + .plan-disclaimer { margin-top: 18px; }
 .plan-summary { align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-md); display: flex; flex-wrap: wrap; gap: 14px; margin: 24px 0; padding: 16px 18px; }
 .plan-summary__icon { align-items: center; background: var(--control-selected-bg); border-radius: 10px; color: var(--text-accent); display: flex; height: 40px; justify-content: center; width: 40px; }

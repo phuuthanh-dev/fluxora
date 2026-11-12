@@ -73,8 +73,8 @@ export class AdminController {
   @Header("Cache-Control", "no-store")
   async workspaces(@Query("q") query?: string, @Query("page") page?: string, @Query() scope: AdminScope = {}) {
     const { q, skip } = listOptions(query, page);
-    const workspaces = await this.prisma.workspace.findMany({ take: 51, skip, orderBy: [{ updatedAt: "desc" }, { id: "desc" }], where: { ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}), ...(adminId(scope.userId) ? { ownerId: scope.userId } : {}), ...(adminId(scope.workspaceId) ? { id: scope.workspaceId } : {}) }, select: { id: true, name: true, updatedAt: true, trialPlan: true, trialExpiresAt: true, owner: { select: { id: true, email: true } }, _count: { select: { workflows: true } } } });
-    return { workspaces: workspaces.slice(0, 50).map((space) => ({ ...space, effectivePlan: effectivePlan(space.trialPlan, space.trialExpiresAt) })), hasMore: workspaces.length > 50 };
+    const workspaces = await this.prisma.workspace.findMany({ take: 51, skip, orderBy: [{ updatedAt: "desc" }, { id: "desc" }], where: { ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}), ...(adminId(scope.userId) ? { ownerId: scope.userId } : {}), ...(adminId(scope.workspaceId) ? { id: scope.workspaceId } : {}) }, select: { id: true, name: true, updatedAt: true, trialPlan: true, trialExpiresAt: true, paidPlan: true, paidUntil: true, owner: { select: { id: true, email: true } }, _count: { select: { workflows: true } } } });
+    return { workspaces: workspaces.slice(0, 50).map((space) => ({ ...space, effectivePlan: effectivePlan(space.paidPlan, space.paidUntil) !== "FREE" ? effectivePlan(space.paidPlan, space.paidUntil) : effectivePlan(space.trialPlan, space.trialExpiresAt) })), hasMore: workspaces.length > 50 };
   }
 
   @Post("workspaces/:workspaceId/trial-plan")

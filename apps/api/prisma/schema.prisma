@@ -180,12 +180,48 @@ model Workspace {
   updatedAt   DateTime          @updatedAt
   trialPlan   String?
   trialExpiresAt DateTime?
+  paidPlan    String?
+  paidUntil   DateTime?
   owner       User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   members     WorkspaceMember[]
   workflows   Workflow[]
   credentials Credential[]
   auditLogs   AuditLog[]
   executionViews ExecutionSavedView[]
+  usageRuns   UsageRun[]
+  paymentOrders PaymentOrder[]
+}
+
+model PaymentOrder {
+  id              String    @id @default(uuid())
+  orderCode       BigInt    @unique @default(autoincrement())
+  workspaceId     String
+  plan            String
+  amount          Int
+  status          String    @default("CREATING")
+  paymentLinkId   String?   @unique
+  checkoutUrl     String?
+  createdAt       DateTime  @default(now())
+  paidAt          DateTime?
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, createdAt])
+}
+
+// Independent of execution retention: one row per live execution that starts
+// after metering is installed. The execution itself may later be deleted.
+model UsageRun {
+  executionId String    @id
+  workspaceId String
+  startedAt   DateTime
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, startedAt])
+}
+
+model UsageMeter {
+  id        String   @id
+  startedAt DateTime
 }
 
 model ExecutionSavedView {

@@ -1,4 +1,5 @@
 import type { WorkflowGraph } from "@workflow/contracts";
+import { effectivePlan, planCatalog } from "@workflow/contracts";
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { CredentialProvider, ExecutionStatus, Prisma, WorkflowVersionStatus } from "@prisma/client";
 import type { GmailTriggerCheckpoint } from "@prisma/client";
@@ -461,6 +462,14 @@ export class WorkflowService {
     const providerBaselines = providerNodes.length ? await this.providerPoll!.baselines(workflowId, workflow.publishedVersion.id, workflow.workspaceId, graph) : [];
     const activatedAt = new Date();
     const updated = await this.prisma.$transaction(async (transaction) => {
+      if (process.env.PLAN_LIMITS_ENABLED === "true") {
+        await transaction.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${workflow.workspaceId} FOR UPDATE`;
+        const space = await transaction.workspace.findUniqueOrThrow({ where: { id: workflow.workspaceId }, select: { paidPlan: true, paidUntil: true, trialPlan: true, trialExpiresAt: true } });
+        const paid = effectivePlan(space.paidPlan, space.paidUntil, activatedAt);
+        const plan = paid === "FREE" ? effectivePlan(space.trialPlan, space.trialExpiresAt, activatedAt) : paid;
+        const active = await transaction.workflow.count({ where: { workspaceId: workflow.workspaceId, isActive: true, archivedAt: null, id: { not: workflowId } } });
+        if (active >= planCatalog[plan].activeWorkflows) throw new ConflictException({ code: "PLAN_WORKFLOW_LIMIT", message: "This workspace has reached its active workflow limit. Deactivate a workflow or change plan." });
+      }
       if (gmailNodes.length || rssNodes.length || calendarNodes.length || jiraNodes.length || providerNodes.length) {
         const locked = await transaction.$queryRaw<Array<{ publishedVersionId: string | null; isActive: boolean; archivedAt: Date | null }>>`SELECT "publishedVersionId", "isActive", "archivedAt" FROM "Workflow" WHERE id = ${workflowId} FOR UPDATE`;
         if (!locked[0] || locked[0].isActive || locked[0].archivedAt || locked[0].publishedVersionId !== workflow.publishedVersion!.id) throw new ConflictException({ code: "WORKFLOW_CHANGED", message: "The workflow changed while activating. Reload and try again." });
