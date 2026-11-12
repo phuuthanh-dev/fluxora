@@ -140,3 +140,10 @@ body:has(.admin-drawer-backdrop) { overflow: hidden; }
 
 body:has(.admin-privacy-dialog) { overflow: hidden; }
 .admin-privacy-dialog .ui-field input { min-width: 0; width: 100%; min-height: var(--control-height); border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-inset); color: var(--ink); padding: 10px 12px; font-size: 14px; }
+
+.admin-plan-field { color: var(--text-secondary); display: grid; font-size: 13px; font-weight: 600; gap: 8px; margin: 18px 0; }
+.admin-plan-field small { color: var(--muted); font-size: 12px; font-weight: 400; }
+.admin-plan-field .ui-select { background-color: var(--surface-inset); border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--ink); font: inherit; min-height: var(--control-height); padding: 8px 40px 8px 12px; width: 100%; }
+.admin-plan-dialog { max-height: calc(100dvh - 40px); overflow-y: auto; }
+.admin-plan-dialog > p { color: var(--text-secondary); margin: 12px 0; }
+.admin-plan-dialog > p strong { color: var(--ink); }

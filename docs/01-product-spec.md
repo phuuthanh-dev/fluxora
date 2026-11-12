@@ -23,6 +23,8 @@ Build Fluxora, an open-source workflow automation web application for personal u
 
 Target usage is approximately five users and 5–10 executions per day. The MVP implementation window is three days. Therefore every feature below is categorized as **runtime**, **UI/schema only**, or **later**.
 
+Owner-approved plan observation phase (2026-11-12): Free, Starter and Pro are provisional, informational workspace plans; prices are not collected and limits are not enforced. Workspace owners can inspect retained live-run usage and admins may grant audited time-limited trials. Retention makes usage a lower bound, not a billing meter. See `docs/55-plan-and-usage.md`.
+
 ## 2. Primary success demo
 
 ```text

@@ -15,6 +15,7 @@ import { consumeOAuthReturn, loginHref } from "../auth/auth-redirect";
 import { Collapse } from "../../components/ui/disclosure";
 import { ArchivedWorkflows } from "./archived-workflows";
 import { WorkspaceActivity } from "./workspace-activity";
+import { PlanUsageSummary } from "../plan/plan-usage";
 import { SessionLoading } from "../auth/session-loading";
 
 type WorkspaceSummary = { id: string; name: string; slug: string; role: "OWNER" | "EDITOR" | "VIEWER" };
@@ -339,6 +340,7 @@ export function WorkflowDashboard() {
         }} /> : null}
         <div className="dashboard-operations">
 
+        {workspaceId ? <PlanUsageSummary key={`plan-${workspaceId}`} workspaceId={workspaceId} /> : null}
         {workspaceId ? <WorkspaceActivity key={`activity-${workspaceId}`} workspaceId={workspaceId} /> : null}
         <section className="dashboard-executions" aria-labelledby="execution-center-heading">
           <SectionHeader className="dashboard-execution-toolbar" eyebrow="OPERATIONS" id="execution-center-heading" title="Execution center" description="Inspect recent runs and open the exact version that ran." actions={<div className="dashboard-execution-toolbar__actions">

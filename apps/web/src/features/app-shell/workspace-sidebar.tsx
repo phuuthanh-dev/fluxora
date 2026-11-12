@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, CircleHelp, History, LayoutDashboard, Menu as MenuIcon, PlugZap, Search, Settings, X } from "lucide-react";
+import { ChartNoAxesColumn, ChevronLeft, ChevronRight, CircleHelp, History, LayoutDashboard, Menu as MenuIcon, PlugZap, Search, Settings, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { BrandLockup } from "../../components/brand/brand-lockup";
 import { Button, Dialog, IconButton } from "../../components/ui";
@@ -12,6 +12,7 @@ const destinations = [
   { id: "dashboard", label: "Dashboard", description: "Workflows and activity", path: "/dashboard", icon: LayoutDashboard, group: "Workspace" },
   { id: "connections", label: "Connections", description: "App accounts and credentials", path: "/dashboard/connections", icon: PlugZap, group: "Workspace" },
   { id: "executions", label: "Executions", description: "Run history and diagnostics", path: "/dashboard/executions", icon: History, group: "Workspace" },
+  { id: "plan", label: "Plan & usage", description: "Trial plans and retained run usage", path: "/dashboard/plan", icon: ChartNoAxesColumn, group: "Manage" },
   { id: "account", label: "Settings", description: "Account profile, password and sessions", path: "/settings/account", icon: Settings, group: "Manage" },
 ] as const;
 

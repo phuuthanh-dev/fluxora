@@ -42,7 +42,8 @@
         "apps/api/src/platform/runtime-health.service.ts"
       ],
       "externalImports": [
-        "@nestjs/common"
+        "@nestjs/common",
+        "@workflow/contracts"
       ]
     },
     {
@@ -2901,6 +2902,7 @@
       ],
       "externalImports": [
         "@nestjs/common",
+        "@workflow/contracts",
         "node:crypto"
       ]
     },
@@ -2963,6 +2965,18 @@
       ],
       "externalImports": [
         "@/features/dashboard/workflow-dashboard"
+      ]
+    },
+    {
+      "id": "apps/web/src/app/dashboard/plan/page.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/features/auth/session-loading.tsx",
+        "apps/web/src/features/plan/plan-usage.tsx",
+        "apps/web/src/features/public-site/site.ts"
+      ],
+      "externalImports": [
+        "react"
       ]
     },
     {
@@ -3305,6 +3319,7 @@
         "apps/web/src/features/admin/admin-sections.ts",
         "apps/web/src/features/admin/admin-shell.tsx",
         "apps/web/src/features/admin/jira-privacy-panel.tsx",
+        "apps/web/src/features/admin/trial-plan-dialog.tsx",
         "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/auth/auth-navigation.tsx",
         "apps/web/src/features/auth/auth-redirect.ts",
@@ -3347,6 +3362,17 @@
       ],
       "externalImports": [
         "lucide-react",
+        "react"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/admin/trial-plan-dialog.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/ui/index.ts",
+        "apps/web/src/features/api/api-client.ts"
+      ],
+      "externalImports": [
         "react"
       ]
     },
@@ -3589,6 +3615,7 @@
         "apps/web/src/features/auth/session-loading.tsx",
         "apps/web/src/features/dashboard/archived-workflows.tsx",
         "apps/web/src/features/dashboard/workspace-activity.tsx",
+        "apps/web/src/features/plan/plan-usage.tsx",
         "apps/web/src/features/workflow/node-catalog.ts",
         "apps/web/src/features/workflow/node-icon.tsx",
         "apps/web/src/features/workflow/workflow-api.ts"
@@ -3830,6 +3857,24 @@
         "three/addons/postprocessing/OutputPass.js",
         "three/addons/postprocessing/RenderPass.js",
         "three/addons/postprocessing/UnrealBloomPass.js"
+      ]
+    },
+    {
+      "id": "apps/web/src/features/plan/plan-usage.tsx",
+      "boundary": "web",
+      "internalImports": [
+        "apps/web/src/components/ui/index.ts",
+        "apps/web/src/features/api/api-client.ts",
+        "apps/web/src/features/app-shell/app-shell-header.tsx",
+        "apps/web/src/features/auth/auth-redirect.ts",
+        "apps/web/src/features/auth/session-loading.tsx"
+      ],
+      "externalImports": [
+        "@workflow/contracts",
+        "lucide-react",
+        "next/link",
+        "next/navigation",
+        "react"
       ]
     },
     {
@@ -4367,6 +4412,7 @@
         "packages/workflow-contracts/src/node-configuration-fields.ts",
         "packages/workflow-contracts/src/notion-read-fields.ts",
         "packages/workflow-contracts/src/operation-metadata.ts",
+        "packages/workflow-contracts/src/plan-catalog.ts",
         "packages/workflow-contracts/src/riot-lol.ts",
         "packages/workflow-contracts/src/trello-card-fields.ts"
       ],
@@ -4774,6 +4820,12 @@
         "packages/workflow-contracts/src/index.ts",
         "packages/workflow-contracts/src/node-configuration-fields.ts"
       ],
+      "externalImports": []
+    },
+    {
+      "id": "packages/workflow-contracts/src/plan-catalog.ts",
+      "boundary": "contracts",
+      "internalImports": [],
       "externalImports": []
     },
     {
@@ -8337,6 +8389,18 @@
       "to": "apps/web/src/features/public-site/site.ts"
     },
     {
+      "from": "apps/web/src/app/dashboard/plan/page.tsx",
+      "to": "apps/web/src/features/auth/session-loading.tsx"
+    },
+    {
+      "from": "apps/web/src/app/dashboard/plan/page.tsx",
+      "to": "apps/web/src/features/plan/plan-usage.tsx"
+    },
+    {
+      "from": "apps/web/src/app/dashboard/plan/page.tsx",
+      "to": "apps/web/src/features/public-site/site.ts"
+    },
+    {
       "from": "apps/web/src/app/editor/page.tsx",
       "to": "apps/web/src/features/public-site/site.ts"
     },
@@ -8518,6 +8582,10 @@
     },
     {
       "from": "apps/web/src/features/admin/admin-dashboard.tsx",
+      "to": "apps/web/src/features/admin/trial-plan-dialog.tsx"
+    },
+    {
+      "from": "apps/web/src/features/admin/admin-dashboard.tsx",
       "to": "apps/web/src/features/api/api-client.ts"
     },
     {
@@ -8554,6 +8622,14 @@
     },
     {
       "from": "apps/web/src/features/admin/jira-privacy-panel.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/admin/trial-plan-dialog.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
+    },
+    {
+      "from": "apps/web/src/features/admin/trial-plan-dialog.tsx",
       "to": "apps/web/src/features/api/api-client.ts"
     },
     {
@@ -8834,6 +8910,10 @@
     },
     {
       "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
+      "to": "apps/web/src/features/plan/plan-usage.tsx"
+    },
+    {
+      "from": "apps/web/src/features/dashboard/workflow-dashboard.tsx",
       "to": "apps/web/src/features/workflow/node-catalog.ts"
     },
     {
@@ -9019,6 +9099,26 @@
     {
       "from": "apps/web/src/features/marketing/landing-three-scenes.tsx",
       "to": "apps/web/src/features/marketing/landing-stream-particles.ts"
+    },
+    {
+      "from": "apps/web/src/features/plan/plan-usage.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
+    },
+    {
+      "from": "apps/web/src/features/plan/plan-usage.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/plan/plan-usage.tsx",
+      "to": "apps/web/src/features/app-shell/app-shell-header.tsx"
+    },
+    {
+      "from": "apps/web/src/features/plan/plan-usage.tsx",
+      "to": "apps/web/src/features/auth/auth-redirect.ts"
+    },
+    {
+      "from": "apps/web/src/features/plan/plan-usage.tsx",
+      "to": "apps/web/src/features/auth/session-loading.tsx"
     },
     {
       "from": "apps/web/src/features/public-site/public-shell.tsx",
@@ -9523,6 +9623,10 @@
     {
       "from": "packages/workflow-contracts/src/index.ts",
       "to": "packages/workflow-contracts/src/operation-metadata.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/index.ts",
+      "to": "packages/workflow-contracts/src/plan-catalog.ts"
     },
     {
       "from": "packages/workflow-contracts/src/index.ts",

@@ -671,3 +671,7 @@ Managed Slack events enter one signed app endpoint, then route by provider-retur
 app/team IDs to current active published workflow subscriptions in each workspace.
 The existing durable delivery key and execution recovery avoid duplicate runs on
 provider retry. See docs/48 for deployment prerequisites and current scale limits.
+
+## Plan and usage observation (2026-11-12)
+
+Provisional plan definitions live in shared contracts. Workspace-scoped owner reads use existing membership authorization; admin trial updates use the existing platform-admin guard and transactionally record an audit event. UTC monthly usage counts retained LIVE executions by first startedAt; retention means it is a lower bound, not billing or quota accounting. Additive workspace trial metadata does not alter execution scheduling, credentials or workflow state. See `docs/55-plan-and-usage.md`.

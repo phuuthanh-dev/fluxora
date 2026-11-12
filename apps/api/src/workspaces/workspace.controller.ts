@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Inject, Post, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Controller, Get, Header, Inject, Param, Post, Req, UseGuards } from "@nestjs/common";
 import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AuthenticationGuard } from "../auth/authentication.guard";
 import { WorkspaceService } from "./workspace.service";
@@ -17,6 +17,12 @@ export class WorkspaceController {
   async create(@Req() request: AuthenticatedRequest) {
     const name = readName(request.body);
     return { workspace: await this.workspaces.createForOwner(requireUserId(request), name) };
+  }
+
+  @Get(":workspaceId/plan-usage")
+  @Header("Cache-Control", "no-store")
+  async planUsage(@Param("workspaceId") workspaceId: string, @Req() request: AuthenticatedRequest) {
+    return this.workspaces.planUsage(workspaceId, requireUserId(request));
   }
 }
 
