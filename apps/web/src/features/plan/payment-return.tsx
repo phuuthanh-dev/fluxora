@@ -16,5 +16,5 @@ export function PaymentReturn({ workspaceId, orderId }: { workspaceId: string; o
       }).catch(() => { if (!controller.signal.aborted) setMessage("We couldn't confirm payment yet. Refresh later or contact Support before making another payment."); });
     return () => controller.abort();
   }, [workspaceId, orderId]);
-  return <Status tone="info">{message}</Status>;
+  return <Status tone="info" className="plan-return-status">{message}</Status>;
 }

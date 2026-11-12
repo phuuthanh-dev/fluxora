@@ -2,6 +2,8 @@
 .plan-main .ui-page-header { margin-bottom: 28px; }
 .plan-notice, .plan-current, .plan-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); }
 .plan-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 15px 20px; margin-bottom: 20px; }
+.plan-billing-info { align-items: start; display: grid; gap: 6px; }
+.plan-return-status { background: var(--panel); border: 1px solid var(--line); color: var(--text-secondary); font-size: 14px; line-height: 1.5; margin-bottom: 20px; padding: 14px 20px; }
 .plan-notice strong { color: var(--text-accent); font-size: 14px; }
 .plan-notice p, .plan-current p, .plan-section-heading p, .plan-card__sub, .plan-disclaimer { color: var(--muted); font-size: 14px; line-height: 1.6; margin: 0; }
 .plan-current { padding: 24px; }
@@ -29,6 +31,7 @@
 .plan-card__foot { border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; line-height: 1.5; margin: auto 0 0; padding-top: 14px; }
 .plan-card__link { align-items: center; background: var(--accent); border-radius: var(--radius-sm); color: var(--text-on-accent) !important; display: inline-flex; font-size: 14px; font-weight: 700; justify-content: center; margin-top: auto; min-height: 44px; padding: 10px 16px; }
 .plan-checkout { margin-top: auto; }.plan-checkout button { width: 100%; cursor: pointer; border: 0; }.plan-checkout button:disabled { opacity: .6; cursor: wait; }.plan-checkout p { color: var(--error, #ed6679); font-size: 13px; line-height: 1.5; margin: 12px 0 0; }
+.plan-checkout button.plan-card__link--renew { background: transparent; border: 1px solid var(--line); color: var(--ink) !important; }
 .plan-pending { justify-content: space-between; gap: 16px; }.plan-pending__details { max-width: 520px; }.plan-pending__details p { margin-top: 6px; }.plan-pending__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }.plan-pending__actions button, .plan-pending__actions a { align-items: center; display: inline-flex; min-height: 44px; border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: var(--radius-sm); padding: 10px 14px; font: inherit; font-size: 13px; cursor: pointer; }.plan-pending__actions .plan-checkout button { background: var(--accent); color: var(--text-on-accent); border-color: transparent; }.plan-pending__actions button:disabled { opacity: .6; cursor: wait; }.plan-pending > [role="status"] { flex-basis: 100%; border-top: 1px solid var(--line); padding-top: 12px; }
 .public-site .plan-card { padding: 28px; }
 .public-site .plan-card h3 { font-size: 20px; }

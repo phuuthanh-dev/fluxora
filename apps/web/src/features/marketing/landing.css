@@ -187,6 +187,19 @@ html:has(.landing-page):not(:has(.landing-loader[data-phase="draw"])) {
   min-height: 40px;
   padding: 9px 18px;
 }
+.landing-account-placeholder, .landing-account__avatar { align-items: center; border-radius: 50%; display: inline-flex; height: 40px; justify-content: center; width: 40px; }
+.landing-account-placeholder { background: var(--landing-line); }
+.landing-account__avatar { color: #080a09; font-size: 13px; font-weight: 700; }
+.landing-account__avatar--lime { background: var(--relay-lime); }
+.landing-account__avatar--violet { background: #c4b5fd; }
+.landing-account__avatar--sky { background: #7dd3fc; }
+.landing-account__avatar--coral { background: #fdba9b; }
+.landing-account .ui-menu__trigger { border-radius: 50%; }
+.landing-account .ui-menu__content { background: var(--marketing-surface); border-color: var(--landing-line); color: var(--marketing-text); min-width: 224px; padding: 8px; }
+.landing-account .ui-menu__content > [role="menuitem"] { color: var(--marketing-text); }
+.landing-account__identity { border-bottom: 1px solid var(--landing-line); display: grid; gap: 4px; margin-bottom: 4px; padding: 10px; }
+.landing-account__identity strong, .landing-account__identity span { overflow-wrap: anywhere; }
+.landing-account__identity span { color: var(--marketing-muted); font-size: 12px; }
 .landing-nav__mobile {
   display: none;
   position: relative;

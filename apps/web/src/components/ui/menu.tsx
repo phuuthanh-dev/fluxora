@@ -87,6 +87,7 @@ export function Menu({ label, children, trigger, className, contentClassName }: 
       <summary
         ref={triggerRef}
         className="ui-menu__trigger"
+        role="button"
         aria-label={`${label} actions`}
         aria-haspopup="menu"
         aria-expanded={open}

@@ -36,7 +36,7 @@ test("public landing leads to the existing login without changing the auth bound
   ).toBeVisible();
 });
 
-test("sample run progresses, stops and replays locally without contacting an API", async ({
+test("sample run progresses, stops and replays without executing API actions", async ({
   page,
 }) => {
   // This deliberately waits through a visible, human-paced three-step motion.
@@ -48,7 +48,7 @@ test("sample run progresses, stops and replays locally without contacting an API
   await page.setViewportSize({ width: 1440, height: 1000 });
   const mutations: string[] = [];
   page.on("request", (request) => {
-    if (request.method() !== "GET" || /\/api\//.test(request.url()))
+    if (request.method() !== "GET" || (/\/api\//.test(request.url()) && !/\/api\/v1\/auth\/me(?:\?|$)/.test(request.url())))
       mutations.push(request.url());
   });
   await page.goto("/");

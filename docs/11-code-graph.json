@@ -3766,7 +3766,9 @@
       "internalImports": [
         "apps/web/src/components/brand/brand-lockup.tsx",
         "apps/web/src/components/ui/disclosure.tsx",
+        "apps/web/src/components/ui/menu.tsx",
         "apps/web/src/components/ui/ui-motion.ts",
+        "apps/web/src/features/api/api-client.ts",
         "apps/web/src/features/marketing/landing-motion.tsx"
       ],
       "externalImports": [
@@ -9177,7 +9179,15 @@
     },
     {
       "from": "apps/web/src/features/marketing/landing-interactions.tsx",
+      "to": "apps/web/src/components/ui/menu.tsx"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-interactions.tsx",
       "to": "apps/web/src/components/ui/ui-motion.ts"
+    },
+    {
+      "from": "apps/web/src/features/marketing/landing-interactions.tsx",
+      "to": "apps/web/src/features/api/api-client.ts"
     },
     {
       "from": "apps/web/src/features/marketing/landing-interactions.tsx",

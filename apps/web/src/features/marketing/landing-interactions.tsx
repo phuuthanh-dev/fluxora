@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Menu, X } from "lucide-react";
+import { ArrowRight, LayoutDashboard, Menu, Settings, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { BrandLockup } from "../../components/brand/brand-lockup";
 import { LandingReveal, useLandingEffects } from "./landing-motion";
 import { Disclosure } from "../../components/ui/disclosure";
+import { Menu as AccountMenu } from "../../components/ui/menu";
 import { useSurfaceMotion } from "../../components/ui/ui-motion";
+import { apiRequest } from "../api/api-client";
 
 const links = [
   { href: "#product", label: "Product" },
@@ -15,6 +17,11 @@ const links = [
   { href: "/pricing", label: "Pricing" },
   { href: "#faq", label: "FAQ" },
 ];
+function accountInitials(name: string | null, email: string) {
+  const source = name?.trim() || email;
+  const words = source.split(/\s+/).filter(Boolean);
+  return (words.length > 1 ? `${words[0]?.[0] ?? ""}${words.at(-1)?.[0] ?? ""}` : source.slice(0, 2)).toLocaleUpperCase();
+}
 const faqItems = [
   {
     question: "What can I automate with Fluxora?",
@@ -44,8 +51,16 @@ export function LandingNavigation({ publicPage = false }: { publicPage?: boolean
   const panel = useRef<HTMLElement>(null);
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [session, setSession] = useState<{ email: string; displayName: string | null; avatarColor: string } | null | undefined>(undefined);
   const { paused } = useLandingEffects();
   useSurfaceMotion(panel, open && !paused);
+  useEffect(() => {
+    const controller = new AbortController();
+    void apiRequest<{ user: { email: string; displayName: string | null; avatarColor: string } }>("/auth/me", { signal: controller.signal, cache: "no-store" }, { silentUnauthorized: true })
+      .then(({ user }) => { if (!controller.signal.aborted) setSession(user?.email ? user : null); })
+      .catch(() => { if (!controller.signal.aborted) setSession(null); });
+    return () => controller.abort();
+  }, []);
   useEffect(() => {
     let frame = 0;
     const update = () => {
@@ -78,9 +93,11 @@ export function LandingNavigation({ publicPage = false }: { publicPage?: boolean
         ))}
       </nav>
       <div className="landing-nav__actions">
-        <Link href="/login" className="landing-nav__sign-in">
-          Sign in <ArrowRight size={14} />
-        </Link>
+        {session === undefined ? <span className="landing-account-placeholder" aria-hidden="true" /> : session ? <AccountMenu label="Account" className="landing-account" trigger={<span className={`landing-account__avatar landing-account__avatar--${["lime", "violet", "sky", "coral"].includes(session.avatarColor) ? session.avatarColor : "lime"}`} aria-hidden="true">{accountInitials(session.displayName, session.email)}</span>}>
+          <div className="landing-account__identity"><strong>{session.displayName || "Your account"}</strong><span>{session.email}</span></div>
+          <Link href="/dashboard" role="menuitem"><LayoutDashboard size={16} /> Dashboard</Link>
+          <Link href="/settings/account" role="menuitem"><Settings size={16} /> Account settings</Link>
+        </AccountMenu> : <Link href="/login" className="landing-nav__sign-in">Sign in <ArrowRight size={14} /></Link>}
         <details
           className="landing-nav__mobile"
           ref={menu}
