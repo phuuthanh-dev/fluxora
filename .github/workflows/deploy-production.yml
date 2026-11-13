@@ -38,7 +38,7 @@ jobs:
       deploy: ${{ steps.decision.outputs.deploy }}
     steps:
       # Policy comes from trusted main, not from an upstream PR or artifact.
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: github.event_name == 'workflow_run'
         with:
           ref: main
@@ -92,7 +92,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.COMMIT_SHA }}
       - name: Validate immutable commit
@@ -104,13 +104,13 @@ jobs:
           esac
           test "${#IMAGE_TAG}" -eq 40 || { echo "COMMIT_SHA must be a 40-character lowercase commit SHA"; exit 1; }
           test "$(git rev-parse HEAD)" = "$IMAGE_TAG" || { echo "checked out commit does not match COMMIT_SHA"; exit 1; }
-      - uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Configure Docker Buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Validate public API origin
         env:
           NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || secrets.NEXT_PUBLIC_API_URL }}
@@ -120,7 +120,7 @@ jobs:
             *) echo "NEXT_PUBLIC_API_URL must be an HTTPS API origin ending in /api/v1"; exit 1 ;;
           esac
       - name: Build and push API image
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: apps/api/Dockerfile
@@ -129,7 +129,7 @@ jobs:
           cache-from: type=gha,scope=workflow-api
           cache-to: type=gha,mode=max,scope=workflow-api
       - name: Build and push Web image
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: apps/web/Dockerfile
@@ -149,7 +149,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.COMMIT_SHA }}
       - name: Require pinned SSH host fingerprint
@@ -157,7 +157,7 @@ jobs:
           VPS_HOST_FINGERPRINT: ${{ vars.VPS_HOST_FINGERPRINT }}
         run: test -n "$VPS_HOST_FINGERPRINT" || { echo "VPS_HOST_FINGERPRINT is required" >&2; exit 1; }
       - name: Stage deployment bundle
-        uses: appleboy/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634 # v0.1.7
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
@@ -166,7 +166,7 @@ jobs:
           source: "infra/docker-compose.production.yml,infra/scripts"
           target: "/opt/workflow-automation/.incoming/${{ github.run_id }}-${{ github.run_attempt }}"
       - name: Deploy immutable image tag
-        uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
           IMAGE_TAG: ${{ env.COMMIT_SHA }}
           RELEASE_BUNDLE: /opt/workflow-automation/.incoming/${{ github.run_id }}-${{ github.run_attempt }}
