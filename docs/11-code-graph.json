@@ -3774,6 +3774,7 @@
       "externalImports": [
         "lucide-react",
         "next/link",
+        "next/navigation",
         "react"
       ]
     },

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ArrowRight, LayoutDashboard, Menu, Settings, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { BrandLockup } from "../../components/brand/brand-lockup";
@@ -46,11 +47,13 @@ const faqItems = [
 ];
 
 export function LandingNavigation({ publicPage = false }: { publicPage?: boolean }) {
+  const pathname = usePathname();
   const menu = useRef<HTMLDetailsElement>(null);
   const trigger = useRef<HTMLElement>(null);
   const panel = useRef<HTMLElement>(null);
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [activeSection, setActiveSection] = useState("");
   const [session, setSession] = useState<{ email: string; displayName: string | null; avatarColor: string } | null | undefined>(undefined);
   const { paused } = useLandingEffects();
   useSurfaceMotion(panel, open && !paused);
@@ -66,17 +69,28 @@ export function LandingNavigation({ publicPage = false }: { publicPage?: boolean
     const update = () => {
       frame = 0;
       setScrolled(window.scrollY > 56);
+      if (!publicPage) {
+        const marker = 130;
+        const current = ["product", "narrative", "usage", "faq"].filter((id) => {
+          const rect = document.getElementById(id)?.getBoundingClientRect();
+          return rect && rect.top <= marker && rect.bottom > marker;
+        }).at(-1);
+        setActiveSection(current ? `#${current}` : "");
+      }
     };
     const requestUpdate = () => {
       if (!frame) frame = requestAnimationFrame(update);
     };
     update();
     window.addEventListener("scroll", requestUpdate, { passive: true });
+    window.addEventListener("resize", requestUpdate);
     return () => {
       window.removeEventListener("scroll", requestUpdate);
+      window.removeEventListener("resize", requestUpdate);
       if (frame) cancelAnimationFrame(frame);
     };
-  }, []);
+  }, [publicPage]);
+  const currentLink = (href: string) => href === "/pricing" && pathname === "/pricing" ? "page" : !publicPage && activeSection === href ? "location" : undefined;
   return (
     <header
       className="landing-nav landing-container"
@@ -87,7 +101,7 @@ export function LandingNavigation({ publicPage = false }: { publicPage?: boolean
       </Link>
       <nav className="landing-nav__desktop" aria-label="Landing navigation">
         {links.map((link) => (
-          <a href={publicPage && link.href.startsWith("#") ? `/${link.href}` : link.href} key={link.href}>
+          <a href={publicPage && link.href.startsWith("#") ? `/${link.href}` : link.href} key={link.href} aria-current={currentLink(link.href)}>
             {link.label}
           </a>
         ))}
@@ -118,6 +132,7 @@ export function LandingNavigation({ publicPage = false }: { publicPage?: boolean
               <a
                 href={publicPage && link.href.startsWith("#") ? `/${link.href}` : link.href}
                 key={link.href}
+                aria-current={currentLink(link.href)}
                 onClick={() => {
                   if (menu.current) menu.current.open = false;
                 }}

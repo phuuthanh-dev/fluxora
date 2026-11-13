@@ -1,5 +1,13 @@
 # Agent Current State Gate
 
+## Public navigation and billing assessment — 2026-11-13 (local, unreleased)
+
+- Production is at PR #137 merge `56cee6b9d20b1b5530c75ef579062ee57dd9c086`; the main quality gate and production deployment succeeded. The changes in this entry have not been deployed.
+- The shared marketing navigation now identifies Pricing and landing sections with `aria-current` and a visual active state on desktop and mobile. Public document pages share a lighter static, landing-derived background. Existing dashboard and admin navigation already had active states; the editor has its own workspace header.
+- Direct visual checks covered desktop landing, Pricing, Support, Privacy, Terms, Dashboard, Connections, Executions, Plan, Settings, editor and Admin overview, plus 390px Pricing/menu, Support and Privacy. This is representative coverage, not proof of every state, route, viewport or theme. Local checkout is disabled; production billing remains unchanged.
+- Starter-to-Pro changes before paid expiry are explicitly rejected in `BillingService`; same-plan renewal adds 30 days. n8n monthly subscriptions offer immediate upgrades with the new price from the next cycle, while Make credits unused usage against a new purchase. A prepaid Fluxora upgrade policy has not been selected or implemented.
+- Focused public-site/pricing Playwright checks passed 7/7 using an isolated local database and disabled scheduler; workspace typecheck and codegraph check passed. Full `npm run verify` was not run. Preserve the pre-existing `apps/web/next-env.d.ts` change.
+
 ## Current release — 2026-11-12
 
 - PR #133 merged as `0193678402be9b8e7a9e78439c470a7df6602741` and the production deploy succeeded. It adds keyboard/click and drag mapping improvements plus bounded test-only output pinning. See [Airtable and mapping](54-airtable-and-mapping.md) for supported scope.
