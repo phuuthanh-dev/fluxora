@@ -1,13 +1,6 @@
 import { expect, test } from "@playwright/test";
 
 test("Notion and PostgreSQL offer separate connections and guided fields", async ({ page }) => {
-  // Keep failure diagnostics for the intermittent CI timeout without logging
-  // credentials or response bodies. This fixture uses only synthetic IDs.
-  const tableRequests: Array<{ event: string; status?: number }> = [];
-  const isTableRequest = (url: string) => new URL(url).pathname.endsWith("/postgres/tables");
-  page.on("request", (request) => { if (isTableRequest(request.url())) tableRequests.push({ event: "request" }); });
-  page.on("response", (response) => { if (isTableRequest(response.url())) tableRequests.push({ event: "response", status: response.status() }); });
-  page.on("requestfailed", (request) => { if (isTableRequest(request.url())) tableRequests.push({ event: "failed" }); });
   const graph = { nodes: [
     { id: "manual", type: "trigger.manual", position: { x: 100, y: 100 }, config: {} },
     { id: "notion", type: "action.notion.search-pages", position: { x: 400, y: 100 }, config: { credentialId: "notion-1", query: "Notes", pageSize: 20 } },
@@ -18,36 +11,28 @@ test("Notion and PostgreSQL offer separate connections and guided fields", async
     const path = new URL(route.request().url()).pathname;
     const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
     if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
+    if (path.endsWith("/auth/identities")) return send({ identities: [] });
+    if (path.endsWith("/auth/providers")) return send({ google: false, github: false, steam: false });
     if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
     if (path.endsWith("/credentials")) return send({ credentials: [{ id: "notion-1", provider: "NOTION", label: "My Notion" }, { id: "postgres-1", provider: "POSTGRES", label: "My database" }] });
     if (path.endsWith("/postgres/schemas")) return send({ schemas: [{ id: "public", name: "public" }] });
     if (path.endsWith("/postgres/tables")) { expect(new URL(route.request().url()).searchParams.get("schema")).toBe("public"); return send({ tables: [{ id: "items", name: "items" }] }); }
+    if (path.endsWith("/postgres/columns")) return send({ columns: [{ name: "id", type: "integer" }], partial: false, hasMore: false });
     if (path.endsWith("/workflows/notion-test")) return send({ workflow });
-    return route.continue();
+    return route.abort();
   });
   await page.goto("/editor?workflow=notion-test");
   await page.locator(".react-flow__node").filter({ hasText: "Search pages" }).click();
   await expect(page.getByLabel("Notion credential")).toHaveValue("notion-1");
   await expect(page.getByLabel("Page title contains (optional)")).toHaveValue("Notes");
   await expect(page.getByLabel("Maximum pages (1–100)")).toHaveValue("20");
+  const columnsResponse = page.waitForResponse((response) => new URL(response.url()).pathname.endsWith("/postgres/columns") && response.request().method() === "GET");
   await page.locator(".react-flow__node").filter({ hasText: "Select rows" }).click();
   await expect(page.getByLabel("PostgreSQL credential")).toHaveValue("postgres-1");
   await expect(page.getByRole("group", { name: "Schema" }).getByRole("option", { name: "public" })).toHaveAttribute("value", "public");
-  const tableGroup = page.getByRole("group", { name: "Table" });
-  try {
-    await expect(tableGroup.getByRole("option", { name: "items" })).toHaveAttribute("value", "items");
-  } catch (error) {
-    const groupCount = await tableGroup.count();
-    const select = tableGroup.getByLabel("Table", { exact: true });
-    console.error("PostgreSQL table picker diagnostics:", JSON.stringify({
-      pagePath: new URL(page.url()).pathname,
-      tableRequests,
-      groupCount,
-      selectCount: groupCount ? await select.count() : 0,
-      options: groupCount && await select.count() ? await select.locator("option").allTextContents() : [],
-    }));
-    throw error;
-  }
+  expect((await columnsResponse).status()).toBe(200);
+  await expect(page.getByRole("group", { name: "Table" }).getByRole("option", { name: "items" })).toHaveAttribute("value", "items");
+  await expect(page).toHaveURL(/\/editor\?workflow=notion-test$/);
 });
 
 test("Notion search offers bounded automatic pagination without changing the saved draft until selected", async ({ page }) => {
