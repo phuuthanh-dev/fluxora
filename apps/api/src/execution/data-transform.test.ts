@@ -45,3 +45,16 @@ test("Matching Merge uses strict keys, first right match, Input2 precedence and 
   assert.deepEqual(matchItems(config, left, []), []);
   assert.throws(() => matchItems(config, items({ customer: { id: {} } }), right), { code: "INVALID_INPUT" });
 });
+
+test("Remove Duplicates compares current input only and retains the first original item", () => {
+  const input = items({ id: 1, nested: { a: 1, b: 2 } }, { nested: { b: 2, a: 1 }, id: 1 }, { id: 1, nested: { a: 3 } }, { id: null }, {}, { id: null });
+  const all = transformItems(node("action.remove-duplicates", { compare: "all" }), input);
+  assert.deepEqual(all, [input[0], input[2], input[3], input[4]]);
+  const selected = transformItems(node("action.remove-duplicates", { compare: "selected", fields: "id" }), input);
+  assert.deepEqual(selected, [input[0], input[3], input[4]]);
+  const except = transformItems(node("action.remove-duplicates", { compare: "except", fields: "nested.a, nested.b" }), input);
+  assert.deepEqual(except, [input[0], input[3], input[4]]);
+  assert.deepEqual(transformItems(node("action.remove-duplicates", { compare: "all" }), items({ value: [] }, { value: {} })).length, 2);
+  assert.throws(() => transformItems(node("action.remove-duplicates", { compare: "selected", fields: "" }), input), { code: "INVALID_CONFIGURATION" });
+  assert.throws(() => transformItems(node("action.remove-duplicates", { compare: "all" }), [{ json: { secret: "[REDACTED]" }, persisted: true }]), (error: unknown) => error instanceof BadRequestException && (error.getResponse() as { code: string }).code === "REDACTED_INPUT_UNAVAILABLE");
+});

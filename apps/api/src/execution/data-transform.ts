@@ -25,6 +25,13 @@ export function itemField(item: WorkflowItem, path: string): unknown {
 const object = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);
 const sources = (item: WorkflowItem) => item.sources ?? (item.pairedItem ? [item.pairedItem] : []);
 
+/** Objects compare by content regardless of property order; arrays keep their order. */
+function canonical(value: unknown): unknown {
+  if (Array.isArray(value)) return ["array", value.map(canonical)];
+  if (object(value)) return ["object", Object.keys(value).sort().map((key) => [key, canonical(value[key])])];
+  return ["value", value];
+}
+
 export function transformItems(node: WorkflowNode, inputs: WorkflowItem[]): WorkflowItem[] {
   if (!isDataTransformNode(node.type)) return inputs;
   const config = node.config;
@@ -38,6 +45,33 @@ export function transformItems(node: WorkflowNode, inputs: WorkflowItem[]): Work
   if (node.type === "action.limit") {
     const count = Number(config.maxItems);
     return count === 0 ? [] : config.keep === "last" ? inputs.slice(-count) : inputs.slice(0, count);
+  }
+  if (node.type === "action.remove-duplicates") {
+    const fields = typeof config.fields === "string" ? config.fields.split(",").map((field) => field.trim()) : [];
+    const seen = new Set<string>();
+    return inputs.filter((item) => {
+      let value: unknown;
+      if (config.compare === "selected") {
+        value = fields.map((field) => {
+          const selected = itemField(item, field);
+          return selected === undefined ? ["missing"] : ["value", canonical(selected)];
+        });
+      } else {
+        // Protect persisted redacted values before comparing the whole item.
+        value = structuredClone(resolveExpressions("{{ $json }}", { $json: item.json }, { persistedItem: item.persisted }));
+        if (config.compare === "except" && object(value)) for (const field of fields) {
+          const segments = field.split(".");
+          let parent: Record<string, unknown> | undefined = value;
+          for (const segment of segments.slice(0, -1)) parent = parent && object(parent[segment]) ? parent[segment] as Record<string, unknown> : undefined;
+          if (parent) delete parent[segments.at(-1)!];
+        }
+        value = canonical(value);
+      }
+      const key = JSON.stringify(value);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
   if (node.type === "action.sort") {
     const type = config.valueType ?? "text";

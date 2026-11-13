@@ -135,7 +135,7 @@ function parseNode(value: unknown): StoredWorkflowNode {
     catch { invalid("Use a public RSS URL without embedded credentials or secret query parameters."); }
   }
   const pinData = record.pinData === undefined ? undefined : readRecord(record.pinData, "Pinned data must be a JSON object.");
-  if (pinData && (!type.startsWith("action.") || type === "action.merge" || ["action.aggregate", "action.split-out", "action.sort", "action.limit", "action.edit-fields"].includes(type) || Buffer.byteLength(JSON.stringify(pinData), "utf8") > 65536)) invalid("Pinned data is not supported for this node or exceeds 64 KB.");
+  if (pinData && (!type.startsWith("action.") || type === "action.merge" || ["action.aggregate", "action.split-out", "action.sort", "action.limit", "action.remove-duplicates", "action.edit-fields"].includes(type) || Buffer.byteLength(JSON.stringify(pinData), "utf8") > 65536)) invalid("Pinned data is not supported for this node or exceeds 64 KB.");
   return { id: readString(record.id, "Node ID is required."), type, position: { x, y }, config, ...(pinData ? { pinData } : {}) };
 }
 

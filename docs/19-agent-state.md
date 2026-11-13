@@ -1,5 +1,11 @@
 # Agent Current State Gate
 
+## Google Docs and Remove Duplicates — 2026-11-13 (local, pending release)
+
+- Google Docs Create/Get/Update and current-input Remove Duplicates use existing Google connections, item streams and editor controls. The Google Docs API was enabled with owner approval. A local real-credential check created and appended to one test document; Get, Replace and production remain unqualified live. Google data access and Lemon merchant approval remain in review. See `57-google-docs-remove-duplicates.md`.
+- Production inventory found 22 GB free and retained the current rollback images and the unidentified volume. No production data was deleted. APT cache cleanup required interactive sudo and was not performed. Preserve pre-existing local `AGENTS.md` and `apps/web/next-env.d.ts` changes.
+- Isolated `npm run verify` passed, including 263 browser tests; a subsequent web typecheck passed after the final inspector help-text change. This entry is not evidence of a PR, merge, deployment, all-provider live test or 100-user capacity.
+
 ## Lemon card checkout and reconciliation — 2026-11-13 (local, unreleased)
 
 - Existing payOS remains the bank-transfer provider. Lemon card checkout is separately configured and disabled by default; no Lemon production credentials or webhook were configured in this batch. The store still reports `In Review`.

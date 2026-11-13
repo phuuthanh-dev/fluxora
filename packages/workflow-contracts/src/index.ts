@@ -48,6 +48,7 @@ export const workflowNodeTypes = [
   "action.split-out",
   "action.sort",
   "action.limit",
+  "action.remove-duplicates",
   "action.merge",
   "action.steam.account-snapshot",
   "action.steam",
@@ -67,6 +68,9 @@ export const workflowNodeTypes = [
   "action.google-drive",
   "action.google-drive.get-file",
   "action.google-drive.create-folder",
+  "action.google-docs.create",
+  "action.google-docs.get",
+  "action.google-docs.update",
   "action.google-sheets",
   "action.http-request",
   "approval.request",
@@ -195,6 +199,7 @@ export const executableWorkflowNodeTypes = [
   "action.split-out",
   "action.sort",
   "action.limit",
+  "action.remove-duplicates",
   "action.merge",
   "action.steam.account-snapshot",
   "action.steam",
@@ -211,6 +216,9 @@ export const executableWorkflowNodeTypes = [
   "action.google-drive",
   "action.google-drive.get-file",
   "action.google-drive.create-folder",
+  "action.google-docs.create",
+  "action.google-docs.get",
+  "action.google-docs.update",
   "action.google-sheets",
   "action.http-request",
   "action.email",
@@ -354,6 +362,6 @@ export type NodeExecutionResult = {
   };
 };
 
-export const dataTransformNodeTypes = ["action.aggregate", "action.split-out", "action.sort", "action.limit"] as const;
+export const dataTransformNodeTypes = ["action.aggregate", "action.split-out", "action.sort", "action.limit", "action.remove-duplicates"] as const;
 export type DataTransformNodeType = (typeof dataTransformNodeTypes)[number];
 export function isDataTransformNode(type: string): type is DataTransformNodeType { return (dataTransformNodeTypes as readonly string[]).includes(type); }

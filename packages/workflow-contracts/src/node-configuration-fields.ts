@@ -6,13 +6,14 @@ export type NodeSelectOption = { value: string; label: string };
 type NodeFieldVisibilityValue = string | number | boolean;
 export type NodeFieldVisibility = { visibleWhen?: { key: string; equals: NodeFieldVisibilityValue | readonly NodeFieldVisibilityValue[]; fallback?: NodeFieldVisibilityValue } };
 
-export type NodeResource = "airtable-base" | "airtable-table" | "airtable-record" | "jira-issue" | "gitlab-pipeline" | "gitlab-merge-request" | "github-label" | "sentry-issue" | "vercel-deployment" | "jira-project" | "jira-issue-type" | "gitlab-project" | "gitlab-issue" | "steam-game" | "github-issue" | "github-pull-request" | "github-repository" | "google-file" | "google-drive-item" | "google-folder" | "google-spreadsheet" | "google-sheet-tab" | "google-sheet-header" | "google-calendar" | "google-calendar-event" | "gmail-label" | "gmail-draft" | "gemini-model" | "openai-model" | "google-chat-space" | "slack-channel" | "mongodb-database" | "mongodb-collection" | "postgres-schema" | "postgres-table" | "trello-board" | "trello-list" | "trello-card" | "notion-page" | "notion-property" | "notion-data-source" | "notion-source-property" | "notion-source-option" | "sentry-organization" | "sentry-project" | "sentry-installation" | "vercel-team" | "vercel-project" | "supabase-table";
+export type NodeResource = "airtable-base" | "airtable-table" | "airtable-record" | "jira-issue" | "gitlab-pipeline" | "gitlab-merge-request" | "github-label" | "sentry-issue" | "vercel-deployment" | "jira-project" | "jira-issue-type" | "gitlab-project" | "gitlab-issue" | "steam-game" | "github-issue" | "github-pull-request" | "github-repository" | "google-file" | "google-document" | "google-drive-item" | "google-folder" | "google-spreadsheet" | "google-sheet-tab" | "google-sheet-header" | "google-calendar" | "google-calendar-event" | "gmail-label" | "gmail-draft" | "gemini-model" | "openai-model" | "google-chat-space" | "slack-channel" | "mongodb-database" | "mongodb-collection" | "postgres-schema" | "postgres-table" | "trello-board" | "trello-list" | "trello-card" | "notion-page" | "notion-property" | "notion-data-source" | "notion-source-property" | "notion-source-option" | "sentry-organization" | "sentry-project" | "sentry-installation" | "vercel-team" | "vercel-project" | "supabase-table";
 
 export type NodeConfigurationField =
   | ({ kind: "credential"; key: string; label: string; providers: OperationCredentialProvider[]; optional?: boolean } & NodeFieldVisibility)
   | ({ kind: "boolean"; key: string; label: string; defaultChecked?: boolean } & NodeFieldVisibility)
   | ({ kind: "text" | "textarea"; key: string; label: string; advanced?: { summary: string; help: string } } & NodeFieldVisibility)
   | ({ kind: "data-path"; key: string; label: string; input?: "input1" | "input2" } & NodeFieldVisibility)
+  | ({ kind: "data-path-list"; key: string; label: string } & NodeFieldVisibility)
   | ({ kind: "notion-properties"; key: string; label: string } & NodeFieldVisibility)
   | ({ kind: "airtable-fields"; key: string; label: string } & NodeFieldVisibility)
   | ({ kind: "datetime"; key: string; label: string } & NodeFieldVisibility)

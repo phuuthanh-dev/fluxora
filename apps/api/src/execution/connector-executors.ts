@@ -12,6 +12,7 @@ import { executeRiotLol, executeRiotTft } from "./riot-lol";
 import { mockDrive, executeGoogleDrive, mockSheets, executeGoogleSheets, readOperation, readSheetsInputOption } from "./google-workspace-adapter";
 import { readDriveCollectPages, readDrivePageToken } from "./google-drive-pagination";
 import { executeDriveCreateFolder, executeDriveGetFile } from "./google-drive-file-operations";
+import { executeGoogleDocs } from "./google-docs";
 import { executeGoogleChatWebhook, executeSlackWebhook, executeDiscordWebhook, executeTelegramMessage } from "./notification-adapters";
 import { executeGitHubCreateIssue, executeGitHubAddLabel, executeGitHubAddComment, executeGitHubMergePullRequest } from "./github-write-adapter";
 import { executeHttpRequest, readHttpRequestConfig } from "./http-request-adapter";
@@ -79,6 +80,9 @@ const executors = {
   "action.google-drive": ({ config, mode, workspaceId, credentials }) => executeDriveNode(config, mode, workspaceId, credentials),
   "action.google-drive.get-file": ({ config, mode, workspaceId, credentials }) => executeDriveGetFile(config, mode, workspaceId, credentials),
   "action.google-drive.create-folder": ({ config, mode, workspaceId, credentials }) => executeDriveCreateFolder(config, mode, workspaceId, credentials),
+  "action.google-docs.create": ({ config, mode, workspaceId, credentials }) => executeGoogleDocs(config, "create", mode, workspaceId, credentials),
+  "action.google-docs.get": ({ config, mode, workspaceId, credentials }) => executeGoogleDocs(config, "get", mode, workspaceId, credentials),
+  "action.google-docs.update": ({ config, mode, workspaceId, credentials }) => executeGoogleDocs(config, "update", mode, workspaceId, credentials),
   "action.google-sheets": async ({ config, mode, workspaceId, credentials }) => {
     const issue = nodeConfigIssues("action.google-sheets", config, "resolved")[0];
     if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
@@ -168,7 +172,7 @@ const executors = {
   "action.github.update-issue": ({ config, mode, workspaceId, credentials }) => executeGitHubUpdateIssue(config, mode, workspaceId, credentials),
   "action.github.list-pull-requests": ({ config, mode, workspaceId, credentials }) => executeGitHubListPullRequests(config, mode, workspaceId, credentials),
   "action.github.get-pull-request": ({ config, mode, workspaceId, credentials }) => executeGitHubGetPullRequest(config, mode, workspaceId, credentials),
-} satisfies Record<Exclude<Extract<ExecutableWorkflowNodeType, `action.${string}`>, "action.edit-fields" | "action.merge" | "action.aggregate" | "action.split-out" | "action.sort" | "action.limit">, ConnectorExecutor>;
+} satisfies Record<Exclude<Extract<ExecutableWorkflowNodeType, `action.${string}`>, "action.edit-fields" | "action.merge" | "action.aggregate" | "action.split-out" | "action.sort" | "action.limit" | "action.remove-duplicates">, ConnectorExecutor>;
 
 async function executeDriveNode(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService) {
   const issue = nodeConfigIssues("action.google-drive", config, "resolved")[0];

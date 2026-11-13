@@ -101,6 +101,7 @@ export const appCatalog: AppDefinition[] = [
   { id: "discord", label: "Discord", description: "Send messages through Discord webhooks.", icon: "discord", category: "communication", aliases: ["notification", "webhook"] },
   { id: "telegram", label: "Telegram", description: "Send messages with the Telegram Bot API.", icon: "telegram", category: "communication", aliases: ["bot", "notification"] },
   { id: "google-drive", label: "Google Drive", description: "Search, read, upload, and download files.", icon: "google-drive", category: "productivity", aliases: ["files", "workspace"] },
+  { id: "google-docs", label: "Google Docs", description: "Create, read, and update documents.", icon: "google-docs", category: "productivity", aliases: ["documents", "workspace"] },
   { id: "google-sheets", label: "Google Sheets", description: "Read and write spreadsheet data.", icon: "google-sheets", category: "productivity", aliases: ["spreadsheet", "rows", "workspace"] },
   { id: "google-calendar", label: "Google Calendar", description: "Find and manage calendar events.", icon: "google-calendar", category: "productivity", aliases: ["calendar", "events", "workspace"] },
   { id: "http", label: "HTTP", description: "Call REST APIs with optional authentication.", icon: "http", category: "developer-devops", aliases: ["api", "request", "webhook"] },
@@ -340,6 +341,11 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { maxItems: 10, keep: "first" }, configurationFields: getSharedNodeConfigurationFields("action.limit"),
   },
   {
+    type: "action.remove-duplicates", label: "Remove Duplicates", description: "Keep the first item for each unique set of values.",
+    category: "action", libraryGroup: "logic", operationId: "remove-duplicates", operationLabel: "Remove Duplicates", operationKind: "utility", icon: "switch", available: true,
+    defaultConfig: { compare: "all" }, configurationFields: getSharedNodeConfigurationFields("action.remove-duplicates"),
+  },
+  {
     type: "action.merge",
     label: "Merge",
     description: "Append two inputs or combine matching fields.",
@@ -517,6 +523,18 @@ export const nodeCatalog: NodeDefinition[] = [
     type: "action.google-drive.create-folder", label: "Google Drive · Create folder", description: "Create a folder in My Drive or inside a selected folder.",
     category: "action", libraryGroup: "google-workspace", appId: "google-drive", operationId: "create-folder", operationLabel: "Create folder", operationKind: "action", icon: "google-drive", available: true,
     defaultConfig: { credentialId: "", name: "", parentId: "" }, configurationFields: getSharedNodeConfigurationFields("action.google-drive.create-folder"),
+  },
+  {
+    type: "action.google-docs.create", label: "Google Docs · Create document", description: "Create a blank document with a title.", category: "action", libraryGroup: "google-workspace", appId: "google-docs", operationId: "create", operationLabel: "Create document", operationKind: "action", icon: "google-docs", available: true,
+    defaultConfig: { credentialId: "", title: "" }, configurationFields: getSharedNodeConfigurationFields("action.google-docs.create"),
+  },
+  {
+    type: "action.google-docs.get", label: "Google Docs · Get document", description: "Read a document.", category: "action", libraryGroup: "google-workspace", appId: "google-docs", operationId: "get", operationLabel: "Get document", operationKind: "search", icon: "google-docs", available: true,
+    defaultConfig: { credentialId: "", documentId: "" }, configurationFields: getSharedNodeConfigurationFields("action.google-docs.get"),
+  },
+  {
+    type: "action.google-docs.update", label: "Google Docs · Update document", description: "Append or replace text in a document.", category: "action", libraryGroup: "google-workspace", appId: "google-docs", operationId: "update", operationLabel: "Update document", operationKind: "action", icon: "google-docs", available: true,
+    defaultConfig: { credentialId: "", documentId: "", operation: "append", text: "" }, configurationFields: getSharedNodeConfigurationFields("action.google-docs.update"),
   },
   {
     type: "action.google-sheets",

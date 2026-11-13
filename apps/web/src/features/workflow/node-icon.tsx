@@ -37,6 +37,7 @@ import {
   SiGithub,
   SiJira,
   SiGooglechat,
+  SiGoogledocs,
   SiGooglesheets,
   SiMongodb,
   SiNotion,
@@ -72,6 +73,7 @@ export type NodeIconName =
   | "discord"
   | "telegram"
   | "google-drive"
+  | "google-docs"
   | "google-sheets"
   | "http"
   | "approval"
@@ -141,6 +143,7 @@ export function NodeIcon({ name, size = 18, className = "" }: { name: NodeIconNa
       case "discord": return <BrandIcon icon={discordIcon} size={size} />;
       case "telegram": return <BrandIcon icon={telegramIcon} size={size} />;
       case "google-drive": return <BrandIcon icon={googleDriveIcon} size={size} />;
+      case "google-docs": return <SiGoogledocs {...props} />;
       case "google-sheets": return <SiGooglesheets {...props} />;
       case "http": return <Globe2 {...props} />;
       case "approval": return <CircleCheckBig {...props} />;

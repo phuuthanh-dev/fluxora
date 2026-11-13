@@ -1,7 +1,7 @@
 import { jiraSearch, jiraCreate, jiraGet, jiraUpdate, jiraComment, jiraTrigger } from "./node-config-schemas/jira";
 import { airtableList, airtableGet, airtableCreate, airtableUpdate } from "./node-config-schemas/airtable";
 import { gitlabProject, gitlabListIssues, gitlabIssue, gitlabCreateIssue, gitlabComment, gitlabPipeline, gitlabMergeRequest, gitlabUpdateIssue, gitlabGetPipeline, gitlabGetMergeRequest } from "./node-config-schemas/gitlab";
-import { aggregate, splitOut, sortItems, limitItems, merge } from "./node-config-schemas/data-transform";
+import { aggregate, splitOut, sortItems, limitItems, removeDuplicates, merge } from "./node-config-schemas/data-transform";
 import { steamOperation, steamSnapshot } from "./node-config-schemas/steam";
 import { mongoFind, mongoInsert } from "./node-config-schemas/mongodb";
 import { gemini } from "./node-config-schemas/gemini";
@@ -15,6 +15,7 @@ import { smtpEmail } from "./node-config-schemas/smtp";
 import { sentryGetIssue, sentryListIssues } from "./node-config-schemas/sentry";
 import { vercelListDeployments, vercelPublicDeployment } from "./node-config-schemas/vercel";
 import { drive, driveCreateFolder, driveGetFile } from "./node-config-schemas/google-drive";
+import { docsCreate, docsGet, docsUpdate } from "./node-config-schemas/google-docs";
 import { googleSheets } from "./node-config-schemas/google-sheets";
 import { telegramEdit, telegramReply, telegramSend } from "./node-config-schemas/telegram";
 import { trelloCreate, trelloFind, trelloGet, trelloList, trelloMove, trelloUpdate } from "./node-config-schemas/trello";
@@ -74,6 +75,9 @@ const rules: Readonly<Record<string, ConfigRules>> = {
   "action.vercel.public-deployment-lookup": vercelPublicDeployment,
   "action.google-drive.get-file": driveGetFile,
   "action.google-drive.create-folder": driveCreateFolder,
+  "action.google-docs.create": docsCreate,
+  "action.google-docs.get": docsGet,
+  "action.google-docs.update": docsUpdate,
   "action.google-drive": drive,
   "action.google-sheets": googleSheets,
   "action.telegram.message": telegramSend,
@@ -161,6 +165,7 @@ const rules: Readonly<Record<string, ConfigRules>> = {
   "action.split-out": splitOut,
   "action.sort": sortItems,
   "action.limit": limitItems,
+  "action.remove-duplicates": removeDuplicates,
   "approval.request": approval,
 };
 
@@ -186,8 +191,8 @@ function containsExpression(value: unknown): boolean {
 export function nodeConfigIssues(type: string, config: Record<string, unknown>, phase: "static" | "resolved"): NodeConfigIssue[] {
   const nodeRules = Object.hasOwn(rules, type) ? rules[type] : undefined;
   const issues: NodeConfigIssue[] = [];
-  if (["action.merge", "action.aggregate", "action.split-out", "action.sort", "action.limit"].includes(type) && containsExpression(config)) return [{ field: "config", message: "Use fixed settings for this whole-list operation. Field paths select values from incoming items." }];
-  if (["action.merge", "action.aggregate", "action.split-out", "action.sort", "action.limit"].includes(type) && Object.keys(config).some((key) => !nodeRules || !Object.hasOwn(nodeRules, key))) return [{ field: "config", message: "Remove unsupported data-node settings." }];
+  if (["action.merge", "action.aggregate", "action.split-out", "action.sort", "action.limit", "action.remove-duplicates"].includes(type) && containsExpression(config)) return [{ field: "config", message: "Use fixed settings for this whole-list operation. Field paths select values from incoming items." }];
+  if (["action.merge", "action.aggregate", "action.split-out", "action.sort", "action.limit", "action.remove-duplicates"].includes(type) && Object.keys(config).some((key) => !nodeRules || !Object.hasOwn(nodeRules, key))) return [{ field: "config", message: "Remove unsupported data-node settings." }];
   if (type.startsWith("action.") && Object.hasOwn(config, "executeOnce") && typeof config.executeOnce !== "boolean") {
     issues.push({ field: "executeOnce", message: "Run once must be on or off." });
   }

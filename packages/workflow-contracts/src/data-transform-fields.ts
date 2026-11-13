@@ -18,6 +18,10 @@ export const dataTransformFields = {
     { kind: "number", key: "maxItems", label: "Maximum items (0–100)", fallbackValue: 10 },
     { kind: "select", key: "keep", label: "Keep", options: [{ value: "first", label: "First items" }, { value: "last", label: "Last items" }] },
   ],
+  "action.remove-duplicates": (): NodeConfigurationField[] => [
+    { kind: "select", key: "compare", label: "Compare", options: [{ value: "all", label: "All fields" }, { value: "selected", label: "Selected fields" }, { value: "except", label: "All fields except" }] },
+    { kind: "data-path-list", key: "fields", label: "Fields to compare", visibleWhen: { key: "compare", equals: ["selected", "except"] } },
+  ],
   "action.merge": (): NodeConfigurationField[] => [
     { kind: "select", key: "mode", label: "Mode", fallbackValue: "append", options: [{ value: "append", label: "Append" }, { value: "matching", label: "Matching fields" }] },
     { kind: "data-path", input: "input1", key: "field1", label: "Input 1 matching field", visibleWhen: { key: "mode", equals: "matching" } },
