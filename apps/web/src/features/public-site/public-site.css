@@ -17,7 +17,7 @@
 .public-toc p { color:var(--text-tertiary); line-height:1.8; border-top:1px solid var(--line); padding-top:20px; }
 .public-toc time { display:block; }
 .public-content { min-width:0; }
-.public-section { scroll-margin-top:32px; margin-bottom:36px; padding-bottom:28px; border-bottom:1px solid var(--line); }
+.public-section { scroll-margin-top:110px; margin-bottom:36px; padding-bottom:28px; border-bottom:1px solid var(--line); }
 .public-section:last-child { border:0; margin-bottom:0; }
 .public-site .public-section h2 { font-size:23px; font-weight:600; letter-spacing:-.025em; margin:0 0 18px; }
 .public-section p,.public-section li { color:var(--text-secondary); font-size:16px; line-height:1.8; }

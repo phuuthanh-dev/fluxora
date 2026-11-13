@@ -16,7 +16,9 @@ export class BillingController {
   @Header("Cache-Control", "no-store")
   checkout(@Param("workspaceId") workspaceId: string, @Req() req: AuthenticatedRequest, @Body() body: unknown) {
     const plan = body && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>).plan : undefined;
-    return this.billing.createCheckout(workspaceId, req.currentUser!.id, plan);
+    const upgradeFromPaidUntil = body && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>).upgradeFromPaidUntil : undefined;
+    const confirmUpgrade = body && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>).confirmUpgrade : undefined;
+    return this.billing.createCheckout(workspaceId, req.currentUser!.id, plan, upgradeFromPaidUntil, confirmUpgrade);
   }
 
   @Get("workspaces/:workspaceId/billing/orders/latest")

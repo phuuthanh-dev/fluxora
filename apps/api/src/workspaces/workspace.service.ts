@@ -47,10 +47,11 @@ export class WorkspaceService {
 
   async planUsage(workspaceId: string, userId: string, now = new Date()) {
     await this.requireOwner(workspaceId, userId);
-    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
-    const [workspace, retainedRuns, activeWorkflows, trackedRuns, meter] = await Promise.all([
-      this.prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { trialPlan: true, trialExpiresAt: true, paidPlan: true, paidUntil: true, createdAt: true } }),
+    const workspace = await this.prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { trialPlan: true, trialExpiresAt: true, paidPlan: true, paidUntil: true, createdAt: true, usageResetAt: true } });
+    const start = workspace.usageResetAt && workspace.usageResetAt > monthStart && workspace.usageResetAt <= now ? workspace.usageResetAt : monthStart;
+    const [retainedRuns, activeWorkflows, trackedRuns, meter] = await Promise.all([
       this.prisma.execution.count({ where: { mode: "LIVE", startedAt: { gte: start, lt: end }, workflowVersion: { workflow: { workspaceId } } } }),
       this.prisma.workflow.count({ where: { workspaceId, isActive: true, archivedAt: null } }),
       this.prisma.usageRun.count({ where: { workspaceId, startedAt: { gte: start, lt: end } } }),

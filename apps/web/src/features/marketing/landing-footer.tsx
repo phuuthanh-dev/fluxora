@@ -57,8 +57,8 @@ export function LandingFooter({ publicPage = false }: { publicPage?: boolean }) 
         <a href="https://github.com/phuuthanh-dev/workflow-automation">
           GitHub
         </a>
-        <Link href="/login">
-          Sign in <ArrowRight size={13} />
+        <Link href="/dashboard">
+          Dashboard <ArrowRight size={13} />
         </Link>
       </nav>
       <div className="landing-footer__bottom">

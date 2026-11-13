@@ -1,5 +1,12 @@
 # Agent Current State Gate
 
+## Full-price paid upgrade — 2026-11-13 (local, unreleased)
+
+- The owner selected full-price Starter-to-Pro upgrades: start a new 30-day Pro term after verified settlement; remaining Starter time is neither credited nor added. The live-run allowance resets at upgrade confirmation, with the next regular reset at the start of the next UTC month. Same-tier renewal still extends the term without resetting usage.
+- Implementation stores the acknowledged Starter expiry with the order, keeps old usage records, and uses the existing workspace lock for quota accounting and settlement. A changed paid term requires manual review. Two additive migrations were applied to the isolated UI database and the primary local database; production is unchanged. The isolated UI uses fake payOS credentials and a separate Redis instance; no real checkout was initiated.
+- The upgrade dialog was visually inspected on desktop in light and dark themes and at 390px; pricing and paid-plan terms were inspected directly. On a local isolated API and database, 100 authenticated plan-usage reads at concurrency 10 completed 100/100 (median 6ms, p95 30ms); this is not 100-user or VPS capacity evidence. No real upgrade checkout was initiated.
+- Final local `npm run verify`: schema, backend (1,239 passed, one optional skip), web (78 passed), typechecks and builds passed; browser suite was 260/261 because a new mock omitted identity fields. After correcting the fixture, the entire focused Plan & usage suite passed 5/5. The complete CI gate on the final PR head remains required. Existing GSAP/WebGL warnings remain. Preserve the unrelated `apps/web/next-env.d.ts` change.
+
 ## Public navigation and billing assessment — 2026-11-13 (local, unreleased)
 
 - Production is at PR #137 merge `56cee6b9d20b1b5530c75ef579062ee57dd9c086`; the main quality gate and production deployment succeeded. The changes in this entry have not been deployed.

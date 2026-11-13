@@ -77,7 +77,7 @@ export class BillingService {
     return { available: process.env.PAYOS_CHECKOUT_ENABLED === "true" && process.env.PLAN_LIMITS_ENABLED === "true" && Boolean(process.env.PAYOS_CLIENT_ID && process.env.PAYOS_API_KEY && process.env.PAYOS_CHECKSUM_KEY) };
   }
 
-  async createCheckout(workspaceId: string, userId: string, plan: unknown) {
+  async createCheckout(workspaceId: string, userId: string, plan: unknown, upgradeFromPaidUntil?: unknown, confirmUpgrade?: unknown) {
     await this.workspaces.requireOwner(workspaceId, userId);
     if (plan !== "STARTER" && plan !== "PRO") throw new BadRequestException("Choose a valid plan.");
     // Never open real checkout until both business entitlements and reconciliation are released.
@@ -88,10 +88,14 @@ export class BillingService {
     const order = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${workspaceId} FOR UPDATE`;
       const workspace = await tx.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { paidPlan: true, paidUntil: true } });
-      if (workspace.paidUntil && workspace.paidUntil > new Date() && workspace.paidPlan !== plan) throw new ConflictException("Wait until the current paid plan ends before choosing another plan.");
       const current = await tx.paymentOrder.findFirst({ where: { workspaceId, status: { in: ["CREATING", "PENDING", "REVIEW"] } }, orderBy: { createdAt: "desc" } });
       if (current) return current;
-      return tx.paymentOrder.create({ data: { workspaceId, plan, amount: planCatalog[plan].priceVnd } });
+      const activePaidPlan = workspace.paidUntil && workspace.paidUntil > new Date() ? workspace.paidPlan : null;
+      if (activePaidPlan && activePaidPlan !== plan) {
+        if (activePaidPlan !== "STARTER" || plan !== "PRO") throw new ConflictException("Wait until the current paid plan ends before choosing a lower plan.");
+        if (confirmUpgrade !== true || typeof upgradeFromPaidUntil !== "string" || new Date(upgradeFromPaidUntil).getTime() !== workspace.paidUntil?.getTime()) throw new ConflictException("Review the upgrade terms for the current paid plan before continuing.");
+      }
+      return tx.paymentOrder.create({ data: { workspaceId, plan, amount: planCatalog[plan].priceVnd, upgradeFromPaidUntil: activePaidPlan === "STARTER" && plan === "PRO" ? workspace.paidUntil : null } });
     });
     if (order.plan !== plan) throw new ConflictException("Resolve the existing payment before choosing another plan.");
     if (order.status === "PENDING" && order.checkoutUrl) return { checkoutUrl: order.checkoutUrl, orderId: order.id };
@@ -141,14 +145,17 @@ export class BillingService {
       if (fresh.status === "PAID") return;
       const workspace = await tx.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { paidPlan: true, paidUntil: true } });
       const now = new Date();
-      // A conflicting purchase requires human reconciliation, never overwrite paid access.
-      if (workspace.paidUntil && workspace.paidUntil > now && workspace.paidPlan !== fresh.plan) {
+      const activePaid = workspace.paidUntil && workspace.paidUntil > now;
+      const isUpgrade = fresh.plan === "PRO" && fresh.upgradeFromPaidUntil != null;
+      // Apply an upgrade only to the exact Starter term the customer reviewed.
+      const matchesUpgrade = isUpgrade && activePaid && workspace.paidPlan === "STARTER" && workspace.paidUntil?.getTime() === fresh.upgradeFromPaidUntil?.getTime();
+      if (activePaid && ((workspace.paidPlan !== fresh.plan && !matchesUpgrade) || (isUpgrade && !matchesUpgrade))) {
         await tx.paymentOrder.update({ where: { id: fresh.id }, data: { status: "REVIEW", paymentLinkId } });
         return;
       }
-      const start = workspace.paidUntil && workspace.paidUntil > now ? workspace.paidUntil : now;
+      const start = !isUpgrade && activePaid ? workspace.paidUntil! : now;
       const paidUntil = new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
-      await tx.workspace.update({ where: { id: workspaceId }, data: { paidPlan: fresh.plan as PaidPlan, paidUntil } });
+      await tx.workspace.update({ where: { id: workspaceId }, data: { paidPlan: fresh.plan as PaidPlan, paidUntil, ...(isUpgrade ? { usageResetAt: now } : {}) } });
       await tx.paymentOrder.update({ where: { id: fresh.id }, data: { status: "PAID", paymentLinkId, paidAt: now, checkoutUrl: null } });
     });
   }

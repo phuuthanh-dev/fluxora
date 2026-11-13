@@ -85,9 +85,15 @@ test("paid plan screen handles no pending order and displays a pending order on 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test("an active paid plan offers renewal and explains when another tier is available", async ({ page }) => {
+test("a Starter owner reviews the full upgrade before opening checkout", async ({ page }) => {
+  let checkoutBody: Record<string, unknown> | undefined;
   await page.route("**/api/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/billing/checkout")) {
+      checkoutBody = route.request().postDataJSON();
+      await route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ message: "test conflict" }) });
+      return;
+    }
     const data: Record<string, unknown> = {
       "/api/v1/workspaces": { workspaces: [{ id: "space-1", name: "Sample workspace", slug: "sample", role: "OWNER" }] },
       "/api/v1/workspaces/space-1/plan-usage": { plan: "STARTER", paidUntil: "2099-12-01T00:00:00.000Z", trialExpiresAt: null, periodStart: "2026-11-01T00:00:00.000Z", periodEnd: "2026-12-01T00:00:00.000Z", retainedRuns: 0, trackedRuns: 0, meterComplete: true, activeWorkflows: 0, catalog },
@@ -100,7 +106,47 @@ test("an active paid plan offers renewal and explains when another tier is avail
   });
   await page.goto("/dashboard/plan");
   await expect(page.getByRole("button", { name: "Renew Starter" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Choose Pro" })).toHaveCount(0);
-  await expect(page.getByText("Available after your current paid plan ends.")).toBeVisible();
-  await expect(page.getByText(/Renewing your current plan adds 30 days/)).toBeVisible();
+  await page.getByRole("button", { name: "Upgrade to Pro" }).click();
+  const dialog = page.getByRole("dialog", { name: "Review upgrade" });
+  await expect(dialog.getByText(/199.000đ/)).toBeVisible();
+  await expect(dialog.getByText(/remaining time will not be refunded or added/)).toBeVisible();
+  await expect(dialog.getByText(/live-run quota resets/)).toBeVisible();
+  expect(checkoutBody).toBeUndefined();
+  await dialog.getByRole("button", { name: "Agree and continue to payOS" }).click();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  expect(checkoutBody).toEqual({ plan: "PRO", upgradeFromPaidUntil: "2099-12-01T00:00:00.000Z", confirmUpgrade: true });
+});
+
+test("confirmed return refreshes the plan and allowance without a page reload", async ({ page }) => {
+  let confirmed = false, usageRequests = 0;
+  let signalInitialUsage!: () => void;
+  const initialUsage = new Promise<void>((resolve) => { signalInitialUsage = resolve; });
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/billing/orders/order-1/reconcile")) {
+      await initialUsage;
+      confirmed = true;
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "PAID" }) });
+      return;
+    }
+    if (path.endsWith("/plan-usage")) {
+      usageRequests++;
+      const data = { plan: confirmed ? "PRO" : "STARTER", paidUntil: "2099-12-01T00:00:00.000Z", trialExpiresAt: null, periodStart: "2026-11-13T00:00:00.000Z", periodEnd: "2026-12-01T00:00:00.000Z", retainedRuns: confirmed ? 0 : 42, trackedRuns: confirmed ? 0 : 42, meterComplete: true, activeWorkflows: 0, catalog };
+      signalInitialUsage();
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(data) });
+      return;
+    }
+    const data: Record<string, unknown> = {
+      "/api/v1/workspaces": { workspaces: [{ id: "space-1", name: "Sample workspace", slug: "sample", role: "OWNER" }] },
+      "/api/v1/workspaces/space-1/billing/availability": { available: true },
+      "/api/v1/workspaces/space-1/billing/orders/latest": { order: null },
+      "/api/v1/auth/me": { user: { displayName: "Owner", email: "owner@example.test", avatarColor: "lime" } },
+      "/api/v1/auth/identities": { identities: [] }, "/api/v1/auth/providers": { google: false, github: false, steam: false },
+    };
+    await route.fulfill({ status: path === "/api/v1/admin/access" ? 403 : 200, contentType: "application/json", body: JSON.stringify(data[path] ?? {}) });
+  });
+  await page.goto("/dashboard/plan?workspace=space-1&order=order-1");
+  await expect(page.getByRole("heading", { name: "Pro", level: 2 })).toBeVisible();
+  await expect(page.getByText("Payment confirmed. Updating your plan and usage.")).toBeVisible();
+  expect(usageRequests).toBeGreaterThanOrEqual(2);
 });
