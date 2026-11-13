@@ -108,7 +108,7 @@ export function LoginForm({ mode = "login" }: { mode?: AuthMode }) {
             <li><span className="auth-flow-preview__icon"><NodeIcon name="steam" size={24} /></span><div><strong>Get your Steam snapshot</strong><span>Bring your account activity together</span></div><span className="auth-flow-preview__step">02</span></li>
             <li><span className="auth-flow-preview__icon"><NodeIcon name="google-chat" size={24} /></span><div><strong>Send it to Google Chat</strong><span>Your update, in the right place</span></div><span className="auth-flow-preview__step">03</span></li>
           </ol>
-          <p><Check size={15} aria-hidden="true" /> Built visually. Executed on your server.</p>
+          <p><Check size={15} aria-hidden="true" /> Build and run workflows visually.</p>
         </div>
         <p className="auth-showcase__note">Your workflows. Your connections. Your workspace.</p>
       </section>

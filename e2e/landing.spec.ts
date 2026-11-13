@@ -309,7 +309,8 @@ test("run planner responds to keyboard input without implying paid entitlements"
   await page.keyboard.press("End");
   await expect(range).toHaveAttribute("aria-valuetext", "300,000 runs per month, Higher volume planning profile");
   await expect(page.locator(".landing-run-card.is-lit")).toContainText("Higher volume");
-  await expect(page.locator(".landing-run-planner__note")).toContainText("not a capacity guarantee or a paid plan");
+  await expect(page.locator("p.landing-run-planner__note")).toContainText("This is an estimate, not a hosted plan limit");
+  await expect(page.getByRole("link", { name: "Compare plans" })).toHaveAttribute("href", "/pricing");
 });
 
 for (const width of [375, 768, 1440]) {

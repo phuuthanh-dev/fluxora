@@ -36,6 +36,10 @@
 .plan-upgrade-dialog p { color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin: 0 0 14px; }
 .plan-upgrade-dialog p strong { color: var(--ink); }
 .plan-upgrade-dialog__actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+.plan-payment-methods { border: 1px solid var(--line); border-radius: var(--radius-sm); display: grid; gap: 12px; margin: 18px 0; padding: 14px; }
+.plan-payment-methods legend { color: var(--ink); font-size: 14px; font-weight: 600; padding: 0 6px; }
+.plan-payment-methods label { align-items: center; color: var(--text-secondary); display: flex; font-size: 14px; gap: 10px; min-height: 28px; }
+.plan-payment-methods input { accent-color: var(--accent); flex: none; height: 16px; width: 16px; }
 .plan-checkout button.plan-card__link--renew { background: transparent; border: 1px solid var(--line); color: var(--ink) !important; }
 .plan-pending { justify-content: space-between; gap: 16px; }.plan-pending__details { max-width: 520px; }.plan-pending__details p { margin-top: 6px; }.plan-pending__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }.plan-pending__actions button, .plan-pending__actions a { align-items: center; display: inline-flex; min-height: 44px; border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: var(--radius-sm); padding: 10px 14px; font: inherit; font-size: 13px; cursor: pointer; }.plan-pending__actions .plan-checkout button { background: var(--accent); color: var(--text-on-accent); border-color: transparent; }.plan-pending__actions button:disabled { opacity: .6; cursor: wait; }.plan-pending > [role="status"] { flex-basis: 100%; border-top: 1px solid var(--line); padding-top: 12px; }
 .public-site .plan-card { padding: 28px; }

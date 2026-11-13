@@ -79,7 +79,7 @@ test("paid plan screen handles no pending order and displays a pending order on 
   await page.reload();
   const status = page.getByRole("region", { name: "Payment status" });
   await expect(status.getByText(/Payment link ready/)).toBeVisible();
-  await expect(status.getByRole("button", { name: "Continue to payOS" })).toBeVisible();
+  await expect(status.getByRole("button", { name: "Continue payment" })).toBeVisible();
   await expect(status.getByRole("button", { name: "Cancel payment link" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Choose Pro" })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -112,9 +112,9 @@ test("a Starter owner reviews the full upgrade before opening checkout", async (
   await expect(dialog.getByText(/remaining time will not be refunded or added/)).toBeVisible();
   await expect(dialog.getByText(/live-run quota resets/)).toBeVisible();
   expect(checkoutBody).toBeUndefined();
-  await dialog.getByRole("button", { name: "Agree and continue to payOS" }).click();
+  await dialog.getByRole("button", { name: "Continue to payment" }).click();
   await expect(dialog.getByRole("alert")).toBeVisible();
-  expect(checkoutBody).toEqual({ plan: "PRO", upgradeFromPaidUntil: "2099-12-01T00:00:00.000Z", confirmUpgrade: true });
+  expect(checkoutBody).toEqual({ plan: "PRO", method: "bank", upgradeFromPaidUntil: "2099-12-01T00:00:00.000Z", confirmUpgrade: true });
 });
 
 test("confirmed return refreshes the plan and allowance without a page reload", async ({ page }) => {
@@ -149,4 +149,29 @@ test("confirmed return refreshes the plan and allowance without a page reload", 
   await expect(page.getByRole("heading", { name: "Pro", level: 2 })).toBeVisible();
   await expect(page.getByText("Payment confirmed. Updating your plan and usage.")).toBeVisible();
   expect(usageRequests).toBeGreaterThanOrEqual(2);
+});
+
+
+test("customer can select a card when both payment methods are available", async ({ page }) => {
+  let checkoutBody: Record<string, unknown> | undefined;
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/billing/checkout")) { checkoutBody = route.request().postDataJSON(); await route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ message: "test conflict" }) }); return; }
+    const data: Record<string, unknown> = {
+      "/api/v1/workspaces": { workspaces: [{ id: "space-1", name: "Sample workspace", role: "OWNER" }] },
+      "/api/v1/workspaces/space-1/plan-usage": { plan: "FREE", trialExpiresAt: null, periodStart: "2026-11-01T00:00:00.000Z", periodEnd: "2026-12-01T00:00:00.000Z", retainedRuns: 0, trackedRuns: 0, meterComplete: true, activeWorkflows: 0, catalog },
+      "/api/v1/workspaces/space-1/billing/availability": { available: true, methods: { bank: true, card: true } },
+      "/api/v1/workspaces/space-1/billing/orders/latest": { order: null },
+      "/api/v1/auth/me": { user: { displayName: "Owner", email: "owner@example.test", avatarColor: "lime" } },
+      "/api/v1/auth/identities": { identities: [] }, "/api/v1/auth/providers": { google: false, github: false, steam: false },
+    };
+    await route.fulfill({ status: path === "/api/v1/admin/access" ? 403 : 200, contentType: "application/json", body: JSON.stringify(data[path] ?? {}) });
+  });
+  await page.goto("/dashboard/plan");
+  await page.getByRole("button", { name: "Choose Starter" }).click();
+  const dialog = page.getByRole("dialog", { name: "Choose payment method" });
+  await dialog.getByLabel("Bank card").check();
+  await dialog.getByRole("button", { name: "Continue to payment" }).click();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  expect(checkoutBody).toEqual({ plan: "STARTER", method: "card" });
 });

@@ -1,5 +1,13 @@
 # Agent Current State Gate
 
+## Lemon card checkout and reconciliation — 2026-11-13 (local, unreleased)
+
+- Existing payOS remains the bank-transfer provider. Lemon card checkout is separately configured and disabled by default; no Lemon production credentials or webhook were configured in this batch. The store still reports `In Review`.
+- An isolated local Fluxora workspace created a real Lemon Test mode checkout. Lemon delivered a signed webhook to the isolated local API and Starter became active for 30 days. A second payment through the same Test mode checkout produced a separate provider order, which was recorded for duplicate review without extending the workspace term. The owner-approved temporary test webhook was deleted after the test. No live funds moved.
+- Signed Lemon event identifiers are stored before provider verification so a transient API failure can be retried through Check status. Duplicate provider orders, refunds and changed-plan conflicts are retained for support review; never-delivered events require provider-log resend. See `docs/56-payos-checkout.md` for the operator boundary. The Test mode API key was exposed in an earlier tool output and should be rotated.
+- The new payment-method dialog was visually inspected on desktop light and 390px light/dark using a synthetic local account. The full-site audit and live card qualification are not implied. Lemon's store approval, live product/configuration review and operational support readiness remain required before enabling production card checkout.
+- Final isolated `npm run verify` passed: 1,214 API tests passed with 32 optional skips, 78 web tests passed and 262 E2E tests passed. The database, Redis and webhook test path were isolated from production; schedulers were disabled.
+
 ## Full-price paid upgrade — 2026-11-13 (local, unreleased)
 
 - The owner selected full-price Starter-to-Pro upgrades: start a new 30-day Pro term after verified settlement; remaining Starter time is neither credited nor added. The live-run allowance resets at upgrade confirmation, with the next regular reset at the start of the next UTC month. Same-tier renewal still extends the term without resetting usage.

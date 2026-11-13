@@ -6,7 +6,7 @@ import { Status } from "../../components/ui";
 
 /** Never interpret query-string status as payment confirmation. */
 export function PaymentReturn({ workspaceId, orderId, onConfirmed }: { workspaceId: string; orderId: string; onConfirmed: () => void }) {
-  const [message, setMessage] = useState("Checking your payment with payOS…");
+  const [message, setMessage] = useState("Checking your payment…");
   useEffect(() => {
     const controller = new AbortController();
     void apiRequest<{ status: string }>(`/workspaces/${encodeURIComponent(workspaceId)}/billing/orders/${encodeURIComponent(orderId)}/reconcile`, { method: "POST", body: "{}", signal: controller.signal })

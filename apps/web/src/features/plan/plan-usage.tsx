@@ -59,6 +59,7 @@ export function PlanUsagePage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [checkoutAvailable, setCheckoutAvailable] = useState(false);
+  const [methods, setMethods] = useState({ bank: false, card: false });
   const [paymentState, setPaymentState] = useState<"loading" | "none" | "pending" | "unknown">("loading");
   const [usageRevision, setUsageRevision] = useState(0);
   const onPaymentConfirmed = useCallback(() => setUsageRevision((value) => value + 1), []);
@@ -67,9 +68,10 @@ export function PlanUsagePage() {
     if (!workspaceId) return;
     const controller = new AbortController();
     setCheckoutAvailable(false);
+    setMethods({ bank: false, card: false });
     setPaymentState("loading");
-    void apiRequest<{ available: boolean }>(`/workspaces/${encodeURIComponent(workspaceId)}/billing/availability`, { signal: controller.signal })
-      .then((result) => { if (!controller.signal.aborted) setCheckoutAvailable(result.available === true); })
+    void apiRequest<{ available: boolean; methods?: { bank: boolean; card: boolean } }>(`/workspaces/${encodeURIComponent(workspaceId)}/billing/availability`, { signal: controller.signal })
+      .then((result) => { if (!controller.signal.aborted) { setCheckoutAvailable(result.available === true); setMethods(result.methods ?? { bank: result.available === true, card: false }); } })
       .catch(() => { /* Checkout stays unavailable when status cannot be verified. */ });
     return () => controller.abort();
   }, [workspaceId]);
@@ -98,7 +100,7 @@ export function PlanUsagePage() {
       {workspaceId && searchParams.get("workspace") === workspaceId && searchParams.get("order") && <PaymentReturn workspaceId={workspaceId} orderId={searchParams.get("order")!} onConfirmed={onPaymentConfirmed} />}
       {workspaceId && checkoutAvailable && <PendingPayment key={workspaceId} workspaceId={workspaceId} onStateChange={setPaymentState} onConfirmed={onPaymentConfirmed} revision={usageRevision} />}
       {data ? <>
-        <div className="plan-notice plan-billing-info"><strong>{checkoutAvailable ? "Pay for 30 days · manual renewal" : "Early access · no charges"}</strong><p>{checkoutAvailable ? "Payments use payOS. Runs reset each UTC month. No automatic renewal; refund requests are reviewed by Support." : "Plans, prices and benefits are proposed. No payment or plan limits are active."}</p></div>
+        <div className="plan-notice plan-billing-info"><strong>{checkoutAvailable ? "30-day access · Manual renewal" : "Early access · no charges"}</strong><p>{checkoutAvailable ? "Your plan renews only when you choose to pay again. Refund requests are reviewed by Support." : "Plans, prices and benefits are proposed. No payment or plan limits are active."}</p></div>
         <section className="plan-current" aria-labelledby="current-plan-heading">
           <div className="plan-current__top"><div><p className="plan-eyebrow">CURRENT PLAN</p><h2 id="current-plan-heading">{data.catalog[data.plan].name}{data.trialExpiresAt ? " trial" : ""}</h2><p>{data.paidUntil ? `Paid access ends ${new Date(data.paidUntil).toLocaleDateString([], { dateStyle: "medium" })}.` : data.trialExpiresAt ? `Trial ends ${new Date(data.trialExpiresAt).toLocaleDateString([], { dateStyle: "medium" })}.` : checkoutAvailable ? "Free plan for this workspace." : "Available for your workspace during early access."}</p></div><span className="plan-current__badge">{data.paidUntil ? "Paid" : data.plan === "FREE" ? checkoutAvailable ? "Free" : "Early access" : "Trial"}</span></div>
           <div className="plan-usage-grid"><div><span>{checkoutAvailable && data.meterComplete ? "Live runs in current allowance" : "Retained live runs in current allowance"}</span><strong>{checkoutAvailable && data.meterComplete && typeof data.trackedRuns === "number" ? data.trackedRuns.toLocaleString() : `At least ${data.retainedRuns.toLocaleString()}`}</strong><small>Counted since {new Date(data.periodStart).toLocaleString([], { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })} UTC · next reset {new Date(data.periodEnd).toLocaleDateString([], { dateStyle: "medium", timeZone: "UTC" })} UTC</small></div><div><span>Active workflows</span><strong>{data.activeWorkflows.toLocaleString()}</strong><small>Currently active in this workspace</small></div></div>
@@ -107,8 +109,8 @@ export function PlanUsagePage() {
           {typeof data.trackedRuns === "number" && data.meteringSince && !data.meterComplete && <p className="plan-meter-note">Usage tracking began on {new Date(data.meteringSince).toLocaleDateString([], { dateStyle: "medium", timeZone: "UTC" })} UTC. Earlier runs may be missing; the monthly limit starts when a complete month can be measured.</p>}
         </section>
         <div className="plan-section-heading"><div><p className="plan-eyebrow">EXPLORE PLANS</p><h2>Room to grow, on your terms.</h2><p>{checkoutAvailable ? data.paidUntil ? "Renew your current plan for 30 more days, or review the terms before upgrading." : "Prices in VND for 30 days of access. Renew manually when you need to." : "Proposed pricing in VND. Availability and limits may change after testing."}</p></div></div>
-        <PlanCards current={data.plan} workspaceId={workspaceId} checkoutAvailable={checkoutAvailable} paymentBlocked={checkoutAvailable && paymentState !== "none"} paidUntil={data.paidUntil} />
-        <p className="plan-disclaimer">{checkoutAvailable ? "New live runs stop when the monthly limit is reached. Existing runs continue; provider and AI charges are separate." : "The proposed limits are not enforced. AI providers may charge you separately."} All plans use the current system retention policy.</p>
+        <PlanCards methods={methods} current={data.plan} workspaceId={workspaceId} checkoutAvailable={checkoutAvailable} paymentBlocked={checkoutAvailable && paymentState !== "none"} paidUntil={data.paidUntil} />
+        <p className="plan-disclaimer">{checkoutAvailable ? "New live runs pause when the monthly limit is reached until the next reset or an eligible upgrade. Existing runs continue; provider and AI charges are separate." : "The proposed limits are not enforced. AI providers may charge you separately."} All plans use the current system retention policy.</p>
       </> : null}
     </section>
   </main>;

@@ -137,7 +137,7 @@ export function LandingRunMeter() {
       </LandingReveal>
       <LandingReveal className="landing-run-planner__meter">
         <div className="landing-run-planner__control">
-          <p className="landing-eyebrow" data-relay-type>PLAN THE REPETITION</p>
+          <p className="landing-eyebrow" data-relay-type>ESTIMATE YOUR ACTIVITY</p>
           <label htmlFor="landing-runs">
             How many runs do you expect a month?
           </label>
@@ -158,9 +158,10 @@ export function LandingRunMeter() {
             <span data-relay-type>300,000</span>
           </div>
           <p className="landing-run-planner__note">
-            A planning guide, not a capacity guarantee or a paid plan. Actual
-            throughput depends on your server, workflow and provider limits.
+            This is an estimate, not a hosted plan limit. Actual throughput depends
+            on your infrastructure, workflow and provider limits.
           </p>
+          <Link href="/pricing" className="landing-run-planner__note">Compare plans</Link>
         </div>
         <div className="landing-run-planner__result">
           <p className="landing-eyebrow" data-relay-type>YOUR WORKLOAD</p>
