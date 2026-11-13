@@ -26,8 +26,8 @@ test("a new owner can configure, save, publish, and inspect a Steam workflow", a
   await expect(firstWorkflowGuide).toBeVisible();
   await expect(firstWorkflowGuide.getByText("Steam daily report", { exact: true })).toBeVisible();
   const recommendedTemplate = firstWorkflowGuide.locator(".dashboard-onboarding__template").filter({ hasText: "Steam daily report" });
-  await expect(recommendedTemplate.getByText("Personal", { exact: true })).toBeVisible();
-  await expect(recommendedTemplate.getByText("Notifications", { exact: true })).toBeVisible();
+  await expect(recommendedTemplate.getByText("Schedule → Steam account snapshot → Google Chat message")).toBeVisible();
+  await expect(recommendedTemplate.getByText("Connections: Steam · Google Chat")).toBeVisible();
   await expect(firstWorkflowGuide.getByRole("button", { name: "Use Steam report to Discord" })).toBeVisible();
   await expect(firstWorkflowGuide.getByRole("button", { name: "Use Steam report to Telegram" })).toBeVisible();
   await expect(firstWorkflowGuide.getByRole("button", { name: "Start from scratch" })).toBeVisible();

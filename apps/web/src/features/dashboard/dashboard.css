@@ -34,6 +34,8 @@
 .dashboard-operations { margin-top: 40px; padding-top: 8px; border-top: 1px solid var(--line); }
 .dashboard-operations .workspace-activity { margin-top: 24px; }
 .dashboard-operations .dashboard-runtime { margin-top: 24px; }
+.dashboard-create__actions { max-width: 100%; min-width: 0; }
+.dashboard-create__actions .ui-select { background-color: var(--surface-inset); border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--ink); font-size: var(--control-text); max-width: 100%; min-height: 38px; min-width: 0; padding: 8px 40px 8px 10px; width: 280px; }
 @media (max-width: 600px) {
   .dashboard-main .dashboard-stats { row-gap: 12px; }
   .dashboard-main .dashboard-stats > div { padding: 2px 12px; gap: 6px; }
@@ -42,6 +44,9 @@
   .dashboard-workflows .dashboard-section-heading { align-items: flex-start; flex-direction: column; gap: 8px; }
   .dashboard-workflows .dashboard-section-heading > span { text-align: left; }
   .dashboard-workflows .workflow-card { padding: 20px; }
+  .dashboard-create__actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; width: 100%; }
+  .dashboard-create__actions input { min-width: 0; width: 100%; }
+  .dashboard-create__actions .ui-select, .dashboard-create__actions .dashboard-primary-button { grid-column: 1 / -1; width: 100%; }
 }
 .dashboard-skeleton { padding-top: 8px; }
 .dashboard-skeleton__heading { display: block; height: 34px; width: min(220px, 65%); }
