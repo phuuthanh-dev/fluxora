@@ -6,10 +6,13 @@ test(`Notion and PostgreSQL offer separate connections and guided fields (diagno
   // credentials or response bodies. This fixture uses only synthetic IDs.
   const tableRequests: Array<{ event: string; status?: number }> = [];
   const workflowRequests: Array<{ event: string; at: number }> = [];
+  const deniedResponses: Array<{ path: string; status: number; at: number }> = [];
+  const navigations: Array<{ path: string; at: number }> = [];
   const isTableRequest = (url: string) => new URL(url).pathname.endsWith("/postgres/tables");
   const isWorkflowRequest = (url: string) => new URL(url).pathname.endsWith("/workflows/notion-test");
   page.on("request", (request) => { if (isTableRequest(request.url())) tableRequests.push({ event: "request" }); if (isWorkflowRequest(request.url())) workflowRequests.push({ event: "request", at: Date.now() }); });
-  page.on("response", (response) => { if (isTableRequest(response.url())) tableRequests.push({ event: "response", status: response.status() }); if (isWorkflowRequest(response.url())) workflowRequests.push({ event: "response", at: Date.now() }); });
+  page.on("response", (response) => { if (isTableRequest(response.url())) tableRequests.push({ event: "response", status: response.status() }); if (isWorkflowRequest(response.url())) workflowRequests.push({ event: "response", at: Date.now() }); if ([401, 403].includes(response.status())) deniedResponses.push({ path: new URL(response.url()).pathname, status: response.status(), at: Date.now() }); });
+  page.on("framenavigated", (frame) => { if (frame === page.mainFrame()) navigations.push({ path: new URL(frame.url()).pathname, at: Date.now() }); });
   page.on("requestfailed", (request) => { if (isTableRequest(request.url())) tableRequests.push({ event: "failed" }); });
   const graph = { nodes: [
     { id: "manual", type: "trigger.manual", position: { x: 100, y: 100 }, config: {} },
@@ -33,6 +36,7 @@ test(`Notion and PostgreSQL offer separate connections and guided fields (diagno
   await page.evaluate(() => {
     const state = window as unknown as { pickerEvents: string[] };
     state.pickerEvents = [];
+    window.addEventListener("fluxora:unauthenticated", () => { state.pickerEvents.push(`${Date.now()}:unauthenticated`); });
     let previous = "";
     const capture = () => {
       const inspector = document.querySelector("#node-inspector");
@@ -74,6 +78,8 @@ test(`Notion and PostgreSQL offer separate connections and guided fields (diagno
       })),
       tableRequests,
       workflowRequests,
+      deniedResponses,
+      navigations,
       groupCount,
       selectCount: groupCount ? await select.count() : 0,
       options: groupCount && await select.count() ? await select.locator("option").allTextContents() : [],
