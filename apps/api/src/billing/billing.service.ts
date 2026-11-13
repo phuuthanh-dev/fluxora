@@ -88,9 +88,13 @@ export class BillingService {
     const order = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${workspaceId} FOR UPDATE`;
       const workspace = await tx.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { paidPlan: true, paidUntil: true } });
-      const current = await tx.paymentOrder.findFirst({ where: { workspaceId, status: { in: ["CREATING", "PENDING", "REVIEW"] } }, orderBy: { createdAt: "desc" } });
-      if (current) return current;
       const activePaidPlan = workspace.paidUntil && workspace.paidUntil > new Date() ? workspace.paidPlan : null;
+      const current = await tx.paymentOrder.findFirst({ where: { workspaceId, status: { in: ["CREATING", "PENDING", "REVIEW"] } }, orderBy: { createdAt: "desc" } });
+      if (current) {
+        const matchesUpgrade = current.plan === "PRO" && current.upgradeFromPaidUntil && activePaidPlan === "STARTER" && current.upgradeFromPaidUntil.getTime() === workspace.paidUntil?.getTime();
+        if (activePaidPlan && ((activePaidPlan !== current.plan && !matchesUpgrade) || (current.upgradeFromPaidUntil && !matchesUpgrade))) throw new ConflictException("Your paid plan changed. Cancel or reconcile the existing payment before continuing.");
+        return current;
+      }
       if (activePaidPlan && activePaidPlan !== plan) {
         if (activePaidPlan !== "STARTER" || plan !== "PRO") throw new ConflictException("Wait until the current paid plan ends before choosing a lower plan.");
         if (confirmUpgrade !== true || typeof upgradeFromPaidUntil !== "string" || new Date(upgradeFromPaidUntil).getTime() !== workspace.paidUntil?.getTime()) throw new ConflictException("Review the upgrade terms for the current paid plan before continuing.");

@@ -147,6 +147,7 @@ test("a confirmed full-price upgrade starts a new term once and rejects stale or
     order = null; updates = 0;
     await service.createCheckout("w", "owner", "PRO", originalUntil.toISOString(), true);
     workspace.paidUntil = new Date(originalUntil.getTime() + 30 * 86400000);
+    await assert.rejects(service.createCheckout("w", "owner", "PRO"), /paid plan changed/);
     await service.handleWebhook({});
     assert.equal(order!.status, "REVIEW");
     assert.equal(workspace.paidPlan, "STARTER");
