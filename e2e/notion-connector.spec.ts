@@ -1,6 +1,13 @@
 import { expect, test } from "@playwright/test";
 
 test("Notion and PostgreSQL offer separate connections and guided fields", async ({ page }) => {
+  // Keep failure diagnostics for the intermittent CI timeout without logging
+  // credentials or response bodies. This fixture uses only synthetic IDs.
+  const tableRequests: Array<{ event: string; status?: number }> = [];
+  const isTableRequest = (url: string) => new URL(url).pathname.endsWith("/postgres/tables");
+  page.on("request", (request) => { if (isTableRequest(request.url())) tableRequests.push({ event: "request" }); });
+  page.on("response", (response) => { if (isTableRequest(response.url())) tableRequests.push({ event: "response", status: response.status() }); });
+  page.on("requestfailed", (request) => { if (isTableRequest(request.url())) tableRequests.push({ event: "failed" }); });
   const graph = { nodes: [
     { id: "manual", type: "trigger.manual", position: { x: 100, y: 100 }, config: {} },
     { id: "notion", type: "action.notion.search-pages", position: { x: 400, y: 100 }, config: { credentialId: "notion-1", query: "Notes", pageSize: 20 } },
@@ -26,7 +33,21 @@ test("Notion and PostgreSQL offer separate connections and guided fields", async
   await page.locator(".react-flow__node").filter({ hasText: "Select rows" }).click();
   await expect(page.getByLabel("PostgreSQL credential")).toHaveValue("postgres-1");
   await expect(page.getByRole("group", { name: "Schema" }).getByRole("option", { name: "public" })).toHaveAttribute("value", "public");
-  await expect(page.getByRole("group", { name: "Table" }).getByRole("option", { name: "items" })).toHaveAttribute("value", "items");
+  const tableGroup = page.getByRole("group", { name: "Table" });
+  try {
+    await expect(tableGroup.getByRole("option", { name: "items" })).toHaveAttribute("value", "items");
+  } catch (error) {
+    const groupCount = await tableGroup.count();
+    const select = tableGroup.getByLabel("Table", { exact: true });
+    console.error("PostgreSQL table picker diagnostics:", JSON.stringify({
+      pagePath: new URL(page.url()).pathname,
+      tableRequests,
+      groupCount,
+      selectCount: groupCount ? await select.count() : 0,
+      options: groupCount && await select.count() ? await select.locator("option").allTextContents() : [],
+    }));
+    throw error;
+  }
 });
 
 test("Notion search offers bounded automatic pagination without changing the saved draft until selected", async ({ page }) => {
