@@ -12,9 +12,9 @@ export class GoogleResourceController {
   @Header("Cache-Control", "no-store")
   async files(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Req() request: AuthenticatedRequest, @Query("kind") kind?: string, @Query("pageToken") pageToken?: string) {
     if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
-    if (kind !== undefined && kind !== "file" && kind !== "spreadsheet" && kind !== "folder" && kind !== "all") throw new BadRequestException({ code: "INVALID_INPUT", message: "Unsupported file type." });
+    if (kind !== undefined && kind !== "file" && kind !== "spreadsheet" && kind !== "document" && kind !== "folder" && kind !== "all") throw new BadRequestException({ code: "INVALID_INPUT", message: "Unsupported file type." });
     if (pageToken !== undefined && (pageToken.length > 2048 || !/^[\x21-\x7e]+$/.test(pageToken))) throw new BadRequestException({ code: "INVALID_INPUT", message: "Invalid page token." });
-    return this.resources.listFiles(workspaceId, credentialId, request.currentUser.id, kind === "spreadsheet" || kind === "folder" || kind === "all" ? kind : "file", pageToken);
+    return this.resources.listFiles(workspaceId, credentialId, request.currentUser.id, kind === "spreadsheet" || kind === "document" || kind === "folder" || kind === "all" ? kind : "file", pageToken);
   }
 
   @Get("sheets/tabs")

@@ -33,3 +33,16 @@ export function DataPathField({ label, value, sample, error, onChange }: { label
     <small>{paths.length ? "Suggestions from the selected run. Nested fields use a dot." : "Run the previous step to see suggestions, or enter a field path."}</small>
   </Field>;
 }
+
+export function DataPathListField({ label, value, sample, error, onChange }: { label: string; value: string; sample: unknown; error?: string; onChange: (value: string) => void }) {
+  const paths = sampleFieldPaths(sample);
+  const selected = value.split(",").map((field) => field.trim()).filter(Boolean);
+  return <Field label={label} className="config-field" error={error}>
+    {paths.length > 0 && <select aria-label="Add a field from previous output" value="" onChange={(event) => { if (event.target.value && !selected.includes(event.target.value)) onChange([...selected, event.target.value].join(", ")); }}>
+      <option value="">Add a field from previous output</option>
+      {paths.filter((path) => !selected.includes(path)).map((path) => <option key={path} value={path}>{path}</option>)}
+    </select>}
+    <input aria-label={label} value={value} placeholder="e.g. email, customer.id" onChange={(event) => onChange(event.target.value)} />
+    <small>{paths.length ? "Select fields above or enter paths separated by commas." : "Run the previous step for field suggestions, or enter paths separated by commas."}</small>
+  </Field>;
+}

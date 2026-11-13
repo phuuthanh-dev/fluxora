@@ -26,6 +26,8 @@ test("Google resource discovery authorizes the workspace and returns safe file m
     const folderRequest = new URL(requestUrl);
     assert.equal(folderRequest.searchParams.get("q"), "trashed = false and mimeType = 'application/vnd.google-apps.folder'");
     assert.equal(folderRequest.searchParams.get("pageToken"), "page-2");
+    await service.listFiles("ws-1", "credential-1", "user-1", "document");
+    assert.equal(new URL(requestUrl).searchParams.get("q"), "trashed = false and mimeType = 'application/vnd.google-apps.document'");
   } finally { globalThis.fetch = original; }
 });
 

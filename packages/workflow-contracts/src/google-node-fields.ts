@@ -18,6 +18,21 @@ function sheetsFields(): NodeConfigurationField[] {
 
 /** Inspector descriptors only; backend validation remains authoritative. */
 export const googleNodeFields = {
+  "action.google-docs.create": (): NodeConfigurationField[] => [
+    { kind: "credential", key: "credentialId", label: "Google connection", providers: ["GOOGLE"] },
+    { kind: "text", key: "title", label: "Document title" },
+  ],
+  "action.google-docs.get": (): NodeConfigurationField[] => [
+    { kind: "credential", key: "credentialId", label: "Google connection", providers: ["GOOGLE"] },
+    { kind: "resource", key: "documentId", label: "Document", resource: "google-document", credentialKey: "credentialId", placeholder: "Search documents" },
+  ],
+  "action.google-docs.update": (): NodeConfigurationField[] => [
+    { kind: "credential", key: "credentialId", label: "Google connection", providers: ["GOOGLE"] },
+    { kind: "resource", key: "documentId", label: "Document", resource: "google-document", credentialKey: "credentialId", placeholder: "Search documents" },
+    { kind: "select", key: "operation", label: "Action", options: [{ value: "append", label: "Append text" }, { value: "replace", label: "Replace matching text" }] },
+    { kind: "text", key: "find", label: "Text to find", visibleWhen: { key: "operation", equals: "replace" } },
+    { kind: "textarea", key: "text", label: "Text" },
+  ],
   "trigger.google-sheets.row": (): NodeConfigurationField[] => [
     { kind: "credential", key: "credentialId", label: "Google connection", providers: ["GOOGLE"] },
     { kind: "resource", key: "resourceId", label: "Spreadsheet", resource: "google-spreadsheet", credentialKey: "credentialId", placeholder: "Search spreadsheets" },

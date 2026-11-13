@@ -11,10 +11,11 @@ function disposable(): boolean {
 }
 const node = (id: string, type: WorkflowNode["type"], config: Record<string, unknown> = {}): WorkflowNode => ({ id, type, config, position: { x: 0, y: 0 } });
 
-for (const scenario of ["ordered", "empty", "resume", "invalid-sort"] as const) test(`Data transforms ${scenario}: whole-stream execution, empty aggregation and resume`, { skip: !disposable() }, async () => {
+for (const scenario of ["ordered", "empty", "resume", "invalid-sort", "duplicates"] as const) test(`Data transforms ${scenario}: whole-stream execution, empty aggregation and resume`, { skip: !disposable() }, async () => {
   const prisma = new PrismaClient(), suffix = randomUUID();
   const userId = `data-user-${suffix}`, workspaceId = `data-workspace-${suffix}`, workflowId = `data-workflow-${suffix}`, versionId = `data-version-${suffix}`, executionId = `data-execution-${suffix}`;
   const nodes = [node("start", "trigger.manual"), node("source", "action.postgres.select", { schema: "public", table: "items" }), node("aggregate", "action.aggregate", { outputField: "entries" }), node("split", "action.split-out", { field: "entries", include: "none" }), node("sort", "action.sort", { field: "score", valueType: "number", direction: "asc" }), node("limit", "action.limit", { maxItems: 2, keep: "first" }), node("after", "action.edit-fields", { fields: [{ name: "score", type: "number", value: "{{ $json.score }}" }] })];
+  if (scenario === "duplicates") nodes.splice(4, 0, node("unique", "action.remove-duplicates", { compare: "selected", fields: "score" }));
   const graph: WorkflowGraph = { nodes, edges: nodes.slice(1).map((target, index) => ({ id: `edge-${index}`, source: nodes[index]!.id, target: target.id, kind: "success" })) };
   if (scenario === "resume") { nodes.push(node("pause", "approval.request", { notificationProvider: "google_chat" })); graph.edges.push({ id: "pause", source: "start", target: "pause", kind: "success" }); }
   const service = new ExecutionService(prisma as never, {} as never, { publish: () => undefined } as never);
@@ -25,6 +26,7 @@ for (const scenario of ["ordered", "empty", "resume", "invalid-sort"] as const) 
     if (args[2].id !== "source" || result.status !== "succeeded") return result;
     reads++;
     const rows = scenario === "empty" ? [] : [{ score: 3 }, { score: scenario === "invalid-sort" ? "wrong type" : 1 }, { score: 2 }];
+    if (scenario === "duplicates") rows.push({ score: 1 });
     const output = { rows, count: rows.length };
     await prisma.nodeExecution.update({ where: { executionId_nodeId: { executionId, nodeId: "source" } }, data: { output } });
     return { ...result, output };
@@ -49,7 +51,8 @@ for (const scenario of ["ordered", "empty", "resume", "invalid-sort"] as const) 
     const aggregate = records.find((row) => row.nodeId === "aggregate")!;
     assert.equal(aggregate.items.length, 1, "Aggregate runs once for the complete input stream");
     const entries = (aggregate.output as { items: Array<{ entries: unknown[] }> }).items[0]!.entries;
-    assert.equal(entries.length, scenario === "empty" ? 0 : 3);
+    assert.equal(entries.length, scenario === "empty" ? 0 : scenario === "duplicates" ? 4 : 3);
+    if (scenario === "duplicates") assert.deepEqual(records.find((row) => row.nodeId === "unique")!.items.map((item) => (item.output as { score: number }).score), [3, 1, 2]);
     const after = records.find((row) => row.nodeId === "after")!;
     if (scenario === "invalid-sort") { assert.equal(records.find((row) => row.nodeId === "sort")!.status, "FAILED"); assert.equal(after.items.length, 0); }
     else if (scenario === "empty") { assert.equal(after.status, "SKIPPED"); assert.equal(after.items.length, 0); }

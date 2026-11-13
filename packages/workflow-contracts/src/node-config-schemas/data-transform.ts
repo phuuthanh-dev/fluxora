@@ -21,6 +21,10 @@ export const limitItems: ConfigRules = {
   maxItems: { schema: z.number().int().min(0).max(100), required: true, message: "Choose between 0 and 100 items." },
   keep: { schema: z.enum(["first", "last"]), message: "Choose the first or last items." },
 };
+export const removeDuplicates: ConfigRules = {
+  compare: { schema: z.enum(["all", "selected", "except"]), required: true, message: "Choose which fields to compare." },
+  fields: { schema: z.string().max(2048).refine((value) => value.split(",").every((field) => dataPath.safeParse(field.trim()).success)), required: true, when: (config) => config.compare !== "all", dependsOn: ["compare"], message: "Enter field paths separated by commas." },
+};
 export const merge: ConfigRules = {
   mode: { schema: z.enum(["append", "matching"]), message: "Choose Append or Matching fields." },
   field1: { ...pathRule, when: (config) => config.mode === "matching", dependsOn: ["mode"] },

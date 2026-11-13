@@ -133,6 +133,7 @@ const definitions = {
   "action.split-out": { ...executable(none, "unspecified", { knownFields: ["items", "count"] }), mockBehavior: "transform" },
   "action.sort": { ...executable(none, "unspecified", { knownFields: ["items", "count"] }), mockBehavior: "transform" },
   "action.limit": { ...executable(none, "unspecified", { knownFields: ["items", "count"] }), mockBehavior: "transform" },
+  "action.remove-duplicates": { ...executable(none, "unspecified", { knownFields: ["items", "count"] }), mockBehavior: "transform" },
 
   "action.edit-fields": { ...executable(none, "unspecified"), mockBehavior: "transform" },
   "approval.request": approval(conditional, "unspecified", fields("message", "expiresInHours", "notificationProvider", "notificationCredentialId")),
@@ -156,6 +157,9 @@ const definitions = {
   "action.telegram.edit-message": executable(credential("TELEGRAM_BOT"), "write", fields(...notificationReceipt.knownFields, "operation")),
   "action.google-drive.get-file": executable(credential("GOOGLE"), "read", fields("file")),
   "action.google-drive.create-folder": executable(credential("GOOGLE"), "write", fields("folder")),
+  "action.google-docs.create": executable(credential("GOOGLE"), "write", fields("document")),
+  "action.google-docs.get": executable(credential("GOOGLE"), "read", fields("document")),
+  "action.google-docs.update": executable(credential("GOOGLE"), "write", fields("documentId", "updated")),
   "action.google-drive": executable(credential("GOOGLE"), "configuration-dependent", fields("operation"), {
     kind: "conditional", selector: "operation", fallback: "list", cases: [{
       values: ["list", "search"],

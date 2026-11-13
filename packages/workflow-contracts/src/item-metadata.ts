@@ -5,6 +5,7 @@ const collectionFields: Readonly<Record<string, string>> = {
   "action.split-out": "items",
   "action.sort": "items",
   "action.limit": "items",
+  "action.remove-duplicates": "items",
   "action.mongodb": "documents",
   "action.airtable.list-records": "records",
   "action.postgres.select": "rows",

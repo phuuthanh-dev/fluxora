@@ -1,5 +1,5 @@
 "use client";
-import { DataPathField } from "./data-path-field";
+import { DataPathField, DataPathListField } from "./data-path-field";
 import { AirtableFields } from "./airtable-fields";
 import { NotionPropertiesField } from "./notion-properties-field";
 import { getSharedNodeConfigurationFields, isDataTransformNode, isWebhookTriggerType } from "@workflow/contracts";
@@ -362,6 +362,7 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, wor
       const value = readConfigurationFieldValue(config, field);
       const error = issues.find((issue) => issue.field === field.key)?.message;
       if (field.kind === "data-path") return <DataPathField key={field.key} label={field.label} value={value} sample={inputSamples[field.input ?? "default"]} error={error} onChange={(next) => onChange(field.key, next)} />;
+      if (field.kind === "data-path-list") return <DataPathListField key={field.key} label={field.label} value={value} sample={inputSamples.default} error={error} onChange={(next) => onChange(field.key, next)} />;
       if (field.kind === "airtable-fields") return <AirtableFields key={field.key} workspaceId={workspaceId} config={config} onChange={(next) => onChange(field.key, next)} error={error} />;
       if (field.kind === "notion-properties") return <NotionPropertiesField key={field.key} workspaceId={workspaceId} config={config} onChange={(next) => onChange(field.key, next)} error={error} />;
       if (field.kind === "credential") {
@@ -1133,6 +1134,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       if (effectiveNodeType === "action.google-calendar.list-events" && ["credentialId", "calendarId", "limit", "timeMin"].includes(key) && "pageToken" in config) config.pageToken = "";
     }
     if (["action.google-drive", "action.google-drive.get-file", "action.google-drive.create-folder"].includes(effectiveNodeType) && key === "credentialId" && node.data.config.credentialId !== value) { if ("fileId" in config) config.fileId = ""; if ("parentId" in config) config.parentId = ""; }
+    if (effectiveNodeType.startsWith("action.google-docs.") && key === "credentialId" && node.data.config.credentialId !== value && "documentId" in config) config.documentId = "";
     if (effectiveNodeType === "action.google-sheets" && key === "credentialId" && node.data.config.credentialId !== value) config.spreadsheetId = "";
     if (effectiveNodeType === "trigger.gmail" && key === "credentialId" && node.data.config.credentialId !== value) config.labelId = "";
     if (["action.gmail.reply", "action.gmail.modify-label"].includes(effectiveNodeType) && key === "credentialId" && node.data.config.credentialId !== value) {
@@ -1272,6 +1274,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       {effectiveNodeType === "action.merge" && <p className="inspector-note">Connect one branch to each numbered input. Merge waits for both branches. Append preserves Input 1 then Input 2. Matching uses strict keys and the first Input 2 match; Input 2 wins overlapping fields. Missing keys never match. Test it by running the full workflow.</p>}
       {effectiveNodeType === "action.edit-fields" && <EditFieldsEditor key={node.id} value={node.data.config.fields} onChange={(fields) => updateConfig("fields", fields)} error={configIssues.find((issue) => issue.field === "fields")?.message} />}
       {definition?.configurationFields && <NodeConfigurationFields key={`configuration-${node.id}`} fields={definition.configurationFields} inputSamples={inputSamples} config={node.data.config} credentials={credentials} workspaceId={workspaceId} workflowId={workflowId} nodeId={node.id} owner={owner} allowExpressions={!effectiveNodeType.startsWith("trigger.") && effectiveNodeType !== "action.merge" && !isDataTransformNode(effectiveNodeType)} onChange={updateConfig} draft={draft} onDraftChange={onDraftChange} issues={configIssues} />}
+      {effectiveNodeType === "action.google-docs.update" && <Status tone="info" className="inspector-note">{node.data.config.operation === "replace" ? "Replaces matching text in all document tabs." : "Appends text to the first document tab."}</Status>}
       {effectiveNodeType === "trigger.steam.game-news" && <Status tone="info" className="inspector-note">No connection is needed. Enter the App ID from the game's Steam store URL. The first check records the latest 10 posts without starting runs; posts outside that window can be missed.</Status>}
       {effectiveNodeType === "action.steam" && node.data.config.operation === "gameNews" && <Status tone="info" className="inspector-note">No Steam connection is needed. Find the App ID in the game's Steam store URL; for example, Portal 2 uses 620. Returns up to 10 recent items with shortened content.</Status>}
       {effectiveNodeType === "action.reddit.list-posts" && <Status tone="warning" className="inspector-note"><strong>Reddit access is changing</strong><span>New public Data API access requests stopped on October 31, 2026. Existing approved access is being phased out; availability depends on Reddit. <a href="https://support.reddithelp.com/hc/en-us/articles/54353370049684-Changelog-October-8-2026" target="_blank" rel="noopener noreferrer">Read Reddit's migration timeline</a>.</span></Status>}

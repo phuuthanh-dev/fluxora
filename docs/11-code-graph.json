@@ -979,6 +979,7 @@
         "apps/api/src/execution/gmail-write.ts",
         "apps/api/src/execution/google-calendar.ts",
         "apps/api/src/execution/google-chat-oauth.ts",
+        "apps/api/src/execution/google-docs.ts",
         "apps/api/src/execution/google-drive-file-operations.ts",
         "apps/api/src/execution/google-drive-pagination.ts",
         "apps/api/src/execution/google-workspace-adapter.ts",
@@ -1326,6 +1327,20 @@
         "@prisma/client",
         "@workflow/contracts",
         "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/google-docs.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-credential-safety.ts",
+        "apps/api/src/execution/provider-request-policy.ts"
+      ],
+      "externalImports": [
+        "@workflow/contracts"
       ]
     },
     {
@@ -4598,6 +4613,7 @@
         "packages/workflow-contracts/src/node-config-schemas/gmail.ts",
         "packages/workflow-contracts/src/node-config-schemas/google-calendar.ts",
         "packages/workflow-contracts/src/node-config-schemas/google-chat.ts",
+        "packages/workflow-contracts/src/node-config-schemas/google-docs.ts",
         "packages/workflow-contracts/src/node-config-schemas/google-drive.ts",
         "packages/workflow-contracts/src/node-config-schemas/google-sheets.ts",
         "packages/workflow-contracts/src/node-config-schemas/http.ts",
@@ -4724,6 +4740,16 @@
     },
     {
       "id": "packages/workflow-contracts/src/node-config-schemas/google-chat.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/google-docs.ts",
       "boundary": "contracts",
       "internalImports": [
         "packages/workflow-contracts/src/node-config-schemas/types.ts"
@@ -6138,6 +6164,10 @@
     },
     {
       "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/google-docs.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
       "to": "apps/api/src/execution/google-drive-file-operations.ts"
     },
     {
@@ -6667,6 +6697,26 @@
     {
       "from": "apps/api/src/execution/google-chat-oauth.ts",
       "to": "apps/api/src/execution/provider-json.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-docs.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-docs.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-docs.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-docs.ts",
+      "to": "apps/api/src/execution/provider-credential-safety.ts"
+    },
+    {
+      "from": "apps/api/src/execution/google-docs.ts",
+      "to": "apps/api/src/execution/provider-request-policy.ts"
     },
     {
       "from": "apps/api/src/execution/google-drive-file-operations.ts",
@@ -9962,6 +10012,10 @@
     },
     {
       "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/google-docs.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
       "to": "packages/workflow-contracts/src/node-config-schemas/google-drive.ts"
     },
     {
@@ -10086,6 +10140,10 @@
     },
     {
       "from": "packages/workflow-contracts/src/node-config-schemas/google-chat.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/google-docs.ts",
       "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
     },
     {
