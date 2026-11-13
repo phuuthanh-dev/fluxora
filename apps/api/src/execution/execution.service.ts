@@ -502,23 +502,25 @@ export class ExecutionService {
     const claimed = enforcePlan ? await this.prisma.$transaction(async (tx) => {
       const workspaceId = execution.workflowVersion.workflow.workspaceId;
       await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${workspaceId} FOR UPDATE`;
-      const workspace = await tx.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { paidPlan: true, paidUntil: true, trialPlan: true, trialExpiresAt: true, createdAt: true } });
-      const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-      const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+      const claimNow = new Date();
+      const workspace = await tx.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { paidPlan: true, paidUntil: true, trialPlan: true, trialExpiresAt: true, createdAt: true, usageResetAt: true } });
+      const monthStart = new Date(Date.UTC(claimNow.getUTCFullYear(), claimNow.getUTCMonth(), 1));
+      const monthEnd = new Date(Date.UTC(claimNow.getUTCFullYear(), claimNow.getUTCMonth() + 1, 1));
+      const usageStart = workspace.usageResetAt && workspace.usageResetAt > monthStart && workspace.usageResetAt <= claimNow ? workspace.usageResetAt : monthStart;
       const meter = await tx.usageMeter.findUniqueOrThrow({ where: { id: "primary" } });
       // Historical usage cannot be reconstructed after retention. Start enforcing
       // only once the entire workspace/month is covered by the durable meter.
-      const complete = meter.startedAt <= monthStart || workspace.createdAt >= meter.startedAt;
-      const paid = effectivePlan(workspace.paidPlan, workspace.paidUntil, now);
-      const plan = paid === "FREE" ? effectivePlan(workspace.trialPlan, workspace.trialExpiresAt, now) : paid;
-      const count = limited && complete ? await tx.usageRun.count({ where: { workspaceId, startedAt: { gte: monthStart, lt: monthEnd } } }) : 0;
+      const complete = meter.startedAt <= usageStart || workspace.createdAt >= meter.startedAt;
+      const paid = effectivePlan(workspace.paidPlan, workspace.paidUntil, claimNow);
+      const plan = paid === "FREE" ? effectivePlan(workspace.trialPlan, workspace.trialExpiresAt, claimNow) : paid;
+      const count = limited && complete ? await tx.usageRun.count({ where: { workspaceId, startedAt: { gte: usageStart, lt: monthEnd } } }) : 0;
       if (limited && complete && count >= planCatalog[plan].monthlyRuns) {
-        const failed = await tx.execution.updateMany({ where, data: { status: ExecutionStatus.FAILED, completedAt: now, errorCode: "PLAN_RUN_LIMIT", errorMessage: "This workspace has reached its monthly live-run limit. New runs can start next month.", errorRetryable: false } });
+        const failed = await tx.execution.updateMany({ where, data: { status: ExecutionStatus.FAILED, completedAt: claimNow, errorCode: "PLAN_RUN_LIMIT", errorMessage: "This workspace has reached its live-run limit. Review your plan or wait for the next UTC month.", errorRetryable: false } });
         return { count: 0, limited: failed.count > 0 };
       }
       const running = await tx.execution.count({ where: { status: ExecutionStatus.RUNNING, mode: "LIVE", workflowVersion: { workflow: { workspaceId } } } });
       if (running >= planCatalog[plan].concurrentRuns) throw new PlanCapacityWait();
-      const result = await tx.execution.updateMany({ where, data });
+      const result = await tx.execution.updateMany({ where, data: { ...data, startedAt: execution.startedAt ?? claimNow, leaseExpiresAt: leaseExpiry(claimNow) } });
       return { ...result, limited: false };
     }) : { ...await this.prisma.execution.updateMany({ where, data }), limited: false };
     if (claimed.limited) { this.events.publish(executionId, "execution.failed"); return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } }); }

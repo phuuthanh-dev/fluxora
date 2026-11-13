@@ -94,3 +94,85 @@ test("reconciliation only clears a cancelled unpaid order for its owner", async 
   assert.equal(ownerChecked, true);
   assert.deepEqual(update, { where: { id: "order", status: { in: ["PENDING", "REVIEW"] } }, data: { status: "CANCELLED", checkoutUrl: null } });
 });
+
+test("a confirmed full-price upgrade starts a new term once and rejects stale or unreviewed upgrades", async () => {
+  const previousEnabled = process.env.PAYOS_CHECKOUT_ENABLED;
+  const previousOrigin = process.env.WEB_ORIGIN;
+  process.env.PAYOS_CHECKOUT_ENABLED = "true";
+  process.env.WEB_ORIGIN = "http://localhost:3000";
+  const originalUntil = new Date(Date.now() + 15 * 86400000);
+  let workspace = { paidPlan: "STARTER", paidUntil: originalUntil };
+  let order: { id: string; workspaceId: string; orderCode: bigint; amount: number; plan: string; status: string; paymentLinkId: string | null; checkoutUrl: string | null; upgradeFromPaidUntil: Date | null; paidAt?: Date } | null = null;
+  let updates = 0;
+  const tx = {
+    $queryRaw: async () => [],
+    workspace: {
+      findUniqueOrThrow: async () => workspace,
+      update: async ({ data }: { data: typeof workspace }) => { workspace = data; updates++; },
+    },
+    paymentOrder: {
+      findFirst: async () => order && ["CREATING", "PENDING", "REVIEW"].includes(order.status) ? order : null,
+      create: async ({ data }: { data: { workspaceId: string; plan: string; amount: number; upgradeFromPaidUntil: Date | null } }) => {
+        order = { ...data, id: "order", orderCode: 1n, status: "CREATING", paymentLinkId: null, checkoutUrl: null }; return order;
+      },
+      findUniqueOrThrow: async () => order!,
+      update: async ({ data }: { data: Partial<NonNullable<typeof order>> }) => { Object.assign(order!, data); },
+      updateMany: async ({ data }: { data: Partial<NonNullable<typeof order>> }) => { Object.assign(order!, data); return { count: 1 }; },
+    },
+  };
+  const prisma = { paymentOrder: { ...tx.paymentOrder, findUnique: async () => order }, $transaction: async (fn: (value: typeof tx) => Promise<unknown>) => fn(tx) };
+  class TestBilling extends BillingService {
+    protected override client() { return {
+      webhooks: { verify: async () => ({ orderCode: 1, amount: 199000, currency: "VND", code: "00", paymentLinkId: "link" }) },
+      paymentRequests: {
+        create: async () => ({ orderCode: 1, amount: 199000, currency: "VND", paymentLinkId: "link", checkoutUrl: "https://pay.payos.vn/test" }),
+        get: async () => ({ id: "link", orderCode: 1, amount: 199000, amountPaid: 199000, amountRemaining: 0, status: "PAID" }),
+      },
+    } as unknown as PayOS; }
+  }
+  const service = new TestBilling(prisma as never, { requireOwner: async () => undefined } as never);
+  try {
+    await assert.rejects(service.createCheckout("w", "owner", "PRO"), /Review the upgrade terms/);
+    await assert.rejects(service.createCheckout("w", "owner", "PRO", originalUntil.toISOString()), /Review the upgrade terms/);
+    await service.createCheckout("w", "owner", "PRO", originalUntil.toISOString(), true);
+    const before = Date.now();
+    await service.handleWebhook({});
+    await service.handleWebhook({});
+    assert.equal(workspace.paidPlan, "PRO");
+    assert.ok(workspace.paidUntil.getTime() >= before + 30 * 86400000 && workspace.paidUntil.getTime() <= Date.now() + 30 * 86400000);
+    assert.equal(updates, 1);
+    assert.equal(order!.status, "PAID");
+
+    workspace = { paidPlan: "STARTER", paidUntil: originalUntil };
+    order = null; updates = 0;
+    await service.createCheckout("w", "owner", "PRO", originalUntil.toISOString(), true);
+    workspace.paidUntil = new Date(originalUntil.getTime() + 30 * 86400000);
+    await assert.rejects(service.createCheckout("w", "owner", "PRO"), /paid plan changed/);
+    await service.handleWebhook({});
+    assert.equal(order!.status, "REVIEW");
+    assert.equal(workspace.paidPlan, "STARTER");
+    assert.equal(updates, 0);
+  } finally {
+    if (previousEnabled === undefined) delete process.env.PAYOS_CHECKOUT_ENABLED; else process.env.PAYOS_CHECKOUT_ENABLED = previousEnabled;
+    if (previousOrigin === undefined) delete process.env.WEB_ORIGIN; else process.env.WEB_ORIGIN = previousOrigin;
+  }
+});
+
+test("same-plan renewal extends the paid term without resetting the usage allowance", async () => {
+  const paidUntil = new Date(Date.now() + 15 * 86400000);
+  const order = { id: "order", workspaceId: "workspace", amount: 99000, plan: "STARTER", paymentLinkId: "link", status: "PENDING", upgradeFromPaidUntil: null };
+  let grant: { paidPlan?: string; paidUntil?: Date; usageResetAt?: Date } = {};
+  const tx = {
+    $queryRaw: async () => [],
+    paymentOrder: { findUniqueOrThrow: async () => order, update: async () => undefined },
+    workspace: { findUniqueOrThrow: async () => ({ paidPlan: "STARTER", paidUntil }), update: async ({ data }: { data: typeof grant }) => { grant = data; } },
+  };
+  class TestBilling extends BillingService {
+    protected override client() { return { webhooks: { verify: async () => ({ orderCode: 1, amount: 99000, currency: "VND", code: "00", paymentLinkId: "link" }) }, paymentRequests: { get: async () => ({ id: "link", orderCode: 1, amount: 99000, amountPaid: 99000, amountRemaining: 0, status: "PAID" }) } } as unknown as PayOS; }
+  }
+  const service = new TestBilling({ paymentOrder: { findUnique: async () => order }, $transaction: async (fn: (value: typeof tx) => Promise<void>) => fn(tx) } as never, {} as never);
+  await service.handleWebhook({});
+  assert.equal(grant.paidPlan, "STARTER");
+  assert.equal(grant.paidUntil?.getTime(), paidUntil.getTime() + 30 * 86400000);
+  assert.equal("usageResetAt" in grant, false);
+});

@@ -182,6 +182,7 @@ model Workspace {
   trialExpiresAt DateTime?
   paidPlan    String?
   paidUntil   DateTime?
+  usageResetAt DateTime?
   owner       User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   members     WorkspaceMember[]
   workflows   Workflow[]
@@ -201,6 +202,7 @@ model PaymentOrder {
   status          String    @default("CREATING")
   paymentLinkId   String?   @unique
   checkoutUrl     String?
+  upgradeFromPaidUntil DateTime?
   createdAt       DateTime  @default(now())
   paidAt          DateTime?
   workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)

@@ -6,6 +6,21 @@ const pages = [
   { path: "/support", title: "Let’s get your workflow moving." },
 ];
 
+test("public navigation identifies the current page and landing section", async ({ page }) => {
+  await page.goto("/pricing");
+  const desktop = page.getByRole("navigation", { name: "Landing navigation" });
+  await expect(desktop.getByRole("link", { name: "Pricing" })).toHaveAttribute("aria-current", "page");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator('summary[aria-label="Navigation menu"]').click();
+  await expect(page.locator(".landing-nav__mobile").getByRole("link", { name: "Pricing" })).toHaveAttribute("aria-current", "page");
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/#usage");
+  await expect(desktop.getByRole("link", { name: "Plan your runs" })).toHaveAttribute("aria-current", "location");
+});
+
 for (const width of [375, 768, 1440]) {
   test(`public documents remain readable and navigable at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 1000 });

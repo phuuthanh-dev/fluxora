@@ -1,4 +1,5 @@
-.public-site { min-height: 100svh; background: radial-gradient(ellipse at 78% 15%, rgba(116, 159, 39, .14), transparent 34%), var(--brand-void); color: var(--ink); font-family: var(--font-ui); padding: 12px 0 0; }
+.public-site { min-height: 100svh; position: relative; background: radial-gradient(ellipse 75% 620px at 88% 8%, rgba(142, 183, 46, .22), transparent 72%), radial-gradient(ellipse 65% 560px at 8% 700px, rgba(88, 126, 47, .13), transparent 72%), linear-gradient(150deg, #080e09, var(--brand-void) 75%); color: var(--ink); font-family: var(--font-ui); padding: 12px 0 0; }
+.public-site::before { background: url("/relay/backdrop/backdrop-dot-field.svg") center top / 1440px auto no-repeat; content: ""; height: 1060px; inset: 0 0 auto; opacity: .16; pointer-events: none; position: absolute; z-index: -1; }
 .public-site a { color: inherit; text-decoration: none; }
 .public-site a:focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; border-radius: 3px; }
 .public-main { width: min(1120px,calc(100% - 112px)); margin-inline: auto; }
@@ -16,7 +17,7 @@
 .public-toc p { color:var(--text-tertiary); line-height:1.8; border-top:1px solid var(--line); padding-top:20px; }
 .public-toc time { display:block; }
 .public-content { min-width:0; }
-.public-section { scroll-margin-top:32px; margin-bottom:36px; padding-bottom:28px; border-bottom:1px solid var(--line); }
+.public-section { scroll-margin-top:110px; margin-bottom:36px; padding-bottom:28px; border-bottom:1px solid var(--line); }
 .public-section:last-child { border:0; margin-bottom:0; }
 .public-site .public-section h2 { font-size:23px; font-weight:600; letter-spacing:-.025em; margin:0 0 18px; }
 .public-section p,.public-section li { color:var(--text-secondary); font-size:16px; line-height:1.8; }

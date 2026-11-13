@@ -168,6 +168,9 @@ html:has(.landing-page):not(:has(.landing-loader[data-phase="draw"])) {
   font-size: 14px;
   transition: color 0.2s;
 }
+.landing-nav__desktop a { position: relative; padding-block: 8px; }
+.landing-nav__desktop a[aria-current] { color: var(--marketing-text); }
+.landing-nav__desktop a[aria-current]::after { background: var(--relay-lime); border-radius: 2px; bottom: 1px; content: ""; height: 2px; left: 0; position: absolute; right: 0; }
 .landing-nav a:hover,
 .landing-footer a:hover {
   color: var(--relay-lime);
@@ -237,6 +240,8 @@ html:has(.landing-page):not(:has(.landing-loader[data-phase="draw"])) {
   justify-content: space-between;
   padding: 14px 12px;
 }
+.landing-nav__mobile nav a[aria-current] { background: color-mix(in srgb, var(--relay-lime) 12%, transparent); border-radius: 8px; box-shadow: inset 3px 0 var(--relay-lime); color: var(--marketing-text); }
+.landing-narrative__chapters { scroll-margin-top: 96px; }
 .landing-menu-close,
 .landing-nav__mobile[open] .landing-menu-open {
   display: none;

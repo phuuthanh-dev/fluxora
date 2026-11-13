@@ -3774,6 +3774,7 @@
       "externalImports": [
         "lucide-react",
         "next/link",
+        "next/navigation",
         "react"
       ]
     },
@@ -3924,9 +3925,11 @@
       "id": "apps/web/src/features/plan/checkout-action.tsx",
       "boundary": "web",
       "internalImports": [
+        "apps/web/src/components/ui/index.ts",
         "apps/web/src/features/api/api-client.ts"
       ],
       "externalImports": [
+        "@workflow/contracts",
         "react"
       ]
     },
@@ -9296,6 +9299,10 @@
     {
       "from": "apps/web/src/features/marketing/landing-three-scenes.tsx",
       "to": "apps/web/src/features/marketing/landing-stream-particles.ts"
+    },
+    {
+      "from": "apps/web/src/features/plan/checkout-action.tsx",
+      "to": "apps/web/src/components/ui/index.ts"
     },
     {
       "from": "apps/web/src/features/plan/checkout-action.tsx",
