@@ -401,7 +401,19 @@ function FirstWorkflowGuide({ templates, isCreating, workspaceId, onUseTemplate,
       </ol>
       <div className="dashboard-onboarding__templates" aria-label="Workflow templates">
         {templates.slice(0, 3).map((template, index) => <article className="dashboard-onboarding__template" key={template.slug}>
-          <div><p className="section-label">{index === 0 ? "RECOMMENDED STARTER" : "STARTER TEMPLATE"}</p><div className="dashboard-onboarding__template-tags" aria-label="Template categories">{template.tags.map((tag) => <em key={tag}>{tag}</em>)}</div><strong>{template.name}</strong><span>{template.nodeTypes.map((nodeType) => getNodeDefinition(nodeType as WorkflowNodeType)?.label ?? nodeType).join(" → ")}</span><small>Connections: {template.requiredConnections.join(" · ")}</small></div>
+          <div className="dashboard-onboarding__template-content">
+            <p className="section-label">{index === 0 ? "RECOMMENDED STARTER" : "STARTER TEMPLATE"}</p>
+            <strong>{template.name}</strong>
+            <div className="dashboard-onboarding__template-icons" aria-hidden="true">{template.nodeTypes.map((nodeType, nodeIndex) => {
+              const definition = getNodeDefinition(nodeType as WorkflowNodeType);
+              return <span className="dashboard-onboarding__template-step" key={`${nodeType}-${nodeIndex}`}>
+                {nodeIndex > 0 && <ArrowRight className="dashboard-onboarding__template-arrow" size={14} />}
+                <span className="dashboard-onboarding__template-icon"><NodeIcon name={definition?.icon ?? "http"} size={18} /></span>
+              </span>;
+            })}</div>
+            <p className="dashboard-onboarding__template-flow">{template.nodeTypes.map((nodeType) => getNodeDefinition(nodeType as WorkflowNodeType)?.label ?? nodeType).join(" → ")}</p>
+            <small>Connections: {template.requiredConnections.join(" · ")}</small>
+          </div>
           <Button variant={index === 0 ? "primary" : "secondary"} className={index === 0 ? "dashboard-primary-button" : "dashboard-secondary-button"} onClick={() => onUseTemplate(template.slug)} disabled={isCreating || !workspaceId}>{isCreating ? "Creating…" : `Use ${template.name}`}<ArrowRight size={15} /></Button>
         </article>)}
       </div>

@@ -52,6 +52,6 @@
 .public-site .pricing-questions .public-section { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); margin: 0; padding: 24px; }
 .plan-cards + .plan-disclaimer { margin-top: 18px; }
 .plan-summary { align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-md); display: flex; flex-wrap: wrap; gap: 14px; margin: 24px 0; padding: 16px 18px; }
-.plan-summary__icon { align-items: center; background: var(--control-selected-bg); border-radius: 10px; color: var(--text-accent); display: flex; height: 40px; justify-content: center; width: 40px; }
+.plan-summary__icon { align-items: center; background: var(--control-selected-bg); border-radius: 10px; color: var(--control-selected-text); display: flex; flex: 0 0 40px; height: 40px; justify-content: center; width: 40px; }
 .plan-summary > div:nth-child(2) { flex: 1; min-width: 180px; }.plan-summary strong { font-size: 14px; }.plan-summary p { color: var(--muted); font-size: 12px; margin: 4px 0 0; }.plan-summary a { align-items: center; color: var(--text-accent); display: inline-flex; font-size: 13px; font-weight: 600; gap: 7px; }
 @media (max-width: 900px) { .plan-cards { grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); } }
