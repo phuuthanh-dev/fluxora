@@ -1,19 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-for (let diagnosticIteration = 0; diagnosticIteration < (process.env.CI ? 30 : 1); diagnosticIteration++) {
-test(`Notion and PostgreSQL offer separate connections and guided fields (diagnostic ${diagnosticIteration + 1})`, async ({ page }) => {
-  // Keep failure diagnostics for the intermittent CI timeout without logging
-  // credentials or response bodies. This fixture uses only synthetic IDs.
-  const tableRequests: Array<{ event: string; status?: number }> = [];
-  const workflowRequests: Array<{ event: string; at: number }> = [];
-  const deniedResponses: Array<{ path: string; status: number; at: number }> = [];
-  const navigations: Array<{ path: string; at: number }> = [];
-  const isTableRequest = (url: string) => new URL(url).pathname.endsWith("/postgres/tables");
-  const isWorkflowRequest = (url: string) => new URL(url).pathname.endsWith("/workflows/notion-test");
-  page.on("request", (request) => { if (isTableRequest(request.url())) tableRequests.push({ event: "request" }); if (isWorkflowRequest(request.url())) workflowRequests.push({ event: "request", at: Date.now() }); });
-  page.on("response", (response) => { if (isTableRequest(response.url())) tableRequests.push({ event: "response", status: response.status() }); if (isWorkflowRequest(response.url())) workflowRequests.push({ event: "response", at: Date.now() }); if ([401, 403].includes(response.status())) deniedResponses.push({ path: new URL(response.url()).pathname, status: response.status(), at: Date.now() }); });
-  page.on("framenavigated", (frame) => { if (frame === page.mainFrame()) navigations.push({ path: new URL(frame.url()).pathname, at: Date.now() }); });
-  page.on("requestfailed", (request) => { if (isTableRequest(request.url())) tableRequests.push({ event: "failed" }); });
+test("Notion and PostgreSQL offer separate connections and guided fields", async ({ page }) => {
   const graph = { nodes: [
     { id: "manual", type: "trigger.manual", position: { x: 100, y: 100 }, config: {} },
     { id: "notion", type: "action.notion.search-pages", position: { x: 400, y: 100 }, config: { credentialId: "notion-1", query: "Notes", pageSize: 20 } },
@@ -24,70 +11,29 @@ test(`Notion and PostgreSQL offer separate connections and guided fields (diagno
     const path = new URL(route.request().url()).pathname;
     const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
     if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
+    if (path.endsWith("/auth/identities")) return send({ identities: [] });
+    if (path.endsWith("/auth/providers")) return send({ google: false, github: false, steam: false });
     if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
     if (path.endsWith("/credentials")) return send({ credentials: [{ id: "notion-1", provider: "NOTION", label: "My Notion" }, { id: "postgres-1", provider: "POSTGRES", label: "My database" }] });
     if (path.endsWith("/postgres/schemas")) return send({ schemas: [{ id: "public", name: "public" }] });
     if (path.endsWith("/postgres/tables")) { expect(new URL(route.request().url()).searchParams.get("schema")).toBe("public"); return send({ tables: [{ id: "items", name: "items" }] }); }
+    if (path.endsWith("/postgres/columns")) return send({ columns: [{ name: "id", type: "integer" }], partial: false, hasMore: false });
     if (path.endsWith("/workflows/notion-test")) return send({ workflow });
-    return route.continue();
+    return route.abort();
   });
   await page.goto("/editor?workflow=notion-test");
-  await page.waitForSelector("#node-inspector");
-  await page.evaluate(() => {
-    const state = window as unknown as { pickerEvents: string[] };
-    state.pickerEvents = [];
-    window.addEventListener("fluxora:unauthenticated", () => { state.pickerEvents.push(`${Date.now()}:unauthenticated`); });
-    let previous = "";
-    const capture = () => {
-      const inspector = document.querySelector("#node-inspector");
-      const heading = inspector?.querySelector("h2")?.textContent ?? "missing";
-      const table = Boolean(inspector?.querySelector('[role="group"][aria-label="Table"]'));
-      const selected = Array.from(document.querySelectorAll(".react-flow__node.selected")).map((node) => node.getAttribute("data-id")).join(",");
-      const snapshot = `${heading}|table:${table}|selected:${selected}`;
-      if (snapshot !== previous && state.pickerEvents.length < 40) { state.pickerEvents.push(`${Date.now()}:${snapshot}`); previous = snapshot; }
-    };
-    document.addEventListener("click", (event) => {
-      const target = event.target instanceof Element ? event.target : null;
-      const node = target?.closest(".react-flow__node");
-      const pane = target?.closest(".react-flow__pane");
-      if ((node || pane) && state.pickerEvents.length < 40) state.pickerEvents.push(`${Date.now()}:click:${node?.getAttribute("data-id") ?? "pane"}`);
-    }, true);
-    capture();
-    new MutationObserver(capture).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "aria-hidden", "style"] });
-  });
   await page.locator(".react-flow__node").filter({ hasText: "Search pages" }).click();
   await expect(page.getByLabel("Notion credential")).toHaveValue("notion-1");
   await expect(page.getByLabel("Page title contains (optional)")).toHaveValue("Notes");
   await expect(page.getByLabel("Maximum pages (1–100)")).toHaveValue("20");
+  const columnsResponse = page.waitForResponse((response) => new URL(response.url()).pathname.endsWith("/postgres/columns") && response.request().method() === "GET");
   await page.locator(".react-flow__node").filter({ hasText: "Select rows" }).click();
   await expect(page.getByLabel("PostgreSQL credential")).toHaveValue("postgres-1");
   await expect(page.getByRole("group", { name: "Schema" }).getByRole("option", { name: "public" })).toHaveAttribute("value", "public");
-  const tableGroup = page.getByRole("group", { name: "Table" });
-  try {
-    await expect(tableGroup.getByRole("option", { name: "items" })).toHaveAttribute("value", "items");
-  } catch (error) {
-    const groupCount = await tableGroup.count();
-    const select = tableGroup.getByLabel("Table", { exact: true });
-    console.error("PostgreSQL table picker diagnostics:", JSON.stringify({
-      pagePath: new URL(page.url()).pathname,
-      snapshot: await page.evaluate(() => ({
-        events: (window as unknown as { pickerEvents: string[] }).pickerEvents,
-        rawGroupCount: document.querySelectorAll('[role="group"][aria-label="Table"]').length,
-        inspectorHeading: document.querySelector("#node-inspector h2")?.textContent,
-        viewport: `${window.innerWidth}x${window.innerHeight}`,
-      })),
-      tableRequests,
-      workflowRequests,
-      deniedResponses,
-      navigations,
-      groupCount,
-      selectCount: groupCount ? await select.count() : 0,
-      options: groupCount && await select.count() ? await select.locator("option").allTextContents() : [],
-    }));
-    throw error;
-  }
+  expect((await columnsResponse).status()).toBe(200);
+  await expect(page.getByRole("group", { name: "Table" }).getByRole("option", { name: "items" })).toHaveAttribute("value", "items");
+  await expect(page).toHaveURL(/\/editor\?workflow=notion-test$/);
 });
-}
 
 test("Notion search offers bounded automatic pagination without changing the saved draft until selected", async ({ page }) => {
   const graph = { nodes: [{ id: "manual", type: "trigger.manual", position: { x: 0, y: 100 }, config: {} }, { id: "notion", type: "action.notion.search-pages", position: { x: 300, y: 100 }, config: { credentialId: "notion-1", pageSize: 20, cursor: "stale-cursor" } }], edges: [] };

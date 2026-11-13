@@ -120,7 +120,7 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install chromium
       - run: npm run db:deploy
-      # Temporary diagnostic on this unmerged PR; restore the full gate before merge.
+      # Temporary, unmerged reproduction check; restore the full gate before merge.
       - run: npm run db:generate
       - run: npm run build:contracts
-      - run: npx playwright test e2e/notion-connector.spec.ts --grep 'Notion and PostgreSQL offer separate connections'
+      - run: npx playwright test e2e/notion-connector.spec.ts --grep 'Notion and PostgreSQL offer separate connections' --repeat-each=30
