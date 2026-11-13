@@ -5,9 +5,11 @@ test(`Notion and PostgreSQL offer separate connections and guided fields (diagno
   // Keep failure diagnostics for the intermittent CI timeout without logging
   // credentials or response bodies. This fixture uses only synthetic IDs.
   const tableRequests: Array<{ event: string; status?: number }> = [];
+  const workflowRequests: Array<{ event: string; at: number }> = [];
   const isTableRequest = (url: string) => new URL(url).pathname.endsWith("/postgres/tables");
-  page.on("request", (request) => { if (isTableRequest(request.url())) tableRequests.push({ event: "request" }); });
-  page.on("response", (response) => { if (isTableRequest(response.url())) tableRequests.push({ event: "response", status: response.status() }); });
+  const isWorkflowRequest = (url: string) => new URL(url).pathname.endsWith("/workflows/notion-test");
+  page.on("request", (request) => { if (isTableRequest(request.url())) tableRequests.push({ event: "request" }); if (isWorkflowRequest(request.url())) workflowRequests.push({ event: "request", at: Date.now() }); });
+  page.on("response", (response) => { if (isTableRequest(response.url())) tableRequests.push({ event: "response", status: response.status() }); if (isWorkflowRequest(response.url())) workflowRequests.push({ event: "response", at: Date.now() }); });
   page.on("requestfailed", (request) => { if (isTableRequest(request.url())) tableRequests.push({ event: "failed" }); });
   const graph = { nodes: [
     { id: "manual", type: "trigger.manual", position: { x: 100, y: 100 }, config: {} },
@@ -38,13 +40,13 @@ test(`Notion and PostgreSQL offer separate connections and guided fields (diagno
       const table = Boolean(inspector?.querySelector('[role="group"][aria-label="Table"]'));
       const selected = Array.from(document.querySelectorAll(".react-flow__node.selected")).map((node) => node.getAttribute("data-id")).join(",");
       const snapshot = `${heading}|table:${table}|selected:${selected}`;
-      if (snapshot !== previous && state.pickerEvents.length < 40) { state.pickerEvents.push(snapshot); previous = snapshot; }
+      if (snapshot !== previous && state.pickerEvents.length < 40) { state.pickerEvents.push(`${Date.now()}:${snapshot}`); previous = snapshot; }
     };
     document.addEventListener("click", (event) => {
       const target = event.target instanceof Element ? event.target : null;
       const node = target?.closest(".react-flow__node");
       const pane = target?.closest(".react-flow__pane");
-      if ((node || pane) && state.pickerEvents.length < 40) state.pickerEvents.push(`click:${node?.getAttribute("data-id") ?? "pane"}`);
+      if ((node || pane) && state.pickerEvents.length < 40) state.pickerEvents.push(`${Date.now()}:click:${node?.getAttribute("data-id") ?? "pane"}`);
     }, true);
     capture();
     new MutationObserver(capture).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "aria-hidden", "style"] });
@@ -71,6 +73,7 @@ test(`Notion and PostgreSQL offer separate connections and guided fields (diagno
         viewport: `${window.innerWidth}x${window.innerHeight}`,
       })),
       tableRequests,
+      workflowRequests,
       groupCount,
       selectCount: groupCount ? await select.count() : 0,
       options: groupCount && await select.count() ? await select.locator("option").allTextContents() : [],
