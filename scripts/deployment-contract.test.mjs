@@ -272,8 +272,8 @@ test("deployment eligibility requires the exact verified quality attempt", () =>
 });
 
 test("documentation classification is deliberately narrow", () => {
-  for (const path of ["README.md", "docs/guide.md", ".agent/tasks/task.md", "LICENSE"]) assert.equal(isDocumentationOnlyPath(path), true, path);
-  for (const path of ["apps/web/README.md", "docs/data.json", ".github/workflows/quality.yml", ".gitignore", "package-lock.json"]) assert.equal(isDocumentationOnlyPath(path), false, path);
+  for (const path of ["README.md", "docs/guide.md", ".agent/tasks/task.md", "LICENSE", ".all-contributorsrc", ".github/dependabot.yml"]) assert.equal(isDocumentationOnlyPath(path), true, path);
+  for (const path of ["apps/web/README.md", "docs/data.json", ".github/workflows/quality.yml", ".github/dependabot.yaml", ".gitignore", "package-lock.json"]) assert.equal(isDocumentationOnlyPath(path), false, path);
 });
 
 test("verification and operational retention contracts avoid redundant work", () => {

@@ -277,6 +277,30 @@ Issues and pull requests are welcome. Describe the problem and how to reproduce 
 
 See the [contributors graph](https://github.com/phuuthanh-dev/fluxora/graphs/contributors) for the people credited by GitHub.
 
+## Contributors
+
+Thanks to everyone who helps improve Fluxora. We use [All Contributors](https://allcontributors.org/) to recognize code and non-code contributions.
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/phuuthanh-dev"><img src="https://avatars.githubusercontent.com/u/102614541?v=4&size=64" width="64px" height="64px" alt="Phung Huu Thanh"/><br /><sub><b>Phung Huu Thanh</b></sub></a><br /><a href="https://github.com/phuuthanh-dev/fluxora/commits?author=phuuthanh-dev" title="Code">💻</a> <a href="#maintenance-phuuthanh-dev" title="Maintenance">🚧</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
+To recognize an additional contribution, ask `@allcontributors please add
+@username for code` on a relevant issue or pull request. Review the bot's PR
+before merging. It targets the default branch, so retarget it to `develop` and remove its temporary branch after merging. The [contribution types](https://allcontributors.org/en/reference/emoji-key/) include documentation, design and maintenance as well as code.
+
 ## Platform administrator
 
 Administration is disabled until the operator sets `PLATFORM_ADMIN_USER_ID` to the exact existing Fluxora user ID in the server environment and restarts the API. This is separate from workspace ownership. Visit `/admin` while signed in as that user, or open Platform administration from the account menu. The API denies all other accounts and never returns stored credential values or execution payloads in administrative lists. Disabling sign-in revokes active sessions but does not deactivate that user's workflows. User deletion, team roles and impersonation are not provided by this screen.
