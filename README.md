@@ -1,17 +1,16 @@
 # Fluxora
 
-Account settings are available from the avatar menu. Password recovery uses
-separate, opt-in system SMTP configuration; see [account setup and activation](docs/29-account-recovery.md).
-
 > A visual workflow automation platform for connecting everyday services, running dependable jobs, and inspecting every execution.
 
-[![Quality gate](https://github.com/phuuthanh-dev/workflow-automation/actions/workflows/quality.yml/badge.svg?branch=main)](https://github.com/phuuthanh-dev/workflow-automation/actions/workflows/quality.yml)
+[![Quality gate](https://github.com/phuuthanh-dev/fluxora/actions/workflows/quality.yml/badge.svg?branch=main)](https://github.com/phuuthanh-dev/fluxora/actions/workflows/quality.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-8b5cf6.svg)](./LICENSE)
 [![Node.js](https://img.shields.io/badge/node.js-22-339933.svg)](https://nodejs.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000.svg)](https://nextjs.org/)
 [![NestJS](https://img.shields.io/badge/NestJS-11-ea2845.svg)](https://nestjs.com/)
 
-Fluxora is an open-source, self-host-ready workflow builder. It is designed as a polished personal and portfolio project first, while keeping the execution engine and connector boundaries ready for small teams later.
+Fluxora is an open-source workflow automation platform for connecting apps and APIs in a visual editor. Build workflows, run and inspect each step, and manage connections in your own workspace. The repository also includes the services and deployment configuration needed to self-host it.
+
+[Explore Fluxora](https://fluxora.io.vn/) · [Documentation](docs/01-product-spec.md) · [Report an issue](https://github.com/phuuthanh-dev/fluxora/issues)
 
 ## Public website and workspace
 
@@ -35,9 +34,10 @@ The editor lets you connect nodes, configure credentials, run a test, and inspec
 | Area | Current capability |
 | --- | --- |
 | Workflow editor | Drag-and-drop graph, connections, auto-layout, node configuration, light/dark UI |
-| Triggers | Manual, schedule, webhook |
-| Logic | If/else and switch routing |
-| Actions | Steam, Google Chat, Google Drive, Google Sheets, HTTP/API, GitHub |
+| Triggers | Manual, schedule, webhook, and supported app events |
+| Logic and data | If/else, switch, merge, aggregate, split, sort, and limit |
+| Integrations | Steam, Google, GitHub, GitLab, Slack, Notion, Jira, Airtable, databases, and more; supported operations vary by app |
+| AI | Gemini and OpenAI actions using your own provider credentials |
 | Notifications | Discord webhook, Telegram Bot API, Google Chat, SMTP email |
 | Credentials | Encrypted server-side storage, OAuth 2.0 where supported, manual token/API key support |
 | Authentication | Email/password, Google, GitHub, Steam identity linking |
@@ -85,8 +85,8 @@ The server owns workflow execution. Published workflow versions are immutable, a
 ### Setup
 
 ```bash
-git clone https://github.com/phuuthanh-dev/workflow-automation.git
-cd workflow-automation
+git clone https://github.com/phuuthanh-dev/fluxora.git
+cd fluxora
 npm install
 
 cp .env.example .env
@@ -162,6 +162,9 @@ npm run deployment:check
 ```
 
 ## Credentials and OAuth
+
+Account settings are available from the avatar menu. Password recovery requires
+separate, opt-in system SMTP configuration; see [account setup and activation](docs/29-account-recovery.md).
 
 Never commit `.env`, provider secrets, API keys, or encrypted production values. `.env` is ignored by Git and should stay local.
 
@@ -264,16 +267,17 @@ Read the complete operator checklist in [`docs/15-deployment.md`](./docs/15-depl
 
 ## Contributing
 
+Issues and pull requests are welcome. Describe the problem and how to reproduce it before proposing a change. For code changes, fork the repository, make a focused branch in your fork, and open a pull request with a short description and validation results. Never include credentials or private data.
+
 1. Read [`AGENTS.md`](./AGENTS.md) and the relevant docs.
 2. Keep the change inside the current product scope.
 3. Add tests for runner, credential, or connector behavior.
 4. Regenerate the code graph after source-import changes.
 5. Run `npm run verify` before opening a pull request.
 
-## License
+See the [contributors graph](https://github.com/phuuthanh-dev/fluxora/graphs/contributors) for the people credited by GitHub.
 
-MIT. See [`LICENSE`](./LICENSE).
-# Platform administrator
+## Platform administrator
 
 Administration is disabled until the operator sets `PLATFORM_ADMIN_USER_ID` to the exact existing Fluxora user ID in the server environment and restarts the API. This is separate from workspace ownership. Visit `/admin` while signed in as that user, or open Platform administration from the account menu. The API denies all other accounts and never returns stored credential values or execution payloads in administrative lists. Disabling sign-in revokes active sessions but does not deactivate that user's workflows. User deletion, team roles and impersonation are not provided by this screen.
 
@@ -300,4 +304,8 @@ Slack allows one Events Request URL per app: replacing it affects the previous
 destination. Fluxora does not automatically modify that Slack setting.
 Bot messages, edits and deletions are ignored. Duplicate deliveries use the
 same stored execution; execution-history retention protects their replay
-identity for at least 24 hours. Real event delivery is not yet qualified.
+identity for at least 24 hours. Availability and access depend on the connected Slack app and workspace permissions.
+
+## License
+
+MIT. See [`LICENSE`](./LICENSE).
