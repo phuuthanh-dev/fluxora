@@ -1,10 +1,10 @@
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-// Only documentation in known documentation locations is ignored. Markdown
+// Ignore only known non-runtime documentation and repository metadata. Markdown
 // under an app or infrastructure can be runtime input, so it requires verify.
 export function isDocumentationOnlyPath(path) {
-  return path === "LICENSE" || /^[^/]+\.md$/i.test(path) || /^(?:docs|\.agent)\/.+\.md$/i.test(path);
+  return path === "LICENSE" || path === ".all-contributorsrc" || path === ".github/dependabot.yml" || /^[^/]+\.md$/i.test(path) || /^(?:docs|\.agent)\/.+\.md$/i.test(path);
 }
 
 export function classifyChange(base, head, cwd = process.cwd()) {

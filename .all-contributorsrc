@@ -1,0 +1,20 @@
+{
+  "projectName": "fluxora",
+  "projectOwner": "phuuthanh-dev",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "files": ["README.md"],
+  "imageSize": 64,
+  "commit": false,
+  "skipCi": false,
+  "contributorsPerLine": 7,
+  "contributors": [
+    {
+      "login": "phuuthanh-dev",
+      "name": "Phung Huu Thanh",
+      "avatar_url": "https://avatars.githubusercontent.com/u/102614541?v=4",
+      "profile": "https://github.com/phuuthanh-dev",
+      "contributions": ["code", "maintenance"]
+    }
+  ]
+}
