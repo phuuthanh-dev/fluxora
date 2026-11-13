@@ -81,6 +81,16 @@ test("a verified payOS registration sample for an unknown order grants no access
   assert.equal(lookedUp, false);
 });
 
+test("a payOS notification never settles a card order", async () => {
+  let fetched = false;
+  class TestBilling extends BillingService {
+    protected override client() { return { webhooks: { verify: async () => ({ orderCode: 123, amount: 99000, currency: "VND", code: "00", paymentLinkId: "sample" }) }, paymentRequests: { get: async () => { fetched = true; throw new Error("must not call"); } } } as unknown as PayOS; }
+  }
+  const service = new TestBilling({ paymentOrder: { findUnique: async () => ({ provider: "LEMON" }) } } as never, {} as never);
+  assert.deepEqual(await service.handleWebhook({}), { received: true });
+  assert.equal(fetched, false);
+});
+
 test("reconciliation only clears a cancelled unpaid order for its owner", async () => {
   let update: unknown;
   let ownerChecked = false;

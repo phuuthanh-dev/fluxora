@@ -121,7 +121,7 @@ export function ConnectionsDashboard() {
         <PageHeader
           eyebrow={activeWorkspace?.name ?? "CONNECTIONS"}
           title="Connections"
-          description="Your app accounts, securely connected to this workspace."
+          description="Connect your apps to use them in workflows. Your saved secrets are encrypted."
         />
         {error ? <Status tone="error" className="connections-error">{error}<Button variant="ghost" onClick={() => window.location.reload()}>Retry</Button></Status> : null}
         {!error && slackRecovery && <Status tone="error" className="connections-oauth-error"><div><strong>Slack connection needs another try</strong><p>{slackRecovery === "denied" ? "Slack authorization was cancelled or denied." : slackRecovery === "unavailable" ? "Slack OAuth is not available. Check the app configuration and try again." : slackRecovery === "rotation_unsupported" ? "This Slack app uses rotating tokens, which are not supported yet. Connect using a compatible app or wait for token rotation support." : "Slack could not complete the connection. For an existing connection, choose the same Slack workspace."}</p></div><Button variant="ghost" onClick={() => router.replace(`/dashboard/connections?workspace=${encodeURIComponent(workspaceId)}`)}>Dismiss</Button></Status>}

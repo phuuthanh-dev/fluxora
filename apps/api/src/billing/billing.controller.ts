@@ -3,6 +3,8 @@ import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { AccountRequestGuard } from "../auth/account-request.guard";
 import { AuthenticationGuard } from "../auth/authentication.guard";
 import { BillingService } from "./billing.service";
+import type { RawBodyRequest } from "@nestjs/common";
+import type { Request } from "express";
 
 @Controller()
 export class BillingController {
@@ -18,7 +20,8 @@ export class BillingController {
     const plan = body && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>).plan : undefined;
     const upgradeFromPaidUntil = body && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>).upgradeFromPaidUntil : undefined;
     const confirmUpgrade = body && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>).confirmUpgrade : undefined;
-    return this.billing.createCheckout(workspaceId, req.currentUser!.id, plan, upgradeFromPaidUntil, confirmUpgrade);
+    const method = body && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>).method : undefined;
+    return this.billing.createCheckout(workspaceId, req.currentUser!.id, plan, upgradeFromPaidUntil, confirmUpgrade, method);
   }
 
   @Get("workspaces/:workspaceId/billing/orders/latest")
@@ -53,4 +56,9 @@ export class BillingController {
 
   @Post("billing/payos/webhook") @HttpCode(200) @Header("Cache-Control", "no-store")
   webhook(@Body() body: unknown) { return this.billing.handleWebhook(body); }
+
+  @Post("billing/lemon/webhook") @HttpCode(200) @Header("Cache-Control", "no-store")
+  lemonWebhook(@Req() req: RawBodyRequest<Request>, @Body() body: unknown) {
+    return this.billing.handleLemonWebhook(req.rawBody, req.get("X-Signature"), body);
+  }
 }

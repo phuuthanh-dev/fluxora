@@ -202,12 +202,29 @@ model PaymentOrder {
   status          String    @default("CREATING")
   paymentLinkId   String?   @unique
   checkoutUrl     String?
+  provider        String    @default("PAYOS")
+  providerNonceHash String?
+  providerOrderId String?   @unique
+  providerRefundedAt DateTime?
   upgradeFromPaidUntil DateTime?
   createdAt       DateTime  @default(now())
   paidAt          DateTime?
   workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  lemonPayments   LemonPayment[]
 
   @@index([workspaceId, createdAt])
+}
+
+// Minimal, durable correlation for signed Lemon events; never store webhook payloads.
+model LemonPayment {
+  providerOrderId String       @id
+  paymentOrderId  String
+  status          String
+  reason          String?
+  updatedAt       DateTime     @updatedAt
+  paymentOrder    PaymentOrder @relation(fields: [paymentOrderId], references: [id], onDelete: Restrict)
+
+  @@index([paymentOrderId, status])
 }
 
 // Independent of execution retention: one row per live execution that starts

@@ -4,7 +4,7 @@ import { PublicShell, PublicSection } from "../../features/public-site/public-sh
 import { publicMetadata, publicSite } from "../../features/public-site/site";
 export const metadata = publicMetadata("Support", "Get help with Fluxora, report a bug, or request access to or deletion of your account data.", "/support");
 export default function SupportPage() {
-  return <PublicShell eyebrow="A human on the other end" title="Let’s get your workflow moving." description="Choose the right channel. A little context helps us understand what happened without exposing your data.">
+  return <PublicShell eyebrow="A human on the other end" title="How can we help?" description="Tell us what happened and we’ll help you find the next step.">
     <div className="public-support-grid">
       <section className="public-support-card"><Mail size={26}/><h2>Account & private support</h2><p>Sign-in trouble, connection issues, privacy requests or account-data deletion. Contact the project maintainer directly.</p><a className="public-support-link" href={`mailto:${publicSite.email}`}>{publicSite.email}<ArrowUpRight size={16}/></a></section>
       <section className="public-support-card"><Bug size={26}/><h2>Report a product issue</h2><p>Found a reproducible bug or have an improvement to suggest? Use GitHub for reports that are safe to share publicly.</p><a className="public-support-link" href={`${publicSite.repository}/issues/new`}>Open a GitHub issue <ArrowUpRight size={16}/></a></section>

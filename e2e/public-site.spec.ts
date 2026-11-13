@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 const pages = [
   { path: "/privacy", title: "Your data. Clear boundaries." },
   { path: "/terms", title: "Build with care. Stay in control." },
-  { path: "/support", title: "Let’s get your workflow moving." },
+  { path: "/support", title: "How can we help?" },
 ];
 
 test("public navigation identifies the current page and landing section", async ({ page }) => {

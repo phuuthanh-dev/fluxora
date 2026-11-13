@@ -5,7 +5,7 @@ import "./plan-usage.css";
 import { CheckoutAction } from "./checkout-action";
 
 /** Public and workspace views share the same catalogue. */
-export function PlanCards({ current, workspaceId, checkoutAvailable = false, publicCheckout = false, paymentBlocked = false, paidUntil }: { current?: PlanCode; workspaceId?: string; checkoutAvailable?: boolean; publicCheckout?: boolean; paymentBlocked?: boolean; paidUntil?: string | null }) {
+export function PlanCards({ current, workspaceId, checkoutAvailable = false, publicCheckout = false, paymentBlocked = false, paidUntil, methods }: { current?: PlanCode; workspaceId?: string; checkoutAvailable?: boolean; publicCheckout?: boolean; paymentBlocked?: boolean; paidUntil?: string | null; methods?: { bank: boolean; card: boolean } }) {
   return <div className="plan-cards">{(["FREE", "STARTER", "PRO"] as const).map((code) => {
     const item = planCatalog[code];
     return <article className={`plan-card${current === code ? " plan-card--current" : ""}`} key={code}>
@@ -19,7 +19,7 @@ export function PlanCards({ current, workspaceId, checkoutAvailable = false, pub
         <li><Check size={15} aria-hidden="true" />Visual editor and supported integrations</li>
         <li><Check size={15} aria-hidden="true" />Use your own AI provider keys</li>
       </ul>
-      {current ? checkoutAvailable && workspaceId && code !== "FREE" ? paymentBlocked ? <p className="plan-card__foot">Check the payment status above before choosing a plan.</p> : paidUntil && current === "PRO" && code === "STARTER" ? <p className="plan-card__foot">Available after your current paid plan ends.</p> : <CheckoutAction workspaceId={workspaceId} plan={code} renew={Boolean(paidUntil && current === code)} upgradeFromPaidUntil={paidUntil && current === "STARTER" && code === "PRO" ? paidUntil : null} /> : <p className="plan-card__foot">{current === code ? "Your current plan" : "Not available for purchase"}</p> : code === "FREE" ? <Link className="plan-card__link" href="/register">Get started</Link> : publicCheckout ? <Link className="plan-card__link" href="/dashboard/plan">Choose {item.name}</Link> : <p className="plan-card__foot">Coming soon · no payment available yet</p>}
+      {current ? checkoutAvailable && workspaceId && code !== "FREE" ? paymentBlocked ? <p className="plan-card__foot">Check the payment status above before choosing a plan.</p> : paidUntil && current === "PRO" && code === "STARTER" ? <p className="plan-card__foot">Available after your current paid plan ends.</p> : <CheckoutAction methods={methods} workspaceId={workspaceId} plan={code} renew={Boolean(paidUntil && current === code)} upgradeFromPaidUntil={paidUntil && current === "STARTER" && code === "PRO" ? paidUntil : null} /> : <p className="plan-card__foot">{current === code ? "Your current plan" : "Not available for purchase"}</p> : code === "FREE" ? <Link className="plan-card__link" href="/register">Get started</Link> : publicCheckout ? <Link className="plan-card__link" href="/dashboard/plan">Choose {item.name}</Link> : <p className="plan-card__foot">Coming soon · no payment available yet</p>}
     </article>;
   })}</div>;
 }

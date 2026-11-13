@@ -302,7 +302,8 @@
         "apps/api/src/billing/billing.service.ts"
       ],
       "externalImports": [
-        "@nestjs/common"
+        "@nestjs/common",
+        "express"
       ]
     },
     {
@@ -323,13 +324,32 @@
       "id": "apps/api/src/billing/billing.service.ts",
       "boundary": "api",
       "internalImports": [
+        "apps/api/src/billing/lemon-client.ts",
+        "apps/api/src/billing/lemon-webhook.ts",
         "apps/api/src/database/prisma.service.ts",
         "apps/api/src/workspaces/workspace.service.ts"
       ],
       "externalImports": [
         "@nestjs/common",
         "@payos/node",
-        "@workflow/contracts"
+        "@workflow/contracts",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/billing/lemon-client.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "@nestjs/common"
+      ]
+    },
+    {
+      "id": "apps/api/src/billing/lemon-webhook.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": [
+        "node:crypto"
       ]
     },
     {
@@ -5287,6 +5307,14 @@
     {
       "from": "apps/api/src/billing/billing.module.ts",
       "to": "apps/api/src/workspaces/workspace.module.ts"
+    },
+    {
+      "from": "apps/api/src/billing/billing.service.ts",
+      "to": "apps/api/src/billing/lemon-client.ts"
+    },
+    {
+      "from": "apps/api/src/billing/billing.service.ts",
+      "to": "apps/api/src/billing/lemon-webhook.ts"
     },
     {
       "from": "apps/api/src/billing/billing.service.ts",

@@ -151,7 +151,7 @@ export function ExecutionsDashboard() {
         <PageHeader
           eyebrow={activeWorkspace?.name ?? "EXECUTIONS"}
           title="Execution history"
-          description="Inspect the immutable workflow version, mode, status, and redacted failure detail for every run in this workspace."
+          description="Review recent workflow runs and inspect their status and details."
           actions={<><Button variant="secondary" onClick={() => router.push("/dashboard")}><ArrowLeft size={15} /> Dashboard</Button><IconButton variant="secondary" label="Refresh execution history" onClick={() => void loadExecutions(workspaceId)} disabled={isLoading || !workspaceId}><RefreshCw className={isLoading ? "ui-spinner" : undefined} size={16} /></IconButton></>}
         />
         {workspaceId && <Disclosure className="retention-summary" summary="Execution retention">{retention ? <div><p>{retention.enabled ? "Automatic cleanup is enabled." : "Automatic cleanup is disabled."}</p><p>Successful runs: {retention.successDays} days · Failed and cancelled runs: {retention.failedDays} days.</p><p>{retention.maxCount ? `The ${retention.maxCount.toLocaleString()} completed-run limit applies across the entire system, not just this workspace. Older runs may be removed sooner if the limit is exceeded.` : "No system-wide completed-run count limit is configured."}</p><p>Queued, running, and waiting runs are not removed by retention cleanup.</p></div> : <p>{retentionError ? "Retention settings could not be loaded." : "Loading retention settings…"}</p>}</Disclosure>}
