@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-for (let diagnosticIteration = 0; diagnosticIteration < (process.env.CI ? 5 : 1); diagnosticIteration++) {
+for (let diagnosticIteration = 0; diagnosticIteration < (process.env.CI ? 30 : 1); diagnosticIteration++) {
 test(`Notion and PostgreSQL offer separate connections and guided fields (diagnostic ${diagnosticIteration + 1})`, async ({ page }) => {
   // Keep failure diagnostics for the intermittent CI timeout without logging
   // credentials or response bodies. This fixture uses only synthetic IDs.
