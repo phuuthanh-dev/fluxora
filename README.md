@@ -299,7 +299,7 @@ Thanks to everyone who helps improve Fluxora. We use [All Contributors](https://
 
 To recognize an additional contribution, ask `@allcontributors please add
 @username for code` on a relevant issue or pull request. Review the bot's PR
-before merging; it may create a temporary branch. The [contribution types](https://allcontributors.org/en/reference/emoji-key/) include documentation, design and maintenance as well as code.
+before merging. It targets the default branch, so retarget it to `develop` and remove its temporary branch after merging. The [contribution types](https://allcontributors.org/en/reference/emoji-key/) include documentation, design and maintenance as well as code.
 
 ## Platform administrator
 
