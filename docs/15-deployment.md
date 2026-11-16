@@ -72,6 +72,8 @@ If GHCR packages are private, configure `GHCR_PULL_USERNAME` and `GHCR_PULL_TOKE
 
 After the `Quality gate` succeeds for a push to `main`, the production workflow checks out that exact commit SHA, builds both images in GitHub Actions, pushes them to GHCR, copies the deployment files, and runs the remote deploy script. The workflow also keeps `workflow_dispatch` for an explicit redeploy or rollback by commit SHA. Mutable tags such as `latest` and `staging` are rejected by the deployment contract.
 
+The gate runs core checks and two isolated Playwright shards in parallel. Production requires the successful aggregate `verify` job, core job, and both shards for the same commit and run attempt. If retrying only failed jobs leaves earlier jobs in a different attempt, rerun all jobs before deployment. Documentation-only runs skip verification and do not deploy.
+
 ```bash
 IMAGE_TAG=<40-character-commit-sha> \
   APP_DIR=/opt/workflow-automation \
