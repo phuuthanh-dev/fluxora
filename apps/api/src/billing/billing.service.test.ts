@@ -16,6 +16,18 @@ test("checkout remains unavailable by default and checks workspace ownership fir
   } finally { if (prior === undefined) delete process.env.PAYOS_CHECKOUT_ENABLED; else process.env.PAYOS_CHECKOUT_ENABLED = prior; }
 });
 
+test("an existing Lemon card checkout remains resumable when Whop sandbox is enabled", async () => {
+  const settings: Record<string, string> = { NODE_ENV: "test", WEB_ORIGIN: "http://localhost:3000", PLAN_LIMITS_ENABLED: "true", WHOP_SANDBOX_ENABLED: "true", WHOP_SANDBOX_API_KEY: "fake", WHOP_SANDBOX_WEBHOOK_SECRET: "ws_test", WHOP_SANDBOX_ACCOUNT_ID: "biz_test1", WHOP_SANDBOX_STARTER_VARIANT_ID: "plan_starter", WHOP_SANDBOX_PRO_VARIANT_ID: "plan_pro" };
+  const previous = Object.fromEntries(Object.keys(settings).map((key) => [key, process.env[key]]));
+  Object.assign(process.env, settings);
+  const existing = { id: "order", plan: "STARTER", provider: "LEMON", status: "PENDING", checkoutUrl: "https://example.lemonsqueezy.com/checkout/buy/example" };
+  const tx = { $queryRaw: async () => [], workspace: { findUniqueOrThrow: async () => ({ paidPlan: null, paidUntil: null }) }, paymentOrder: { findFirst: async () => existing } };
+  try {
+    const service = new BillingService({ $transaction: async (fn: (value: typeof tx) => unknown) => fn(tx) } as never, { requireOwner: async () => undefined } as never);
+    assert.deepEqual(await service.createCheckout("w", "u", "STARTER", undefined, undefined, "card"), { checkoutUrl: existing.checkoutUrl, orderId: existing.id });
+  } finally { for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
+});
+
 test("webhook verifies signature and provider order before granting paid access exactly once", async () => {
   let status = "PENDING";
   let grants = 0;
@@ -23,7 +35,7 @@ test("webhook verifies signature and provider order before granting paid access 
   let remoteAmount = 99000;
   let remotePaid = 99000;
   const data = { orderCode: 1, amount: 99000, currency: "VND", code: "00", paymentLinkId: "link" };
-  const order = () => ({ id: "order", workspaceId: "workspace", amount: 99000, plan: "STARTER", paymentLinkId: "link", status });
+  const order = () => ({ id: "order", workspaceId: "workspace", amount: 99000, plan: "STARTER", provider: "PAYOS", paymentLinkId: "link", status });
   const tx = {
     $queryRaw: async () => [],
     paymentOrder: { findUniqueOrThrow: async () => order(), update: async ({ data: update }: { data: { status: string } }) => { status = update.status; } },
@@ -50,7 +62,7 @@ test("webhook verifies signature and provider order before granting paid access 
 });
 
 test("latest order indicates whether checkout can be resumed without returning its URL", async () => {
-  const order = { id: "order", plan: "STARTER", amount: 99000, status: "PENDING", createdAt: new Date(), checkoutUrl: "https://pay.payos.vn/example" };
+  const order = { id: "order", plan: "STARTER", amount: 99000, status: "PENDING", provider: "PAYOS", createdAt: new Date(), checkoutUrl: "https://pay.payos.vn/example" };
   const service = new BillingService({ paymentOrder: { findFirst: async () => order } } as never, { requireOwner: async () => undefined } as never);
   const result = await service.latest("workspace", "owner");
   assert.equal(result?.canResume, true);
@@ -170,7 +182,7 @@ test("a confirmed full-price upgrade starts a new term once and rejects stale or
 
 test("same-plan renewal extends the paid term without resetting the usage allowance", async () => {
   const paidUntil = new Date(Date.now() + 15 * 86400000);
-  const order = { id: "order", workspaceId: "workspace", amount: 99000, plan: "STARTER", paymentLinkId: "link", status: "PENDING", upgradeFromPaidUntil: null };
+  const order = { id: "order", workspaceId: "workspace", amount: 99000, plan: "STARTER", provider: "PAYOS", paymentLinkId: "link", status: "PENDING", upgradeFromPaidUntil: null };
   let grant: { paidPlan?: string; paidUntil?: Date; usageResetAt?: Date } = {};
   const tx = {
     $queryRaw: async () => [],

@@ -15,7 +15,7 @@ export function CheckoutAction({ workspaceId, plan, resume = false, renew = fals
     try {
       const result = await apiRequest<{ checkoutUrl: string }>(`/workspaces/${encodeURIComponent(workspaceId)}/billing/checkout`, { method: "POST", body: JSON.stringify({ plan, method, ...(upgradeFromPaidUntil ? { upgradeFromPaidUntil, confirmUpgrade: true } : {}) }) });
       const destination = new URL(result.checkoutUrl);
-      if (destination.protocol !== "https:" || !(destination.hostname === "pay.payos.vn" || (method === "card" && /^[a-z0-9-]+\.lemonsqueezy\.com$/.test(destination.hostname)))) throw new Error("Invalid checkout address.");
+      if (destination.protocol !== "https:" || !(destination.hostname === "pay.payos.vn" || (method === "card" && (/^[a-z0-9-]+\.lemonsqueezy\.com$/.test(destination.hostname) || ["whop.com", "sandbox.whop.com"].includes(destination.hostname))))) throw new Error("Invalid checkout address.");
       window.location.assign(destination.toString());
     } catch (reason) {
       setError(reason instanceof ApiClientError && reason.status === 409 ? "Your plan or payment status may have changed. Refresh this page and check before trying again." : "We couldn't open checkout. Check your payment status or contact Support before trying again.");
