@@ -211,12 +211,25 @@ model PaymentOrder {
   paidAt          DateTime?
   workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
   lemonPayments   LemonPayment[]
+  whopPayments    WhopPayment[]
 
   @@index([workspaceId, createdAt])
 }
 
 // Minimal, durable correlation for signed Lemon events; never store webhook payloads.
 model LemonPayment {
+  providerOrderId String       @id
+  paymentOrderId  String
+  status          String
+  reason          String?
+  updatedAt       DateTime     @updatedAt
+  paymentOrder    PaymentOrder @relation(fields: [paymentOrderId], references: [id], onDelete: Restrict)
+
+  @@index([paymentOrderId, status])
+}
+
+// Durable correlation without storing provider payloads or customer information.
+model WhopPayment {
   providerOrderId String       @id
   paymentOrderId  String
   status          String
