@@ -16,7 +16,7 @@ function exercise({ state = "nx", label = "nx-v1", drainLabel = "v1", databaseFa
     mkdirSync(scripts, { recursive: true });
     const log = join(dir, "calls");
     const envFile = join(dir, "production.env");
-    writeFileSync(envFile, "# synthetic test settings\n");
+    writeFileSync(envFile, "# synthetic test settings\nIMAGE_TAG=old\nSECRET=unchanged\n", { mode: 0o600 });
     writeFileSync(join(dir, "infra/docker-compose.production.yml"), "# synthetic compose\n");
     copyFileSync(join(root, "infra/scripts/validate-image-tag.sh"), join(scripts, "validate-image-tag.sh"));
     copyFileSync(join(root, "infra/scripts/release-lock.sh"), join(scripts, "release-lock.sh"));
@@ -54,11 +54,20 @@ exit 0
       encoding: "utf8",
       env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, APP_DIR: dir, ENV_FILE: envFile, API_IMAGE: "synthetic-api", WEB_IMAGE: "synthetic-web", IMAGE_TAG: sha, CALL_LOG: log, DRAINED_FILE: join(dir, "drained"), REPLACED_FILE: join(dir, "replaced"), DB_STATE: state, IMAGE_LABEL: label, DRAIN_LABEL: drainLabel, DB_FAIL: databaseFailure ? "1" : "0", INSPECT_FAIL: inspectFailure ? "1" : "0", STOP_FAIL: stopFailure ? "1" : "0", API_STOP_FAIL: apiStopFailure ? "1" : "0", MISSING_WORKER: missingWorker ? "1" : "0", MISSING_API: missingApi ? "1" : "0", MISSING_WEB: missingWeb ? "1" : "0", API_IMAGE_ID: apiImageId, WORKER_IMAGE_ID: workerImageId, TARGET_WEB_IMAGE_ID: targetWebImageId, CURRENT_API_IMAGE_ID: currentApiImageId, CURRENT_WORKER_IMAGE_ID: currentWorkerImageId, CURRENT_WEB_IMAGE_ID: currentWebImageId, DRAIN_STATE: drainState, LEGACY_PENDING: legacyPending, AFTER_DRAIN: afterDrain, RUNNING_STATE: runningState },
     });
-    return { result, calls: readFileSync(log, "utf8"), lockStillPresent: existsSync(join(dir, ".fluxora-release.lock")) };
+    return { result, envContents: readFileSync(envFile, "utf8"), calls: readFileSync(log, "utf8"), lockStillPresent: existsSync(join(dir, ".fluxora-release.lock")) };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 }
+
+test("rollback records only a verified healthy target", () => {
+  const success = exercise();
+  assert.equal(success.result.status, 0, success.result.stderr);
+  assert.equal(success.envContents, `# synthetic test settings\nIMAGE_TAG=${sha}\nSECRET=unchanged\n`);
+  const failed = exercise({ missingWorker: true });
+  assert.notEqual(failed.result.status, 0);
+  assert.match(failed.envContents, /IMAGE_TAG=old/);
+});
 
 test("NX database refuses an uncertified old image before starting services", () => {
   const { result, calls } = exercise({ label: "<no value>" });

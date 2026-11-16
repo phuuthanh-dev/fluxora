@@ -106,6 +106,7 @@ API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" docker comp
 APP_DIR="$app_dir" "$app_dir/infra/scripts/healthcheck.sh"
 require_target_worker
 require_target_api
+persist_release_image_tag
 release_lock_when_safe
 API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" docker compose --env-file "$env_file" -f "$compose_file" ps
 

@@ -27,6 +27,7 @@ The API and worker use the same application image and encryption key. Only the A
 - `infra/docker-compose.production.yml` defines the production services, health checks, volumes, and log rotation.
 - `infra/.env.production.example` is the production variable contract.
 - `infra/scripts/deploy.sh` accepts only a full lowercase commit SHA as the image tag, applies migrations, starts services, and checks health.
+- After the health and target-image checks pass, deploy and rollback update `IMAGE_TAG` in the production environment file while holding the release lock. If the update fails, the lock is retained for operator inspection; a failed health check does not change the saved tag.
 - `infra/scripts/rollback.sh` checks migration state before restarting services. The local NX draft only allows the exact current API, worker and web image IDs; it cannot yet automate rollback to an earlier release.
 - `infra/scripts/backup-postgres.sh` creates a permission-restricted custom-format PostgreSQL backup.
 - `infra/scripts/restore-postgres.sh` restores a named backup only with an explicit destructive-operation confirmation.
