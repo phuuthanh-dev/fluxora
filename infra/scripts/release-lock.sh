@@ -15,6 +15,23 @@ acquire_release_lock() {
 retain_release_lock() { release_lock_retained=1; }
 release_lock_when_safe() { release_lock_retained=0; }
 
+# Persist only the confirmed release while the release lock is still held.
+# Keep all other production settings and the original file permissions.
+persist_release_image_tag() {
+  if [ ! -f "$env_file" ] || [ -L "$env_file" ]; then
+    printf '%s\n' "Cannot update the production image tag; inspect the retained lock." >&2; return 1
+  fi
+  tag_tmp="$(mktemp "${env_file}.XXXXXX")" || return 1
+  if ! cp -p "$env_file" "$tag_tmp" || ! awk -v tag="$image_tag" '
+    /^IMAGE_TAG=/ { count++; print "IMAGE_TAG=" tag; next }
+    { print }
+    END { if (count > 1) exit 1; if (count == 0) print "IMAGE_TAG=" tag }
+  ' "$env_file" > "$tag_tmp" || ! mv -f "$tag_tmp" "$env_file"; then
+    rm -f "$tag_tmp"
+    printf '%s\n' "Cannot update the production image tag; inspect the retained lock." >&2; return 1
+  fi
+}
+
 # Check containers' actual immutable image IDs, not their mutable tags.
 require_compatible_fleet() {
   fleet_ids=""

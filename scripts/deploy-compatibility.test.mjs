@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { chmodSync, copyFileSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
@@ -10,7 +10,7 @@ const root = resolve(import.meta.dirname, "..");
 const sha = "0123456789abcdef0123456789abcdef01234567";
 const legacyId = `sha256:${"a".repeat(64)}`;
 
-function exercise({ target = "nx-v1", fleet = "nx-v1", apiLabel = fleet, workerLabel = fleet, targetDrain = "v1", fleetDrain = "v1", containerState = "running", apiState = containerState, workerState = containerState, fleetIds = "api-1 worker-1", runningApis = "api-1", runningWorkers = "worker-1", fail = "", restartFailure = "", legacyPending = "clear", afterDrain = legacyPending, runningState = "clear", dbRunning = true, useDefaultImages = false, retagged = false, staged = false, composeMismatch = false, missingRequired = false, cutoverId = "", actualLegacyId = "", schemaState = "legacy", idleState = "clear", idleAfter = idleState, queueState = "0", queueAfter = queueState, skipBackup = "", legacyExit = "exited 143 false" } = {}) {
+function exercise({ target = "nx-v1", fleet = "nx-v1", apiLabel = fleet, workerLabel = fleet, targetDrain = "v1", fleetDrain = "v1", containerState = "running", apiState = containerState, workerState = containerState, fleetIds = "api-1 worker-1", runningApis = "api-1", runningWorkers = "worker-1", fail = "", restartFailure = "", legacyPending = "clear", afterDrain = legacyPending, runningState = "clear", dbRunning = true, useDefaultImages = false, retagged = false, staged = false, composeMismatch = false, missingRequired = false, cutoverId = "", actualLegacyId = "", schemaState = "legacy", idleState = "clear", idleAfter = idleState, queueState = "0", queueAfter = queueState, skipBackup = "", legacyExit = "exited 143 false", envContents = "# synthetic test settings\nIMAGE_TAG=old\nSECRET=unchanged\n" } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "fluxora-deploy-test-"));
   try {
     const scripts = join(dir, "infra/scripts");
@@ -18,7 +18,7 @@ function exercise({ target = "nx-v1", fleet = "nx-v1", apiLabel = fleet, workerL
     const log = join(dir, "calls");
     const envFile = join(dir, "production.env");
     writeFileSync(log, "");
-    writeFileSync(envFile, "# synthetic test settings\n");
+    writeFileSync(envFile, envContents, { mode: 0o600 });
     writeFileSync(join(dir, "infra/docker-compose.production.yml"), "# synthetic compose\n");
     for (const name of ["validate-image-tag.sh", "release-lock.sh"]) copyFileSync(join(root, "infra/scripts", name), join(scripts, name));
     chmodSync(join(scripts, "validate-image-tag.sh"), 0o755);
@@ -101,11 +101,28 @@ exit 0
     });
     const backups = join(dir, ".release-tooling-backups");
     const backupEntries = existsSync(backups) ? readdirSync(backups) : [];
-    return { result, calls: readFileSync(log, "utf8"), lockStillPresent: existsSync(join(dir, ".fluxora-release.lock")), activeRollback: staged ? readFileSync(join(scripts, "rollback.sh"), "utf8") : "", backupRollback: backupEntries.length ? readFileSync(join(backups, backupEntries[0], "rollback.sh"), "utf8") : "", backupCount: backupEntries.length };
+    return { result, envContents: readFileSync(envFile, "utf8"), envMode: statSync(envFile).mode & 0o777, calls: readFileSync(log, "utf8"), lockStillPresent: existsSync(join(dir, ".fluxora-release.lock")), activeRollback: staged ? readFileSync(join(scripts, "rollback.sh"), "utf8") : "", backupRollback: backupEntries.length ? readFileSync(join(backups, backupEntries[0], "rollback.sh"), "utf8") : "", backupCount: backupEntries.length };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 }
+
+test("deploy records the healthy release without modifying other settings", () => {
+  const success = exercise();
+  assert.equal(success.result.status, 0, success.result.stderr);
+  assert.equal(success.envContents, `# synthetic test settings\nIMAGE_TAG=${sha}\nSECRET=unchanged\n`);
+  assert.equal(success.envMode, 0o600);
+  const missing = exercise({ envContents: "SECRET=unchanged\n" });
+  assert.equal(missing.result.status, 0, missing.result.stderr);
+  assert.equal(missing.envContents, `SECRET=unchanged\nIMAGE_TAG=${sha}\n`);
+  const failed = exercise({ fail: "healthcheck.sh" });
+  assert.notEqual(failed.result.status, 0);
+  assert.match(failed.envContents, /IMAGE_TAG=old/);
+  const duplicate = exercise({ envContents: "IMAGE_TAG=old\nSECRET=unchanged\nIMAGE_TAG=other\n" });
+  assert.notEqual(duplicate.result.status, 0);
+  assert.equal(duplicate.envContents, "IMAGE_TAG=old\nSECRET=unchanged\nIMAGE_TAG=other\n");
+  assert.equal(duplicate.lockStillPresent, true);
+});
 
 test("production workflow stages a unique bundle and executes from it", () => {
   const workflow = readFileSync(join(root, ".github/workflows/deploy-production.yml"), "utf8");

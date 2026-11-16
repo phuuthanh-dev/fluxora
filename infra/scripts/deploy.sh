@@ -257,6 +257,7 @@ docker compose --env-file "$env_file" -f "$compose_file" up -d api worker web
 APP_DIR="$app_dir" sh "$scripts_dir/healthcheck.sh"
 require_target_worker
 require_target_api
+persist_release_image_tag
 release_lock_when_safe
 API_IMAGE="$api_image" WEB_IMAGE="$web_image" IMAGE_TAG="$image_tag" \
 PREVIOUS_API_IMAGE_TAG="$previous_api_image_tag" PREVIOUS_WEB_IMAGE_TAG="$previous_web_image_tag" \
