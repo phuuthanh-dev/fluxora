@@ -52,7 +52,8 @@ jobs:
           echo "run_verify=$run_verify" >> "$GITHUB_OUTPUT"
           echo "Verification required: $run_verify"
 
-  verify:
+  core:
+    name: CI core
     needs: scope
     if: needs.scope.outputs.run_verify == 'true'
     runs-on: ubuntu-latest
@@ -83,6 +84,8 @@ jobs:
     env:
       DATABASE_URL: postgresql://workflow:workflow@localhost:5432/fluxora_ci_test?schema=public
       REDIS_URL: redis://localhost:6379
+      FLUXORA_PLAN_INTEGRATION: "1"
+      FLUXORA_RIOT_INTEGRATION: "1"
       FLUXORA_GMAIL_INTEGRATION: "1"
       FLUXORA_CREDENTIAL_INTEGRATION: "1"
       FLUXORA_ROLLBACK_INTEGRATION: "1"
@@ -95,6 +98,60 @@ jobs:
       FLUXORA_KUMA_INTEGRATION: "1"
       FLUXORA_VERCEL_INTEGRATION: "1"
       FLUXORA_PROVIDER_DELIVERY_INTEGRATION: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - name: Generate CI test encryption key
+        shell: bash
+        run: |
+          key="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("base64"))')"
+          echo "::add-mask::$key"
+          echo "APP_ENCRYPTION_KEY=$key" >> "$GITHUB_ENV"
+      - run: npm ci
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - run: npm run db:deploy
+      - run: npm run verify:core
+
+  e2e:
+    name: E2E shard ${{ matrix.shard }}/2
+    needs: scope
+    if: needs.scope.outputs.run_verify == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: workflow
+          POSTGRES_PASSWORD: workflow
+          POSTGRES_DB: fluxora_ci_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U workflow -d fluxora_ci_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://workflow:workflow@localhost:5432/fluxora_ci_test?schema=public
+      REDIS_URL: redis://localhost:6379
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -115,9 +172,24 @@ jobs:
           echo "::add-mask::$key"
           echo "APP_ENCRYPTION_KEY=$key" >> "$GITHUB_ENV"
       - run: npm ci
-      - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=high
       - name: Install Playwright Chromium
         run: npx playwright install chromium
       - run: npm run db:deploy
-      - run: npm run verify
+      - run: npm run build:contracts
+      - run: npm run test:e2e -- --shard=${{ matrix.shard }}/2
+
+  verify:
+    needs: [scope, core, e2e]
+    if: ${{ always() && needs.scope.result == 'success' && needs.scope.outputs.run_verify == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require core and every E2E shard
+        env:
+          CORE_RESULT: ${{ needs.core.result }}
+          E2E_RESULT: ${{ needs.e2e.result }}
+        run: |
+          if [[ "$CORE_RESULT" != "success" || "$E2E_RESULT" != "success" ]]; then
+            echo "Core or E2E verification failed or was skipped." >&2
+            exit 1
+          fi

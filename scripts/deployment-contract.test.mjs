@@ -184,6 +184,13 @@ test("CI/CD workflow keeps bounded jobs, cache, and least-privilege deploy permi
   assert.match(qualityWorkflow, /npx playwright install chromium/);
   assert.doesNotMatch(qualityWorkflow, /playwright install --with-deps/);
   assert.match(qualityWorkflow, /npm audit --omit=dev --audit-level=high/);
+  assert.match(qualityWorkflow, /FLUXORA_PLAN_INTEGRATION: "1"/);
+  assert.match(qualityWorkflow, /FLUXORA_RIOT_INTEGRATION: "1"/);
+  assert.match(qualityWorkflow, /shard: \[1, 2\]/);
+  assert.match(qualityWorkflow, /npm run test:e2e -- --shard=/);
+  assert.match(qualityWorkflow, /needs: \[scope, core, e2e\]/);
+  assert.match(qualityWorkflow, /needs\.core\.result/);
+  assert.match(qualityWorkflow, /needs\.e2e\.result/);
 
   assert.match(workflow, /timeout-minutes:\s*20/);
   assert.match(workflow, /timeout-minutes:\s*15/);
@@ -210,7 +217,7 @@ test("CI/CD workflow keeps bounded jobs, cache, and least-privilege deploy permi
 });
 
 test("scope classifies main and PR changes without dropping product work", () => {
-  const script = qualityWorkflow.match(/- name: Detect product changes[\s\S]*?        run: \|\n([\s\S]*?)\n  verify:/)?.[1].replace(/^          /gm, "");
+  const script = qualityWorkflow.match(/- name: Detect product changes[\s\S]*?        run: \|\n([\s\S]*?)\n  core:/)?.[1].replace(/^          /gm, "");
   assert.ok(script, "quality scope script must be present");
   const dir = mkdtempSync(resolve(tmpdir(), "fluxora-ci-scope-"));
   const git = (...args) => execFileSync("git", args, { cwd: dir, encoding: "utf8" }).trim();
@@ -253,12 +260,20 @@ test("scope classifies main and PR changes without dropping product work", () =>
 
 test("deployment eligibility requires the exact verified quality attempt", () => {
   const job = { name: "verify", head_sha: sha, run_attempt: 2, status: "completed", conclusion: "success" };
-  assert.equal(upstreamVerification([{ jobs: [job] }], sha, 2), "verified");
+  const required = ["CI core", "E2E shard 1/2", "E2E shard 2/2"].map((name) => ({ ...job, name }));
+  assert.equal(upstreamVerification([{ jobs: [job, ...required] }], sha, 2), "verified");
+  assert.equal(upstreamVerification([{ jobs: [job, required[0]] }, { jobs: required.slice(1) }], sha, 2), "verified");
   assert.equal(upstreamVerification([{ jobs: [{ ...job, conclusion: "skipped" }] }], sha, 2), "skipped");
   for (const pages of [
     [{ jobs: [] }], [{ jobs: [job, job] }], [{ jobs: [{ ...job, conclusion: "failure" }] }],
     [{ jobs: [{ ...job, conclusion: "cancelled" }] }], [{ jobs: [{ ...job, head_sha: "a".repeat(40) }] }],
     [{ jobs: [{ ...job, run_attempt: 1 }] }], [{ jobs: [{ ...job, status: "in_progress" }] }], [{}],
+    [{ jobs: [job, ...required.slice(0, 2)] }],
+    [{ jobs: [job, ...required, required[0]] }],
+    [{ jobs: [job, ...required.slice(0, 2), { ...required[2], conclusion: "failure" }] }],
+    [{ jobs: [job, ...required.slice(0, 2), { ...required[2], conclusion: "skipped" }] }],
+    [{ jobs: [job, ...required.slice(0, 2), { ...required[2], run_attempt: 1 }] }],
+    [{ jobs: [job, ...required.slice(0, 2), { ...required[2], head_sha: "a".repeat(40) }] }],
   ]) assert.throws(() => upstreamVerification(pages, sha, 2));
   assert.throws(() => upstreamVerification([{ jobs: [job] }], "invalid", 2));
   assert.match(workflow, /queue: max/);
@@ -281,10 +296,11 @@ test("verification and operational retention contracts avoid redundant work", ()
   assert.deepEqual(qualityCommands({ typecheck: "tsc --noEmit", lint: "eslint ." }), ["typecheck", "lint"]);
   assert.deepEqual(qualityCommands({ typecheck: "tsc", lint: "tsc", prelint: "node prepare.js" }), ["typecheck", "lint"]);
   assert.deepEqual(qualityCommands({ lint: "eslint ." }), ["lint"]);
-  assert.match(rootPackage.scripts.verify, /build:contracts/);
-  assert.match(rootPackage.scripts.verify, /test:workspaces/);
-  assert.match(rootPackage.scripts.verify, /quality:workspaces/);
-  assert.match(rootPackage.scripts.verify, /build:apps/);
+  assert.match(rootPackage.scripts["verify:core"], /build:contracts/);
+  assert.match(rootPackage.scripts["verify:core"], /test:workspaces/);
+  assert.match(rootPackage.scripts["verify:core"], /quality:workspaces/);
+  assert.match(rootPackage.scripts["verify:core"], /build:apps/);
+  assert.match(rootPackage.scripts.verify, /verify:core.*test:e2e/);
   assert.match(deployScript, /check-disk-space\.sh/);
   assert.match(healthcheckScript, /health\/ready/);
   assert.match(retentionWorkflow, /packages: write/);
