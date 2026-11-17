@@ -147,7 +147,9 @@ export class BillingService {
       if (paypal) {
         const returnUrl = new URL("/dashboard/plan", origin);
         returnUrl.searchParams.set("workspace", workspaceId); returnUrl.searchParams.set("order", order.id); returnUrl.searchParams.set("payment", "return");
-        const response = await createPayPalOrder(paypal, order.id, order.amount, returnUrl.protocol === "https:" ? returnUrl.toString() : undefined);
+        const cancelUrl = new URL("/dashboard/plan", origin);
+        cancelUrl.searchParams.set("workspace", workspaceId); cancelUrl.searchParams.set("payment", "cancel");
+        const response = await createPayPalOrder(paypal, order.id, order.amount, returnUrl.toString(), cancelUrl.toString());
         await this.prisma.paymentOrder.updateMany({ where: { id: order.id, status: "REVIEW" }, data: { status: "PENDING", paymentLinkId: response.id, checkoutUrl: response.url } });
         return { checkoutUrl: response.url, orderId: order.id };
       }

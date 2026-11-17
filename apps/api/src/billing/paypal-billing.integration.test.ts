@@ -21,7 +21,20 @@ test("PayPal confirmation, duplicate webhook and refund preserve one entitlement
     if (path.endsWith("/token")) return Response.json({ token_type: "Bearer", access_token: "test" });
     if (path.endsWith("/verify-webhook-signature")) return Response.json({ verification_status: "SUCCESS" });
     if (path.endsWith("/v2/checkout/orders")) {
-      localId = JSON.parse(String(options?.body)).purchase_units[0].custom_id;
+      const body = JSON.parse(String(options?.body));
+      localId = body.purchase_units[0].custom_id;
+      const returnUrl = new URL(body.payment_source.paypal.experience_context.return_url);
+      assert.equal(returnUrl.origin, "http://localhost:3400");
+      assert.equal(returnUrl.pathname, "/dashboard/plan");
+      assert.equal(returnUrl.searchParams.get("workspace"), workspace);
+      assert.equal(returnUrl.searchParams.get("order"), localId);
+      assert.equal(returnUrl.searchParams.get("payment"), "return");
+      const cancelUrl = new URL(body.payment_source.paypal.experience_context.cancel_url);
+      assert.equal(cancelUrl.origin, returnUrl.origin);
+      assert.equal(cancelUrl.pathname, returnUrl.pathname);
+      assert.equal(cancelUrl.searchParams.get("workspace"), workspace);
+      assert.equal(cancelUrl.searchParams.get("order"), null);
+      assert.equal(cancelUrl.searchParams.get("payment"), "cancel");
       return Response.json({ ...remote(), links: [{ rel: "payer-action", href: "https://www.sandbox.paypal.com/checkoutnow?token=test" }] });
     }
     if (path.endsWith("/capture")) { assert.equal(approved, true); captured = true; captures++; }
