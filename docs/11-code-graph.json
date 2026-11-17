@@ -183,7 +183,8 @@
       "internalImports": [],
       "externalImports": [
         "@nestjs/common",
-        "express"
+        "express",
+        "node:crypto"
       ]
     },
     {
