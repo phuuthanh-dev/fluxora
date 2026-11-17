@@ -1,5 +1,13 @@
 # Agent Current State Gate
 
+## Current release and next batch — 2026-11-17
+
+- Production is at merge `5cf39a0`: quality gate and deployment passed. PayPal, payOS and Whop remain available. A real PayPal Starter renewal was independently matched to a completed capture and a 30-day extension; the access log shows two successful webhook requests near the provider events, but does not establish which path settled first. Refunds and exceptional orders still need support review; one payment is not full production qualification.
+- Google Docs Create/Get/Update and current-input Remove Duplicates shipped in PR #148. At the time of this audit, historical deduplication was not yet deployed; the current batch implements it locally. Google Cloud Verification Center reports branding verified and data access under review as of 17 November. The older entries below are dated historical snapshots, not current release status.
+- Current goal: qualify existing payment/connectors, implement historical deduplication against n8n behavior, inspect serving/admin, Google review and VPS, visually audit affected UI, and verify once at the end before the requested PR. Preserve existing local edits and production data. Independent backups are outside this batch.
+- Follow-up: an existing unpaid PayPal order may keep the workspace from starting a different checkout; reconciliation confirms payment but cannot cancel a `CREATED` order. Do not close an order solely from a cancelled browser return: review provider status and late-payment handling first.
+- Visual audit of the existing editor at 390px showed horizontal overflow and an offscreen inspector. Desktop light/dark Sheets mapping was corrected in this batch; mobile editor usability requires a separate focused design and verification.
+
 ## PayPal Checkout — 2026-11-17 (deployed, not qualified live)
 
 - PayPal Sandbox checkout, server-side capture, authenticated webhook verification and owner reconciliation reuse the existing plan settlement rules. Repeated notifications and refunds are tested on an isolated local database; refunds require Support review. PayOS and Whop remain configured separately. PayPal live checkout stays disabled by default.

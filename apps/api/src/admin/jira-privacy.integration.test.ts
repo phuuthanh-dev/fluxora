@@ -64,9 +64,16 @@ for (const action of ["closed", "updated"] as const) test(`reviewed Jira ${actio
     const otherWorkflow = await f.db.workflow.create({ data: { workspaceId: f.workspace.id, name: "Unrelated" } });
     const otherVersion = await f.db.workflowVersion.create({ data: { workflowId: otherWorkflow.id, version: 1, graph: { nodes: [], edges: [] } } });
     const retained = await f.db.execution.create({ data: { workflowVersionId: otherVersion.id, status: "SUCCEEDED", triggerData: { keep: true } } });
+    await f.db.deduplicationHistory.createMany({ data: [
+      { workflowId: f.workflow.id, scopeKey: "node:unique", encryptedState: "synthetic-encrypted-state" },
+      { workflowId: otherWorkflow.id, scopeKey: "node:unique", encryptedState: "unrelated-encrypted-state" },
+    ] });
+    await f.db.deduplicationReceipt.create({ data: { executionId: f.execution.id, nodeId: "unique", inputDigest: "synthetic-digest", keptIndexes: [0] } });
     await f.db.jiraPrivacyAccount.update({ where: { accountHash: f.accountHash }, data: { state: "ACTION_REQUIRED", requiredAction: action } });
     const preview = await f.service.preview(f.accountHash, f.user.id);
     assert.equal(preview.counts.executions, 2);
+    assert.equal(preview.counts["duplicate histories"], 1);
+    assert.ok(preview.review.some((entry) => entry.includes("Duplicate histories")));
     assert.deepEqual(preview.blockers, []);
     assert.doesNotMatch(JSON.stringify(preview), /synthetic-personal-data|encryptedAccountId|accessToken|refreshToken/);
     assert.equal(JSON.stringify(preview).includes(f.accountId), false);
@@ -83,6 +90,9 @@ for (const action of ["closed", "updated"] as const) test(`reviewed Jira ${actio
     assert.equal(erasedNode.output, null); assert.equal(erasedItem.input, null); assert.equal(erasedItem.errorMessage, null);
     assert.equal((await f.db.execution.findUniqueOrThrow({ where: { id: copied.id } })).triggerData, null);
     assert.deepEqual((await f.db.execution.findUniqueOrThrow({ where: { id: retained.id } })).triggerData, { keep: true });
+    assert.equal(await f.db.deduplicationHistory.count({ where: { workflowId: f.workflow.id } }), 0);
+    assert.equal(await f.db.deduplicationReceipt.count({ where: { executionId: f.execution.id } }), 0);
+    assert.equal(await f.db.deduplicationHistory.count({ where: { workflowId: otherWorkflow.id } }), 1);
     assert.deepEqual((await f.db.workflowVersion.findUniqueOrThrow({ where: { id: f.version.id } })).graph, f.graph);
     assert.equal(await f.db.credential.count({ where: { id: f.credential.id } }), 0);
     assert.equal(await f.db.jiraPrivacyAccount.count({ where: { accountHash: f.accountHash } }), 0);

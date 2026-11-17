@@ -341,7 +341,7 @@ export const nodeCatalog: NodeDefinition[] = [
     defaultConfig: { maxItems: 10, keep: "first" }, configurationFields: getSharedNodeConfigurationFields("action.limit"),
   },
   {
-    type: "action.remove-duplicates", label: "Remove Duplicates", description: "Keep the first item for each unique set of values.",
+    type: "action.remove-duplicates", label: "Remove Duplicates", description: "Filter repeated items in this run or across runs.",
     category: "action", libraryGroup: "logic", operationId: "remove-duplicates", operationLabel: "Remove Duplicates", operationKind: "utility", icon: "switch", available: true,
     defaultConfig: { compare: "all" }, configurationFields: getSharedNodeConfigurationFields("action.remove-duplicates"),
   },

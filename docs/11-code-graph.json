@@ -1147,6 +1147,7 @@
         "apps/api/src/execution/expression.ts",
         "apps/api/src/execution/github-write-adapter.ts",
         "apps/api/src/execution/google-workspace-adapter.ts",
+        "apps/api/src/execution/historical-deduplication-store.ts",
         "apps/api/src/execution/item-stream.ts",
         "apps/api/src/execution/live-readiness.ts",
         "apps/api/src/execution/merge-streams.ts",
@@ -1404,6 +1405,35 @@
         "apps/api/src/execution/provider-credential-safety.ts",
         "apps/api/src/execution/provider-json.ts",
         "apps/api/src/execution/provider-request-policy.ts"
+      ],
+      "externalImports": [
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/historical-deduplication-store.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential-vault.service.ts",
+        "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/historical-deduplication.ts",
+        "apps/api/src/execution/item-stream.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/redaction.ts"
+      ],
+      "externalImports": [
+        "@prisma/client",
+        "@workflow/contracts",
+        "node:crypto"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/historical-deduplication.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/execution/data-transform.ts",
+        "apps/api/src/execution/item-stream.ts",
+        "apps/api/src/execution/node-failure.ts"
       ],
       "externalImports": [
         "node:crypto"
@@ -6463,6 +6493,10 @@
     },
     {
       "from": "apps/api/src/execution/execution.service.ts",
+      "to": "apps/api/src/execution/historical-deduplication-store.ts"
+    },
+    {
+      "from": "apps/api/src/execution/execution.service.ts",
       "to": "apps/api/src/execution/item-stream.ts"
     },
     {
@@ -6812,6 +6846,42 @@
     {
       "from": "apps/api/src/execution/google-workspace-adapter.ts",
       "to": "apps/api/src/execution/provider-request-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/historical-deduplication-store.ts",
+      "to": "apps/api/src/credentials/credential-vault.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/historical-deduplication-store.ts",
+      "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/historical-deduplication-store.ts",
+      "to": "apps/api/src/execution/historical-deduplication.ts"
+    },
+    {
+      "from": "apps/api/src/execution/historical-deduplication-store.ts",
+      "to": "apps/api/src/execution/item-stream.ts"
+    },
+    {
+      "from": "apps/api/src/execution/historical-deduplication-store.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/historical-deduplication-store.ts",
+      "to": "apps/api/src/execution/redaction.ts"
+    },
+    {
+      "from": "apps/api/src/execution/historical-deduplication.ts",
+      "to": "apps/api/src/execution/data-transform.ts"
+    },
+    {
+      "from": "apps/api/src/execution/historical-deduplication.ts",
+      "to": "apps/api/src/execution/item-stream.ts"
+    },
+    {
+      "from": "apps/api/src/execution/historical-deduplication.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
     },
     {
       "from": "apps/api/src/execution/http-request-adapter.ts",

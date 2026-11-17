@@ -22,8 +22,13 @@ export const limitItems: ConfigRules = {
   keep: { schema: z.enum(["first", "last"]), message: "Choose the first or last items." },
 };
 export const removeDuplicates: ConfigRules = {
-  compare: { schema: z.enum(["all", "selected", "except"]), required: true, message: "Choose which fields to compare." },
-  fields: { schema: z.string().max(2048).refine((value) => value.split(",").every((field) => dataPath.safeParse(field.trim()).success)), required: true, when: (config) => config.compare !== "all", dependsOn: ["compare"], message: "Enter field paths separated by commas." },
+  operation: { schema: z.enum(["current", "history", "clear"]), message: "Choose a duplicate operation." },
+  compare: { schema: z.enum(["all", "selected", "except"]), required: true, when: (config) => !config.operation || config.operation === "current", message: "Choose which fields to compare." },
+  fields: { schema: z.string().max(2048).refine((value) => value.split(",").every((field) => dataPath.safeParse(field.trim()).success)), required: true, when: (config) => (!config.operation || config.operation === "current") && config.compare !== "all", dependsOn: ["operation", "compare"], message: "Enter field paths separated by commas." },
+  historyFields: { schema: z.string().max(2048).refine((value) => value.split(",").every((field) => dataPath.safeParse(field.trim()).success)), required: true, when: (config) => config.operation === "history", matches: (value, config) => config.historyMode === "new" || !config.historyMode || (typeof value === "string" && !value.includes(",")), message: "Choose comparison fields; numeric and date comparisons need one field." },
+  historyMode: { schema: z.enum(["new", "higher", "later"]), when: (config) => config.operation === "history", message: "Choose how to compare previous values." },
+  historyScope: { schema: z.enum(["node", "workflow"]), when: (config) => config.operation === "history" || config.operation === "clear", message: "Choose the history scope." },
+  historySize: { schema: z.number().int().min(1).max(10000), when: (config) => config.operation === "history" && (!config.historyMode || config.historyMode === "new"), message: "Choose a history size between 1 and 10000." },
 };
 export const merge: ConfigRules = {
   mode: { schema: z.enum(["append", "matching"]), message: "Choose Append or Matching fields." },

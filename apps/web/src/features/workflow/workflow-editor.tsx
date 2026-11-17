@@ -2,7 +2,7 @@
 import { DataPathField, DataPathListField } from "./data-path-field";
 import { AirtableFields } from "./airtable-fields";
 import { NotionPropertiesField } from "./notion-properties-field";
-import { getSharedNodeConfigurationFields, isDataTransformNode, isWebhookTriggerType } from "@workflow/contracts";
+import { getSharedNodeConfigurationFields, isDataTransformNode, isWebhookTriggerType, type WorkflowNodeType } from "@workflow/contracts";
 
 import "@xyflow/react/dist/style.css";
 import {
@@ -339,7 +339,8 @@ function RowValuesField({ value, onChange, workspaceId, workflowId, nodeId, owne
   </div>;
 }
 
-function NodeConfigurationFields({ fields, config, credentials, workspaceId, workflowId, nodeId, owner, allowExpressions, onChange, draft, onDraftChange, issues, inputSamples }: {
+function NodeConfigurationFields({ nodeType, fields, config, credentials, workspaceId, workflowId, nodeId, owner, allowExpressions, onChange, draft, onDraftChange, issues, inputSamples }: {
+  nodeType: WorkflowNodeType;
   inputSamples: Record<string, unknown>;
   fields: NodeConfigurationField[];
   config: Record<string, unknown>;
@@ -354,8 +355,11 @@ function NodeConfigurationFields({ fields, config, credentials, workspaceId, wor
   onDraftChange: UpdateInspectorDraft;
   issues: NodeConfigIssue[];
 }) {
+  const isDeduplication = nodeType === "action.remove-duplicates";
   return <>
     {fields.map((field) => {
+      if (isDeduplication && field.key === "fields" && (config.operation ?? "current") !== "current") return null;
+      if (isDeduplication && field.key === "historySize" && config.operation !== "history") return null;
       const expectedValue = field.visibleWhen?.equals;
       const currentValue = field.visibleWhen ? config[field.visibleWhen.key] ?? field.visibleWhen.fallback : undefined;
       if (expectedValue !== undefined && !(Array.isArray(expectedValue) ? expectedValue.includes(currentValue as never) : currentValue === expectedValue)) return null;
@@ -1273,7 +1277,9 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       {effectiveNodeType === "trigger.uptime-kuma.alert" && <Status tone="info" className="inspector-note">Leave Monitor ID empty for all monitors. Repeated notifications may start multiple runs unless the sender supplies an Idempotency-Key. Matching keys are remembered while execution history is retained for this published version.</Status>}
       {effectiveNodeType === "action.merge" && <p className="inspector-note">Connect one branch to each numbered input. Merge waits for both branches. Append preserves Input 1 then Input 2. Matching uses strict keys and the first Input 2 match; Input 2 wins overlapping fields. Missing keys never match. Test it by running the full workflow.</p>}
       {effectiveNodeType === "action.edit-fields" && <EditFieldsEditor key={node.id} value={node.data.config.fields} onChange={(fields) => updateConfig("fields", fields)} error={configIssues.find((issue) => issue.field === "fields")?.message} />}
-      {definition?.configurationFields && <NodeConfigurationFields key={`configuration-${node.id}`} fields={definition.configurationFields} inputSamples={inputSamples} config={node.data.config} credentials={credentials} workspaceId={workspaceId} workflowId={workflowId} nodeId={node.id} owner={owner} allowExpressions={!effectiveNodeType.startsWith("trigger.") && effectiveNodeType !== "action.merge" && !isDataTransformNode(effectiveNodeType)} onChange={updateConfig} draft={draft} onDraftChange={onDraftChange} issues={configIssues} />}
+      {definition?.configurationFields && <NodeConfigurationFields key={`configuration-${node.id}`} nodeType={effectiveNodeType} fields={definition.configurationFields} inputSamples={inputSamples} config={node.data.config} credentials={credentials} workspaceId={workspaceId} workflowId={workflowId} nodeId={node.id} owner={owner} allowExpressions={!effectiveNodeType.startsWith("trigger.") && effectiveNodeType !== "action.merge" && !isDataTransformNode(effectiveNodeType)} onChange={updateConfig} draft={draft} onDraftChange={onDraftChange} issues={configIssues} />}
+      {effectiveNodeType === "action.remove-duplicates" && node.data.config.operation === "history" && <Status tone="info" className="inspector-note">Live runs remember values when this node runs, even if a later step fails. Test runs do not change the saved history.</Status>}
+      {effectiveNodeType === "action.remove-duplicates" && node.data.config.operation === "clear" && <Status tone="warning" className="inspector-note">Every live run through this node clears the selected history. Test runs leave it unchanged.</Status>}
       {effectiveNodeType === "action.google-docs.update" && <Status tone="info" className="inspector-note">{node.data.config.operation === "replace" ? "Replaces matching text in all document tabs." : "Appends text to the first document tab."}</Status>}
       {effectiveNodeType === "trigger.steam.game-news" && <Status tone="info" className="inspector-note">No connection is needed. Enter the App ID from the game's Steam store URL. The first check records the latest 10 posts without starting runs; posts outside that window can be missed.</Status>}
       {effectiveNodeType === "action.steam" && node.data.config.operation === "gameNews" && <Status tone="info" className="inspector-note">No Steam connection is needed. Find the App ID in the game's Steam store URL; for example, Portal 2 uses 620. Returns up to 10 recent items with shortened content.</Status>}
