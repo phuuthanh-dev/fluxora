@@ -1,6 +1,21 @@
-# payOS hosted checkout — preparation
+# Payment operations and historical rollout notes
 
-> Historical development notes follow. For the current production status, see the live qualification note at the end of this document.
+## Current production snapshot — 2026-11-17
+
+Read-only inspection found payOS, Whop and PayPal checkout enabled; Lemon checkout is disabled. The availability endpoint reports bank, card and PayPal methods. One owner-authorized PayPal Starter renewal was matched to a completed provider capture and a 30-day entitlement extension. This is a point-in-time qualification, not proof of every payment or refund scenario. The dated rollout notes below describe earlier states and do not override this snapshot.
+
+### Manual PayPal reconciliation
+
+The owner selected manual review for an abandoned or uncertain checkout; there is no self-service PayPal cancellation button. Match the workspace's existing order to the PayPal order using the stored provider identifier, amount and currency in a restricted operator session. Never copy credentials, checkout URLs or webhook payloads into support tickets or logs.
+
+- `PAYER_ACTION_REQUIRED` or `CREATED` without a capture is not proof that the provider checkout has been cancelled or can no longer be approved. Keep the local order pending and do not open another checkout merely because the buyer returned to Fluxora.
+- `APPROVED` is not a completed payment. The existing webhook can automatically initiate capture after approval; the owner's Check status action can do the same, so use that action only when the buyer intends to complete the payment. A completed, matching capture is required before applying a plan.
+- If the provider reports a completed capture but Fluxora has not settled it, compare the exact order, amount, currency and refund state, then use the existing verified reconciliation path. Repeated delivery must not extend a plan twice.
+- A refund, uncertain provider response, terminal provider order that Fluxora cannot close, or possible duplicate requires Support/engineering review. The current product has no supported automatic release for an abandoned PayPal link; do not change database status or entitlement manually based on a browser return or elapsed time. Do not issue a replacement order until the original and potential late events are resolved.
+
+PayPal's [void-authorization operation](https://developer.paypal.com/checkout/void-authorized-payment/) applies to an uncaptured authorization and is not a generic cancellation endpoint for a checkout awaiting payer action. Check the provider's [order status](https://developer.paypal.com/sdk/orders/v2/definitions/order/) before choosing an action.
+
+## Historical payOS preparation
 
 A dedicated Fluxora payOS channel has been created. The existing Pet Love channel is independent. Checkout remains disabled by default (`PAYOS_CHECKOUT_ENABLED=false`): proposed plan quotas are not enforced and this integration has not been qualified with a real payment. Do not advertise or enable paid plans until the items below are complete.
 
