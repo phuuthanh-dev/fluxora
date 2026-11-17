@@ -66,4 +66,13 @@ export class BillingController {
   whopWebhook(@Req() req: RawBodyRequest<Request>, @Body() body: unknown) {
     return this.billing.handleWhopWebhook(req.rawBody, req.get("webhook-id"), req.get("webhook-timestamp"), req.get("webhook-signature"), body);
   }
+
+  @Post("billing/paypal/webhook") @HttpCode(200) @Header("Cache-Control", "no-store")
+  paypalWebhook(@Req() req: RawBodyRequest<Request>) {
+    return this.billing.handlePayPalWebhook(req.rawBody, {
+      authAlgo: req.get("paypal-auth-algo"), certUrl: req.get("paypal-cert-url"),
+      transmissionId: req.get("paypal-transmission-id"), transmissionSig: req.get("paypal-transmission-sig"),
+      transmissionTime: req.get("paypal-transmission-time"),
+    });
+  }
 }

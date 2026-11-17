@@ -5,6 +5,7 @@ import { createLemonCheckout, getLemonOrder, hasOneLemonOrderItem, lemonCheckout
 import { matchesLemonPaidOrder, readLemonOrderEvent, verifyLemonWebhook } from "./lemon-webhook";
 import { createWhopCheckout, getWhopPayment, whopConfig } from "./whop-client";
 import { matchesWhopPayment, readWhopPaymentEvent, readWhopRefundEvent, record, verifyWhopWebhook } from "./whop-webhook";
+import { capturePayPalOrder, createPayPalOrder, getPayPalOrder, matchesPayPalCapture, matchesPayPalOrder, payPalSandboxConfig, payPalLiveConfig, verifyPayPalWebhook, readPayPalEvent, payPalCaptureId } from "./paypal-client";
 import { planCatalog } from "@workflow/contracts";
 import { PrismaService } from "../database/prisma.service";
 import { WorkspaceService } from "../workspaces/workspace.service";
@@ -25,9 +26,10 @@ export class BillingService {
 
   async status(workspaceId: string, userId: string, orderId: string) {
     await this.workspaces.requireOwner(workspaceId, userId);
-    const order = await this.prisma.paymentOrder.findFirst({ where: { id: orderId, workspaceId }, select: { id: true, plan: true, amount: true, status: true, paidAt: true } });
+    const order = await this.prisma.paymentOrder.findFirst({ where: { id: orderId, workspaceId }, select: { id: true, plan: true, amount: true, status: true, paidAt: true, provider: true } });
     if (!order) throw new NotFoundException("Payment order was not found.");
-    return order;
+    const { provider, ...details } = order;
+    return (provider === "PAYPAL_SANDBOX" || provider === "PAYPAL") ? { ...details, currency: "USD" } : details;
   }
 
   async latest(workspaceId: string, userId: string) {
@@ -35,7 +37,7 @@ export class BillingService {
     const order = await this.prisma.paymentOrder.findFirst({ where: { workspaceId, status: { in: ["CREATING", "PENDING", "REVIEW"] } }, orderBy: { createdAt: "desc" }, select: { id: true, plan: true, amount: true, status: true, createdAt: true, checkoutUrl: true, provider: true } });
     if (!order) return null;
     const { checkoutUrl, ...details } = order;
-    return { ...details, canResume: order.status === "PENDING" && Boolean(checkoutUrl), canCancel: order.provider === "PAYOS" };
+    return { ...details, ...((order.provider === "PAYPAL_SANDBOX" || order.provider === "PAYPAL") ? { currency: "USD" } : {}), canResume: order.status === "PENDING" && Boolean(checkoutUrl), canCancel: order.provider === "PAYOS" };
   }
 
   async cancel(workspaceId: string, userId: string, orderId: string) {
@@ -61,6 +63,7 @@ export class BillingService {
     await this.workspaces.requireOwner(workspaceId, userId);
     const order = await this.prisma.paymentOrder.findFirst({ where: { id: orderId, workspaceId } });
     if (!order) throw new NotFoundException("Payment order was not found.");
+    if (order.provider === "PAYPAL_SANDBOX" || order.provider === "PAYPAL") return this.reconcilePayPal(workspaceId, userId, orderId);
     if (order.provider === "LEMON") {
       const config = lemonConfig();
       if (!config) throw new ServiceUnavailableException("Payment status is unavailable. Please try again later or contact support.");
@@ -96,20 +99,24 @@ export class BillingService {
   publicAvailability() {
     const payos = process.env.PAYOS_CHECKOUT_ENABLED === "true" && process.env.PLAN_LIMITS_ENABLED === "true" && Boolean(process.env.PAYOS_CLIENT_ID && process.env.PAYOS_API_KEY && process.env.PAYOS_CHECKSUM_KEY);
     const card = lemonCheckoutEnabled() || Boolean(whopConfig());
-    return { available: payos || card, methods: { bank: payos, card } };
+    const paypal = payPalLiveConfig() ?? payPalSandboxConfig();
+    return { available: payos || card || Boolean(paypal), methods: { bank: payos, card, ...(paypal ? { paypal: true, paypalPrices: paypal.prices } : {}) } };
   }
 
   async createCheckout(workspaceId: string, userId: string, plan: unknown, upgradeFromPaidUntil?: unknown, confirmUpgrade?: unknown, method?: unknown) {
     await this.workspaces.requireOwner(workspaceId, userId);
     if (plan !== "STARTER" && plan !== "PRO") throw new BadRequestException("Choose a valid plan.");
     // Never open real checkout until both business entitlements and reconciliation are released.
-    if (method !== undefined && method !== "bank" && method !== "card") throw new BadRequestException("Choose a valid payment method.");
+    if (method !== undefined && method !== "bank" && method !== "card" && method !== "paypal-sandbox" && method !== "paypal") throw new BadRequestException("Choose a valid payment method.");
+    const isPayPalSandbox = method === "paypal-sandbox" || (method === "paypal" && process.env.NODE_ENV !== "production");
+    const paypal = isPayPalSandbox ? payPalSandboxConfig() : method === "paypal" ? payPalLiveConfig() : null;
+    if ((isPayPalSandbox || method === "paypal") && !paypal) throw new ServiceUnavailableException("Payment provider is not configured.");
     const isCard = method === "card";
     const whop = isCard ? whopConfig() : null;
     const lemon = isCard && !whop ? lemonConfig() : null;
-    const provider = whop ? "WHOP" : isCard ? "LEMON" : "PAYOS";
-    if (isCard ? !whop && (!lemon || !lemonCheckoutEnabled()) : process.env.PAYOS_CHECKOUT_ENABLED !== "true") throw new ServiceUnavailableException("Paid plans are not available yet.");
-    const payos = isCard ? null : this.client();
+    const provider = paypal ? (isPayPalSandbox ? "PAYPAL_SANDBOX" : "PAYPAL") : whop ? "WHOP" : isCard ? "LEMON" : "PAYOS";
+    if (!paypal && (isCard ? !whop && (!lemon || !lemonCheckoutEnabled()) : process.env.PAYOS_CHECKOUT_ENABLED !== "true")) throw new ServiceUnavailableException("Paid plans are not available yet.");
+    const payos = isCard || paypal ? null : this.client();
     const origin = process.env.WEB_ORIGIN;
     if (!origin || (process.env.NODE_ENV === "production" && new URL(origin).protocol !== "https:")) throw new ServiceUnavailableException("Payment provider is not configured.");
     const order = await this.prisma.$transaction(async (tx) => {
@@ -128,7 +135,7 @@ export class BillingService {
         if (activePaidPlan !== "STARTER" || plan !== "PRO") throw new ConflictException("Wait until the current paid plan ends before choosing a lower plan.");
         if (confirmUpgrade !== true || typeof upgradeFromPaidUntil !== "string" || new Date(upgradeFromPaidUntil).getTime() !== workspace.paidUntil?.getTime()) throw new ConflictException("Review the upgrade terms for the current paid plan before continuing.");
       }
-      return tx.paymentOrder.create({ data: { workspaceId, plan, amount: planCatalog[plan].priceVnd, provider, upgradeFromPaidUntil: activePaidPlan === "STARTER" && plan === "PRO" ? workspace.paidUntil : null } });
+      return tx.paymentOrder.create({ data: { workspaceId, plan, amount: paypal ? paypal.prices[plan] : planCatalog[plan].priceVnd, provider, upgradeFromPaidUntil: activePaidPlan === "STARTER" && plan === "PRO" ? workspace.paidUntil : null } });
     });
     if (order.plan !== plan) throw new ConflictException("Resolve the existing payment before choosing another plan.");
     if (order.status === "PENDING" && order.checkoutUrl) return { checkoutUrl: order.checkoutUrl, orderId: order.id };
@@ -137,6 +144,13 @@ export class BillingService {
     const claimed = await this.prisma.paymentOrder.updateMany({ where: { id: order.id, status: "CREATING" }, data: { status: "REVIEW" } });
     if (!claimed.count) throw new ConflictException("Payment is being prepared. Please check again shortly.");
     try {
+      if (paypal) {
+        const returnUrl = new URL("/dashboard/plan", origin);
+        returnUrl.searchParams.set("workspace", workspaceId); returnUrl.searchParams.set("order", order.id); returnUrl.searchParams.set("payment", "return");
+        const response = await createPayPalOrder(paypal, order.id, order.amount, returnUrl.protocol === "https:" ? returnUrl.toString() : undefined);
+        await this.prisma.paymentOrder.updateMany({ where: { id: order.id, status: "REVIEW" }, data: { status: "PENDING", paymentLinkId: response.id, checkoutUrl: response.url } });
+        return { checkoutUrl: response.url, orderId: order.id };
+      }
       if (whop) {
         const nonce = randomBytes(32).toString("hex");
         await this.prisma.paymentOrder.updateMany({ where: { id: order.id, status: "REVIEW" }, data: { providerNonceHash: createHash("sha256").update(nonce).digest("hex") } });
@@ -167,6 +181,51 @@ export class BillingService {
       // REVIEW is intentional: provider may have created the link despite the timeout.
       throw new ServiceUnavailableException("Payment could not be prepared. Please contact support before retrying.");
     }
+  }
+
+  private async reconcilePayPal(workspaceId: string, userId: string, orderId: string) {
+    const order = await this.prisma.paymentOrder.findFirst({ where: { id: orderId, workspaceId, provider: { in: ["PAYPAL", "PAYPAL_SANDBOX"] } } });
+    const config = order?.provider === "PAYPAL" ? payPalLiveConfig(false) : payPalSandboxConfig();
+    if (!config) throw new ServiceUnavailableException("Payment provider is not configured.");
+    if (!order || !order.paymentLinkId) throw new NotFoundException("Payment order was not found.");
+    if (order.status === "PAID") return this.status(workspaceId, userId, orderId);
+    if (order.status !== "PENDING") throw new ConflictException("Payment requires support review.");
+    let remote = await getPayPalOrder(config, order.paymentLinkId);
+    if (!matchesPayPalOrder(remote, { providerOrderId: order.paymentLinkId, orderId: order.id, amount: order.amount })) throw new ConflictException("Payment is not fully confirmed.");
+    if (remote.status === "APPROVED") remote = await capturePayPalOrder(config, order.paymentLinkId, order.id);
+    if (!matchesPayPalCapture(remote, { providerOrderId: order.paymentLinkId, orderId: order.id, amount: order.amount })) throw new ConflictException("Payment is not fully confirmed.");
+    const captureId = payPalCaptureId(remote);
+    if (!captureId) throw new ConflictException("Payment is not fully confirmed.");
+    await this.settle(order.id, workspaceId, order.paymentLinkId, undefined, "LEMON", captureId);
+    return this.status(workspaceId, userId, orderId);
+  }
+
+  async handlePayPalWebhook(raw: Buffer | undefined, headers: Record<string, string | undefined>) {
+    const config = process.env.NODE_ENV === "production" ? payPalLiveConfig(false) : payPalSandboxConfig();
+    if (!config || !await verifyPayPalWebhook(config, raw, headers)) throw new BadRequestException("Invalid payment notification.");
+    const event = readPayPalEvent(JSON.parse(raw!.toString("utf8")));
+    if (!event) return { received: true };
+    if (!event.orderId && !event.captureId) throw new ServiceUnavailableException("Payment requires reconciliation.");
+    const order = await this.prisma.paymentOrder.findFirst({ where: { provider: process.env.NODE_ENV === "production" ? "PAYPAL" : "PAYPAL_SANDBOX", ...(event.orderId ? { paymentLinkId: event.orderId } : { providerOrderId: event.captureId }) } });
+    if (!order) throw new ServiceUnavailableException("Payment requires reconciliation.");
+    if (event.refunded) {
+      if (event.captureId && order.providerOrderId && event.captureId !== order.providerOrderId) throw new ConflictException("Payment requires reconciliation.");
+      await this.prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${order.workspaceId} FOR UPDATE`;
+        const fresh = await tx.paymentOrder.findUniqueOrThrow({ where: { id: order.id } });
+        await tx.paymentOrder.update({ where: { id: order.id }, data: { providerRefundedAt: fresh.providerRefundedAt ?? new Date(), ...(fresh.status === "PAID" ? {} : { status: "REVIEW" }) } });
+      });
+      this.logger.warn(`PayPal refund requires support review for payment ${order.id}.`);
+      return { received: true };
+    }
+    if (!order.paymentLinkId) throw new ServiceUnavailableException("Payment requires reconciliation.");
+    let remote = await getPayPalOrder(config, order.paymentLinkId);
+    if (!matchesPayPalOrder(remote, { providerOrderId: order.paymentLinkId, orderId: order.id, amount: order.amount })) throw new ConflictException("Payment is not fully confirmed.");
+    if (remote.status === "APPROVED") remote = await capturePayPalOrder(config, order.paymentLinkId, order.id);
+    const captureId = payPalCaptureId(remote);
+    if (!captureId || !matchesPayPalCapture(remote, { providerOrderId: order.paymentLinkId, orderId: order.id, amount: order.amount })) throw new ConflictException("Payment is not fully confirmed.");
+    await this.settle(order.id, order.workspaceId, order.paymentLinkId, undefined, "LEMON", captureId);
+    return { received: true };
   }
 
   async handleWebhook(payload: unknown) {
@@ -271,7 +330,7 @@ export class BillingService {
     await this.settle(order.id, order.workspaceId, order.paymentLinkId ?? "", providerOrderId);
   }
 
-  private async settle(orderId: string, workspaceId: string, paymentLinkId: string, providerOrderId?: string, cardProvider: "LEMON" | "WHOP" = "LEMON") {
+  private async settle(orderId: string, workspaceId: string, paymentLinkId: string, providerOrderId?: string, cardProvider: "LEMON" | "WHOP" = "LEMON", paypalCaptureId?: string) {
     await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${workspaceId} FOR UPDATE`;
       const fresh = await tx.paymentOrder.findUniqueOrThrow({ where: { id: orderId } });
@@ -294,7 +353,7 @@ export class BillingService {
         await updateLedger(providerOrderId, { status: "REVIEW", reason: "DUPLICATE" });
         return;
       }
-      if (providerOrderId && fresh.providerRefundedAt) return;
+      if (fresh.providerRefundedAt) return;
       const workspace = await tx.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { paidPlan: true, paidUntil: true } });
       const now = new Date();
       const activePaid = workspace.paidUntil && workspace.paidUntil > now;
@@ -309,7 +368,7 @@ export class BillingService {
       const start = !isUpgrade && activePaid ? workspace.paidUntil! : now;
       const paidUntil = new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
       await tx.workspace.update({ where: { id: workspaceId }, data: { paidPlan: fresh.plan as PaidPlan, paidUntil, ...(isUpgrade ? { usageResetAt: now } : {}) } });
-      await tx.paymentOrder.update({ where: { id: fresh.id }, data: { status: "PAID", ...(paymentLinkId ? { paymentLinkId } : {}), ...(providerOrderId ? { providerOrderId } : {}), paidAt: now, checkoutUrl: null } });
+      await tx.paymentOrder.update({ where: { id: fresh.id }, data: { status: "PAID", ...(paymentLinkId ? { paymentLinkId } : {}), ...(providerOrderId || paypalCaptureId ? { providerOrderId: providerOrderId ?? paypalCaptureId } : {}), paidAt: now, checkoutUrl: null } });
       if (providerOrderId) await updateLedger(providerOrderId, { status: "SETTLED", reason: null });
     });
   }
