@@ -1,5 +1,11 @@
 # Agent Current State Gate
 
+## Mobile editor and operations candidate — 2026-11-17
+
+- The mobile editor uses the viewport width, opens the node library as a panel and starts with the minimap closed. Its dashboard navigation, save, publish and run controls remain available. Desktop behavior is unchanged. Direct visual inspection covered 390px and desktop in both themes, including the mobile library; the focused mobile browser test also checks the inspector and keyboard focus. This is not a complete device or accessibility audit.
+- Existing manual PayPal reconciliation remains the owner's chosen policy. No payment order or entitlement was changed. Isolated billing tests covered repeated PayPal/Whop notifications and refunds with mocked providers; unresolved provider cases still need operator review as described in `56-payos-checkout.md`.
+- An isolated local PostgreSQL/API with inline execution and scheduler disabled handled 100 authenticated plan-usage reads at concurrency 10 (median 11 ms, p95 47 ms) and 50 synthetic mock runs at concurrency 5 (median 21 ms, p95 50 ms), all successful. This is one synthetic user on a Mac with a simple workflow; it does not test production Redis workers, external services, sustained traffic or capacity for 100 users.
+
 ## Current release — 2026-11-17
 
 - PR #154 merged as `406a484800601004bfa310573e623d43133d2d94`. The PR and main quality gates, including both E2E shards, passed; production deployment succeeded. Read-only checks confirmed that the API, web and worker use that image, the historical-deduplication migration is applied, and web, API liveness and readiness returned HTTP 200. These checks do not prove 100-user capacity or sustained reliability.
