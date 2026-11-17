@@ -258,7 +258,22 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px soli
   .inspector--drawer-open.inspector--empty { padding-inline: 28px; }
 
 }
-@media (max-width: 760px) { .dashboard-header { grid-template-columns: 1fr; justify-items: start; } .dashboard-header__workspace, .dashboard-header__user { justify-self: start; } .dashboard-hero, .dashboard-create, .dashboard-workspace-create { align-items: start; flex-direction: column; } .dashboard-create__actions { justify-content: start; } .dashboard-stats { grid-template-columns: 1fr; } .dashboard-workspace-create form { flex-wrap: wrap; } .editor-page { min-width: 680px; } .editor-header__actions .ghost-button { display: none; } .editor-shell { grid-template-columns: 220px minmax(460px, 1fr); } .editor-shell--palette-closed { grid-template-columns: minmax(680px, 1fr); } }
+@media (max-width: 760px) { .dashboard-header { grid-template-columns: 1fr; justify-items: start; } .dashboard-header__workspace, .dashboard-header__user { justify-self: start; } .dashboard-hero, .dashboard-create, .dashboard-workspace-create { align-items: start; flex-direction: column; } .dashboard-create__actions { justify-content: start; } .dashboard-stats { grid-template-columns: 1fr; } .dashboard-workspace-create form { flex-wrap: wrap; } }
+@media (max-width: 760px) {
+  .editor-page { height: 100dvh; min-height: 0; min-width: 0; overflow: hidden; }
+  .editor-page > .app-shell-header { flex-wrap: nowrap; }
+  .editor-page > .app-shell-header .app-shell-navigation { display: none; }
+  .editor-header { gap: 8px; padding: 10px 16px; }
+  .editor-header__title h1 { overflow-wrap: anywhere; }
+  .editor-header__actions { flex-basis: 100%; justify-content: flex-start; }
+  .editor-shell, .editor-shell--palette-closed { grid-template-columns: minmax(0, 1fr); min-width: 0; position: relative; }
+  .node-palette { bottom: 0; box-shadow: var(--shadow-soft); left: 0; position: absolute; top: 0; width: min(320px, calc(100% - 32px)); z-index: 10; }
+  .canvas-region { min-width: 0; }
+  .canvas-navigation { top: 60px; }
+  .canvas-status { bottom: 58px; left: 14px; max-width: calc(100% - 28px); }
+  .validation-summary { bottom: 12px; left: 14px; right: auto; }
+  .react-flow__minimap { height: 75px; width: 100px; }
+}
 @media (max-width: 760px) { .dashboard-onboarding__steps { grid-template-columns: 1fr; }.dashboard-onboarding__footer { align-items: flex-start; flex-direction: column; } }
 
 /* Relay-inspired system overrides: keep the existing product class API while the token layer becomes the single source of truth. */

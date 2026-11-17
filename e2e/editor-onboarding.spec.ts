@@ -327,6 +327,36 @@ test("narrow desktop opens the node inspector as a focus-managed drawer", async 
   await expect(inspectorTrigger).toBeFocused();
 });
 
+test("mobile editor keeps the canvas and primary controls usable", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/register");
+  await page.locator('input[autocomplete="name"]').fill("Mobile Editor Owner");
+  await page.locator('input[autocomplete="email"]').fill(`e2e-mobile-editor-${Date.now()}@example.test`);
+  await page.locator('input[autocomplete="new-password"]').fill("e2e-password-123");
+  await page.getByRole("button", { name: "Create account" }).click();
+  await page.getByRole("button", { name: "Use Steam template" }).click();
+  await expect(page).toHaveURL(/\/editor\?workflow=/, { timeout: 15_000 });
+
+  for (const name of ["Save draft", "Publish", "Run test", "Go live", "Add node", "Inspector"]) {
+    await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  const addNode = page.getByRole("button", { name: "Add node" });
+  await addNode.click();
+  const search = page.getByLabel("Search apps and operations");
+  await expect(search).toBeVisible();
+  await expect(search).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(search).toBeHidden();
+  await expect(addNode).toBeFocused();
+
+  await page.getByRole("button", { name: "Inspector" }).click();
+  const inspector = page.getByRole("dialog", { name: "Node inspector" });
+  await expect(inspector).toBeVisible();
+  await inspector.getByRole("button", { name: "Close node inspector" }).click();
+  await expect(inspector).toBeHidden();
+});
+
 test("node library and editor menus support keyboard-only navigation", async ({ page }) => {
   const email = `e2e-keyboard-${Date.now()}@example.test`;
   await page.goto("/login");

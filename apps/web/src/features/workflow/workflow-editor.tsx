@@ -1460,6 +1460,12 @@ export function WorkflowEditor() {
   const [notice, setNotice] = useState("Loading your workflow…");
   const [paletteOpen, setPaletteOpen] = useState(true);
   const [minimapOpen, setMinimapOpen] = useState(true);
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 760px)").matches) {
+      setPaletteOpen(false);
+      setMinimapOpen(false);
+    }
+  }, []);
   const [inspectorDrawerOpen, setInspectorDrawerOpen] = useState(false);
   const [workflow, setWorkflow] = useState<ApiWorkflow | null>(null);
   const workflowRef = useRef<ApiWorkflow | null>(null);
@@ -2170,7 +2176,7 @@ export function WorkflowEditor() {
 
       <div className={paletteOpen ? "editor-shell" : "editor-shell editor-shell--palette-closed"}>
         {paletteOpen && (
-          <NodeLibrary ref={nodeLibraryRef} onAdd={addDefinition} onDragStart={onDragStart} onCollapse={() => { setPaletteOpen(false); requestAnimationFrame(() => paletteReopenRef.current?.focus()); }} />
+          <NodeLibrary ref={nodeLibraryRef} onAdd={(definition) => { addDefinition(definition); if (window.matchMedia("(max-width: 760px)").matches) { setPaletteOpen(false); requestAnimationFrame(() => paletteReopenRef.current?.focus()); } }} onDragStart={onDragStart} onCollapse={() => { setPaletteOpen(false); requestAnimationFrame(() => paletteReopenRef.current?.focus()); }} />
         )}
         <section className={`canvas-region${isConnecting ? " canvas-region--connecting" : ""}`} ref={wrapperRef} onDrop={onDrop} onDragOver={(event) => event.preventDefault()}>
           {!paletteOpen && <Button ref={paletteReopenRef} className="palette-reopen" variant="secondary" aria-controls="node-library" aria-expanded="false" onClick={() => { setPaletteOpen(true); requestAnimationFrame(() => nodeLibraryRef.current?.focusSearch()); }}><Plus size={15} aria-hidden="true" />Add node</Button>}
