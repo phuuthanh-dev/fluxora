@@ -51,10 +51,10 @@ async function request(config: PayPalConfig, path: string, options?: { body?: un
   return data;
 }
 
-export async function createPayPalOrder(config: PayPalConfig, orderId: string, amount: number, returnUrl?: string) {
+export async function createPayPalOrder(config: PayPalConfig, orderId: string, amount: number, returnUrl: string, cancelUrl: string) {
   const order = await request(config, "/v2/checkout/orders", { idempotencyKey: orderId, body: {
     intent: "CAPTURE", purchase_units: [{ custom_id: orderId, amount: { currency_code: "USD", value: (amount / 100).toFixed(2) } }],
-    payment_source: { paypal: { experience_context: { shipping_preference: "NO_SHIPPING", user_action: "PAY_NOW", ...(returnUrl ? { return_url: returnUrl, cancel_url: returnUrl } : {}) } } },
+    payment_source: { paypal: { experience_context: { shipping_preference: "NO_SHIPPING", user_action: "PAY_NOW", return_url: returnUrl, cancel_url: cancelUrl } } },
   } });
   const links = Array.isArray(order.links) ? order.links : [];
   const link = links.map(record).find((item) => item?.rel === "payer-action" || item?.rel === "approve");

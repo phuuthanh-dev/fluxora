@@ -1,9 +1,10 @@
 # Agent Current State Gate
 
-## PayPal Checkout — 2026-11-17 (local, not qualified live)
+## PayPal Checkout — 2026-11-17 (deployed, not qualified live)
 
 - PayPal Sandbox checkout, server-side capture, authenticated webhook verification and owner reconciliation reuse the existing plan settlement rules. Repeated notifications and refunds are tested on an isolated local database; refunds require Support review. PayOS and Whop remain configured separately. PayPal live checkout stays disabled by default.
 - A prior USD 1 Sandbox order was approved and captured with a US test buyer; the completed order was reconciled into a synthetic workspace. A second USD 1 checkout created by Fluxora generated real Sandbox approval and capture notifications; Starter was activated for 30 days. A subsequent Sandbox refund was recorded for Support review without silently revoking access. PayPal showed a generic error after checkout, so the live return experience is not qualified. This does not establish Vietnamese individual merchant eligibility, live credentials, fees or production payment readiness.
+- PR #152 deployed with PayPal checkout disabled. A follow-up fixes the missing local Sandbox return URL and sends cancelled PayPal checkouts back without starting reconciliation. PayPal accepted a Sandbox order containing a localhost return URL, but the full buyer return and live payment still require qualification. The owner chose a separate Business account and is completing registration.
 - The owner delegated currency conversion: examples use fixed USD 3.88 / 7.79 for Starter / Pro, based on the 16 November Vietcombank transfer-buy reference, not a live exchange rate. Confirm merchant and terms before enabling. See `56-payos-checkout.md`.
 
 ## Google Docs and Remove Duplicates — 2026-11-13 (local, pending release)
