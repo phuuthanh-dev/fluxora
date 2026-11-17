@@ -419,9 +419,9 @@ Comparison: [Aggregate](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-
 [Merge](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.merge/).
 Implementation/qualification is pending the final batch gate.
 
-### Historical Remove Duplicates — local follow-up
+### Historical Remove Duplicates
 
-Extend the existing node with comparisons against earlier live executions:
+The existing node supports comparisons against earlier live executions:
 new values, higher numbers and later dates, scoped to the node or workflow,
 and an explicit clear-history operation. Test executions do not alter live
 history. Selected values are recorded when the node runs, so later failure

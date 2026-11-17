@@ -1,6 +1,14 @@
 # Agent Current State Gate
 
-## Current release and next batch — 2026-11-17
+## Current release — 2026-11-17
+
+- PR #154 merged as `406a484800601004bfa310573e623d43133d2d94`. The PR and main quality gates, including both E2E shards, passed; production deployment succeeded. Read-only checks confirmed that the API, web and worker use that image, the historical-deduplication migration is applied, and web, API liveness and readiness returned HTTP 200. These checks do not prove 100-user capacity or sustained reliability.
+- Historical Remove Duplicates is available alongside current-input comparison; the specific differences from n8n and downstream-failure behavior are documented in `57-google-docs-remove-duplicates.md`. Google Docs Create/Get/Update was already released and individually qualified against synthetic documents, not every provider/account case.
+- PayOS, Whop and PayPal are enabled; Lemon checkout is disabled. A real PayPal Starter renewal matched a completed capture and a 30-day extension. The owner selected manual reconciliation for abandoned or uncertain checkout, with no customer cancellation button. A Pro order still required payer action and had no capture when checked; it was left unchanged. See `56-payos-checkout.md` for the operator boundary.
+- Google OAuth branding is verified; data access remains under review. The owner deferred responding to Google. Representative UI checks identified an existing horizontally overflowing mobile editor; other viewports and states are not universally qualified. The previous tagged images and unidentified volume were retained; independent backups remain outside the requested scope.
+- Local verification used a separate PostgreSQL database and Redis, with the latter stopped afterward. Temporary test artifacts remain identifiable; preserve them and pre-existing changes to `AGENTS.md` and `apps/web/next-env.d.ts` unless authorized to remove them.
+
+## Prior snapshot before PR #154 — 2026-11-17
 
 - Production is at merge `5cf39a0`: quality gate and deployment passed. PayPal, payOS and Whop remain available. A real PayPal Starter renewal was independently matched to a completed capture and a 30-day extension; the access log shows two successful webhook requests near the provider events, but does not establish which path settled first. Refunds and exceptional orders still need support review; one payment is not full production qualification.
 - Google Docs Create/Get/Update and current-input Remove Duplicates shipped in PR #148. At the time of this audit, historical deduplication was not yet deployed; the current batch implements it locally. Google Cloud Verification Center reports branding verified and data access under review as of 17 November. The older entries below are dated historical snapshots, not current release status.

@@ -17,14 +17,14 @@ and copies outside this database are documented in `51-jira-privacy-response.md`
 
 ## Data transforms and connector expansion — 2026-11-09
 
-Historical Remove Duplicates local follow-up: scoped history is encrypted per
+Historical Remove Duplicates: scoped history is encrypted per
 workflow and node or per workflow. Value matching uses keyed digests; numeric
 and date high-water marks are encrypted. A workflow lock serializes history
 updates, and an execution/node receipt records selected indexes atomically so a
 recovered worker cannot consume the same input twice. Mock runs do not write
 live history. History is bounded and cascades with workflow deletion; receipts
-cascade with execution retention. This follow-up is not released or verified
-until the batch gate passes.
+cascade with execution retention. PR #154 passed its quality gates and deployed;
+the tests and release do not establish every live workflow scenario.
 
 Aggregate, Split Out, Sort and Limit operate once on the incoming item stream
 before the existing item runner persists results. Merge retains two named ports

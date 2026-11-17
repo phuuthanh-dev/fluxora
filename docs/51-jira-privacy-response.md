@@ -52,13 +52,12 @@ missing input as valid data. A new connection after an updated-account erasure
 retrieves current identity data through normal OAuth. No workflow is automatically
 republished or silently pointed at a replacement connection.
 
-Local historical-deduplication follow-up: the same reviewed transaction also
+Historical deduplication: the same reviewed transaction also
 deletes deduplication receipts for the affected executions and all duplicate
 histories belonging to the listed workflows, because those histories cannot be
 attributed to a single person reliably. The preview counts affected histories and
 warns that clearing them can cause previously seen items to run again. Histories
-in other workflows are retained. This follow-up is not released until the batch
-is verified and deployed.
+in other workflows are retained. This behavior was released in PR #154.
 
 Unknown/interrupted reports stay `UNCERTAIN` without pausing unrelated Jira
 operations; only a confirmed closed/updated action pauses account access. An operator can record a confirmed
