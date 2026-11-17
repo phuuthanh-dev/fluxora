@@ -19,8 +19,13 @@ export const dataTransformFields = {
     { kind: "select", key: "keep", label: "Keep", options: [{ value: "first", label: "First items" }, { value: "last", label: "Last items" }] },
   ],
   "action.remove-duplicates": (): NodeConfigurationField[] => [
-    { kind: "select", key: "compare", label: "Compare", options: [{ value: "all", label: "All fields" }, { value: "selected", label: "Selected fields" }, { value: "except", label: "All fields except" }] },
+    { kind: "select", key: "operation", label: "Operation", fallbackValue: "current", options: [{ value: "current", label: "Remove duplicates in this run" }, { value: "history", label: "Compare with previous runs" }, { value: "clear", label: "Clear duplicate history" }] },
+    { kind: "select", key: "compare", label: "Compare", visibleWhen: { key: "operation", equals: "current", fallback: "current" }, options: [{ value: "all", label: "All fields" }, { value: "selected", label: "Selected fields" }, { value: "except", label: "All fields except" }] },
     { kind: "data-path-list", key: "fields", label: "Fields to compare", visibleWhen: { key: "compare", equals: ["selected", "except"] } },
+    { kind: "select", key: "historyMode", label: "Keep items where", fallbackValue: "new", visibleWhen: { key: "operation", equals: "history" }, options: [{ value: "new", label: "Value is new" }, { value: "higher", label: "Number is higher" }, { value: "later", label: "Date is later" }] },
+    { kind: "data-path-list", key: "historyFields", label: "Fields to compare", visibleWhen: { key: "operation", equals: "history" } },
+    { kind: "select", key: "historyScope", label: "History scope", fallbackValue: "node", visibleWhen: { key: "operation", equals: ["history", "clear"] }, options: [{ value: "node", label: "This node" }, { value: "workflow", label: "This workflow" }] },
+    { kind: "number", key: "historySize", label: "History size", fallbackValue: 10000, visibleWhen: { key: "historyMode", equals: "new", fallback: "new" } },
   ],
   "action.merge": (): NodeConfigurationField[] => [
     { kind: "select", key: "mode", label: "Mode", fallbackValue: "append", options: [{ value: "append", label: "Append" }, { value: "matching", label: "Matching fields" }] },

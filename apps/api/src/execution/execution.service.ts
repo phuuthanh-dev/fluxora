@@ -1,4 +1,5 @@
 import { transformItems } from "./data-transform";
+import { historicalDeduplicate } from "./historical-deduplication-store";
 import type { RunMode, NodeResult } from "./node-executor-contract";
 export { steamSnapshot } from "./steam-adapter";
 export { mockDrive, executeGoogleDrive } from "./google-workspace-adapter";
@@ -605,8 +606,18 @@ export class ExecutionService {
       let inputItems = incoming ? itemStreams.get(incoming) : undefined;
       const sourceInputs = inputItems;
       let mergeFailure: NodeFailure | undefined;
+      let completedHistoricalItems: WorkflowItem[] | undefined;
       if (node.type === "action.merge" || isDataTransformNode(node.type)) {
-        try { inputItems = node.type === "action.merge" ? appendInputs(graph, node.id, itemStreams) : transformItems(node, inputItems ?? []); }
+        try {
+          if (node.type === "action.remove-duplicates" && ["history", "clear"].includes(String(node.config.operation))) {
+            // Reject unsupported routing before committing history and node output.
+            if (mode !== "mock") assertSupportedItemPath(graph, node.id, false);
+            const result = await historicalDeduplicate(this.prisma, execution.workflowVersion.workflowId, executionId, runToken, node, inputItems ?? [], mode === "mock", mode !== "mock");
+            if (result === null) return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
+            inputItems = result;
+            if (mode !== "mock") completedHistoricalItems = result.map((item, itemIndex) => ({ ...item, pairedItem: { nodeId: node.id, itemIndex } }));
+          } else inputItems = node.type === "action.merge" ? appendInputs(graph, node.id, itemStreams) : transformItems(node, inputItems ?? []);
+        }
         catch (reason) { mergeFailure = nodeFailureFromExecutionError(reason); }
         if (mergeFailure) {
           if (!await this.updateNodeWhileRunning(executionId, runToken, node.id, { status: NodeExecutionStatus.FAILED, attempt: 1, errorCode: mergeFailure.code, errorMessage: mergeFailure.message, errorRetryable: false, completedAt: new Date() })) return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
@@ -615,7 +626,8 @@ export class ExecutionService {
       }
       const routeItemErrors = node.type.startsWith("action.") && graph.edges.some((edge) => edge.source === node.id && edge.kind === "error");
       const usePinnedOutput = mode === "mock" && node.pinData !== undefined;
-      const itemRun = inputItems && !mergeFailure && (!usePinnedOutput || inputItems.length === 0) ? await this.runItemNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, inputItems, mode, execution.idempotencyRootId ?? execution.id, runToken, restoredSteps, routeItemErrors, isDataTransformNode(node.type) ? sourceInputs ?? [] : undefined) : undefined;
+      if (completedHistoricalItems) this.events.publish(executionId, "node.updated");
+      const itemRun: { result: NodeResult; items: WorkflowItem[]; routedItems?: Array<{ item: WorkflowItem; result: NodeResult }> } | undefined = completedHistoricalItems ? { result: { status: "succeeded", output: { items: completedHistoricalItems.map((item) => item.json), count: completedHistoricalItems.length }, route: "success" }, items: completedHistoricalItems } : inputItems && !mergeFailure && (!usePinnedOutput || inputItems.length === 0) ? await this.runItemNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, inputItems, mode, execution.idempotencyRootId ?? execution.id, runToken, restoredSteps, routeItemErrors, isDataTransformNode(node.type) ? sourceInputs ?? [] : undefined) : undefined;
       const result: NodeResult = mergeFailure ? { status: "failed", output: {}, error: mergeFailure } : itemRun?.result ?? await this.runNode(executionId, execution.workflowVersion.workflow.workspaceId, node, context, mode, execution.idempotencyRootId ?? execution.id, runToken, restoredSteps);
       if (result.status === "interrupted") return this.prisma.execution.findUniqueOrThrow({ where: { id: executionId } });
       if (debugNodeId) {

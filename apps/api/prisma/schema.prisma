@@ -306,6 +306,7 @@ model Workflow {
   rssTriggerCheckpoints RssTriggerCheckpoint[]
   calendarTriggerCheckpoints CalendarTriggerCheckpoint[]
   providerPollCheckpoints ProviderPollCheckpoint[]
+  deduplicationHistories DeduplicationHistory[]
 
   @@index([workspaceId, updatedAt])
   @@index([workspaceId, archivedAt, updatedAt])
@@ -555,11 +556,34 @@ model Execution {
   nodeExecutions    NodeExecution[]
   approvalRequests  ApprovalRequest[]
   rssDelivery       RssTriggerDelivery?
+  deduplicationReceipts DeduplicationReceipt[]
 
   @@index([workflowVersionId, createdAt])
   @@index([status, createdAt])
   @@index([status, leaseExpiresAt])
   @@index([status, resumeQueuedAt])
+}
+
+// History is shared only within the selected workflow/node scope. Values and
+// high-water marks are encrypted; receipts fence worker recovery from replay.
+model DeduplicationHistory {
+  workflowId String
+  scopeKey String
+  encryptedState String
+  updatedAt DateTime @updatedAt
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@id([workflowId, scopeKey])
+}
+
+model DeduplicationReceipt {
+  executionId String
+  nodeId String
+  inputDigest String
+  keptIndexes Json
+  execution Execution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@id([executionId, nodeId])
 }
 
 model NodeExecution {

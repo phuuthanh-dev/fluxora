@@ -86,7 +86,7 @@ export function GoogleSheetsMappingField({ workspaceId, config, draft, onDraftCh
     catch (reason) { setError(reason instanceof Error ? reason.message : "Could not apply the mapping."); }
   };
 
-  return <section className="config-field" aria-label="Google Sheets tab and header assistant">
+  return <section className="config-field sheets-assistant" aria-label="Google Sheets tab and header assistant">
     <strong>Tab and header assistant</strong>
     <small>Use the existing Range and Values fields for manual entry or expressions. This assistant changes nothing until you apply a preview.</small>
     <small>Changing the connection or spreadsheet keeps the existing range and values. Review them before writing to a different spreadsheet.</small>

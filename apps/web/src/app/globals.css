@@ -138,6 +138,10 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px soli
 .inspector__category { color: var(--accent); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
 .inspector-section { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 14px; }.inspector-section:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }.inspector-section__title { color: var(--ink); font-size: 13px; font-weight: 600; letter-spacing: 0; margin: 0 0 12px; }.inspector-section__content > :first-child { margin-top: 8px; }.inspector-section__content > :last-child { margin-bottom: 0; }
 .config-field { display: block; margin: 14px 0; }
+.sheets-assistant { display: grid; gap: 10px; }
+.sheets-assistant > small { color: var(--text-secondary); line-height: 1.5; }
+.sheets-assistant > button { justify-self: start; max-width: 100%; }
+.sheets-assistant > p { margin: 0; overflow-wrap: anywhere; }
 .config-field span { color: var(--text-secondary); display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; }
 .config-field input, .config-field select, .config-field textarea { background: var(--surface-inset); border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--ink); font-size: 13px; outline: none; padding: 9px 10px; resize: vertical; width: 100%; min-height: var(--control-height); }
 .config-field input:focus, .config-field select:focus, .config-field textarea:focus { border-color: var(--focus-ring); box-shadow: none; outline: 2px solid var(--focus-ring); outline-offset: 2px; }

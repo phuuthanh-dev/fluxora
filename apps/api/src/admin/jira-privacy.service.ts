@@ -66,10 +66,12 @@ export class JiraPrivacyService {
     const executions = await db.execution.findMany({ where: { workflowVersionId: { in: versionIds } }, take: 1001, orderBy: { id: "asc" }, select: { id: true, status: true, privacyErasedAt: true, createdAt: true } });
     if (executions.length > 1000) throw conflict("This inventory exceeds 1,000 executions. Use an operator-led batch; nothing has been erased.");
     const ids = executions.map((row) => row.id);
-    const [nodes, items, registrations] = await Promise.all([
+    const [nodes, items, registrations, deduplicationHistories, deduplicationReceipts] = await Promise.all([
       db.nodeExecution.count({ where: { executionId: { in: ids } } }),
       db.nodeExecutionItem.count({ where: { nodeExecution: { executionId: { in: ids } } } }),
       db.providerWebhookRegistration.count({ where: { credentialId: { in: record.credentialIds } } }),
+      db.deduplicationHistory.findMany({ where: { workflowId: { in: workflows.map((workflow) => workflow.id) } }, orderBy: [{ workflowId: "asc" }, { scopeKey: "asc" }], select: { workflowId: true, scopeKey: true, updatedAt: true } }),
+      db.deduplicationReceipt.count({ where: { executionId: { in: ids } } }),
     ]);
     const blockers: string[] = [];
     if (record.state !== "ACTION_REQUIRED" || !["closed", "updated"].includes(record.requiredAction ?? "")) blockers.push("A confirmed closed/updated response is required.");
@@ -77,16 +79,16 @@ export class JiraPrivacyService {
     if (workflows.some((row) => row.isActive)) blockers.push("Deactivate the affected workflows before erasing data.");
     if (executions.some((row) => !terminal.has(row.status))) blockers.push("Wait for or cancel all queued, running and approval-waiting executions, then review again.");
     if (registrations) blockers.push("Remove related provider registrations through their normal lifecycle first.");
-    return { record, connections, workflows, executions, nodes, items, blockers };
+    return { record, connections, workflows, executions, nodes, items, deduplicationHistories, deduplicationReceipts, blockers };
   }
 
   private fingerprint(plan: Awaited<ReturnType<JiraPrivacyService["inventory"]>>, actorId: string, expiresAt: number) {
-    return digest({ actorId, expiresAt, record: plan.record, connections: plan.connections, workflows: plan.workflows, executions: plan.executions, nodes: plan.nodes, items: plan.items });
+    return digest({ actorId, expiresAt, record: plan.record, connections: plan.connections, workflows: plan.workflows, executions: plan.executions, nodes: plan.nodes, items: plan.items, deduplicationHistories: plan.deduplicationHistories, deduplicationReceipts: plan.deduplicationReceipts });
   }
 
   async preview(id: string, actorId: string) {
     const plan = await this.inventory(this.prisma, id), expiresAt = Date.now() + 15 * 60_000;
-    return { id, action: plan.record.requiredAction, expiresAt, previewToken: `${expiresAt}.${this.fingerprint(plan, actorId, expiresAt)}`, legacyReviewRequired: !plan.record.coverageReviewedAt, blockers: plan.blockers, counts: { connections: plan.connections.length, workflows: plan.workflows.length, executions: plan.executions.filter((row) => !row.privacyErasedAt).length, nodes: plan.nodes, items: plan.items }, workflows: plan.workflows.map(({ id: workflowId, name, isActive }) => ({ id: workflowId, name, isActive })), review: ["Review immutable workflow configuration and manually handle personal data stored there before confirming.", "Review logs, backups, downloads and external destinations; this action cannot erase copies outside the listed database payloads.", "Authorizing-account links do not identify other people in arbitrary issue text. Review additional subjects and copies separately."] };
+    return { id, action: plan.record.requiredAction, expiresAt, previewToken: `${expiresAt}.${this.fingerprint(plan, actorId, expiresAt)}`, legacyReviewRequired: !plan.record.coverageReviewedAt, blockers: plan.blockers, counts: { connections: plan.connections.length, workflows: plan.workflows.length, executions: plan.executions.filter((row) => !row.privacyErasedAt).length, nodes: plan.nodes, items: plan.items, "duplicate histories": plan.deduplicationHistories.length }, workflows: plan.workflows.map(({ id: workflowId, name, isActive }) => ({ id: workflowId, name, isActive })), review: ["Review immutable workflow configuration and manually handle personal data stored there before confirming.", "Review logs, backups, downloads and external destinations; this action cannot erase copies outside the listed database payloads.", "Authorizing-account links do not identify other people in arbitrary issue text. Review additional subjects and copies separately.", ...(plan.deduplicationHistories.length ? ["Duplicate histories for the listed workflows will be cleared. Previously seen items may run again when those workflows restart."] : [])] };
   }
 
   async resolve(id: string, actorId: string, input: { previewToken?: unknown; reviewReference?: unknown; copiesReviewed?: unknown; legacyReviewed?: unknown; confirmation?: unknown }) {
@@ -107,6 +109,8 @@ export class JiraPrivacyService {
       if (plan.blockers.length) throw conflict(plan.blockers.join(" "));
       if (!plan.record.coverageReviewedAt && input.legacyReviewed !== true) throw conflict("The legacy inventory requires a separate operator review.");
       const ids = plan.executions.map((row) => row.id), erasedAt = new Date();
+      await tx.deduplicationReceipt.deleteMany({ where: { executionId: { in: ids } } });
+      await tx.deduplicationHistory.deleteMany({ where: { workflowId: { in: plan.workflows.map((workflow) => workflow.id) } } });
       await tx.nodeExecutionItem.updateMany({ where: { nodeExecution: { executionId: { in: ids } } }, data: { input: Prisma.DbNull, output: Prisma.DbNull, errorMessage: null, errorRetryable: false } });
       await tx.nodeExecution.updateMany({ where: { executionId: { in: ids } }, data: { input: Prisma.DbNull, output: Prisma.DbNull, errorMessage: null, errorRetryable: false } });
       await tx.execution.updateMany({ where: { id: { in: ids } }, data: { triggerData: Prisma.DbNull, errorMessage: null, errorRetryable: false, privacyErasedAt: erasedAt, webhookPayloadDigest: null } });

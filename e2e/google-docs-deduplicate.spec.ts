@@ -28,6 +28,16 @@ test("Google Docs discovery and duplicate comparison can be configured in the ed
   await page.locator('.react-flow__node[data-id="unique"]').getByRole("heading", { level: 3 }).click();
   await page.getByLabel("Compare", { exact: true }).selectOption("selected");
   await page.getByLabel("Fields to compare").fill("customer.id, email");
+  await page.getByLabel("Operation", { exact: true }).selectOption("history");
+  await expect(page.getByText("Test runs do not change the saved history.", { exact: false })).toBeVisible();
+  await page.getByLabel("Fields to compare").fill("customer.id");
+  await expect(page.getByLabel("History size")).toBeVisible();
+  await page.getByLabel("Keep items where").selectOption("higher");
+  await expect(page.getByLabel("History size")).toHaveCount(0);
+  await page.getByLabel("Operation", { exact: true }).selectOption("clear");
+  await expect(page.getByText("Every live run through this node clears the selected history.", { exact: false })).toBeVisible();
+  await page.getByLabel("Operation", { exact: true }).selectOption("current");
+  await expect(page.getByLabel("Fields to compare")).toHaveValue("customer.id, email");
   await page.locator('.react-flow__node[data-id="document"]').getByRole("heading", { level: 3 }).click();
   await expect(page.getByRole("group", { name: "Document", exact: true }).getByRole("option", { name: "Example document" })).toBeAttached();
   await page.getByLabel("Action", { exact: true }).selectOption("replace");

@@ -419,6 +419,16 @@ Comparison: [Aggregate](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-
 [Merge](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.merge/).
 Implementation/qualification is pending the final batch gate.
 
+### Historical Remove Duplicates — local follow-up
+
+Extend the existing node with comparisons against earlier live executions:
+new values, higher numbers and later dates, scoped to the node or workflow,
+and an explicit clear-history operation. Test executions do not alter live
+history. Selected values are recorded when the node runs, so later failure
+does not undo that history. Existing success/error outputs remain; a separate
+discarded-items output is not part of this implementation. See
+`57-google-docs-remove-duplicates.md` for storage and verification limits.
+
 
 ### PostgreSQL row writes (owner-approved expansion)
 
