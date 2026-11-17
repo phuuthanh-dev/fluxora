@@ -59,7 +59,7 @@ export function PlanUsagePage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [checkoutAvailable, setCheckoutAvailable] = useState(false);
-  const [methods, setMethods] = useState({ bank: false, card: false });
+  const [methods, setMethods] = useState<{ bank: boolean; card: boolean; paypal?: boolean; paypalPrices?: { STARTER: number; PRO: number } }>({ bank: false, card: false });
   const [paymentState, setPaymentState] = useState<"loading" | "none" | "pending" | "unknown">("loading");
   const [usageRevision, setUsageRevision] = useState(0);
   const onPaymentConfirmed = useCallback(() => setUsageRevision((value) => value + 1), []);
@@ -70,7 +70,7 @@ export function PlanUsagePage() {
     setCheckoutAvailable(false);
     setMethods({ bank: false, card: false });
     setPaymentState("loading");
-    void apiRequest<{ available: boolean; methods?: { bank: boolean; card: boolean } }>(`/workspaces/${encodeURIComponent(workspaceId)}/billing/availability`, { signal: controller.signal })
+    void apiRequest<{ available: boolean; methods?: { bank: boolean; card: boolean; paypal?: boolean; paypalPrices?: { STARTER: number; PRO: number } } }>(`/workspaces/${encodeURIComponent(workspaceId)}/billing/availability`, { signal: controller.signal })
       .then((result) => { if (!controller.signal.aborted) { setCheckoutAvailable(result.available === true); setMethods(result.methods ?? { bank: result.available === true, card: false }); } })
       .catch(() => { /* Checkout stays unavailable when status cannot be verified. */ });
     return () => controller.abort();
@@ -108,7 +108,7 @@ export function PlanUsagePage() {
           <p className="plan-disclaimer">{checkoutAvailable && data.meterComplete ? "Live manual and node-debug runs are included; mock runs are excluded." : "Usage is based on retained execution history, which may be cleaned up before month end. It is a minimum, not a complete usage meter. Live manual and node-debug runs are included; mock runs are excluded."}</p>
           {typeof data.trackedRuns === "number" && data.meteringSince && !data.meterComplete && <p className="plan-meter-note">Usage tracking began on {new Date(data.meteringSince).toLocaleDateString([], { dateStyle: "medium", timeZone: "UTC" })} UTC. Earlier runs may be missing; the monthly limit starts when a complete month can be measured.</p>}
         </section>
-        <div className="plan-section-heading"><div><p className="plan-eyebrow">EXPLORE PLANS</p><h2>Room to grow, on your terms.</h2><p>{checkoutAvailable ? data.paidUntil ? "Renew your current plan for 30 more days, or review the terms before upgrading." : "Prices in VND for 30 days of access. Renew manually when you need to." : "Proposed pricing in VND. Availability and limits may change after testing."}</p></div></div>
+        <div className="plan-section-heading"><div><p className="plan-eyebrow">EXPLORE PLANS</p><h2>Room to grow, on your terms.</h2><p>{checkoutAvailable ? data.paidUntil ? "Renew your current plan for 30 more days, or review the terms before upgrading." : "Prices in VND for 30 days of access. Renew manually when you need to." : "Proposed pricing in VND. Availability and limits may change after testing."}</p>{methods.paypal && <p>PayPal payments are charged in USD. The amount is shown before you pay.</p>}</div></div>
         <PlanCards methods={methods} current={data.plan} workspaceId={workspaceId} checkoutAvailable={checkoutAvailable} paymentBlocked={checkoutAvailable && paymentState !== "none"} paidUntil={data.paidUntil} />
         <p className="plan-disclaimer">{checkoutAvailable ? "New live runs pause when the monthly limit is reached until the next reset or an eligible upgrade. Existing runs continue; provider and AI charges are separate." : "The proposed limits are not enforced. AI providers may charge you separately."} All plans use the current system retention policy.</p>
       </> : null}

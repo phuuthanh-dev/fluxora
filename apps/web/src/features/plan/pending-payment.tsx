@@ -5,7 +5,7 @@ import Link from "next/link";
 import { apiRequest } from "../api/api-client";
 import { CheckoutAction } from "./checkout-action";
 
-type Order = { id: string; plan: "STARTER" | "PRO"; amount: number; status: string; canResume?: boolean; canCancel?: boolean; provider?: string };
+type Order = { id: string; plan: "STARTER" | "PRO"; amount: number; status: string; canResume?: boolean; canCancel?: boolean; provider?: string; currency?: string };
 
 export function PendingPayment({ workspaceId, onStateChange, onConfirmed, revision }: { workspaceId: string; onStateChange: (state: "loading" | "none" | "pending" | "unknown") => void; onConfirmed: () => void; revision: number }) {
   const [order, setOrder] = useState<Order | null>(null);
@@ -41,7 +41,7 @@ export function PendingPayment({ workspaceId, onStateChange, onConfirmed, revisi
   }
   if (!order && !message) return null;
   return <section className="plan-notice plan-pending" aria-label="Payment status">
-    {order && <><div className="plan-pending__details"><strong>{order.canResume ? "Payment link ready" : "Payment status needs checking"} · {order.plan === "PRO" ? "Pro" : "Starter"}</strong><p>{order.amount.toLocaleString("vi-VN")}đ · Your plan will update when your payment is confirmed.</p></div><div className="plan-pending__actions">{order.canResume && <CheckoutAction workspaceId={workspaceId} plan={order.plan} resume resumeMethod={order.provider === "LEMON" || order.provider === "WHOP" ? "card" : "bank"} />}<button type="button" disabled={busy} onClick={() => void update("reconcile")}>Check status</button>{order.canResume && order.canCancel !== false && <button type="button" disabled={busy} onClick={() => void update("cancel")}>Cancel payment link</button>}<Link href="/support">Contact support</Link></div></>}
+    {order && <><div className="plan-pending__details"><strong>{order.canResume ? "Payment link ready" : "Payment status needs checking"} · {order.plan === "PRO" ? "Pro" : "Starter"}</strong><p>{order.currency === "USD" ? `$${(order.amount / 100).toFixed(2)} USD` : `${order.amount.toLocaleString("vi-VN")}đ`} · Your plan will update when your payment is confirmed.</p></div><div className="plan-pending__actions">{order.canResume && <CheckoutAction workspaceId={workspaceId} plan={order.plan} resume resumeMethod={(order.provider === "PAYPAL" || order.provider === "PAYPAL_SANDBOX") ? "paypal" : order.provider === "LEMON" || order.provider === "WHOP" ? "card" : "bank"} />}<button type="button" disabled={busy} onClick={() => void update("reconcile")}>Check status</button>{order.canResume && order.canCancel !== false && <button type="button" disabled={busy} onClick={() => void update("cancel")}>Cancel payment link</button>}<Link href="/support">Contact support</Link></div></>}
     {message && <p role="status">{message}</p>}
   </section>;
 }

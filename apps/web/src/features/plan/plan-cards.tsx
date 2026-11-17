@@ -5,7 +5,7 @@ import "./plan-usage.css";
 import { CheckoutAction } from "./checkout-action";
 
 /** Public and workspace views share the same catalogue. */
-export function PlanCards({ current, workspaceId, checkoutAvailable = false, publicCheckout = false, paymentBlocked = false, paidUntil, methods }: { current?: PlanCode; workspaceId?: string; checkoutAvailable?: boolean; publicCheckout?: boolean; paymentBlocked?: boolean; paidUntil?: string | null; methods?: { bank: boolean; card: boolean } }) {
+export function PlanCards({ current, workspaceId, checkoutAvailable = false, publicCheckout = false, paymentBlocked = false, paidUntil, methods }: { current?: PlanCode; workspaceId?: string; checkoutAvailable?: boolean; publicCheckout?: boolean; paymentBlocked?: boolean; paidUntil?: string | null; methods?: { bank: boolean; card: boolean; paypal?: boolean; paypalPrices?: { STARTER: number; PRO: number } } }) {
   return <div className="plan-cards">{(["FREE", "STARTER", "PRO"] as const).map((code) => {
     const item = planCatalog[code];
     return <article className={`plan-card${current === code ? " plan-card--current" : ""}`} key={code}>

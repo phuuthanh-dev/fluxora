@@ -152,7 +152,7 @@ test("confirmed return refreshes the plan and allowance without a page reload", 
 });
 
 
-test("customer can select a card when both payment methods are available", async ({ page }) => {
+test("customer can select a payment method and see the PayPal USD price", async ({ page }) => {
   let checkoutBody: Record<string, unknown> | undefined;
   await page.route("**/api/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -160,7 +160,7 @@ test("customer can select a card when both payment methods are available", async
     const data: Record<string, unknown> = {
       "/api/v1/workspaces": { workspaces: [{ id: "space-1", name: "Sample workspace", role: "OWNER" }] },
       "/api/v1/workspaces/space-1/plan-usage": { plan: "FREE", trialExpiresAt: null, periodStart: "2026-11-01T00:00:00.000Z", periodEnd: "2026-12-01T00:00:00.000Z", retainedRuns: 0, trackedRuns: 0, meterComplete: true, activeWorkflows: 0, catalog },
-      "/api/v1/workspaces/space-1/billing/availability": { available: true, methods: { bank: true, card: true } },
+      "/api/v1/workspaces/space-1/billing/availability": { available: true, methods: { bank: true, card: true, paypal: true, paypalPrices: { STARTER: 388, PRO: 779 } } },
       "/api/v1/workspaces/space-1/billing/orders/latest": { order: null },
       "/api/v1/auth/me": { user: { displayName: "Owner", email: "owner@example.test", avatarColor: "lime" } },
       "/api/v1/auth/identities": { identities: [] }, "/api/v1/auth/providers": { google: false, github: false, steam: false },
@@ -170,6 +170,10 @@ test("customer can select a card when both payment methods are available", async
   await page.goto("/dashboard/plan");
   await page.getByRole("button", { name: "Choose Starter" }).click();
   const dialog = page.getByRole("dialog", { name: "Choose payment method" });
+  await dialog.getByLabel(/PayPal.*3\.88/).check();
+  await dialog.getByRole("button", { name: "Continue to payment" }).click();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  expect(checkoutBody).toEqual({ plan: "STARTER", method: "paypal" });
   await dialog.getByLabel("Bank card").check();
   await dialog.getByRole("button", { name: "Continue to payment" }).click();
   await expect(dialog.getByRole("alert")).toBeVisible();
