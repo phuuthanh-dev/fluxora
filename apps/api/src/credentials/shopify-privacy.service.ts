@@ -20,7 +20,7 @@ export class ShopifyPrivacyService {
     const record = body as Record<string, unknown>, shop = shopifyShop(record.shop_domain);
     const shopId = typeof record.shop_id === "number" && Number.isFinite(record.shop_id) && record.shop_id > 0 || typeof record.shop_id === "string" && /^[1-9][0-9]{0,29}$/.test(record.shop_id);
     const customer = record.customer && typeof record.customer === "object" && !Array.isArray(record.customer);
-    const valid = kind === "customer-data" ? customer && Array.isArray(record.orders_requested) && record.data_request && typeof record.data_request === "object" && !Array.isArray(record.data_request)
+    const valid = kind === "customer-data" ? customer && (record.orders_requested == null || Array.isArray(record.orders_requested)) && (record.data_request == null || typeof record.data_request === "object" && !Array.isArray(record.data_request))
       : kind === "customer-redact" ? customer && Array.isArray(record.orders_to_redact)
         : !("customer" in record) && !("orders_requested" in record) && !("orders_to_redact" in record);
     if (!shop || !shopId || !valid || !deliveryId || !/^[a-zA-Z0-9:_-]{1,200}$/.test(deliveryId)) throw new BadRequestException({ code: "SHOPIFY_PRIVACY_INVALID", message: "Invalid Shopify notification." });
