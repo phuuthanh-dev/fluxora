@@ -4,6 +4,26 @@ import type { PrismaService } from "../database/prisma.service";
 import { CredentialService } from "./credential.service";
 import { CredentialProvider } from "@prisma/client";
 
+test("Shopify managed connection can be replaced in place with store-owned credentials", async () => {
+  const old = { id: "shopify-1", workspaceId: "ws", provider: CredentialProvider.SHOPIFY, label: "Shopify", encryptedData: "old-cipher", shopifyInstallationShop: "fixture.myshopify.com", createdAt: new Date(), updatedAt: new Date() };
+  let stored: Record<string, unknown> | undefined;
+  const prisma = {
+    credential: {
+      findFirst: async () => old,
+      update: async ({ data }: { data: Record<string, unknown> }) => { stored = data; return { ...old, ...data }; },
+    },
+    auditLog: { create: async () => ({}) },
+  };
+  const vault = { encrypt: () => "new-cipher", decrypt: () => ({ shop: "fixture", clientId: "id", clientSecret: "secret" }) };
+  const service = new CredentialService(prisma as never, { requireOwner: async () => {} } as never, vault as never);
+  const result = await service.update("ws", old.id, "owner", { data: { shop: "fixture", clientId: "id", clientSecret: "secret" } });
+  assert.equal(result.id, old.id);
+  assert.equal(stored?.encryptedData, "new-cipher");
+  assert.equal(stored?.shopifyInstallationShop, null);
+  assert.equal(result.isManaged, false);
+  assert.ok(!JSON.stringify(result).includes("secret"));
+});
+
 test("credential list is owner-scoped and exposes only allowed masked hints", async () => {
   const secret = "fixture_trello_token_123456789xy";
   let required = "";

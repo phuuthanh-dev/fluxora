@@ -10,9 +10,7 @@ test("production environment requires HTTPS origin and a valid encryption key", 
 test("OAuth provider settings are all-or-nothing in production", () => {
   assert.throws(() => validateEnvironment({ NODE_ENV: "production", WEB_ORIGIN: "https://example.com", APP_ENCRYPTION_KEY: Buffer.alloc(32).toString("base64"), EXECUTION_QUEUE_MODE: "redis", REDIS_URL: "redis://queue.example.com", GITHUB_CLIENT_ID: "client" }));
   const base = { NODE_ENV: "production", WEB_ORIGIN: "https://example.com", APP_ENCRYPTION_KEY: Buffer.alloc(32).toString("base64"), EXECUTION_QUEUE_MODE: "redis", REDIS_URL: "redis://queue.example.com" };
-  assert.throws(() => validateEnvironment({ ...base, SHOPIFY_CLIENT_ID: "client" }), /SHOPIFY_CLIENT_SECRET/);
-  assert.throws(() => validateEnvironment({ ...base, SHOPIFY_CLIENT_ID: "client", SHOPIFY_CLIENT_SECRET: "secret", SHOPIFY_REDIRECT_URI: "http://localhost/callback" }), /HTTPS/);
-  assert.doesNotThrow(() => validateEnvironment({ ...base, SHOPIFY_CLIENT_ID: "client", SHOPIFY_CLIENT_SECRET: "secret", SHOPIFY_REDIRECT_URI: "https://api.example.com/callback" }));
+  assert.doesNotThrow(() => validateEnvironment({ ...base, SHOPIFY_CLIENT_SECRET: "secret" }));
 });
 
 test("production requires an explicit Redis execution queue", () => {

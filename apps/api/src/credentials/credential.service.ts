@@ -3,8 +3,7 @@ import { airtableAccessToken, requireAirtableTarget, saveAirtableAuthorization, 
 import { jiraAccountHash } from "./jira-privacy-attribution";
 import { isNotionOAuth, requireNotionReconnect, runNotionAuthorized, saveNotionAuthorization, type NotionAuthorization } from "./notion-oauth";
 import { validGitLabToken } from "../execution/gitlab";
-import { validShopifyCredential } from "../execution/shopify-credential";
-import { shopifyOAuthCredential } from "./shopify-oauth";
+import { resolveShopifyCredential, validShopifyCredential } from "../execution/shopify-credential";
 import { CredentialProvider, ExecutionStatus, type Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { chatManageProof, chatManageScope, chatManageValid, googleChatScopesGranted, googleSubject, googleConnectionPolicy, googleScopesGranted, googleScopeTokenHash, googleScopeProof, googleScopeProofValid, googleRefreshGrantProof, googleRefreshGrantValid, gmailCapabilityProof, gmailCapabilitiesValid, gmailCapabilitiesGranted, projectGmailScopes, validGmailCapabilities, sameGoogleScopes, type GmailCapability, type GoogleConnectionKind } from "./google-oauth-policy";
@@ -107,7 +106,6 @@ export class CredentialService {
     const credential = await this.prisma.credential.findFirst({ where: { id: credentialId, workspaceId } });
     if (!credential) throw new NotFoundException({ code: "CREDENTIAL_NOT_FOUND", message: "A matching credential was not found in this workspace." });
     if ((credential.provider === CredentialProvider.JIRA || credential.provider === CredentialProvider.SLACK_OAUTH || credential.provider === CredentialProvider.AIRTABLE) && input.data !== undefined) throw new BadRequestException({ code: "CREDENTIAL_MANAGED_BY_OAUTH", message: "Reconnect this provider to change its authorization." });
-    if (credential.provider === CredentialProvider.SHOPIFY && credential.shopifyInstallationShop && input.data !== undefined) throw new BadRequestException({ code: "CREDENTIAL_MANAGED_BY_OAUTH", message: "Reconnect this provider to change its authorization." });
 
     if (credential.provider === CredentialProvider.NOTION && isNotionOAuth(this.vault.decrypt(credential.encryptedData)) && input.data !== undefined) throw new BadRequestException({ code: "CREDENTIAL_MANAGED_BY_OAUTH", message: "Reconnect Notion to change its authorization." });
 
@@ -180,6 +178,7 @@ export class CredentialService {
         data: {
           ...(nextLabel !== undefined ? { label: nextLabel } : {}),
           ...(nextEncryptedData !== undefined ? { encryptedData: nextEncryptedData } : {}),
+          ...(credential.provider === CredentialProvider.SHOPIFY && nextEncryptedData !== undefined ? { shopifyInstallationShop: null } : {}),
         },
       });
 
@@ -294,12 +293,8 @@ export class CredentialService {
   }
 
   async readForExecution(credentialId: string, workspaceId: string, provider: CredentialProvider): Promise<Record<string, unknown>> {
-    if (provider === CredentialProvider.SHOPIFY) {
-      const credential = await this.prisma.credential.findFirst({ where: { id: credentialId, workspaceId, provider }, select: { shopifyInstallationShop: true } });
-      if (!credential) throw new NotFoundException({ code: "CREDENTIAL_NOT_FOUND", message: "A matching credential was not found in this workspace." });
-      if (credential.shopifyInstallationShop) return shopifyOAuthCredential(this.prisma, this.vault, workspaceId, credentialId, credential.shopifyInstallationShop);
-    }
-    return (await this.readForExecutionSnapshot(credentialId, workspaceId, provider)).data;
+    const data = (await this.readForExecutionSnapshot(credentialId, workspaceId, provider)).data;
+    return provider === CredentialProvider.SHOPIFY ? resolveShopifyCredential(data) : data;
   }
 
   async requireJiraReconnectTarget(workspaceId: string, userId: string, credentialId: string) {
@@ -613,8 +608,8 @@ export class CredentialService {
       label: credential.label,
       createdAt: credential.createdAt,
       updatedAt: credential.updatedAt,
-      isManaged: isCanonicalGoogleOAuth(credential) || credential.provider === CredentialProvider.SLACK_OAUTH || credential.provider === CredentialProvider.JIRA || credential.provider === CredentialProvider.AIRTABLE || notionManaged || (credential.provider === CredentialProvider.SHOPIFY && Boolean(credential.shopifyInstallationShop)),
-      ...(credential.provider === CredentialProvider.SHOPIFY && credential.shopifyInstallationShop ? { shopifyShop: credential.shopifyInstallationShop } : {}),
+      isManaged: isCanonicalGoogleOAuth(credential) || credential.provider === CredentialProvider.SLACK_OAUTH || credential.provider === CredentialProvider.JIRA || credential.provider === CredentialProvider.AIRTABLE || notionManaged,
+      ...(credential.provider === CredentialProvider.SHOPIFY && credential.shopifyInstallationShop ? { shopifyReconnectRequired: true } : {}),
       ...(selectedGmailCapabilities ? { gmailCapabilities: selectedGmailCapabilities } : {}),
       ...(chatManageEnabled ? { chatManageEnabled: true } : {}),
       ...(googleReconnectRequired ? { googleReconnectRequired: true } : {}),
@@ -688,7 +683,7 @@ function requiredEnv(name: "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET") {
 }
 
 function validateCredentialPayload(provider: CredentialProvider, data: Record<string, unknown>) {
-  if (provider === CredentialProvider.SHOPIFY) { if (!validShopifyCredential(data)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid Shopify store and Admin API access token." }); return; }
+  if (provider === CredentialProvider.SHOPIFY) { if (!validShopifyCredential(data)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Shopify connection is invalid." }); return; }
   if (provider === CredentialProvider.GITLAB) { if (!validGitLabToken(data.token)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid GitLab personal access token." }); return; }
   if (provider === CredentialProvider.RIOT) {
     if (typeof data.apiKey !== "string" || !/^RGAPI-[A-Za-z0-9-]{1,128}$/.test(data.apiKey)) throw new BadRequestException({ code: "INVALID_INPUT", message: "Enter a valid Riot API key." });

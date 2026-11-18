@@ -1,26 +1,45 @@
 import { expect, test } from "@playwright/test";
 
-test("Shopify connection switches between OAuth and an existing manual token", async ({ page }) => {
+test("Shopify connection switches between custom app credentials and a manual token", async ({ page }) => {
+  let creates = 0;
   await page.route("**/api/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
     if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
     if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
+    if (path.endsWith("/credentials") && route.request().method() === "POST") {
+      creates += 1;
+      if (creates === 1) return send({ credential: { id: "created" } });
+      return route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ message: "A SHOPIFY credential named Shopify already exists." }) });
+    }
     if (path.endsWith("/credentials")) return send({ credentials: [] });
     return route.continue();
   });
-  await page.goto("/dashboard/connections?shop=fixture.myshopify.com");
+  await page.goto("/dashboard/connections");
+  await page.locator(".credential-provider-picker summary").click();
+  await page.getByRole("button", { name: "Shopify", exact: true }).click();
   const shop = page.getByLabel("Shopify store", { exact: true });
-  await expect(shop).toHaveValue("fixture.myshopify.com");
-  const connect = page.getByRole("button", { name: "Connect Shopify" });
-  await expect(connect).toBeEnabled();
-  await shop.fill("fixture.myshopify.com.evil.test");
-  await expect(connect).toBeDisabled();
-  await page.getByRole("button", { name: "Admin API token" }).click();
+  await shop.fill("fixture.myshopify.com");
+  await expect(shop).toHaveValue("fixture");
+  await expect(page.getByLabel("Client ID", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Client secret", { exact: true })).toBeVisible();
+  await page.getByLabel("Connection type").selectOption("token");
   await expect(page.getByLabel("Admin API access token", { exact: true })).toBeVisible();
-  await expect(connect).toHaveCount(0);
-  await page.getByRole("button", { name: "Shopify account" }).click();
-  await expect(page.getByRole("button", { name: "Connect Shopify" })).toBeDisabled();
+  await page.getByLabel("Connection type").selectOption("client");
+  await expect(page.getByLabel("Client secret", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Connect Shopify" })).toHaveCount(0);
+  const fillClient = async () => {
+    await shop.fill("fixture");
+    await page.getByLabel("Client ID", { exact: true }).fill("test-client");
+    await page.getByLabel("Client secret", { exact: true }).fill("test-secret");
+  };
+  await fillClient();
+  await page.getByRole("button", { name: "Encrypt & save" }).click();
+  await expect(page.getByText("Credential encrypted and saved.", { exact: false })).toBeVisible();
+  await fillClient();
+  await page.getByRole("button", { name: "Encrypt & save" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "already exists" })).toBeVisible();
+  await expect(page.getByText("Credential encrypted and saved.", { exact: false })).toHaveCount(0);
 });
 
 test("Shopify order filter clears the previous pagination cursor", async ({ page }) => {
