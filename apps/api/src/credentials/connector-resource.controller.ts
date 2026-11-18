@@ -74,7 +74,7 @@ export class ConnectorResourceController {
   async connectorItems(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Param("resource") resource: string, @Query("parent") parent: string | undefined, @Query("context") context: string | undefined, @Query("query") query: string | undefined, @Query("cursor") cursor: string | undefined, @Req() request: AuthenticatedRequest) {
     if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
     await this.credentials.requireOwner(workspaceId, request.currentUser.id);
-    if (!["shopify-order", "shopify-product", "jira-issue", "gitlab-pipeline", "gitlab-merge-request", "github-label", "sentry-issue", "vercel-deployment"].includes(resource)) throw new BadRequestException({ code: "INVALID_RESOURCE", message: "Choose a supported resource." });
+    if (!["shopify-order", "shopify-product", "shopify-variant", "jira-issue", "gitlab-pipeline", "gitlab-merge-request", "github-label", "sentry-issue", "vercel-deployment"].includes(resource)) throw new BadRequestException({ code: "INVALID_RESOURCE", message: "Choose a supported resource." });
     try { return await discoverConnectorItems(resource as ItemResource, credentialId, workspaceId, { parent, context, query, cursor }, this.credentials); }
     catch { throw new BadRequestException({ code: "RESOURCE_ITEMS_UNAVAILABLE", message: "Resources could not be loaded. Check the connection, parent and permissions, or enter a value manually." }); }
   }

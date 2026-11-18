@@ -48,10 +48,17 @@ import { executeGitHubUpdateIssue } from "./github-update-issue";
 import { executeAirtable } from "./airtable";
 import { executeShopifyResource } from "./shopify-resources";
 import { executeShopifyOrders } from "./shopify";
+import { executeShopifyWrite } from "./shopify-writes";
 
 /** Server-only registry. Adapters retain validation, authorization, redaction
  * and retry semantics; registration is not a credential or policy bypass. */
 const executors = {
+  "action.shopify.create-product": ({ config, mode, workspaceId, credentials }) => executeShopifyWrite(config, "create-product", mode, workspaceId, credentials),
+  "action.shopify.update-product": ({ config, mode, workspaceId, credentials }) => executeShopifyWrite(config, "update-product", mode, workspaceId, credentials),
+  "action.shopify.delete-product": ({ config, mode, workspaceId, credentials }) => executeShopifyWrite(config, "delete-product", mode, workspaceId, credentials),
+  "action.shopify.create-order": ({ config, mode, workspaceId, credentials }) => executeShopifyWrite(config, "create-order", mode, workspaceId, credentials),
+  "action.shopify.update-order": ({ config, mode, workspaceId, credentials }) => executeShopifyWrite(config, "update-order", mode, workspaceId, credentials),
+  "action.shopify.delete-order": ({ config, mode, workspaceId, credentials }) => executeShopifyWrite(config, "delete-order", mode, workspaceId, credentials),
   "action.shopify.get-order": ({ config, mode, workspaceId, credentials }) => executeShopifyResource(config, "get-order", mode, workspaceId, credentials),
   "action.shopify.get-product": ({ config, mode, workspaceId, credentials }) => executeShopifyResource(config, "get-product", mode, workspaceId, credentials),
   "action.shopify.list-products": ({ config, mode, workspaceId, credentials }) => executeShopifyResource(config, "list-products", mode, workspaceId, credentials),

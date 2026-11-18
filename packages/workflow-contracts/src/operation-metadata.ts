@@ -67,6 +67,12 @@ const triggerOutput = fields("received");
 
 const definitions = {
   "action.shopify.get-order": executable(credential("SHOPIFY"), "read", fields("order")),
+  "action.shopify.create-product": executable(credential("SHOPIFY"), "write", fields("product")),
+  "action.shopify.update-product": executable(credential("SHOPIFY"), "write", fields("product")),
+  "action.shopify.delete-product": executable(credential("SHOPIFY"), "write", fields("deletedId")),
+  "action.shopify.create-order": executable(credential("SHOPIFY"), "write", fields("order")),
+  "action.shopify.update-order": executable(credential("SHOPIFY"), "write", fields("order")),
+  "action.shopify.delete-order": executable(credential("SHOPIFY"), "write", fields("deletedId")),
   "action.shopify.get-product": executable(credential("SHOPIFY"), "read", fields("product")),
   "action.shopify.list-products": executable(credential("SHOPIFY"), "read", fields("products", "hasMore", "nextCursor"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "limit"] }),
   "action.shopify.list-orders": executable(credential("SHOPIFY"), "read", fields("orders", "hasMore", "nextCursor"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "limit", "orderName"] }),

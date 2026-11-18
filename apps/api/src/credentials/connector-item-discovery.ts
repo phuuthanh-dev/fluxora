@@ -3,7 +3,7 @@ import type { CredentialService } from "./credential.service";
 import { NodeFailure } from "../execution/node-failure";
 import { fetchSafeOutbound } from "../execution/outbound-url-policy";
 import { readProviderJson } from "../execution/provider-request-policy";
-import { assertNoCredentialInProviderFields } from "../execution/provider-credential-safety";
+import { assertNoCredentialInProviderFields, assertNoCredentialInProviderValue } from "../execution/provider-credential-safety";
 import { executeSentryListIssues } from "../execution/sentry";
 import { executeVercelListDeployments } from "../execution/vercel";
 import { listGitLabResources } from "../execution/gitlab";
@@ -11,7 +11,7 @@ import { jiraPickerJql, searchJiraIssues } from "../execution/jira";
 import { executeShopifyOrders } from "../execution/shopify";
 import { executeShopifyResource } from "../execution/shopify-resources";
 
-export type ItemResource = "shopify-order" | "shopify-product" | "jira-issue" | "gitlab-pipeline" | "gitlab-merge-request" | "github-label" | "sentry-issue" | "vercel-deployment";
+export type ItemResource = "shopify-order" | "shopify-product" | "shopify-variant" | "jira-issue" | "gitlab-pipeline" | "gitlab-merge-request" | "github-label" | "sentry-issue" | "vercel-deployment";
 export type ItemOptionPage = { items: Array<{ id: string; name: string }>; nextCursor: string | null; warning?: string };
 type Transport = (url: string, init: RequestInit) => Promise<Response>;
 type Options = { parent?: string; context?: string; query?: string; cursor?: string };
@@ -28,6 +28,26 @@ export async function discoverConnectorItems(resource: ItemResource, credentialI
     const result = await executeShopifyResource({ credentialId, limit: 25, ...(cursor ? { cursor } : {}) }, "list-products", "live", workspaceId, credentials, read);
     if (!("products" in result.output) || !result.output.products) throw new NodeFailure("INVALID_RESPONSE", "Shopify returned an invalid product list.", false);
     return { items: result.output.products.map((item) => ({ id: item.id, name: item.title })), nextCursor: result.output.nextCursor ?? null };
+  }
+  if (resource === "shopify-variant") {
+    if (cursor && (cursor.length > 1024 || /[\s\u0000-\u001f\u007f]/.test(cursor))) throw new NodeFailure("INVALID_INPUT", "Enter a valid cursor.", false);
+    const data = await credentials.readForExecution(credentialId, workspaceId, CredentialProvider.SHOPIFY);
+    const token = typeof data.token === "string" ? data.token : "";
+    if (typeof data.shop !== "string" || !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(data.shop) || !/^[\x21-\x7e]{1,4096}$/.test(token)) throw new NodeFailure("CREDENTIAL_INVALID", "Shopify connection is invalid.", false);
+    const response = await read(`https://${data.shop}.myshopify.com/admin/api/2026-10/graphql.json`, { method: "POST", headers: { "content-type": "application/json", "x-shopify-access-token": token }, body: JSON.stringify({ query: "query Variants($after: String) { productVariants(first: 25, after: $after) { nodes { id title product { title } } pageInfo { hasNextPage endCursor } } }", variables: { after: cursor || null } }), signal: AbortSignal.timeout(15000) });
+    if (!response.ok) { await response.body?.cancel(); throw new NodeFailure("HTTP_ERROR", `Shopify returned ${response.status}.`, false, response.status); }
+    const payload = await readProviderJson(response, "Shopify");
+    assertNoCredentialInProviderValue(payload, token);
+    const record = (value: unknown) => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+    const root = record(payload), variants = record(record(root?.data)?.productVariants), page = record(variants?.pageInfo);
+    if (Array.isArray(root?.errors) && root.errors.length || !variants || !Array.isArray(variants.nodes) || variants.nodes.length > 25 || !page || typeof page.hasNextPage !== "boolean" || !(page.endCursor === null || typeof page.endCursor === "string" && page.endCursor.length <= 1024 && !/[\s\u0000-\u001f\u007f]/.test(page.endCursor)) || page.hasNextPage && !page.endCursor) throw new NodeFailure("INVALID_RESPONSE", "Shopify returned an invalid product list.", false);
+    const items = variants.nodes.map((entry: unknown) => {
+      const row = record(entry), product = record(row?.product);
+      if (!row || typeof row.id !== "string" || !/^gid:\/\/shopify\/ProductVariant\/[1-9][0-9]{0,29}$/.test(row.id) || typeof row.title !== "string" || row.title.length > 256 || typeof product?.title !== "string" || product.title.length > 256) throw new NodeFailure("INVALID_RESPONSE", "Shopify returned an invalid product.", false);
+      assertNoCredentialInProviderFields([row.id, row.title, product.title], token);
+      return { id: row.id, name: `${product.title} · ${row.title}` };
+    });
+    return { items, nextCursor: page.hasNextPage ? page.endCursor as string : null };
   }
   if (resource === "jira-issue") {
     const result = await searchJiraIssues(credentialId, workspaceId, credentials, jiraPickerJql(query), cursor, 25, read);

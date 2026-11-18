@@ -1,6 +1,6 @@
 import { jiraSearch, jiraCreate, jiraGet, jiraUpdate, jiraComment, jiraTrigger } from "./node-config-schemas/jira";
 import { airtableList, airtableGet, airtableCreate, airtableUpdate } from "./node-config-schemas/airtable";
-import { shopifyListOrders, shopifyGetOrder, shopifyGetProduct, shopifyListProducts } from "./node-config-schemas/shopify";
+import { shopifyListOrders, shopifyGetOrder, shopifyGetProduct, shopifyListProducts, shopifyCreateProduct, shopifyUpdateProduct, shopifyCreateOrder, shopifyUpdateOrder } from "./node-config-schemas/shopify";
 import { gitlabProject, gitlabListIssues, gitlabIssue, gitlabCreateIssue, gitlabComment, gitlabPipeline, gitlabMergeRequest, gitlabUpdateIssue, gitlabGetPipeline, gitlabGetMergeRequest } from "./node-config-schemas/gitlab";
 import { aggregate, splitOut, sortItems, limitItems, removeDuplicates, merge } from "./node-config-schemas/data-transform";
 import { steamOperation, steamSnapshot } from "./node-config-schemas/steam";
@@ -45,6 +45,12 @@ const rules: Readonly<Record<string, ConfigRules>> = {
   "action.shopify.get-order": shopifyGetOrder,
   "action.shopify.list-products": shopifyListProducts,
   "action.shopify.get-product": shopifyGetProduct,
+  "action.shopify.create-product": shopifyCreateProduct,
+  "action.shopify.update-product": shopifyUpdateProduct,
+  "action.shopify.delete-product": shopifyGetProduct,
+  "action.shopify.create-order": shopifyCreateOrder,
+  "action.shopify.update-order": shopifyUpdateOrder,
+  "action.shopify.delete-order": shopifyGetOrder,
   "action.airtable.list-records": airtableList,
   "action.airtable.get-record": airtableGet,
   "action.airtable.create-record": airtableCreate,

@@ -91,3 +91,18 @@ test("Shopify pickers return scoped resource labels and continuation", async () 
   const result = await discoverConnectorItems("shopify-product", "connection", "workspace", {}, shopifyCredentials, async () => Response.json({ data: { products: { nodes: [product], pageInfo: { hasNextPage: true, endCursor: "next" } } } }));
   assert.deepEqual(result, { items: [{ id: product.id, name: product.title }], nextCursor: "next" });
 });
+
+test("Shopify variant picker returns bounded product names and pagination without leaking tokens", async () => {
+  const shopifyCredentials = { readForExecution: async () => ({ shop: "fixture-store", token }) } as never;
+  const response = { data: { productVariants: { nodes: [{ id: "gid://shopify/ProductVariant/12", title: "Small", product: { title: "Shirt" } }], pageInfo: { hasNextPage: true, endCursor: "next" } } } };
+  const result = await discoverConnectorItems("shopify-variant", "connection", "workspace", {}, shopifyCredentials, async (_url, init) => {
+    assert.equal(JSON.parse(String(init.body)).variables.after, null);
+    return Response.json(response);
+  });
+  assert.deepEqual(result, { items: [{ id: "gid://shopify/ProductVariant/12", name: "Shirt · Small" }], nextCursor: "next" });
+  response.data.productVariants.nodes[0]!.title = token;
+  await assert.rejects(() => discoverConnectorItems("shopify-variant", "connection", "workspace", {}, shopifyCredentials, async () => Response.json(response)));
+  response.data.productVariants.nodes[0]!.title = "Small";
+  response.data.productVariants.pageInfo.endCursor = token;
+  await assert.rejects(() => discoverConnectorItems("shopify-variant", "connection", "workspace", {}, shopifyCredentials, async () => Response.json(response)));
+});
