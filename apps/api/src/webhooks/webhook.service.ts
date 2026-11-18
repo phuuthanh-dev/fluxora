@@ -189,7 +189,7 @@ export class WebhookService implements OnModuleDestroy {
       const signingSecret = endpoint.encryptedSigningSecret ? this.vault.decrypt(endpoint.encryptedSigningSecret).secret : undefined;
       if (!verifyShopifySignature(githubEventHeaders.rawBody, shopifyHeaders.signature, signingSecret) || typeof signingSecret !== "string" || !endpoint.secretHash) throw new ForbiddenException({ code: "WEBHOOK_SECRET_INVALID", message: "Webhook secret is invalid." });
       if (!endpoint.workflow.isActive || endpoint.workflow.publishedVersionId !== endpoint.workflowVersionId) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
-      const connection = await this.credentials.readForExecution(String(shopifyTrigger.config.credentialId ?? ""), endpoint.workflow.workspaceId, CredentialProvider.SHOPIFY);
+      const connection = (await this.credentials.readForExecutionSnapshot(String(shopifyTrigger.config.credentialId ?? ""), endpoint.workflow.workspaceId, CredentialProvider.SHOPIFY)).data;
       if (typeof connection.shop !== "string" || shopifyHeaders.shop !== `${connection.shop}.myshopify.com`) throw new ForbiddenException({ code: "SHOPIFY_WEBHOOK_INVALID", message: "Shopify store does not match this connection." });
       if (shopifyHeaders.topic !== "orders/create") return { acknowledged: true };
       const event = normalizeShopifyOrder(githubEventHeaders.rawBody!, signingSecret);

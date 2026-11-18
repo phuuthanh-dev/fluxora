@@ -1,5 +1,28 @@
 import { expect, test } from "@playwright/test";
 
+test("Shopify connection switches between OAuth and an existing manual token", async ({ page }) => {
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+    if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
+    if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
+    if (path.endsWith("/credentials")) return send({ credentials: [] });
+    return route.continue();
+  });
+  await page.goto("/dashboard/connections?shop=fixture.myshopify.com");
+  const shop = page.getByLabel("Shopify store", { exact: true });
+  await expect(shop).toHaveValue("fixture.myshopify.com");
+  const connect = page.getByRole("button", { name: "Connect Shopify" });
+  await expect(connect).toBeEnabled();
+  await shop.fill("fixture.myshopify.com.evil.test");
+  await expect(connect).toBeDisabled();
+  await page.getByRole("button", { name: "Admin API token" }).click();
+  await expect(page.getByLabel("Admin API access token", { exact: true })).toBeVisible();
+  await expect(connect).toHaveCount(0);
+  await page.getByRole("button", { name: "Shopify account" }).click();
+  await expect(page.getByRole("button", { name: "Connect Shopify" })).toBeDisabled();
+});
+
 test("Shopify order filter clears the previous pagination cursor", async ({ page }) => {
   const graph = { nodes: [
     { id: "manual", type: "trigger.manual", position: { x: 100, y: 100 }, config: {} },

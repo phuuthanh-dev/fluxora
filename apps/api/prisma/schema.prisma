@@ -488,13 +488,39 @@ model Credential {
   provider      CredentialProvider
   label         String
   encryptedData String
+  shopifyInstallationShop String?
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
   workspace     Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   providerWebhookRegistrations ProviderWebhookRegistration[]
+  shopifyInstallation ShopifyInstallation? @relation(fields: [shopifyInstallationShop], references: [shop], onDelete: Restrict)
 
   @@unique([workspaceId, provider, label])
   @@index([workspaceId, provider])
+  @@index([shopifyInstallationShop])
+}
+
+// Shopify issues one refresh-token family per app and shop, even if several
+// workspaces independently authorize that shop. Share only the token state;
+// each workspace still needs its own authorized credential.
+model ShopifyInstallation {
+  shop          String       @id
+  encryptedData String?
+  credentialIds String[]     @default([])
+  workspaceIds  String[]     @default([])
+  updatedAt     DateTime     @updatedAt
+  credentials   Credential[]
+}
+
+model ShopifyPrivacyRequest {
+  id               String   @id
+  shop             String
+  kind             String
+  encryptedPayload String?
+  createdAt        DateTime @default(now())
+  resolvedAt       DateTime?
+
+  @@index([resolvedAt, createdAt])
 }
 
 // Retained independently of a credential: execution history can outlive it.

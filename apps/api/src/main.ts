@@ -5,10 +5,12 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import { AppModule } from "./app.module";
 import { ApiExceptionFilter } from "./platform/api-exception.filter";
 import { validateEnvironment } from "./platform/environment";
+import { configureBodyParsers } from "./platform/shopify-body-parser";
 
 async function bootstrap() {
   validateEnvironment();
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true, return503OnClosing: true });
+  configureBodyParsers(app);
   app.useSecurityHeaders();
   if (process.env.TRUST_PROXY === "true") app.set("trust proxy", "loopback");
   app.setGlobalPrefix("api/v1");

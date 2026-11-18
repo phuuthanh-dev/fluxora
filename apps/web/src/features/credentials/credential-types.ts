@@ -9,6 +9,7 @@ export type CredentialSummary = {
   provider: CredentialProvider;
   label: string;
   isManaged?: boolean;
+  shopifyShop?: string;
   gmailCapabilities?: GmailCapability[];
   chatManageEnabled?: boolean;
   googleReconnectRequired?: boolean;

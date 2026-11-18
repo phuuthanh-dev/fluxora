@@ -128,6 +128,8 @@ export function ConnectionsDashboard() {
         {!error && searchParams.get("connected") === "slack" && <Status tone="success">Slack workspace connected.</Status>}
         {!error && searchParams.get("connected") === "jira" && <Status tone="success">Jira site connected.</Status>}
         {!error && searchParams.get("connected") === "airtable" && <Status tone="success">Airtable account connected.</Status>}
+        {!error && searchParams.get("connected") === "shopify" && <Status tone="success">Shopify store connected.</Status>}
+        {!error && searchParams.get("shopify_oauth") && <Status tone="error">{searchParams.get("shopify_oauth") === "unavailable" ? "Shopify OAuth is not configured on this server." : "Shopify connection could not be completed. Check the store and try again."}</Status>}
         {!error && searchParams.get("airtable_oauth") && <Status tone="error">{searchParams.get("airtable_oauth") === "unavailable" ? "Airtable OAuth is not configured on this server." : searchParams.get("airtable_oauth") === "denied" ? "Airtable authorization was cancelled or denied." : "Airtable connection could not be completed. Check the account and try again."}</Status>}
         {!error && searchParams.get("jira_oauth") && <Status tone="error">{searchParams.get("jira_oauth") === "unavailable" ? "Jira OAuth is not configured on this server." : searchParams.get("jira_oauth") === "denied" ? "Jira authorization was cancelled or denied." : "Jira connection could not be completed. Check the selected site and try again."}</Status>}
         {!error && searchParams.get("connected") === "notion" && <Status tone="success">Notion workspace connected.</Status>}
@@ -158,7 +160,7 @@ export function ConnectionsDashboard() {
             action={<Button variant="primary" onClick={() => router.push("/dashboard")}>Go to dashboard</Button>}
           />
         ) : null}
-        {workspaceId ? <CredentialManager workspaceId={workspaceId} presentation="page" /> : null}
+        {workspaceId ? <CredentialManager workspaceId={workspaceId} presentation="page" initialShopifyShop={/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.myshopify\.com$/.test(searchParams.get("shop") ?? "") ? searchParams.get("shop") ?? "" : ""} /> : null}
       </section>
     </main>
   );

@@ -121,6 +121,8 @@ body:has(.admin-drawer-backdrop) { overflow: hidden; }
 .admin-run-details p { font-size: 12px; color: var(--muted); }
 /* Jira response review reuses the administration/landing token system. */
 .admin-privacy { display: grid; gap: var(--space-5); }
+#admin-data-requests:not([hidden]) { display: grid; gap: var(--space-5); }
+.admin-shopify-request { max-height: 240px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-inset); color: var(--ink); }
 .admin-privacy__records { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
 .admin-privacy .admin-card__heading h2 { display: flex; align-items: center; gap: var(--space-2); }
 .admin-privacy__inventory { width: 100%; border-top: 1px solid var(--line); padding-top: var(--space-4); }

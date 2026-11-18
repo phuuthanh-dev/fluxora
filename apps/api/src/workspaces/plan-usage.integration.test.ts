@@ -34,7 +34,7 @@ test("retained usage is workspace-scoped and admin trial changes are audited", {
     await db.execution.delete({ where: { id: queued.id } });
     assert.equal((await service.planUsage(space, user, now)).trackedRuns, 2, "usage survives execution retention");
     await assert.rejects(service.planUsage(space, other, now));
-    const admin = new AdminController(db as never, {} as never, {} as never);
+    const admin = new AdminController(db as never, {} as never, {} as never, {} as never);
     const result = await admin.setTrialPlan(space, { currentUser: { id: user } } as never, { plan: "PRO", days: 14 });
     assert.equal(result.plan, "PRO");
     assert.equal((await db.auditLog.count({ where: { workspaceId: space, action: "admin.trial_plan_changed" } })), 1);

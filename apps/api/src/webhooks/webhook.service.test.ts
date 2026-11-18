@@ -19,6 +19,21 @@ test("webhook controller forwards and validates the GitHub delivery header", asy
   await assert.rejects(() => controller.receive("path", undefined, "push", "signature", undefined, Buffer.from("{}"), request, "invalid delivery"));
 });
 
+test("Shopify webhook returns 200 after successful verification and does not acknowledge errors", async () => {
+  let status: number | undefined;
+  let received: unknown;
+  const response = { status: (value: number) => { status = value; return response; } } as never;
+  const controller = new WebhookController({ receive: async (...args: unknown[]) => { received = args[13]; return { acknowledged: true }; } } as never);
+  const request = { body: {}, originalUrl: "/webhooks/shopify-test" } as never;
+  await controller.receive("shopify-test", undefined, undefined, undefined, undefined, Buffer.from("{}"), request, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, response, undefined, undefined, undefined, undefined, undefined, undefined, "signature", "orders/create", "fixture.myshopify.com");
+  assert.equal(status, 200);
+  assert.deepEqual(received, { signature: "signature", topic: "orders/create", shop: "fixture.myshopify.com" });
+  status = undefined;
+  const rejected = new WebhookController({ receive: async () => { throw new Error("invalid signature"); } } as never);
+  await assert.rejects(() => rejected.receive("shopify-test", undefined, undefined, undefined, undefined, Buffer.from("{}"), request, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, response, undefined, undefined, undefined, undefined, undefined, undefined, "invalid"));
+  assert.equal(status, undefined);
+});
+
 test("registration rejects old clients that do not supply an observed endpoint version", async () => {
   let writes = 0;
   const controller = new WebhookController({ createEndpoint: async () => { writes++; return {}; } } as never);

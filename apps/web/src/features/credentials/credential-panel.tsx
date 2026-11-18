@@ -143,6 +143,7 @@ function credentialProviderLabel(provider: CredentialProvider) {
 
 type CredentialManagerProps = {
   workspaceId: string;
+  initialShopifyShop?: string;
   onClose?: () => void;
   onSaved?: (credentials: CredentialSummary[]) => void;
   presentation?: "panel" | "page";
@@ -152,7 +153,7 @@ export function CredentialManager(props: CredentialManagerProps) {
   return <WorkspaceCredentials key={props.workspaceId} {...props} />;
 }
 
-function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "panel" }: CredentialManagerProps) {
+function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "panel", initialShopifyShop = "" }: CredentialManagerProps) {
   const panelRef = useDialogFocus<HTMLElement>({
     active: presentation === "panel",
     trapFocus: false,
@@ -161,7 +162,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
   const [credentials, setCredentials] = useState<CredentialSummary[]>([]);
   const formRef = useRef<HTMLFormElement>(null);
   const providerPickerRef = useRef<HTMLDetailsElement>(null);
-  const [createOpen, setCreateOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(Boolean(initialShopifyShop));
   const [query, setQuery] = useState("");
   const [methodFilter, setMethodFilter] = useState<"all" | "oauth" | "manual">("all");
   const [providerQuery, setProviderQuery] = useState("");
@@ -170,9 +171,11 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
   const initializedRef = useRef(false);
   const mountedRef = useRef(true);
   const loadRequestRef = useRef(0);
-  const [provider, setProvider] = useState<CredentialProvider>("GOOGLE");
-  const [label, setLabel] = useState(credentialPresets.GOOGLE.label);
-  const [data, setData] = useState(credentialPresets.GOOGLE.data);
+  const [provider, setProvider] = useState<CredentialProvider>(initialShopifyShop ? "SHOPIFY" : "GOOGLE");
+  const [label, setLabel] = useState(initialShopifyShop ? credentialPresets.SHOPIFY.label : credentialPresets.GOOGLE.label);
+  const [data, setData] = useState(initialShopifyShop ? credentialPresets.SHOPIFY.data : credentialPresets.GOOGLE.data);
+  const [shopifyShop, setShopifyShop] = useState(initialShopifyShop);
+  const [shopifyMode, setShopifyMode] = useState<"oauth" | "manual">("oauth");
   const [notice, setNotice] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
   const [jsonError, setJsonError] = useState<string | null>(null);
@@ -197,7 +200,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
       if (!mountedRef.current || request !== loadRequestRef.current) return;
       setCredentials(response.credentials);
       if (!initializedRef.current) {
-        setCreateOpen(presentation === "panel" || response.credentials.length === 0);
+        setCreateOpen(Boolean(initialShopifyShop) || presentation === "panel" || response.credentials.length === 0);
         initializedRef.current = true;
       }
       onSaved?.(response.credentials);
@@ -413,7 +416,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
     ["GOOGLE", "GOOGLE_CHAT_OAUTH", "GMAIL", "GOOGLE_CALENDAR"].includes(cred.provider) && (cred.isManaged ?? (cred.provider === "GOOGLE" && cred.label === "Google OAuth"));
 
 
-  const isManaged = (credential: CredentialSummary) => isGoogleOAuth(credential) || credential.provider === "SLACK_OAUTH" || credential.provider === "JIRA" || credential.provider === "AIRTABLE" || (credential.provider === "NOTION" && credential.isManaged === true);
+  const isManaged = (credential: CredentialSummary) => isGoogleOAuth(credential) || credential.provider === "SLACK_OAUTH" || credential.provider === "JIRA" || credential.provider === "AIRTABLE" || (["NOTION", "SHOPIFY"].includes(credential.provider) && credential.isManaged === true);
   const openSettings = (credential: CredentialSummary) => {
     cancelAction();
     setActiveAction({ credentialId: credential.id, type: isManaged(credential) ? "oauth" : "details" });
@@ -441,6 +444,9 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
                       variant="secondary" type="button" className="credential-panel__oauth"
                       onClick={() => startGoogleConnection(workspaceId, credential.provider === "GOOGLE_CALENDAR" ? "calendar" : "google", credential.id, credential.googleIdentityUnverified)}
                     >Reconnect Google</Button>}
+                  </> : credential.provider === "SHOPIFY" ? <>
+                    <p className="credential-card__oauth-text">Reconnect the same Shopify store.</p>
+                    <Button variant="secondary" type="button" disabled={!credential.shopifyShop} onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/shopify/connect?shop=${encodeURIComponent(credential.shopifyShop ?? "")}&credentialId=${encodeURIComponent(credential.id)}`)}>Reconnect Shopify</Button>
                   </> : credential.provider === "AIRTABLE" ? <>
                     <p className="credential-card__oauth-text">Reconnect the same Airtable account and choose accessible bases.</p>
                     <Button variant="secondary" type="button" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/airtable/connect?credentialId=${encodeURIComponent(credential.id)}`)}>Reconnect Airtable</Button>
@@ -628,7 +634,11 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
             <option value="SMTP">SMTP (send email)</option>
           </Select>
         </Field> : null}
-        {provider !== "SLACK_OAUTH" && provider !== "JIRA" && provider !== "AIRTABLE" && <Field label="Connection name" className="credential-form__field">
+        {provider === "SHOPIFY" && <div className="credential-form__method" role="group" aria-label="Shopify connection method">
+          <Button type="button" variant={shopifyMode === "oauth" ? "primary" : "secondary"} aria-pressed={shopifyMode === "oauth"} onClick={() => setShopifyMode("oauth")}>Shopify account</Button>
+          <Button type="button" variant={shopifyMode === "manual" ? "primary" : "secondary"} aria-pressed={shopifyMode === "manual"} onClick={() => setShopifyMode("manual")}>Admin API token</Button>
+        </div>}
+        {provider !== "SLACK_OAUTH" && provider !== "JIRA" && provider !== "AIRTABLE" && (provider !== "SHOPIFY" || shopifyMode === "manual") && <Field label="Connection name" className="credential-form__field">
           <input aria-label="Connection name" value={label} onChange={(event) => { setLabel(event.target.value); setCreateError(null); }} />
         </Field>}
         {provider === "GOOGLE" ? (
@@ -647,12 +657,16 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
         {provider === "VERCEL" ? <div className="credential-form__oauth-helper"><span>Create an access token for the personal account or team you want to use.</span><a className="credential-form__oauth-link" href="https://vercel.com/docs/rest-api" target="_blank" rel="noopener noreferrer">Vercel API guide <ArrowUpRight size={13} aria-hidden="true" /></a></div> : null}
         {provider === "REDDIT" ? <div className="credential-form__oauth-helper"><span>Reddit has stopped accepting new public Data API access requests and plans to retire remaining access in March 2027. Existing approved apps may still work during the transition.</span><a className="credential-form__oauth-link" href="https://support.reddithelp.com/hc/en-us/articles/54353370049684-Changelog-October-8-2026" target="_blank" rel="noopener noreferrer">Reddit access timeline <ArrowUpRight size={13} aria-hidden="true" /></a></div> : null}
         {provider === "SUPABASE" ? <div className="credential-form__oauth-helper"><span>Find your project reference and API key in the Supabase dashboard. A secret key grants elevated access and bypasses Row Level Security.</span><a className="credential-form__oauth-link" href="https://supabase.com/docs/guides/getting-started/api-keys" target="_blank" rel="noopener noreferrer">Supabase key guide <ArrowUpRight size={13} aria-hidden="true" /></a><a className="credential-form__oauth-link" href="https://supabase.com/docs/guides/platform/personal-access-tokens" target="_blank" rel="noopener noreferrer">Scoped management token guide <ArrowUpRight size={13} aria-hidden="true" /></a></div> : null}
-        <p className="credential-form__hint" aria-live="polite">{credentialPresets[provider].hint}</p>
+        {(provider !== "SHOPIFY" || shopifyMode === "manual") && <p className="credential-form__hint" aria-live="polite">{credentialPresets[provider].hint}</p>}
         {provider === "NOTION" && <div className="credential-form__oauth-helper"><span>Connect your own Notion workspace and select the pages Fluxora may read and update, or enter an integration token below.</span><Button variant="secondary" type="button" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/notion/connect`)}>Connect Notion</Button></div>}
-        {provider === "AIRTABLE" ? <div className="credential-form__oauth-helper"><span>Choose the Airtable bases you want to connect. Airtable will show the requested permissions.</span><Button variant="secondary" type="button" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/airtable/connect`)}>Connect Airtable</Button></div> : provider === "JIRA" ? <div className="credential-form__oauth-helper"><span>Choose your Jira site and approve issue access with Atlassian. Availability depends on server setup and Atlassian app distribution.</span><Button variant="secondary" type="button" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/jira/connect`)}>Connect Jira</Button></div> : provider === "SLACK_OAUTH" ? <div className="credential-form__oauth-helper"><span>Slack lets Fluxora list public channels and send messages as its bot.</span><button type="button" className="credential-form__oauth-link" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/slack/connect`)}>Connect Slack <ArrowUpRight size={13} aria-hidden="true" /></button></div> : <CredentialSecretFields provider={provider} value={data} onChange={(value) => { setData(value); setJsonError(null); setCreateError(null); }} />}
+        {provider === "SHOPIFY" && shopifyMode === "oauth" && <div className="credential-form__oauth-helper credential-form__shopify-oauth">
+          <Field label="Shopify store" className="credential-form__field"><input aria-label="Shopify store" value={shopifyShop} placeholder="your-store.myshopify.com" onChange={(event) => setShopifyShop(event.target.value.trim().toLowerCase())} /></Field>
+          <Button variant="secondary" type="button" disabled={!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.myshopify\.com$/.test(shopifyShop)} onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/shopify/connect?shop=${encodeURIComponent(shopifyShop)}`)}>Connect Shopify</Button>
+        </div>}
+        {provider === "AIRTABLE" ? <div className="credential-form__oauth-helper"><span>Choose the Airtable bases you want to connect. Airtable will show the requested permissions.</span><Button variant="secondary" type="button" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/airtable/connect`)}>Connect Airtable</Button></div> : provider === "JIRA" ? <div className="credential-form__oauth-helper"><span>Choose your Jira site and approve issue access with Atlassian. Availability depends on server setup and Atlassian app distribution.</span><Button variant="secondary" type="button" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/jira/connect`)}>Connect Jira</Button></div> : provider === "SLACK_OAUTH" ? <div className="credential-form__oauth-helper"><span>Slack lets Fluxora list public channels and send messages as its bot.</span><button type="button" className="credential-form__oauth-link" onClick={() => window.location.assign(`${apiUrl}/workspaces/${workspaceId}/credentials/slack/connect`)}>Connect Slack <ArrowUpRight size={13} aria-hidden="true" /></button></div> : provider === "SHOPIFY" && shopifyMode === "oauth" ? null : <CredentialSecretFields provider={provider} value={data} onChange={(value) => { setData(value); setJsonError(null); setCreateError(null); }} />}
         {jsonError && <p className="credential-form__error" role="alert">{jsonError}</p>}
         {createError && <p className="credential-form__error" role="alert">{createError}</p>}
-        {provider !== "SLACK_OAUTH" && provider !== "JIRA" && provider !== "AIRTABLE" && <Button variant="primary" className="run-button" type="submit" disabled={isSaving}>{isSaving ? "Encrypting…" : "Encrypt & save"}</Button>}
+        {provider !== "SLACK_OAUTH" && provider !== "JIRA" && provider !== "AIRTABLE" && (provider !== "SHOPIFY" || shopifyMode === "manual") && <Button variant="primary" className="run-button" type="submit" disabled={isSaving}>{isSaving ? "Encrypting…" : "Encrypt & save"}</Button>}
       </form>
       </Collapse>
       {loading ? <div className="credential-list-loading" aria-busy="true" aria-label="Loading connections"><Skeleton /><Skeleton /></div> : loadError ? <Status tone="error" role="alert">{loadError}<Button variant="ghost" onClick={() => void load()}>Retry connections</Button></Status> : visibleCredentials.length === 0 ? <EmptyState icon={<KeyRound size={22} />} title={query || methodFilter !== "all" ? "No matching connections" : "Your connections will appear here"} description={query || methodFilter !== "all" ? "Try another app, name or connection method." : "Add an app once, then select it in any compatible workflow node."} action={query || methodFilter !== "all" ? <Button variant="ghost" onClick={() => { setQuery(""); setMethodFilter("all"); }}>Clear filters</Button> : undefined} /> : (

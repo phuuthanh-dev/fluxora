@@ -4,6 +4,7 @@ import { jiraAccountHash } from "./jira-privacy-attribution";
 import { isNotionOAuth, requireNotionReconnect, runNotionAuthorized, saveNotionAuthorization, type NotionAuthorization } from "./notion-oauth";
 import { validGitLabToken } from "../execution/gitlab";
 import { validShopifyCredential } from "../execution/shopify-credential";
+import { shopifyOAuthCredential } from "./shopify-oauth";
 import { CredentialProvider, ExecutionStatus, type Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { chatManageProof, chatManageScope, chatManageValid, googleChatScopesGranted, googleSubject, googleConnectionPolicy, googleScopesGranted, googleScopeTokenHash, googleScopeProof, googleScopeProofValid, googleRefreshGrantProof, googleRefreshGrantValid, gmailCapabilityProof, gmailCapabilitiesValid, gmailCapabilitiesGranted, projectGmailScopes, validGmailCapabilities, sameGoogleScopes, type GmailCapability, type GoogleConnectionKind } from "./google-oauth-policy";
@@ -106,6 +107,7 @@ export class CredentialService {
     const credential = await this.prisma.credential.findFirst({ where: { id: credentialId, workspaceId } });
     if (!credential) throw new NotFoundException({ code: "CREDENTIAL_NOT_FOUND", message: "A matching credential was not found in this workspace." });
     if ((credential.provider === CredentialProvider.JIRA || credential.provider === CredentialProvider.SLACK_OAUTH || credential.provider === CredentialProvider.AIRTABLE) && input.data !== undefined) throw new BadRequestException({ code: "CREDENTIAL_MANAGED_BY_OAUTH", message: "Reconnect this provider to change its authorization." });
+    if (credential.provider === CredentialProvider.SHOPIFY && credential.shopifyInstallationShop && input.data !== undefined) throw new BadRequestException({ code: "CREDENTIAL_MANAGED_BY_OAUTH", message: "Reconnect this provider to change its authorization." });
 
     if (credential.provider === CredentialProvider.NOTION && isNotionOAuth(this.vault.decrypt(credential.encryptedData)) && input.data !== undefined) throw new BadRequestException({ code: "CREDENTIAL_MANAGED_BY_OAUTH", message: "Reconnect Notion to change its authorization." });
 
@@ -235,6 +237,7 @@ export class CredentialService {
       }
 
       await tx.credential.delete({ where: { id: credential.id } });
+      if (credential.shopifyInstallationShop) await tx.shopifyInstallation.updateMany({ where: { shop: credential.shopifyInstallationShop, credentials: { none: {} } }, data: { encryptedData: null } });
       await tx.auditLog.create({
         data: {
           workspaceId,
@@ -290,7 +293,12 @@ export class CredentialService {
     return { workflows: workflowReferences, executions: executionReferences };
   }
 
-  async readForExecution(credentialId: string, workspaceId: string, provider: CredentialProvider) {
+  async readForExecution(credentialId: string, workspaceId: string, provider: CredentialProvider): Promise<Record<string, unknown>> {
+    if (provider === CredentialProvider.SHOPIFY) {
+      const credential = await this.prisma.credential.findFirst({ where: { id: credentialId, workspaceId, provider }, select: { shopifyInstallationShop: true } });
+      if (!credential) throw new NotFoundException({ code: "CREDENTIAL_NOT_FOUND", message: "A matching credential was not found in this workspace." });
+      if (credential.shopifyInstallationShop) return shopifyOAuthCredential(this.prisma, this.vault, workspaceId, credentialId, credential.shopifyInstallationShop);
+    }
     return (await this.readForExecutionSnapshot(credentialId, workspaceId, provider)).data;
   }
 
@@ -571,7 +579,7 @@ export class CredentialService {
     return this.summary(credential);
   }
 
-  private summary(credential: { id: string; provider: CredentialProvider; label: string; createdAt: Date; updatedAt: Date; encryptedData?: string }) {
+  private summary(credential: { id: string; provider: CredentialProvider; label: string; createdAt: Date; updatedAt: Date; encryptedData?: string; shopifyInstallationShop?: string | null }) {
     let hints: ReturnType<typeof credentialHints> = [];
     let notionManaged = false;
     let selectedGmailCapabilities: GmailCapability[] | undefined;
@@ -605,7 +613,8 @@ export class CredentialService {
       label: credential.label,
       createdAt: credential.createdAt,
       updatedAt: credential.updatedAt,
-      isManaged: isCanonicalGoogleOAuth(credential) || credential.provider === CredentialProvider.SLACK_OAUTH || credential.provider === CredentialProvider.JIRA || credential.provider === CredentialProvider.AIRTABLE || notionManaged,
+      isManaged: isCanonicalGoogleOAuth(credential) || credential.provider === CredentialProvider.SLACK_OAUTH || credential.provider === CredentialProvider.JIRA || credential.provider === CredentialProvider.AIRTABLE || notionManaged || (credential.provider === CredentialProvider.SHOPIFY && Boolean(credential.shopifyInstallationShop)),
+      ...(credential.provider === CredentialProvider.SHOPIFY && credential.shopifyInstallationShop ? { shopifyShop: credential.shopifyInstallationShop } : {}),
       ...(selectedGmailCapabilities ? { gmailCapabilities: selectedGmailCapabilities } : {}),
       ...(chatManageEnabled ? { chatManageEnabled: true } : {}),
       ...(googleReconnectRequired ? { googleReconnectRequired: true } : {}),
