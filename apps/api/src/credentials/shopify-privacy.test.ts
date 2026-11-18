@@ -25,3 +25,27 @@ test("Shopify privacy requests require a signed body and are recorded idempotent
   assert.equal(saved.size, 2, "a later identical request must not be suppressed");
   assert.equal(JSON.stringify([...saved.values()]).includes("private@example.test"), false);
 });
+
+test("Shopify customer data requests accept omitted request metadata and null order lists", async (t) => {
+  const previous = { secret: process.env.SHOPIFY_CLIENT_SECRET, key: process.env.APP_ENCRYPTION_KEY };
+  process.env.SHOPIFY_CLIENT_SECRET = "synthetic-app-secret";
+  process.env.APP_ENCRYPTION_KEY = Buffer.alloc(32, 3).toString("base64");
+  t.after(() => { if (previous.secret === undefined) delete process.env.SHOPIFY_CLIENT_SECRET; else process.env.SHOPIFY_CLIENT_SECRET = previous.secret; if (previous.key === undefined) delete process.env.APP_ENCRYPTION_KEY; else process.env.APP_ENCRYPTION_KEY = previous.key; });
+  const saved = new Map<string, unknown>();
+  const prisma = { shopifyPrivacyRequest: { upsert: async ({ where, create }: { where: { id: string }; create: unknown }) => { if (!saved.has(where.id)) saved.set(where.id, create); } } };
+  const service = new ShopifyPrivacyService(prisma as never, { encrypt: () => "encrypted-fixture" } as never);
+  const send = async (extra: Record<string, unknown>, deliveryId: string, signatureOverride?: string) => {
+    const raw = Buffer.from(JSON.stringify({ shop_id: 42, shop_domain: "fixture.myshopify.com", customer: { id: 123 }, ...extra }));
+    const signature = createHmac("sha256", process.env.SHOPIFY_CLIENT_SECRET!).update(raw).digest("base64");
+    return service.receive("customer-data", raw, signatureOverride ?? signature, deliveryId);
+  };
+  await send({ orders_requested: null }, "real-shape");
+  await send({ orders_requested: null }, "real-shape");
+  await send({}, "missing-optional");
+  await send({ orders_requested: [456], data_request: { id: 789 } }, "documented-shape");
+  assert.equal(saved.size, 3);
+  await assert.rejects(send({ orders_requested: "invalid" }, "invalid-orders"));
+  await assert.rejects(send({ data_request: [] }, "invalid-request"));
+  await assert.rejects(send({ orders_requested: null }, "invalid-signature", "invalid"));
+  assert.equal(saved.size, 3);
+});
