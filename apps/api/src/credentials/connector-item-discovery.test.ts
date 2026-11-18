@@ -80,3 +80,14 @@ test("resource controller checks ownership before discovery and rejects unsuppor
   const allowed = new ConnectorResourceController(credentials);
   await assert.rejects(() => allowed.connectorItems("workspace", "connection", "__proto__", undefined, undefined, undefined, undefined, request));
 });
+
+
+test("Shopify pickers return scoped resource labels and continuation", async () => {
+  const shopifyCredentials = { readForExecution: async (id: string, workspace: string, provider: CredentialProvider) => {
+    assert.equal(id, "connection"); assert.equal(workspace, "workspace"); assert.equal(provider, CredentialProvider.SHOPIFY);
+    return { shop: "fixture-store", token };
+  } } as never;
+  const product = { id: "gid://shopify/Product/123", title: "Sample product", status: "ACTIVE" };
+  const result = await discoverConnectorItems("shopify-product", "connection", "workspace", {}, shopifyCredentials, async () => Response.json({ data: { products: { nodes: [product], pageInfo: { hasNextPage: true, endCursor: "next" } } } }));
+  assert.deepEqual(result, { items: [{ id: product.id, name: product.title }], nextCursor: "next" });
+});

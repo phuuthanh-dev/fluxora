@@ -1,3 +1,4 @@
+import { normalizeShopifyOrder, verifyShopifySignature } from "./shopify-trigger-protocol";
 import { normalizeGitLabEvent, validGitLabSigningToken, verifyGitLabSignature, type GitLabHeaders } from "./gitlab-trigger-protocol";
 import { normalizeJiraIssueEvent, verifyJiraBearer } from "./jira-trigger-protocol";
 import { type JiraIssueEvent } from "./jira-webhook-adapter";
@@ -55,6 +56,7 @@ export class WebhookService implements OnModuleDestroy {
     const telegramTrigger = trigger.type === "trigger.telegram.update";
     const vercelTrigger = trigger.type === "trigger.vercel.deployment";
     const trelloTrigger = trigger.type === "trigger.trello.board-action";
+    const shopifyTrigger = trigger.type === "trigger.shopify.order-created";
     const gitlabTrigger = trigger.type.startsWith("trigger.gitlab.");
     const jiraTrigger = trigger.type === "trigger.jira.issue";
     const slackTrigger = trigger.type === "trigger.slack.event";
@@ -67,18 +69,18 @@ export class WebhookService implements OnModuleDestroy {
       }
     }
 
-    if (trigger.type !== "trigger.webhook" && !githubTrigger && !kumaTrigger && !telegramTrigger && !vercelTrigger && !trelloTrigger && !sentryTrigger && !slackTrigger && !gitlabTrigger && !jiraTrigger) {
+    if (trigger.type !== "trigger.webhook" && !githubTrigger && !kumaTrigger && !telegramTrigger && !vercelTrigger && !trelloTrigger && !shopifyTrigger && !sentryTrigger && !slackTrigger && !gitlabTrigger && !jiraTrigger) {
       throw new BadRequestException({ code: "WEBHOOK_TRIGGER_REQUIRED", message: "Publish a workflow version containing a supported webhook trigger before creating an endpoint." });
     }
     const conflictingEndpoint = await this.prisma.webhookEndpoint.findFirst({ where: { path, NOT: { workflowId, triggerNodeId: trigger.id } } });
     if (conflictingEndpoint) throw new ConflictException({ code: "WEBHOOK_PATH_IN_USE", message: "This webhook path is already in use by another workflow." });
     if (gitlabTrigger && !validGitLabSigningToken(importedSigningSecret)) throw new BadRequestException({ code: "GITLAB_SIGNING_TOKEN_REQUIRED", message: "Enter the signing token generated in GitLab webhook settings (whsec_…)." });
-    if ((vercelTrigger || trelloTrigger || sentryTrigger || slackTrigger) && (typeof importedSigningSecret !== "string" || !/^[\x21-\x7e]{1,1024}$/.test(importedSigningSecret))) throw new BadRequestException({ code: vercelTrigger ? "VERCEL_SIGNING_SECRET_REQUIRED" : trelloTrigger ? "TRELLO_SIGNING_SECRET_REQUIRED" : slackTrigger ? "SLACK_SIGNING_SECRET_REQUIRED" : "SENTRY_SIGNING_SECRET_REQUIRED", message: "Enter the provider webhook signing secret." });
-    if (!vercelTrigger && !trelloTrigger && !sentryTrigger && !slackTrigger && !gitlabTrigger && importedSigningSecret !== undefined) throw new BadRequestException({ code: "INVALID_INPUT", message: "A provider signing secret is not used by this endpoint." });
+    if ((vercelTrigger || trelloTrigger || shopifyTrigger || sentryTrigger || slackTrigger) && (typeof importedSigningSecret !== "string" || !/^[\x21-\x7e]{1,1024}$/.test(importedSigningSecret))) throw new BadRequestException({ code: vercelTrigger ? "VERCEL_SIGNING_SECRET_REQUIRED" : trelloTrigger ? "TRELLO_SIGNING_SECRET_REQUIRED" : shopifyTrigger ? "SHOPIFY_SIGNING_SECRET_REQUIRED" : slackTrigger ? "SLACK_SIGNING_SECRET_REQUIRED" : "SENTRY_SIGNING_SECRET_REQUIRED", message: "Enter the provider webhook signing secret." });
+    if (!vercelTrigger && !trelloTrigger && !shopifyTrigger && !sentryTrigger && !slackTrigger && !gitlabTrigger && importedSigningSecret !== undefined) throw new BadRequestException({ code: "INVALID_INPUT", message: "A provider signing secret is not used by this endpoint." });
     if (!trelloTrigger && importedCallbackUrl !== undefined) throw new BadRequestException({ code: "INVALID_INPUT", message: "A callback URL is not used by this endpoint." });
     const callbackUrl = trelloTrigger ? readTrelloCallbackUrl(importedCallbackUrl, path) : undefined;
-    const secret = vercelTrigger || trelloTrigger || sentryTrigger || slackTrigger || gitlabTrigger ? importedSigningSecret as string : githubTrigger || kumaTrigger || telegramTrigger || jiraTrigger || secretRequired ? randomBytes(24).toString("base64url") : null;
-    const encryptedSigningSecret = (githubTrigger || vercelTrigger || trelloTrigger || sentryTrigger || slackTrigger || gitlabTrigger || jiraTrigger) && secret ? this.vault.encrypt({ secret, ...(callbackUrl ? { callbackUrl } : {}) }) : null;
+    const secret = vercelTrigger || trelloTrigger || shopifyTrigger || sentryTrigger || slackTrigger || gitlabTrigger ? importedSigningSecret as string : githubTrigger || kumaTrigger || telegramTrigger || jiraTrigger || secretRequired ? randomBytes(24).toString("base64url") : null;
+    const encryptedSigningSecret = (githubTrigger || vercelTrigger || trelloTrigger || shopifyTrigger || sentryTrigger || slackTrigger || gitlabTrigger || jiraTrigger) && secret ? this.vault.encrypt({ secret, ...(callbackUrl ? { callbackUrl } : {}) }) : null;
     const identitySecret = trelloTrigger ? JSON.stringify([secret, callbackUrl]) : secret;
     const publishedVersionId = workflow.publishedVersion.id;
     const endpoint = await this.prisma.$transaction(async (transaction) => {
@@ -97,13 +99,13 @@ export class WebhookService implements OnModuleDestroy {
       const saved = existing
         ? await transaction.webhookEndpoint.update({ where: { id: existing.id }, data: { path, triggerNodeId: trigger.id, secretHash: !githubTrigger && identitySecret ? hashWebhookSecret(identitySecret) : null, encryptedSigningSecret, workflowVersionId: publishedVersionId, isActive: true, updatedAt } })
         : await transaction.webhookEndpoint.create({ data: { workflowId, workflowVersionId: publishedVersionId, triggerNodeId: trigger.id, path, secretHash: !githubTrigger && identitySecret ? hashWebhookSecret(identitySecret) : null, encryptedSigningSecret } });
-      await transaction.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "webhook.created", targetType: "webhook", targetId: saved.id, metadata: { path, secretRequired: Boolean(secretRequired) || Boolean(githubTrigger) || kumaTrigger || telegramTrigger || vercelTrigger || trelloTrigger || sentryTrigger || slackTrigger || gitlabTrigger || jiraTrigger } } });
+      await transaction.auditLog.create({ data: { workspaceId: workflow.workspaceId, actorId: userId, action: "webhook.created", targetType: "webhook", targetId: saved.id, metadata: { path, secretRequired: Boolean(secretRequired) || Boolean(githubTrigger) || kumaTrigger || telegramTrigger || vercelTrigger || trelloTrigger || shopifyTrigger || sentryTrigger || slackTrigger || gitlabTrigger || jiraTrigger } } });
       return saved;
     }).catch((error: unknown) => {
       if (error && typeof error === "object" && "code" in error && error.code === "P2002") throw new ConflictException({ code: "WEBHOOK_PATH_IN_USE", message: "This webhook path is already in use by another workflow." });
       throw error;
     });
-    return { id: endpoint.id, path: endpoint.path, secret: vercelTrigger || trelloTrigger || sentryTrigger || slackTrigger || gitlabTrigger || jiraTrigger ? null : secret, workflowVersionId: endpoint.workflowVersionId, createdAt: endpoint.createdAt, updatedAt: endpoint.updatedAt };
+    return { id: endpoint.id, path: endpoint.path, secret: vercelTrigger || trelloTrigger || shopifyTrigger || sentryTrigger || slackTrigger || gitlabTrigger || jiraTrigger ? null : secret, workflowVersionId: endpoint.workflowVersionId, createdAt: endpoint.createdAt, updatedAt: endpoint.updatedAt };
   }
 
   async receiveSlackEvent(raw: Buffer, headers: { signature?: string; timestamp?: string }) {
@@ -167,7 +169,7 @@ export class WebhookService implements OnModuleDestroy {
     return workflow;
   }
 
-  async receive(path: string, secret: string | undefined, payload: unknown, idempotencyKey?: string, githubEventHeaders: GitHubEventHeaders = {}, telegramSecret?: string, vercelSignature?: string, trelloSignature?: string, sentrySignature?: string, sentryResource?: string, slackHeaders?: { signature?: string; timestamp?: string }, gitlabHeaders: GitLabHeaders = {}, jiraHeaders: { authorization?: string; deliveryId?: string; deliveryToken?: string } = {}) {
+  async receive(path: string, secret: string | undefined, payload: unknown, idempotencyKey?: string, githubEventHeaders: GitHubEventHeaders = {}, telegramSecret?: string, vercelSignature?: string, trelloSignature?: string, sentrySignature?: string, sentryResource?: string, slackHeaders?: { signature?: string; timestamp?: string }, gitlabHeaders: GitLabHeaders = {}, jiraHeaders: { authorization?: string; deliveryId?: string; deliveryToken?: string } = {}, shopifyHeaders: { signature?: string; topic?: string; shop?: string } = {}) {
     const endpoint = await this.prisma.webhookEndpoint.findUnique({ where: { path }, include: { workflow: true, workflowVersion: true } });
     if (!endpoint || !endpoint.isActive || endpoint.workflow.archivedAt) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
     const graph = parseStoredWorkflowGraph(endpoint.workflowVersion.graph);
@@ -178,10 +180,25 @@ export class WebhookService implements OnModuleDestroy {
     const telegramTrigger = trigger.type === "trigger.telegram.update" ? trigger : undefined;
     const vercelTrigger = trigger.type === "trigger.vercel.deployment" ? trigger : undefined;
     const trelloTrigger = trigger.type === "trigger.trello.board-action" ? trigger : undefined;
+    const shopifyTrigger = trigger.type === "trigger.shopify.order-created" ? trigger : undefined;
     const sentryTrigger = trigger.type === "trigger.sentry.issue-created" ? trigger : undefined;
     const slackTrigger = trigger.type === "trigger.slack.event" ? trigger : undefined;
     const gitlabTrigger = trigger.type.startsWith("trigger.gitlab.") ? trigger : undefined;
     const jiraTrigger = trigger.type === "trigger.jira.issue" ? trigger : undefined;
+    if (shopifyTrigger) {
+      const signingSecret = endpoint.encryptedSigningSecret ? this.vault.decrypt(endpoint.encryptedSigningSecret).secret : undefined;
+      if (!verifyShopifySignature(githubEventHeaders.rawBody, shopifyHeaders.signature, signingSecret) || typeof signingSecret !== "string" || !endpoint.secretHash) throw new ForbiddenException({ code: "WEBHOOK_SECRET_INVALID", message: "Webhook secret is invalid." });
+      if (!endpoint.workflow.isActive || endpoint.workflow.publishedVersionId !== endpoint.workflowVersionId) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
+      const connection = await this.credentials.readForExecution(String(shopifyTrigger.config.credentialId ?? ""), endpoint.workflow.workspaceId, CredentialProvider.SHOPIFY);
+      if (typeof connection.shop !== "string" || shopifyHeaders.shop !== `${connection.shop}.myshopify.com`) throw new ForbiddenException({ code: "SHOPIFY_WEBHOOK_INVALID", message: "Shopify store does not match this connection." });
+      if (shopifyHeaders.topic !== "orders/create") return { acknowledged: true };
+      const event = normalizeShopifyOrder(githubEventHeaders.rawBody!, signingSecret);
+      if (typeof connection.token === "string" && connection.token && JSON.stringify(event.payload).includes(connection.token)) throw new BadRequestException({ code: "SHOPIFY_WEBHOOK_INVALID", message: "Shopify webhook data is invalid." });
+      // The order ID is signed in the body. Headers such as delivery ID are not.
+      const execution = await this.executions.createShopifyScheduledExecution({ workflowId: endpoint.workflowId, workflowVersionId: endpoint.workflowVersionId, endpointId: endpoint.id, triggerNodeId: trigger.id, path: endpoint.path, secretHash: endpoint.secretHash, payload: event.payload, deliveryKey: event.orderId });
+      if (execution.status === "QUEUED" && execution.startedAt === null) this.webhookDispatches.start(() => this.queue.ensureDispatched({ executionId: execution.id, mode: "live", initialOnly: true }), () => this.logger.warn(`Shopify execution ${execution.id} awaits delivery recovery.`));
+      return { acknowledged: true };
+    }
     if (jiraTrigger) {
       const registration = await this.prisma.providerWebhookRegistration.findUnique({ where: { endpointId: endpoint.id } });
       if (!registration || registration.provider !== "JIRA" || registration.state !== "ACTIVE" || registration.workflowVersionId !== endpoint.workflowVersionId || registration.remoteHookId === null || !endpoint.secretHash || !verifyJiraBearer(jiraHeaders.authorization, process.env.JIRA_CLIENT_SECRET, endpoint.id, jiraHeaders.deliveryToken)) throw new ForbiddenException({ code: "WEBHOOK_SECRET_INVALID", message: "Jira webhook authorization is invalid." });

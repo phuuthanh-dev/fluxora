@@ -66,6 +66,9 @@ const trelloCard = fields("id", "name", "description", "boardId", "listId", "clo
 const triggerOutput = fields("received");
 
 const definitions = {
+  "action.shopify.get-order": executable(credential("SHOPIFY"), "read", fields("order")),
+  "action.shopify.get-product": executable(credential("SHOPIFY"), "read", fields("product")),
+  "action.shopify.list-products": executable(credential("SHOPIFY"), "read", fields("products", "hasMore", "nextCursor"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "limit"] }),
   "action.shopify.list-orders": executable(credential("SHOPIFY"), "read", fields("orders", "hasMore", "nextCursor"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "limit", "orderName"] }),
   "action.airtable.list-records": executable(credential("AIRTABLE"), "read", fields("records", "nextCursor", "hasMore"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "baseId", "tableId", "pageSize"] }),
   "action.airtable.get-record": executable(credential("AIRTABLE"), "read", fields("record")),
@@ -121,6 +124,7 @@ const definitions = {
   "action.gitlab.list-issues": executable(credential("GITLAB"), "read", fields("items", "nextPage"), { kind: "continuation", input: "page", next: "nextPage", preserve: ["credentialId", "project", "state", "pageSize"] }),
   "trigger.slack.event": trigger(credential("SLACK_OAUTH"), "read", triggerOutput),
   "trigger.vercel.deployment": trigger(conditional, "read", triggerOutput),
+  "trigger.shopify.order-created": trigger(credential("SHOPIFY"), "read", triggerOutput),
   "trigger.trello.board-action": trigger(conditional, "read", triggerOutput),
   "trigger.sentry.issue-created": trigger(conditional, "read", triggerOutput),
   "trigger.cron": trigger(none, "unspecified", triggerOutput),

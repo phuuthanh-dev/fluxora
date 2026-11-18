@@ -9,6 +9,7 @@ const collectionFields: Readonly<Record<string, string>> = {
   "action.mongodb": "documents",
   "action.airtable.list-records": "records",
   "action.shopify.list-orders": "orders",
+  "action.shopify.list-products": "products",
   "action.postgres.select": "rows",
   "action.supabase.select": "rows",
   "action.jira.search-issues": "items",

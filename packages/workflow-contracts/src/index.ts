@@ -32,6 +32,7 @@ export const workflowNodeTypes = [
   "trigger.gitlab.merge-request",
   "trigger.jira.issue",
   "trigger.slack.event",
+  "trigger.shopify.order-created",
   "trigger.trello.board-action",
   "trigger.sentry.issue-created",
   "trigger.cron",
@@ -91,6 +92,9 @@ export const workflowNodeTypes = [
   "action.notion.update-entry",
   "action.airtable.list-records",
   "action.shopify.list-orders",
+  "action.shopify.get-order",
+  "action.shopify.list-products",
+  "action.shopify.get-product",
   "action.airtable.get-record",
   "action.airtable.create-record",
   "action.airtable.update-record",
@@ -161,7 +165,7 @@ export type WorkflowNodeType = (typeof workflowNodeTypes)[number];
 
 /** Trigger operations with individually registered HTTP endpoints. */
 export function isWebhookTriggerType(type: string): boolean {
-  return type === "trigger.webhook" || type.startsWith("trigger.github.") || type.startsWith("trigger.gitlab.") || ["trigger.uptime-kuma.alert", "trigger.telegram.update", "trigger.vercel.deployment", "trigger.trello.board-action", "trigger.sentry.issue-created", "trigger.slack.event", "trigger.jira.issue"].includes(type);
+  return type === "trigger.webhook" || type.startsWith("trigger.github.") || type.startsWith("trigger.gitlab.") || ["trigger.shopify.order-created", "trigger.uptime-kuma.alert", "trigger.telegram.update", "trigger.vercel.deployment", "trigger.trello.board-action", "trigger.sentry.issue-created", "trigger.slack.event", "trigger.jira.issue"].includes(type);
 }
 
 /**
@@ -187,6 +191,7 @@ export const executableWorkflowNodeTypes = [
   "trigger.gitlab.merge-request",
   "trigger.jira.issue",
   "trigger.slack.event",
+  "trigger.shopify.order-created",
   "trigger.trello.board-action",
   "trigger.sentry.issue-created",
   "trigger.cron",
@@ -239,6 +244,9 @@ export const executableWorkflowNodeTypes = [
   "action.notion.update-entry",
   "action.airtable.list-records",
   "action.shopify.list-orders",
+  "action.shopify.get-order",
+  "action.shopify.list-products",
+  "action.shopify.get-product",
   "action.airtable.get-record",
   "action.airtable.create-record",
   "action.airtable.update-record",

@@ -18,6 +18,22 @@ import { githubReadConfigurationFields } from "./github-read-fields";
 /** Incremental UI metadata only. Missing entries mean the descriptor has not
  * moved yet; do not interpret them as an empty runtime validation schema. */
 const sharedFields = {
+  "trigger.shopify.order-created": () => [
+    { kind: "credential", key: "credentialId", label: "Shopify connection", providers: ["SHOPIFY"] },
+  ],
+  "action.shopify.get-order": () => [
+    { kind: "credential", key: "credentialId", label: "Shopify connection", providers: ["SHOPIFY"] },
+    { kind: "resource", key: "resourceId", label: "Order", resource: "shopify-order", credentialKey: "credentialId", placeholder: "Search orders" },
+  ],
+  "action.shopify.get-product": () => [
+    { kind: "credential", key: "credentialId", label: "Shopify connection", providers: ["SHOPIFY"] },
+    { kind: "resource", key: "resourceId", label: "Product", resource: "shopify-product", credentialKey: "credentialId", placeholder: "Search products" },
+  ],
+  "action.shopify.list-products": () => [
+    { kind: "credential", key: "credentialId", label: "Shopify connection", providers: ["SHOPIFY"] },
+    { kind: "number", key: "limit", label: "Maximum products (1–50)", fallbackValue: 20 },
+    { kind: "text", key: "cursor", label: "Next cursor (optional)", advanced: { summary: "Advanced pagination", help: "Use nextCursor from the previous result with the same connection." } },
+  ],
   "action.shopify.list-orders": () => [
     { kind: "credential", key: "credentialId", label: "Shopify connection", providers: ["SHOPIFY"] },
     { kind: "number", key: "limit", label: "Maximum orders (1–50)", fallbackValue: 20 },

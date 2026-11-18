@@ -154,6 +154,9 @@ test("configured mock outputs contain the fields advertised by operation metadat
   const cases = [
     ["action.airtable.list-records", { baseId: "app12345678901234", tableId: "tbl12345678901234" }],
     ["action.shopify.list-orders", { limit: 1 }],
+    ["action.shopify.get-order", { resourceId: "gid://shopify/Order/123" }],
+    ["action.shopify.list-products", { limit: 1 }],
+    ["action.shopify.get-product", { resourceId: "gid://shopify/Product/123" }],
     ["action.airtable.get-record", { baseId: "app12345678901234", tableId: "tbl12345678901234", recordId: "rec12345678901234" }],
     ["action.airtable.create-record", { baseId: "app12345678901234", tableId: "tbl12345678901234", fields: [{ column: "Name", type: "text", value: "Example" }] }],
     ["action.airtable.update-record", { baseId: "app12345678901234", tableId: "tbl12345678901234", recordId: "rec12345678901234", fields: [{ column: "Name", type: "text", value: "Updated" }] }],
