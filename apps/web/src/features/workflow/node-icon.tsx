@@ -44,6 +44,7 @@ import {
   SiPostgresql,
   SiSteam,
   SiSentry,
+  SiShopify,
   SiVercel,
   SiUptimekuma,
 } from "react-icons/si";
@@ -51,6 +52,7 @@ import { BsOpenai } from "react-icons/bs";
 
 export type NodeIconName =
   | "airtable"
+  | "shopify"
   | "manual"
   | "schedule"
   | "webhook"
@@ -123,6 +125,7 @@ export function NodeIcon({ name, size = 18, className = "" }: { name: NodeIconNa
       case "schedule": return <Clock3 {...props} />;
       case "webhook": return <Webhook {...props} />;
       case "airtable": return <BrandIcon icon={airtableIcon} size={size} />;
+      case "shopify": return <SiShopify {...props} />;
       case "if": return <GitBranch {...props} />;
       case "merge": return <GitMerge {...props} />;
       case "switch": return <Shuffle {...props} />;

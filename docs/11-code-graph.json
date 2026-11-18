@@ -586,6 +586,7 @@
         "apps/api/src/execution/node-failure.ts",
         "apps/api/src/execution/postgres-read.ts",
         "apps/api/src/execution/riot-rate-guard.ts",
+        "apps/api/src/execution/shopify-credential.ts",
         "apps/api/src/execution/smtp-email.ts",
         "apps/api/src/workspaces/workspace.service.ts"
       ],
@@ -1029,6 +1030,7 @@
         "apps/api/src/execution/rss-read.ts",
         "apps/api/src/execution/sentry-observability.ts",
         "apps/api/src/execution/sentry.ts",
+        "apps/api/src/execution/shopify.ts",
         "apps/api/src/execution/slack-oauth.ts",
         "apps/api/src/execution/smtp-email.ts",
         "apps/api/src/execution/steam-adapter.ts",
@@ -1900,6 +1902,28 @@
         "apps/api/src/execution/provider-credential-safety.ts",
         "apps/api/src/execution/provider-json.ts",
         "apps/api/src/execution/sentry-pagination.ts"
+      ],
+      "externalImports": [
+        "@prisma/client",
+        "@workflow/contracts"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/shopify-credential.ts",
+      "boundary": "api",
+      "internalImports": [],
+      "externalImports": []
+    },
+    {
+      "id": "apps/api/src/execution/shopify.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-credential-safety.ts",
+        "apps/api/src/execution/provider-request-policy.ts",
+        "apps/api/src/execution/shopify-credential.ts"
       ],
       "externalImports": [
         "@prisma/client",
@@ -4700,6 +4724,7 @@
         "packages/workflow-contracts/src/node-config-schemas/riot.ts",
         "packages/workflow-contracts/src/node-config-schemas/rss.ts",
         "packages/workflow-contracts/src/node-config-schemas/sentry.ts",
+        "packages/workflow-contracts/src/node-config-schemas/shopify.ts",
         "packages/workflow-contracts/src/node-config-schemas/slack.ts",
         "packages/workflow-contracts/src/node-config-schemas/smtp.ts",
         "packages/workflow-contracts/src/node-config-schemas/steam.ts",
@@ -4945,6 +4970,16 @@
     },
     {
       "id": "packages/workflow-contracts/src/node-config-schemas/sentry.ts",
+      "boundary": "contracts",
+      "internalImports": [
+        "packages/workflow-contracts/src/node-config-schemas/types.ts"
+      ],
+      "externalImports": [
+        "zod"
+      ]
+    },
+    {
+      "id": "packages/workflow-contracts/src/node-config-schemas/shopify.ts",
       "boundary": "contracts",
       "internalImports": [
         "packages/workflow-contracts/src/node-config-schemas/types.ts"
@@ -5802,6 +5837,10 @@
     },
     {
       "from": "apps/api/src/credentials/credential.service.ts",
+      "to": "apps/api/src/execution/shopify-credential.ts"
+    },
+    {
+      "from": "apps/api/src/credentials/credential.service.ts",
       "to": "apps/api/src/execution/smtp-email.ts"
     },
     {
@@ -6335,6 +6374,10 @@
     {
       "from": "apps/api/src/execution/connector-executors.ts",
       "to": "apps/api/src/execution/sentry.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/shopify.ts"
     },
     {
       "from": "apps/api/src/execution/connector-executors.ts",
@@ -7363,6 +7406,30 @@
     {
       "from": "apps/api/src/execution/sentry.ts",
       "to": "apps/api/src/execution/sentry-pagination.ts"
+    },
+    {
+      "from": "apps/api/src/execution/shopify.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/shopify.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/shopify.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/shopify.ts",
+      "to": "apps/api/src/execution/provider-credential-safety.ts"
+    },
+    {
+      "from": "apps/api/src/execution/shopify.ts",
+      "to": "apps/api/src/execution/provider-request-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/shopify.ts",
+      "to": "apps/api/src/execution/shopify-credential.ts"
     },
     {
       "from": "apps/api/src/execution/slack-oauth.ts",
@@ -10214,6 +10281,10 @@
     },
     {
       "from": "packages/workflow-contracts/src/node-config-schema.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/shopify.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schema.ts",
       "to": "packages/workflow-contracts/src/node-config-schemas/slack.ts"
     },
     {
@@ -10346,6 +10417,10 @@
     },
     {
       "from": "packages/workflow-contracts/src/node-config-schemas/sentry.ts",
+      "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
+    },
+    {
+      "from": "packages/workflow-contracts/src/node-config-schemas/shopify.ts",
       "to": "packages/workflow-contracts/src/node-config-schemas/types.ts"
     },
     {

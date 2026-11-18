@@ -11,7 +11,7 @@ import "./credentials.css";
 import { CredentialSecretFields } from "./credential-secret-fields";
 import { NodeIcon, type NodeIconName } from "../workflow/node-icon";
 
-const providerIcons: Record<CredentialProvider, NodeIconName> = { AIRTABLE: "airtable", GOOGLE: "google", STEAM: "steam", RIOT: "riot-games", GOOGLE_CHAT_WEBHOOK: "google-chat", GOOGLE_CHAT_OAUTH: "google-chat", GMAIL: "gmail", GOOGLE_CALENDAR: "google-calendar", MONGODB: "mongodb", NOTION: "notion", TRELLO: "trello", SENTRY: "sentry", VERCEL: "vercel", SUPABASE: "supabase", REDDIT: "reddit", POSTGRES: "postgres", HTTP: "http", DISCORD_WEBHOOK: "discord", SLACK_WEBHOOK: "slack", SLACK_OAUTH: "slack", TELEGRAM_BOT: "telegram", JIRA: "jira", GITLAB: "gitlab", GITHUB: "github", SMTP: "email", GEMINI: "gemini", OPENAI: "openai" };
+const providerIcons: Record<CredentialProvider, NodeIconName> = { SHOPIFY: "shopify", AIRTABLE: "airtable", GOOGLE: "google", STEAM: "steam", RIOT: "riot-games", GOOGLE_CHAT_WEBHOOK: "google-chat", GOOGLE_CHAT_OAUTH: "google-chat", GMAIL: "gmail", GOOGLE_CALENDAR: "google-calendar", MONGODB: "mongodb", NOTION: "notion", TRELLO: "trello", SENTRY: "sentry", VERCEL: "vercel", SUPABASE: "supabase", REDDIT: "reddit", POSTGRES: "postgres", HTTP: "http", DISCORD_WEBHOOK: "discord", SLACK_WEBHOOK: "slack", SLACK_OAUTH: "slack", TELEGRAM_BOT: "telegram", JIRA: "jira", GITLAB: "gitlab", GITHUB: "github", SMTP: "email", GEMINI: "gemini", OPENAI: "openai" };
 
 type CredentialPreset = {
   label: string;
@@ -20,6 +20,7 @@ type CredentialPreset = {
 };
 
 const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
+  SHOPIFY: { label: "Shopify", data: '{\n  "shop": "",\n  "token": ""\n}', hint: "Shopify Admin API" },
   AIRTABLE: { label: "Airtable", data: "{}", hint: "Connect your own Airtable account and select the bases Fluxora can access." },
   RIOT: { label: "Riot API", data: '{\n  "apiKey": ""\n}', hint: "Use your own Riot API key for its approved product. Development keys expire after 24 hours; personal keys are not for public products." },
   GOOGLE_CALENDAR: { label: "Google Calendar manual token", data: '{\n  "accessToken": ""\n}', hint: "Connect Google Calendar separately. Calendar events can appear in execution history." },
@@ -92,7 +93,7 @@ const credentialPresets: Record<CredentialProvider, CredentialPreset> = {
 type ProviderOption = { value: CredentialProvider | "EMAIL"; label: string; keywords?: string };
 const providerGroups: { label: string; options: ProviderOption[] }[] = [
   { label: "Communication", options: [{ value: "EMAIL", label: "Email", keywords: "gmail smtp" }, { value: "GOOGLE_CHAT_OAUTH", label: "Google Chat OAuth" }, { value: "GOOGLE_CHAT_WEBHOOK", label: "Google Chat webhook" }, { value: "DISCORD_WEBHOOK", label: "Discord webhook" }, { value: "SLACK_OAUTH", label: "Slack workspace" }, { value: "SLACK_WEBHOOK", label: "Slack webhook" }, { value: "TELEGRAM_BOT", label: "Telegram bot" }] },
-  { label: "Productivity", options: [{ value: "GOOGLE", label: "Google Drive / Sheets" }, { value: "GOOGLE_CALENDAR", label: "Google Calendar" }, { value: "NOTION", label: "Notion" }, { value: "AIRTABLE", label: "Airtable" }, { value: "JIRA", label: "Jira" }, { value: "TRELLO", label: "Trello" }] },
+  { label: "Productivity", options: [{ value: "GOOGLE", label: "Google Drive / Sheets" }, { value: "GOOGLE_CALENDAR", label: "Google Calendar" }, { value: "NOTION", label: "Notion" }, { value: "AIRTABLE", label: "Airtable" }, { value: "SHOPIFY", label: "Shopify" }, { value: "JIRA", label: "Jira" }, { value: "TRELLO", label: "Trello" }] },
   { label: "Developer & data", options: [{ value: "GITHUB", label: "GitHub connector" }, { value: "GITLAB", label: "GitLab" }, { value: "SENTRY", label: "Sentry" }, { value: "VERCEL", label: "Vercel" }, { value: "SUPABASE", label: "Supabase" }, { value: "MONGODB", label: "MongoDB" }, { value: "POSTGRES", label: "PostgreSQL" }, { value: "HTTP", label: "HTTP" }] },
   { label: "AI", options: [{ value: "GEMINI", label: "Gemini API" }, { value: "OPENAI", label: "OpenAI API" }] },
   { label: "Social & gaming", options: [{ value: "REDDIT", label: "Reddit" }, { value: "STEAM", label: "Steam" }, { value: "RIOT", label: "Riot Games" }] },
@@ -109,6 +110,7 @@ function requestErrorMessage(reason: unknown, fallback: string) {
 
 function credentialProviderLabel(provider: CredentialProvider) {
   const labels: Record<CredentialProvider, string> = {
+    SHOPIFY: "Shopify",
     AIRTABLE: "Airtable",
     GOOGLE: "Google",
     STEAM: "Steam",
@@ -229,6 +231,7 @@ function WorkspaceCredentials({ workspaceId, onClose, onSaved, presentation = "p
     setJsonError(null);
     setCreateError(null);
     const providerLabels: Record<CredentialProvider, string> = {
+      SHOPIFY: "Shopify",
       AIRTABLE: "Airtable",
     GOOGLE: "Google",
       STEAM: "Steam",

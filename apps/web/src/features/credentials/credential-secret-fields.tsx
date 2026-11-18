@@ -24,6 +24,7 @@ function SecretInput({ label, value, hint, onChange }: { label: string; value: s
   </div>;
 }
 const fields: Partial<Record<CredentialProvider, SecretField[]>> = {
+  SHOPIFY: [{ key: "shop", label: "Store subdomain" }, { key: "token", label: "Admin API access token", secret: true }],
   GOOGLE: [{ key: "accessToken", label: "Access token", secret: true }],
   GOOGLE_CHAT_OAUTH: [{ key: "accessToken", label: "Access token", secret: true }],
   GMAIL: [{ key: "accessToken", label: "Gmail access token", secret: true, hint: "Manual access tokens are short-lived. OAuth is recommended." }],

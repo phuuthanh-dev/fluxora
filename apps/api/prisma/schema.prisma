@@ -27,6 +27,7 @@ enum WorkflowVersionStatus {
 
 enum CredentialProvider {
   AIRTABLE
+  SHOPIFY
   STEAM
   RIOT
   GOOGLE

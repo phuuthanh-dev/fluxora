@@ -18,6 +18,12 @@ import { githubReadConfigurationFields } from "./github-read-fields";
 /** Incremental UI metadata only. Missing entries mean the descriptor has not
  * moved yet; do not interpret them as an empty runtime validation schema. */
 const sharedFields = {
+  "action.shopify.list-orders": () => [
+    { kind: "credential", key: "credentialId", label: "Shopify connection", providers: ["SHOPIFY"] },
+    { kind: "number", key: "limit", label: "Maximum orders (1–50)", fallbackValue: 20 },
+    { kind: "text", key: "orderName", label: "Order number (optional)" },
+    { kind: "text", key: "cursor", label: "Next cursor (optional)", advanced: { summary: "Advanced pagination", help: "Use nextCursor from the previous result with the same connection." } },
+  ],
   ...dataTransformFields,
   ...jiraFields,
   ...airtableFields,

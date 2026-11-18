@@ -88,6 +88,7 @@
   --provider-notion: #222a25;
   --provider-rss: #a34b00;
   --provider-trello: #0755a7;
+  --provider-shopify: #3f6f19;
   --provider-sentry: #55328e;
   --provider-vercel: #222a25;
   --provider-supabase: #087e4c;
@@ -221,6 +222,7 @@
   --provider-notion: #f4f5f0;
   --provider-rss: #ffad5c;
   --provider-trello: #8abfff;
+  --provider-shopify: #a5d879;
   --provider-sentry: #c0a5f4;
   --provider-vercel: #f4f5f0;
   --provider-supabase: #63d9a3;
