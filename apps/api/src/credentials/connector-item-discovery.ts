@@ -3,7 +3,7 @@ import type { CredentialService } from "./credential.service";
 import { NodeFailure } from "../execution/node-failure";
 import { fetchSafeOutbound } from "../execution/outbound-url-policy";
 import { readProviderJson } from "../execution/provider-request-policy";
-import { assertNoCredentialInProviderFields } from "../execution/provider-credential-safety";
+import { assertNoCredentialInProviderFields, assertNoCredentialInProviderValue } from "../execution/provider-credential-safety";
 import { executeSentryListIssues } from "../execution/sentry";
 import { executeVercelListDeployments } from "../execution/vercel";
 import { listGitLabResources } from "../execution/gitlab";
@@ -37,6 +37,7 @@ export async function discoverConnectorItems(resource: ItemResource, credentialI
     const response = await read(`https://${data.shop}.myshopify.com/admin/api/2026-10/graphql.json`, { method: "POST", headers: { "content-type": "application/json", "x-shopify-access-token": token }, body: JSON.stringify({ query: "query Variants($after: String) { productVariants(first: 25, after: $after) { nodes { id title product { title } } pageInfo { hasNextPage endCursor } } }", variables: { after: cursor || null } }), signal: AbortSignal.timeout(15000) });
     if (!response.ok) { await response.body?.cancel(); throw new NodeFailure("HTTP_ERROR", `Shopify returned ${response.status}.`, false, response.status); }
     const payload = await readProviderJson(response, "Shopify");
+    assertNoCredentialInProviderValue(payload, token);
     const record = (value: unknown) => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
     const root = record(payload), variants = record(record(root?.data)?.productVariants), page = record(variants?.pageInfo);
     if (Array.isArray(root?.errors) && root.errors.length || !variants || !Array.isArray(variants.nodes) || variants.nodes.length > 25 || !page || typeof page.hasNextPage !== "boolean" || !(page.endCursor === null || typeof page.endCursor === "string" && page.endCursor.length <= 1024 && !/[\s\u0000-\u001f\u007f]/.test(page.endCursor)) || page.hasNextPage && !page.endCursor) throw new NodeFailure("INVALID_RESPONSE", "Shopify returned an invalid product list.", false);

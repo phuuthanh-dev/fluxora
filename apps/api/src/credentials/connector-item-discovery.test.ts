@@ -102,4 +102,7 @@ test("Shopify variant picker returns bounded product names and pagination withou
   assert.deepEqual(result, { items: [{ id: "gid://shopify/ProductVariant/12", name: "Shirt · Small" }], nextCursor: "next" });
   response.data.productVariants.nodes[0]!.title = token;
   await assert.rejects(() => discoverConnectorItems("shopify-variant", "connection", "workspace", {}, shopifyCredentials, async () => Response.json(response)));
+  response.data.productVariants.nodes[0]!.title = "Small";
+  response.data.productVariants.pageInfo.endCursor = token;
+  await assert.rejects(() => discoverConnectorItems("shopify-variant", "connection", "workspace", {}, shopifyCredentials, async () => Response.json(response)));
 });
