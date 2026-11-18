@@ -1,4 +1,5 @@
 import { executeJira } from "./jira";
+import { executeTrelloCardAction } from "./trello-card-actions";
 import { executeGitLab } from "./gitlab";
 import { nodeConfigIssues, type ExecutableWorkflowNodeType } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
@@ -45,10 +46,12 @@ import { executeTelegramMessageOperation } from "./telegram-message-operations";
 import { executeGitHubGetIssue, executeGitHubGetPullRequest, executeGitHubListIssues, executeGitHubListPullRequests } from "./github-read";
 import { executeGitHubUpdateIssue } from "./github-update-issue";
 import { executeAirtable } from "./airtable";
+import { executeShopifyOrders } from "./shopify";
 
 /** Server-only registry. Adapters retain validation, authorization, redaction
  * and retry semantics; registration is not a credential or policy bypass. */
 const executors = {
+  "action.shopify.list-orders": ({ config, mode, workspaceId, credentials }) => executeShopifyOrders(config, mode, workspaceId, credentials),
   "action.airtable.list-records": ({ config, mode, workspaceId, credentials }) => executeAirtable(config, "list-records", mode, workspaceId, credentials),
   "action.airtable.get-record": ({ config, mode, workspaceId, credentials }) => executeAirtable(config, "get-record", mode, workspaceId, credentials),
   "action.airtable.create-record": ({ config, mode, workspaceId, credentials }) => executeAirtable(config, "create-record", mode, workspaceId, credentials),
@@ -139,6 +142,9 @@ const executors = {
   "action.trello.archive-card": ({ config, mode, workspaceId, credentials }) => executeTrelloOperation("archive", config, mode, workspaceId, credentials),
   "action.trello.list-cards": ({ config, mode, workspaceId, credentials }) => executeTrelloOperation("list", config, mode, workspaceId, credentials),
   "action.trello.find-cards": ({ config, mode, workspaceId, credentials }) => executeTrelloOperation("find", config, mode, workspaceId, credentials),
+  "action.trello.add-comment": ({ config, mode, workspaceId, credentials }) => executeTrelloCardAction("add-comment", config, mode, workspaceId, credentials),
+  "action.trello.add-label": ({ config, mode, workspaceId, credentials }) => executeTrelloCardAction("add-label", config, mode, workspaceId, credentials),
+  "action.trello.remove-label": ({ config, mode, workspaceId, credentials }) => executeTrelloCardAction("remove-label", config, mode, workspaceId, credentials),
   "action.sentry.list-issues": ({ config, mode, workspaceId, credentials }) => executeSentryListIssues(config, mode, workspaceId, credentials),
   "action.sentry.get-issue": ({ config, mode, workspaceId, credentials }) => executeSentryGetIssue(config, mode, workspaceId, credentials),
   "action.vercel.list-deployments": ({ config, mode, workspaceId, credentials }) => executeVercelListDeployments(config, mode, workspaceId, credentials),

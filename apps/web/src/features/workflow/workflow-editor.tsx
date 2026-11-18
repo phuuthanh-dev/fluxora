@@ -123,6 +123,7 @@ function isUptimeKumaTrigger(nodeType: string) {
 
 function providerLabel(provider: CredentialProvider) {
   const labels: Record<CredentialProvider, string> = {
+    SHOPIFY: "Shopify",
     AIRTABLE: "Airtable",
     GOOGLE_CHAT_WEBHOOK: "Google Chat",
     DISCORD_WEBHOOK: "Discord",
@@ -201,7 +202,7 @@ function NumericConfigField({ label, value, configured, fallbackValue, allowExpr
   // An externally loaded expression must remain visible even if the user was
   // previously editing a fixed value. Switching modes alone never clears it.
   const manual = expressionMode || (value !== "" && !isNumber);
-  return <div className="config-field">
+  return <div className="config-field numeric-config-field">
     <Field label={label} error={error}><input type={manual ? "text" : "number"} value={value} placeholder={manual ? "{{ steps.example.output.value }}" : !configured && fallbackValue !== undefined ? `Default: ${fallbackValue}` : undefined} onChange={(event) => {
       const next = event.target.value;
       onChange(manual || next === "" ? next : Number(next));
@@ -1149,10 +1150,11 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
     if (effectiveNodeType === "action.gmail.read" && node.data.config[key] !== value && ["credentialId", "mailbox", "query", "limit"].includes(key) && "pageToken" in config) config.pageToken = "";
     if ((effectiveNodeType.startsWith("action.gitlab.") || effectiveNodeType.startsWith("trigger.gitlab.")) && node.data.config[key] !== value) { if (key === "credentialId") config.project = ""; if (["credentialId", "project"].includes(key) && "issue" in config) config.issue = ""; }
     if (effectiveNodeType === "trigger.jira.issue" && key === "credentialId" && node.data.config.credentialId !== value) config.project = "";
+    if (effectiveNodeType === "action.shopify.list-orders" && ["credentialId", "orderName", "limit"].includes(key) && node.data.config[key] !== value) config.cursor = "";
     if (effectiveNodeType === "trigger.trello.board-action" && key === "credentialId" && node.data.config.credentialId !== value) config.boardId = "";
     if (effectiveNodeType.startsWith("action.trello.") && node.data.config[key] !== value) {
-      if (key === "credentialId") for (const dependent of ["boardId", "sourceBoardId", "listId", "cardId", "before"]) { if (dependent in config) config[dependent] = ""; }
-      else if (key === "sourceBoardId" && "cardId" in config) config.cardId = "";
+      if (key === "credentialId") for (const dependent of ["boardId", "sourceBoardId", "listId", "cardId", "labelId", "before"]) { if (dependent in config) config[dependent] = ""; }
+      else if (key === "sourceBoardId") { if ("cardId" in config) config.cardId = ""; if ("labelId" in config) config.labelId = ""; }
       else if (key === "boardId") { if ("listId" in config) config.listId = ""; if ("before" in config) config.before = ""; }
       else if (effectiveNodeType === "action.trello.list-cards" && ["filter", "limit"].includes(key) && "before" in config) config.before = "";
       if (effectiveNodeType === "action.trello.find-cards" && ["credentialId", "boardId", "query", "limit"].includes(key) && "page" in config) config.page = 0;

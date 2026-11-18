@@ -18,6 +18,12 @@ import { githubReadConfigurationFields } from "./github-read-fields";
 /** Incremental UI metadata only. Missing entries mean the descriptor has not
  * moved yet; do not interpret them as an empty runtime validation schema. */
 const sharedFields = {
+  "action.shopify.list-orders": () => [
+    { kind: "credential", key: "credentialId", label: "Shopify connection", providers: ["SHOPIFY"] },
+    { kind: "number", key: "limit", label: "Maximum orders (1–50)", fallbackValue: 20 },
+    { kind: "text", key: "orderName", label: "Order number (optional)" },
+    { kind: "text", key: "cursor", label: "Next cursor (optional)", advanced: { summary: "Advanced pagination", help: "Use nextCursor from the previous result with the same connection." } },
+  ],
   ...dataTransformFields,
   ...jiraFields,
   ...airtableFields,
@@ -98,6 +104,9 @@ const sharedFields = {
   "action.trello.archive-card": () => trelloCardConfigurationFields("archive"),
   "action.trello.list-cards": () => trelloCardConfigurationFields("list"),
   "action.trello.find-cards": () => trelloCardConfigurationFields("find"),
+  "action.trello.add-comment": () => trelloCardConfigurationFields("comment"),
+  "action.trello.add-label": () => trelloCardConfigurationFields("add-label"),
+  "action.trello.remove-label": () => trelloCardConfigurationFields("remove-label"),
 } satisfies Partial<Record<WorkflowNodeType, () => NodeConfigurationField[]>>;
 
 export const sharedNodeConfigurationTypes: readonly (keyof typeof sharedFields)[] = Object.freeze(Object.keys(sharedFields) as (keyof typeof sharedFields)[]);

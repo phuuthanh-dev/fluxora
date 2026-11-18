@@ -1,5 +1,33 @@
 import { expect, test } from "@playwright/test";
 
+test("Trello label picker follows the chosen board and clears stale card and label", async ({ page }) => {
+  const board = "a".repeat(24), otherBoard = "b".repeat(24), card = "c".repeat(24), label = "d".repeat(24);
+  const graph = { nodes: [{ id: "manual", type: "trigger.manual", position: { x: 100, y: 100 }, config: {} }, { id: "trello", type: "action.trello.add-label", position: { x: 400, y: 100 }, config: { credentialId: "trello-1", sourceBoardId: board, cardId: card, labelId: label } }], edges: [] };
+  const workflow = { id: "trello-label", workspaceId: "workspace-1", name: "Trello label", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
+  await page.route("**/api/v1/**", async (route) => {
+    const url = new URL(route.request().url());
+    const path = url.pathname;
+    const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+    if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
+    if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
+    if (path.endsWith("/credentials")) return send({ credentials: [{ id: "trello-1", provider: "TRELLO", label: "My Trello" }] });
+    if (path.endsWith("/trello/boards")) return send({ boards: [{ id: board, name: "Planning" }, { id: otherBoard, name: "Work" }] });
+    if (path.endsWith("/trello/cards")) return send({ cards: url.searchParams.get("board") === board ? [{ id: card, name: "A card" }] : [] });
+    if (path.endsWith("/trello/labels")) return send({ labels: url.searchParams.get("board") === board ? [{ id: label, name: "Urgent" }] : [] });
+    if (path.endsWith("/workflows/trello-label")) return send({ workflow });
+    return route.continue();
+  });
+  await page.goto("/editor?workflow=trello-label");
+  await page.locator(".react-flow__node").filter({ hasText: "Add label" }).click();
+  const boardSelect = page.getByRole("group", { name: "Source board" }).getByRole("combobox");
+  const cardSelect = page.getByRole("group", { name: "Card", exact: true }).getByRole("combobox");
+  const labelSelect = page.getByRole("group", { name: "Label", exact: true }).getByRole("combobox");
+  await expect(labelSelect.getByRole("option", { name: "Urgent" })).toHaveAttribute("value", label);
+  await boardSelect.selectOption(otherBoard);
+  await expect(cardSelect).toHaveValue("");
+  await expect(labelSelect).toHaveValue("");
+});
+
 test("Trello card setup offers connected boards and lists and clears a stale list", async ({ page }) => {
   const board = "aaaaaaaaaaaaaaaaaaaaaaaa";
   const otherBoard = "bbbbbbbbbbbbbbbbbbbbbbbb";

@@ -87,6 +87,7 @@ export const nodeLibraryFilters: Array<{ id: NodeLibraryFilter; label: string }>
 ];
 
 export const appCatalog: AppDefinition[] = [
+  { id: "shopify", label: "Shopify", description: "Shopify", icon: "shopify", category: "productivity", aliases: ["orders"] },
   { id: "airtable", label: "Airtable", description: "Read and update records in your Airtable bases.", icon: "airtable", category: "productivity", aliases: ["tables", "records"] },
   { id: "jira", label: "Jira", description: "Create and manage issues in your Jira Cloud site.", icon: "jira", category: "productivity", aliases: ["atlassian", "issues", "project"] },
   { id: "gitlab", label: "GitLab", description: "Manage issues and react to pipelines and merge requests on gitlab.com.", icon: "gitlab", category: "developer-devops" },
@@ -145,6 +146,7 @@ export function edgeKindFromHandle(handle: string | null | undefined): WorkflowE
 }
 
 export const nodeCatalog: NodeDefinition[] = [
+  { type: "action.shopify.list-orders", label: "Shopify · List orders", description: "List orders", category: "action", libraryGroup: "productivity", appId: "shopify", operationId: "list-orders", operationLabel: "List orders", operationKind: "search", icon: "shopify", available: true, defaultConfig: { credentialId: "", limit: 20, orderName: "", cursor: "" }, configurationFields: getSharedNodeConfigurationFields("action.shopify.list-orders") },
   ...([ ["list-records", "List records"], ["get-record", "Get record"], ["create-record", "Create record"], ["update-record", "Update record"] ] as const).map(([operation, label]): NodeDefinition => ({
     type: `action.airtable.${operation}`, label: `Airtable · ${label}`, description: `${label} in a selected Airtable base.`, category: "action", libraryGroup: "productivity", appId: "airtable", operationId: operation, operationLabel: label, operationKind: operation === "list-records" || operation === "get-record" ? "search" : "action", icon: "airtable", available: true,
     defaultConfig: { credentialId: "", baseId: "", tableId: "", ...(operation === "list-records" ? { pageSize: 20, cursor: "" } : {}), ...(operation === "get-record" || operation === "update-record" ? { recordId: "" } : {}), ...(operation === "create-record" || operation === "update-record" ? { fields: [] } : {}) },
@@ -793,10 +795,13 @@ export const nodeCatalog: NodeDefinition[] = [
     ["action.trello.archive-card", "Archive card", "archive"],
     ["action.trello.list-cards", "List cards", "list"],
     ["action.trello.find-cards", "Find cards", "find"],
+    ["action.trello.add-comment", "Add comment", "comment"],
+    ["action.trello.add-label", "Add label", "add-label"],
+    ["action.trello.remove-label", "Remove label", "remove-label"],
   ] as const).map(([type, label, operation]): NodeDefinition => {
     const collection = operation === "list" || operation === "find";
     const fields = getSharedNodeConfigurationFields(type);
-    return { type, label: `Trello · ${label}`, description: `${label} in Trello.`, category: "action", libraryGroup: "productivity", appId: "trello", operationId: type.slice("action.trello.".length), operationLabel: label, operationKind: collection || operation === "get" ? "search" : "action", icon: "trello", available: true, defaultConfig: { credentialId: "", ...(collection ? { boardId: "", limit: 20 } : { sourceBoardId: "", cardId: "" }), ...(operation === "move" ? { boardId: "", listId: "" } : {}), ...(operation === "list" ? { filter: "open" } : {}), ...(operation === "find" ? { query: "", searchPagination: "pages", page: 0 } : {}) }, configurationFields: fields };
+    return { type, label: `Trello · ${label}`, description: `${label} in Trello.`, category: "action", libraryGroup: "productivity", appId: "trello", operationId: type.slice("action.trello.".length), operationLabel: label, operationKind: collection || operation === "get" ? "search" : "action", icon: "trello", available: true, defaultConfig: { credentialId: "", ...(collection ? { boardId: "", limit: 20 } : { sourceBoardId: "", cardId: "" }), ...(operation === "move" ? { boardId: "", listId: "" } : {}), ...(operation === "comment" ? { text: "" } : {}), ...(operation === "add-label" || operation === "remove-label" ? { labelId: "" } : {}), ...(operation === "list" ? { filter: "open" } : {}), ...(operation === "find" ? { query: "", searchPagination: "pages", page: 0 } : {}) }, configurationFields: fields };
   }),
 
   {

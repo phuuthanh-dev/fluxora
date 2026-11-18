@@ -76,6 +76,19 @@ export async function listTrelloLists(credential: Record<string, unknown>, board
   return mapOptions(await trelloRequest(`boards/${boardId}/lists?filter=open&fields=name`, credential, transport), "lists", credential);
 }
 
+export async function listTrelloLabels(credential: Record<string, unknown>, boardId: string, transport: Transport = fetchSafeOutbound) {
+  if (!idPattern.test(boardId)) throw new NodeFailure("INVALID_INPUT", "Choose a Trello board.", false);
+  const result = await trelloRequest(`boards/${boardId}/labels?fields=name,color,idBoard&limit=101`, credential, transport);
+  if (!Array.isArray(result) || result.length > 101) throw new NodeFailure("INVALID_RESPONSE", "Trello returned an invalid resource list.", false);
+  const labels = result.map((value: unknown) => {
+    const label = object(value);
+    if (!label || typeof label.id !== "string" || !idPattern.test(label.id) || typeof label.idBoard !== "string" || label.idBoard.toLowerCase() !== boardId.toLowerCase() || typeof label.name !== "string" || !(typeof label.color === "string" || label.color === null)) throw new NodeFailure("INVALID_RESPONSE", "Trello returned an invalid resource list.", false);
+    rejectCredentialEcho([label.id, label.name, label.color], credential);
+    return { id: label.id, name: (label.name.trim() || label.color || label.id).slice(0, 300) };
+  });
+  return { labels: labels.slice(0, 100), hasMore: labels.length > 100 };
+}
+
 export async function executeTrelloCreateCard(config: Record<string, unknown>, mode: "mock" | "live", workspaceId: string, credentials: CredentialService, transport?: Transport) {
   const issue = nodeConfigIssues("action.trello.create-card", config, "resolved")[0];
   if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);

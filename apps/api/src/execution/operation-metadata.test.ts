@@ -153,6 +153,7 @@ test("configured mock outputs contain the fields advertised by operation metadat
   const credentials = new Proxy({}, { get() { throw new Error("Mock must not read credentials"); } }) as never;
   const cases = [
     ["action.airtable.list-records", { baseId: "app12345678901234", tableId: "tbl12345678901234" }],
+    ["action.shopify.list-orders", { limit: 1 }],
     ["action.airtable.get-record", { baseId: "app12345678901234", tableId: "tbl12345678901234", recordId: "rec12345678901234" }],
     ["action.airtable.create-record", { baseId: "app12345678901234", tableId: "tbl12345678901234", fields: [{ column: "Name", type: "text", value: "Example" }] }],
     ["action.airtable.update-record", { baseId: "app12345678901234", tableId: "tbl12345678901234", recordId: "rec12345678901234", fields: [{ column: "Name", type: "text", value: "Updated" }] }],
@@ -204,6 +205,9 @@ test("configured mock outputs contain the fields advertised by operation metadat
     ["action.trello.update-card", { cardId: "cccccccccccccccccccccccc", title: "Example" }],
     ["action.trello.move-card", { cardId: "cccccccccccccccccccccccc", boardId: "aaaaaaaaaaaaaaaaaaaaaaaa", listId: "bbbbbbbbbbbbbbbbbbbbbbbb" }],
     ["action.trello.archive-card", { cardId: "cccccccccccccccccccccccc" }],
+    ["action.trello.add-comment", { cardId: "cccccccccccccccccccccccc", text: "Example" }],
+    ["action.trello.add-label", { cardId: "cccccccccccccccccccccccc", labelId: "bbbbbbbbbbbbbbbbbbbbbbbb" }],
+    ["action.trello.remove-label", { cardId: "cccccccccccccccccccccccc", labelId: "bbbbbbbbbbbbbbbbbbbbbbbb" }],
     ["action.trello.list-cards", { boardId: "aaaaaaaaaaaaaaaaaaaaaaaa" }],
     ["action.trello.find-cards", { boardId: "aaaaaaaaaaaaaaaaaaaaaaaa", query: "example", searchPagination: "pages", page: 0 }],
     ["action.sentry.get-issue", { organization: "example", project: "project", issueId: "123" }],

@@ -3,7 +3,7 @@ import { workflowNodeTypes, type DataTransformNodeType, type ExecutableWorkflowN
 /** Descriptive metadata only: it must not authorize execution or determine retry policy. */
 export type OperationCredentialProvider =
   | "GOOGLE" | "STEAM" | "GOOGLE_CHAT_WEBHOOK" | "GOOGLE_CHAT_OAUTH" | "GMAIL" | "GOOGLE_CALENDAR"
-  | "AIRTABLE" | "JIRA" | "MONGODB" | "NOTION" | "POSTGRES" | "HTTP" | "DISCORD_WEBHOOK" | "SLACK_WEBHOOK" | "SLACK_OAUTH" | "TELEGRAM_BOT" | "GITHUB" | "GITLAB"
+  | "AIRTABLE" | "SHOPIFY" | "JIRA" | "MONGODB" | "NOTION" | "POSTGRES" | "HTTP" | "DISCORD_WEBHOOK" | "SLACK_WEBHOOK" | "SLACK_OAUTH" | "TELEGRAM_BOT" | "GITHUB" | "GITLAB"
   | "SMTP" | "GEMINI" | "OPENAI" | "TRELLO" | "SENTRY" | "VERCEL" | "SUPABASE" | "REDDIT" | "RIOT";
 
 export type OperationAuth =
@@ -66,6 +66,7 @@ const trelloCard = fields("id", "name", "description", "boardId", "listId", "clo
 const triggerOutput = fields("received");
 
 const definitions = {
+  "action.shopify.list-orders": executable(credential("SHOPIFY"), "read", fields("orders", "hasMore", "nextCursor"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "limit", "orderName"] }),
   "action.airtable.list-records": executable(credential("AIRTABLE"), "read", fields("records", "nextCursor", "hasMore"), { kind: "continuation", input: "cursor", next: "nextCursor", hasMore: "hasMore", preserve: ["credentialId", "baseId", "tableId", "pageSize"] }),
   "action.airtable.get-record": executable(credential("AIRTABLE"), "read", fields("record")),
   "action.airtable.create-record": executable(credential("AIRTABLE"), "write", fields("record")),
@@ -79,6 +80,9 @@ const definitions = {
   "action.notion.create-page": executable(credential("NOTION"), "write", fields("pageId", "parentPageId")),
   "action.notion.update-title": executable(credential("NOTION"), "write", fields("pageId", "updatedField")),
   "action.notion.append-block": executable(credential("NOTION"), "write", fields("pageId", "blockId")),
+  "action.trello.add-comment": executable(credential("TRELLO"), "write", fields("cardId", "commentId")),
+  "action.trello.add-label": executable(credential("TRELLO"), "write", fields("cardId", "labelId")),
+  "action.trello.remove-label": executable(credential("TRELLO"), "write", fields("cardId", "labelId")),
   "action.trello.get-card": executable(credential("TRELLO"), "read", trelloCard),
   "action.trello.update-card": executable(credential("TRELLO"), "write", trelloCard),
   "action.trello.move-card": executable(credential("TRELLO"), "write", trelloCard),

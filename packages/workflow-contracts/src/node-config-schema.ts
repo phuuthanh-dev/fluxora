@@ -1,5 +1,6 @@
 import { jiraSearch, jiraCreate, jiraGet, jiraUpdate, jiraComment, jiraTrigger } from "./node-config-schemas/jira";
 import { airtableList, airtableGet, airtableCreate, airtableUpdate } from "./node-config-schemas/airtable";
+import { shopifyListOrders } from "./node-config-schemas/shopify";
 import { gitlabProject, gitlabListIssues, gitlabIssue, gitlabCreateIssue, gitlabComment, gitlabPipeline, gitlabMergeRequest, gitlabUpdateIssue, gitlabGetPipeline, gitlabGetMergeRequest } from "./node-config-schemas/gitlab";
 import { aggregate, splitOut, sortItems, limitItems, removeDuplicates, merge } from "./node-config-schemas/data-transform";
 import { steamOperation, steamSnapshot } from "./node-config-schemas/steam";
@@ -18,7 +19,7 @@ import { drive, driveCreateFolder, driveGetFile } from "./node-config-schemas/go
 import { docsCreate, docsGet, docsUpdate } from "./node-config-schemas/google-docs";
 import { googleSheets } from "./node-config-schemas/google-sheets";
 import { telegramEdit, telegramReply, telegramSend } from "./node-config-schemas/telegram";
-import { trelloCreate, trelloFind, trelloGet, trelloList, trelloMove, trelloUpdate } from "./node-config-schemas/trello";
+import { trelloCreate, trelloFind, trelloGet, trelloList, trelloMove, trelloUpdate, trelloComment, trelloLabel } from "./node-config-schemas/trello";
 import { notionAppend, notionCreateEntry, notionUpdateEntry, notionChildren, notionCreate, notionPage, notionProperty, notionQuery, notionSearch, notionUpdate } from "./node-config-schemas/notion";
 import { gmailGet, gmailLabel, gmailRead, gmailReply, gmailSend, gmailUpdateDraft } from "./node-config-schemas/gmail";
 import { calendarAvailability, calendarCreate, calendarEvent, calendarList, calendarUpdate } from "./node-config-schemas/google-calendar";
@@ -39,6 +40,7 @@ export { isCalendarResourceId } from "./node-config-schemas/google-calendar";
 
 // Only migrated nodes appear here. Missing entries are not validation claims.
 const rules: Readonly<Record<string, ConfigRules>> = {
+  "action.shopify.list-orders": shopifyListOrders,
   "action.airtable.list-records": airtableList,
   "action.airtable.get-record": airtableGet,
   "action.airtable.create-record": airtableCreate,
@@ -90,6 +92,9 @@ const rules: Readonly<Record<string, ConfigRules>> = {
   "action.trello.archive-card": trelloGet,
   "action.trello.list-cards": trelloList,
   "action.trello.find-cards": trelloFind,
+  "action.trello.add-comment": trelloComment,
+  "action.trello.add-label": trelloLabel,
+  "action.trello.remove-label": trelloLabel,
   "action.notion.search-pages": notionSearch,
   "action.notion.retrieve-page": notionPage,
   "action.notion.list-children": notionChildren,
