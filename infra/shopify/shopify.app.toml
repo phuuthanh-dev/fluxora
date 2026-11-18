@@ -1,5 +1,5 @@
 name = "Fluxora"
-client_id = "61adcc784322ff4763e75b24a554a45f"
+client_id = "eba0462920be39f75bca17faf6a679e4"
 application_url = "https://fluxora.io.vn/dashboard/connections"
 embedded = false
 
@@ -8,7 +8,7 @@ scopes = "read_orders,read_products"
 use_legacy_install_flow = true
 
 [auth]
-redirect_urls = ["https://api.fluxora.io.vn/api/v1/oauth/shopify/callback"]
+redirect_urls = ["https://api.fluxora.io.vn/api/v1/oauth/shopify/callback", "http://localhost:3481/api/v1/oauth/shopify/callback"]
 
 [webhooks]
 api_version = "2026-10"
