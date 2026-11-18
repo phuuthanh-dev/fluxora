@@ -563,8 +563,6 @@
         "apps/api/src/credentials/notion-oauth-state.service.ts",
         "apps/api/src/credentials/notion-oauth.controller.ts",
         "apps/api/src/credentials/openai-resource.controller.ts",
-        "apps/api/src/credentials/shopify-oauth-state.service.ts",
-        "apps/api/src/credentials/shopify-oauth.controller.ts",
         "apps/api/src/credentials/slack-oauth-state.service.ts",
         "apps/api/src/credentials/slack-oauth.controller.ts",
         "apps/api/src/credentials/slack-resource.controller.ts",
@@ -586,7 +584,6 @@
         "apps/api/src/credentials/jira-oauth.ts",
         "apps/api/src/credentials/jira-privacy-attribution.ts",
         "apps/api/src/credentials/notion-oauth.ts",
-        "apps/api/src/credentials/shopify-oauth.ts",
         "apps/api/src/database/prisma.service.ts",
         "apps/api/src/execution/gitlab.ts",
         "apps/api/src/execution/mongodb-find.ts",
@@ -879,60 +876,10 @@
       ]
     },
     {
-      "id": "apps/api/src/credentials/shopify-oauth-protocol.ts",
+      "id": "apps/api/src/credentials/shopify-domain.ts",
       "boundary": "api",
       "internalImports": [],
-      "externalImports": [
-        "node:crypto"
-      ]
-    },
-    {
-      "id": "apps/api/src/credentials/shopify-oauth-state.service.ts",
-      "boundary": "api",
-      "internalImports": [
-        "apps/api/src/credentials/oauth-state-store.ts",
-        "apps/api/src/credentials/shopify-oauth-protocol.ts"
-      ],
-      "externalImports": [
-        "@nestjs/common",
-        "express",
-        "ioredis"
-      ]
-    },
-    {
-      "id": "apps/api/src/credentials/shopify-oauth.controller.ts",
-      "boundary": "api",
-      "internalImports": [
-        "apps/api/src/auth/auth.service.ts",
-        "apps/api/src/auth/authenticated-request.ts",
-        "apps/api/src/auth/authentication.guard.ts",
-        "apps/api/src/credentials/credential-vault.service.ts",
-        "apps/api/src/credentials/credential.service.ts",
-        "apps/api/src/credentials/shopify-oauth-protocol.ts",
-        "apps/api/src/credentials/shopify-oauth-state.service.ts",
-        "apps/api/src/credentials/shopify-oauth.ts",
-        "apps/api/src/database/prisma.service.ts"
-      ],
-      "externalImports": [
-        "@nestjs/common",
-        "@prisma/client",
-        "express"
-      ]
-    },
-    {
-      "id": "apps/api/src/credentials/shopify-oauth.ts",
-      "boundary": "api",
-      "internalImports": [
-        "apps/api/src/credentials/credential-vault.service.ts",
-        "apps/api/src/credentials/shopify-oauth-protocol.ts",
-        "apps/api/src/database/prisma.service.ts",
-        "apps/api/src/execution/provider-json.ts"
-      ],
-      "externalImports": [
-        "@nestjs/common",
-        "@prisma/client",
-        "node:crypto"
-      ]
+      "externalImports": []
     },
     {
       "id": "apps/api/src/credentials/shopify-privacy.service.ts",
@@ -940,7 +887,7 @@
       "internalImports": [
         "apps/api/src/credentials/credential-references.ts",
         "apps/api/src/credentials/credential-vault.service.ts",
-        "apps/api/src/credentials/shopify-oauth-protocol.ts",
+        "apps/api/src/credentials/shopify-domain.ts",
         "apps/api/src/database/prisma.service.ts",
         "apps/api/src/webhooks/shopify-trigger-protocol.ts"
       ],
@@ -1990,8 +1937,14 @@
     {
       "id": "apps/api/src/execution/shopify-credential.ts",
       "boundary": "api",
-      "internalImports": [],
-      "externalImports": []
+      "internalImports": [
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-request-policy.ts"
+      ],
+      "externalImports": [
+        "node:crypto"
+      ]
     },
     {
       "id": "apps/api/src/execution/shopify-resources.ts",
@@ -5934,14 +5887,6 @@
     },
     {
       "from": "apps/api/src/credentials/credential.module.ts",
-      "to": "apps/api/src/credentials/shopify-oauth-state.service.ts"
-    },
-    {
-      "from": "apps/api/src/credentials/credential.module.ts",
-      "to": "apps/api/src/credentials/shopify-oauth.controller.ts"
-    },
-    {
-      "from": "apps/api/src/credentials/credential.module.ts",
       "to": "apps/api/src/credentials/slack-oauth-state.service.ts"
     },
     {
@@ -5987,10 +5932,6 @@
     {
       "from": "apps/api/src/credentials/credential.service.ts",
       "to": "apps/api/src/credentials/notion-oauth.ts"
-    },
-    {
-      "from": "apps/api/src/credentials/credential.service.ts",
-      "to": "apps/api/src/credentials/shopify-oauth.ts"
     },
     {
       "from": "apps/api/src/credentials/credential.service.ts",
@@ -6301,66 +6242,6 @@
       "to": "apps/api/src/execution/openai-text.ts"
     },
     {
-      "from": "apps/api/src/credentials/shopify-oauth-state.service.ts",
-      "to": "apps/api/src/credentials/oauth-state-store.ts"
-    },
-    {
-      "from": "apps/api/src/credentials/shopify-oauth-state.service.ts",
-      "to": "apps/api/src/credentials/shopify-oauth-protocol.ts"
-    },
-    {
-      "from": "apps/api/src/credentials/shopify-oauth.controller.ts",
-      "to": "apps/api/src/auth/auth.service.ts"
-    },
-    {
-      "from": "apps/api/src/credentials/shopify-oauth.controller.ts",
-      "to": "apps/api/src/auth/authenticated-request.ts"
-    },
-    {
-      "from": "apps/api/src/credentials/shopify-oauth.controller.ts",
-      "to": "apps/api/src/auth/authentication.guard.ts"
-    },
-    {
-      "from": "apps/api/src/credentials/shopify-oauth.controller.ts",
-      "to": "apps/api/src/credentials/credential-vault.service.ts"
-    },
-    {
-      "from": "apps/api/src/credentials/shopify-oauth.controller.ts",
-      "to": "apps/api/src/credentials/credential.service.ts"
-    },
-    {
-      "from": "apps/api/src/credentials/shopify-oauth.controller.ts",
-      "to": "apps/api/src/credentials/shopify-oauth-protocol.ts"
-    },
-    {
-      "from": "apps/api/src/credentials/shopify-oauth.controller.ts",
-      "to": "apps/api/src/credentials/shopify-oauth-state.service.ts"
-    },
-    {
-      "from": "apps/api/src/credentials/shopify-oauth.controller.ts",
-      "to": "apps/api/src/credentials/shopify-oauth.ts"
-    },
-    {
-      "from": "apps/api/src/credentials/shopify-oauth.controller.ts",
-      "to": "apps/api/src/database/prisma.service.ts"
-    },
-    {
-      "from": "apps/api/src/credentials/shopify-oauth.ts",
-      "to": "apps/api/src/credentials/credential-vault.service.ts"
-    },
-    {
-      "from": "apps/api/src/credentials/shopify-oauth.ts",
-      "to": "apps/api/src/credentials/shopify-oauth-protocol.ts"
-    },
-    {
-      "from": "apps/api/src/credentials/shopify-oauth.ts",
-      "to": "apps/api/src/database/prisma.service.ts"
-    },
-    {
-      "from": "apps/api/src/credentials/shopify-oauth.ts",
-      "to": "apps/api/src/execution/provider-json.ts"
-    },
-    {
       "from": "apps/api/src/credentials/shopify-privacy.service.ts",
       "to": "apps/api/src/credentials/credential-references.ts"
     },
@@ -6370,7 +6251,7 @@
     },
     {
       "from": "apps/api/src/credentials/shopify-privacy.service.ts",
-      "to": "apps/api/src/credentials/shopify-oauth-protocol.ts"
+      "to": "apps/api/src/credentials/shopify-domain.ts"
     },
     {
       "from": "apps/api/src/credentials/shopify-privacy.service.ts",
@@ -7671,6 +7552,18 @@
     {
       "from": "apps/api/src/execution/sentry.ts",
       "to": "apps/api/src/execution/sentry-pagination.ts"
+    },
+    {
+      "from": "apps/api/src/execution/shopify-credential.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/shopify-credential.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/shopify-credential.ts",
+      "to": "apps/api/src/execution/provider-request-policy.ts"
     },
     {
       "from": "apps/api/src/execution/shopify-resources.ts",

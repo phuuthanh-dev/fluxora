@@ -3,7 +3,7 @@ import { createHmac } from "node:crypto";
 import { PrismaService } from "../database/prisma.service";
 import { verifyShopifySignature } from "../webhooks/shopify-trigger-protocol";
 import { CredentialVaultService } from "./credential-vault.service";
-import { shopifyShop } from "./shopify-oauth-protocol";
+import { shopifyShop } from "./shopify-domain";
 import { graphCredentialIds } from "./credential-references";
 
 const kinds = new Set(["customer-data", "customer-redact", "shop-redact"]);

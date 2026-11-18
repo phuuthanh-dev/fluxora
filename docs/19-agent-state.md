@@ -1,5 +1,10 @@
 # Agent Current State Gate
 
+## Shopify store-owned credentials — 2026-11-18 (local change)
+
+- Owner requested removing shared-app Shopify OAuth and using each store's Client ID and Client Secret, with automatic access-token reacquisition; existing manual Admin API tokens remain supported. The local change keeps old connection records and workflow bindings; a formerly shared-OAuth connection needs its secret replaced in the same connection. The prior Shopify privacy request handler and records remain for existing requests. In an isolated local workspace, the owner entered credentials for the existing Partner app installed on `fluxora-partner-qa.myshopify.com`; a live product discovery request returned the sample product successfully. That app is public and the store is in the same owner portfolio: this does not qualify a separate merchant or prove the behaviour of every custom app. Token expiry and reacquisition were tested with mocks; production deployment and a full live workflow with this credential remain unverified.
+- Shopify's client-credentials grant is limited to an app and store in the same Shopify organization: [Shopify documentation](https://shopify.dev/docs/apps/build/authentication-authorization/client-credentials-grant). No App Store registration or payment is part of this change.
+
 ## Shopify OAuth and webhooks — 2026-11-18 (Partner setup)
 
 - PR #161 added store-scoped Shopify OAuth alongside the existing manual token connection. Offline token refresh is serialized per Shopify store; credentials remain workspace-scoped. A Partner organization and Partner-owned app exist, and public distribution was selected. PR #162 deployed the Partner client configuration to production; the API reports the expected client and callback configured. Shopify App Store registration and review, protected customer data approval and independent-merchant qualification remain open.
