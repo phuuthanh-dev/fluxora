@@ -8,17 +8,30 @@ import { RuntimeHealthService } from "../platform/runtime-health.service";
 import { AdminGuard } from "./admin.guard";
 import { adminId, auditFilters, type AdminScope, type AuditFilters } from "./admin-query";
 import { JiraPrivacyService } from "./jira-privacy.service";
+import { ShopifyPrivacyService } from "../credentials/shopify-privacy.service";
 import { effectivePlan } from "@workflow/contracts";
 
 @Controller("admin")
 @UseGuards(AccountRequestGuard, AuthenticationGuard, AdminGuard)
 @UseFilters(AccountExceptionFilter)
 export class AdminController {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService, @Inject(RuntimeHealthService) private readonly health: RuntimeHealthService, @Inject(JiraPrivacyService) private readonly jiraPrivacy: JiraPrivacyService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService, @Inject(RuntimeHealthService) private readonly health: RuntimeHealthService, @Inject(JiraPrivacyService) private readonly jiraPrivacy: JiraPrivacyService, @Inject(ShopifyPrivacyService) private readonly shopifyPrivacy: ShopifyPrivacyService) {}
 
   @Get("access")
   @Header("Cache-Control", "no-store")
   access(@Req() request: AuthenticatedRequest) { return { allowed: true, userId: request.currentUser!.id }; }
+
+  @Get("shopify-data-requests")
+  @Header("Cache-Control", "no-store")
+  async shopifyDataRequests() { return { requests: await this.shopifyPrivacy.list() }; }
+
+  @Get("shopify-data-requests/:id")
+  @Header("Cache-Control", "no-store")
+  shopifyDataRequest(@Param("id") id: string) { return this.shopifyPrivacy.detail(id); }
+
+  @Post("shopify-data-requests/:id/resolve")
+  @Header("Cache-Control", "no-store")
+  shopifyDataRequestResolve(@Param("id") id: string, @Req() request: AuthenticatedRequest, @Body() body: Record<string, unknown>) { return this.shopifyPrivacy.resolve(id, request.currentUser!.id, body?.reviewed); }
 
   @Get("jira-privacy-reporting")
   @Header("Cache-Control", "no-store")

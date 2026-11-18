@@ -16,7 +16,7 @@ test("disabling an account revokes sessions and writes an audit event in the tra
     session: { updateMany: async () => { calls.push("revoked"); return { count: 2 }; } },
     auditLog: { create: async ({ data }: { data: { action: string } }) => { calls.push(data.action); } },
   };
-  const controller = new AdminController({ $transaction: async (fn: (arg: typeof tx) => Promise<unknown>) => fn(tx) } as never, {} as never, {} as never);
+  const controller = new AdminController({ $transaction: async (fn: (arg: typeof tx) => Promise<unknown>) => fn(tx) } as never, {} as never, {} as never, {} as never);
   const request = { currentUser: { id: "admin" } } as never;
   assert.deepEqual(await controller.setAccountState("target", "disable", request), { disabled: true });
   assert.deepEqual(calls, ["disabled", "revoked", "admin.account_disabled"]);
@@ -46,7 +46,7 @@ test("administrative execution and audit queries select metadata without payload
   const controller = new AdminController({
     execution: { findMany: async (query: unknown) => { executionQuery = query; return []; } },
     auditLog: { findMany: async (query: unknown) => { auditQuery = query; return []; } },
-  } as never, {} as never, {} as never);
+  } as never, {} as never, {} as never, {} as never);
   await controller.executions(); await controller.audit();
   const requested = JSON.stringify([executionQuery, auditQuery]);
   for (const forbidden of ["triggerData", "errorMessage", "metadata", "encryptedData", "tokenHash"]) assert.equal(requested.includes(forbidden), false);
@@ -55,7 +55,7 @@ test("administrative execution and audit queries select metadata without payload
 
 test("admin execution filters are validated and combined without exposing run payloads", async () => {
   let query: { where: Record<string, unknown> } | undefined;
-  const controller = new AdminController({ execution: { findMany: async (input: { where: Record<string, unknown> }) => { query = input; return []; } } } as never, {} as never, {} as never);
+  const controller = new AdminController({ execution: { findMany: async (input: { where: Record<string, unknown> }) => { query = input; return []; } } } as never, {} as never, {} as never, {} as never);
   await controller.executions("Steam", "2", "FAILED", "24h");
   assert.equal(query?.where.status, "FAILED");
   assert.ok(query?.where.createdAt);
@@ -67,7 +67,7 @@ test("admin execution filters are validated and combined without exposing run pa
 test("admin contextual filters validate IDs and bound combined audit dates to UTC days", async () => {
   const queries: Record<string, { where: Record<string, unknown>; skip: number; take: number }> = {};
   const model = (name: string) => ({ findMany: async (query: typeof queries[string]) => { queries[name] = query; return []; } });
-  const controller = new AdminController({ user: model("user"), workspace: model("workspace"), workflow: model("workflow"), execution: model("execution"), auditLog: model("audit") } as never, {} as never, {} as never);
+  const controller = new AdminController({ user: model("user"), workspace: model("workspace"), workflow: model("workflow"), execution: model("execution"), auditLog: model("audit") } as never, {} as never, {} as never, {} as never);
   await controller.users(undefined, undefined, "user-1");
   await controller.workspaces("Test", "1", { userId: "user-1", workspaceId: "space-1" });
   await controller.workflows(undefined, "2", { workspaceId: "space-1", workflowId: "flow-1" });
@@ -86,10 +86,11 @@ test("admin contextual filters validate IDs and bound combined audit dates to UT
   for (const filters of [{ from: "2026-02-30" }, { from: "2026-11-10", to: "2026-11-01" }, { actor: ["one", "two"] }, { targetId: "x".repeat(129) }]) await assert.rejects(controller.audit(undefined, undefined, filters as never));
 });
 
-test("Jira privacy endpoints inherit administrator, session and mutation-origin protection", () => {
+test("Provider privacy endpoints inherit administrator, session and mutation-origin protection", () => {
   const guards: unknown[] = Reflect.getMetadata(GUARDS_METADATA, AdminController);
   for (const guard of [AdminGuard, AuthenticationGuard, AccountRequestGuard]) assert.ok(guards.includes(guard));
   for (const method of ["jiraPrivacyRecords", "jiraPrivacyDiscover", "jiraPrivacyPreview", "jiraPrivacyResolve", "jiraPrivacyRecover"] as const) assert.equal(typeof AdminController.prototype[method], "function");
+  for (const method of ["shopifyDataRequests", "shopifyDataRequest", "shopifyDataRequestResolve"] as const) assert.equal(typeof AdminController.prototype[method], "function");
 });
 
 test("trial assignment validates input, records audit and never charges or mutates workflows", async () => {
@@ -103,7 +104,7 @@ test("trial assignment validates input, records audit and never charges or mutat
     },
     auditLog: { create: async ({ data }: { data: { action: string; actorId: string } }) => { calls.push(data.action); assert.equal(data.actorId, "admin"); } },
   };
-  const controller = new AdminController({ $transaction: async (fn: (arg: typeof tx) => Promise<unknown>) => fn(tx) } as never, {} as never, {} as never);
+  const controller = new AdminController({ $transaction: async (fn: (arg: typeof tx) => Promise<unknown>) => fn(tx) } as never, {} as never, {} as never, {} as never);
   const request = { currentUser: { id: "admin" } } as never;
   await assert.rejects(controller.setTrialPlan("space-1", request, { plan: "PRO", days: 999 }));
   await assert.rejects(controller.setTrialPlan("space-1", request, { plan: "PRO", days: "14" }));

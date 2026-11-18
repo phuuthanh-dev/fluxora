@@ -12,6 +12,7 @@ import { SessionLoading } from "../auth/session-loading";
 import { AdminShell } from "./admin-shell";
 import { adminLabel, type AdminSection } from "./admin-sections";
 import { JiraPrivacyPanel } from "./jira-privacy-panel";
+import { ShopifyPrivacyPanel } from "./shopify-privacy-panel";
 import { TrialPlanDialog } from "./trial-plan-dialog";
 import "./admin.css";
 
@@ -146,7 +147,7 @@ export function AdminDashboard({ section = "overview", initialStatus = "", scope
         <section className="admin-card"><CircleHelp size={22} aria-hidden="true" /><h2>Support requests</h2><p>Review incoming requests through the published support channel. Confirm which account and workspace need help.</p><Link className="admin-text-link" href="/support">Open support information<ArrowUpRight size={15} aria-hidden="true" /></Link></section>
         <section className="admin-card"><ShieldCheck size={22} aria-hidden="true" /><h2>Privacy and data requests</h2><p>Verify ownership and review the affected data before taking action. Provider requests appear here when they need attention.</p><Button variant="secondary" aria-expanded={requestsOpen} aria-controls="admin-data-requests" onClick={() => setRequestsOpen((value) => !value)}>{requestsOpen ? "Hide data requests" : "Review data requests"}</Button><Link className="admin-text-link" href="/privacy">Read the privacy policy<ArrowUpRight size={15} aria-hidden="true" /></Link></section>
       </div>
-      <section id="admin-data-requests" aria-label="Data requests" hidden={!requestsOpen}>{requestsOpen && <JiraPrivacyPanel key={refresh} />}</section>
+      <section id="admin-data-requests" aria-label="Data requests" hidden={!requestsOpen}>{requestsOpen && <><ShopifyPrivacyPanel key={`shopify-${refresh}`} /><JiraPrivacyPanel key={`jira-${refresh}`} /></>}</section>
     </>}
     {section !== "overview" && section !== "support" && <section className="admin-list" aria-busy={busy}>
       <form className="admin-search" onSubmit={(event) => { event.preventDefault(); setPage(1); setSearch(searchDraft.trim()); setAuditSearch(auditDraft); }}>

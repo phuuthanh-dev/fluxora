@@ -4,8 +4,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 const maxBytes = 256 * 1024;
 const invalid = () => new BadRequestException({ code: "SHOPIFY_WEBHOOK_INVALID", message: "Shopify webhook data is invalid." });
 
-export function verifyShopifySignature(raw: unknown, signature: unknown, secret: unknown) {
-  if (!Buffer.isBuffer(raw) || raw.length > maxBytes || typeof signature !== "string" || !/^[A-Za-z0-9+/]{43}=$/.test(signature) || typeof secret !== "string" || !secret || Buffer.byteLength(secret) > 1024) return false;
+export function verifyShopifySignature(raw: unknown, signature: unknown, secret: unknown, maximumBytes = maxBytes) {
+  if (!Buffer.isBuffer(raw) || raw.length > maximumBytes || typeof signature !== "string" || !/^[A-Za-z0-9+/]{43}=$/.test(signature) || typeof secret !== "string" || !secret || Buffer.byteLength(secret) > 1024) return false;
   const received = Buffer.from(signature, "base64");
   if (received.length !== 32 || received.toString("base64") !== signature) return false;
   return timingSafeEqual(received, createHmac("sha256", secret).update(raw).digest());

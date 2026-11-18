@@ -1,4 +1,6 @@
 import { SlackEventsController } from "./slack-events.controller";
+import { ShopifyPrivacyController } from "./shopify-privacy.controller";
+import { ShopifyPrivacyService } from "../credentials/shopify-privacy.service";
 import { SlackDeliveryRecoveryService } from "./slack-delivery-recovery.service";
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
@@ -23,9 +25,10 @@ import { JiraDeliveryRecoveryService } from "./jira-delivery-recovery.service";
 
 @Module({
   imports: [AuthModule, CredentialModule, ExecutionModule],
-  controllers: [WebhookController, SlackEventsController],
+  controllers: [WebhookController, SlackEventsController, ShopifyPrivacyController],
   providers: [
     WebhookService,
+    ShopifyPrivacyService,
     ProviderWebhookRecoveryService,
     KumaDeliveryRecoveryService,
     TelegramDeliveryRecoveryService,

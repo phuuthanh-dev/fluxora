@@ -1,4 +1,6 @@
 import { JiraOAuthController } from "./jira-oauth.controller";
+import { ShopifyOAuthController } from "./shopify-oauth.controller";
+import { ShopifyOAuthStateService } from "./shopify-oauth-state.service";
 import { AirtableOAuthController } from "./airtable-oauth.controller";
 import { AirtableResourceController } from "./airtable-resource.controller";
 import { AirtableOAuthStateService } from "./airtable-oauth-state.service";
@@ -29,8 +31,8 @@ import { SlackResourceController } from "./slack-resource.controller";
 
 @Module({
   imports: [AuthModule, WorkspaceModule],
-  controllers: [AirtableOAuthController, AirtableResourceController, JiraOAuthController, NotionOAuthController, CredentialController, GoogleOAuthController, SlackOAuthController, SlackResourceController, GitHubResourceController, GoogleResourceController, GeminiResourceController, OpenAIResourceController, ConnectorResourceController, GoogleCalendarResourceController, GmailResourceController],
-  providers: [AirtableOAuthStateService, JiraOAuthStateService, NotionOAuthStateService, CredentialService, CredentialVaultService, GoogleOAuthStateService, SlackOAuthStateService, GitHubResourceService, GoogleResourceService, AccountRequestGuard],
+  controllers: [ShopifyOAuthController, AirtableOAuthController, AirtableResourceController, JiraOAuthController, NotionOAuthController, CredentialController, GoogleOAuthController, SlackOAuthController, SlackResourceController, GitHubResourceController, GoogleResourceController, GeminiResourceController, OpenAIResourceController, ConnectorResourceController, GoogleCalendarResourceController, GmailResourceController],
+  providers: [ShopifyOAuthStateService, AirtableOAuthStateService, JiraOAuthStateService, NotionOAuthStateService, CredentialService, CredentialVaultService, GoogleOAuthStateService, SlackOAuthStateService, GitHubResourceService, GoogleResourceService, AccountRequestGuard],
   exports: [CredentialService, CredentialVaultService],
 })
 export class CredentialModule {}

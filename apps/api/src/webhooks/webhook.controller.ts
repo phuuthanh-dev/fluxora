@@ -93,7 +93,7 @@ export class WebhookController {
     const query = new URLSearchParams((request.originalUrl ?? "").split("?")[1] ?? "");
     const jiraDeliveryTokens = query.getAll("delivery");
     const result = await this.webhooks.receive(path, secret, request.body, readIdempotencyKey(idempotencyKey), { githubEvent, githubSignature, githubDelivery: readIdempotencyKey(githubDelivery), rawBody }, telegramSecret, vercelSignature, trelloSignature, sentrySignature, sentryResource, { signature: slackSignature, timestamp: slackTimestamp }, { event: gitlabEvent, id: gitlabId, timestamp: gitlabTimestamp, signature: gitlabSignature }, { authorization: jiraAuthorization, deliveryId: jiraDelivery, deliveryToken: jiraDeliveryTokens.length === 1 && [...query.keys()].length === 1 ? jiraDeliveryTokens[0] : undefined }, { signature: shopifySignature, topic: shopifyTopic, shop: shopifyShop });
-    if (slackSignature !== undefined || gitlabSignature !== undefined) response?.status(200);
+    if (slackSignature !== undefined || gitlabSignature !== undefined || shopifySignature !== undefined) response?.status(200);
     return result;
   }
 

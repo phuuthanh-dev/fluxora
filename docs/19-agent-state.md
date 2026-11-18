@@ -1,5 +1,12 @@
 # Agent Current State Gate
 
+## Shopify OAuth and webhooks — 2026-11-18 (local candidate)
+
+- The current batch adds store-scoped Shopify OAuth alongside the existing manual token connection. Offline token refresh is serialized per Shopify store; credentials remain workspace-scoped. Shopify's public app review, protected customer data approval, deployment configuration and independent-store qualification remain open.
+- On the owner-approved test store, Shopify sent a real order-created webhook for a free sample order and the local workflow succeeded. The temporary store webhook was removed. The OAuth connection subsequently read only sample order #1001, refreshed its offline token, and read the same order again. A separate OAuth-backed local workflow also completed successfully on that sample order and was deactivated; no second store was tested.
+- Signed Shopify privacy requests are recorded for Support review. Marking a request handled does not erase data or notify a store; the operator must complete and verify the request separately within Shopify's deadline. The required provider subscriptions are configured in source but not deployed to Shopify. Public distribution must not be treated as ready until the end-to-end process is verified.
+- Git origin `main` and `develop` were observed at merge `dfbff5b` when this batch began. The candidate remains local pending final checks and release; this observation alone does not establish production health. Preserve the pre-existing `AGENTS.md`, `apps/web/next-env.d.ts` and unrelated task file changes.
+
 ## Mobile editor and operations candidate — 2026-11-17
 
 - The mobile editor uses the viewport width, opens the node library as a panel and starts with the minimap closed. Its dashboard navigation, save, publish and run controls remain available. Desktop behavior is unchanged. Direct visual inspection covered 390px and desktop in both themes, including the mobile library; the focused mobile browser test also checks the inspector and keyboard focus. This is not a complete device or accessibility audit.

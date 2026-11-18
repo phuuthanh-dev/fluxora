@@ -98,7 +98,7 @@ This inventory describes catalog operations, not complete vendor APIs. A node ma
 | Notion | Search/retrieve pages, list children, retrieve property, query data source, create page, update title, append paragraph; typed create/update database pages with source-property discovery; page trigger | Production search of a designated test page succeeded after the VPS move; separate tests used a second Notion workspace under the same Fluxora user. Refresh, independent-user isolation and other operations remain separate qualifications. See [docs/19](19-agent-state.md) and [docs/47](47-data-notion-gitlab.md). |
 | GitLab.com | Get project, list/get/create/update issue, add comment, get pipeline/merge request; signed pipeline and merge-request events | An owner-authorized test issue/comment succeeded; this does not qualify every operation or event. Manual remote webhook registration uses a separate signing token. See [docs/19](19-agent-state.md) and [docs/47](47-data-notion-gitlab.md). |
 | Trello | Create/get/update/move/archive/list/find cards; add comment and add/remove label; board-action trigger | Test cards were created locally and in production; the production card was labelled. The new comment and label operations have automated checks but have not been tested live. The other operations and trigger require separate live evidence. |
-| Shopify | List/get orders, list/get products using an existing store-scoped Admin API token; manual order-created webhook | One explicitly selected sample order was read successfully in an isolated local workspace. New reads and the manual webhook require qualification; they are not yet proven against a live store. The webhook uses the store signing secret shown in Shopify Admin → Settings → Notifications → Webhooks, and the store owner must add its URL in Shopify. Public multi-store OAuth and automatic webhook registration are not implemented. The token privileges depend on its app and store. |
+| Shopify | List/get orders, list/get products; store-scoped Admin API token; manual order-created webhook | A sample order was read from an explicitly approved store, and a free order in a separate test store triggered a local workflow. The manual webhook uses the store signing secret in Shopify Admin; the store owner adds its URL. On 2026-11-18 local OAuth read only the test store's order #1001, refreshed its expiring offline token and read the same order again; a separate OAuth-backed workflow also succeeded on that order and was deactivated. OAuth is not yet qualified for public use. |
 | Sentry | List/get issues; issue-created trigger | Production list read succeeded for a test project; get and trigger require separate live evidence. |
 | Vercel | List deployments, look up public deployment, deployment trigger | Production list read previously succeeded for `my-portfolio`; on 2026-11-17 project discovery failed and the named test token was expired. Replacement was deferred by the owner. Trigger and public lookup need separate evidence; deploy mutations are absent. |
 | Supabase | Select rows; insert row | Local and production select reads previously succeeded on the designated test table. On 2026-11-17 table discovery reported management-token denial and the named test tokens were expired; replacement was deferred. This does not establish whether row reads still work. Insert needs separate live evidence; arbitrary SQL is not supported. |
@@ -109,6 +109,19 @@ This inventory describes catalog operations, not complete vendor APIs. A node ma
 | GitHub | Four event triggers; create/list/get/update issue, add label/comment, list/get/merge pull request | Several scoped operations were tested; merge and sustained production behavior still require separate evidence. |
 | Facebook Meta | Manage content | Planned only, cannot run. |
 | Instagram | Manage content | Planned only, cannot run. |
+
+Shopify requires applications distributed via its App Store to subscribe to
+customer data requests, customer redaction and shop redaction webhooks and
+complete requests within 30 days. The local implementation records signed requests
+for administrator review in Support; marking a request handled does **not** erase
+data, notify a store or cover copies outside Fluxora. The operator must complete
+those actions and review workflow configuration and external destinations
+before closing the request. This is an operational process, not an automatic
+compliance guarantee. Public distribution requires Shopify review, deployed
+privacy webhook subscriptions, and verification of OAuth with independent stores.
+See [Shopify privacy requirements](https://shopify.dev/docs/apps/build/compliance/privacy-law-compliance),
+[Shopify offline tokens](https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens),
+and [n8n's Shopify credentials](https://docs.n8n.io/integrations/builtin/credentials/shopify/).
 
 ## Qualification checklist for each new operation
 
