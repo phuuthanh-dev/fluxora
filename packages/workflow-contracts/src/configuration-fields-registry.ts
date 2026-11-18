@@ -29,6 +29,36 @@ const sharedFields = {
     { kind: "credential", key: "credentialId", label: "Shopify connection", providers: ["SHOPIFY"] },
     { kind: "resource", key: "resourceId", label: "Product", resource: "shopify-product", credentialKey: "credentialId", placeholder: "Search products" },
   ],
+  "action.shopify.create-product": () => [
+    { kind: "credential", key: "credentialId", label: "Shopify connection", providers: ["SHOPIFY"] },
+    { kind: "text", key: "title", label: "Title" },
+    { kind: "select", key: "status", label: "Status", options: [{ value: "DRAFT", label: "Draft" }, { value: "ACTIVE", label: "Active" }, { value: "ARCHIVED", label: "Archived" }] },
+  ],
+  "action.shopify.update-product": () => [
+    { kind: "credential", key: "credentialId", label: "Shopify connection", providers: ["SHOPIFY"] },
+    { kind: "resource", key: "resourceId", label: "Product", resource: "shopify-product", credentialKey: "credentialId", placeholder: "Search products" },
+    { kind: "select", key: "field", label: "Field to update", options: [{ value: "title", label: "Title" }, { value: "status", label: "Status" }] },
+    { kind: "text", key: "title", label: "New title", visibleWhen: { key: "field", equals: "title", fallback: "title" } },
+    { kind: "select", key: "status", label: "Status", options: [{ value: "DRAFT", label: "Draft" }, { value: "ACTIVE", label: "Active" }, { value: "ARCHIVED", label: "Archived" }], visibleWhen: { key: "field", equals: "status" } },
+  ],
+  "action.shopify.delete-product": () => [
+    { kind: "credential", key: "credentialId", label: "Shopify connection", providers: ["SHOPIFY"] },
+    { kind: "resource", key: "resourceId", label: "Product", resource: "shopify-product", credentialKey: "credentialId", placeholder: "Search products" },
+  ],
+  "action.shopify.create-order": () => [
+    { kind: "credential", key: "credentialId", label: "Shopify connection", providers: ["SHOPIFY"] },
+    { kind: "resource", key: "variantId", label: "Product variant", resource: "shopify-variant", credentialKey: "credentialId" },
+    { kind: "number", key: "quantity", label: "Quantity", fallbackValue: 1 },
+  ],
+  "action.shopify.update-order": () => [
+    { kind: "credential", key: "credentialId", label: "Shopify connection", providers: ["SHOPIFY"] },
+    { kind: "resource", key: "resourceId", label: "Order", resource: "shopify-order", credentialKey: "credentialId", placeholder: "Search orders" },
+    { kind: "textarea", key: "note", label: "Note" },
+  ],
+  "action.shopify.delete-order": () => [
+    { kind: "credential", key: "credentialId", label: "Shopify connection", providers: ["SHOPIFY"] },
+    { kind: "resource", key: "resourceId", label: "Order", resource: "shopify-order", credentialKey: "credentialId", placeholder: "Search orders" },
+  ],
   "action.shopify.list-products": () => [
     { kind: "credential", key: "credentialId", label: "Shopify connection", providers: ["SHOPIFY"] },
     { kind: "number", key: "limit", label: "Maximum products (1–50)", fallbackValue: 20 },

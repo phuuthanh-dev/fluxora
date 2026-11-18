@@ -1,5 +1,11 @@
 # Agent Current State Gate
 
+## Shopify product and order operations — 2026-11-18 (local change)
+
+- The Shopify app groups existing read operations with basic create, update and delete operations for products and orders. Product creation sets a title and status; product updates set one of those fields. Order creation accepts one variant and quantity, does not reserve inventory or send receipts, and order updates only change the note. Deletion is irreversible. These do not cover every field or behavior in n8n's Shopify node.
+- Product writes require `write_products`; order writes require `write_orders` and, for order creation, an offline token. Permissions and Shopify protected-customer-data approval remain store-specific. Ambiguous write outcomes stop without automatic retry. Client-credentials production qualification and live writes need separate evidence; no production test data was modified by this change.
+- The Shopify connection form places the existing custom-app guidance on its own line and shows it only for the client-credentials method.
+
 ## Shopify store-owned credentials — 2026-11-18 (local change)
 
 - Owner requested removing shared-app Shopify OAuth and using each store's Client ID and Client Secret, with automatic access-token reacquisition; existing manual Admin API tokens remain supported. The local change keeps old connection records and workflow bindings; a formerly shared-OAuth connection needs its secret replaced in the same connection. The prior Shopify privacy request handler and records remain for existing requests. In an isolated local workspace, the owner entered credentials for the existing Partner app installed on `fluxora-partner-qa.myshopify.com`; a live product discovery request returned the sample product successfully. That app is public and the store is in the same owner portfolio: this does not qualify a separate merchant or prove the behaviour of every custom app. Token expiry and reacquisition were tested with mocks; production deployment and a full live workflow with this credential remain unverified.

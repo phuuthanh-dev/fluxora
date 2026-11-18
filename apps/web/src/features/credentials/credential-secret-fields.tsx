@@ -55,6 +55,7 @@ export function CredentialSecretFields({ provider, value, onChange, replacement 
   provider: CredentialProvider; value: string; onChange: (value: string) => void; replacement?: boolean;
 }) {
   const [advanced, setAdvanced] = useState(false);
+  const shopifyHintId = useId();
   const [caFileError, setCaFileError] = useState("");
   const currentValue = useRef(value);
   const currentProvider = useRef(provider);
@@ -86,8 +87,9 @@ export function CredentialSecretFields({ provider, value, onChange, replacement 
       {!payload && <p className="credential-secret-fields__help">Correct the JSON object before switching back to fields.</p>}
     </> : <div className={`credential-secret-fields__grid${provider === "SHOPIFY" ? " credential-secret-fields__grid--shopify" : ""}`}>
       {provider === "SHOPIFY" && <>
-        <Field label="Shopify store" hint="Create and install a custom app in the same Shopify organization as your store."><input aria-label="Shopify store" type="text" autoComplete="off" spellCheck={false} value={typeof payload?.shop === "string" ? payload.shop : ""} onChange={(event) => update("shop", event.target.value.trim().toLowerCase().replace(/\.myshopify\.com$/, ""))} /></Field>
+        <Field label="Shopify store"><input aria-label="Shopify store" aria-describedby={typeof payload?.token === "string" ? undefined : shopifyHintId} type="text" autoComplete="off" spellCheck={false} value={typeof payload?.shop === "string" ? payload.shop : ""} onChange={(event) => update("shop", event.target.value.trim().toLowerCase().replace(/\.myshopify\.com$/, ""))} /></Field>
         <Field label="Connection type"><Select aria-label="Connection type" value={typeof payload?.token === "string" ? "token" : "client"} onChange={(event) => { if (payload) onChange(JSON.stringify(event.target.value === "token" ? { shop: payload.shop ?? "", token: "" } : { shop: payload.shop ?? "", clientId: "", clientSecret: "" }, null, 2)); }}><option value="client">Client ID</option><option value="token">Admin API access token</option></Select></Field>
+        {typeof payload?.token !== "string" && <p id={shopifyHintId} className="credential-secret-fields__wide credential-secret-fields__shopify-hint">Create and install a custom app in the same Shopify organization as your store.</p>}
         {typeof payload?.token === "string" ? <SecretInput label="Admin API access token" value={payload.token} onChange={(next) => update("token", next)} /> : <><Field label="Client ID"><input aria-label="Client ID" autoComplete="off" spellCheck={false} value={typeof payload?.clientId === "string" ? payload.clientId : ""} onChange={(event) => update("clientId", event.target.value)} /></Field><SecretInput label="Client secret" value={typeof payload?.clientSecret === "string" ? payload.clientSecret : ""} onChange={(next) => update("clientSecret", next)} /></>}
       </>}
       {provider === "MONGODB" && <Field label="Configuration type"><Select aria-label="Configuration type" value={payload?.configurationType === "connectionString" ? "connectionString" : "values"} onChange={(event) => update("configurationType", event.target.value)}><option value="values">Separate fields</option><option value="connectionString">Connection string</option></Select></Field>}
