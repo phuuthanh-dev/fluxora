@@ -1,5 +1,10 @@
 # Agent Current State Gate
 
+## Shopify write qualification — 2026-11-18
+
+- The owner approved adding `write_orders` and `write_products` to the existing Shopify Partner app and switching its installation to Shopify-managed approval. The active app version retains the three privacy webhook subscriptions; the owner-approved development store granted the two write scopes. `infra/shopify/shopify.app.toml` reflects that active configuration so a future deployment does not restore the obsolete scopes or install flow.
+- Using the production adapter code and a store-owned client-credentials token against `fluxora-partner-qa`, a synthetic draft product was created and renamed; its only variant was verified to cost 0 USD. A synthetic 0 USD order was created and its note updated and read back. These calls were made from local code directly to the authorized Shopify test store, not through a Fluxora production connection. The test product and order remain in the test store pending explicit deletion approval. Live delete operations, production client-credential connection and independent merchant qualification remain unverified.
+
 ## Shopify product and order operations — 2026-11-18 (local change)
 
 - The Shopify app groups existing read operations with basic create, update and delete operations for products and orders. Product creation sets a title and status; product updates set one of those fields. Order creation accepts one variant and quantity, does not reserve inventory or send receipts, and order updates only change the note. Deletion is irreversible. These do not cover every field or behavior in n8n's Shopify node.

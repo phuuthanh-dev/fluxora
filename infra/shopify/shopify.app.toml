@@ -4,8 +4,8 @@ application_url = "https://fluxora.io.vn/dashboard/connections"
 embedded = false
 
 [access_scopes]
-scopes = "read_orders,read_products"
-use_legacy_install_flow = true
+scopes = "read_orders,read_products,write_orders,write_products"
+use_legacy_install_flow = false
 
 [auth]
 redirect_urls = ["https://api.fluxora.io.vn/api/v1/oauth/shopify/callback", "http://localhost:3481/api/v1/oauth/shopify/callback"]
