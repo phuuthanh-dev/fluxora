@@ -5,11 +5,12 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import { ConflictException } from "@nestjs/common";
 import { ExecutionMaintenanceService } from "../execution/execution-maintenance.service";
 import { ExecutionService } from "../execution/execution.service";
+import { ShopifyDeliveryRecoveryService } from "./shopify-delivery-recovery.service";
 import { TrelloDeliveryRecoveryService } from "./trello-delivery-recovery.service";
 import { SlackDeliveryRecoveryService } from "./slack-delivery-recovery.service";
 import { SentryDeliveryRecoveryService } from "./sentry-delivery-recovery.service";
 
-test("Trello, Sentry and Slack deliveries are deduplicated and fenced by workflow and endpoint state", { skip: process.env.FLUXORA_PROVIDER_DELIVERY_INTEGRATION !== "1" }, async () => {
+test("Shopify, Trello, Sentry and Slack deliveries are deduplicated and fenced by workflow and endpoint state", { skip: process.env.FLUXORA_PROVIDER_DELIVERY_INTEGRATION !== "1" }, async () => {
   const database = new URL(process.env.DATABASE_URL ?? "");
   if (!/^\/fluxora_[a-z0-9_]*test[a-z0-9_]*$/.test(database.pathname) || !["localhost", "127.0.0.1"].includes(database.hostname)) throw new Error("Provider delivery integration requires a disposable local fluxora_*test* database.");
   const previousKey = process.env.APP_ENCRYPTION_KEY;
@@ -25,7 +26,10 @@ test("Trello, Sentry and Slack deliveries are deduplicated and fenced by workflo
     const service = new ExecutionService(prisma as never, {} as never, {} as never);
     const credentialId = `slack-credential-${suffix}`;
     await prisma.credential.create({ data: { id: credentialId, workspaceId, provider: "SLACK_OAUTH", label: "Synthetic", encryptedData: "unused-test-fixture" } });
+    const shopifyCredentialId = `shopify-credential-${suffix}`;
+    await prisma.credential.create({ data: { id: shopifyCredentialId, workspaceId, provider: "SHOPIFY", label: "Synthetic", encryptedData: "unused-test-fixture" } });
     const scenarios = [
+      { provider: "shopify", type: "trigger.shopify.order-created", config: { credentialId: shopifyCredentialId }, firstKey: "123", secondKey: "124", thirdKey: "125" },
       { provider: "slack", type: "trigger.slack.event", config: { credentialId, channel: "CEXAMPLE", event: "app_mention" }, firstKey: "EvFirst", secondKey: "EvSecond", thirdKey: "EvThird" },
       { provider: "trello", type: "trigger.trello.board-action", config: { boardId: "4d5ea62fd76aa1136000000c", action: "all" }, firstKey: "5d5ea62fd76aa1136000000c", secondKey: "6d5ea62fd76aa1136000000c", thirdKey: "7d5ea62fd76aa1136000000c" },
       { provider: "sentry", type: "trigger.sentry.issue-created", config: { installationId: "64bf2cf2-37ee-46ae-a093-b7a52bd41a2a", project: "web" }, firstKey: "64bf2cf2-37ee-46ae-a093-b7a52bd41a2a:1", secondKey: "64bf2cf2-37ee-46ae-a093-b7a52bd41a2a:2", thirdKey: "64bf2cf2-37ee-46ae-a093-b7a52bd41a2a:3" },
@@ -36,7 +40,7 @@ test("Trello, Sentry and Slack deliveries are deduplicated and fenced by workflo
       await prisma.workflowVersion.create({ data: { id: versionId, workflowId, version: 1, status: "PUBLISHED", graph: { nodes: [{ id: "trigger", type: scenario.type, position: { x: 0, y: 0 }, config: scenario.config }], edges: [] } } });
       await prisma.workflow.update({ where: { id: workflowId }, data: { publishedVersionId: versionId } });
       await prisma.webhookEndpoint.create({ data: { id: endpointId, path, workflowId, workflowVersionId: versionId, secretHash: "synthetic-hash" } });
-      const create = scenario.provider === "trello" ? service.createTrelloScheduledExecution.bind(service) : scenario.provider === "slack" ? service.createSlackScheduledExecution.bind(service) : service.createSentryScheduledExecution.bind(service);
+      const create = scenario.provider === "shopify" ? service.createShopifyScheduledExecution.bind(service) : scenario.provider === "trello" ? service.createTrelloScheduledExecution.bind(service) : scenario.provider === "slack" ? service.createSlackScheduledExecution.bind(service) : service.createSentryScheduledExecution.bind(service);
       // Receive the later synthetic identity first. Delivery identities are
       // independent; an earlier event must not be dropped when it arrives late.
       const input = { workflowId, workflowVersionId: versionId, endpointId, path, secretHash: "synthetic-hash", deliveryKey: scenario.secondKey, payload: { source: scenario.provider, event: "example", password: "synthetic-secret" } };
@@ -52,7 +56,7 @@ test("Trello, Sentry and Slack deliveries are deduplicated and fenced by workflo
       const scoped = { execution: { findMany: (args: Prisma.ExecutionFindManyArgs) => prisma.execution.findMany({ ...args, where: { AND: [args.where ?? {}, { workflowVersionId: versionId }] } }) } };
       const jobs: Array<{ executionId: string; mode: string; initialOnly: boolean }> = [];
       const queue = { ensureDispatched: async (job: { executionId: string; mode: string; initialOnly: boolean }) => { jobs.push(job); } };
-      const recovery = scenario.provider === "trello" ? new TrelloDeliveryRecoveryService(scoped as never, queue as never) : scenario.provider === "slack" ? new SlackDeliveryRecoveryService(scoped as never, queue as never) : new SentryDeliveryRecoveryService(scoped as never, queue as never);
+      const recovery = scenario.provider === "shopify" ? new ShopifyDeliveryRecoveryService(scoped as never, queue as never) : scenario.provider === "trello" ? new TrelloDeliveryRecoveryService(scoped as never, queue as never) : scenario.provider === "slack" ? new SlackDeliveryRecoveryService(scoped as never, queue as never) : new SentryDeliveryRecoveryService(scoped as never, queue as never);
       await recovery.recover();
       assert.deepEqual(jobs.map((job) => job.executionId).sort(), [first.id, next.id].sort());
       assert.ok(jobs.every((job) => job.mode === "live" && job.initialOnly));

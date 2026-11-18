@@ -1,6 +1,6 @@
 import { jiraSearch, jiraCreate, jiraGet, jiraUpdate, jiraComment, jiraTrigger } from "./node-config-schemas/jira";
 import { airtableList, airtableGet, airtableCreate, airtableUpdate } from "./node-config-schemas/airtable";
-import { shopifyListOrders } from "./node-config-schemas/shopify";
+import { shopifyListOrders, shopifyGetOrder, shopifyGetProduct, shopifyListProducts } from "./node-config-schemas/shopify";
 import { gitlabProject, gitlabListIssues, gitlabIssue, gitlabCreateIssue, gitlabComment, gitlabPipeline, gitlabMergeRequest, gitlabUpdateIssue, gitlabGetPipeline, gitlabGetMergeRequest } from "./node-config-schemas/gitlab";
 import { aggregate, splitOut, sortItems, limitItems, removeDuplicates, merge } from "./node-config-schemas/data-transform";
 import { steamOperation, steamSnapshot } from "./node-config-schemas/steam";
@@ -40,7 +40,11 @@ export { isCalendarResourceId } from "./node-config-schemas/google-calendar";
 
 // Only migrated nodes appear here. Missing entries are not validation claims.
 const rules: Readonly<Record<string, ConfigRules>> = {
+  "trigger.shopify.order-created": {},
   "action.shopify.list-orders": shopifyListOrders,
+  "action.shopify.get-order": shopifyGetOrder,
+  "action.shopify.list-products": shopifyListProducts,
+  "action.shopify.get-product": shopifyGetProduct,
   "action.airtable.list-records": airtableList,
   "action.airtable.get-record": airtableGet,
   "action.airtable.create-record": airtableCreate,

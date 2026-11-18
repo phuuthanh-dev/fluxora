@@ -8,8 +8,10 @@ import { executeSentryListIssues } from "../execution/sentry";
 import { executeVercelListDeployments } from "../execution/vercel";
 import { listGitLabResources } from "../execution/gitlab";
 import { jiraPickerJql, searchJiraIssues } from "../execution/jira";
+import { executeShopifyOrders } from "../execution/shopify";
+import { executeShopifyResource } from "../execution/shopify-resources";
 
-export type ItemResource = "jira-issue" | "gitlab-pipeline" | "gitlab-merge-request" | "github-label" | "sentry-issue" | "vercel-deployment";
+export type ItemResource = "shopify-order" | "shopify-product" | "jira-issue" | "gitlab-pipeline" | "gitlab-merge-request" | "github-label" | "sentry-issue" | "vercel-deployment";
 export type ItemOptionPage = { items: Array<{ id: string; name: string }>; nextCursor: string | null; warning?: string };
 type Transport = (url: string, init: RequestInit) => Promise<Response>;
 type Options = { parent?: string; context?: string; query?: string; cursor?: string };
@@ -18,6 +20,15 @@ type Options = { parent?: string; context?: string; query?: string; cursor?: str
 export async function discoverConnectorItems(resource: ItemResource, credentialId: string, workspaceId: string, options: Options, credentials: CredentialService, read: Transport = fetchSafeOutbound): Promise<ItemOptionPage> {
   const { parent = "", context = "", query = "", cursor = "" } = options;
   if (query.length > 200 || cursor.length > 2048 || /[\u0000-\u001f]/.test(query + cursor)) throw new NodeFailure("INVALID_INPUT", "Use a valid resource search and continuation.", false);
+  if (resource === "shopify-order") {
+    const result = await executeShopifyOrders({ credentialId, limit: 25, ...(cursor ? { cursor } : {}) }, "live", workspaceId, credentials, read);
+    return { items: result.output.orders.map((item) => ({ id: item.id, name: item.name })), nextCursor: result.output.nextCursor };
+  }
+  if (resource === "shopify-product") {
+    const result = await executeShopifyResource({ credentialId, limit: 25, ...(cursor ? { cursor } : {}) }, "list-products", "live", workspaceId, credentials, read);
+    if (!("products" in result.output) || !result.output.products) throw new NodeFailure("INVALID_RESPONSE", "Shopify returned an invalid product list.", false);
+    return { items: result.output.products.map((item) => ({ id: item.id, name: item.title })), nextCursor: result.output.nextCursor ?? null };
+  }
   if (resource === "jira-issue") {
     const result = await searchJiraIssues(credentialId, workspaceId, credentials, jiraPickerJql(query), cursor, 25, read);
     return { items: result.items.map((item) => ({ id: item.key, name: `${item.key} · ${item.summary}` })), nextCursor: result.nextCursor };

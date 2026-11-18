@@ -11,6 +11,8 @@ const resourceLabels: Record<NodeResource, string> = {
   "airtable-base": "base",
   "airtable-table": "table",
   "airtable-record": "record",
+  "shopify-order": "order",
+  "shopify-product": "product",
   "jira-issue": "issue",
   "gitlab-pipeline": "pipeline",
   "gitlab-merge-request": "merge request",
@@ -60,7 +62,7 @@ const resourceLabels: Record<NodeResource, string> = {
   "vercel-project": "project",
   "supabase-table": "table",
 };
-const resourcePlurals: Record<NodeResource, string> = { "airtable-base": "bases", "airtable-table": "tables", "airtable-record": "records", "jira-issue": "issues", "gitlab-pipeline": "pipelines", "gitlab-merge-request": "merge requests", "github-label": "labels", "sentry-issue": "issues", "vercel-deployment": "deployments", "jira-project": "projects", "jira-issue-type": "issue types", "gitlab-project": "projects", "gitlab-issue": "issues", "steam-game": "games", "github-issue": "issues", "github-pull-request": "pull requests", "github-repository": "repositories", "google-file": "files", "google-document": "documents", "google-drive-item": "files", "google-folder": "folders", "google-spreadsheet": "spreadsheets", "google-sheet-tab": "sheet tabs", "google-sheet-header": "columns", "google-calendar": "calendars", "google-calendar-event": "events", "gmail-label": "labels", "gmail-draft": "drafts", "gemini-model": "models", "openai-model": "models", "google-chat-space": "spaces", "slack-channel": "channels", "mongodb-database": "databases", "mongodb-collection": "collections", "postgres-schema": "schemas", "postgres-table": "tables", "trello-board": "boards", "trello-list": "lists", "trello-card": "cards", "trello-label": "labels", "notion-page": "pages", "notion-property": "properties", "notion-data-source": "data sources", "notion-source-property": "properties", "notion-source-option": "values", "sentry-organization": "organizations", "sentry-project": "projects", "sentry-installation": "installations", "vercel-team": "teams", "vercel-project": "projects", "supabase-table": "tables" };
+const resourcePlurals: Record<NodeResource, string> = { "shopify-order": "orders", "shopify-product": "products", "airtable-base": "bases", "airtable-table": "tables", "airtable-record": "records", "jira-issue": "issues", "gitlab-pipeline": "pipelines", "gitlab-merge-request": "merge requests", "github-label": "labels", "sentry-issue": "issues", "vercel-deployment": "deployments", "jira-project": "projects", "jira-issue-type": "issue types", "gitlab-project": "projects", "gitlab-issue": "issues", "steam-game": "games", "github-issue": "issues", "github-pull-request": "pull requests", "github-repository": "repositories", "google-file": "files", "google-document": "documents", "google-drive-item": "files", "google-folder": "folders", "google-spreadsheet": "spreadsheets", "google-sheet-tab": "sheet tabs", "google-sheet-header": "columns", "google-calendar": "calendars", "google-calendar-event": "events", "gmail-label": "labels", "gmail-draft": "drafts", "gemini-model": "models", "openai-model": "models", "google-chat-space": "spaces", "slack-channel": "channels", "mongodb-database": "databases", "mongodb-collection": "collections", "postgres-schema": "schemas", "postgres-table": "tables", "trello-board": "boards", "trello-list": "lists", "trello-card": "cards", "trello-label": "labels", "notion-page": "pages", "notion-property": "properties", "notion-data-source": "data sources", "notion-source-property": "properties", "notion-source-option": "values", "sentry-organization": "organizations", "sentry-project": "projects", "sentry-installation": "installations", "vercel-team": "teams", "vercel-project": "projects", "supabase-table": "tables" };
 
 export function ResourcePicker({ workspaceId, resource, credentialId, dependencyValue, secondaryDependencyValue, resourceVariant, label, value, multiple = false, placeholder = "Search resources", allowExpression = false, onChange }: {
   workspaceId: string;
@@ -89,7 +91,7 @@ export function ResourcePicker({ workspaceId, resource, credentialId, dependency
   const [repositoryOwner, setRepositoryOwner] = useState("");
   const [retry, setRetry] = useState(0);
   const [manual, setManual] = useState(value.includes("{{"));
-  const itemResource = ["jira-issue", "gitlab-pipeline", "gitlab-merge-request", "github-label", "sentry-issue", "vercel-deployment"].includes(resource);
+  const itemResource = ["shopify-order", "shopify-product", "jira-issue", "gitlab-pipeline", "gitlab-merge-request", "github-label", "sentry-issue", "vercel-deployment"].includes(resource);
   const serverSearch = resource === "jira-issue";
   const serverInput = serverSearch ? query : "";
   const [searchQuery, setSearchQuery] = useState("");

@@ -12,6 +12,7 @@ import { GitHubWebhookManagementService } from "./github-webhook-management.serv
 import { KumaDeliveryRecoveryService } from "./kuma-delivery-recovery.service";
 import { TelegramDeliveryRecoveryService } from "./telegram-delivery-recovery.service";
 import { VercelDeliveryRecoveryService } from "./vercel-delivery-recovery.service";
+import { ShopifyDeliveryRecoveryService } from "./shopify-delivery-recovery.service";
 import { TrelloDeliveryRecoveryService } from "./trello-delivery-recovery.service";
 import { SentryDeliveryRecoveryService } from "./sentry-delivery-recovery.service";
 import { LegacyDeliveryRecoveryService } from "./legacy-delivery-recovery.service";
@@ -31,6 +32,7 @@ import { JiraDeliveryRecoveryService } from "./jira-delivery-recovery.service";
     VercelDeliveryRecoveryService,
     SlackDeliveryRecoveryService,
     TrelloDeliveryRecoveryService,
+    ShopifyDeliveryRecoveryService,
     SentryDeliveryRecoveryService,
     LegacyDeliveryRecoveryService,
     JiraDeliveryRecoveryService,

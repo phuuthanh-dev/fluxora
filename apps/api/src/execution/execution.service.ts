@@ -133,6 +133,10 @@ export class ExecutionService {
     return this.createGuardedWebhookExecution(input, "vercel");
   }
 
+  async createShopifyScheduledExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; triggerNodeId?: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey: string }) {
+    return this.createGuardedWebhookExecution(input, "shopify");
+  }
+
   async createTrelloScheduledExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; triggerNodeId?: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey: string }) {
     return this.createGuardedWebhookExecution(input, "trello");
   }
@@ -149,7 +153,7 @@ export class ExecutionService {
     return this.createGuardedWebhookExecution(input, "jira");
   }
 
-  private async createGuardedWebhookExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; triggerNodeId?: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey?: string; registrationId?: string; remoteHookId?: bigint }, provider: "kuma" | "telegram" | "vercel" | "trello" | "sentry" | "slack" | "jira") {
+  private async createGuardedWebhookExecution(input: { workflowId: string; workflowVersionId: string; endpointId: string; triggerNodeId?: string; path: string; secretHash: string; payload: Record<string, unknown>; deliveryKey?: string; registrationId?: string; remoteHookId?: bigint }, provider: "kuma" | "telegram" | "vercel" | "shopify" | "trello" | "sentry" | "slack" | "jira") {
     const version = await this.prisma.workflowVersion.findUnique({ where: { id: input.workflowVersionId }, include: { workflow: true } });
     if (!version || version.workflowId !== input.workflowId) throw new NotFoundException({ code: "WEBHOOK_NOT_FOUND", message: "Webhook endpoint was not found." });
     const graph = parseStoredWorkflowGraph(version.graph);
@@ -163,6 +167,7 @@ export class ExecutionService {
     // payload is already normalized to an explicit, stable field order.
     if (provider === "telegram" && (!input.deliveryKey || !/^\d{1,16}$/.test(input.deliveryKey))) throw new BadRequestException({ code: "TELEGRAM_UPDATE_INVALID", message: "Telegram update is invalid." });
     if (provider === "vercel" && (!input.deliveryKey || !/^[A-Za-z0-9_-]{1,160}$/.test(input.deliveryKey))) throw new BadRequestException({ code: "VERCEL_WEBHOOK_INVALID", message: "Vercel webhook data is invalid." });
+    if (provider === "shopify" && (!input.deliveryKey || !/^[1-9][0-9]{0,29}$/.test(input.deliveryKey))) throw new BadRequestException({ code: "SHOPIFY_WEBHOOK_INVALID", message: "Shopify order identifier is invalid." });
     if (provider === "trello" && (!input.deliveryKey || !/^[a-f0-9]{24}$/.test(input.deliveryKey))) throw new BadRequestException({ code: "TRELLO_WEBHOOK_INVALID", message: "Trello webhook data is invalid." });
     if (provider === "sentry" && (!input.deliveryKey || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}:[1-9][0-9]{0,29}$/.test(input.deliveryKey))) throw new BadRequestException({ code: "SENTRY_WEBHOOK_INVALID", message: "Sentry webhook data is invalid." });
     if (provider === "slack" && (!input.deliveryKey || !/^[A-Za-z0-9_-]{3,160}$/.test(input.deliveryKey))) throw new BadRequestException({ code: "SLACK_EVENT_INVALID", message: "Slack event ID is invalid." });
@@ -1217,6 +1222,7 @@ export async function executeNode(node: WorkflowNode, config: Record<string, unk
   if (node.type === "trigger.jira.issue" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "jira", event: config.event, issue: { id: "10001", key: "EXAMPLE-1", summary: "Example issue" }, deliveryId: "example-delivery" } }, route: "success" };
   if (node.type === "trigger.slack.event" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "slack", event: config.event, eventId: "EVEXAMPLE", teamId: "TEXAMPLE", channel: config.channel || "CEXAMPLE", user: "UEXAMPLE", text: "Example Slack event", timestamp: "1794213000.000001", threadTimestamp: null } }, route: "success" };
   if (node.type === "trigger.vercel.deployment" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "vercel", event: config.event || "deployment.created", eventId: "evt_example", projectId: "prj_example", deploymentId: "dpl_example", teamId: null } }, route: "success" };
+  if (node.type === "trigger.shopify.order-created" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "shopify", event: "orders/create", orderId: "gid://shopify/Order/123", orderName: "#1001", createdAt: "2026-01-01T00:00:00Z" } }, route: "success" };
   if (node.type === "trigger.trello.board-action" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "trello", event: config.action === "all" ? "createCard" : config.action, actionId: "5d5ea62fd76aa1136000000c", boardId: config.boardId || "4d5ea62fd76aa1136000000c", cardId: "6d5ea62fd76aa1136000000c", listId: null, cardName: "Sample card", text: null } }, route: "success" };
   if (node.type === "trigger.sentry.issue-created" && mode === "mock" && (!context.trigger || typeof context.trigger !== "object" || Object.keys(context.trigger).length === 0)) return { status: "succeeded", output: { received: { source: "sentry", event: "issue.created", installationId: config.installationId, project: config.project, issueId: "12345", title: "Example issue", level: "error" } }, route: "success" };
   if (node.type.startsWith("trigger.")) return { status: "succeeded", output: { received: context.trigger ?? {} }, route: "success" };

@@ -46,11 +46,15 @@ import { executeTelegramMessageOperation } from "./telegram-message-operations";
 import { executeGitHubGetIssue, executeGitHubGetPullRequest, executeGitHubListIssues, executeGitHubListPullRequests } from "./github-read";
 import { executeGitHubUpdateIssue } from "./github-update-issue";
 import { executeAirtable } from "./airtable";
+import { executeShopifyResource } from "./shopify-resources";
 import { executeShopifyOrders } from "./shopify";
 
 /** Server-only registry. Adapters retain validation, authorization, redaction
  * and retry semantics; registration is not a credential or policy bypass. */
 const executors = {
+  "action.shopify.get-order": ({ config, mode, workspaceId, credentials }) => executeShopifyResource(config, "get-order", mode, workspaceId, credentials),
+  "action.shopify.get-product": ({ config, mode, workspaceId, credentials }) => executeShopifyResource(config, "get-product", mode, workspaceId, credentials),
+  "action.shopify.list-products": ({ config, mode, workspaceId, credentials }) => executeShopifyResource(config, "list-products", mode, workspaceId, credentials),
   "action.shopify.list-orders": ({ config, mode, workspaceId, credentials }) => executeShopifyOrders(config, mode, workspaceId, credentials),
   "action.airtable.list-records": ({ config, mode, workspaceId, credentials }) => executeAirtable(config, "list-records", mode, workspaceId, credentials),
   "action.airtable.get-record": ({ config, mode, workspaceId, credentials }) => executeAirtable(config, "get-record", mode, workspaceId, credentials),
