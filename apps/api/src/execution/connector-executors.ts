@@ -1,4 +1,5 @@
 import { executeJira } from "./jira";
+import { executeTrelloCardAction } from "./trello-card-actions";
 import { executeGitLab } from "./gitlab";
 import { nodeConfigIssues, type ExecutableWorkflowNodeType } from "@workflow/contracts";
 import type { CredentialService } from "../credentials/credential.service";
@@ -139,6 +140,9 @@ const executors = {
   "action.trello.archive-card": ({ config, mode, workspaceId, credentials }) => executeTrelloOperation("archive", config, mode, workspaceId, credentials),
   "action.trello.list-cards": ({ config, mode, workspaceId, credentials }) => executeTrelloOperation("list", config, mode, workspaceId, credentials),
   "action.trello.find-cards": ({ config, mode, workspaceId, credentials }) => executeTrelloOperation("find", config, mode, workspaceId, credentials),
+  "action.trello.add-comment": ({ config, mode, workspaceId, credentials }) => executeTrelloCardAction("add-comment", config, mode, workspaceId, credentials),
+  "action.trello.add-label": ({ config, mode, workspaceId, credentials }) => executeTrelloCardAction("add-label", config, mode, workspaceId, credentials),
+  "action.trello.remove-label": ({ config, mode, workspaceId, credentials }) => executeTrelloCardAction("remove-label", config, mode, workspaceId, credentials),
   "action.sentry.list-issues": ({ config, mode, workspaceId, credentials }) => executeSentryListIssues(config, mode, workspaceId, credentials),
   "action.sentry.get-issue": ({ config, mode, workspaceId, credentials }) => executeSentryGetIssue(config, mode, workspaceId, credentials),
   "action.vercel.list-deployments": ({ config, mode, workspaceId, credentials }) => executeVercelListDeployments(config, mode, workspaceId, credentials),

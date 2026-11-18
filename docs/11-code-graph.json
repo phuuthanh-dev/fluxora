@@ -1035,6 +1035,7 @@
         "apps/api/src/execution/steam-operations.ts",
         "apps/api/src/execution/supabase.ts",
         "apps/api/src/execution/telegram-message-operations.ts",
+        "apps/api/src/execution/trello-card-actions.ts",
         "apps/api/src/execution/trello-operations.ts",
         "apps/api/src/execution/trello.ts",
         "apps/api/src/execution/vercel-observability.ts",
@@ -1994,6 +1995,20 @@
         "apps/api/src/execution/outbound-url-policy.ts",
         "apps/api/src/execution/provider-json.ts",
         "apps/api/src/notifications/telegram-destination.ts"
+      ],
+      "externalImports": [
+        "@prisma/client",
+        "@workflow/contracts"
+      ]
+    },
+    {
+      "id": "apps/api/src/execution/trello-card-actions.ts",
+      "boundary": "api",
+      "internalImports": [
+        "apps/api/src/credentials/credential.service.ts",
+        "apps/api/src/execution/node-failure.ts",
+        "apps/api/src/execution/outbound-url-policy.ts",
+        "apps/api/src/execution/provider-request-policy.ts"
       ],
       "externalImports": [
         "@prisma/client",
@@ -4197,7 +4212,8 @@
       "boundary": "web",
       "internalImports": [
         "apps/web/src/components/ui/index.ts",
-        "apps/web/src/features/api/api-client.ts"
+        "apps/web/src/features/api/api-client.ts",
+        "apps/web/src/features/workflow/node-catalog.ts"
       ],
       "externalImports": [
         "@workflow/contracts",
@@ -6346,6 +6362,10 @@
     },
     {
       "from": "apps/api/src/execution/connector-executors.ts",
+      "to": "apps/api/src/execution/trello-card-actions.ts"
+    },
+    {
+      "from": "apps/api/src/execution/connector-executors.ts",
       "to": "apps/api/src/execution/trello-operations.ts"
     },
     {
@@ -7471,6 +7491,22 @@
     {
       "from": "apps/api/src/execution/telegram-message-operations.ts",
       "to": "apps/api/src/notifications/telegram-destination.ts"
+    },
+    {
+      "from": "apps/api/src/execution/trello-card-actions.ts",
+      "to": "apps/api/src/credentials/credential.service.ts"
+    },
+    {
+      "from": "apps/api/src/execution/trello-card-actions.ts",
+      "to": "apps/api/src/execution/node-failure.ts"
+    },
+    {
+      "from": "apps/api/src/execution/trello-card-actions.ts",
+      "to": "apps/api/src/execution/outbound-url-policy.ts"
+    },
+    {
+      "from": "apps/api/src/execution/trello-card-actions.ts",
+      "to": "apps/api/src/execution/provider-request-policy.ts"
     },
     {
       "from": "apps/api/src/execution/trello-operations.ts",
@@ -9615,6 +9651,10 @@
     {
       "from": "apps/web/src/features/workflow/execution-observability.tsx",
       "to": "apps/web/src/features/api/api-client.ts"
+    },
+    {
+      "from": "apps/web/src/features/workflow/execution-observability.tsx",
+      "to": "apps/web/src/features/workflow/node-catalog.ts"
     },
     {
       "from": "apps/web/src/features/workflow/google-sheets-mapping-field.tsx",

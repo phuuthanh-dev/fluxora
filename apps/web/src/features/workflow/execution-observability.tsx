@@ -5,6 +5,7 @@ import { AlertTriangle, CheckCircle2, Clock3, Download, GitBranch, LoaderCircle,
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button, Dialog, EmptyState, IconButton, Progress, Skeleton, Status } from "../../components/ui";
 import { apiRequest } from "../api/api-client";
+import { getNodeDefinitionForConfig } from "./node-catalog";
 
 export type ExecutionError = { code: string; message: string | null; retryable: boolean };
 export function outputHasList(value: unknown): boolean {
@@ -100,7 +101,7 @@ export function ExecutionDetailsPanel({ executionId, onClose, onSelectNode }: { 
   useEffect(() => { void load(); }, [load]);
 
   const failedNode = execution?.nodeExecutions.find((node) => node.status === "FAILED" && node.failureHandling?.kind !== "error_branch");
-  const nodeNames = useMemo(() => new Map(execution?.graph.nodes.map((node) => [node.id, node.type]) ?? []), [execution]);
+  const nodeNames = useMemo(() => new Map(execution?.graph.nodes.map((node) => [node.id, getNodeDefinitionForConfig(node.type, node.config)?.label ?? node.type]) ?? []), [execution]);
 
   const downloadDiagnostic = async () => {
     setIsDownloading(true);
@@ -147,8 +148,8 @@ export function ExecutionDetailsPanel({ executionId, onClose, onSelectNode }: { 
             return <li key={node.nodeId} className={`execution-timeline__item execution-timeline__item--${node.status.toLowerCase()}`}>
               <span className="execution-timeline__marker" aria-hidden="true">{node.status === "FAILED" ? <AlertTriangle size={14} /> : node.status === "SKIPPED" ? <SkipForward size={14} /> : node.status === "RUNNING" || node.status === "WAITING" ? <Clock3 size={14} /> : <CheckCircle2 size={14} />}</span>
               <div className="execution-timeline__body">
-                <div className="execution-timeline__title"><strong>{node.nodeId}</strong><span>{node.status}</span></div>
-                <p>{nodeNames.get(node.nodeId) ?? node.nodeType} · attempt {node.attempt} · {formatDuration(node.durationMs)}</p>
+                <div className="execution-timeline__title"><strong>{nodeNames.get(node.nodeId) ?? node.nodeType}</strong><span>{node.status}</span></div>
+                <p>{node.nodeId} · attempt {node.attempt} · {formatDuration(node.durationMs)}</p>
                 {node.items && node.items.length > 0 ? <p>{node.items.length} {node.items.length === 1 ? "item" : "items"} · {node.items.filter((item) => item.status === "FAILED").length} failed. Inspect the node to view each input and output.</p> : null}
                 {node.error ? <code>{node.error.code}: {node.error.message}</code> : null}
                 {recovery ? <p>{recovery}</p> : null}

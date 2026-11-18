@@ -8,7 +8,7 @@ import type { AuthenticatedRequest } from "../auth/authenticated-request";
 import { listMongoCollections, listMongoDatabases } from "../execution/mongodb-find";
 import { listGoogleChatSpaces } from "../execution/google-chat-oauth";
 import { listPostgresColumns, listPostgresSchemas, listPostgresTables, validatePostgresCredential } from "../execution/postgres-read";
-import { listTrelloBoards, listTrelloLists } from "../execution/trello";
+import { listTrelloBoards, listTrelloLists, listTrelloLabels } from "../execution/trello";
 import { listNotionDataSourceOptions, listNotionDataSourceProperties, listNotionPageProperties, searchNotionDataSources } from "../execution/notion-operations";
 import { listSentryInstallations, listSentryOrganizations, listSentryProjects } from "../execution/sentry";
 import { listVercelProjects, listVercelTeams } from "../execution/vercel";
@@ -33,8 +33,8 @@ export function steamGameOptions(games: unknown) {
   return { games: options.slice(0, 100), hasMore: options.length > 100 };
 }
 
-export function trelloDiscoveryError(error: unknown, resource: "boards" | "lists" | "cards") {
-  const prefix = resource === "boards" ? "Boards" : resource === "lists" ? "Lists" : "Cards";
+export function trelloDiscoveryError(error: unknown, resource: "boards" | "lists" | "cards" | "labels") {
+  const prefix = resource === "boards" ? "Boards" : resource === "lists" ? "Lists" : resource === "labels" ? "Labels" : "Cards";
   let guidance = "Check your connection or enter the ID manually.";
   if (error instanceof NodeFailure) {
     if (error.code === "CREDENTIAL_INVALID") guidance = "The Trello API key or token is missing or has an invalid format. Update the connection and retry.";
@@ -233,6 +233,15 @@ export class ConnectorResourceController {
     const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.TRELLO);
     try { return await listTrelloCards(credential, board ?? "", undefined, before || undefined); }
     catch (error) { throw trelloDiscoveryError(error, "cards"); }
+  }
+
+  @Get("trello/labels")
+  async trelloLabels(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Query("board") board: string | undefined, @Req() request: AuthenticatedRequest) {
+    if (!request.currentUser) throw new Error("Authentication guard did not attach a user.");
+    await this.credentials.requireOwner(workspaceId, request.currentUser.id);
+    const credential = await this.credentials.readForExecution(credentialId, workspaceId, CredentialProvider.TRELLO);
+    try { return await listTrelloLabels(credential, board ?? ""); }
+    catch (error) { throw trelloDiscoveryError(error, "labels"); }
   }
 
   @Get("notion/pages")

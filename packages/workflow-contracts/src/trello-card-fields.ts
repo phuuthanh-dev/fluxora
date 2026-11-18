@@ -1,6 +1,6 @@
 import type { NodeConfigurationField } from "./node-configuration-fields";
 
-export type TrelloCardOperation = "get" | "update" | "move" | "archive" | "list" | "find";
+export type TrelloCardOperation = "get" | "update" | "move" | "archive" | "list" | "find" | "comment" | "add-label" | "remove-label";
 
 /** UI descriptors are shared for discovery. They do not replace Trello's
  * server-side validation, authorization, or provider-specific retry rules. */
@@ -11,6 +11,8 @@ export function trelloCardConfigurationFields(operation: TrelloCardOperation): N
     { kind: "resource", key: collection ? "boardId" : "sourceBoardId", label: collection ? "Board" : "Source board", resource: "trello-board", credentialKey: "credentialId", placeholder: "Search boards" },
   ];
   if (!collection) fields.push({ kind: "resource", key: "cardId", label: "Card", resource: "trello-card", credentialKey: "credentialId", dependencyKey: "sourceBoardId", placeholder: "Search cards" });
+  if (operation === "comment") fields.push({ kind: "textarea", key: "text", label: "Comment" });
+  if (operation === "add-label" || operation === "remove-label") fields.push({ kind: "resource", key: "labelId", label: "Label", resource: "trello-label", credentialKey: "credentialId", dependencyKey: "sourceBoardId", placeholder: "Search labels" });
   if (operation === "move") fields.push(
     { kind: "resource", key: "boardId", label: "Destination board", resource: "trello-board", credentialKey: "credentialId", placeholder: "Search boards" },
     { kind: "resource", key: "listId", label: "Destination list", resource: "trello-list", credentialKey: "credentialId", dependencyKey: "boardId", placeholder: "Search lists" },

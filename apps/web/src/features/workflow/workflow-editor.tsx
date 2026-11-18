@@ -1151,8 +1151,8 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
     if (effectiveNodeType === "trigger.jira.issue" && key === "credentialId" && node.data.config.credentialId !== value) config.project = "";
     if (effectiveNodeType === "trigger.trello.board-action" && key === "credentialId" && node.data.config.credentialId !== value) config.boardId = "";
     if (effectiveNodeType.startsWith("action.trello.") && node.data.config[key] !== value) {
-      if (key === "credentialId") for (const dependent of ["boardId", "sourceBoardId", "listId", "cardId", "before"]) { if (dependent in config) config[dependent] = ""; }
-      else if (key === "sourceBoardId" && "cardId" in config) config.cardId = "";
+      if (key === "credentialId") for (const dependent of ["boardId", "sourceBoardId", "listId", "cardId", "labelId", "before"]) { if (dependent in config) config[dependent] = ""; }
+      else if (key === "sourceBoardId") { if ("cardId" in config) config.cardId = ""; if ("labelId" in config) config.labelId = ""; }
       else if (key === "boardId") { if ("listId" in config) config.listId = ""; if ("before" in config) config.before = ""; }
       else if (effectiveNodeType === "action.trello.list-cards" && ["filter", "limit"].includes(key) && "before" in config) config.before = "";
       if (effectiveNodeType === "action.trello.find-cards" && ["credentialId", "boardId", "query", "limit"].includes(key) && "page" in config) config.page = 0;

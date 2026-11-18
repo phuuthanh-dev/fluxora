@@ -3,6 +3,8 @@ import type { ConfigRules, FieldRule } from "./types";
 
 const id = (label: string): FieldRule => ({ schema: z.string().regex(/^[a-f0-9]{24}$/i), required: true, message: `Choose a valid Trello ${label}.` });
 const boardId = id("board"), listId = id("list"), cardId = id("card");
+export const trelloComment: ConfigRules = { cardId, text: { schema: z.string().min(1).max(16_000).refine((value) => !!value.trim()), required: true, message: "Enter a comment of at most 16,000 characters." } };
+export const trelloLabel: ConfigRules = { cardId, labelId: id("label") };
 const title = { schema: z.string().refine((value) => !!value.trim() && value.trim().length <= 500), message: "Enter a card title of at most 500 characters." };
 const description = { schema: z.string().max(16_000), message: "Enter a card description of at most 16,000 characters." };
 const limit = { schema: z.number().int().min(1).max(50), message: "Enter a limit between 1 and 50." };

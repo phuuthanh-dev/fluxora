@@ -793,10 +793,13 @@ export const nodeCatalog: NodeDefinition[] = [
     ["action.trello.archive-card", "Archive card", "archive"],
     ["action.trello.list-cards", "List cards", "list"],
     ["action.trello.find-cards", "Find cards", "find"],
+    ["action.trello.add-comment", "Add comment", "comment"],
+    ["action.trello.add-label", "Add label", "add-label"],
+    ["action.trello.remove-label", "Remove label", "remove-label"],
   ] as const).map(([type, label, operation]): NodeDefinition => {
     const collection = operation === "list" || operation === "find";
     const fields = getSharedNodeConfigurationFields(type);
-    return { type, label: `Trello · ${label}`, description: `${label} in Trello.`, category: "action", libraryGroup: "productivity", appId: "trello", operationId: type.slice("action.trello.".length), operationLabel: label, operationKind: collection || operation === "get" ? "search" : "action", icon: "trello", available: true, defaultConfig: { credentialId: "", ...(collection ? { boardId: "", limit: 20 } : { sourceBoardId: "", cardId: "" }), ...(operation === "move" ? { boardId: "", listId: "" } : {}), ...(operation === "list" ? { filter: "open" } : {}), ...(operation === "find" ? { query: "", searchPagination: "pages", page: 0 } : {}) }, configurationFields: fields };
+    return { type, label: `Trello · ${label}`, description: `${label} in Trello.`, category: "action", libraryGroup: "productivity", appId: "trello", operationId: type.slice("action.trello.".length), operationLabel: label, operationKind: collection || operation === "get" ? "search" : "action", icon: "trello", available: true, defaultConfig: { credentialId: "", ...(collection ? { boardId: "", limit: 20 } : { sourceBoardId: "", cardId: "" }), ...(operation === "move" ? { boardId: "", listId: "" } : {}), ...(operation === "comment" ? { text: "" } : {}), ...(operation === "add-label" || operation === "remove-label" ? { labelId: "" } : {}), ...(operation === "list" ? { filter: "open" } : {}), ...(operation === "find" ? { query: "", searchPagination: "pages", page: 0 } : {}) }, configurationFields: fields };
   }),
 
   {

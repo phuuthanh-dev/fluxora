@@ -98,6 +98,9 @@ const sharedFields = {
   "action.trello.archive-card": () => trelloCardConfigurationFields("archive"),
   "action.trello.list-cards": () => trelloCardConfigurationFields("list"),
   "action.trello.find-cards": () => trelloCardConfigurationFields("find"),
+  "action.trello.add-comment": () => trelloCardConfigurationFields("comment"),
+  "action.trello.add-label": () => trelloCardConfigurationFields("add-label"),
+  "action.trello.remove-label": () => trelloCardConfigurationFields("remove-label"),
 } satisfies Partial<Record<WorkflowNodeType, () => NodeConfigurationField[]>>;
 
 export const sharedNodeConfigurationTypes: readonly (keyof typeof sharedFields)[] = Object.freeze(Object.keys(sharedFields) as (keyof typeof sharedFields)[]);
