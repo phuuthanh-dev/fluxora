@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Inject, Injectable, Logger, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { PayOS, type Webhook } from "@payos/node";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { createLemonCheckout, getLemonOrder, hasOneLemonOrderItem, lemonCheckoutEnabled, lemonConfig } from "./lemon-client";
@@ -86,6 +86,22 @@ export class BillingService {
       await this.prisma.paymentOrder.updateMany({ where: { id: order.id, status: { in: ["PENDING", "REVIEW"] } }, data: { status: remote.status, checkoutUrl: null } });
     }
     return this.status(workspaceId, userId, orderId);
+  }
+
+  // Operator-only: call after reviewing PayPal activity and the exact provider order.
+  async closeReviewedPayPalOrder(orderId: string, expectedPayPalOrderId: string, actorId: string) {
+    if (!actorId || actorId !== process.env.PLATFORM_ADMIN_USER_ID) throw new ForbiddenException("Administrator access is required.");
+    const order = await this.prisma.paymentOrder.findUnique({ where: { id: orderId }, select: { workspaceId: true } });
+    if (!order) throw new NotFoundException("Payment order was not found.");
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${order.workspaceId} FOR UPDATE`;
+      const closed = await tx.paymentOrder.updateMany({
+        where: { id: orderId, workspaceId: order.workspaceId, provider: "PAYPAL", status: "PENDING", paymentLinkId: expectedPayPalOrderId, providerOrderId: null, paidAt: null, providerRefundedAt: null },
+        data: { status: "EXPIRED", checkoutUrl: null },
+      });
+      if (closed.count !== 1) throw new ConflictException("Payment requires support review.");
+      await tx.auditLog.create({ data: { workspaceId: order.workspaceId, actorId, action: "billing.paypal_order_manually_closed", targetType: "payment_order", targetId: orderId, metadata: { review: "manual" } } });
+    });
   }
 
   async availability(workspaceId: string, userId: string) {
@@ -181,12 +197,21 @@ export class BillingService {
     if (order.status !== "PENDING") throw new ConflictException("Payment requires support review.");
     let remote = await getPayPalOrder(config, order.paymentLinkId);
     if (!matchesPayPalOrder(remote, { providerOrderId: order.paymentLinkId, orderId: order.id, amount: order.amount })) throw new ConflictException("Payment is not fully confirmed.");
-    if (remote.status === "APPROVED") remote = await capturePayPalOrder(config, order.paymentLinkId, order.id);
+    if (remote.status === "APPROVED") remote = await this.captureApprovedPayPalOrder(config, order.id, order.paymentLinkId);
     if (!matchesPayPalCapture(remote, { providerOrderId: order.paymentLinkId, orderId: order.id, amount: order.amount })) throw new ConflictException("Payment is not fully confirmed.");
     const captureId = payPalCaptureId(remote);
     if (!captureId) throw new ConflictException("Payment is not fully confirmed.");
     await this.settle(order.id, workspaceId, order.paymentLinkId, undefined, captureId);
     return this.status(workspaceId, userId, orderId);
+  }
+
+  private async captureApprovedPayPalOrder(config: NonNullable<ReturnType<typeof payPalLiveConfig>>, orderId: string, providerOrderId: string) {
+    // Reserve the pending order before the provider call. A concurrent manual
+    // close must not reopen checkout while a capture may be in flight.
+    const claimed = await this.prisma.paymentOrder.updateMany({ where: { id: orderId, provider: { in: ["PAYPAL", "PAYPAL_SANDBOX"] }, status: "PENDING", paymentLinkId: providerOrderId }, data: { status: "REVIEW" } });
+    if (claimed.count !== 1) throw new ConflictException("Payment requires support review.");
+    // An uncertain capture deliberately stays in REVIEW for manual resolution.
+    return capturePayPalOrder(config, providerOrderId, orderId);
   }
 
   async handlePayPalWebhook(raw: Buffer | undefined, headers: Record<string, string | undefined>) {
@@ -207,10 +232,15 @@ export class BillingService {
       this.logger.warn(`PayPal refund requires support review for payment ${order.id}.`);
       return { received: true };
     }
+    // A manually closed checkout must never be captured by a delayed approval.
+    if (order.status === "EXPIRED" || order.status === "CANCELLED") {
+      this.logger.error(`Late PayPal notification requires support review for payment ${order.id}.`);
+      throw new ConflictException("Payment requires support review.");
+    }
     if (!order.paymentLinkId) throw new ServiceUnavailableException("Payment requires reconciliation.");
     let remote = await getPayPalOrder(config, order.paymentLinkId);
     if (!matchesPayPalOrder(remote, { providerOrderId: order.paymentLinkId, orderId: order.id, amount: order.amount })) throw new ConflictException("Payment is not fully confirmed.");
-    if (remote.status === "APPROVED") remote = await capturePayPalOrder(config, order.paymentLinkId, order.id);
+    if (remote.status === "APPROVED") remote = await this.captureApprovedPayPalOrder(config, order.id, order.paymentLinkId);
     const captureId = payPalCaptureId(remote);
     if (!captureId || !matchesPayPalCapture(remote, { providerOrderId: order.paymentLinkId, orderId: order.id, amount: order.amount })) throw new ConflictException("Payment is not fully confirmed.");
     await this.settle(order.id, order.workspaceId, order.paymentLinkId, undefined, captureId);
@@ -289,6 +319,11 @@ export class BillingService {
           if (duplicate) this.logger.error(`Additional payment requires support review for ${fresh.id}.`);
         }
         return;
+      }
+      // The order can be closed while provider verification is in flight.
+      if (paypalCaptureId && (fresh.status === "EXPIRED" || fresh.status === "CANCELLED")) {
+        this.logger.error(`Late PayPal capture requires support review for payment ${fresh.id}.`);
+        throw new ConflictException("Payment requires support review.");
       }
       if (providerOrderId && (fresh.provider !== "LEMON" || (fresh.providerOrderId && fresh.providerOrderId !== providerOrderId))) {
         await updateLedger(providerOrderId, { status: "REVIEW", reason: "DUPLICATE" });
