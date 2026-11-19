@@ -24,8 +24,8 @@ export async function executeShopifyWrite(config: Record<string, unknown>, opera
   if (issue) throw new NodeFailure("INVALID_INPUT", issue.message, false);
   const id = config.resourceId as string;
   const mutation = mutations[operation];
-  const variables = operation === "create-product" ? { product: { title: config.title, status: config.status || "DRAFT" } }
-    : operation === "update-product" ? { product: { id, ...(config.field === "status" ? { status: config.status } : { title: config.title }) } }
+  const variables = operation === "create-product" ? { product: { title: config.title, status: config.status || "DRAFT", ...(config.description ? { descriptionHtml: config.description } : {}), ...(config.productType ? { productType: config.productType } : {}) } }
+    : operation === "update-product" ? { product: { id, ...(config.field === "status" ? { status: config.status } : config.field === "description" ? { descriptionHtml: config.description } : config.field === "productType" ? { productType: config.productType } : { title: config.title }) } }
     : operation === "delete-product" ? { input: { id } }
     : operation === "create-order" ? { order: { lineItems: [{ variantId: config.variantId, quantity: config.quantity }] } }
     : operation === "update-order" ? { input: { id, note: config.note } }

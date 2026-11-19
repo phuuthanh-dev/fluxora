@@ -1,5 +1,11 @@
 # Agent Current State Gate
 
+## Shopify store readiness — 2026-11-19
+
+- The owner confirmed that an independent merchant store is unavailable; independent-merchant qualification remains open. Existing connection creation is local validation and encryption, not a live provider authorization check. Shopify picker authorization failures now use the previously approved safe message; transient rate limits remain retryable. Shopify store inputs also accept a canonical full store URL.
+- The existing product create/update nodes accept free-form or runtime-expression Description and Product type. Create leaves blank optional values unset; update changes only the selected non-empty field. Description is passed as Shopify `descriptionHtml`. Shopify's real 2026-10 schema in the authorized development store confirmed both fields on both inputs; the new fields have not been written to Shopify live. The existing write result and no-retry-on-uncertain-delivery rules remain unchanged.
+- The order-created trigger continues using the existing signed raw-body verification, store binding and order-ID deduplication. Targeted tests cover tampered signatures, wrong store, inactive workflow/endpoint and stale publication. The isolated PostgreSQL delivery integration covered concurrent duplicate acceptance, endpoint rotation and dispatch recovery; it does not prove Shopify delivery is guaranteed.
+
 ## Shopify write qualification — 2026-11-19
 
 - The owner approved adding `write_orders` and `write_products` to the existing Shopify Partner app and switching its installation to Shopify-managed approval. The active app version retains the three privacy webhook subscriptions; the owner-approved development store granted the two write scopes. `infra/shopify/shopify.app.toml` reflects that active configuration so a future deployment does not restore the obsolete scopes or install flow.

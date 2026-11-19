@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { resolveShopifyCredential, validShopifyCredential } from "./shopify-credential";
+import { NodeFailure } from "./node-failure";
 
 test("Shopify custom app obtains and reacquires a bounded access token", async () => {
   const data = { shop: "fixture-renew", clientId: "fixture-id", clientSecret: "fixture-secret" };
@@ -18,6 +19,13 @@ test("Shopify custom app obtains and reacquires a bounded access token", async (
   assert.deepEqual(await resolveShopifyCredential(data, transport), first);
   assert.deepEqual(await resolveShopifyCredential(data, transport, Date.now() + 3_600_000), { shop: data.shop, token: "fixture-token-2" });
   assert.equal(calls, 2);
+});
+
+test("Shopify authorization errors are actionable, safe and not retried as transient failures", async () => {
+  for (const status of [400, 401, 403]) {
+    await assert.rejects(resolveShopifyCredential({ shop: `fixture-auth-${status}`, clientId: "id", clientSecret: "secret" }, async () => new Response("private provider body", { status })), (error: unknown) => error instanceof NodeFailure && error.code === "SHOPIFY_AUTH_FAILED" && error.message === "Shopify connection could not be authorized." && !error.retryable && !error.message.includes("private provider body"));
+  }
+  await assert.rejects(resolveShopifyCredential({ shop: "fixture-auth-rate", clientId: "id", clientSecret: "secret" }, async () => new Response("private provider body", { status: 429 })), (error: unknown) => error instanceof NodeFailure && error.retryable && !error.message.includes("private provider body"));
 });
 
 test("Shopify preserves manual tokens and rejects unsafe credentials and malformed token responses", async () => {

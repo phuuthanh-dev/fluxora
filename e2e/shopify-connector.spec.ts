@@ -21,6 +21,10 @@ test("Shopify connection switches between custom app credentials and a manual to
   const shop = page.getByLabel("Shopify store", { exact: true });
   await shop.fill("fixture.myshopify.com");
   await expect(shop).toHaveValue("fixture");
+  await shop.fill("https://fixture.myshopify.com/");
+  await expect(shop).toHaveValue("fixture");
+  await shop.fill("https://fixture.myshopify.com.evil.example/");
+  await expect(shop).not.toHaveValue("fixture");
   await expect(page.getByLabel("Client ID", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Client secret", { exact: true })).toBeVisible();
   await page.getByLabel("Connection type").selectOption("token");
@@ -89,4 +93,31 @@ test("Shopify order creation clears a variant when the connection changes", asyn
   await expect(page.getByLabel("Node JSON configuration")).toHaveValue(/gid:\/\/shopify\/ProductVariant\/123/);
   await page.getByLabel("Shopify connection").selectOption("shopify-2");
   await expect(page.getByLabel("Node JSON configuration")).not.toHaveValue(/gid:\/\/shopify\/ProductVariant\/123/);
+});
+
+test("Shopify product fields remain visible and switch by selected update field", async ({ page }) => {
+  const graph = { nodes: [
+    { id: "manual", type: "trigger.manual", position: { x: 100, y: 100 }, config: {} },
+    { id: "shopify", type: "action.shopify.update-product", position: { x: 400, y: 100 }, config: { credentialId: "shopify-1", resourceId: "gid://shopify/Product/123", field: "title", title: "Sample" } },
+  ], edges: [] };
+  const workflow = { id: "shopify-product-test", workspaceId: "workspace-1", name: "Shopify test", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null };
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const send = (value: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+    if (path.endsWith("/auth/me")) return send({ user: { id: "user-1", name: "Owner", email: "owner@example.test" } });
+    if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace-1", name: "Test workspace", slug: "test", role: "OWNER" }] });
+    if (path.endsWith("/credentials")) return send({ credentials: [{ id: "shopify-1", provider: "SHOPIFY", label: "Shopify" }] });
+    if (path.endsWith("/workflows/shopify-product-test")) return send({ workflow });
+    if (path.endsWith("/shopify-product")) return send({ items: [{ id: "gid://shopify/Product/123", name: "Sample" }], nextCursor: null });
+    return route.continue();
+  });
+  await page.goto("/editor?workflow=shopify-product-test");
+  await page.locator(".react-flow__node").filter({ hasText: "Update product" }).click();
+  await page.getByLabel("Field to update").selectOption("description");
+  await page.getByLabel("Description", { exact: true }).fill("Example description");
+  await expect(page.getByLabel("Node JSON configuration")).toHaveValue(/Example description/);
+  await page.getByLabel("Field to update").selectOption("productType");
+  await page.getByLabel("Product type", { exact: true }).fill("Clothing");
+  await expect(page.getByLabel("Node JSON configuration")).toHaveValue(/Clothing/);
+  await expect(page.getByLabel("Description", { exact: true })).toHaveCount(0);
 });

@@ -73,3 +73,33 @@ test("Shopify order updates allow clearing the note without leaking it in output
   });
   assert.deepEqual(result.output, { order: { id: orderId, name: "#1001" } });
 });
+
+test("Shopify product fields use the documented inputs and preserve existing updates", async () => {
+  const cases = [
+    { operation: "create-product", config: { title: "Sample", status: "DRAFT", description: "<p>Example</p>", productType: "Clothing" }, expected: { title: "Sample", status: "DRAFT", descriptionHtml: "<p>Example</p>", productType: "Clothing" } },
+    { operation: "create-product", config: { title: "Sample", status: "DRAFT", description: "", productType: "" }, expected: { title: "Sample", status: "DRAFT" } },
+    { operation: "update-product", config: { resourceId: productId, field: "description", description: "<p>Updated</p>", productType: "stale" }, expected: { id: productId, descriptionHtml: "<p>Updated</p>" } },
+    { operation: "update-product", config: { resourceId: productId, field: "productType", productType: "Clothing", description: "stale" }, expected: { id: productId, productType: "Clothing" } },
+    { operation: "update-product", config: { resourceId: productId, field: "title", title: "Sample" }, expected: { id: productId, title: "Sample" } },
+  ] as const;
+  for (const item of cases) {
+    const field = item.operation === "create-product" ? "productCreate" : "productUpdate";
+    await executeShopifyWrite({ ...item.config, credentialId: "credential" }, item.operation, "live", "workspace", credentials, async (_url, init) => {
+      assert.deepEqual(JSON.parse(String(init.body)).variables.product, item.expected);
+      return Response.json({ data: { [field]: { product: { id: productId, title: "Sample", status: "DRAFT" }, userErrors: [] } } });
+    });
+  }
+});
+
+test("Shopify rejects invalid or missing selected product fields before any write", async () => {
+  for (const config of [
+    { title: "Sample", status: "DRAFT", description: "x".repeat(10001) },
+    { title: "Sample", status: "DRAFT", productType: "x".repeat(256) },
+    { resourceId: productId, field: "description", description: "" },
+    { resourceId: productId, field: "description", description: `${" ".repeat(10000)}x` },
+    { resourceId: productId, field: "productType" },
+  ]) {
+    const operation = "title" in config ? "create-product" : "update-product";
+    await assert.rejects(() => executeShopifyWrite(config, operation, "live", "workspace", credentials, async () => { throw new Error("unexpected provider call"); }), (error: unknown) => error instanceof NodeFailure && error.code === "INVALID_INPUT" && !error.retryable);
+  }
+});

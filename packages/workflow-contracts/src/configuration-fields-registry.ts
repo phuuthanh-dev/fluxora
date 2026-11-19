@@ -33,13 +33,17 @@ const sharedFields = {
     { kind: "credential", key: "credentialId", label: "Shopify connection", providers: ["SHOPIFY"] },
     { kind: "text", key: "title", label: "Title" },
     { kind: "select", key: "status", label: "Status", options: [{ value: "DRAFT", label: "Draft" }, { value: "ACTIVE", label: "Active" }, { value: "ARCHIVED", label: "Archived" }] },
+    { kind: "textarea", key: "description", label: "Description" },
+    { kind: "text", key: "productType", label: "Product type" },
   ],
   "action.shopify.update-product": () => [
     { kind: "credential", key: "credentialId", label: "Shopify connection", providers: ["SHOPIFY"] },
     { kind: "resource", key: "resourceId", label: "Product", resource: "shopify-product", credentialKey: "credentialId", placeholder: "Search products" },
-    { kind: "select", key: "field", label: "Field to update", options: [{ value: "title", label: "Title" }, { value: "status", label: "Status" }] },
+    { kind: "select", key: "field", label: "Field to update", options: [{ value: "title", label: "Title" }, { value: "status", label: "Status" }, { value: "description", label: "Description" }, { value: "productType", label: "Product type" }] },
     { kind: "text", key: "title", label: "New title", visibleWhen: { key: "field", equals: "title", fallback: "title" } },
     { kind: "select", key: "status", label: "Status", options: [{ value: "DRAFT", label: "Draft" }, { value: "ACTIVE", label: "Active" }, { value: "ARCHIVED", label: "Archived" }], visibleWhen: { key: "field", equals: "status" } },
+    { kind: "textarea", key: "description", label: "Description", visibleWhen: { key: "field", equals: "description" } },
+    { kind: "text", key: "productType", label: "Product type", visibleWhen: { key: "field", equals: "productType" } },
   ],
   "action.shopify.delete-product": () => [
     { kind: "credential", key: "credentialId", label: "Shopify connection", providers: ["SHOPIFY"] },

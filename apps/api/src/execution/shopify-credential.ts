@@ -29,6 +29,10 @@ export async function resolveShopifyCredential(data: Record<string, unknown>, tr
           signal: AbortSignal.timeout(15_000),
         });
       } catch { throw new NodeFailure("SHOPIFY_AUTH_FAILED", "Shopify connection could not be authorized.", true); }
+      if ([400, 401, 403].includes(response.status)) {
+        await response.body?.cancel().catch(() => undefined);
+        throw new NodeFailure("SHOPIFY_AUTH_FAILED", "Shopify connection could not be authorized.", false, response.status);
+      }
       await requireProviderSuccess(response, "Shopify", false, "SHOPIFY_AUTH_FAILED");
       const payload = await readProviderJson(response, "Shopify", false, 16_384);
       if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new NodeFailure("INVALID_PROVIDER_RESPONSE", "Shopify returned an invalid authorization response.", false);
