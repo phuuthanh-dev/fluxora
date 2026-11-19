@@ -76,7 +76,12 @@ export class ConnectorResourceController {
     await this.credentials.requireOwner(workspaceId, request.currentUser.id);
     if (!["shopify-order", "shopify-product", "shopify-variant", "jira-issue", "gitlab-pipeline", "gitlab-merge-request", "github-label", "sentry-issue", "vercel-deployment"].includes(resource)) throw new BadRequestException({ code: "INVALID_RESOURCE", message: "Choose a supported resource." });
     try { return await discoverConnectorItems(resource as ItemResource, credentialId, workspaceId, { parent, context, query, cursor }, this.credentials); }
-    catch { throw new BadRequestException({ code: "RESOURCE_ITEMS_UNAVAILABLE", message: "Resources could not be loaded. Check the connection, parent and permissions, or enter a value manually." }); }
+    catch (error) {
+      if (resource.startsWith("shopify-") && error instanceof NodeFailure && error.code === "SHOPIFY_AUTH_FAILED" && !error.retryable) {
+        throw new BadRequestException({ code: "RESOURCE_ITEMS_UNAVAILABLE", message: "Shopify connection could not be authorized." });
+      }
+      throw new BadRequestException({ code: "RESOURCE_ITEMS_UNAVAILABLE", message: "Resources could not be loaded. Check the connection, parent and permissions, or enter a value manually." });
+    }
   }
 
   @Get("steam/games")

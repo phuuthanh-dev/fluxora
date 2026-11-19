@@ -20,12 +20,16 @@ export const shopifyListProducts: ConfigRules = {
 
 const productTitle = { schema: z.string().trim().min(1).max(256), required: true, message: "Enter a title up to 256 characters." };
 const productStatus = { schema: z.enum(["ACTIVE", "DRAFT", "ARCHIVED"]), required: true, message: "Choose a valid product status." };
-export const shopifyCreateProduct: ConfigRules = { title: productTitle, status: productStatus };
+const description = { schema: z.string().max(10000), message: "Enter a valid value." };
+const productType = { schema: z.string().max(255), message: "Enter a valid value." };
+export const shopifyCreateProduct: ConfigRules = { title: productTitle, status: productStatus, description, productType };
 export const shopifyUpdateProduct: ConfigRules = {
   ...shopifyGetProduct,
-  field: { schema: z.enum(["title", "status"]), required: true, message: "Choose a valid field." },
+  field: { schema: z.enum(["title", "status", "description", "productType"]), required: true, message: "Choose a valid field." },
   title: { ...productTitle, when: (config) => config.field === "title", dependsOn: ["field"] },
   status: { ...productStatus, when: (config) => config.field === "status", dependsOn: ["field"] },
+  description: { ...description, schema: z.string().max(10000).refine((value) => value.trim().length > 0), required: true, when: (config) => config.field === "description", dependsOn: ["field"] },
+  productType: { ...productType, schema: z.string().max(255).refine((value) => value.trim().length > 0), required: true, when: (config) => config.field === "productType", dependsOn: ["field"] },
 };
 export const shopifyCreateOrder: ConfigRules = {
   variantId: { schema: z.string().regex(/^gid:\/\/shopify\/ProductVariant\/[1-9][0-9]{0,29}$/), required: true, message: "Choose a valid Shopify product variant." },

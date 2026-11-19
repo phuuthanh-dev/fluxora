@@ -68,6 +68,18 @@ test("connector discovery checks workspace ownership before credential access", 
   assert.equal(reads, 0);
 });
 
+test("Shopify picker reports authorization failure without forwarding provider text", async () => {
+  const credentials = { requireOwner: async () => undefined, readForExecution: async () => { throw new NodeFailure("SHOPIFY_AUTH_FAILED", "private provider response", false, 401); } };
+  const controller = new ConnectorResourceController(credentials as never);
+  const request = { currentUser: { id: "owner" } } as never;
+  await assert.rejects(controller.connectorItems("workspace", "connection", "shopify-product", undefined, undefined, undefined, undefined, request), (error: unknown) => {
+    const response = (error as { getResponse: () => { code: string; message: string } }).getResponse();
+    assert.equal(response.code, "RESOURCE_ITEMS_UNAVAILABLE");
+    assert.equal(response.message, "Shopify connection could not be authorized.");
+    return true;
+  });
+});
+
 test("new discovery routes select the workspace credential and sanitize failures", async () => {
   const calls: unknown[][] = [];
   const credentials = {
