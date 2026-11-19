@@ -62,11 +62,6 @@ export class BillingController {
     return this.billing.handleLemonWebhook(req.rawBody, req.get("X-Signature"), body);
   }
 
-  @Post("billing/whop/webhook") @HttpCode(200) @Header("Cache-Control", "no-store")
-  whopWebhook(@Req() req: RawBodyRequest<Request>, @Body() body: unknown) {
-    return this.billing.handleWhopWebhook(req.rawBody, req.get("webhook-id"), req.get("webhook-timestamp"), req.get("webhook-signature"), body);
-  }
-
   @Post("billing/paypal/webhook") @HttpCode(200) @Header("Cache-Control", "no-store")
   paypalWebhook(@Req() req: RawBodyRequest<Request>) {
     return this.billing.handlePayPalWebhook(req.rawBody, {

@@ -3,8 +3,6 @@ import { PayOS, type Webhook } from "@payos/node";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { createLemonCheckout, getLemonOrder, hasOneLemonOrderItem, lemonCheckoutEnabled, lemonConfig } from "./lemon-client";
 import { matchesLemonPaidOrder, readLemonOrderEvent, verifyLemonWebhook } from "./lemon-webhook";
-import { createWhopCheckout, getWhopPayment, whopConfig } from "./whop-client";
-import { matchesWhopPayment, readWhopPaymentEvent, readWhopRefundEvent, record, verifyWhopWebhook } from "./whop-webhook";
 import { capturePayPalOrder, createPayPalOrder, getPayPalOrder, matchesPayPalCapture, matchesPayPalOrder, payPalSandboxConfig, payPalLiveConfig, verifyPayPalWebhook, readPayPalEvent, payPalCaptureId } from "./paypal-client";
 import { planCatalog } from "@workflow/contracts";
 import { PrismaService } from "../database/prisma.service";
@@ -37,7 +35,7 @@ export class BillingService {
     const order = await this.prisma.paymentOrder.findFirst({ where: { workspaceId, status: { in: ["CREATING", "PENDING", "REVIEW"] } }, orderBy: { createdAt: "desc" }, select: { id: true, plan: true, amount: true, status: true, createdAt: true, checkoutUrl: true, provider: true } });
     if (!order) return null;
     const { checkoutUrl, ...details } = order;
-    return { ...details, ...((order.provider === "PAYPAL_SANDBOX" || order.provider === "PAYPAL") ? { currency: "USD" } : {}), canResume: order.status === "PENDING" && Boolean(checkoutUrl), canCancel: order.provider === "PAYOS" };
+    return { ...details, ...((order.provider === "PAYPAL_SANDBOX" || order.provider === "PAYPAL") ? { currency: "USD" } : {}), canResume: order.provider !== "WHOP" && order.status === "PENDING" && Boolean(checkoutUrl), canCancel: order.provider === "PAYOS" };
   }
 
   async cancel(workspaceId: string, userId: string, orderId: string) {
@@ -71,12 +69,10 @@ export class BillingService {
       for (const payment of pending) await this.confirmLemonPayment(config, order, payment.providerOrderId);
       return this.status(workspaceId, userId, orderId);
     }
+    // Historical orders remain visible; old Whop payments require manual support review.
     if (order.provider === "WHOP") {
-      const config = whopConfig(true);
-      if (!config) throw new ServiceUnavailableException("Payment status is unavailable. Please try again later or contact support.");
-      const pending = await this.prisma.whopPayment.findMany({ where: { paymentOrderId: order.id, status: "PENDING" }, select: { providerOrderId: true }, take: 20 });
-      for (const payment of pending) await this.confirmWhopPayment(config, order, payment.providerOrderId);
-      return this.status(workspaceId, userId, orderId);
+      if (order.status === "PAID") return this.status(workspaceId, userId, orderId);
+      throw new ServiceUnavailableException("Payment status is unavailable. Please try again later or contact support.");
     }
     if (order.status === "PAID") return this.status(workspaceId, userId, orderId);
     let remote: Awaited<ReturnType<PayOS["paymentRequests"]["get"]>>;
@@ -98,7 +94,7 @@ export class BillingService {
 
   publicAvailability() {
     const payos = process.env.PAYOS_CHECKOUT_ENABLED === "true" && process.env.PLAN_LIMITS_ENABLED === "true" && Boolean(process.env.PAYOS_CLIENT_ID && process.env.PAYOS_API_KEY && process.env.PAYOS_CHECKSUM_KEY);
-    const card = lemonCheckoutEnabled() || Boolean(whopConfig());
+    const card = lemonCheckoutEnabled();
     const paypal = payPalLiveConfig() ?? payPalSandboxConfig();
     return { available: payos || card || Boolean(paypal), methods: { bank: payos, card, ...(paypal ? { paypal: true, paypalPrices: paypal.prices } : {}) } };
   }
@@ -112,10 +108,9 @@ export class BillingService {
     const paypal = isPayPalSandbox ? payPalSandboxConfig() : method === "paypal" ? payPalLiveConfig() : null;
     if ((isPayPalSandbox || method === "paypal") && !paypal) throw new ServiceUnavailableException("Payment provider is not configured.");
     const isCard = method === "card";
-    const whop = isCard ? whopConfig() : null;
-    const lemon = isCard && !whop ? lemonConfig() : null;
-    const provider = paypal ? (isPayPalSandbox ? "PAYPAL_SANDBOX" : "PAYPAL") : whop ? "WHOP" : isCard ? "LEMON" : "PAYOS";
-    if (!paypal && (isCard ? !whop && (!lemon || !lemonCheckoutEnabled()) : process.env.PAYOS_CHECKOUT_ENABLED !== "true")) throw new ServiceUnavailableException("Paid plans are not available yet.");
+    const lemon = isCard ? lemonConfig() : null;
+    const provider = paypal ? (isPayPalSandbox ? "PAYPAL_SANDBOX" : "PAYPAL") : isCard ? "LEMON" : "PAYOS";
+    if (!paypal && (isCard ? !lemon || !lemonCheckoutEnabled() : process.env.PAYOS_CHECKOUT_ENABLED !== "true")) throw new ServiceUnavailableException("Paid plans are not available yet.");
     const payos = isCard || paypal ? null : this.client();
     const origin = process.env.WEB_ORIGIN;
     if (!origin || (process.env.NODE_ENV === "production" && new URL(origin).protocol !== "https:")) throw new ServiceUnavailableException("Payment provider is not configured.");
@@ -125,7 +120,7 @@ export class BillingService {
       const activePaidPlan = workspace.paidUntil && workspace.paidUntil > new Date() ? workspace.paidPlan : null;
       const current = await tx.paymentOrder.findFirst({ where: { workspaceId, status: { in: ["CREATING", "PENDING", "REVIEW"] } }, orderBy: { createdAt: "desc" } });
       if (current) {
-        const resumableCard = isCard && (current.provider === "LEMON" || current.provider === "WHOP") && current.status === "PENDING" && current.checkoutUrl;
+        const resumableCard = isCard && current.provider === "LEMON" && current.status === "PENDING" && current.checkoutUrl;
         if (current.provider !== provider && !resumableCard) throw new ConflictException("Resolve the existing payment before choosing another payment method.");
         const matchesUpgrade = current.plan === "PRO" && current.upgradeFromPaidUntil && activePaidPlan === "STARTER" && current.upgradeFromPaidUntil.getTime() === workspace.paidUntil?.getTime();
         if (activePaidPlan && ((activePaidPlan !== current.plan && !matchesUpgrade) || (current.upgradeFromPaidUntil && !matchesUpgrade))) throw new ConflictException("Your paid plan changed. Cancel or reconcile the existing payment before continuing.");
@@ -150,15 +145,6 @@ export class BillingService {
         const cancelUrl = new URL("/dashboard/plan", origin);
         cancelUrl.searchParams.set("workspace", workspaceId); cancelUrl.searchParams.set("payment", "cancel");
         const response = await createPayPalOrder(paypal, order.id, order.amount, returnUrl.toString(), cancelUrl.toString());
-        await this.prisma.paymentOrder.updateMany({ where: { id: order.id, status: "REVIEW" }, data: { status: "PENDING", paymentLinkId: response.id, checkoutUrl: response.url } });
-        return { checkoutUrl: response.url, orderId: order.id };
-      }
-      if (whop) {
-        const nonce = randomBytes(32).toString("hex");
-        await this.prisma.paymentOrder.updateMany({ where: { id: order.id, status: "REVIEW" }, data: { providerNonceHash: createHash("sha256").update(nonce).digest("hex") } });
-        const redirectUrl = new URL("/dashboard/plan", origin);
-        redirectUrl.searchParams.set("workspace", workspaceId); redirectUrl.searchParams.set("order", order.id); redirectUrl.searchParams.set("payment", "return");
-        const response = await createWhopCheckout(whop, { plan, amount: order.amount, orderId: order.id, nonce, redirectUrl: redirectUrl.toString() });
         await this.prisma.paymentOrder.updateMany({ where: { id: order.id, status: "REVIEW" }, data: { status: "PENDING", paymentLinkId: response.id, checkoutUrl: response.url } });
         return { checkoutUrl: response.url, orderId: order.id };
       }
@@ -198,7 +184,7 @@ export class BillingService {
     if (!matchesPayPalCapture(remote, { providerOrderId: order.paymentLinkId, orderId: order.id, amount: order.amount })) throw new ConflictException("Payment is not fully confirmed.");
     const captureId = payPalCaptureId(remote);
     if (!captureId) throw new ConflictException("Payment is not fully confirmed.");
-    await this.settle(order.id, workspaceId, order.paymentLinkId, undefined, "LEMON", captureId);
+    await this.settle(order.id, workspaceId, order.paymentLinkId, undefined, captureId);
     return this.status(workspaceId, userId, orderId);
   }
 
@@ -226,7 +212,7 @@ export class BillingService {
     if (remote.status === "APPROVED") remote = await capturePayPalOrder(config, order.paymentLinkId, order.id);
     const captureId = payPalCaptureId(remote);
     if (!captureId || !matchesPayPalCapture(remote, { providerOrderId: order.paymentLinkId, orderId: order.id, amount: order.amount })) throw new ConflictException("Payment is not fully confirmed.");
-    await this.settle(order.id, order.workspaceId, order.paymentLinkId, undefined, "LEMON", captureId);
+    await this.settle(order.id, order.workspaceId, order.paymentLinkId, undefined, captureId);
     return { received: true };
   }
 
@@ -281,50 +267,6 @@ export class BillingService {
     return { received: true };
   }
 
-  async handleWhopWebhook(rawBody: Buffer | undefined, id: string | undefined, timestamp: string | undefined, signature: string | undefined, payload: unknown) {
-    const config = whopConfig(true);
-    if (!config || !verifyWhopWebhook(rawBody, id, timestamp, signature, config.signingSecret) || record(payload)?.id !== id) throw new BadRequestException("Invalid payment notification.");
-    const refundPaymentId = readWhopRefundEvent(payload, config.accountId);
-    if (refundPaymentId) {
-      let remote: Record<string, unknown>;
-      try { remote = await getWhopPayment(config, refundPaymentId); } catch { throw new ServiceUnavailableException("Payment confirmation is temporarily unavailable."); }
-      const meta = record(remote.metadata), orderId = meta?.fluxora_order_id, nonce = meta?.fluxora_nonce;
-      if (remote.account_id !== config.accountId || typeof orderId !== "string" || !/^[0-9a-f-]{36}$/i.test(orderId) || typeof nonce !== "string" || !/^[a-f0-9]{64}$/.test(nonce)) return { received: true };
-      const order = await this.prisma.paymentOrder.findUnique({ where: { id: orderId } });
-      if (!order || order.provider !== "WHOP" || !order.providerNonceHash || !/^[a-f0-9]{64}$/.test(order.providerNonceHash) || !timingSafeEqual(createHash("sha256").update(nonce).digest(), Buffer.from(order.providerNonceHash, "hex"))) return { received: true };
-      await this.prisma.$transaction(async (tx) => {
-        await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${order.workspaceId} FOR UPDATE`;
-        const existing = await tx.whopPayment.findUnique({ where: { providerOrderId: refundPaymentId } });
-        if (existing && existing.paymentOrderId !== order.id) throw new ConflictException("Payment requires support review.");
-        await tx.whopPayment.upsert({ where: { providerOrderId: refundPaymentId }, create: { providerOrderId: refundPaymentId, paymentOrderId: order.id, status: "REFUNDED", reason: "REFUND" }, update: { status: "REFUNDED", reason: "REFUND" } });
-        const fresh = await tx.paymentOrder.findUniqueOrThrow({ where: { id: order.id } });
-        if (!fresh.providerOrderId || fresh.providerOrderId === refundPaymentId) await tx.paymentOrder.update({ where: { id: order.id }, data: { providerOrderId: refundPaymentId, providerRefundedAt: new Date(), ...(fresh.status === "PAID" ? {} : { status: "REVIEW" }) } });
-      });
-      this.logger.warn(`Refund requires support review for payment ${order.id}.`);
-      return { received: true };
-    }
-    const event = readWhopPaymentEvent(payload, config.accountId);
-    if (!event) return { received: true };
-    const order = await this.prisma.paymentOrder.findUnique({ where: { id: event.orderId } });
-    if (!order || order.provider !== "WHOP" || !order.providerNonceHash || !/^[a-f0-9]{64}$/.test(order.providerNonceHash)) return { received: true };
-    if (!timingSafeEqual(createHash("sha256").update(event.nonce).digest(), Buffer.from(order.providerNonceHash, "hex"))) throw new BadRequestException("Invalid payment notification.");
-    const payment = await this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${order.workspaceId} FOR UPDATE`;
-      const existing = await tx.whopPayment.findUnique({ where: { providerOrderId: event.paymentId } });
-      if (existing && existing.paymentOrderId !== order.id) throw new ConflictException("Payment requires support review.");
-      return existing ?? tx.whopPayment.create({ data: { providerOrderId: event.paymentId, paymentOrderId: order.id, status: "PENDING" } });
-    });
-    if (payment.status === "PENDING") await this.confirmWhopPayment(config, order, event.paymentId);
-    return { received: true };
-  }
-
-  private async confirmWhopPayment(config: NonNullable<ReturnType<typeof whopConfig>>, order: { id: string; workspaceId: string; plan: string; amount: number; paymentLinkId: string | null; providerNonceHash: string | null }, paymentId: string) {
-    let payment: unknown;
-    try { payment = await getWhopPayment(config, paymentId); } catch { throw new ServiceUnavailableException("Payment confirmation is temporarily unavailable."); }
-    if (!order.paymentLinkId || !order.providerNonceHash || (order.plan !== "STARTER" && order.plan !== "PRO") || !matchesWhopPayment(payment, { paymentId, accountId: config.accountId, checkoutId: order.paymentLinkId, variantId: config.variants[order.plan], orderId: order.id, nonceHash: order.providerNonceHash, amount: order.amount, taxIncluded: config.checkoutHost === "whop.com" })) throw new BadRequestException("Payment is not fully confirmed.");
-    await this.settle(order.id, order.workspaceId, order.paymentLinkId, paymentId, "WHOP");
-  }
-
   private async confirmLemonPayment(config: NonNullable<ReturnType<typeof lemonConfig>>, order: { id: string; workspaceId: string; plan: string; amount: number; paymentLinkId: string | null }, providerOrderId: string) {
     let remote: unknown, singleItem: boolean;
     try { [remote, singleItem] = await Promise.all([getLemonOrder(config, providerOrderId), hasOneLemonOrderItem(config, providerOrderId)]); } catch { throw new ServiceUnavailableException("Payment confirmation is temporarily unavailable."); }
@@ -332,16 +274,12 @@ export class BillingService {
     await this.settle(order.id, order.workspaceId, order.paymentLinkId ?? "", providerOrderId);
   }
 
-  private async settle(orderId: string, workspaceId: string, paymentLinkId: string, providerOrderId?: string, cardProvider: "LEMON" | "WHOP" = "LEMON", paypalCaptureId?: string) {
+  private async settle(orderId: string, workspaceId: string, paymentLinkId: string, providerOrderId?: string, paypalCaptureId?: string) {
     await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${workspaceId} FOR UPDATE`;
       const fresh = await tx.paymentOrder.findUniqueOrThrow({ where: { id: orderId } });
-      const updateLedger = (id: string, data: { status: string; reason: string | null }) => cardProvider === "WHOP"
-        ? tx.whopPayment.update({ where: { providerOrderId: id }, data })
-        : tx.lemonPayment.update({ where: { providerOrderId: id }, data });
-      const lemonPayment = providerOrderId ? await (cardProvider === "WHOP"
-        ? tx.whopPayment.findUniqueOrThrow({ where: { providerOrderId } })
-        : tx.lemonPayment.findUniqueOrThrow({ where: { providerOrderId } })) : null;
+      const updateLedger = (id: string, data: { status: string; reason: string | null }) => tx.lemonPayment.update({ where: { providerOrderId: id }, data });
+      const lemonPayment = providerOrderId ? await tx.lemonPayment.findUniqueOrThrow({ where: { providerOrderId } }) : null;
       if (lemonPayment && (lemonPayment.paymentOrderId !== orderId || lemonPayment.status !== "PENDING")) return;
       if (fresh.status === "PAID") {
         if (providerOrderId) {
@@ -351,7 +289,7 @@ export class BillingService {
         }
         return;
       }
-      if (providerOrderId && (fresh.provider !== cardProvider || (fresh.providerOrderId && fresh.providerOrderId !== providerOrderId))) {
+      if (providerOrderId && (fresh.provider !== "LEMON" || (fresh.providerOrderId && fresh.providerOrderId !== providerOrderId))) {
         await updateLedger(providerOrderId, { status: "REVIEW", reason: "DUPLICATE" });
         return;
       }

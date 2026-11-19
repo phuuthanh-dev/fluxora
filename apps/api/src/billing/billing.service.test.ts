@@ -2,23 +2,26 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { BillingService } from "./billing.service";
 import { PayOS } from "@payos/node";
-import { createHmac } from "node:crypto";
 
-test("disabled Whop checkout still accepts signed notifications and reconciles existing payments", async () => {
-  const settings: Record<string, string> = { NODE_ENV: "production", WEB_ORIGIN: "https://fluxora.example", PLAN_LIMITS_ENABLED: "true", WHOP_CHECKOUT_ENABLED: "false", LEMON_CHECKOUT_ENABLED: "false", WHOP_API_KEY: "fake", WHOP_WEBHOOK_SECRET: "ws_test", WHOP_ACCOUNT_ID: "biz_test1", WHOP_STARTER_VARIANT_ID: "plan_starter", WHOP_PRO_VARIANT_ID: "plan_pro" };
-  const previous = Object.fromEntries(Object.keys(settings).map((key) => [key, process.env[key]]));
-  Object.assign(process.env, settings);
-  const order = { id: "order", workspaceId: "w", provider: "WHOP", status: "PAID", plan: "STARTER", amount: 99000, paidAt: new Date() };
-  const prisma = { paymentOrder: { findFirst: async () => order }, whopPayment: { findMany: async () => [] } };
-  const service = new BillingService(prisma as never, { requireOwner: async () => undefined } as never);
-  const id = "msg_test1", timestamp = String(Math.floor(Date.now() / 1000)), payload = { id, type: "unknown.event", account_id: "biz_test1" }, raw = Buffer.from(JSON.stringify(payload));
-  const signature = `v1,${createHmac("sha256", settings.WHOP_WEBHOOK_SECRET!).update(`${id}.${timestamp}.`).update(raw).digest("base64")}`;
+test("historical Whop orders cannot be resumed or sent to another payment provider", async () => {
+  let state = "PENDING";
+  const order = () => ({ id: "order", workspaceId: "w", plan: "STARTER", amount: 99000, status: state, provider: "WHOP", paidAt: null, checkoutUrl: "https://whop.com/checkout/old" });
+  const service = new BillingService({ paymentOrder: { findFirst: async () => order() } } as never, { requireOwner: async () => undefined } as never);
+  assert.equal((await service.latest("w", "u"))?.canResume, false);
+  await assert.rejects(service.reconcile("w", "u", "order"), /contact support/);
+  state = "PAID";
+  assert.equal((await service.reconcile("w", "u", "order")).status, "PAID");
+});
+
+test("an existing Lemon checkout remains resumable", async () => {
+  const settings: Record<string, string> = { NODE_ENV: "test", WEB_ORIGIN: "http://localhost:3000", PLAN_LIMITS_ENABLED: "true", LEMON_CHECKOUT_ENABLED: "true", LEMON_TEST_MODE: "true", LEMON_API_KEY: "fake", LEMON_SIGNING_SECRET: "fake", LEMON_STORE_ID: "1", LEMON_STORE_HOST: "example.lemonsqueezy.com", LEMON_STARTER_VARIANT_ID: "2", LEMON_PRO_VARIANT_ID: "3" };
+  const previous = Object.fromEntries(Object.keys(settings).map((key) => [key, process.env[key]])); Object.assign(process.env, settings);
+  const existing = { id: "order", plan: "STARTER", provider: "LEMON", status: "PENDING", checkoutUrl: "https://example.lemonsqueezy.com/checkout/buy/example" };
+  const tx = { $queryRaw: async () => [], workspace: { findUniqueOrThrow: async () => ({ paidPlan: null, paidUntil: null }) }, paymentOrder: { findFirst: async () => existing } };
   try {
-    assert.equal(service.publicAvailability().methods.card, false);
-    await assert.rejects(service.createCheckout("w", "u", "STARTER", undefined, undefined, "card"), /Paid plans are not available/);
-    assert.deepEqual(await service.handleWhopWebhook(raw, id, timestamp, signature, payload), { received: true });
-    await assert.rejects(service.handleWhopWebhook(raw, id, timestamp, "v1,invalid", payload), /Invalid payment notification/);
-    assert.equal((await service.reconcile("w", "u", "order")).status, "PAID");
+    const service = new BillingService({ $transaction: async (fn: (value: typeof tx) => unknown) => fn(tx) } as never, { requireOwner: async () => undefined } as never);
+    assert.equal(service.publicAvailability().methods.card, true);
+    assert.deepEqual(await service.createCheckout("w", "u", "STARTER", undefined, undefined, "card"), { checkoutUrl: existing.checkoutUrl, orderId: existing.id });
   } finally { for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 });
 
@@ -33,18 +36,6 @@ test("checkout remains unavailable by default and checks workspace ownership fir
     assert.equal(checked, true);
     await assert.rejects(service.createCheckout("w", "u", "FREE"), /valid plan/);
   } finally { if (prior === undefined) delete process.env.PAYOS_CHECKOUT_ENABLED; else process.env.PAYOS_CHECKOUT_ENABLED = prior; }
-});
-
-test("an existing Lemon card checkout remains resumable when Whop sandbox is enabled", async () => {
-  const settings: Record<string, string> = { NODE_ENV: "test", WEB_ORIGIN: "http://localhost:3000", PLAN_LIMITS_ENABLED: "true", WHOP_SANDBOX_ENABLED: "true", WHOP_SANDBOX_API_KEY: "fake", WHOP_SANDBOX_WEBHOOK_SECRET: "ws_test", WHOP_SANDBOX_ACCOUNT_ID: "biz_test1", WHOP_SANDBOX_STARTER_VARIANT_ID: "plan_starter", WHOP_SANDBOX_PRO_VARIANT_ID: "plan_pro" };
-  const previous = Object.fromEntries(Object.keys(settings).map((key) => [key, process.env[key]]));
-  Object.assign(process.env, settings);
-  const existing = { id: "order", plan: "STARTER", provider: "LEMON", status: "PENDING", checkoutUrl: "https://example.lemonsqueezy.com/checkout/buy/example" };
-  const tx = { $queryRaw: async () => [], workspace: { findUniqueOrThrow: async () => ({ paidPlan: null, paidUntil: null }) }, paymentOrder: { findFirst: async () => existing } };
-  try {
-    const service = new BillingService({ $transaction: async (fn: (value: typeof tx) => unknown) => fn(tx) } as never, { requireOwner: async () => undefined } as never);
-    assert.deepEqual(await service.createCheckout("w", "u", "STARTER", undefined, undefined, "card"), { checkoutUrl: existing.checkoutUrl, orderId: existing.id });
-  } finally { for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 });
 
 test("webhook verifies signature and provider order before granting paid access exactly once", async () => {
