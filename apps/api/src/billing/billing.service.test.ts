@@ -25,6 +25,39 @@ test("an existing Lemon checkout remains resumable", async () => {
   } finally { for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 });
 
+test("a closed PayPal checkout cannot be captured or grant access from a late event", async () => {
+  const settings: Record<string, string> = { NODE_ENV: "test", WEB_ORIGIN: "http://localhost:3400", DATABASE_URL: "postgresql://localhost/fluxora_paypal_test", PLAN_LIMITS_ENABLED: "true", PAYPAL_SANDBOX_ENABLED: "true", PAYPAL_SANDBOX_CLIENT_ID: "test", PAYPAL_SANDBOX_CLIENT_SECRET: "test", PAYPAL_SANDBOX_STARTER_CENTS: "100", PAYPAL_SANDBOX_PRO_CENTS: "200", PAYPAL_SANDBOX_WEBHOOK_ID: "test" };
+  const previous = Object.fromEntries(Object.keys(settings).map((key) => [key, process.env[key]])); Object.assign(process.env, settings);
+  const previousFetch = globalThis.fetch;
+  let status = "EXPIRED", remoteStatus = "COMPLETED", orderLookups = 0, captures = 0, workspaceUpdates = 0;
+  const order = { id: "order", workspaceId: "w", provider: "PAYPAL_SANDBOX", paymentLinkId: "ORDER123456789", amount: 100, plan: "STARTER" };
+  const tx = { $queryRaw: async () => [], paymentOrder: { findUniqueOrThrow: async () => ({ ...order, status: "EXPIRED" }) }, workspace: { update: async () => { workspaceUpdates++; } } };
+  const service = new BillingService({ paymentOrder: { findFirst: async () => ({ ...order, status }), updateMany: async () => ({ count: 0 }) }, $transaction: async (fn: (value: typeof tx) => unknown) => fn(tx) } as never, {} as never);
+  globalThis.fetch = async (url) => {
+    const path = String(url);
+    if (path.endsWith("/token")) return Response.json({ token_type: "Bearer", access_token: "test" });
+    if (path.endsWith("/verify-webhook-signature")) return Response.json({ verification_status: "SUCCESS" });
+    if (path.endsWith("/capture")) { captures++; throw new Error("closed checkout must not be captured"); }
+    orderLookups++;
+    return Response.json({ id: order.paymentLinkId, intent: "CAPTURE", status: remoteStatus, purchase_units: [{ custom_id: order.id, amount: { currency_code: "USD", value: "1.00" }, payments: { captures: [{ id: "CAPTURE123456789", status: "COMPLETED", amount: { currency_code: "USD", value: "1.00" } }] } }] });
+  };
+  const headers = { authAlgo: "algo", certUrl: "https://api.sandbox.paypal.com/v1/notifications/certs/CERT-TEST", transmissionId: "id", transmissionSig: "sig", transmissionTime: "time" };
+  const payload = Buffer.from(JSON.stringify({ event_type: "CHECKOUT.ORDER.APPROVED", resource: { id: order.paymentLinkId } }));
+  try {
+    await assert.rejects(service.handlePayPalWebhook(payload, headers), /support review/);
+    assert.equal(orderLookups, 0); assert.equal(captures, 0);
+    status = "PENDING"; // A concurrent closure wins after the initial lookup.
+    await assert.rejects(service.handlePayPalWebhook(payload, headers), /support review/);
+    assert.equal(orderLookups, 1); assert.equal(captures, 0); assert.equal(workspaceUpdates, 0);
+    remoteStatus = "APPROVED"; // The atomic capture claim loses to a concurrent close.
+    await assert.rejects(service.handlePayPalWebhook(payload, headers), /support review/);
+    assert.equal(orderLookups, 2); assert.equal(captures, 0);
+  } finally {
+    globalThis.fetch = previousFetch;
+    for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
+  }
+});
+
 test("checkout remains unavailable by default and checks workspace ownership first", async () => {
   const prior = process.env.PAYOS_CHECKOUT_ENABLED;
   delete process.env.PAYOS_CHECKOUT_ENABLED;
