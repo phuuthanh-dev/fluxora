@@ -9,6 +9,7 @@ import { PrismaService } from "../database/prisma.service";
 import { WorkspaceService } from "../workspaces/workspace.service";
 
 type PaidPlan = "STARTER" | "PRO";
+const supportedPaymentProviders = new Set(["PAYOS", "LEMON", "PAYPAL", "PAYPAL_SANDBOX"]);
 
 /** Hosted checkout is disabled until plan entitlements and real-money qualification are complete. */
 @Injectable()
@@ -35,7 +36,7 @@ export class BillingService {
     const order = await this.prisma.paymentOrder.findFirst({ where: { workspaceId, status: { in: ["CREATING", "PENDING", "REVIEW"] } }, orderBy: { createdAt: "desc" }, select: { id: true, plan: true, amount: true, status: true, createdAt: true, checkoutUrl: true, provider: true } });
     if (!order) return null;
     const { checkoutUrl, ...details } = order;
-    return { ...details, ...((order.provider === "PAYPAL_SANDBOX" || order.provider === "PAYPAL") ? { currency: "USD" } : {}), canResume: order.provider !== "WHOP" && order.status === "PENDING" && Boolean(checkoutUrl), canCancel: order.provider === "PAYOS" };
+    return { ...details, ...((order.provider === "PAYPAL_SANDBOX" || order.provider === "PAYPAL") ? { currency: "USD" } : {}), canResume: supportedPaymentProviders.has(order.provider) && order.status === "PENDING" && Boolean(checkoutUrl), canCancel: order.provider === "PAYOS" };
   }
 
   async cancel(workspaceId: string, userId: string, orderId: string) {
@@ -69,8 +70,8 @@ export class BillingService {
       for (const payment of pending) await this.confirmLemonPayment(config, order, payment.providerOrderId);
       return this.status(workspaceId, userId, orderId);
     }
-    // Historical orders remain visible; old Whop payments require manual support review.
-    if (order.provider === "WHOP") {
+    // Unrecognized historical providers must never be reconciled as payOS.
+    if (order.provider !== "PAYOS") {
       if (order.status === "PAID") return this.status(workspaceId, userId, orderId);
       throw new ServiceUnavailableException("Payment status is unavailable. Please try again later or contact support.");
     }

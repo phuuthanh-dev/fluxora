@@ -212,7 +212,7 @@ model PaymentOrder {
   paidAt          DateTime?
   workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
   lemonPayments   LemonPayment[]
-  whopPayments    WhopPayment[]
+  legacyPayments  LegacyPayment[]
 
   @@index([workspaceId, createdAt])
 }
@@ -229,8 +229,8 @@ model LemonPayment {
   @@index([paymentOrderId, status])
 }
 
-// Durable correlation without storing provider payloads or customer information.
-model WhopPayment {
+// Retained historical payment records; no active provider uses this model.
+model LegacyPayment {
   providerOrderId String       @id
   paymentOrderId  String
   status          String
@@ -239,6 +239,7 @@ model WhopPayment {
   paymentOrder    PaymentOrder @relation(fields: [paymentOrderId], references: [id], onDelete: Restrict)
 
   @@index([paymentOrderId, status])
+  @@map("WhopPayment")
 }
 
 // Independent of execution retention: one row per live execution that starts

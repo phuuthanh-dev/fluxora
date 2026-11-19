@@ -3,9 +3,9 @@ import test from "node:test";
 import { BillingService } from "./billing.service";
 import { PayOS } from "@payos/node";
 
-test("historical Whop orders cannot be resumed or sent to another payment provider", async () => {
+test("orders from retired providers cannot be resumed or sent to another payment provider", async () => {
   let state = "PENDING";
-  const order = () => ({ id: "order", workspaceId: "w", plan: "STARTER", amount: 99000, status: state, provider: "WHOP", paidAt: null, checkoutUrl: "https://whop.com/checkout/old" });
+  const order = () => ({ id: "order", workspaceId: "w", plan: "STARTER", amount: 99000, status: state, provider: "RETIRED_PROVIDER", paidAt: null, checkoutUrl: "https://example.invalid/checkout/old" });
   const service = new BillingService({ paymentOrder: { findFirst: async () => order() } } as never, { requireOwner: async () => undefined } as never);
   assert.equal((await service.latest("w", "u"))?.canResume, false);
   await assert.rejects(service.reconcile("w", "u", "order"), /contact support/);
@@ -119,7 +119,7 @@ test("reconciliation only clears a cancelled unpaid order for its owner", async 
   class TestBilling extends BillingService {
     protected override client() { return { paymentRequests: { get: async () => ({ id: "link", orderCode: 12, amount: 99000, amountPaid: 0, amountRemaining: 99000, status: "CANCELLED" }) } } as unknown as PayOS; }
   }
-  const order = { id: "order", workspaceId: "w", orderCode: 12n, amount: 99000, paymentLinkId: "link", status: "PENDING", plan: "STARTER", paidAt: null };
+  const order = { id: "order", workspaceId: "w", orderCode: 12n, amount: 99000, paymentLinkId: "link", status: "PENDING", plan: "STARTER", paidAt: null, provider: "PAYOS" };
   const prisma = { paymentOrder: { findFirst: async () => order, updateMany: async (query: unknown) => { update = query; return { count: 1 }; } } };
   const service = new TestBilling(prisma as never, { requireOwner: async () => { ownerChecked = true; } } as never);
   await service.reconcile("w", "owner", "order");

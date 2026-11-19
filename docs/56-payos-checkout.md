@@ -2,7 +2,7 @@
 
 ## Current production snapshot — 2026-11-17
 
-On 2026-11-19 the owner requested removing Whop. Production checkout and its provider webhook were disabled and Whop settings removed from the production environment. PayOS and PayPal remain enabled; Lemon checkout remains disabled. Historical Whop transactions are retained for audit and require manual support review for refunds or disputes. One owner-authorized PayPal Starter renewal was matched to a completed provider capture and a 30-day entitlement extension. This is a point-in-time qualification, not proof of every payment or refund scenario. The dated rollout notes below describe earlier states and do not override this snapshot.
+PayOS and PayPal are enabled; Lemon checkout remains disabled. One owner-authorized PayPal Starter renewal was matched to a completed provider capture and a 30-day entitlement extension. This is a point-in-time qualification, not proof of every payment or refund scenario. The dated rollout notes below describe earlier states and do not override this snapshot.
 
 ### Manual PayPal reconciliation
 
