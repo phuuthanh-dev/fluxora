@@ -4,13 +4,13 @@ type PaidPlan = "STARTER" | "PRO";
 export type WhopConfig = { apiKey: string; signingSecret: string; accountId: string; variants: Record<PaidPlan, string>; apiBase: string; checkoutHost: string };
 
 // Production and Sandbox have separate credentials, hosts and opt-in flags.
-export function whopConfig(): WhopConfig | null {
+export function whopConfig(forExistingPayments = false): WhopConfig | null {
   const production = process.env.NODE_ENV === "production";
   const prefix = production ? "WHOP" : "WHOP_SANDBOX";
   const apiKey = process.env[`${prefix}_API_KEY`], signingSecret = process.env[`${prefix}_WEBHOOK_SECRET`], accountId = process.env[`${prefix}_ACCOUNT_ID`], starter = process.env[`${prefix}_STARTER_VARIANT_ID`], pro = process.env[`${prefix}_PRO_VARIANT_ID`];
   let localOrigin = false;
   try { localOrigin = ["localhost", "127.0.0.1", "::1", "[::1]"].includes(new URL(process.env.WEB_ORIGIN ?? "").hostname); } catch { /* No configured local origin. */ }
-  if ((production ? process.env.WHOP_CHECKOUT_ENABLED !== "true" : !localOrigin || process.env.WHOP_SANDBOX_ENABLED !== "true") || process.env.PLAN_LIMITS_ENABLED !== "true" || !apiKey || !signingSecret?.startsWith("ws_") || !accountId || !/^biz_[a-zA-Z0-9]+$/.test(accountId) || !starter || !pro || starter === pro || ![starter, pro].every((id) => /^plan_[a-zA-Z0-9]+$/.test(id))) return null;
+  if ((production ? !forExistingPayments && process.env.WHOP_CHECKOUT_ENABLED !== "true" : !localOrigin || process.env.WHOP_SANDBOX_ENABLED !== "true") || process.env.PLAN_LIMITS_ENABLED !== "true" || !apiKey || !signingSecret?.startsWith("ws_") || !accountId || !/^biz_[a-zA-Z0-9]+$/.test(accountId) || !starter || !pro || starter === pro || ![starter, pro].every((id) => /^plan_[a-zA-Z0-9]+$/.test(id))) return null;
   return { apiKey, signingSecret, accountId, variants: { STARTER: starter, PRO: pro }, apiBase: production ? "https://api.whop.com/api/v1" : "https://sandbox-api.whop.com/api/v1", checkoutHost: production ? "whop.com" : "sandbox.whop.com" };
 }
 

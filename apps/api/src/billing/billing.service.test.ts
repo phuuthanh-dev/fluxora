@@ -2,6 +2,25 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { BillingService } from "./billing.service";
 import { PayOS } from "@payos/node";
+import { createHmac } from "node:crypto";
+
+test("disabled Whop checkout still accepts signed notifications and reconciles existing payments", async () => {
+  const settings: Record<string, string> = { NODE_ENV: "production", WEB_ORIGIN: "https://fluxora.example", PLAN_LIMITS_ENABLED: "true", WHOP_CHECKOUT_ENABLED: "false", LEMON_CHECKOUT_ENABLED: "false", WHOP_API_KEY: "fake", WHOP_WEBHOOK_SECRET: "ws_test", WHOP_ACCOUNT_ID: "biz_test1", WHOP_STARTER_VARIANT_ID: "plan_starter", WHOP_PRO_VARIANT_ID: "plan_pro" };
+  const previous = Object.fromEntries(Object.keys(settings).map((key) => [key, process.env[key]]));
+  Object.assign(process.env, settings);
+  const order = { id: "order", workspaceId: "w", provider: "WHOP", status: "PAID", plan: "STARTER", amount: 99000, paidAt: new Date() };
+  const prisma = { paymentOrder: { findFirst: async () => order }, whopPayment: { findMany: async () => [] } };
+  const service = new BillingService(prisma as never, { requireOwner: async () => undefined } as never);
+  const id = "msg_test1", timestamp = String(Math.floor(Date.now() / 1000)), payload = { id, type: "unknown.event", account_id: "biz_test1" }, raw = Buffer.from(JSON.stringify(payload));
+  const signature = `v1,${createHmac("sha256", settings.WHOP_WEBHOOK_SECRET!).update(`${id}.${timestamp}.`).update(raw).digest("base64")}`;
+  try {
+    assert.equal(service.publicAvailability().methods.card, false);
+    await assert.rejects(service.createCheckout("w", "u", "STARTER", undefined, undefined, "card"), /Paid plans are not available/);
+    assert.deepEqual(await service.handleWhopWebhook(raw, id, timestamp, signature, payload), { received: true });
+    await assert.rejects(service.handleWhopWebhook(raw, id, timestamp, "v1,invalid", payload), /Invalid payment notification/);
+    assert.equal((await service.reconcile("w", "u", "order")).status, "PAID");
+  } finally { for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
+});
 
 test("checkout remains unavailable by default and checks workspace ownership first", async () => {
   const prior = process.env.PAYOS_CHECKOUT_ENABLED;

@@ -72,7 +72,7 @@ export class BillingService {
       return this.status(workspaceId, userId, orderId);
     }
     if (order.provider === "WHOP") {
-      const config = whopConfig();
+      const config = whopConfig(true);
       if (!config) throw new ServiceUnavailableException("Payment status is unavailable. Please try again later or contact support.");
       const pending = await this.prisma.whopPayment.findMany({ where: { paymentOrderId: order.id, status: "PENDING" }, select: { providerOrderId: true }, take: 20 });
       for (const payment of pending) await this.confirmWhopPayment(config, order, payment.providerOrderId);
@@ -282,7 +282,7 @@ export class BillingService {
   }
 
   async handleWhopWebhook(rawBody: Buffer | undefined, id: string | undefined, timestamp: string | undefined, signature: string | undefined, payload: unknown) {
-    const config = whopConfig();
+    const config = whopConfig(true);
     if (!config || !verifyWhopWebhook(rawBody, id, timestamp, signature, config.signingSecret) || record(payload)?.id !== id) throw new BadRequestException("Invalid payment notification.");
     const refundPaymentId = readWhopRefundEvent(payload, config.accountId);
     if (refundPaymentId) {
