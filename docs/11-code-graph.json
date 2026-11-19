@@ -330,8 +330,6 @@
         "apps/api/src/billing/lemon-client.ts",
         "apps/api/src/billing/lemon-webhook.ts",
         "apps/api/src/billing/paypal-client.ts",
-        "apps/api/src/billing/whop-client.ts",
-        "apps/api/src/billing/whop-webhook.ts",
         "apps/api/src/database/prisma.service.ts",
         "apps/api/src/workspaces/workspace.service.ts"
       ],
@@ -364,22 +362,6 @@
       "internalImports": [],
       "externalImports": [
         "@nestjs/common"
-      ]
-    },
-    {
-      "id": "apps/api/src/billing/whop-client.ts",
-      "boundary": "api",
-      "internalImports": [],
-      "externalImports": [
-        "@nestjs/common"
-      ]
-    },
-    {
-      "id": "apps/api/src/billing/whop-webhook.ts",
-      "boundary": "api",
-      "internalImports": [],
-      "externalImports": [
-        "node:crypto"
       ]
     },
     {
@@ -5585,14 +5567,6 @@
     {
       "from": "apps/api/src/billing/billing.service.ts",
       "to": "apps/api/src/billing/paypal-client.ts"
-    },
-    {
-      "from": "apps/api/src/billing/billing.service.ts",
-      "to": "apps/api/src/billing/whop-client.ts"
-    },
-    {
-      "from": "apps/api/src/billing/billing.service.ts",
-      "to": "apps/api/src/billing/whop-webhook.ts"
     },
     {
       "from": "apps/api/src/billing/billing.service.ts",

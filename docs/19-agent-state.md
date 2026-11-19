@@ -1,5 +1,9 @@
 # Agent Current State Gate
 
+## Whop removal — 2026-11-19
+
+- The owner requested permanent removal of Whop from Fluxora. New Whop checkouts are disabled on production, its provider webhook is disabled, and the production Whop environment settings have been removed. PayOS and PayPal remain available; Lemon remains disabled. Legacy payment records remain for audit; Whop refunds and disputes require manual handling. The earlier dated notes below are historical.
+
 ## Shopify store readiness — 2026-11-19
 
 - The owner confirmed that an independent merchant store is unavailable; independent-merchant qualification remains open. Existing connection creation is local validation and encryption, not a live provider authorization check. Shopify picker authorization failures now use the previously approved safe message; transient rate limits remain retryable. Shopify store inputs also accept a canonical full store URL.

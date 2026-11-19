@@ -2,7 +2,7 @@
 
 ## Current production snapshot — 2026-11-17
 
-Read-only inspection found payOS, Whop and PayPal checkout enabled; Lemon checkout is disabled. The availability endpoint reports bank, card and PayPal methods. One owner-authorized PayPal Starter renewal was matched to a completed provider capture and a 30-day entitlement extension. This is a point-in-time qualification, not proof of every payment or refund scenario. The dated rollout notes below describe earlier states and do not override this snapshot.
+On 2026-11-19 the owner requested removing Whop. Production checkout and its provider webhook were disabled and Whop settings removed from the production environment. PayOS and PayPal remain enabled; Lemon checkout remains disabled. Historical Whop transactions are retained for audit and require manual support review for refunds or disputes. One owner-authorized PayPal Starter renewal was matched to a completed provider capture and a 30-day entitlement extension. This is a point-in-time qualification, not proof of every payment or refund scenario. The dated rollout notes below describe earlier states and do not override this snapshot.
 
 ### Manual PayPal reconciliation
 
@@ -69,14 +69,6 @@ ORDER BY p."updatedAt" DESC;
 If no webhook reached Fluxora, the local order does not yet have the provider order identifier and Check status cannot infer it. Support should verify the order in Lemon and resend the original event from Lemon's webhook log; do not grant a plan based on a browser return or an unmatched email. A successful provider resend is verified and processed as above. An uncertain checkout creation, an expired/abandoned link or a permanently failed webhook remains a manual support case; card links cannot be cancelled through the payOS API. Do not issue a new checkout until the original is resolved.
 
 On 2026-11-13, an isolated local Fluxora checkout received a real signed Lemon **Test mode** webhook and activated Starter for 30 days. Reusing the same test checkout produced a second paid test order; Fluxora retained the original term and recorded the second as `REVIEW / DUPLICATE`. No real funds were moved. This remains **unqualified for production** until the merchant is approved, live products and signing configuration are reviewed, operational support can resolve duplicate/refund/never-delivered events, and production-specific qualification is complete. Do not enable the flag on production solely because sandbox checkout succeeded.
-# Whop Sandbox (development only)
-
-Whop is not enabled for production. Sandbox checkout uses `WHOP_SANDBOX_ENABLED`, `WHOP_SANDBOX_API_KEY`, `WHOP_SANDBOX_WEBHOOK_SECRET`, `WHOP_SANDBOX_ACCOUNT_ID`, `WHOP_SANDBOX_STARTER_VARIANT_ID` and `WHOP_SANDBOX_PRO_VARIANT_ID` alongside `PLAN_LIMITS_ENABLED`. The API accepts this configuration only outside production with a localhost web origin. Never use real provider keys or data for tests.
-
-Production configuration is separate: `WHOP_CHECKOUT_ENABLED`, `WHOP_API_KEY`, `WHOP_WEBHOOK_SECRET`, `WHOP_ACCOUNT_ID`, `WHOP_STARTER_VARIANT_ID` and `WHOP_PRO_VARIANT_ID`. It must remain disabled until pricing, tax, merchant readiness, deployment and reconciliation have been reviewed. A hidden Whop product can still be purchased by anyone who has its link; do not share links before release.
-
-Checkout configurations carry a local order reference and random nonce. Webhooks require Whop's signed raw body and the provider's payment details are independently checked before applying existing plan rules. Repeated payments, refunds and changed plans require review rather than silently extending access. When the provider is unavailable after a webhook was received, Check status retries pending verification; events never delivered require provider-side resend. Sandbox cannot establish production costs, taxes, payouts or real card acceptance. Confirm those separately before any live release.
-
 ## PayPal Checkout (implementation; live qualification pending)
 
 PayPal Checkout uses USD amounts stored per order in cents, independent of the existing VND providers. It is disabled by default and requires live merchant credentials, a registered webhook ID, owner-approved prices and an explicit opt-in. Sandbox uses separate credentials and an isolated local test database. Existing plan activation, full-price upgrade and quota reset rules apply only after verification of the order, reference, amount, currency and completed capture; repeated confirmations must not extend the term twice.
