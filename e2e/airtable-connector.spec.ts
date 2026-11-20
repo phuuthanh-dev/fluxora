@@ -41,10 +41,12 @@ test("Airtable trigger clears its time field when changing tables", async ({ pag
     if (path.endsWith("/airtable/bases")) return send({ items: [{ id: base, name: "Planning" }], truncated: false });
     if (path.endsWith("/airtable/tables")) return send({ items: [{ id: table, name: "Tasks" }, { id: other, name: "Other" }], truncated: false });
     if (path.endsWith("/airtable/trigger-fields")) return send({ items: [{ id: field, name: "Created", type: "createdTime" }], truncated: false });
+    if (path.endsWith("/workflows/airtable-trigger-test/provider-poll-status")) return send({ active: false, checkpoints: [] });
     if (path.endsWith("/workflows/airtable-trigger-test")) return send({ workflow: { id: "airtable-trigger-test", workspaceId: "workspace", name: "Airtable trigger test", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null } });
     return route.continue();
   });
   await page.goto("/editor?workflow=airtable-trigger-test");
+  await expect(page.getByText("Draft loaded from your workspace.")).toBeVisible();
   await page.getByTestId("rf__node-airtable").click();
   const triggerField = page.getByRole("group", { name: "Trigger field", exact: true }).getByRole("combobox");
   await expect(triggerField).toHaveValue(field);
