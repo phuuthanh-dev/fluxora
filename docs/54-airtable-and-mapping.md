@@ -9,8 +9,8 @@ lists accessible bases, tables, fields and records. Lists are bounded to the
 first 100 entries; the resource selector offers manual IDs when the desired
 entry is not present. The write form currently supports text, number,
 true/false, clearing a value, and values mapped from previous nodes. It does
-not claim to support every Airtable field type, delete records, or Airtable
-triggers.
+not claim to support every Airtable field type or delete records. A polling
+record trigger is also available as described below.
 
 Configure `AIRTABLE_CLIENT_ID`, `AIRTABLE_CLIENT_SECRET` and
 `AIRTABLE_REDIRECT_URI` together on the server, and register the matching
@@ -24,8 +24,8 @@ Airtable warns that reuse of a rotated token can revoke access ([Airtable](https
 Writes with an uncertain outcome are not automatically retried: check the
 base before trying again.
 
-n8n supports Airtable credentials and record operations; its breadth includes
-additional operations and an Airtable trigger. Fluxora does not yet claim
+n8n supports Airtable credentials, record operations and an Airtable trigger;
+its breadth includes additional operations. Fluxora does not yet claim
 parity ([n8n Airtable node](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.airtable/)).
 
 ## Mapping and qualification
@@ -71,8 +71,12 @@ onboarding; its notice says it returns to the Free plan unless upgraded.
 
 The Airtable record trigger uses the existing workspace Airtable connection and selects a base, table and a Created time or Last modified time field. Activation checks the selected field against Airtable metadata and establishes a timestamp baseline; it does not run existing records. A poll reads a complete bounded window (up to 1,000 records), uses a one-second overlap and commits deliveries and the checkpoint together. A repeated record/timestamp pair is deduplicated. Failed or incomplete reads do not advance the checkpoint. Field names containing braces, backslashes or control characters cannot be used in the filter formula; choose another time field. Changing connection, base, table or field requires checkpoint review/reset; changing the interval does not.
 
-This is polling, not a provider event stream: multiple edits between checks can be combined, deletions are not reported, and changing records or delayed provider visibility while pages are read may affect completeness. A full history or change window stops the trigger for review rather than silently discarding records. The signed-in user's Airtable connection must retain metadata and record-read access. The provider's API uses the field name in its formula even though Fluxora stores the stable field ID; renaming the field is picked up from metadata on the next poll.
+This is polling, not a provider event stream: multiple edits between checks can be combined, deletions are not reported, and changing records or delayed provider visibility while pages are read may affect completeness. A full history or change window stops the trigger for review rather than silently discarding records. The signed-in user's Airtable connection must retain metadata and record-read access. The provider's API uses the field name in its formula even though Fluxora stores the stable field ID.
+
+To reduce Airtable API use, the checkpoint caches the validated field name for at most 24 hours. A normal idle poll reads the records without an additional metadata request. Before delivering unseen changes, Fluxora verifies the field against its ID and reads the window again; an invalid stale name also causes an immediate metadata refresh. A renamed field whose old name is reused may take until the next metadata refresh to be discovered when the stale filter returns no new records; the checkpoint is not advanced in that case. Eventful polls use additional requests for verification. Existing checkpoints without cached metadata are upgraded on the next successful poll. Intervals of 3 hours, 6 hours and 1 day are available alongside the existing options; the choice trades response time for fewer requests.
 
 Live qualification on 2026-11-20 used a separate local test workspace and the authorized `Fluxora connector test` base. A Created time field and two clearly labeled sample records were added to that base. After resetting the baseline, a new record produced one successful trigger-only execution; a second manually invoked poll produced no duplicate, and preexisting records were skipped. The local scheduler was disabled and the workflow deactivated after the test. Scheduled timing, Last modified time, sustained behavior and independent-account isolation were not verified by this test.
+
+Later on 2026-11-20, the same isolated local workspace and authorized base were used to check the cache: an idle read made one Airtable request; a new sample record and a subsequent edit using a newly added Last modified time field each produced one successful execution, with no duplicate on a second manual poll. Renaming that test field caused the cached lookup to refresh metadata and retry successfully; the original name was restored. A further sample edit was picked up by the enabled local scheduler and produced one successful execution. The workflow was deactivated afterward. These checks do not establish sustained operation or independent-account trigger isolation.
 
 References: [n8n Airtable Trigger](https://docs.n8n.io/integrations/builtin/trigger-nodes/n8n-nodes-base.airtabletrigger/), [Airtable List Records](https://airtable.com/developers/web/api/list-records), [Airtable filterByFormula](https://support.airtable.com/articles/1941464361-airtable-web-api-using-filterbyformula-or-sort-parameters).

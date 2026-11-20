@@ -4,6 +4,7 @@ import { isSteamAppId } from "./steam";
 import { isCalendarResourceId } from "./google-calendar";
 
 const interval = z.union([z.literal("1"), z.literal("5"), z.literal("15"), z.literal("60"), z.literal(1), z.literal(5), z.literal(15), z.literal(60)]);
+const airtableInterval = z.union([interval, z.literal("180"), z.literal("360"), z.literal("1440"), z.literal(180), z.literal(360), z.literal(1440)]);
 const publicFeed = z.string().refine((value) => {
   if (!value.trim() || value.length > 2048) return false;
   try { const url = new URL(value.trim()); return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password; } catch { return false; }
@@ -39,7 +40,7 @@ export const airtableTrigger: ConfigRules = {
   baseId: { schema: z.string().regex(/^app[A-Za-z0-9]{5,64}$/), required: true, message: "Choose a supported Airtable resource." },
   tableId: { schema: z.string().regex(/^tbl[A-Za-z0-9]{5,64}$/), required: true, message: "Choose a supported Airtable resource." },
   fieldId: { schema: z.string().regex(/^fld[A-Za-z0-9]{5,64}$/), required: true, message: "Choose a supported Airtable resource." },
-  pollMinutes: { schema: interval, message: "Choose a supported polling interval." },
+  pollMinutes: { schema: airtableInterval, message: "Choose a supported polling interval." },
 };
 export const driveTrigger: ConfigRules = {
   resourceId: { schema: z.string().regex(/^[A-Za-z0-9_-]{1,256}$/), required: true, message: "Choose a Drive file or folder." },

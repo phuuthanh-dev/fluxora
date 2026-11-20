@@ -7,6 +7,7 @@ test("provider polling scopes a checkpoint to its connection, resource and event
   const graph = (changes: Record<string, unknown> = {}) => ({ nodes: [{ id: "trigger", type: "trigger.google-drive.file" as const, position: { x: 0, y: 0 }, config: { ...config, ...changes } }], edges: [] });
   const target = (changes?: Record<string, unknown>) => providerPollTargets("flow", "version", "workspace", graph(changes))[0]!;
   assert.equal(target().configHash, target({ pollMinutes: "15" }).configHash);
+  assert.throws(() => target({ pollMinutes: "180" }), /polling interval/);
   assert.notEqual(target().configHash, target({ credentialId: "other" }).configHash);
   assert.notEqual(target().configHash, target({ resourceId: "other" }).configHash);
   assert.notEqual(target().configHash, target({ event: "updated" }).configHash);
@@ -27,6 +28,10 @@ test("Airtable polling scopes checkpoint identity to connection, base, table and
   const target = (changes?: Record<string, unknown>) => providerPollTargets("flow", "version", "workspace", graph(changes))[0]!;
   assert.equal(target().provider, "airtable");
   assert.equal(target().configHash, target({ pollMinutes: "15" }).configHash);
+  for (const interval of [180, 360, 1440]) {
+    assert.equal(target({ pollMinutes: String(interval) }).pollMinutes, interval);
+    assert.equal(target().configHash, target({ pollMinutes: String(interval) }).configHash);
+  }
   assert.notEqual(target().configHash, target({ baseId: "app22345678901234" }).configHash);
   assert.notEqual(target().configHash, target({ tableId: "tbl22345678901234" }).configHash);
   assert.notEqual(target().configHash, target({ fieldId: "fld22345678901234" }).configHash);

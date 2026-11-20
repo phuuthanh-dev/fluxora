@@ -50,6 +50,12 @@ test("Airtable trigger clears its time field when changing tables", async ({ pag
   await page.getByTestId("rf__node-airtable").click();
   const triggerField = page.getByRole("group", { name: "Trigger field", exact: true }).getByRole("combobox");
   await expect(triggerField).toHaveValue(field);
+  const interval = page.getByLabel("Check every", { exact: true });
+  for (const [value, label] of [["180", "Every 3 hours"], ["360", "Every 6 hours"], ["1440", "Every day"]]) {
+    await expect(interval.getByRole("option", { name: label, exact: true })).toHaveAttribute("value", value);
+    await interval.selectOption(value);
+    await expect(interval).toHaveValue(value);
+  }
   await page.getByRole("group", { name: "Table", exact: true }).getByRole("combobox").selectOption(other);
   await expect(triggerField).toHaveValue("");
 });

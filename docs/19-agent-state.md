@@ -1,5 +1,10 @@
 # Agent Current State Gate
 
+## Airtable polling efficiency — 2026-11-20 (local change)
+
+- Airtable trigger checkpoints cache the validated time-field metadata for at most 24 hours. An idle poll reads records without a separate metadata request; new changes are verified against the stable field ID before dispatch. Legacy checkpoints refresh on their next successful poll. Slower 3-hour, 6-hour and daily intervals are Airtable-only. Polling remains subject to provider pagination and visibility limits; see `54-airtable-and-mapping.md`.
+- Against the owner-approved test base and an isolated local workspace, real created and modified sample records each produced one successful execution with no duplicate on a second manual poll. The local scheduler also picked up a further sample edit. A real renamed test field was detected and restored; an idle poll used one record request. Desktop/mobile light/dark trigger settings were reviewed visually. These results do not establish sustained delivery or independent-account trigger isolation.
+
 ## Airtable polling and operational safety — 2026-11-20
 
 - The Airtable record trigger uses an existing workspace connection, a selected Created time or Last modified time field and the provider-poll checkpoint/delivery machinery. A bounded window commits with its deliveries; transient failures do not advance the checkpoint and repeated record/timestamp pairs are deduplicated. A field type change stops polling for review. Polling can combine intermediate edits, and mutable provider pages or delayed visibility can affect completeness. See `54-airtable-and-mapping.md`.
