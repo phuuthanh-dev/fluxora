@@ -1112,7 +1112,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
     : operationMetadata?.mockBehavior === "provider-sample" && operationMetadata.effect === "write"
     ? "Simulates this action; no message or change is sent to the provider. Only this node runs; live connections and inputs are not verified."
     : mockGuidance[operationMetadata?.mockBehavior ?? "unavailable"];
-  const configIssues = nodeConfigIssues(effectiveNodeType, node.data.config, "static");
+  const configIssues = nodeConfigIssues(effectiveNodeType, node.data.config, "static").filter((issue) => effectiveNodeType !== "trigger.airtable.record" || !((issue.field === "baseId" && !node.data.config.credentialId) || (issue.field === "tableId" && !node.data.config.baseId) || (issue.field === "fieldId" && !node.data.config.tableId)));
   const nodeExecution = execution?.nodeExecutions.find((item) => item.nodeId === node.id);
   const recordedNode = execution?.graph?.nodes.find((item) => item.id === node.id && item.type === nodeExecution?.nodeType);
   const pagination = recordedNode && nodeExecution?.status === "SUCCEEDED" && !nodeExecution.error
@@ -1165,12 +1165,13 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       if (effectiveNodeType === "action.trello.find-cards" && ["credentialId", "boardId", "query", "limit"].includes(key) && "page" in config) config.page = 0;
       if (effectiveNodeType === "action.trello.find-cards" && key === "searchPagination" && value === "pages") config.page = 0;
     }
-    if (effectiveNodeType.startsWith("action.airtable.") && node.data.config[key] !== value && ["credentialId", "baseId", "tableId"].includes(key)) {
+    if ((effectiveNodeType.startsWith("action.airtable.") || effectiveNodeType === "trigger.airtable.record") && node.data.config[key] !== value && ["credentialId", "baseId", "tableId"].includes(key)) {
       if (key === "credentialId") config.baseId = "";
       if (key !== "tableId") config.tableId = "";
       if ("recordId" in config) config.recordId = "";
       if ("fields" in config) config.fields = [];
       if ("cursor" in config) config.cursor = "";
+      if ("fieldId" in config) config.fieldId = "";
     }
     if (node.data.config[key] !== value && (getSharedNodeConfigurationFields(effectiveNodeType) ?? []).some((field) => field.kind === "resource" && ["jira-issue", "gitlab-pipeline", "gitlab-merge-request", "github-label", "sentry-issue", "vercel-deployment"].includes(field.resource))) {
       const changed = new Set([key]);
@@ -1335,7 +1336,7 @@ function NodeInspector({ node, execution, credentials, workspaceId, workflowId, 
       {["trigger.rss.new-item", "trigger.steam.game-news"].includes(effectiveNodeType) && <RssTriggerStatus workflowId={workflowId} nodeId={node.id} steam={effectiveNodeType === "trigger.steam.game-news"} />}
       {effectiveNodeType === "trigger.google-calendar.event" && <CalendarTriggerStatus workflowId={workflowId} nodeId={node.id} />}
       {effectiveNodeType === "trigger.google-sheets.row" && <Status tone="info" className="inspector-note">Use a stable, unique ID for every row. Existing rows are ignored on activation. If a key or header is removed or changed, polling stops for review. Up to 1,000 rows and 100 columns are supported; intermediate changes between checks may be missed.</Status>}
-      {(effectiveNodeType === "trigger.notion.page" || effectiveNodeType === "trigger.google-drive.file" || effectiveNodeType === "trigger.google-sheets.row") && <ProviderPollStatus workflowId={workflowId} nodeId={node.id} workflowActive={workflowActive} provider={effectiveNodeType === "trigger.notion.page" ? "Notion" : effectiveNodeType === "trigger.google-sheets.row" ? "Google Sheets" : "Google Drive"} />}
+      {(effectiveNodeType === "trigger.notion.page" || effectiveNodeType === "trigger.google-drive.file" || effectiveNodeType === "trigger.google-sheets.row" || effectiveNodeType === "trigger.airtable.record") && <ProviderPollStatus workflowId={workflowId} nodeId={node.id} workflowActive={workflowActive} provider={effectiveNodeType === "trigger.airtable.record" ? "Airtable" : effectiveNodeType === "trigger.notion.page" ? "Notion" : effectiveNodeType === "trigger.google-sheets.row" ? "Google Sheets" : "Google Drive"} />}
       {effectiveNodeType === "trigger.manual" && <TestDataEditor key={`test-data-${node.id}`} value={node.data.config.testData} onApply={(testData) => updateConfig("testData", testData)} draft={draft.testData} onDraftChange={(next) => onDraftChange("testData", next)} />}
       {effectiveNodeType === "trigger.cron" && (
         <>

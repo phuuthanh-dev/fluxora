@@ -73,6 +73,7 @@ This table records the MVP baseline and selected later additions. Entries marked
 | Trigger | Manual | Start a test execution from the editor. |
 | Trigger | Cron | Run published workflow by cron expression in `Asia/Ho_Chi_Minh`. |
 | Trigger | Webhook | Receive JSON with optional secret header. |
+| Trigger | Airtable record | Poll a selected base/table using a Created time or Last modified time field and the existing Airtable connection. The initial timestamp is a baseline; repeated changes to the same record between polls may be combined. See `docs/54-airtable-and-mapping.md` for bounds and limitations. |
 | Trigger | GitHub Issue opened | Receive a signed GitHub `issues` webhook with `action: opened` using the registration signing secret. |
 | Trigger | GitHub Pull request opened | Receive a signed GitHub `pull_request` webhook with `action: opened` using the registration signing secret. |
 | Trigger | GitHub Push | Receive a signed GitHub `push` webhook using the registration signing secret. |

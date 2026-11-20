@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { CredentialProvider, Prisma, WorkflowVersionStatus } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import type { WorkflowGraph } from "@workflow/contracts";
@@ -7,6 +7,7 @@ import { PrismaService } from "../database/prisma.service";
 import { ExecutionQueueService } from "../execution/execution-queue.service";
 import { liveCredentialRequirements } from "../execution/live-readiness";
 import { NodeFailure } from "../execution/node-failure";
+import { airtableTriggerChanges } from "../execution/airtable";
 import { redactValue } from "../execution/redaction";
 import { BackgroundWork } from "../platform/background-work";
 import { parseStoredWorkflowGraph } from "../workflows/workflow-graph";
@@ -30,6 +31,7 @@ export class ProviderPollService implements OnModuleInit, OnModuleDestroy {
   protected readonly driveCursor = driveStartCursor;
   protected readonly drivePage = driveChanges;
   protected readonly sheetsSnapshot = readSheetSnapshot;
+  protected readonly airtableChanges = airtableTriggerChanges;
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService, @Inject(CredentialService) private readonly credentials: CredentialService, @Inject(ExecutionQueueService) private readonly queue: ExecutionQueueService) {}
 
   onModuleInit() {
@@ -48,6 +50,12 @@ export class ProviderPollService implements OnModuleInit, OnModuleDestroy {
         result.push({ target, cursor: null, baselineAt: existing.baselineAt }); continue;
       }
       const baselineAt = new Date();
+      if (target.provider === "airtable") {
+        const token = await this.credentials.airtableAccessToken(target.credentialId, workspaceId);
+        const initial = await this.airtableChanges(token, target.resourceId, target.tableId!, target.fieldId!, baselineAt.toISOString());
+        result.push({ target, cursor: JSON.stringify({ at: baselineAt.toISOString(), event: initial.event }), baselineAt });
+        continue;
+      }
       if (target.provider === "google-sheets") {
         const credential = await this.credentials.readGoogleForExecution(target.credentialId, workspaceId);
         const snapshot = await this.sheetsSnapshot(typeof credential.accessToken === "string" ? credential.accessToken : "", target.resourceId, target.sheetName!, target.keyColumn!);
@@ -137,22 +145,47 @@ export class ProviderPollService implements OnModuleInit, OnModuleDestroy {
     return sheetChanges(cursor, snapshot);
   }
 
+  private async readAirtable(target: ProviderPollTarget, cursor: string, baselineAt: Date): Promise<Batch> {
+    let checkpoint: { at?: unknown; event?: unknown };
+    try { checkpoint = JSON.parse(cursor); } catch { throw new NodeFailure("PROVIDER_POLL_CURSOR_INVALID", "The polling checkpoint is invalid.", false); }
+    const cursorTime = typeof checkpoint?.at === "string" ? Date.parse(checkpoint.at) : NaN;
+    if (!Number.isFinite(cursorTime) || !["created", "updated"].includes(String(checkpoint?.event))) throw new NodeFailure("PROVIDER_POLL_CURSOR_INVALID", "The polling checkpoint is invalid.", false);
+    let token: string;
+    try { token = await this.credentials.airtableAccessToken(target.credentialId, target.workspaceId); }
+    catch (error) {
+      if (error instanceof BadRequestException || error instanceof NotFoundException) throw new NodeFailure("AIRTABLE_RECONNECT_REQUIRED", "Reconnect the Airtable account.", false);
+      throw error;
+    }
+    const result = await this.airtableChanges(token, target.resourceId, target.tableId!, target.fieldId!, new Date(cursorTime - 1000).toISOString());
+    if (result.event !== checkpoint.event) throw new NodeFailure("PROVIDER_POLL_CHANGED", "The trigger changed. Review it before continuing.", false);
+    let latest = cursorTime;
+    const changes: Change[] = [];
+    for (const row of result.rows) {
+      const timestamp = Date.parse(row.timestamp);
+      latest = Math.max(latest, timestamp);
+      if (timestamp < baselineAt.getTime()) continue;
+      changes.push({ key: pollHash(`${result.event}\0${row.id}\0${row.timestamp}`), item: row.item, event: result.event });
+    }
+    return { cursor: JSON.stringify({ at: new Date(latest).toISOString(), event: result.event }), changes };
+  }
+
   async poll(target: ProviderPollTarget) {
     const leaseToken = randomUUID(), now = new Date();
     const claim = await this.prisma.providerPollCheckpoint.updateMany({ where: { workflowId: target.workflowId, nodeId: target.nodeId, workflowVersionId: target.versionId, configHash: target.configHash, state: "READY", workflow: { isActive: true, archivedAt: null, publishedVersionId: target.versionId }, AND: [{ OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { lt: now } }] }, { OR: [{ nextPollAt: null }, { nextPollAt: { lte: now } }] }] }, data: { leaseToken, leaseExpiresAt: new Date(now.getTime() + leaseMs) } });
     if (!claim.count) return;
     try {
       const checkpoint = await this.prisma.providerPollCheckpoint.findUniqueOrThrow({ where: { workflowId_nodeId: { workflowId: target.workflowId, nodeId: target.nodeId } } });
-      const batch = target.provider === "notion" ? await this.readNotion(target, checkpoint.cursor, checkpoint.baselineAt) : target.provider === "google-sheets" ? await this.readSheets(target, checkpoint.cursor) : await this.readDrive(target, checkpoint.cursor, checkpoint.baselineAt);
+      const batch = target.provider === "airtable" ? await this.readAirtable(target, checkpoint.cursor, checkpoint.baselineAt) : target.provider === "notion" ? await this.readNotion(target, checkpoint.cursor, checkpoint.baselineAt) : target.provider === "google-sheets" ? await this.readSheets(target, checkpoint.cursor) : await this.readDrive(target, checkpoint.cursor, checkpoint.baselineAt);
       const ids = await this.commitBatch(target, leaseToken, checkpoint.cursor, batch);
       for (const id of ids) try { await this.queue.ensureDispatched({ executionId: id, mode: "live", startNodeIds: [target.nodeId], initialOnly: true }); } catch { this.logger.warn(`Could not dispatch provider poll execution ${id}.`); }
     } catch (error) {
       const code = error instanceof NodeFailure ? error.code : "PROVIDER_POLL_FAILED";
       const retry = error instanceof NodeFailure ? error.retryable : true;
+      const delay = target.provider === "airtable" && error instanceof NodeFailure && Number.isFinite(error.retryAfterMs) ? Math.max(target.pollMinutes * 60_000, error.retryAfterMs!) : target.pollMinutes * 60_000;
       await this.prisma.$transaction(async (tx) => {
         const workflows = await tx.$queryRaw<Array<{ isActive: boolean; archivedAt: Date | null; publishedVersionId: string | null }>>`SELECT "isActive", "archivedAt", "publishedVersionId" FROM "Workflow" WHERE id = ${target.workflowId} FOR UPDATE`;
         if (!workflows[0]?.isActive || workflows[0].archivedAt || workflows[0].publishedVersionId !== target.versionId) return;
-        await tx.providerPollCheckpoint.updateMany({ where: { workflowId: target.workflowId, nodeId: target.nodeId, workflowVersionId: target.versionId, leaseToken, leaseExpiresAt: { gt: new Date() } }, data: { state: retry ? "READY" : "ERROR", lastErrorCode: code, nextPollAt: new Date(Date.now() + target.pollMinutes * 60_000) } });
+        await tx.providerPollCheckpoint.updateMany({ where: { workflowId: target.workflowId, nodeId: target.nodeId, workflowVersionId: target.versionId, leaseToken, leaseExpiresAt: { gt: new Date() } }, data: { state: retry ? "READY" : "ERROR", lastErrorCode: code, nextPollAt: new Date(Date.now() + delay) } });
       });
       this.logger.warn(`Provider poll failed (${code}) for workflow ${target.workflowId}.`);
     } finally { await this.prisma.providerPollCheckpoint.updateMany({ where: { workflowId: target.workflowId, nodeId: target.nodeId, leaseToken }, data: { leaseToken: null, leaseExpiresAt: null } }); }

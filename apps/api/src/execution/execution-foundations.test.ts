@@ -627,6 +627,26 @@ test("retry creates a new execution from the failed pinned version and original 
   assert.equal(created[1]?.idempotencyRootId, "execution-source");
 });
 
+test("retry does not commit an execution if its audit record fails", async () => {
+  const source = { id: "source", status: ExecutionStatus.FAILED, mode: "MOCK", workflowVersionId: "version", triggerData: null, workflowVersion: { version: 1, graph: { nodes: [], edges: [] }, workflow: { workspaceId: "workspace" } } };
+  let committed = false;
+  const prisma = {
+    execution: { findFirst: async () => source },
+    $transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
+      const result = await fn({
+        $queryRaw: async () => [{ privacyErasedAt: null }],
+        execution: { create: async () => ({ id: "retry" }) },
+        auditLog: { create: async () => { throw new Error("audit unavailable"); } },
+      });
+      committed = true;
+      return result;
+    },
+  };
+  const service = new ExecutionService(prisma as never, {} as never, {} as never);
+  await assert.rejects(service.retry("source", "user"), /audit unavailable/);
+  assert.equal(committed, false);
+});
+
 test("execution history uses an owner-scoped stable cursor page", async () => {
   const queries: unknown[] = [];
   const item = (id: string, createdAt: string) => ({ id, status: ExecutionStatus.SUCCEEDED, mode: "MOCK", createdAt: new Date(createdAt), startedAt: null, completedAt: null, errorCode: null, errorMessage: null, workflowVersion: { workflowId: "workflow-1", version: 3, workflow: { name: "Report" } } });

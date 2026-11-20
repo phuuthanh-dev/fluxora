@@ -66,3 +66,11 @@ afterward. This confirms the second user's bounded authorization, discovery and
 read, not token refresh, cross-workspace denial, write operations or sustained
 behavior. Airtable started a 14-day Teams trial during the new account's
 onboarding; its notice says it returns to the Free plan unless upgraded.
+
+## Airtable record trigger — 2026-11-20
+
+The Airtable record trigger uses the existing workspace Airtable connection and selects a base, table and a Created time or Last modified time field. Activation checks the selected field against Airtable metadata and establishes a timestamp baseline; it does not run existing records. A poll reads a complete bounded window (up to 1,000 records), uses a one-second overlap and commits deliveries and the checkpoint together. A repeated record/timestamp pair is deduplicated. Failed or incomplete reads do not advance the checkpoint. Field names containing braces, backslashes or control characters cannot be used in the filter formula; choose another time field. Changing connection, base, table or field requires checkpoint review/reset; changing the interval does not.
+
+This is polling, not a provider event stream: multiple edits between checks can be combined, deletions are not reported, and changing records or delayed provider visibility while pages are read may affect completeness. A full history or change window stops the trigger for review rather than silently discarding records. The signed-in user's Airtable connection must retain metadata and record-read access. The provider's API uses the field name in its formula even though Fluxora stores the stable field ID; renaming the field is picked up from metadata on the next poll.
+
+References: [n8n Airtable Trigger](https://docs.n8n.io/integrations/builtin/trigger-nodes/n8n-nodes-base.airtabletrigger/), [Airtable List Records](https://airtable.com/developers/web/api/list-records), [Airtable filterByFormula](https://support.airtable.com/articles/1941464361-airtable-web-api-using-filterbyformula-or-sort-parameters).

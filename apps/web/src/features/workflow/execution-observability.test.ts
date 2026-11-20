@@ -1,12 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { diagnosticFileName, executionFailureExplanation, executionRecoveryGuidance, outputHasList, type ExecutionNodeDetail } from "./execution-observability";
+import { diagnosticFileName, executionFailureExplanation, executionRecoveryGuidance, executionRetryGuidance, outputHasList, type ExecutionNodeDetail } from "./execution-observability";
 
 test("list guidance appears for direct output lists and not scalar output", () => {
   assert.equal(outputHasList([{ id: 1 }]), true);
   assert.equal(outputHasList({ rows: [{ id: 1 }] }), true);
   assert.equal(outputHasList({ count: 1, page: { next: null } }), false);
   assert.equal(outputHasList(null), false);
+});
+
+test("live retries advise checking the destination even after a transient node failure", () => {
+  const error = { code: "NETWORK_ERROR", message: "Unavailable", retryable: true };
+  assert.match(executionRetryGuidance("live", error), /check the destination/);
+  assert.match(executionRetryGuidance("mock", error), /may succeed/);
 });
 
 const node = (overrides: Partial<ExecutionNodeDetail>): ExecutionNodeDetail => ({

@@ -28,3 +28,26 @@ test("Airtable setup loads account resources and clears dependent fields when th
   await expect(page.getByRole("group", { name: "Table", exact: true }).getByRole("combobox")).toHaveValue("");
   await expect(page.getByLabel("Field 1", { exact: true })).toHaveCount(0);
 });
+
+test("Airtable trigger clears its time field when changing tables", async ({ page }) => {
+  const base = "app12345678901234", table = "tbl12345678901234", other = "tbl98765432109876", field = "fld12345678901234";
+  const graph = { nodes: [{ id: "airtable", type: "trigger.airtable.record", position: { x: 0, y: 0 }, config: { credentialId: "airtable", baseId: base, tableId: table, fieldId: field, pollMinutes: 5 } }], edges: [] };
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const send = (body: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+    if (path.endsWith("/auth/me")) return send({ user: { id: "owner", name: "Owner", email: "owner@example.test" } });
+    if (path.endsWith("/workspaces")) return send({ workspaces: [{ id: "workspace", name: "Workspace", slug: "workspace", role: "OWNER" }] });
+    if (path.endsWith("/credentials")) return send({ credentials: [{ id: "airtable", provider: "AIRTABLE", label: "Airtable", isManaged: true }] });
+    if (path.endsWith("/airtable/bases")) return send({ items: [{ id: base, name: "Planning" }], truncated: false });
+    if (path.endsWith("/airtable/tables")) return send({ items: [{ id: table, name: "Tasks" }, { id: other, name: "Other" }], truncated: false });
+    if (path.endsWith("/airtable/trigger-fields")) return send({ items: [{ id: field, name: "Created", type: "createdTime" }], truncated: false });
+    if (path.endsWith("/workflows/airtable-trigger-test")) return send({ workflow: { id: "airtable-trigger-test", workspaceId: "workspace", name: "Airtable trigger test", description: null, isActive: false, draft: { id: "draft", version: 1, graph }, published: null } });
+    return route.continue();
+  });
+  await page.goto("/editor?workflow=airtable-trigger-test");
+  await page.getByTestId("rf__node-airtable").click();
+  const triggerField = page.getByRole("group", { name: "Trigger field", exact: true }).getByRole("combobox");
+  await expect(triggerField).toHaveValue(field);
+  await page.getByRole("group", { name: "Table", exact: true }).getByRole("combobox").selectOption(other);
+  await expect(triggerField).toHaveValue("");
+});

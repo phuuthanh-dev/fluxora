@@ -35,6 +35,12 @@ export const notionTrigger: ConfigRules = {
   event: { schema: z.enum(["created", "updated"]), required: true, message: "Choose a page event." },
   pollMinutes: { schema: interval, message: "Choose a supported polling interval." },
 };
+export const airtableTrigger: ConfigRules = {
+  baseId: { schema: z.string().regex(/^app[A-Za-z0-9]{5,64}$/), required: true, message: "Choose a supported Airtable resource." },
+  tableId: { schema: z.string().regex(/^tbl[A-Za-z0-9]{5,64}$/), required: true, message: "Choose a supported Airtable resource." },
+  fieldId: { schema: z.string().regex(/^fld[A-Za-z0-9]{5,64}$/), required: true, message: "Choose a supported Airtable resource." },
+  pollMinutes: { schema: interval, message: "Choose a supported polling interval." },
+};
 export const driveTrigger: ConfigRules = {
   resourceId: { schema: z.string().regex(/^[A-Za-z0-9_-]{1,256}$/), required: true, message: "Choose a Drive file or folder." },
   resourceType: { schema: z.enum(["file", "folder"]), required: true, message: "Choose a file or folder." },

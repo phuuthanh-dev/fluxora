@@ -96,6 +96,7 @@ test("trigger metadata describes the common output wrapper without assuming a pr
     "trigger.cron": { expression: "0 9 * * *", timezone: "UTC" },
     "trigger.google-calendar.event": { credentialId: "cred", calendarId: "primary", event: "created", pollMinutes: "5" },
     "trigger.notion.page": { credentialId: "cred", resourceId: "00000000-0000-4000-8000-000000000001", event: "created", pollMinutes: "5" },
+    "trigger.airtable.record": { credentialId: "cred", baseId: "app12345678901234", tableId: "tbl12345678901234", fieldId: "fld12345678901234", pollMinutes: "5" },
     "trigger.google-sheets.row": { credentialId: "cred", resourceId: "sheet", sheetName: "Sheet1", keyColumn: "ID", pollMinutes: "5" },
     "trigger.google-drive.file": { credentialId: "cred", resourceId: "folder", resourceType: "folder", event: "created", pollMinutes: "5" },
     "trigger.rss.new-item": { url: "https://example.test/feed.xml" },
