@@ -27,7 +27,7 @@ import { postgresSelect, postgresInsert, postgresUpsert, supabaseInsert, supabas
 import { riotLol, riotTft } from "./node-config-schemas/riot";
 import { slackMessage, slackUpdateMessage, slackWebhook, slackTrigger } from "./node-config-schemas/slack";
 import { discordWebhook } from "./node-config-schemas/discord";
-import { calendarTrigger, notionTrigger, driveTrigger, sheetsTrigger, cron, githubTrigger, gmailTrigger, manual, rssTrigger, steamNewsTrigger, sentryTrigger, telegramTrigger, trelloTrigger, uptimeTrigger, vercelTrigger, webhookTrigger } from "./node-config-schemas/triggers";
+import { calendarTrigger, notionTrigger, airtableTrigger, driveTrigger, sheetsTrigger, cron, githubTrigger, gmailTrigger, manual, rssTrigger, steamNewsTrigger, sentryTrigger, telegramTrigger, trelloTrigger, uptimeTrigger, vercelTrigger, webhookTrigger } from "./node-config-schemas/triggers";
 import { approval, editFields, ifCondition, switchCondition } from "./node-config-schemas/flow";
 import type { ConfigRules, NodeConfigIssue } from "./node-config-schemas/types";
 
@@ -56,6 +56,7 @@ const rules: Readonly<Record<string, ConfigRules>> = {
   "action.airtable.create-record": airtableCreate,
   "action.airtable.update-record": airtableUpdate,
   "trigger.notion.page": notionTrigger,
+  "trigger.airtable.record": airtableTrigger,
   "trigger.google-drive.file": driveTrigger,
   "trigger.google-sheets.row": sheetsTrigger,
   "action.steam.account-snapshot": steamSnapshot,

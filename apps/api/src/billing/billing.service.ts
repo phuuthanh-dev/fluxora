@@ -83,7 +83,10 @@ export class BillingService {
     if (remote.status === "PAID" && remote.amountPaid === order.amount && remote.amountRemaining === 0) {
       await this.settle(order.id, order.workspaceId, remote.id);
     } else if ((remote.status === "CANCELLED" || remote.status === "EXPIRED") && remote.amountPaid === 0) {
-      await this.prisma.paymentOrder.updateMany({ where: { id: order.id, status: { in: ["PENDING", "REVIEW"] } }, data: { status: remote.status, checkoutUrl: null } });
+      await this.prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${order.workspaceId} FOR UPDATE`;
+        await tx.paymentOrder.updateMany({ where: { id: order.id, status: { in: ["PENDING", "REVIEW"] } }, data: { status: remote.status, checkoutUrl: null } });
+      });
     }
     return this.status(workspaceId, userId, orderId);
   }
@@ -321,8 +324,8 @@ export class BillingService {
         return;
       }
       // The order can be closed while provider verification is in flight.
-      if (paypalCaptureId && (fresh.status === "EXPIRED" || fresh.status === "CANCELLED")) {
-        this.logger.error(`Late PayPal capture requires support review for payment ${fresh.id}.`);
+      if ((paypalCaptureId || fresh.provider === "PAYOS") && (fresh.status === "EXPIRED" || fresh.status === "CANCELLED")) {
+        this.logger.error(`Late payment requires support review for payment ${fresh.id}.`);
         throw new ConflictException("Payment requires support review.");
       }
       if (providerOrderId && (fresh.provider !== "LEMON" || (fresh.providerOrderId && fresh.providerOrderId !== providerOrderId))) {

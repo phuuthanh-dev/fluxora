@@ -102,6 +102,12 @@ test("webhook verifies signature and provider order before granting paid access 
   await service.handleWebhook({});
   assert.equal(status, "PAID");
   assert.equal(grants, 1);
+  for (const closed of ["CANCELLED", "EXPIRED"]) {
+    status = closed;
+    await assert.rejects(service.handleWebhook({}), /support review/);
+    assert.equal(status, closed);
+    assert.equal(grants, 1);
+  }
 });
 
 test("latest order indicates whether checkout can be resumed without returning its URL", async () => {
@@ -153,7 +159,8 @@ test("reconciliation only clears a cancelled unpaid order for its owner", async 
     protected override client() { return { paymentRequests: { get: async () => ({ id: "link", orderCode: 12, amount: 99000, amountPaid: 0, amountRemaining: 99000, status: "CANCELLED" }) } } as unknown as PayOS; }
   }
   const order = { id: "order", workspaceId: "w", orderCode: 12n, amount: 99000, paymentLinkId: "link", status: "PENDING", plan: "STARTER", paidAt: null, provider: "PAYOS" };
-  const prisma = { paymentOrder: { findFirst: async () => order, updateMany: async (query: unknown) => { update = query; return { count: 1 }; } } };
+  const transaction = { $queryRaw: async () => [], paymentOrder: { updateMany: async (query: unknown) => { update = query; return { count: 1 }; } } };
+  const prisma = { paymentOrder: { findFirst: async () => order }, $transaction: async (fn: (value: typeof transaction) => unknown) => fn(transaction) };
   const service = new TestBilling(prisma as never, { requireOwner: async () => { ownerChecked = true; } } as never);
   await service.reconcile("w", "owner", "order");
   assert.equal(ownerChecked, true);

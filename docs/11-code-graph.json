@@ -2495,6 +2495,7 @@
       "internalImports": [
         "apps/api/src/credentials/credential.service.ts",
         "apps/api/src/database/prisma.service.ts",
+        "apps/api/src/execution/airtable.ts",
         "apps/api/src/execution/execution-queue.service.ts",
         "apps/api/src/execution/live-readiness.ts",
         "apps/api/src/execution/node-failure.ts",
@@ -8243,6 +8244,10 @@
     {
       "from": "apps/api/src/scheduler/provider-poll.service.ts",
       "to": "apps/api/src/database/prisma.service.ts"
+    },
+    {
+      "from": "apps/api/src/scheduler/provider-poll.service.ts",
+      "to": "apps/api/src/execution/airtable.ts"
     },
     {
       "from": "apps/api/src/scheduler/provider-poll.service.ts",

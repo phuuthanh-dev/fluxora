@@ -1,5 +1,11 @@
 # Agent Current State Gate
 
+## Airtable polling and operational safety — 2026-11-20
+
+- The Airtable record trigger uses an existing workspace connection, a selected Created time or Last modified time field and the provider-poll checkpoint/delivery machinery. A bounded window commits with its deliveries; transient failures do not advance the checkpoint and repeated record/timestamp pairs are deduplicated. A field type change stops polling for review. Polling can combine intermediate edits, and mutable provider pages or delayed visibility can affect completeness. See `54-airtable-and-mapping.md`.
+- An isolated PostgreSQL integration exercised activation, concurrent polling, deduplication and a failed poll; mocked Airtable responses exercised metadata, filtering and pagination. A separate local workspace with an OAuth connection scoped to the owner-approved Airtable test base was also tested with a Created time field: after establishing a baseline, one new sample record produced one successful trigger-only run, a second manual poll produced no duplicate, and preexisting records did not run. The local scheduler was disabled and the test workflow was deactivated afterward. This does not qualify Last modified time, real scheduled timing, sustained delivery or a second independent Airtable account. Shopify's independently owned merchant and production write workflows remain unqualified; prior same-owner production read evidence is unchanged.
+- Retry creation and its audit record are atomic. The existing live retry warning remains; run details also advise checking the destination before retrying a transient live failure. payOS cancellation/expiry and settlement now lock the workspace consistently; a verified payment arriving after local closure requires manual support review rather than silently extending access. PayPal and payOS configuration is unchanged.
+
 ## Shopify store readiness — 2026-11-19
 
 - The owner confirmed that an independent merchant store is unavailable; independent-merchant qualification remains open. Existing connection creation is local validation and encryption, not a live provider authorization check. Shopify picker authorization failures now use the previously approved safe message; transient rate limits remain retryable. Shopify store inputs also accept a canonical full store URL.

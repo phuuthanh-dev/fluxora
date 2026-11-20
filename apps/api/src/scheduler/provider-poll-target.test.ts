@@ -21,3 +21,14 @@ test("Sheets polling scopes checkpoint identity to spreadsheet, tab and unique c
   assert.notEqual(target().configHash, target({ keyColumn: "Other" }).configHash);
   assert.throws(() => target({ keyColumn: "" }), /unique key column/);
 });
+
+test("Airtable polling scopes checkpoint identity to connection, base, table and field", () => {
+  const graph = (changes: Record<string, unknown> = {}) => ({ nodes: [{ id: "trigger", type: "trigger.airtable.record" as const, position: { x: 0, y: 0 }, config: { credentialId: "connection", baseId: "app12345678901234", tableId: "tbl12345678901234", fieldId: "fld12345678901234", pollMinutes: "5", ...changes } }], edges: [] });
+  const target = (changes?: Record<string, unknown>) => providerPollTargets("flow", "version", "workspace", graph(changes))[0]!;
+  assert.equal(target().provider, "airtable");
+  assert.equal(target().configHash, target({ pollMinutes: "15" }).configHash);
+  assert.notEqual(target().configHash, target({ baseId: "app22345678901234" }).configHash);
+  assert.notEqual(target().configHash, target({ tableId: "tbl22345678901234" }).configHash);
+  assert.notEqual(target().configHash, target({ fieldId: "fld22345678901234" }).configHash);
+  assert.throws(() => target({ fieldId: "" }), /Airtable resource/);
+});

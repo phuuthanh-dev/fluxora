@@ -57,3 +57,42 @@ test("concurrent payment notifications upgrade once without resetting recorded u
     await db.$disconnect();
   }
 });
+
+test("concurrent payOS closure and confirmed payment cannot overwrite each other", { skip: process.env.FLUXORA_CREDENTIAL_INTEGRATION !== "1" }, async () => {
+  const database = new URL(process.env.DATABASE_URL ?? "");
+  if (!/^\/fluxora_[a-z0-9_]*test[a-z0-9_]*$/.test(database.pathname) || !["localhost", "127.0.0.1"].includes(database.hostname)) throw new Error("Billing integration requires an isolated local test database.");
+  const db = new PrismaClient(), suffix = randomUUID();
+  const user = `payos-race-${suffix}`, space = `payos-race-space-${suffix}`;
+  const link = `payos-race-link-${suffix}`;
+  let code = 0;
+  class PaidBilling extends BillingService {
+    protected override client() { return { webhooks: { verify: async () => ({ orderCode: code, amount: 99000, currency: "VND", code: "00", paymentLinkId: link }) }, paymentRequests: { get: async () => ({ id: link, orderCode: code, amount: 99000, amountPaid: 99000, amountRemaining: 0, status: "PAID" }) } } as unknown as PayOS; }
+  }
+  class ClosedBilling extends BillingService {
+    protected override client() { return { paymentRequests: { get: async () => ({ id: link, orderCode: code, amount: 99000, amountPaid: 0, amountRemaining: 99000, status: "CANCELLED" }) } } as unknown as PayOS; }
+  }
+  try {
+    await db.user.create({ data: { id: user, email: `${suffix}@example.test` } });
+    await db.workspace.create({ data: { id: space, name: "Test", slug: `payos-race-${suffix}`, ownerId: user, members: { create: { userId: user, role: "OWNER" } } } });
+    const order = await db.paymentOrder.create({ data: { workspaceId: space, plan: "STARTER", amount: 99000, status: "PENDING", provider: "PAYOS", paymentLinkId: link } });
+    code = Number(order.orderCode);
+    const workspaces = new WorkspaceService(db as never);
+    const paid = new PaidBilling(db as never, workspaces), closed = new ClosedBilling(db as never, workspaces);
+    await Promise.allSettled([paid.handleWebhook({}), closed.reconcile(space, user, order.id)]);
+    const result = await db.paymentOrder.findUniqueOrThrow({ where: { id: order.id } });
+    const workspace = await db.workspace.findUniqueOrThrow({ where: { id: space } });
+    if (result.status === "PAID") {
+      assert.equal(workspace.paidPlan, "STARTER");
+      assert.ok(workspace.paidUntil);
+    } else {
+      assert.equal(result.status, "CANCELLED");
+      assert.equal(workspace.paidPlan, null);
+      assert.equal(workspace.paidUntil, null);
+    }
+  } finally {
+    await db.paymentOrder.deleteMany({ where: { workspaceId: space } });
+    await db.workspace.deleteMany({ where: { id: space } });
+    await db.user.deleteMany({ where: { id: user } });
+    await db.$disconnect();
+  }
+});

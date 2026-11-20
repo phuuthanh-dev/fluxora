@@ -8,6 +8,7 @@ import { driveChanges, driveStartCursor } from "./drive-trigger-protocol";
 import { readSheetSnapshot } from "./sheets-trigger-protocol";
 import { WorkflowService } from "../workflows/workflow.service";
 import { NodeFailure } from "../execution/node-failure";
+import { airtableTriggerChanges } from "../execution/airtable";
 
 test("Drive trigger commits cursor and execution together, deduplicates and can recover after expiry", { skip: process.env.FLUXORA_RSS_INTEGRATION !== "1" }, async () => {
   const database = new URL(process.env.DATABASE_URL ?? "");
@@ -94,6 +95,54 @@ test("Sheets trigger atomically records new unique rows and does not replay them
     await scheduler.poll(target);
     const checkpoint = await prisma.providerPollCheckpoint.findUniqueOrThrow({ where: { workflowId_nodeId: { workflowId, nodeId: "sheet" } } });
     assert.equal(checkpoint.state, "ERROR"); assert.equal(checkpoint.lastErrorCode, "SHEETS_TRIGGER_KEY_REMOVED");
+  } finally {
+    await prisma.execution.deleteMany({ where: { workflowVersion: { workflowId } } });
+    await prisma.workflow.deleteMany({ where: { id: workflowId } });
+    await prisma.auditLog.deleteMany({ where: { workspaceId } });
+    await prisma.workspace.deleteMany({ where: { id: workspaceId } });
+    await prisma.user.deleteMany({ where: { id: userId } });
+    await prisma.$disconnect();
+  }
+});
+
+test("Airtable trigger baselines, dispatches once and retains its checkpoint on failure", { skip: process.env.FLUXORA_RSS_INTEGRATION !== "1" }, async () => {
+  const database = new URL(process.env.DATABASE_URL ?? "");
+  if (!/^\/fluxora_[a-z0-9_]*test[a-z0-9_]*$/.test(database.pathname) || !["localhost", "127.0.0.1"].includes(database.hostname)) throw new Error("Provider poll integration requires a disposable local fluxora_*test* database.");
+  const prisma = new PrismaClient();
+  const suffix = randomUUID(), userId = `air-user-${suffix}`, workspaceId = `air-space-${suffix}`, workflowId = `air-flow-${suffix}`, versionId = `air-version-${suffix}`, credentialId = `air-credential-${suffix}`;
+  const graph = { nodes: [{ id: "airtable", type: "trigger.airtable.record" as const, position: { x: 0, y: 0 }, config: { credentialId, baseId: "app12345678901234", tableId: "tbl12345678901234", fieldId: "fld12345678901234", pollMinutes: "1" } }], edges: [] };
+  let fail = false;
+  let rows: Awaited<ReturnType<typeof airtableTriggerChanges>>["rows"] = [];
+  class Fixture extends ProviderPollService {
+    protected override readonly airtableChanges: typeof airtableTriggerChanges = async () => { if (fail) throw new NodeFailure("HTTP_ERROR", "Unavailable", true); return { event: "updated", rows }; };
+  }
+  const dispatched: string[] = [];
+  const scheduler = new Fixture(prisma as never, { airtableAccessToken: async () => "synthetic" } as never, { ensureDispatched: async ({ executionId }: { executionId: string }) => { dispatched.push(executionId); await prisma.execution.update({ where: { id: executionId }, data: { status: "RUNNING", startedAt: new Date() } }); } } as never);
+  try {
+    await prisma.user.create({ data: { id: userId, email: `${suffix}@example.test` } });
+    await prisma.workspace.create({ data: { id: workspaceId, ownerId: userId, name: "Synthetic", slug: `air-${suffix}` } });
+    await prisma.workspaceMember.create({ data: { workspaceId, userId, role: "OWNER" } });
+    await prisma.credential.create({ data: { id: credentialId, workspaceId, provider: "AIRTABLE", label: "Synthetic", encryptedData: "synthetic" } });
+    await prisma.workflow.create({ data: { id: workflowId, workspaceId, name: "Synthetic" } });
+    await prisma.workflowVersion.create({ data: { id: versionId, workflowId, version: 1, status: "PUBLISHED", graph } });
+    await prisma.workflow.update({ where: { id: workflowId }, data: { publishedVersionId: versionId } });
+    await new WorkflowService(prisma as never, {} as never, undefined, undefined, undefined, scheduler).activate(workflowId, userId);
+    const target = providerPollTargets(workflowId, versionId, workspaceId, graph)[0]!;
+    rows = [{ id: "rec12345678901234", timestamp: new Date(Date.now() + 2_000).toISOString(), item: { id: "rec12345678901234" } }];
+    await Promise.all([scheduler.poll(target), scheduler.poll(target)]);
+    assert.equal(dispatched.length, 1);
+    let checkpoint = await prisma.providerPollCheckpoint.findUniqueOrThrow({ where: { workflowId_nodeId: { workflowId, nodeId: "airtable" } } });
+    const previous = checkpoint.cursor;
+    await prisma.providerPollCheckpoint.update({ where: { workflowId_nodeId: { workflowId, nodeId: "airtable" } }, data: { nextPollAt: null } });
+    await scheduler.poll(target);
+    assert.equal(dispatched.length, 1);
+    await prisma.providerPollCheckpoint.update({ where: { workflowId_nodeId: { workflowId, nodeId: "airtable" } }, data: { nextPollAt: null } });
+    fail = true;
+    await scheduler.poll(target);
+    checkpoint = await prisma.providerPollCheckpoint.findUniqueOrThrow({ where: { workflowId_nodeId: { workflowId, nodeId: "airtable" } } });
+    assert.equal(checkpoint.cursor, previous);
+    assert.equal(checkpoint.state, "READY");
+    assert.equal(checkpoint.lastErrorCode, "HTTP_ERROR");
   } finally {
     await prisma.execution.deleteMany({ where: { workflowVersion: { workflowId } } });
     await prisma.workflow.deleteMany({ where: { id: workflowId } });

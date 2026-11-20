@@ -34,7 +34,7 @@ export class AirtableResourceController {
   async children(@Param("workspaceId") workspaceId: string, @Param("credentialId") credentialId: string, @Param("kind") kind: string, @Query("baseId") baseId: string | undefined, @Query("tableId") tableId: string | undefined, @Req() request: AuthenticatedRequest) {
     if (!request.currentUser) throw new Error("Authentication required");
     await this.credentials.requireOwner(workspaceId, request.currentUser.id);
-    if (kind !== "fields" && kind !== "records") throw new BadRequestException({ code: "INVALID_INPUT", message: "Choose a supported Airtable resource." });
+    if (kind !== "fields" && kind !== "trigger-fields" && kind !== "records") throw new BadRequestException({ code: "INVALID_INPUT", message: "Choose a supported Airtable resource." });
     const token = await this.credentials.airtableAccessToken(credentialId, workspaceId);
     try { return await airtableResources(token, kind, baseId, tableId); }
     catch { throw new BadRequestException({ code: "AIRTABLE_RESOURCES_UNAVAILABLE", message: "Resources could not be loaded. Check Airtable access and connection." }); }

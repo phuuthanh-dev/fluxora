@@ -7,6 +7,10 @@ const target = (): NodeConfigurationField[] => [
 ];
 const record = (): NodeConfigurationField => ({ kind: "resource", key: "recordId", label: "Record", resource: "airtable-record", credentialKey: "credentialId", dependencyKey: "baseId", secondaryDependencyKey: "tableId", placeholder: "Search records" });
 export const airtableFields = {
+  "trigger.airtable.record": (): NodeConfigurationField[] => [...target(),
+    { kind: "resource", key: "fieldId", label: "Trigger field", resource: "airtable-trigger-field", credentialKey: "credentialId", dependencyKey: "baseId", secondaryDependencyKey: "tableId", placeholder: "Trigger field" },
+    { kind: "select", key: "pollMinutes", label: "Check every", options: [{ value: "1", label: "Every minute" }, { value: "5", label: "Every 5 minutes" }, { value: "15", label: "Every 15 minutes" }, { value: "60", label: "Every hour" }] },
+  ],
   "action.airtable.list-records": (): NodeConfigurationField[] => [...target(), { kind: "number", key: "pageSize", label: "Records per page (1–100)", fallbackValue: 20 }, { kind: "text", key: "cursor", label: "Page cursor (optional)" }],
   "action.airtable.get-record": (): NodeConfigurationField[] => [...target(), record()],
   "action.airtable.create-record": (): NodeConfigurationField[] => [...target(), { kind: "airtable-fields", key: "fields", label: "Field values" }],

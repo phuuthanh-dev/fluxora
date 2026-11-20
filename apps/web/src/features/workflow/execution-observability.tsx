@@ -47,6 +47,10 @@ export type ApiExecution = {
 
 type Diagnostic = { schemaVersion: "fluxora.execution-diagnostic.v1"; execution: { id: string } };
 
+export function executionRetryGuidance(mode: ApiExecution["mode"], error: ExecutionError) {
+  return error.retryable && mode !== "live" ? "A manual retry may succeed." : "Inspect the failed node and check the destination before retrying.";
+}
+
 export function executionRecoveryGuidance(node: ExecutionNodeDetail) {
   if (node.status === "FAILED" && ["DELIVERY_UNCERTAIN", "OUTCOME_UNKNOWN", "SMTP_PARTIAL_REJECTION"].includes(node.error?.code ?? "")) {
     return "The provider may have accepted some or all of the request. Check the destination before retrying to avoid duplicates.";
@@ -140,7 +144,7 @@ export function ExecutionDetailsPanel({ executionId, onClose, onSelectNode }: { 
         </section>
         {execution.failureAlertOutcome === "SENT" ? <Status tone="info">The failure alert was accepted by the provider.</Status> : execution.failureAlertOutcome === "UNCONFIRMED" ? <Status tone="warning"><span>The failure alert has not been confirmed. It may still be in progress, or delivery may have failed; check the destination.</span><Button variant="ghost" onClick={() => void load()}>Refresh status</Button></Status> : null}
         {execution.privacyErasedAt && <Status>Payloads were erased following a privacy request. Status and timing are retained; retry is unavailable.</Status>}
-        {execution.error ? <Status tone="error" className="execution-observability__run-error"><AlertTriangle size={17} /><span><strong>{execution.error.code}</strong>{execution.error.message ?? "Execution failed."} {execution.error.retryable ? "A manual retry may succeed." : "Inspect the failed node and check the destination before retrying."}</span>{failedNode && <Button variant="ghost" onClick={() => onSelectNode(failedNode.nodeId)}>Inspect failed node</Button>}</Status> : null}
+        {execution.error ? <Status tone="error" className="execution-observability__run-error"><AlertTriangle size={17} /><span><strong>{execution.error.code}</strong>{execution.error.message ?? "Execution failed."} {executionRetryGuidance(execution.mode, execution.error)}</span>{failedNode && <Button variant="ghost" onClick={() => onSelectNode(failedNode.nodeId)}>Inspect failed node</Button>}</Status> : null}
         {execution.nodeExecutions.length === 0 ? <EmptyState icon={<Clock3 size={22} />} title="No node activity yet" description="The run is queued or has not persisted its first node state." /> : <ol className="execution-timeline" aria-label="Node execution timeline">
           {execution.nodeExecutions.map((node) => {
             const explanation = executionFailureExplanation(node);
