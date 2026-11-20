@@ -31,7 +31,7 @@ test("Airtable polling overlaps the checkpoint and retains stable keys for dupli
   class Fixture extends ProviderPollService {
     protected override readonly airtableChanges: typeof airtableTriggerChanges = async (_token, _base, _table, _field, after) => {
       times.push(after);
-      return { event: "updated", rows: [
+      return { event: "updated", verified: true, field: { name: "Modified", event: "updated", checkedAt: "2026-01-01T00:00:01.000Z" }, rows: [
         { id: "rec-old", timestamp: "2026-01-01T00:00:00.000Z", item: {} },
         { id: "rec-new", timestamp: "2026-01-01T00:00:02.000Z", item: { name: "Sample" } },
       ] };
@@ -44,7 +44,8 @@ test("Airtable polling overlaps the checkpoint and retains stable keys for dupli
   const first = await read(target, JSON.stringify({ at: baseline.toISOString(), event: "updated" }), baseline);
   const second = await read(target, first.cursor, baseline);
   assert.equal(times[0], "2026-01-01T00:00:00.000Z");
-  assert.deepEqual(JSON.parse(first.cursor), { at: "2026-01-01T00:00:02.000Z", event: "updated" });
+  assert.equal(JSON.parse(first.cursor).at, "2026-01-01T00:00:02.000Z");
+  assert.equal(JSON.parse(first.cursor).field.name, "Modified");
   assert.equal(first.changes.length, 1);
   assert.equal(first.changes[0]?.key, second.changes[0]?.key);
   await assert.rejects(read(target, JSON.stringify({ at: baseline.toISOString(), event: "created" }), baseline), /trigger changed/);
@@ -55,4 +56,44 @@ test("Airtable polling stops for a connection that must be reauthorized", async 
   const read = (service as unknown as { readAirtable: (target: ProviderPollTarget, cursor: string, baseline: Date) => Promise<unknown> }).readAirtable.bind(service);
   const target: ProviderPollTarget = { workflowId: "w", versionId: "v", workspaceId: "s", nodeId: "n", provider: "airtable", credentialId: "c", resourceId: "app12345678901234", resourceType: "table", tableId: "tbl12345678901234", fieldId: "fld12345678901234", event: "created", pollMinutes: 5, configHash: "hash" };
   await assert.rejects(read(target, JSON.stringify({ at: "2026-01-01T00:00:00.000Z", event: "created" }), new Date("2026-01-01T00:00:00.000Z")), (error: unknown) => Boolean(error && typeof error === "object" && "code" in error && error.code === "AIRTABLE_RECONNECT_REQUIRED" && "retryable" in error && error.retryable === false));
+});
+
+test("Airtable verifies metadata before delivering unseen changes but not known overlap", async () => {
+  const calls: boolean[] = [];
+  let known = false;
+  const field = { name: "Modified", event: "updated" as const, checkedAt: new Date().toISOString() };
+  class Fixture extends ProviderPollService {
+    protected override readonly airtableChanges: typeof airtableTriggerChanges = async (_token, _base, _table, _id, _after, _read, _cached, force) => {
+      calls.push(Boolean(force));
+      return { event: "updated", field, verified: Boolean(force), rows: [{ id: "rec12345678901234", timestamp: "2026-01-01T00:00:02.000Z", item: {} }] };
+    };
+  }
+  const prisma = { providerPollDelivery: { findMany: async ({ where }: { where: { changeKey: { in: string[] } } }) => known ? where.changeKey.in.map((changeKey) => ({ changeKey })) : [] } };
+  const service = new Fixture(prisma as never, { airtableAccessToken: async () => "token" } as never, {} as never);
+  const target: ProviderPollTarget = { workflowId: "w", versionId: "v", workspaceId: "s", nodeId: "n", provider: "airtable", credentialId: "c", resourceId: "app12345678901234", resourceType: "table", tableId: "tbl12345678901234", fieldId: "fld12345678901234", event: "updated", pollMinutes: 5, configHash: "hash" };
+  const read = (service as unknown as { readAirtable: (target: ProviderPollTarget, cursor: string, baseline: Date) => Promise<{ cursor: string }> }).readAirtable.bind(service);
+  const baseline = new Date("2026-01-01T00:00:00.000Z");
+  const cursor = JSON.stringify({ at: baseline.toISOString(), event: "updated", field });
+  const first = await read(target, cursor, baseline);
+  assert.deepEqual(calls, [false, true]);
+  known = true; calls.length = 0;
+  await read(target, first.cursor, baseline);
+  assert.deepEqual(calls, [false]);
+});
+
+test("Airtable uses the verified field and rows if a cached name was reused", async () => {
+  const field = { name: "Old", event: "updated" as const, checkedAt: new Date().toISOString() };
+  class Fixture extends ProviderPollService {
+    protected override readonly airtableChanges: typeof airtableTriggerChanges = async (_token, _base, _table, _id, _after, _read, _cached, force) => force
+      ? { event: "updated", verified: true, field: { ...field, name: "Renamed" }, rows: [{ id: "rec22345678901234", timestamp: "2026-01-01T00:00:03.000Z", item: { source: "verified" } }] }
+      : { event: "updated", verified: false, field, rows: [{ id: "rec12345678901234", timestamp: "2026-01-01T00:00:02.000Z", item: { source: "stale" } }] };
+  }
+  const prisma = { providerPollDelivery: { findMany: async () => [] } };
+  const service = new Fixture(prisma as never, { airtableAccessToken: async () => "token" } as never, {} as never);
+  const target: ProviderPollTarget = { workflowId: "w", versionId: "v", workspaceId: "s", nodeId: "n", provider: "airtable", credentialId: "c", resourceId: "app12345678901234", resourceType: "table", tableId: "tbl12345678901234", fieldId: "fld12345678901234", event: "updated", pollMinutes: 5, configHash: "hash" };
+  const read = (service as unknown as { readAirtable: (target: ProviderPollTarget, cursor: string, baseline: Date) => Promise<{ cursor: string; changes: Array<{ item: unknown }> }> }).readAirtable.bind(service);
+  const baseline = new Date("2026-01-01T00:00:00.000Z");
+  const result = await read(target, JSON.stringify({ at: baseline.toISOString(), event: "updated", field }), baseline);
+  assert.equal(JSON.parse(result.cursor).field.name, "Renamed");
+  assert.deepEqual(result.changes.map((change) => change.item), [{ source: "verified" }]);
 });

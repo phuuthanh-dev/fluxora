@@ -113,8 +113,9 @@ test("Airtable trigger baselines, dispatches once and retains its checkpoint on 
   const graph = { nodes: [{ id: "airtable", type: "trigger.airtable.record" as const, position: { x: 0, y: 0 }, config: { credentialId, baseId: "app12345678901234", tableId: "tbl12345678901234", fieldId: "fld12345678901234", pollMinutes: "1" } }], edges: [] };
   let fail = false;
   let rows: Awaited<ReturnType<typeof airtableTriggerChanges>>["rows"] = [];
+  const checkedAt = new Date().toISOString();
   class Fixture extends ProviderPollService {
-    protected override readonly airtableChanges: typeof airtableTriggerChanges = async () => { if (fail) throw new NodeFailure("HTTP_ERROR", "Unavailable", true); return { event: "updated", rows }; };
+    protected override readonly airtableChanges: typeof airtableTriggerChanges = async () => { if (fail) throw new NodeFailure("HTTP_ERROR", "Unavailable", true); return { event: "updated", verified: true, field: { name: "Modified", event: "updated", checkedAt }, rows }; };
   }
   const dispatched: string[] = [];
   const scheduler = new Fixture(prisma as never, { airtableAccessToken: async () => "synthetic" } as never, { ensureDispatched: async ({ executionId }: { executionId: string }) => { dispatched.push(executionId); await prisma.execution.update({ where: { id: executionId }, data: { status: "RUNNING", startedAt: new Date() } }); } } as never);
@@ -128,10 +129,14 @@ test("Airtable trigger baselines, dispatches once and retains its checkpoint on 
     await prisma.workflow.update({ where: { id: workflowId }, data: { publishedVersionId: versionId } });
     await new WorkflowService(prisma as never, {} as never, undefined, undefined, undefined, scheduler).activate(workflowId, userId);
     const target = providerPollTargets(workflowId, versionId, workspaceId, graph)[0]!;
+    const original = await prisma.providerPollCheckpoint.findUniqueOrThrow({ where: { workflowId_nodeId: { workflowId, nodeId: "airtable" } } });
+    const { at, event } = JSON.parse(original.cursor);
+    await prisma.providerPollCheckpoint.update({ where: { workflowId_nodeId: { workflowId, nodeId: "airtable" } }, data: { cursor: JSON.stringify({ at, event }) } });
     rows = [{ id: "rec12345678901234", timestamp: new Date(Date.now() + 2_000).toISOString(), item: { id: "rec12345678901234" } }];
     await Promise.all([scheduler.poll(target), scheduler.poll(target)]);
     assert.equal(dispatched.length, 1);
     let checkpoint = await prisma.providerPollCheckpoint.findUniqueOrThrow({ where: { workflowId_nodeId: { workflowId, nodeId: "airtable" } } });
+    assert.equal(JSON.parse(checkpoint.cursor).field.name, "Modified");
     const previous = checkpoint.cursor;
     await prisma.providerPollCheckpoint.update({ where: { workflowId_nodeId: { workflowId, nodeId: "airtable" } }, data: { nextPollAt: null } });
     await scheduler.poll(target);

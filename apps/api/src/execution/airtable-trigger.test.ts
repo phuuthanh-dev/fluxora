@@ -55,3 +55,37 @@ test("Airtable trigger refuses missing timestamps and timestamps implausibly in 
 test("Airtable trigger treats a rate limit without Retry-After as retryable", async () => {
   await assert.rejects(airtableTriggerChanges("token", base, table, field, "2026-01-01T00:00:00.000Z", async () => new Response(null, { status: 429 })), (error: unknown) => Boolean(error && typeof error === "object" && "retryable" in error && error.retryable === true));
 });
+
+test("Airtable reuses recent field metadata for one idle record request", async () => {
+  const paths: string[] = [];
+  const cached = { name: "Modified", event: "updated" as const, checkedAt: new Date().toISOString() };
+  const result = await airtableTriggerChanges("token", base, table, field, "2026-01-01T00:00:00.000Z", async (url) => { paths.push(url); return Response.json({ records: [] }); }, cached);
+  assert.equal(paths.length, 1);
+  assert.equal(result.verified, false);
+  assert.deepEqual(result.field, cached);
+});
+
+test("Airtable refreshes expired metadata and recovers a renamed field without advancing past failures", async () => {
+  const cached = { name: "Old", event: "updated" as const, checkedAt: new Date().toISOString() };
+  const paths: string[] = [];
+  const transport = async (url: string) => {
+    paths.push(url);
+    if (paths.length === 1) return new Response(null, { status: 422 });
+    if (paths.length === 2) return Response.json(metadata("Modified"));
+    return Response.json({ records: [row("rec12345678901234", "2026-01-01T00:00:01.000Z")] });
+  };
+  const result = await airtableTriggerChanges("token", base, table, field, "2026-01-01T00:00:00.000Z", transport, cached);
+  assert.equal(paths.length, 3);
+  assert.equal(result.field.name, "Modified");
+  assert.equal(result.verified, true);
+  assert.equal(result.rows.length, 1);
+  const expired = { ...cached, checkedAt: new Date(Date.now() - 25 * 60 * 60_000).toISOString() };
+  let calls = 0;
+  await airtableTriggerChanges("token", base, table, field, "2026-01-01T00:00:00.000Z", async () => ++calls === 1 ? Response.json(metadata("Modified")) : Response.json({ records: [] }), expired);
+  assert.equal(calls, 2);
+});
+
+test("Airtable refuses a cached field whose type changed before returning events", async () => {
+  const cached = { name: "Modified", event: "updated" as const, checkedAt: new Date().toISOString() };
+  await assert.rejects(airtableTriggerChanges("token", base, table, field, "2026-01-01T00:00:00.000Z", async () => Response.json(metadata("Modified", "createdTime")), cached, true), /trigger changed/);
+});

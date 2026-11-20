@@ -93,8 +93,12 @@ export async function airtableResources(token: string, kind: "bases" | "tables" 
   }), truncated: selected.length > 100 || Boolean(payload?.offset) };
 }
 
+export type AirtableTriggerField = { name: string; event: "created" | "updated"; checkedAt: string };
+const metadataMaxAgeMs = 24 * 60 * 60_000;
+const validTriggerName = (name: unknown): name is string => typeof name === "string" && Boolean(name.trim()) && name.length <= 256 && !/[{}\\\x00-\x1f\x7f]/.test(name);
+
 /** Read a complete bounded change window; callers commit its checkpoint atomically. */
-export async function airtableTriggerChanges(token: string, baseId: string, tableId: string, fieldId: string, after: string, read?: Transport) {
+export async function airtableTriggerChanges(token: string, baseId: string, tableId: string, fieldId: string, after: string, read?: Transport, cached?: AirtableTriggerField, forceMetadata = false) {
   if (!id(baseId, "app") || !id(tableId, "tbl") || !id(fieldId, "fld") || !Number.isFinite(Date.parse(after))) throw new NodeFailure("INVALID_INPUT", "Choose a supported Airtable resource.", false);
   const pollRequest = async (path: string) => {
     try { return await request(token, path, "GET", undefined, read); }
@@ -104,29 +108,48 @@ export async function airtableTriggerChanges(token: string, baseId: string, tabl
       throw error;
     }
   };
-  const metadata = object(await pollRequest(`meta/bases/${baseId}/tables`));
-  const table = Array.isArray(metadata?.tables) ? object(metadata.tables.find((entry) => object(entry)?.id === tableId)) : undefined;
-  const field = Array.isArray(table?.fields) ? object(table.fields.find((entry) => object(entry)?.id === fieldId)) : undefined;
-  if (!field || typeof field.name !== "string" || !field.name.trim() || field.name.length > 256 || /[{}\\\x00-\x1f\x7f]/.test(field.name) || !["createdTime", "lastModifiedTime"].includes(String(field.type))) throw new NodeFailure("INVALID_INPUT", "Choose a supported Airtable resource.", false);
-  const rows: Array<{ id: string; timestamp: string; item: Record<string, unknown> }> = [];
-  const offsets = new Set<string>();
-  let offset: string | undefined;
-  for (let page = 0; page < 11; page++) {
-    const query = new URLSearchParams({ pageSize: "100", filterByFormula: `IS_AFTER({${field.name}}, DATETIME_PARSE('${new Date(after).toISOString()}'))` });
-    if (offset) query.set("offset", offset);
-    const payload = object(await pollRequest(`${baseId}/${tableId}?${query}`));
-    if (!payload || !Array.isArray(payload.records) || payload.records.length > 100) throw new NodeFailure("INVALID_RESPONSE", "Airtable returned an invalid record list.", false);
-    for (const value of payload.records) {
-      const parsed = record(value);
-      const timestamp = object(value)?.fields && object(object(value)?.fields)?.[field.name];
-      if (typeof timestamp !== "string" || !Number.isFinite(Date.parse(timestamp)) || Date.parse(timestamp) > Date.now() + 60_000) throw new NodeFailure("INVALID_RESPONSE", "Airtable returned an invalid record list.", false);
-      rows.push({ id: parsed.id as string, timestamp: new Date(timestamp).toISOString(), item: parsed });
-      if (rows.length > 1000) throw new NodeFailure("PROVIDER_POLL_LIMIT", "Trigger history is full. Review the checkpoint before continuing.", false);
+  const checkField = async (): Promise<AirtableTriggerField> => {
+    const metadata = object(await pollRequest(`meta/bases/${baseId}/tables`));
+    const table = Array.isArray(metadata?.tables) ? object(metadata.tables.find((entry) => object(entry)?.id === tableId)) : undefined;
+    const field = Array.isArray(table?.fields) ? object(table.fields.find((entry) => object(entry)?.id === fieldId)) : undefined;
+    if (!field || !validTriggerName(field.name) || !["createdTime", "lastModifiedTime"].includes(String(field.type))) throw new NodeFailure("INVALID_INPUT", "Choose a supported Airtable resource.", false);
+    return { name: field.name, event: field.type === "createdTime" ? "created" : "updated", checkedAt: new Date().toISOString() };
+  };
+  const checkedAt = cached && Date.parse(cached.checkedAt);
+  let verified = forceMetadata || !cached || !validTriggerName(cached.name) || !["created", "updated"].includes(cached.event) || !checkedAt || !Number.isFinite(checkedAt) || checkedAt > Date.now() || Date.now() - checkedAt >= metadataMaxAgeMs;
+  let field = verified ? await checkField() : cached!;
+  if (cached && field.event !== cached.event) throw new NodeFailure("PROVIDER_POLL_CHANGED", "The trigger changed. Review it before continuing.", false);
+  const list = async (name: string) => {
+    const rows: Array<{ id: string; timestamp: string; item: Record<string, unknown> }> = [];
+    const offsets = new Set<string>();
+    let offset: string | undefined;
+    for (let page = 0; page < 11; page++) {
+      const query = new URLSearchParams({ pageSize: "100", filterByFormula: `IS_AFTER({${name}}, DATETIME_PARSE('${new Date(after).toISOString()}'))` });
+      if (offset) query.set("offset", offset);
+      const payload = object(await pollRequest(`${baseId}/${tableId}?${query}`));
+      if (!payload || !Array.isArray(payload.records) || payload.records.length > 100) throw new NodeFailure("INVALID_RESPONSE", "Airtable returned an invalid record list.", false);
+      for (const value of payload.records) {
+        const parsed = record(value);
+        const timestamp = object(value)?.fields && object(object(value)?.fields)?.[name];
+        if (typeof timestamp !== "string" || !Number.isFinite(Date.parse(timestamp)) || Date.parse(timestamp) > Date.now() + 60_000) throw new NodeFailure("INVALID_RESPONSE", "Airtable returned an invalid record list.", false);
+        rows.push({ id: parsed.id as string, timestamp: new Date(timestamp).toISOString(), item: parsed });
+        if (rows.length > 1000) throw new NodeFailure("PROVIDER_POLL_LIMIT", "Trigger history is full. Review the checkpoint before continuing.", false);
+      }
+      if (payload.offset === undefined) return rows;
+      if (typeof payload.offset !== "string" || !payload.offset || payload.offset.length > 1024 || /[\s\x00-\x1f\x7f]/.test(payload.offset) || offsets.has(payload.offset)) throw new NodeFailure("INVALID_RESPONSE", "Airtable returned an invalid record list.", false);
+      offset = payload.offset;
+      offsets.add(offset);
     }
-    if (payload.offset === undefined) return { rows, event: field.type === "createdTime" ? "created" as const : "updated" as const };
-    if (typeof payload.offset !== "string" || !payload.offset || payload.offset.length > 1024 || /[\s\x00-\x1f\x7f]/.test(payload.offset) || offsets.has(payload.offset)) throw new NodeFailure("INVALID_RESPONSE", "Airtable returned an invalid record list.", false);
-    offset = payload.offset;
-    offsets.add(offset);
+    throw new NodeFailure("PROVIDER_POLL_LIMIT", "Trigger history is full. Review the checkpoint before continuing.", false);
+  };
+  let rows: Awaited<ReturnType<typeof list>>;
+  try { rows = await list(field.name); }
+  catch (error) {
+    if (verified || !(error instanceof NodeFailure) || !([400, 422].includes(error.statusCode ?? 0) || error.code === "INVALID_RESPONSE")) throw error;
+    const refreshed = await checkField();
+    if (refreshed.event !== field.event) throw new NodeFailure("PROVIDER_POLL_CHANGED", "The trigger changed. Review it before continuing.", false);
+    if (refreshed.name === field.name) throw error;
+    field = refreshed; verified = true; rows = await list(field.name);
   }
-  throw new NodeFailure("PROVIDER_POLL_LIMIT", "Trigger history is full. Review the checkpoint before continuing.", false);
+  return { rows, event: field.event, field, verified };
 }

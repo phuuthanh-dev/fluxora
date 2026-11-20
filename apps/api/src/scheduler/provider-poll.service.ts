@@ -7,7 +7,7 @@ import { PrismaService } from "../database/prisma.service";
 import { ExecutionQueueService } from "../execution/execution-queue.service";
 import { liveCredentialRequirements } from "../execution/live-readiness";
 import { NodeFailure } from "../execution/node-failure";
-import { airtableTriggerChanges } from "../execution/airtable";
+import { airtableTriggerChanges, type AirtableTriggerField } from "../execution/airtable";
 import { redactValue } from "../execution/redaction";
 import { BackgroundWork } from "../platform/background-work";
 import { parseStoredWorkflowGraph } from "../workflows/workflow-graph";
@@ -53,7 +53,7 @@ export class ProviderPollService implements OnModuleInit, OnModuleDestroy {
       if (target.provider === "airtable") {
         const token = await this.credentials.airtableAccessToken(target.credentialId, workspaceId);
         const initial = await this.airtableChanges(token, target.resourceId, target.tableId!, target.fieldId!, baselineAt.toISOString());
-        result.push({ target, cursor: JSON.stringify({ at: baselineAt.toISOString(), event: initial.event }), baselineAt });
+        result.push({ target, cursor: JSON.stringify({ at: baselineAt.toISOString(), event: initial.event, field: initial.field }), baselineAt });
         continue;
       }
       if (target.provider === "google-sheets") {
@@ -146,7 +146,7 @@ export class ProviderPollService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async readAirtable(target: ProviderPollTarget, cursor: string, baselineAt: Date): Promise<Batch> {
-    let checkpoint: { at?: unknown; event?: unknown };
+    let checkpoint: { at?: unknown; event?: unknown; field?: unknown };
     try { checkpoint = JSON.parse(cursor); } catch { throw new NodeFailure("PROVIDER_POLL_CURSOR_INVALID", "The polling checkpoint is invalid.", false); }
     const cursorTime = typeof checkpoint?.at === "string" ? Date.parse(checkpoint.at) : NaN;
     if (!Number.isFinite(cursorTime) || !["created", "updated"].includes(String(checkpoint?.event))) throw new NodeFailure("PROVIDER_POLL_CURSOR_INVALID", "The polling checkpoint is invalid.", false);
@@ -156,7 +156,19 @@ export class ProviderPollService implements OnModuleInit, OnModuleDestroy {
       if (error instanceof BadRequestException || error instanceof NotFoundException) throw new NodeFailure("AIRTABLE_RECONNECT_REQUIRED", "Reconnect the Airtable account.", false);
       throw error;
     }
-    const result = await this.airtableChanges(token, target.resourceId, target.tableId!, target.fieldId!, new Date(cursorTime - 1000).toISOString());
+    const field = checkpoint.field && typeof checkpoint.field === "object" && !Array.isArray(checkpoint.field) ? checkpoint.field as Partial<AirtableTriggerField> : undefined;
+    const cached = field && typeof field.name === "string" && typeof field.checkedAt === "string" && field.event === checkpoint.event ? field as AirtableTriggerField : undefined;
+    const after = new Date(cursorTime - 1000).toISOString();
+    let result = await this.airtableChanges(token, target.resourceId, target.tableId!, target.fieldId!, after, undefined, cached);
+    if (result.event !== checkpoint.event) throw new NodeFailure("PROVIDER_POLL_CHANGED", "The trigger changed. Review it before continuing.", false);
+    if (!result.verified) {
+      const keys = result.rows.filter((row) => Date.parse(row.timestamp) >= baselineAt.getTime()).map((row) => pollHash(`${result.event}\0${row.id}\0${row.timestamp}`));
+      if (keys.length) {
+        const existing = await this.prisma.providerPollDelivery.findMany({ where: { workflowId: target.workflowId, nodeId: target.nodeId, changeKey: { in: keys } }, select: { changeKey: true } });
+        const known = new Set(existing.map((entry) => entry.changeKey));
+        if (keys.some((key) => !known.has(key))) result = await this.airtableChanges(token, target.resourceId, target.tableId!, target.fieldId!, after, undefined, result.field, true);
+      }
+    }
     if (result.event !== checkpoint.event) throw new NodeFailure("PROVIDER_POLL_CHANGED", "The trigger changed. Review it before continuing.", false);
     let latest = cursorTime;
     const changes: Change[] = [];
@@ -166,7 +178,7 @@ export class ProviderPollService implements OnModuleInit, OnModuleDestroy {
       if (timestamp < baselineAt.getTime()) continue;
       changes.push({ key: pollHash(`${result.event}\0${row.id}\0${row.timestamp}`), item: row.item, event: result.event });
     }
-    return { cursor: JSON.stringify({ at: new Date(latest).toISOString(), event: result.event }), changes };
+    return { cursor: JSON.stringify({ at: new Date(latest).toISOString(), event: result.event, field: result.field }), changes };
   }
 
   async poll(target: ProviderPollTarget) {
