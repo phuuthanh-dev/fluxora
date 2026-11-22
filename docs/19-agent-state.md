@@ -1,5 +1,12 @@
 # Agent Current State Gate
 
+## Trigger qualification and visibility — 2026-11-22
+
+- In the approved Airtable test base, a production workflow detected one newly created record and one later update as separate successful scheduled executions. The workflow was deactivated afterward. The production observation exposed a scheduler phase-alignment delay: a one-minute poll could take almost two minutes. The fix scans more frequently while retaining the checkpoint's due-time claim, so it does not make provider requests before the configured interval. Sustained operation and independent-account isolation remain unverified.
+- Active workflow cards surface existing polling checkpoint failures, without exposing provider errors or adding a second notification system. Existing retryable and attention wording is reused; inactive workflows and stale checkpoints are excluded. The affected dashboard was visually reviewed in desktop and mobile light/dark using isolated local fixtures.
+- The existing Shopify client-credentials connection on production successfully loaded and read the owner's approved sample product in the development store; the test workflow was deactivated afterward. A separately owned merchant and production write operations remain unqualified. No new apps or shared Shopify OAuth were added.
+- n8n's Airtable Trigger also offers view/formula filters. No current requirement justifies adding those options; retain the existing simpler trigger until a concrete use case is established. See `54-airtable-and-mapping.md`.
+
 ## Airtable polling efficiency — 2026-11-20 (local change)
 
 - Airtable trigger checkpoints cache the validated time-field metadata for at most 24 hours. An idle poll reads records without a separate metadata request; new changes are verified against the stable field ID before dispatch. Legacy checkpoints refresh on their next successful poll. Slower 3-hour, 6-hour and daily intervals are Airtable-only. Polling remains subject to provider pagination and visibility limits; see `54-airtable-and-mapping.md`.

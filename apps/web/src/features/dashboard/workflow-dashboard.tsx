@@ -87,7 +87,7 @@ export function WorkflowDashboard() {
       `/workspaces/${targetWorkspaceId}/workflows`,
       signal ? { signal } : undefined
     );
-    if (activeWorkspaceIdRef.current !== targetWorkspaceId) return;
+    if (signal?.aborted || activeWorkspaceIdRef.current !== targetWorkspaceId) return;
     setWorkflows(response.workflows);
   };
 
@@ -170,6 +170,20 @@ export function WorkflowDashboard() {
 
     return () => { active = false; };
   }, [router]);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    const controller = new AbortController();
+    let running = false;
+    const refresh = () => {
+      if (document.visibilityState !== "visible" || running) return;
+      running = true;
+      void loadWorkflows(workspaceId, controller.signal).catch(() => undefined).finally(() => { running = false; });
+    };
+    const timer = window.setInterval(refresh, 60_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { controller.abort(); window.clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
+  }, [workspaceId]);
 
   const switchWorkspace = async (nextWorkspaceId: string) => {
     if (abortControllerRef.current) {
@@ -331,7 +345,7 @@ export function WorkflowDashboard() {
             {hasWorkflowFilters && <Button variant="ghost" className="dashboard-workflow-toolbar__clear" aria-label="Clear workflow filters" onClick={() => { setWorkflowQuery(""); setWorkflowStatus("ALL"); setWorkflowSort("UPDATED"); }}>Clear</Button>}
           </Toolbar>
           <p className="dashboard-workflow-summary" role="status" aria-live="polite">{workflows.length === 0 ? "No workflows yet" : `Showing ${visibleWorkflows.length} of ${workflows.length} workflow${workflows.length === 1 ? "" : "s"}`}</p>
-          {workflows.length === 0 ? <FirstWorkflowGuide templates={templates} isCreating={isCreating} workspaceId={workspaceId} onUseTemplate={(slug) => void createWorkflow(slug)} onCreateBlank={focusWorkflowCreate} /> : visibleWorkflows.length === 0 ? <div className="dashboard-empty dashboard-empty--filtered"><FolderKanban size={26} /><h3>No workflows match these filters</h3><p>Try a different search or clear the current filters.</p><Button variant="ghost" onClick={() => { setWorkflowQuery(""); setWorkflowStatus("ALL"); setWorkflowSort("UPDATED"); }}>Clear workflow filters</Button></div> : <div className="workflow-card-grid">{visibleWorkflows.map((workflow) => <article key={workflow.id} className="workflow-card"><div className="workflow-card__status"><span className={workflow.isActive ? "workflow-status workflow-status--live" : "workflow-status"}>{workflow.isActive ? `Live · v${workflow.published?.version ?? "—"}` : workflow.published ? `Published · v${workflow.published.version}` : "Draft"}</span><div className="workflow-card__meta"><Menu label={`Workflow actions for ${workflow.name}`} trigger={<MoreVertical size={16} aria-hidden="true" />} className="workflow-card__menu" contentClassName="workflow-card__menu-list"><button type="button" onClick={() => openWorkflowAction("rename", workflow)}><Pencil size={14} />Rename</button><button type="button" onClick={() => openWorkflowAction("duplicate", workflow)}><Copy size={14} />Duplicate</button><button type="button" onClick={() => openWorkflowAction("archive", workflow)}><Archive size={14} />Archive</button><button type="button" className="workflow-card__delete" onClick={() => openWorkflowAction("delete", workflow)}><Trash2 size={14} />Delete permanently</button></Menu></div></div><div className="workflow-card__title"><h3>{workflow.name}</h3></div><p className={workflow.description ? "workflow-card__description" : "workflow-card__description workflow-card__description--empty"}>{workflow.description || "Add a description in the editor."}</p><WorkflowNodeTrail workflow={workflow} /><footer><span className="workflow-card__updated">{workflow.updatedAt ? `Edited ${new Date(workflow.updatedAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })}` : "Not saved yet"}</span><Button variant="ghost" className="workflow-card__open" onClick={() => router.push(`/editor?workflow=${encodeURIComponent(workflow.id)}`)}>Open editor <ArrowRight size={15} /></Button></footer></article>)}</div>}
+          {workflows.length === 0 ? <FirstWorkflowGuide templates={templates} isCreating={isCreating} workspaceId={workspaceId} onUseTemplate={(slug) => void createWorkflow(slug)} onCreateBlank={focusWorkflowCreate} /> : visibleWorkflows.length === 0 ? <div className="dashboard-empty dashboard-empty--filtered"><FolderKanban size={26} /><h3>No workflows match these filters</h3><p>Try a different search or clear the current filters.</p><Button variant="ghost" onClick={() => { setWorkflowQuery(""); setWorkflowStatus("ALL"); setWorkflowSort("UPDATED"); }}>Clear workflow filters</Button></div> : <div className="workflow-card-grid">{visibleWorkflows.map((workflow) => <article key={workflow.id} className="workflow-card"><div className="workflow-card__status"><span className={workflow.isActive ? "workflow-status workflow-status--live" : "workflow-status"}>{workflow.isActive ? `Live · v${workflow.published?.version ?? "—"}` : workflow.published ? `Published · v${workflow.published.version}` : "Draft"}</span><div className="workflow-card__meta"><Menu label={`Workflow actions for ${workflow.name}`} trigger={<MoreVertical size={16} aria-hidden="true" />} className="workflow-card__menu" contentClassName="workflow-card__menu-list"><button type="button" onClick={() => openWorkflowAction("rename", workflow)}><Pencil size={14} />Rename</button><button type="button" onClick={() => openWorkflowAction("duplicate", workflow)}><Copy size={14} />Duplicate</button><button type="button" onClick={() => openWorkflowAction("archive", workflow)}><Archive size={14} />Archive</button><button type="button" className="workflow-card__delete" onClick={() => openWorkflowAction("delete", workflow)}><Trash2 size={14} />Delete permanently</button></Menu></div></div><div className="workflow-card__title"><h3>{workflow.name}</h3></div><p className={workflow.description ? "workflow-card__description" : "workflow-card__description workflow-card__description--empty"}>{workflow.description || "Add a description in the editor."}</p><WorkflowNodeTrail workflow={workflow} />{workflow.triggerHealth && <Status tone="warning" className="workflow-card__trigger-health">{workflow.triggerHealth === "attention" ? "The trigger needs attention. Check the connection or reset its checkpoint." : "The last check failed. Fluxora will retry from the saved checkpoint."}</Status>}<footer><span className="workflow-card__updated">{workflow.updatedAt ? `Edited ${new Date(workflow.updatedAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })}` : "Not saved yet"}</span><Button variant="ghost" className="workflow-card__open" onClick={() => router.push(`/editor?workflow=${encodeURIComponent(workflow.id)}`)}>Open editor <ArrowRight size={15} /></Button></footer></article>)}</div>}
         </section>
         {workspaceId ? <ArchivedWorkflows key={`archive-${workspaceId}`} workspaceId={workspaceId} revision={archiveRevision} onRestored={(workflow) => {
           if (activeWorkspaceIdRef.current !== workflow.workspaceId) return;

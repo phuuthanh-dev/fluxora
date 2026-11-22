@@ -37,7 +37,9 @@ export class ProviderPollService implements OnModuleInit, OnModuleDestroy {
   onModuleInit() {
     if (process.env.PROCESS_ROLE === "worker" || process.env.SCHEDULER_ENABLED === "false") return;
     const scan = () => this.background.start(() => this.tick(), () => this.logger.error("Provider polling scheduler failed."));
-    scan(); this.timer = setInterval(scan, 60_000);
+    // A 60-second scan can miss its own nextPollAt by milliseconds and defer a
+    // one-minute interval for almost two minutes. Claims still enforce nextPollAt.
+    scan(); this.timer = setInterval(scan, 15_000);
   }
   async onModuleDestroy() { if (this.timer) clearInterval(this.timer); this.timer = null; await this.background.drain(); }
 

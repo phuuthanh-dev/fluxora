@@ -507,6 +507,22 @@ test("workflow dashboard can search, filter, sort, and clear workflow controls",
   await page.getByRole("button", { name: "Clear workflow filters" }).click();
   await expect(search).toHaveValue("");
   await expect(page.getByText("Showing 2 of 2 workflows", { exact: true })).toBeVisible();
+
+  // Check the existing list response's status without calling a provider.
+  let triggerHealth: "attention" | "retrying" = "attention";
+  await page.route("**/workspaces/*/workflows", async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.workflows = body.workflows.map((workflow: { name: string }) => ({ ...workflow, triggerHealth: workflow.name === "Alpha audit" ? triggerHealth : null }));
+    await route.fulfill({ response, json: body });
+  });
+  await page.reload();
+  const warningCard = page.locator(".workflow-card", { has: page.getByRole("heading", { name: "Alpha audit", exact: true }) });
+  await expect(warningCard.getByRole("status")).toContainText("The trigger needs attention.");
+  await expect(page.locator(".workflow-card__trigger-health")).toHaveCount(1);
+  triggerHealth = "retrying";
+  await page.reload();
+  await expect(warningCard.getByRole("status")).toContainText("The last check failed. Fluxora will retry");
 });
 
 test("workflow cards expose rename, duplicate, archive, and guarded delete actions", async ({ page }, testInfo) => {

@@ -6,6 +6,35 @@ import { airtableTriggerChanges } from "../execution/airtable";
 import { BadRequestException } from "@nestjs/common";
 import type { ProviderPollTarget } from "./provider-poll-target";
 
+test("scheduler revisits a checkpoint just after its due time without polling early", async (t) => {
+  const scheduler = process.env.SCHEDULER_ENABLED;
+  const role = process.env.PROCESS_ROLE;
+  delete process.env.SCHEDULER_ENABLED;
+  delete process.env.PROCESS_ROLE;
+  t.after(() => {
+    if (scheduler === undefined) delete process.env.SCHEDULER_ENABLED; else process.env.SCHEDULER_ENABLED = scheduler;
+    if (role === undefined) delete process.env.PROCESS_ROLE; else process.env.PROCESS_ROLE = role;
+  });
+  t.mock.timers.enable({ apis: ["setInterval", "Date"], now: 0 });
+  const due = 60_001;
+  const calls: number[] = [];
+  const service = new ProviderPollService({} as never, {} as never, {} as never);
+  service.tick = async () => { if (Date.now() >= due && calls.length === 0) calls.push(Date.now()); };
+  service.onModuleInit();
+  await Promise.resolve();
+  for (let elapsed = 15_000; elapsed <= 60_000; elapsed += 15_000) {
+    t.mock.timers.tick(15_000);
+    await Promise.resolve();
+    await Promise.resolve();
+  }
+  assert.deepEqual(calls, []);
+  t.mock.timers.tick(15_000);
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.deepEqual(calls, [75_000]);
+  await service.onModuleDestroy();
+});
+
 test("Notion polling overlaps its checkpoint and uses a stable key for repeated created pages", async () => {
   const times: string[] = [];
   class Fixture extends ProviderPollService {
