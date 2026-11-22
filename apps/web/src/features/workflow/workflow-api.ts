@@ -9,6 +9,7 @@ export type ApiWorkflow = {
   description: string | null;
   archivedAt?: string | null;
   isActive: boolean;
+  triggerHealth?: "attention" | "retrying" | null;
   activatedAt?: string | null;
   updatedAt?: string;
   draft: { id: string; version: number; graph: WorkflowGraph } | null;

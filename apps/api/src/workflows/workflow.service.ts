@@ -34,7 +34,33 @@ export class WorkflowService {
       include: { draftVersion: true, publishedVersion: true },
       orderBy: { updatedAt: "desc" },
     });
-    return workflows.map((workflow) => this.serialize(workflow));
+    const active = workflows.filter((workflow) => workflow.isActive && workflow.publishedVersion);
+    if (!active.length) return workflows.map((workflow) => ({ ...this.serialize(workflow), triggerHealth: null }));
+    const workflowIds = active.map((workflow) => workflow.id);
+    const versions = new Map(active.map((workflow) => [workflow.publishedVersion!.id, workflow.id]));
+    const [provider, rss, calendar, gmail] = await Promise.all([
+      this.prisma.providerPollCheckpoint.findMany({ where: { workflowId: { in: workflowIds } }, select: { workflowId: true, workflowVersionId: true, nodeId: true, state: true, lastErrorCode: true } }),
+      this.prisma.rssTriggerCheckpoint.findMany({ where: { workflowId: { in: workflowIds } }, select: { workflowId: true, workflowVersionId: true, nodeId: true, state: true, lastErrorCode: true } }),
+      this.prisma.calendarTriggerCheckpoint.findMany({ where: { workflowId: { in: workflowIds } }, select: { workflowId: true, workflowVersionId: true, nodeId: true, state: true, lastErrorCode: true } }),
+      this.prisma.gmailTriggerCheckpoint.findMany({ where: { workflowVersionId: { in: [...versions.keys()] } }, select: { workflowVersionId: true, nodeId: true, state: true, lastErrorCode: true } }),
+    ]);
+    const health = new Map<string, "attention" | "retrying">();
+    const checkpointKey = (version: string, node: string) => `${version}\0${node}`;
+    const index = (rows: Array<{ workflowId?: string; workflowVersionId: string; nodeId: string; state: string; lastErrorCode: string | null }>) => new Map(rows.filter((row) => versions.has(row.workflowVersionId) && (!row.workflowId || versions.get(row.workflowVersionId) === row.workflowId)).map((row) => [checkpointKey(row.workflowVersionId, row.nodeId), row]));
+    const indexes = { provider: index(provider), rss: index(rss), calendar: index(calendar), gmail: index(gmail) };
+    for (const workflow of active) {
+      const version = workflow.publishedVersion!;
+      let graph: WorkflowGraph;
+      try { graph = parseStoredWorkflowGraph(version.graph); } catch { continue; }
+      for (const node of graph.nodes) {
+        const group = node.type === "trigger.gmail" ? "gmail" : node.type === "trigger.google-calendar.event" ? "calendar" : node.type === "trigger.rss.new-item" || node.type === "trigger.steam.game-news" ? "rss" : ["trigger.notion.page", "trigger.google-drive.file", "trigger.google-sheets.row", "trigger.airtable.record"].includes(node.type) ? "provider" : null;
+        if (!group) continue;
+        const checkpoint = indexes[group].get(checkpointKey(version.id, node.id));
+        if (!checkpoint || checkpoint.state === "ERROR") health.set(workflow.id, "attention");
+        else if (checkpoint.lastErrorCode && !health.has(workflow.id)) health.set(workflow.id, "retrying");
+      }
+    }
+    return workflows.map((workflow) => ({ ...this.serialize(workflow), triggerHealth: health.get(workflow.id) ?? null }));
   }
 
   async listArchived(workspaceId: string, userId: string) {

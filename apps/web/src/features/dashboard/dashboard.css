@@ -28,6 +28,7 @@
 .workflow-card__node-icon, .workflow-card__node-more { display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); background: var(--surface-inset); border-radius: 8px; width: 29px; height: 29px; flex-shrink: 0; }
 .workflow-card__node-icon .provider-icon { width: 18px; height: 18px; }
 .workflow-card__node-more { color: var(--muted); font-size: var(--text-xs); }
+.dashboard-workflows .workflow-card__trigger-health { background: color-mix(in srgb, var(--semantic-warning) 8%, var(--panel)); border: 1px solid color-mix(in srgb, var(--semantic-warning) 45%, var(--panel)); color: var(--ink); font-size: 12px; line-height: 1.5; padding: 9px 10px; }
 .dashboard-workflows .workflow-card footer { margin-top: 0; padding-top: 12px; gap: 12px; }
 .dashboard-workflows .workflow-card footer .workflow-card__updated { font-size: var(--text-xs); }
 .dashboard-workflows .workflow-card footer .ui-button { min-height: 32px; padding: 4px 0 4px 6px; font-size: 12px; }
